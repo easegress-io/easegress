@@ -50,6 +50,10 @@ func init() {
 	pipeline.Register(&MockKafka{})
 }
 
+var (
+	publishPipeline = "publish-pipeline"
+)
+
 func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
 	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password).SetCleanSession(cleanSession)
 	c := paho.NewClient(opts)
@@ -57,6 +61,10 @@ func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSessi
 		t.Errorf("basic connect error for client <%s> with <%s>", clientID, token.Error())
 	}
 	return c
+}
+
+func getDefaultMQTTClient(t *testing.T, clientID string, cleanSession bool) paho.Client {
+	return getMQTTClient(t, clientID, "test", "test", cleanSession)
 }
 
 func getUnConnectClient(clientID, userName, password string, cleanSession bool) paho.Client {
@@ -77,18 +85,23 @@ func getMQTTSubscribeHandler(ch chan CheckMsg) paho.MessageHandler {
 	return handler
 }
 
-func getBroker(name, userName, passBase64 string, port uint16) *Broker {
+func getDefaultSpec() *Spec {
+	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	spec := &Spec{
-		Name:   name,
-		EGName: name,
-		Port:   port,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
 		Auth: []Auth{
-			{UserName: userName, PassBase64: passBase64},
+			{UserName: "test", PassBase64: b64passwd},
 		},
 		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
+			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
+	return spec
+}
+
+func getBrokerFromSpec(spec *Spec) *Broker {
 	store := newStorage(nil)
 	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
 		m := map[string]string{
@@ -106,104 +119,32 @@ func getBroker(name, userName, passBase64 string, port uint16) *Broker {
 	return broker
 }
 
-var publishPipelineName = "mqtt-publish"
+func getDefaultBroker() *Broker {
+	spec := getDefaultSpec()
+	return getBrokerFromSpec(spec)
+}
 
-func getPipeline(t *testing.T) *pipeline.Pipeline {
+func getPublishPipeline(t *testing.T) (*pipeline.Pipeline, *MockKafka) {
 	yamlStr := `
-name: mqtt-publish
+name: %s
 kind: Pipeline
 protocol: MQTT
 filters:
 - name: publish
   kind: MockKafka
 `
+	yamlStr = fmt.Sprintf(yamlStr, publishPipeline)
 
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	require.Nil(t, err)
 	pipe := &pipeline.Pipeline{}
 	pipe.Init(superSpec)
-	return pipe
-}
 
-func getPublishFilter(t *testing.T, p *pipeline.Pipeline) *MockKafka {
-	filter := pipeline.MockGetFilter(p, "publish")
+	filter := pipeline.MockGetFilter(pipe, "publish")
 	require.NotNil(t, filter)
-	res := filter.(*MockKafka)
-	return res
-}
-
-func TestConnection(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-
-	c1 := getMQTTClient(t, "test", "test", "test", true)
-	c1.Disconnect(200)
-
-	o2 := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("fakeuser").SetPassword("fakepasswd")
-	c2 := paho.NewClient(o2)
-	if token := c2.Connect(); token.Wait() && token.Error() == nil {
-		t.Errorf("non auth user should fail%s", token.Error())
-	}
-	c2.Disconnect(200)
-
-	broker.close()
-}
-
-func TestPublish(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-	pipe := getPipeline(t)
-	defer pipe.Close()
-	backend := getPublishFilter(t, pipe)
-
-	client := getMQTTClient(t, "test", "test", "test", true)
-
-	for i := 0; i < 5; i++ {
-		topic := "go-mqtt/sample"
-		text := fmt.Sprintf("qos0 msg #%d!", i)
-		token := client.Publish(topic, 0, false, text)
-		token.Wait()
-		p := backend.get()
-		if p.TopicName != topic || string(p.Payload) != text {
-			t.Errorf("get wrong publish")
-		}
-	}
-
-	for i := 0; i < 5; i++ {
-		topic := "go-mqtt/sample"
-		text := fmt.Sprintf("qos1 msg #%d!", i)
-		token := client.Publish(topic, 1, false, text)
-		token.Wait()
-		if token.Error() != nil {
-			t.Errorf("should support qos1")
-		}
-		p := backend.get()
-		if p.TopicName != topic || string(p.Payload) != text {
-			t.Errorf("get wrong publish")
-		}
-	}
-	client.Disconnect(200)
-
-	broker.close()
-}
-
-func TestSubUnsub(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-
-	client := getMQTTClient(t, "test", "test", "test", true)
-	if token := client.Subscribe("go-mqtt/qos0", 0, nil); token.Wait() && token.Error() != nil {
-		t.Errorf("subscribe qos0 error %s", token.Error())
-	}
-	if token := client.Subscribe("go-mqtt/qos1", 1, nil); token.Wait() && token.Error() != nil {
-		t.Errorf("subscribe qos1 error %s", token.Error())
-	}
-	if token := client.Unsubscribe("go-mqtt/sample"); token.Wait() && token.Error() != nil {
-		t.Errorf("subscribe qos1 error %s", token.Error())
-	}
-	client.Disconnect(200)
-	broker.close()
+	backend := filter.(*MockKafka)
+	return pipe, backend
 }
 
 func checkSessionStore(broker *Broker, cid, topic string) error {
@@ -237,9 +178,76 @@ func checkSessionStore(broker *Broker, cid, topic string) error {
 	return fmt.Errorf("session %v with topic %v not been stored", cid, topic)
 }
 
+func TestConnection(t *testing.T) {
+	broker := getDefaultBroker()
+	defer broker.close()
+
+	c1 := getDefaultMQTTClient(t, "test", true)
+	c1.Disconnect(200)
+
+	c2 := getUnConnectClient("test", "fakeuser", "fakepasswd", true)
+	if token := c2.Connect(); token.Wait() && token.Error() == nil {
+		t.Errorf("non auth user should fail%s", token.Error())
+	}
+	c2.Disconnect(200)
+}
+
+func TestPublish(t *testing.T) {
+	broker := getDefaultBroker()
+	defer broker.close()
+
+	pipe, backend := getPublishPipeline(t)
+	defer pipe.Close()
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+
+	for i := 0; i < 5; i++ {
+		topic := "go-mqtt/sample"
+		text := fmt.Sprintf("qos0 msg #%d!", i)
+		token := client.Publish(topic, 0, false, text)
+		token.Wait()
+		p := backend.get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+	}
+
+	for i := 0; i < 5; i++ {
+		topic := "go-mqtt/sample"
+		text := fmt.Sprintf("qos1 msg #%d!", i)
+		token := client.Publish(topic, 1, false, text)
+		token.Wait()
+		if token.Error() != nil {
+			t.Errorf("should support qos1")
+		}
+		p := backend.get()
+		if p.TopicName != topic || string(p.Payload) != text {
+			t.Errorf("get wrong publish")
+		}
+	}
+	client.Disconnect(200)
+}
+
+func TestSubUnsub(t *testing.T) {
+	broker := getDefaultBroker()
+	defer broker.close()
+
+	client := getMQTTClient(t, "test", "test", "test", true)
+	if token := client.Subscribe("go-mqtt/qos0", 0, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	if token := client.Subscribe("go-mqtt/qos1", 1, nil); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	if token := client.Unsubscribe("go-mqtt/sample"); token.Wait() && token.Error() != nil {
+		t.Errorf("subscribe qos1 error %s", token.Error())
+	}
+	client.Disconnect(200)
+}
+
 func TestCleanSession(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
 
 	// client that set cleanSession
 	cid := "cleanSessionClient"
@@ -332,16 +340,14 @@ func TestCleanSession(t *testing.T) {
 		t.Errorf("clean DB when cleanSession is not set")
 	}
 	client.Disconnect(200)
-
-	broker.close()
 }
 
 func TestMultiClientPublish(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-	pipe := getPipeline(t)
+	broker := getDefaultBroker()
+	defer broker.close()
+
+	pipe, backend := getPublishPipeline(t)
 	defer pipe.Close()
-	backend := getPublishFilter(t, pipe)
 
 	var wg sync.WaitGroup
 
@@ -388,16 +394,13 @@ func TestMultiClientPublish(t *testing.T) {
 	}()
 
 	wg.Wait()
-	broker.close()
 }
 
 func TestSession(t *testing.T) {
-	name := "admin"
-	passwd := "passwd"
-	b64passwd := base64.StdEncoding.EncodeToString([]byte(passwd))
-	broker := getBroker("test", name, b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
 
-	client := getMQTTClient(t, "test", name, passwd, true)
+	client := getDefaultMQTTClient(t, "test", true)
 
 	// sub go-mqtt/qos0 and check
 	if token := client.Subscribe("go-mqtt/qos0", 0, nil); token.Wait() && token.Error() != nil {
@@ -443,7 +446,6 @@ func TestSession(t *testing.T) {
 		t.Errorf("sessMgr get wrong sess %v, %v", sess.info, newSess.info)
 	}
 	client.Disconnect(200)
-	broker.close()
 }
 
 func TestSpec(t *testing.T) {
@@ -501,11 +503,11 @@ func TestSendMsgBack(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// make broker
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
-	pipe := getPipeline(t)
+	broker := getDefaultBroker()
+	defer broker.close()
+
+	pipe, backend := getPublishPipeline(t)
 	defer pipe.Close()
-	backend := getPublishFilter(t, pipe)
 
 	// subscribe handler
 	handler := getMQTTSubscribeHandler(subscribeCh)
@@ -633,7 +635,6 @@ func TestSendMsgBack(t *testing.T) {
 		}
 	}()
 
-	broker.close()
 	for _, c := range clients {
 		go c.Disconnect(200)
 	}
@@ -641,8 +642,8 @@ func TestSendMsgBack(t *testing.T) {
 }
 
 func TestYamlEncodeDecode(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
 
 	// old session
 	s := &Session{
@@ -669,7 +670,6 @@ func TestYamlEncodeDecode(t *testing.T) {
 	if !reflect.DeepEqual(newS.info.Topics, s.info.Topics) || newS.info.ClientID != s.info.ClientID || newS.info.CleanFlag != s.info.CleanFlag {
 		t.Errorf("yaml encode decode error")
 	}
-	broker.close()
 }
 
 type testServer struct {
@@ -729,8 +729,8 @@ func topicsPublish(t *testing.T, data HTTPJsonData) int {
 }
 
 func TestHTTPRequest(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
 
 	srv := newServer(":8888")
 	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
@@ -809,13 +809,12 @@ func TestHTTPRequest(t *testing.T) {
 		t.Errorf("request should success")
 	}
 
-	broker.close()
 	srv.shutdown()
 }
 
 func TestHTTPPublish(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
 
 	srv := newServer(":8888")
 	srv.addHandlerFunc("/mqtt", broker.httpTopicsPublishHandler)
@@ -868,43 +867,23 @@ func TestHTTPPublish(t *testing.T) {
 	}()
 
 	client.Disconnect(200)
-	broker.close()
 	srv.shutdown()
 	close(done)
 }
 
 func TestHTTPTransfer(t *testing.T) {
-	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker0 := getBroker("test", "test", passBase64, 1883)
+	broker0 := getDefaultBroker()
+
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", broker0.httpTopicsPublishHandler)
 	srv0.start()
 
-	spec := &Spec{
-		Name:   "test1",
-		EGName: "test1",
-		Port:   1884,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: passBase64},
-		},
-		Pipelines: []Pipeline{
-			{Name: "publish-pipeline", PacketType: Publish},
-		},
-	}
-	store := broker0.sessMgr.store
-	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		m := map[string]string{
-			"test":  "http://localhost:8888/mqtt",
-			"test1": "http://localhost:8889/mqtt",
-		}
-		urls := []string{}
-		for k, v := range m {
-			if k != s {
-				urls = append(urls, v)
-			}
-		}
-		return urls, nil
-	})
+	spec := getDefaultSpec()
+	spec.EGName = "test1"
+	spec.Name = "test1"
+	spec.Port = 1884
+	broker1 := getBrokerFromSpec(spec)
+
 	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", broker1.httpTopicsPublishHandler)
 	srv1.start()
@@ -1143,8 +1122,9 @@ func TestTLSConfig(t *testing.T) {
 }
 
 func TestSessMgr(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
+	defer broker.close()
+
 	sessMgr := broker.sessMgr
 	sess := &Session{
 		storeCh: sessMgr.storeCh,
@@ -1164,7 +1144,6 @@ func TestSessMgr(t *testing.T) {
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
 	}
-	broker.close()
 }
 
 func TestClient(t *testing.T) {
@@ -1251,13 +1230,10 @@ func TestBrokerListen(t *testing.T) {
 			{"fake", "abc", "abc"},
 		},
 		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
+			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
-	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, nil
-	})
+	broker := getBrokerFromSpec(spec)
 	if broker != nil {
 		t.Errorf("invalid tls config should return nil broker")
 	}
@@ -1275,20 +1251,15 @@ func TestBrokerListen(t *testing.T) {
 			{"demo", certPem, keyPem},
 		},
 		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
+			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
-	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, nil
-	})
-
+	broker = getBrokerFromSpec(spec)
 	if broker == nil {
 		t.Errorf("valid tls config should not return nil broker")
 	}
 
-	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, nil
-	})
+	broker1 := getBrokerFromSpec(spec)
 	if broker1 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
@@ -1302,12 +1273,10 @@ func TestBrokerListen(t *testing.T) {
 			{UserName: "test", PassBase64: "test"},
 		},
 		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
+			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
-	broker2 := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, nil
-	})
+	broker2 := getBrokerFromSpec(spec)
 	if broker2 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
@@ -1317,8 +1286,7 @@ func TestBrokerListen(t *testing.T) {
 }
 
 func TestBrokerHandleConn(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
 
 	// broker handleConn return if error happen
 	svcConn, clientConn := net.Pipe()
@@ -1346,8 +1314,9 @@ func TestBrokerHandleConn(t *testing.T) {
 func TestMQTTProxy(t *testing.T) {
 	mp := MQTTProxy{}
 	mp.Status()
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+
+	broker := getDefaultBroker()
+
 	mp.broker = broker
 	broker.reconnectWatcher()
 	mp.Close()
@@ -1386,13 +1355,11 @@ filters:
 	pipe.Init(superSpec)
 	defer pipe.Close()
 
-	publishPipe := getPipeline(t)
+	publishPipe, backend := getPublishPipeline(t)
 	defer publishPipe.Close()
-	backend := getPublishFilter(t, publishPipe)
 
 	// get broker
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
 	broker.pipelines[Subscribe] = "mqtt-test-pipeline"
 	broker.pipelines[Unsubscribe] = "mqtt-test-pipeline"
 	broker.pipelines[Disconnect] = "mqtt-test-pipeline"
@@ -1448,8 +1415,7 @@ filters:
 }
 
 func TestAuthByPipeline(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
 	broker.pipelines[Connect] = "mqtt-test-pipeline"
 	defer broker.close()
 
@@ -1518,20 +1484,7 @@ func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 			{Name: "publish-pipeline", PacketType: Publish},
 		},
 	}
-	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		m := map[string]string{
-			"test":  "http://localhost:8888/mqtt",
-			"test1": "http://localhost:8889/mqtt",
-		}
-		urls := []string{}
-		for k, v := range m {
-			if k != s {
-				urls = append(urls, v)
-			}
-		}
-		return urls, nil
-	})
+	broker := getBrokerFromSpec(spec)
 	if broker == nil {
 		t.Errorf("broker with empty auth should not be nil when AuthByPipeline is true")
 	}
@@ -1542,46 +1495,19 @@ func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 		EGName: "test",
 		Port:   1883,
 		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
+			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
-	store = newStorage(nil)
-	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
-		m := map[string]string{
-			"test":  "http://localhost:8888/mqtt",
-			"test1": "http://localhost:8889/mqtt",
-		}
-		urls := []string{}
-		for k, v := range m {
-			if k != s {
-				urls = append(urls, v)
-			}
-		}
-		return urls, nil
-	})
+	broker = getBrokerFromSpec(spec)
 	if broker != nil {
 		t.Errorf("broker with empty auth should be nil when AuthByPipeline is false")
 	}
 }
 
 func TestMaxAllowedConnection(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	spec := &Spec{
-		Name:   "test",
-		EGName: "test",
-		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: b64passwd},
-		},
-		MaxAllowedConnection: 10,
-		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
-		},
-	}
-	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, errors.New("empty urls for test")
-	})
+	spec := getDefaultSpec()
+	spec.MaxAllowedConnection = 10
+	broker := getBrokerFromSpec(spec)
 	defer broker.close()
 
 	clients := []paho.Client{}
@@ -1613,26 +1539,12 @@ func TestMaxAllowedConnection(t *testing.T) {
 }
 
 func TestConnectionLimit(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	spec := &Spec{
-		Name:   "test",
-		EGName: "test",
-		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: b64passwd},
-		},
-		ConnectionLimit: &RateLimit{
-			RequestRate: 10,
-			TimePeriod:  1000,
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
-		},
+	spec := getDefaultSpec()
+	spec.ConnectionLimit = &RateLimit{
+		RequestRate: 10,
+		TimePeriod:  1000,
 	}
-	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, errors.New("empty urls for test")
-	})
+	broker := getBrokerFromSpec(spec)
 	defer broker.close()
 
 	// use all rate
@@ -1646,26 +1558,12 @@ func TestConnectionLimit(t *testing.T) {
 }
 
 func TestClientPublishLimit(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	spec := &Spec{
-		Name:   "test",
-		EGName: "test",
-		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: b64passwd},
-		},
-		ClientPublishLimit: &RateLimit{
-			RequestRate: 10,
-			TimePeriod:  1000,
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
-		},
+	spec := getDefaultSpec()
+	spec.ClientPublishLimit = &RateLimit{
+		RequestRate: 10,
+		TimePeriod:  1000,
 	}
-	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		return nil, errors.New("empty urls for test")
-	})
+	broker := getBrokerFromSpec(spec)
 	defer broker.close()
 
 	client := getMQTTClient(t, "test", "test", "test", true)
@@ -1684,8 +1582,7 @@ func TestClientPublishLimit(t *testing.T) {
 }
 
 func TestHTTPGetAllSession(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
 	defer broker.close()
 
 	// connect 10 clients
@@ -1774,8 +1671,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 }
 
 func TestHTTPDeleteSession(t *testing.T) {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker := getBroker("test", "test", b64passwd, 1883)
+	broker := getDefaultBroker()
 	defer broker.close()
 
 	// connect 10 clients
@@ -1829,8 +1725,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 func TestHTTPTransferHeaderCopy(t *testing.T) {
 	done := make(chan bool, 2)
 
-	passBase64 := base64.StdEncoding.EncodeToString([]byte("test"))
-	broker0 := getBroker("test", "test", passBase64, 1883)
+	broker0 := getDefaultBroker()
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
 		broker0.httpTopicsPublishHandler(w, r)
@@ -1838,31 +1733,12 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 	})
 	srv0.start()
 
-	spec := &Spec{
-		Name:   "test1",
-		EGName: "test1",
-		Port:   1884,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: passBase64},
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipelineName, PacketType: Publish},
-		},
-	}
-	store := broker0.sessMgr.store
-	broker1 := newBroker(spec, store, func(s, ss string) ([]string, error) {
-		m := map[string]string{
-			"test":  "http://localhost:8888/mqtt",
-			"test1": "http://localhost:8889/mqtt",
-		}
-		urls := []string{}
-		for k, v := range m {
-			if k != s {
-				urls = append(urls, v)
-			}
-		}
-		return urls, nil
-	})
+	spec := getDefaultSpec()
+	spec.Name = "test1"
+	spec.EGName = "test1"
+	spec.Port = 1884
+	broker1 := getBrokerFromSpec(spec)
+
 	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get(b3.TraceID) != "123" {
