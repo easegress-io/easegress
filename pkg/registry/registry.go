@@ -26,6 +26,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/connectcontrol"
 	_ "github.com/megaease/easegress/pkg/filter/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/fallback"
+	_ "github.com/megaease/easegress/pkg/filter/kafka"
 	_ "github.com/megaease/easegress/pkg/filter/meshadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/mock"
 	_ "github.com/megaease/easegress/pkg/filter/proxy"

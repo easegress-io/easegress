@@ -40,17 +40,14 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
-
-func (t *testMQ) get() *packets.PublishPacket {
-	p := <-t.ch
-	return p
-}
 
 func init() {
 	logger.InitNop()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
+	pipeline.Register(&MockKafka{})
 }
 
 func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
@@ -82,12 +79,14 @@ func getMQTTSubscribeHandler(ch chan CheckMsg) paho.MessageHandler {
 
 func getBroker(name, userName, passBase64 string, port uint16) *Broker {
 	spec := &Spec{
-		Name:        name,
-		EGName:      name,
-		Port:        port,
-		BackendType: testMQType,
+		Name:   name,
+		EGName: name,
+		Port:   port,
 		Auth: []Auth{
 			{UserName: userName, PassBase64: passBase64},
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	store := newStorage(nil)
@@ -105,6 +104,33 @@ func getBroker(name, userName, passBase64 string, port uint16) *Broker {
 		return urls, nil
 	})
 	return broker
+}
+
+var publishPipelineName = "mqtt-publish"
+
+func getPipeline(t *testing.T) *pipeline.Pipeline {
+	yamlStr := `
+name: mqtt-publish
+kind: Pipeline
+protocol: MQTT
+filters:
+- name: publish
+  kind: MockKafka
+`
+
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	require.Nil(t, err)
+	pipe := &pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	return pipe
+}
+
+func getPublishFilter(t *testing.T, p *pipeline.Pipeline) *MockKafka {
+	filter := pipeline.MockGetFilter(p, "publish")
+	require.NotNil(t, filter)
+	res := filter.(*MockKafka)
+	return res
 }
 
 func TestConnection(t *testing.T) {
@@ -127,6 +153,9 @@ func TestConnection(t *testing.T) {
 func TestPublish(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
+	pipe := getPipeline(t)
+	defer pipe.Close()
+	backend := getPublishFilter(t, pipe)
 
 	client := getMQTTClient(t, "test", "test", "test", true)
 
@@ -135,7 +164,7 @@ func TestPublish(t *testing.T) {
 		text := fmt.Sprintf("qos0 msg #%d!", i)
 		token := client.Publish(topic, 0, false, text)
 		token.Wait()
-		p := broker.backend.(*testMQ).get()
+		p := backend.get()
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
@@ -149,7 +178,7 @@ func TestPublish(t *testing.T) {
 		if token.Error() != nil {
 			t.Errorf("should support qos1")
 		}
-		p := broker.backend.(*testMQ).get()
+		p := backend.get()
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
@@ -310,6 +339,9 @@ func TestCleanSession(t *testing.T) {
 func TestMultiClientPublish(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
+	pipe := getPipeline(t)
+	defer pipe.Close()
+	backend := getPublishFilter(t, pipe)
 
 	var wg sync.WaitGroup
 
@@ -337,10 +369,9 @@ func TestMultiClientPublish(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		producer := broker.backend.(*testMQ)
 		ans := make(map[string]int)
 		for i := 0; i < clientNum*msgNum; i++ {
-			p := producer.get()
+			p := backend.get()
 			num, _ := strconv.Atoi(string(p.Payload))
 			if val, ok := ans[p.TopicName]; ok {
 				if num != val+1 {
@@ -424,40 +455,6 @@ func TestSpec(t *testing.T) {
         passBase64: dGVzdA==
       - userName: admin
         passBase64: YWRtaW4=
-    topicMapper:
-      matchIndex: 0
-      route: 
-        - name: g2s
-          matchExpr: g2s
-        - name: d2s
-          matchExpr: d2s
-      policies:
-        - name: d2s
-          topicIndex: 1
-          route: 
-            - topic: to_cloud
-              exprs: ["bar", "foo"]
-            - topic: to_raw
-              exprs: [".*"] 
-          headers: 
-            0: d2s
-            1: type
-            2: device
-        - name: g2s
-          topicIndex: 4
-          route:
-            - topic: to_cloud
-              exprs: ["bar", "foo"]
-            - topic: to_raw
-              exprs: [".*"]
-          headers: 
-            0: g2s
-            1: gateway
-            2: info
-            3: device
-            4: type
-    kafkaBroker:
-      backend: ["123.123.123.123:9092", "234.234.234.234:9092"]
     useTLS: true
     certificate:
       - name: cert1
@@ -480,36 +477,6 @@ func TestSpec(t *testing.T) {
 			{"test", "dGVzdA=="},
 			{"admin", "YWRtaW4="},
 		},
-		TopicMapper: &TopicMapper{
-			MatchIndex: 0,
-			Route: []*PolicyRe{
-				{"g2s", "g2s"},
-				{"d2s", "d2s"},
-			},
-			Policies: []*Policy{
-				{
-					Name:       "d2s",
-					TopicIndex: 1,
-					Route: []TopicRe{
-						{"to_cloud", []string{"bar", "foo"}},
-						{"to_raw", []string{".*"}},
-					},
-					Headers: map[int]string{0: "d2s", 1: "type", 2: "device"},
-				},
-				{
-					Name:       "g2s",
-					TopicIndex: 4,
-					Route: []TopicRe{
-						{"to_cloud", []string{"bar", "foo"}},
-						{"to_raw", []string{".*"}},
-					},
-					Headers: map[int]string{0: "g2s", 1: "gateway", 2: "info", 3: "device", 4: "type"},
-				},
-			},
-		},
-		Kafka: &KafkaSpec{
-			Backend: []string{"123.123.123.123:9092", "234.234.234.234:9092"},
-		},
 		UseTLS: true,
 		Certificate: []Certificate{
 			{"cert1", "balabala", "keyForbalabala"},
@@ -518,196 +485,6 @@ func TestSpec(t *testing.T) {
 	}
 	if !reflect.DeepEqual(want, got) {
 		t.Errorf("got:<%#v>\n want:<%#v>\n", got, want)
-	}
-}
-
-func TestTopicMapper(t *testing.T) {
-	// /d2s/{tenant}/{device_type}/{things_id}/log/eventName
-	// /d2s/{tenant}/{device_type}/{things_id}/status
-	// /d2s/{tenant}/{device_type}/{things_id}/event
-	// /d2s/{tenant}/{device_type}/{things_id}/raw
-	// /g2s/{gwTenantId}/{gwInfoModelId}/{gwThingsId}/d2s/{tenantId}/{infoModelId}/{thingsId}/data
-	topicMapper := TopicMapper{
-		MatchIndex: 0,
-		Route: []*PolicyRe{
-			{"g2s", "g2s"},
-			{"d2s", "d2s"},
-		},
-		Policies: []*Policy{
-			{
-				Name:       "d2s",
-				TopicIndex: 4,
-				Route: []TopicRe{
-					{"to_cloud", []string{"log", "status", "event"}},
-					{"to_raw", []string{"raw"}},
-				},
-				Headers: map[int]string{
-					0: "d2s",
-					1: "tenant",
-					2: "device_type",
-					3: "things_id",
-					4: "event",
-					5: "eventName",
-				},
-			},
-			{
-				Name:       "g2s",
-				TopicIndex: 8,
-				Route: []TopicRe{
-					{"to_cloud", []string{"log", "status", "event", "data"}},
-					{"to_raw", []string{"raw"}},
-				},
-				Headers: map[int]string{
-					0: "g2s",
-					1: "gwTenantId",
-					2: "gwInfoModelId",
-					3: "gwThingsId",
-					4: "d2s",
-					5: "tenantId",
-					6: "infoModelId",
-					7: "thingsId",
-					8: "event",
-					9: "eventName",
-				},
-			},
-		},
-	}
-	mapFunc := getTopicMapFunc(&topicMapper)
-	tests := []struct {
-		mqttTopic string
-		topic     string
-		headers   map[string]string
-	}{
-		{
-			mqttTopic: "/d2s/abc/phone/123/log/error",
-			topic:     "to_cloud",
-			headers:   map[string]string{"d2s": "d2s", "tenant": "abc", "device_type": "phone", "things_id": "123", "event": "log", "eventName": "error"}},
-		{
-			mqttTopic: "/d2s/xyz/tv/234/status/shutdown",
-			topic:     "to_cloud",
-			headers:   map[string]string{"d2s": "d2s", "tenant": "xyz", "device_type": "tv", "things_id": "234", "event": "status", "eventName": "shutdown"}},
-		{
-			mqttTopic: "/d2s/opq/car/345/raw",
-			topic:     "to_raw",
-			headers:   map[string]string{"d2s": "d2s", "tenant": "opq", "device_type": "car", "things_id": "345", "event": "raw"}},
-		{
-			mqttTopic: "/g2s/gwTenantId/gwInfoModelId/gwThingsId/d2s/tenantId/infoModelId/thingsId/data",
-			topic:     "to_cloud",
-			headers: map[string]string{"g2s": "g2s", "gwTenantId": "gwTenantId", "gwInfoModelId": "gwInfoModelId", "gwThingsId": "gwThingsId",
-				"d2s": "d2s", "tenantId": "tenantId", "infoModelId": "infoModelId", "thingsId": "thingsId", "event": "data"}},
-		{
-			mqttTopic: "/g2s/gw123/gwInfo234/gwID345/d2s/456/654/123/raw",
-			topic:     "to_raw",
-			headers: map[string]string{"g2s": "g2s", "gwTenantId": "gw123", "gwInfoModelId": "gwInfo234", "gwThingsId": "gwID345",
-				"d2s": "d2s", "tenantId": "456", "infoModelId": "654", "thingsId": "123", "event": "raw"}},
-	}
-	for _, tt := range tests {
-		topic, headers, err := mapFunc(tt.mqttTopic)
-		if err != nil || topic != tt.topic || !reflect.DeepEqual(tt.headers, headers) {
-			if !reflect.DeepEqual(tt.headers, headers) {
-				fmt.Printf("headers not equal, <%v>, <%v>\n", tt.headers, headers)
-			}
-			t.Errorf("unexpected result from topic map function <%+v>, <%+v>, want:<%+v>, got:<%+v>\n\n\n\n", tt.mqttTopic, topic, tt.headers, headers)
-		}
-	}
-
-	_, _, err := mapFunc("/not-work")
-	if err == nil {
-		t.Errorf("map func should return err for not match topic")
-	}
-	mapFunc = getTopicMapFunc(nil)
-	if mapFunc != nil {
-		t.Errorf("nil mapFunc if TopicMapper is nil")
-	}
-
-	fakeMapper := TopicMapper{
-		MatchIndex: 0,
-		Route: []*PolicyRe{
-			{"fake", "]["},
-		},
-	}
-	getTopicMapFunc(&fakeMapper)
-	fakeMapper = TopicMapper{
-		MatchIndex: 0,
-		Route: []*PolicyRe{
-			{"demo", "demo"},
-		},
-		Policies: []*Policy{
-			{
-				Name:       "demo",
-				TopicIndex: 1,
-				Route: []TopicRe{
-					{"topic", []string{"]["}},
-				},
-				Headers: map[int]string{1: "topic"},
-			},
-		},
-	}
-	getTopicMapFunc(&fakeMapper)
-}
-
-func TestTopicMapper2(t *testing.T) {
-	// nothing/d2s/{tenant}/{device_type}/{things_id}/log/eventName
-	// nothing/d2s/{tenant}/{device_type}/{things_id}/status
-	// nothing/d2s/{tenant}/{device_type}/{things_id}/event
-	// nothing/d2s/{tenant}/{device_type}/{things_id}/raw
-	// nothing/g2s/{gwTenantId}/{gwInfoModelId}/{gwThingsId}/d2s/{tenantId}/{infoModelId}/{thingsId}/data
-	topicMapper := TopicMapper{
-		MatchIndex: 1,
-		Route: []*PolicyRe{
-			{"g2s", "g2s"},
-			{"d2s", "d2s"},
-		},
-		Policies: []*Policy{
-			{
-				Name:       "d2s",
-				TopicIndex: 5,
-				Route: []TopicRe{
-					{"to_cloud", []string{"log", "status", "event"}},
-					{"to_raw", []string{"raw"}},
-				},
-				Headers: map[int]string{
-					1: "d2s",
-					2: "tenant",
-					3: "device_type",
-					4: "things_id",
-					5: "event",
-				},
-			},
-			{
-				Name:       "g2s",
-				TopicIndex: 9,
-				Route: []TopicRe{
-					{"to_cloud", []string{"log", "status", "event", "data"}},
-					{"to_raw", []string{"raw"}},
-				},
-				Headers: map[int]string{
-					1: "g2s",
-					2: "gwTenantId",
-					3: "gwInfoModelId",
-					4: "gwThingsId",
-					5: "d2s",
-					6: "tenantId",
-					7: "infoModelId",
-					8: "thingsId",
-					9: "event",
-				},
-			},
-		},
-	}
-	mapFunc := getTopicMapFunc(&topicMapper)
-
-	_, _, err := mapFunc("/level0")
-	if err == nil {
-		t.Errorf("map func should return err for not match topic")
-	}
-	_, _, err = mapFunc("nothing/g2s")
-	if err == nil {
-		t.Errorf("map func should return err for not match topic")
-	}
-	_, _, err = mapFunc("nothing/d2s/tenant/device_type/things_id/notexist")
-	if err == nil {
-		t.Errorf("map func should return err for not match topic")
 	}
 }
 
@@ -726,6 +503,9 @@ func TestSendMsgBack(t *testing.T) {
 	// make broker
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
+	pipe := getPipeline(t)
+	defer pipe.Close()
+	backend := getPublishFilter(t, pipe)
 
 	// subscribe handler
 	handler := getMQTTSubscribeHandler(subscribeCh)
@@ -778,10 +558,9 @@ func TestSendMsgBack(t *testing.T) {
 			fmt.Printf("all msg received!\n")
 			wg.Done()
 		}()
-		producer := broker.backend.(*testMQ)
 		ans := make(map[string]int)
 		for i := 0; i < clientNum*msgNum; i++ {
-			p := producer.get()
+			p := backend.get()
 			num, _ := strconv.Atoi(string(p.Payload))
 			if val, ok := ans[p.TopicName]; ok {
 				if num != val+1 {
@@ -1102,12 +881,14 @@ func TestHTTPTransfer(t *testing.T) {
 	srv0.start()
 
 	spec := &Spec{
-		Name:        "test1",
-		EGName:      "test1",
-		Port:        1884,
-		BackendType: testMQType,
+		Name:   "test1",
+		EGName: "test1",
+		Port:   1884,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: passBase64},
+		},
+		Pipelines: []Pipeline{
+			{Name: "publish-pipeline", PacketType: Publish},
 		},
 	}
 	store := broker0.sessMgr.store
@@ -1459,16 +1240,18 @@ func TestClient(t *testing.T) {
 func TestBrokerListen(t *testing.T) {
 	// invalid tls
 	spec := &Spec{
-		Name:        "test-1",
-		EGName:      "test-1",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test-1",
+		EGName: "test-1",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: "test"},
 		},
 		UseTLS: true,
 		Certificate: []Certificate{
 			{"fake", "abc", "abc"},
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	store := newStorage(nil)
@@ -1481,16 +1264,18 @@ func TestBrokerListen(t *testing.T) {
 
 	// valid tls
 	spec = &Spec{
-		Name:        "test-1",
-		EGName:      "test-1",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test-1",
+		EGName: "test-1",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: base64.StdEncoding.EncodeToString([]byte("test"))},
 		},
 		UseTLS: true,
 		Certificate: []Certificate{
 			{"demo", certPem, keyPem},
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
@@ -1510,12 +1295,14 @@ func TestBrokerListen(t *testing.T) {
 
 	// not valid port should return nil
 	spec = &Spec{
-		Name:        "test-1",
-		EGName:      "test-1",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test-1",
+		EGName: "test-1",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: "test"},
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	broker2 := newBroker(spec, store, func(s, ss string) ([]string, error) {
@@ -1599,10 +1386,16 @@ filters:
 	pipe.Init(superSpec)
 	defer pipe.Close()
 
+	publishPipe := getPipeline(t)
+	defer publishPipe.Close()
+	backend := getPublishFilter(t, publishPipe)
+
 	// get broker
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
-	broker.pipeline = "mqtt-test-pipeline"
+	broker.pipelines[Subscribe] = "mqtt-test-pipeline"
+	broker.pipelines[Unsubscribe] = "mqtt-test-pipeline"
+	broker.pipelines[Disconnect] = "mqtt-test-pipeline"
 	defer broker.close()
 
 	// set some client
@@ -1620,7 +1413,7 @@ filters:
 		token = client.Unsubscribe(strconv.Itoa(i))
 		token.Wait()
 
-		p := broker.backend.(*testMQ).get()
+		p := backend.get()
 		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
@@ -1637,11 +1430,6 @@ filters:
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
-	}
-
-	backend := broker.backend.(*testMQ)
-	if len(backend.msg) != clientNum {
-		t.Errorf("filter publish message to backend failed")
 	}
 
 	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)
@@ -1662,8 +1450,7 @@ filters:
 func TestAuthByPipeline(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	broker := getBroker("test", "test", b64passwd, 1883)
-	broker.spec.AuthByPipeline = true
-	broker.pipeline = "mqtt-test-pipeline"
+	broker.pipelines[Connect] = "mqtt-test-pipeline"
 	defer broker.close()
 
 	// since there are no such pipeline
@@ -1723,11 +1510,13 @@ filters:
 
 func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 	spec := &Spec{
-		Name:           "test",
-		EGName:         "test",
-		Port:           1883,
-		BackendType:    testMQType,
-		AuthByPipeline: true,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
+		Pipelines: []Pipeline{
+			{Name: "connect-pipeline", PacketType: Connect},
+			{Name: "publish-pipeline", PacketType: Publish},
+		},
 	}
 	store := newStorage(nil)
 	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
@@ -1749,11 +1538,12 @@ func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 	broker.close()
 
 	spec = &Spec{
-		Name:           "test",
-		EGName:         "test",
-		Port:           1883,
-		BackendType:    testMQType,
-		AuthByPipeline: false,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
+		},
 	}
 	store = newStorage(nil)
 	broker = newBroker(spec, store, func(s, ss string) ([]string, error) {
@@ -1777,14 +1567,16 @@ func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
 func TestMaxAllowedConnection(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	spec := &Spec{
-		Name:        "test",
-		EGName:      "test",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: b64passwd},
 		},
 		MaxAllowedConnection: 10,
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
+		},
 	}
 	store := newStorage(nil)
 	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
@@ -1823,16 +1615,18 @@ func TestMaxAllowedConnection(t *testing.T) {
 func TestConnectionLimit(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	spec := &Spec{
-		Name:        "test",
-		EGName:      "test",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: b64passwd},
 		},
 		ConnectionLimit: &RateLimit{
 			RequestRate: 10,
 			TimePeriod:  1000,
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	store := newStorage(nil)
@@ -1854,16 +1648,18 @@ func TestConnectionLimit(t *testing.T) {
 func TestClientPublishLimit(t *testing.T) {
 	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	spec := &Spec{
-		Name:        "test",
-		EGName:      "test",
-		Port:        1883,
-		BackendType: testMQType,
+		Name:   "test",
+		EGName: "test",
+		Port:   1883,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: b64passwd},
 		},
 		ClientPublishLimit: &RateLimit{
 			RequestRate: 10,
 			TimePeriod:  1000,
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	store := newStorage(nil)
@@ -2043,12 +1839,14 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 	srv0.start()
 
 	spec := &Spec{
-		Name:        "test1",
-		EGName:      "test1",
-		Port:        1884,
-		BackendType: testMQType,
+		Name:   "test1",
+		EGName: "test1",
+		Port:   1884,
 		Auth: []Auth{
 			{UserName: "test", PassBase64: passBase64},
+		},
+		Pipelines: []Pipeline{
+			{Name: publishPipelineName, PacketType: Publish},
 		},
 	}
 	store := broker0.sessMgr.store

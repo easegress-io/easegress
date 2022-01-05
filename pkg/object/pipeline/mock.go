@@ -40,7 +40,6 @@ func (f *mockFilter) Init(filterSpec *FilterSpec)                               
 func (f *mockFilter) Inherit(filterSpec *FilterSpec, previousGeneration Filter) {}
 func (f *mockFilter) Status() interface{}                                       { return nil }
 func (f *mockFilter) Close()                                                    {}
-func (f *mockFilter) APIs() []*APIEntry                                         { return nil }
 
 // MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
 type MockMQTTFilter struct {
@@ -56,14 +55,13 @@ type MockMQTTFilter struct {
 
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
-	UserName               string   `yaml:"userName" jsonschema:"required"`
-	Password               string   `yaml:"password" jsonschema:"required"`
-	Port                   uint16   `yaml:"port" jsonschema:"required"`
-	BackendType            string   `yaml:"backendType" jsonschema:"required"`
-	EarlyStop              bool     `yaml:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore            []string `yaml:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey             string   `yaml:"connectKey" jsonschema:"omitempty"`
-	PublishBackendClientID bool     `yaml:"publishBackendClientID" jsonschema:"omitempty"`
+	UserName    string   `yaml:"userName" jsonschema:"required"`
+	Password    string   `yaml:"password" jsonschema:"required"`
+	Port        uint16   `yaml:"port" jsonschema:"required"`
+	BackendType string   `yaml:"backendType" jsonschema:"required"`
+	EarlyStop   bool     `yaml:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore []string `yaml:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey  string   `yaml:"connectKey" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
@@ -117,10 +115,6 @@ func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 
 	for _, k := range m.spec.KeysToStore {
 		ctx.Client().Store(k, struct{}{})
-	}
-	if m.spec.PublishBackendClientID {
-		backend := ctx.Backend()
-		backend.Publish(ctx.Client().ClientID(), nil, nil)
 	}
 	return nil
 }
@@ -198,4 +192,13 @@ func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}
 		meta:       meta,
 		filterSpec: filterSpec,
 	}
+}
+
+func MockGetFilter(p *Pipeline, name string) Filter {
+	for _, f := range p.runningFilters {
+		if f.spec.Name() == name {
+			return f.filter
+		}
+	}
+	return nil
 }

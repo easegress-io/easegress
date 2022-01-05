@@ -51,12 +51,12 @@ type (
 		name   string
 		spec   *Spec
 
-		listener   net.Listener
-		backend    backendMQ
+		listener net.Listener
+		// backend    backendMQ
 		clients    map[string]*Client
 		sha256Auth map[string]string
 		tlsCfg     *tls.Config
-		pipeline   string
+		pipelines  map[PacketType]string
 
 		sessMgr           *SessionManager
 		topicMgr          *TopicManager
@@ -94,23 +94,45 @@ func sha256Sum(data []byte) string {
 	return hex.EncodeToString(sha256Bytes[:])
 }
 
+func getPipelineMap(spec *Spec) (map[PacketType]string, error) {
+	ans := make(map[PacketType]string)
+	for _, p := range spec.Pipelines {
+		if _, ok := pipelinePacketTypes[p.PacketType]; !ok {
+			return nil, fmt.Errorf("pipeline packet type %v not found, only support %v", p.PacketType, pipelinePacketTypes)
+		}
+		if _, ok := ans[p.PacketType]; ok {
+			return nil, fmt.Errorf("pipeline packet type %v show twice", p.PacketType)
+		}
+		ans[p.PacketType] = p.Name
+	}
+	if _, ok := ans[Publish]; !ok {
+		return nil, fmt.Errorf("publish pipeline is necessary send mqtt messages to backend")
+	}
+	return ans, nil
+}
+
 func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
-		egName:     spec.EGName,
-		name:       spec.Name,
-		spec:       spec,
-		pipeline:   spec.Pipeline,
-		backend:    newBackendMQ(spec),
+		egName: spec.EGName,
+		name:   spec.Name,
+		spec:   spec,
+		// backend:    newBackendMQ(spec),
 		clients:    make(map[string]*Client),
 		sha256Auth: make(map[string]string),
 		memberURL:  memberURL,
 		done:       make(chan struct{}),
 	}
-	if broker.backend == nil {
-		panic(fmt.Sprintf("mqtt broker %v connect backend failed", broker.name))
+	// if broker.backend == nil {
+	// 	panic(fmt.Sprintf("mqtt broker %v connect backend failed", broker.name))
+	// }
+	pipelines, err := getPipelineMap(spec)
+	if err != nil {
+		panic(fmt.Sprintf("create pipeline map failed, %v", err))
 	}
+	broker.pipelines = pipelines
 
-	if !spec.AuthByPipeline {
+	_, authByPipeline := pipelines[Connect]
+	if !authByPipeline {
 		for _, a := range spec.Auth {
 			passwd, err := base64.StdEncoding.DecodeString(a.PassBase64)
 			if err != nil {
@@ -125,7 +147,7 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		}
 	}
 
-	err := broker.setListener()
+	err = broker.setListener()
 	if err != nil {
 		logger.SpanErrorf(nil, "mqtt broker set listener failed: %v", err)
 		return nil
@@ -309,13 +331,15 @@ func (b *Broker) connectionValidation(connect *packets.ConnectPacket, conn net.C
 	client := newClient(connect, b, conn, b.spec.ClientPublishLimit)
 	// check auth
 	authFail := false
-	if b.spec.AuthByPipeline {
-		pipe, err := pipeline.GetPipeline(b.pipeline, context.MQTT)
+
+	authPipeline, ok := b.pipelines[Connect]
+	if ok {
+		pipe, err := pipeline.GetPipeline(authPipeline, context.MQTT)
 		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", b.pipeline, err)
+			logger.SpanErrorf(nil, "get pipeline %v failed, %v", authPipeline, err)
 			authFail = true
 		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), b.backend, client, connect)
+			ctx := context.NewMQTTContext(stdcontext.Background(), client, connect)
 			pipe.HandleMQTT(ctx)
 			if ctx.Disconnect() {
 				logger.SpanErrorf(nil, "client %v not get connect permission from pipeline", connect.ClientIdentifier)
@@ -671,7 +695,6 @@ func (b *Broker) close() {
 	b.setClose()
 	close(b.done)
 	b.listener.Close()
-	b.backend.close()
 	b.sessMgr.close()
 
 	b.Lock()
