@@ -92,7 +92,11 @@ func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 	encoderConfig := defaultEncoderConfig()
 
 	level := zap.NewAtomicLevel()
-	level.SetLevel(zapcore.DebugLevel)
+	if opt.Debug {
+		level.SetLevel(zapcore.DebugLevel)
+	} else {
+		level.SetLevel(zapcore.InfoLevel)
+	}
 
 	outputPaths := []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, filename))}
 
