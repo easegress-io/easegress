@@ -30,6 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 // BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
@@ -133,10 +134,20 @@ func (bav *BasicAuthValidator) getUserFromCache(userID string) (string, bool) {
 	return password, true
 }
 
+func parseBasicAuthorizationHeader(hdr *httpheader.HTTPHeader) (string, error) {
+	const prefix = "Basic "
+
+	tokenStr := hdr.Get("Authorization")
+	if !strings.HasPrefix(tokenStr, prefix) {
+		return "", fmt.Errorf("unexpected authorization header: %s", tokenStr)
+	}
+	return tokenStr[len(prefix):], nil
+}
+
 // Validate validates the Authorization header of a http request
 func (bav *BasicAuthValidator) Validate(req context.HTTPRequest) error {
 	hdr := req.Header()
-	base64credentials, err := parseAuthorizationHeader(hdr)
+	base64credentials, err := parseBasicAuthorizationHeader(hdr)
 	if err != nil {
 		return err
 	}
