@@ -48,10 +48,10 @@ type (
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
 
-		headers *httpheader.Validator
-		jwt     *JWTValidator
-		signer  *signer.Signer
-		oauth2  *OAuth2Validator
+		headers   *httpheader.Validator
+		jwt       *JWTValidator
+		signer    *signer.Signer
+		oauth2    *OAuth2Validator
 		basicAuth *BasicAuthValidator
 	}
 
@@ -61,7 +61,7 @@ type (
 		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
 		OAuth2    *OAuth2ValidatorSpec      `yaml:"oauth2,omitempty" jsonschema:"omitempty"`
-		BasicAuth    *BasicAuthValidatorSpec      `yaml:"basicAuth,omitempty" jsonschema:"omitempty"`
+		BasicAuth *BasicAuthValidatorSpec   `yaml:"basicAuth,omitempty" jsonschema:"omitempty"`
 	}
 )
 

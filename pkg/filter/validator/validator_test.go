@@ -18,8 +18,8 @@
 package validator
 
 import (
-	"fmt"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -295,14 +295,14 @@ signature:
 }
 
 func check(e error) {
-    if e != nil {
-        panic(e)
-    }
+	if e != nil {
+		panic(e)
+	}
 }
 
 func TestHTTPBasicAuth(t *testing.T) {
 	userFile, err := os.CreateTemp("/tmp/", "apache2-htpasswd")
-    check(err)
+	check(err)
 
 	defer os.Remove(userFile.Name())
 

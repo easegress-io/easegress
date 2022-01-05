@@ -18,10 +18,10 @@
 package validator
 
 import (
-	"os"
 	"bufio"
-	"fmt"
 	"encoding/base64"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -40,7 +40,7 @@ type BasicAuthValidatorSpec struct {
 }
 
 type AuthorizedUsers struct {
-	nameToToken	map[string]string
+	nameToToken map[string]string
 }
 
 func NewAuthorizedUsers() *AuthorizedUsers {
@@ -66,19 +66,19 @@ func parseCredentials(creds string) (string, string, error) {
 
 func (au *AuthorizedUsers) UpdateFromUserFile(fileName string) error {
 	file, err := os.OpenFile(fileName, os.O_RDONLY, os.ModePerm)
-    if err != nil {
-        return fmt.Errorf("open file error: %v", err)
-    }
-    defer file.Close()
+	if err != nil {
+		return fmt.Errorf("open file error: %v", err)
+	}
+	defer file.Close()
 	sc := bufio.NewScanner(file)
-    for sc.Scan() {
-        line := sc.Text()
+	for sc.Scan() {
+		line := sc.Text()
 		name, token, err := parseCredentials(line)
 		if err != nil {
 			return err
 		}
 		au.nameToToken[name] = token
-    }
+	}
 	return nil
 }
 
@@ -89,15 +89,15 @@ func NewBasicAuthValidator(spec *BasicAuthValidatorSpec) *BasicAuthValidator {
 		au.UpdateFromUserFile(spec.UserFile)
 	}
 	return &BasicAuthValidator{
-		spec:        spec,
+		spec:            spec,
 		authorizedUsers: au,
 	}
 }
 
 // BasicAuthValidator defines the Basic Auth validator
 type BasicAuthValidator struct {
-	spec        *BasicAuthValidatorSpec
-	authorizedUsers		*AuthorizedUsers
+	spec            *BasicAuthValidatorSpec
+	authorizedUsers *AuthorizedUsers
 }
 
 // Validate validates the Authorization header of a http request
