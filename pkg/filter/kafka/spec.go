@@ -18,6 +18,7 @@
 package kafka
 
 type (
+	// Spec is spec of Kafka
 	Spec struct {
 		Backend     []string     `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 		TopicMapper *TopicMapper `yaml:"topicMapper" jsonschema:"omitempty"`

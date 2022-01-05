@@ -41,6 +41,7 @@ func init() {
 }
 
 type (
+	// Kafka is kafka backend for MQTT proxy
 	Kafka struct {
 		filterSpec *pipeline.FilterSpec
 		spec       *Spec
@@ -53,22 +54,27 @@ type (
 var _ pipeline.Filter = (*Kafka)(nil)
 var _ pipeline.MQTTFilter = (*Kafka)(nil)
 
+// Kind return kind of Kafka
 func (k *Kafka) Kind() string {
 	return Kind
 }
 
+// DefaultSpec return default spec of Kafka
 func (k *Kafka) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
+// Description return description of Kafka
 func (k *Kafka) Description() string {
 	return "Kafka is a backend of MQTTProxy"
 }
 
+// Results return possible results of Kafka
 func (k *Kafka) Results() []string {
 	return []string{resultMQTTTopicMapFailed}
 }
 
+// Init init Kafka
 func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 	if filterSpec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
@@ -102,11 +108,13 @@ func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 	k.producer = producer
 }
 
+// Inherit init Kafka based on previous generation
 func (k *Kafka) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	k.Init(filterSpec)
 }
 
+// Close close Kafka
 func (k *Kafka) Close() {
 	close(k.done)
 	err := k.producer.Close()
@@ -115,10 +123,12 @@ func (k *Kafka) Close() {
 	}
 }
 
+// Status return status of Kafka
 func (k *Kafka) Status() interface{} {
 	return nil
 }
 
+// HandleMQTT handle MQTT context
 func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	if ctx.PacketType() != context.MQTTPublish {
 		return &context.MQTTResult{}

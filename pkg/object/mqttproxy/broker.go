@@ -51,8 +51,7 @@ type (
 		name   string
 		spec   *Spec
 
-		listener net.Listener
-		// backend    backendMQ
+		listener   net.Listener
 		clients    map[string]*Client
 		sha256Auth map[string]string
 		tlsCfg     *tls.Config
@@ -101,30 +100,26 @@ func getPipelineMap(spec *Spec) (map[PacketType]string, error) {
 			return nil, fmt.Errorf("pipeline packet type %v not found, only support %v", p.PacketType, pipelinePacketTypes)
 		}
 		if _, ok := ans[p.PacketType]; ok {
-			return nil, fmt.Errorf("pipeline packet type %v show twice", p.PacketType)
+			return nil, fmt.Errorf("pipeline packet type %v show more than once", p.PacketType)
 		}
 		ans[p.PacketType] = p.Name
 	}
 	if _, ok := ans[Publish]; !ok {
-		return nil, fmt.Errorf("publish pipeline is necessary send mqtt messages to backend")
+		return nil, fmt.Errorf("pipeline for publish packet type is necessary to send MQTT messages to backend")
 	}
 	return ans, nil
 }
 
 func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
-		egName: spec.EGName,
-		name:   spec.Name,
-		spec:   spec,
-		// backend:    newBackendMQ(spec),
+		egName:     spec.EGName,
+		name:       spec.Name,
+		spec:       spec,
 		clients:    make(map[string]*Client),
 		sha256Auth: make(map[string]string),
 		memberURL:  memberURL,
 		done:       make(chan struct{}),
 	}
-	// if broker.backend == nil {
-	// 	panic(fmt.Sprintf("mqtt broker %v connect backend failed", broker.name))
-	// }
 	pipelines, err := getPipelineMap(spec)
 	if err != nil {
 		panic(fmt.Sprintf("create pipeline map failed, %v", err))
