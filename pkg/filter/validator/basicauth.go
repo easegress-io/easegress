@@ -19,39 +19,67 @@ package validator
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/context"
+	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
-// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
-// Only one of UserFile or UseEtcd should be defined.
-type BasicAuthValidatorSpec struct {
-	// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
-	// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
-	// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
-	UserFile string `yaml:"userFile" jsonschema:"omitempty"`
-	// When UseEtcd is true, verify user credentials from etcd. Etcd stores them:
-	// key: /credentials/{user id}
-	// value: {encrypted password}
-	UseEtcd bool `yaml:"useEtcd" jsonschema:"omitempty"`
-}
+type (
+	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
+	// Only one of UserFile or UseEtcd should be defined.
+	BasicAuthValidatorSpec struct {
+		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
+		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
+		// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
+		UserFile string `yaml:"userFile" jsonschema:"omitempty"`
+		// When UseEtcd is true, verify user credentials from etcd. Etcd stores them:
+		// key: /credentials/{user id}
+		// value: {encrypted password}
+		UseEtcd bool `yaml:"useEtcd" jsonschema:"omitempty"`
+	}
 
-// BasicAuthValidator defines the Basic Auth validator
-type BasicAuthValidator struct {
-	spec                 *BasicAuthValidatorSpec
-	authorizedUsersCache *lru.Cache
-	cluster              cluster.Cluster
-}
+	// AuthorizedUsersCache provides cached lookup for authorized users.
+	// When user is deleted from authorized users, user can still access for time period defined
+	// by SetSyncInterval.
+	AuthorizedUsersCache interface {
+		GetUser(string) (string, bool)
+		WatchChanges() error
+		SetSyncInterval(time.Duration)
+		Close()
+	}
+
+	htpasswdUserCache struct {
+		cache    *lru.Cache
+		userFile string
+	}
+
+	etcdUserCache struct {
+		cache   *lru.Cache
+		cluster cluster.Cluster
+
+		syncerInterval time.Duration
+		cancel         context.CancelFunc
+	}
+
+	// BasicAuthValidator defines the Basic Auth validator
+	BasicAuthValidator struct {
+		spec                 *BasicAuthValidatorSpec
+		authorizedUsersCache AuthorizedUsersCache
+	}
+)
+
+const credsPrefix = "/credentials/"
 
 func parseCredentials(creds string) (string, string, error) {
 	parts := strings.Split(creds, ":")
@@ -61,10 +89,26 @@ func parseCredentials(creds string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func (bav *BasicAuthValidator) getFromFile(targetUserID string) (string, error) {
-	file, err := os.OpenFile(bav.spec.UserFile, os.O_RDONLY, os.ModePerm)
+func newHtpasswdUserCache(userFile string) *htpasswdUserCache {
+	cache, err := lru.New(256)
 	if err != nil {
-		return "", fmt.Errorf("open file error: %v", err)
+		panic(err)
+	}
+	return &htpasswdUserCache{
+		cache:    cache,
+		userFile: userFile,
+	}
+}
+
+func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
+	if val, ok := huc.cache.Get(targetUserID); ok {
+		return val.(string), true
+	}
+
+	file, err := os.OpenFile(huc.userFile, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		logger.Errorf("open file error: %v", err)
+		return "", false
 	}
 	defer file.Close()
 	sc := bufio.NewScanner(file)
@@ -72,66 +116,142 @@ func (bav *BasicAuthValidator) getFromFile(targetUserID string) (string, error) 
 		line := sc.Text()
 		userID, password, err := parseCredentials(line)
 		if err != nil {
-			return "", err
+			logger.Errorf(err.Error())
+			return "", false
 		}
 		if userID == targetUserID {
-			return password, nil
+			huc.cache.Add(targetUserID, password)
+			return password, true
 		}
 	}
-	return "", fmt.Errorf("unauthorized")
+
+	logger.Errorf("unauthorized")
+	return "", false
 }
 
-func (bav *BasicAuthValidator) getFromEtcd(targetUserID string) (string, error) {
-	const prefix = "/credentials/"
-	password, err := bav.cluster.Get(prefix + targetUserID)
-	if err != nil {
-		return "", err
-	}
-	if password == nil {
-		return "", fmt.Errorf("unauthorized")
-	}
-	return *password, nil
-}
+func (huc *htpasswdUserCache) WatchChanges() error                { return nil }
+func (huc *htpasswdUserCache) Close()                             {}
+func (huc *htpasswdUserCache) SetSyncInterval(time time.Duration) {}
 
-// NewBasicAuthValidator creates a new Basic Auth validator
-func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
-	var cluster cluster.Cluster
-	if spec.UseEtcd {
-		if supervisor == nil || supervisor.Cluster() == nil {
-			logger.Errorf("BasicAuth validator : failed to read data from etcd")
-		} else {
-			cluster = supervisor.Cluster()
-		}
-	}
+func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 	cache, err := lru.New(256)
 	if err != nil {
 		panic(err)
 	}
+	return &etcdUserCache{
+		cache:          cache,
+		syncerInterval: 3 * time.Minute, // it takes 3 minutes to remove user access
+		cluster:        cluster,
+	}
+}
+
+func (euc *etcdUserCache) GetUser(targetUserID string) (string, bool) {
+	if val, ok := euc.cache.Get(targetUserID); ok {
+		return val.(string), true
+	}
+
+	password, err := euc.cluster.Get(credsPrefix + targetUserID)
+	if err != nil {
+		logger.Errorf(err.Error())
+		return "", false
+	}
+	if password == nil {
+		logger.Errorf("unauthorized")
+		return "", false
+	}
+
+	euc.cache.Add(targetUserID, *password)
+	return *password, true
+}
+
+func (euc *etcdUserCache) SetSyncInterval(interval time.Duration) {
+	euc.syncerInterval = interval
+}
+
+// updateCache updates the intersection of kvs map and cache and removes other keys from cache.
+func updateCache(kvs map[string]string, cache *lru.Cache) {
+	intersection := make(map[string]string)
+	for key, password := range kvs {
+		userID := strings.TrimPrefix(key, credsPrefix)
+		if oldPassword, ok := cache.Peek(userID); ok {
+			intersection[userID] = password
+			if password != oldPassword {
+				cache.Add(userID, password) // update password
+			}
+		}
+	}
+	// delete cache items that were not in kvs
+	for _, cacheKey := range cache.Keys() {
+		if _, exists := intersection[cacheKey.(string)]; !exists {
+			cache.Remove(cacheKey)
+		}
+	}
+}
+
+func (euc *etcdUserCache) WatchChanges() error {
+	stopCtx, cancel := context.WithCancel(context.Background())
+	euc.cancel = cancel
+	var (
+		syncer *cluster.Syncer
+		err    error
+		ch     <-chan map[string]string
+	)
+
+	for {
+		syncer, err = euc.cluster.Syncer(euc.syncerInterval)
+		if err != nil {
+			logger.Errorf("failed to create syncer: %v", err)
+		} else if ch, err = syncer.SyncPrefix(credsPrefix); err != nil {
+			logger.Errorf("failed to sync raw prefix: %v", err)
+			syncer.Close()
+		} else {
+			break
+		}
+
+		select {
+		case <-time.After(10 * time.Second):
+		case <-stopCtx.Done():
+			return nil
+		}
+	}
+	defer syncer.Close()
+
+	for {
+		select {
+		case <-stopCtx.Done():
+			return nil
+		case kvs := <-ch:
+			updateCache(kvs, euc.cache)
+		}
+	}
+	return nil
+}
+
+func (euc *etcdUserCache) Close() {
+	euc.cancel()
+}
+
+// NewBasicAuthValidator creates a new Basic Auth validator
+func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
+	var cache AuthorizedUsersCache
+	if spec.UseEtcd {
+		if supervisor == nil || supervisor.Cluster() == nil {
+			logger.Errorf("BasicAuth validator : failed to read data from etcd")
+		} else {
+			cache = newEtcdUserCache(supervisor.Cluster())
+		}
+	} else if spec.UserFile != "" {
+		cache = newHtpasswdUserCache(spec.UserFile)
+	} else {
+		logger.Errorf("BasicAuth validator spec unvalid.")
+		return nil
+	}
+	go cache.WatchChanges()
 	bav := &BasicAuthValidator{
 		spec:                 spec,
 		authorizedUsersCache: cache,
-		cluster:              cluster,
 	}
 	return bav
-}
-
-func (bav *BasicAuthValidator) getUserFromCache(userID string) (string, bool) {
-	if val, ok := bav.authorizedUsersCache.Get(userID); ok {
-		return val.(string), true
-	}
-	var password string
-	var err error
-	if bav.spec.UserFile != "" {
-		password, err = bav.getFromFile(userID)
-	}
-	if bav.spec.UseEtcd == true {
-		password, err = bav.getFromEtcd(userID)
-	}
-	if err != nil {
-		return "", false
-	}
-	bav.authorizedUsersCache.Add(userID, password)
-	return password, true
 }
 
 func parseBasicAuthorizationHeader(hdr *httpheader.HTTPHeader) (string, error) {
@@ -141,11 +261,11 @@ func parseBasicAuthorizationHeader(hdr *httpheader.HTTPHeader) (string, error) {
 	if !strings.HasPrefix(tokenStr, prefix) {
 		return "", fmt.Errorf("unexpected authorization header: %s", tokenStr)
 	}
-	return tokenStr[len(prefix):], nil
+	return strings.TrimPrefix(tokenStr, prefix), nil
 }
 
 // Validate validates the Authorization header of a http request
-func (bav *BasicAuthValidator) Validate(req context.HTTPRequest) error {
+func (bav *BasicAuthValidator) Validate(req httpcontext.HTTPRequest) error {
 	hdr := req.Header()
 	base64credentials, err := parseBasicAuthorizationHeader(hdr)
 	if err != nil {
@@ -161,8 +281,13 @@ func (bav *BasicAuthValidator) Validate(req context.HTTPRequest) error {
 		return fmt.Errorf("unauthorized")
 	}
 
-	if expectedToken, ok := bav.getUserFromCache(userID); ok && expectedToken == token {
+	if expectedToken, ok := bav.authorizedUsersCache.GetUser(userID); ok && expectedToken == token {
 		return nil
 	}
 	return fmt.Errorf("unauthorized")
+}
+
+// Close closes authorizedUsersCache.
+func (bav *BasicAuthValidator) Close() {
+	bav.authorizedUsersCache.Close()
 }

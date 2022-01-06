@@ -27,7 +27,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/phayes/freeport"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
@@ -302,6 +304,40 @@ signature:
 	}
 }
 
+func TestBasicAuthUpdateCache(t *testing.T) {
+	kvs1 := make(map[string]string)
+	cache, _ := lru.New(16)
+	for i := 0; i < 30; i++ {
+		kvs1[fmt.Sprintf("u%d", i)] = fmt.Sprintf("md5-%d", i)
+	}
+	updateCache(kvs1, cache) // does nothing
+	if cache.Len() != 0 {
+		t.Errorf("cache should not be modified")
+	}
+
+	cache.Add("u0", "md5-0")     // present in kvs1
+	cache.Add("u743", "md5-743") // not present in kvs1
+	cache.Add("u744", "md5-744") // not present in kvs1
+
+	if cache.Len() != 3 {
+		t.Errorf("cache should have 3 items")
+	}
+	updateCache(kvs1, cache) // removes u743 and u744
+	if cache.Len() != 1 {
+		t.Errorf("cache should have 1 item")
+	}
+
+	cache.Add("u7", "md5-old-password") // present in kvs1 but different value
+	updateCache(kvs1, cache)            // updates u7
+	if val, ok := cache.Get("u7"); ok {
+		if val.(string) != "md5-7" {
+			t.Errorf("cache value should be updated")
+		}
+	} else {
+		t.Errorf("cache should contain u7")
+	}
+}
+
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -338,7 +374,16 @@ func createCluster(tempDir string) cluster.Cluster {
 	return clusterInstance
 }
 
-func TestBasicAuthUser(t *testing.T) {
+func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
+	ctx := &contexttest.MockedHTTPContext{}
+	header := http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	return ctx, header
+}
+
+func TestBasicAuth(t *testing.T) {
 	userIds := []string{
 		"userY", "userZ", "nonExistingUser",
 	}
@@ -362,11 +407,7 @@ basicAuth:
 
 		v := createValidator(yamlSpec, nil, nil)
 		for i := 0; i < 3; i++ {
-			ctx := &contexttest.MockedHTTPContext{}
-			header := http.Header{}
-			ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-				return httpheader.New(header)
-			}
+			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
@@ -380,6 +421,7 @@ basicAuth:
 				}
 			}
 		}
+		v.Close()
 	})
 	t.Run("credentials from etcd", func(t *testing.T) {
 		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
@@ -401,15 +443,10 @@ basicAuth:
   useEtcd: true`
 
 		expectedValid := []bool{true, false, true}
-
 		v := createValidator(yamlSpec, nil, supervisor)
-
+		v.basicAuth.authorizedUsersCache.SetSyncInterval(1 * time.Second)
 		for i := 0; i < 3; i++ {
-			ctx := &contexttest.MockedHTTPContext{}
-			header := http.Header{}
-			ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-				return httpheader.New(header)
-			}
+			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
@@ -423,6 +460,28 @@ basicAuth:
 				}
 			}
 		}
+
+		clusterInstance.Delete("/credentials/" + userIds[0]) // first user is not authorized anymore
+		time.Sleep(1 * time.Second)                          // wait that cache item gets deleted
+
+		expectedValid = []bool{false, false, true}
+		for i := 0; i < 3; i++ {
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if expectedValid[i] {
+				if result == resultInvalid {
+					t.Errorf("the basic auth head should be valid")
+				}
+			} else {
+				if result != resultInvalid {
+					t.Errorf("the basic auth head should be invalid")
+				}
+			}
+		}
+
+		v.Close()
 		wg := &sync.WaitGroup{}
 		wg.Add(1)
 		clusterInstance.CloseServer(wg)

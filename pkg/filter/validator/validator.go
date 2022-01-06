@@ -174,5 +174,9 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 // Status returns status.
 func (v *Validator) Status() interface{} { return nil }
 
-// Close closes Validator.
-func (v *Validator) Close() {}
+// Close closes validations.
+func (v *Validator) Close() {
+	if v.basicAuth != nil {
+		v.basicAuth.Close()
+	}
+}
