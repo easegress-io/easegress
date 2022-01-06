@@ -346,7 +346,7 @@ func TestBasicAuthUser(t *testing.T) {
 		"md5-encrypted-pw-1", "md5-encrypted-pw-2", "md5-encrypted-pw3",
 	}
 	t.Run("credentials from userFile", func(t *testing.T) {
-		userFile, err := os.CreateTemp("/tmp/", "apache2-htpasswd")
+		userFile, err := os.CreateTemp("", "apache2-htpasswd")
 		check(err)
 
 		defer os.Remove(userFile.Name())
