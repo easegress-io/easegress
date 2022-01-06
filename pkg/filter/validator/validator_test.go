@@ -407,6 +407,7 @@ basicAuth:
 
 		v := createValidator(yamlSpec, nil, nil)
 		// set shorted syncInterval for test
+		v.basicAuth.authorizedUsersCache.Close()
 		v.basicAuth.authorizedUsersCache = newHtpasswdUserCache(v.basicAuth.spec.UserFile, 150*time.Millisecond)
 		go v.basicAuth.authorizedUsersCache.WatchChanges()
 
@@ -426,11 +427,13 @@ basicAuth:
 			}
 		}
 
+		v.basicAuth.authorizedUsersCache.Lock()
 		err = userFile.Truncate(0)
 		check(err)
 		_, err = userFile.Seek(0, 0)
 		check(err)
 		userFile.Write([]byte("")) // no more authorized users
+		v.basicAuth.authorizedUsersCache.Unlock()
 
 		tryCount := 5
 		for i := 0; i <= tryCount; i++ {

@@ -22,8 +22,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io/fs"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -54,20 +56,21 @@ type (
 		GetUser(string) (string, bool)
 		WatchChanges() error
 		Close()
+		Lock() // for testing purposes
+		Unlock()
 	}
 
 	htpasswdUserCache struct {
-		cache    *lru.Cache
-		userFile string
-
+		cache        *lru.Cache
+		userFile     string
+		fileMutex    sync.RWMutex
 		syncInterval time.Duration
 		cancel       context.CancelFunc
 	}
 
 	etcdUserCache struct {
-		cache   *lru.Cache
-		cluster cluster.Cluster
-
+		cache        *lru.Cache
+		cluster      cluster.Cluster
 		syncInterval time.Duration
 		cancel       context.CancelFunc
 	}
@@ -127,7 +130,9 @@ func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
 		return val.(string), true
 	}
 
+	huc.fileMutex.RLock()
 	credentials, err := readPasswordFile(huc.userFile)
+	huc.fileMutex.RUnlock()
 	if err != nil {
 		logger.Errorf(err.Error())
 		return "", false
@@ -145,23 +150,32 @@ func (huc *htpasswdUserCache) WatchChanges() error {
 	stopCtx, cancel := context.WithCancel(context.Background())
 	huc.cancel = cancel
 
-	initialStat, err := os.Stat(huc.userFile)
+	getFileStat := func() (fs.FileInfo, error) {
+		huc.fileMutex.RLock()
+		stat, err := os.Stat(huc.userFile)
+		huc.fileMutex.RUnlock()
+		return stat, err
+	}
+
+	initialStat, err := getFileStat()
 	if err != nil {
 		return err
 	}
 	for {
-		stat, err := os.Stat(huc.userFile)
+		stat, err := getFileStat()
 		if err != nil {
 			return err
 		}
 		if stat.Size() != initialStat.Size() || stat.ModTime() != initialStat.ModTime() {
+			huc.fileMutex.RLock()
 			credentials, err := readPasswordFile(huc.userFile)
+			huc.fileMutex.RUnlock()
 			if err != nil {
 				return err
 			}
 			updateCache(credentials, huc.cache)
 
-			initialStat, err = os.Stat(huc.userFile)
+			initialStat, err = getFileStat()
 			if err != nil {
 				return err
 			}
@@ -180,6 +194,14 @@ func (huc *htpasswdUserCache) Close() {
 	if huc.cancel != nil {
 		huc.cancel()
 	}
+}
+
+func (huc *htpasswdUserCache) Lock() {
+	huc.fileMutex.Lock()
+}
+
+func (huc *htpasswdUserCache) Unlock() {
+	huc.fileMutex.Unlock()
 }
 
 func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
@@ -279,6 +301,9 @@ func (euc *etcdUserCache) Close() {
 		euc.cancel()
 	}
 }
+
+func (euc *etcdUserCache) Lock()   {}
+func (euc *etcdUserCache) Unlock() {}
 
 // NewBasicAuthValidator creates a new Basic Auth validator
 func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
