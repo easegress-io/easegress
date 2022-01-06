@@ -394,8 +394,6 @@ func TestBasicAuth(t *testing.T) {
 		userFile, err := os.CreateTemp("", "apache2-htpasswd")
 		check(err)
 
-		defer os.Remove(userFile.Name())
-
 		yamlSpec := `
 kind: Validator
 name: validator
@@ -407,8 +405,7 @@ basicAuth:
 
 		v := createValidator(yamlSpec, nil, nil)
 		// set shorted syncInterval for test
-		v.basicAuth.authorizedUsersCache.Close()
-		v.basicAuth.authorizedUsersCache = newHtpasswdUserCache(v.basicAuth.spec.UserFile, 150*time.Millisecond)
+		v.basicAuth.authorizedUsersCache = newHtpasswdUserCache(v.basicAuth.spec.UserFile, 200*time.Millisecond)
 		go v.basicAuth.authorizedUsersCache.WatchChanges()
 
 		for i := 0; i < 3; i++ {
@@ -437,7 +434,7 @@ basicAuth:
 
 		tryCount := 5
 		for i := 0; i <= tryCount; i++ {
-			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
+			time.Sleep(300 * time.Millisecond) // wait that cache item gets deleted
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
 			header.Set("Authorization", "Basic "+b64creds)
@@ -450,6 +447,9 @@ basicAuth:
 			}
 		}
 
+		v.basicAuth.authorizedUsersCache.Lock()
+		os.Remove(userFile.Name())
+		v.basicAuth.authorizedUsersCache.Unlock()
 		v.Close()
 	})
 	t.Run("credentials from etcd", func(t *testing.T) {

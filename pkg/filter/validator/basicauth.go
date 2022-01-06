@@ -65,6 +65,7 @@ type (
 		userFile     string
 		fileMutex    sync.RWMutex
 		syncInterval time.Duration
+		stopCtx      context.Context
 		cancel       context.CancelFunc
 	}
 
@@ -72,6 +73,7 @@ type (
 		cache        *lru.Cache
 		cluster      cluster.Cluster
 		syncInterval time.Duration
+		stopCtx      context.Context
 		cancel       context.CancelFunc
 	}
 
@@ -117,9 +119,12 @@ func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswd
 	if err != nil {
 		panic(err)
 	}
+	stopCtx, cancel := context.WithCancel(context.Background())
 	return &htpasswdUserCache{
 		cache:    cache,
 		userFile: userFile,
+		stopCtx:  stopCtx,
+		cancel:   cancel,
 		// Removed access or updated passwords are updated according syncInterval.
 		syncInterval: syncInterval,
 	}
@@ -147,9 +152,6 @@ func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
 }
 
 func (huc *htpasswdUserCache) WatchChanges() error {
-	stopCtx, cancel := context.WithCancel(context.Background())
-	huc.cancel = cancel
-
 	getFileStat := func() (fs.FileInfo, error) {
 		huc.fileMutex.RLock()
 		stat, err := os.Stat(huc.userFile)
@@ -175,6 +177,7 @@ func (huc *htpasswdUserCache) WatchChanges() error {
 			}
 			updateCache(credentials, huc.cache)
 
+			// reset initial stat and watch for next modification
 			initialStat, err = getFileStat()
 			if err != nil {
 				return err
@@ -183,7 +186,7 @@ func (huc *htpasswdUserCache) WatchChanges() error {
 		select {
 		case <-time.After(huc.syncInterval):
 			continue
-		case <-stopCtx.Done():
+		case <-huc.stopCtx.Done():
 			return nil
 		}
 	}
@@ -191,9 +194,7 @@ func (huc *htpasswdUserCache) WatchChanges() error {
 }
 
 func (huc *htpasswdUserCache) Close() {
-	if huc.cancel != nil {
-		huc.cancel()
-	}
+	huc.cancel()
 }
 
 func (huc *htpasswdUserCache) Lock() {
@@ -209,9 +210,12 @@ func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 	if err != nil {
 		panic(err)
 	}
+	stopCtx, cancel := context.WithCancel(context.Background())
 	return &etcdUserCache{
 		cache:   cache,
 		cluster: cluster,
+		cancel:  cancel,
+		stopCtx: stopCtx,
 		// cluster.Syncer updates changes (removed access or updated passwords) immediately.
 		// syncInterval defines data consistency check interval.
 		syncInterval: 30 * time.Minute,
@@ -258,8 +262,6 @@ func updateCache(kvs map[string]string, cache *lru.Cache) {
 }
 
 func (euc *etcdUserCache) WatchChanges() error {
-	stopCtx, cancel := context.WithCancel(context.Background())
-	euc.cancel = cancel
 	var (
 		syncer *cluster.Syncer
 		err    error
@@ -279,7 +281,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 
 		select {
 		case <-time.After(10 * time.Second):
-		case <-stopCtx.Done():
+		case <-euc.stopCtx.Done():
 			return nil
 		}
 	}
@@ -287,7 +289,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 
 	for {
 		select {
-		case <-stopCtx.Done():
+		case <-euc.stopCtx.Done():
 			return nil
 		case kvs := <-ch:
 			updateCache(kvs, euc.cache)
@@ -297,9 +299,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 }
 
 func (euc *etcdUserCache) Close() {
-	if euc.cancel != nil {
-		euc.cancel()
-	}
+	euc.cancel()
 }
 
 func (euc *etcdUserCache) Lock()   {}
