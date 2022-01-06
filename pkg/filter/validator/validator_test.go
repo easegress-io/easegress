@@ -406,6 +406,10 @@ basicAuth:
 		expectedValid := []bool{true, true, false}
 
 		v := createValidator(yamlSpec, nil, nil)
+		// set shorted syncInterval for test
+		v.basicAuth.authorizedUsersCache = newHtpasswdUserCache(v.basicAuth.spec.UserFile, 150*time.Millisecond)
+		go v.basicAuth.authorizedUsersCache.WatchChanges()
+
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
@@ -421,6 +425,28 @@ basicAuth:
 				}
 			}
 		}
+
+		err = userFile.Truncate(0)
+		check(err)
+		_, err = userFile.Seek(0, 0)
+		check(err)
+		userFile.Write([]byte("")) // no more authorized users
+
+		tryCount := 5
+		for i := 0; i <= tryCount; i++ {
+			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if result == resultInvalid {
+				break // successfully unauthorized
+			}
+			if i == tryCount && result != resultInvalid {
+				t.Errorf("should be unauthorized")
+			}
+		}
+
 		v.Close()
 	})
 	t.Run("credentials from etcd", func(t *testing.T) {

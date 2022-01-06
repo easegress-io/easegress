@@ -54,18 +54,23 @@ type (
 		GetUser(string) (string, bool)
 		WatchChanges() error
 		Close()
+		SetSyncInterval(time.Duration)
 	}
 
 	htpasswdUserCache struct {
 		cache    *lru.Cache
 		userFile string
+
+		syncInterval time.Duration
+		cancel       context.CancelFunc
 	}
 
 	etcdUserCache struct {
 		cache   *lru.Cache
 		cluster cluster.Cluster
 
-		cancel         context.CancelFunc
+		syncInterval time.Duration
+		cancel       context.CancelFunc
 	}
 
 	// BasicAuthValidator defines the Basic Auth validator
@@ -85,7 +90,27 @@ func parseCredentials(creds string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func newHtpasswdUserCache(userFile string) *htpasswdUserCache {
+func readPasswordFile(userFile string) (map[string]string, error) {
+	credentials := make(map[string]string)
+	file, err := os.OpenFile(userFile, os.O_RDONLY, os.ModePerm)
+	if err != nil {
+		return credentials, err
+	}
+	defer file.Close()
+
+	sc := bufio.NewScanner(file)
+	for sc.Scan() {
+		line := sc.Text()
+		userID, password, err := parseCredentials(line)
+		if err != nil {
+			return credentials, err
+		}
+		credentials[userID] = password
+	}
+	return credentials, nil
+}
+
+func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswdUserCache {
 	cache, err := lru.New(256)
 	if err != nil {
 		panic(err)
@@ -93,6 +118,8 @@ func newHtpasswdUserCache(userFile string) *htpasswdUserCache {
 	return &htpasswdUserCache{
 		cache:    cache,
 		userFile: userFile,
+		// Removed authorization or updated passwords are updated according syncInterval.
+		syncInterval: syncInterval,
 	}
 }
 
@@ -101,32 +128,64 @@ func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
 		return val.(string), true
 	}
 
-	file, err := os.OpenFile(huc.userFile, os.O_RDONLY, os.ModePerm)
+	credentials, err := readPasswordFile(huc.userFile)
 	if err != nil {
-		logger.Errorf("open file error: %v", err)
+		logger.Errorf(err.Error())
 		return "", false
 	}
-	defer file.Close()
-	sc := bufio.NewScanner(file)
-	for sc.Scan() {
-		line := sc.Text()
-		userID, password, err := parseCredentials(line)
-		if err != nil {
-			logger.Errorf(err.Error())
-			return "", false
-		}
-		if userID == targetUserID {
-			huc.cache.Add(targetUserID, password)
-			return password, true
-		}
+	if password, ok := credentials[targetUserID]; ok {
+		huc.cache.Add(targetUserID, password)
+		return password, true
 	}
 
 	logger.Errorf("unauthorized")
 	return "", false
 }
 
-func (huc *htpasswdUserCache) WatchChanges() error                { return nil }
-func (huc *htpasswdUserCache) Close()                             {}
+func (huc *htpasswdUserCache) WatchChanges() error {
+	stopCtx, cancel := context.WithCancel(context.Background())
+	huc.cancel = cancel
+
+	initialStat, err := os.Stat(huc.userFile)
+	if err != nil {
+		return err
+	}
+	for {
+		stat, err := os.Stat(huc.userFile)
+		if err != nil {
+			return err
+		}
+		if stat.Size() != initialStat.Size() || stat.ModTime() != initialStat.ModTime() {
+			credentials, err := readPasswordFile(huc.userFile)
+			if err != nil {
+				return err
+			}
+			updateCache(credentials, huc.cache)
+
+			initialStat, err = os.Stat(huc.userFile)
+			if err != nil {
+				return err
+			}
+		}
+		select {
+		case <-time.After(huc.syncInterval):
+			continue
+		case <-stopCtx.Done():
+			return nil
+		}
+	}
+	return nil
+}
+
+func (huc *htpasswdUserCache) Close() {
+	if huc.cancel != nil {
+		huc.cancel()
+	}
+}
+
+func (huc *htpasswdUserCache) SetSyncInterval(interval time.Duration) {
+	huc.syncInterval = interval
+}
 
 func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 	cache, err := lru.New(256)
@@ -134,8 +193,11 @@ func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 		panic(err)
 	}
 	return &etcdUserCache{
-		cache:          cache,
-		cluster:        cluster,
+		cache:   cache,
+		cluster: cluster,
+		// cluster.Syncer updates changes (removed access or updated passwords) immediately.
+		// syncInterval defines data consistency check interval.
+		syncInterval: 30 * time.Minute,
 	}
 }
 
@@ -218,7 +280,13 @@ func (euc *etcdUserCache) WatchChanges() error {
 }
 
 func (euc *etcdUserCache) Close() {
-	euc.cancel()
+	if euc.cancel != nil {
+		euc.cancel()
+	}
+}
+
+func (euc *etcdUserCache) SetSyncInterval(interval time.Duration) {
+	euc.syncInterval = interval
 }
 
 // NewBasicAuthValidator creates a new Basic Auth validator
@@ -231,7 +299,7 @@ func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.
 			cache = newEtcdUserCache(supervisor.Cluster())
 		}
 	} else if spec.UserFile != "" {
-		cache = newHtpasswdUserCache(spec.UserFile)
+		cache = newHtpasswdUserCache(spec.UserFile, 1*time.Minute)
 	} else {
 		logger.Errorf("BasicAuth validator spec unvalid.")
 		return nil
