@@ -50,12 +50,9 @@ type (
 	}
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
-	// When user is deleted from authorized users, user can still access for time period defined
-	// by SetSyncInterval.
 	AuthorizedUsersCache interface {
 		GetUser(string) (string, bool)
 		WatchChanges() error
-		SetSyncInterval(time.Duration)
 		Close()
 	}
 
@@ -68,7 +65,6 @@ type (
 		cache   *lru.Cache
 		cluster cluster.Cluster
 
-		syncerInterval time.Duration
 		cancel         context.CancelFunc
 	}
 
@@ -131,7 +127,6 @@ func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
 
 func (huc *htpasswdUserCache) WatchChanges() error                { return nil }
 func (huc *htpasswdUserCache) Close()                             {}
-func (huc *htpasswdUserCache) SetSyncInterval(time time.Duration) {}
 
 func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 	cache, err := lru.New(256)
@@ -140,7 +135,6 @@ func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
 	}
 	return &etcdUserCache{
 		cache:          cache,
-		syncerInterval: 3 * time.Minute, // it takes 3 minutes to remove user access
 		cluster:        cluster,
 	}
 }
@@ -162,10 +156,6 @@ func (euc *etcdUserCache) GetUser(targetUserID string) (string, bool) {
 
 	euc.cache.Add(targetUserID, *password)
 	return *password, true
-}
-
-func (euc *etcdUserCache) SetSyncInterval(interval time.Duration) {
-	euc.syncerInterval = interval
 }
 
 // updateCache updates the intersection of kvs map and cache and removes other keys from cache.
@@ -198,11 +188,11 @@ func (euc *etcdUserCache) WatchChanges() error {
 	)
 
 	for {
-		syncer, err = euc.cluster.Syncer(euc.syncerInterval)
+		syncer, err = euc.cluster.Syncer(20 * time.Minute)
 		if err != nil {
 			logger.Errorf("failed to create syncer: %v", err)
 		} else if ch, err = syncer.SyncPrefix(credsPrefix); err != nil {
-			logger.Errorf("failed to sync raw prefix: %v", err)
+			logger.Errorf("failed to sync prefix: %v", err)
 			syncer.Close()
 		} else {
 			break

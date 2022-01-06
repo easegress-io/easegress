@@ -413,11 +413,11 @@ basicAuth:
 			result := v.Handle(ctx)
 			if expectedValid[i] {
 				if result == resultInvalid {
-					t.Errorf("the basic auth head should be valid")
+					t.Errorf("should be authorized")
 				}
 			} else {
 				if result != resultInvalid {
-					t.Errorf("the basic auth head should be invalid")
+					t.Errorf("should be unauthorized")
 				}
 			}
 		}
@@ -444,7 +444,6 @@ basicAuth:
 
 		expectedValid := []bool{true, false, true}
 		v := createValidator(yamlSpec, nil, supervisor)
-		v.basicAuth.authorizedUsersCache.SetSyncInterval(1 * time.Second)
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
@@ -452,32 +451,28 @@ basicAuth:
 			result := v.Handle(ctx)
 			if expectedValid[i] {
 				if result == resultInvalid {
-					t.Errorf("the basic auth head should be valid")
+					t.Errorf("should be authorized")
 				}
 			} else {
 				if result != resultInvalid {
-					t.Errorf("the basic auth head should be invalid")
+					t.Errorf("should be unauthorized")
 				}
 			}
 		}
 
 		clusterInstance.Delete("/credentials/" + userIds[0]) // first user is not authorized anymore
-		time.Sleep(1 * time.Second)                          // wait that cache item gets deleted
-
-		expectedValid = []bool{false, false, true}
-		for i := 0; i < 3; i++ {
+		tryCount := 5
+		for i := 0; i <= tryCount; i++ {
+			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
 			ctx, header := prepareCtxAndHeader()
-			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
-			if expectedValid[i] {
-				if result == resultInvalid {
-					t.Errorf("the basic auth head should be valid")
-				}
-			} else {
-				if result != resultInvalid {
-					t.Errorf("the basic auth head should be invalid")
-				}
+			if result == resultInvalid {
+				break // successfully unauthorized
+			}
+			if i == tryCount && result != resultInvalid {
+				t.Errorf("should be unauthorized")
 			}
 		}
 
