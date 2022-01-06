@@ -368,7 +368,7 @@ basicAuth:
 				return httpheader.New(header)
 			}
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
-			header.Set("Authorization", "Bearer "+b64creds)
+			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
 			if expectedValid[i] {
 				if result == resultInvalid {
@@ -411,7 +411,7 @@ basicAuth:
 				return httpheader.New(header)
 			}
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
-			header.Set("Authorization", "Bearer "+b64creds)
+			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
 			if expectedValid[i] {
 				if result == resultInvalid {
