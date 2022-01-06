@@ -54,7 +54,6 @@ type (
 		GetUser(string) (string, bool)
 		WatchChanges() error
 		Close()
-		SetSyncInterval(time.Duration)
 	}
 
 	htpasswdUserCache struct {
@@ -118,7 +117,7 @@ func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswd
 	return &htpasswdUserCache{
 		cache:    cache,
 		userFile: userFile,
-		// Removed authorization or updated passwords are updated according syncInterval.
+		// Removed access or updated passwords are updated according syncInterval.
 		syncInterval: syncInterval,
 	}
 }
@@ -181,10 +180,6 @@ func (huc *htpasswdUserCache) Close() {
 	if huc.cancel != nil {
 		huc.cancel()
 	}
-}
-
-func (huc *htpasswdUserCache) SetSyncInterval(interval time.Duration) {
-	huc.syncInterval = interval
 }
 
 func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
@@ -283,10 +278,6 @@ func (euc *etcdUserCache) Close() {
 	if euc.cancel != nil {
 		euc.cancel()
 	}
-}
-
-func (euc *etcdUserCache) SetSyncInterval(interval time.Duration) {
-	euc.syncInterval = interval
 }
 
 // NewBasicAuthValidator creates a new Basic Auth validator

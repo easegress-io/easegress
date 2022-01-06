@@ -545,7 +545,7 @@ The filter always returns an empty result.
 
 ## Validator
 
-The Validator filter validates requests, forwards valid ones, and rejects invalid ones. Four validation methods (`headers`, `jwt`, `signature`, and `oauth2`) are supported up to now, and these methods can either be used together or alone. When two or more methods are used together, a request needs to pass all of them to be forwarded.
+The Validator filter validates requests, forwards valid ones, and rejects invalid ones. Four validation methods (`headers`, `jwt`, `signature`, `oauth2` and `basicAuth`) are supported up to now, and these methods can either be used together or alone. When two or more methods are used together, a request needs to pass all of them to be forwarded.
 
 Below is an example configuration for the `headers` validation method. Requests which has a header named `Is-Valid` with value `abc` or `goodplan` or matches regular expression `^ok-.+$` are considered to be valid.
 
@@ -590,6 +590,14 @@ oauth2:
     clientId: easegress
     clientSecret: 42620d18-871d-465f-912a-ebcef17ecb82
     insecureTls: false
+```
+
+Here's an example for `basicAuth` validation method which uses [Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html) formatted encrypted password file for validation.
+```yaml
+kind: Validator
+name: basicAuth-validator-example
+basicAuth:
+  userFile: /etc/apache2/.htpasswd
 ```
 
 ### Configuration
