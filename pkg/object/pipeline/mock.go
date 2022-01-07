@@ -194,6 +194,7 @@ func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}
 	}
 }
 
+// MockGetFilter is used to get running filter from pipeline
 func MockGetFilter(p *Pipeline, name string) Filter {
 	for _, f := range p.runningFilters {
 		if f.spec.Name() == name {
