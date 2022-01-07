@@ -30,6 +30,7 @@ const (
 	mqttAPISessionDeletePrefix = "/mqttproxy/%s/sessions"
 )
 
+// PacketType is mqtt packet type
 type PacketType string
 
 const (
