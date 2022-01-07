@@ -31,7 +31,6 @@ type (
 	MQTTContext interface {
 		Context
 		Client() MQTTClient
-		// Backend() MQTTBackend
 		Cancel(error)
 		Canceled() bool
 		Duration() time.Duration
@@ -51,11 +50,6 @@ type (
 		SetEarlyStop()    // set early stop value to true
 		EarlyStop() bool  // if early stop is true, pipeline will skip following filters and return
 	}
-
-	// // MQTTBackend is backend of MQTT proxy
-	// MQTTBackend interface {
-	// 	Publish(target string, data []byte, headers map[string]string) error
-	// }
 
 	// MQTTClient contains client info that send this packet
 	MQTTClient interface {

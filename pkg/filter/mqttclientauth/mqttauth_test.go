@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package authentication
+package mqttclientauth
 
 import (
 	stdcontext "context"
@@ -70,7 +70,7 @@ func TestAuth(t *testing.T) {
 	}
 	fmt.Printf("auth %+v", spec.Auth)
 	filterSpec := defaultFilterSpec(spec)
-	auth := &Authentication{}
+	auth := &MQTTClientAuth{}
 	auth.Init(filterSpec)
 
 	assert.Equal(Kind, auth.Kind())
@@ -79,7 +79,7 @@ func TestAuth(t *testing.T) {
 	assert.Equal(1, len(auth.Results()), "please update this case if add more results")
 	assert.Nil(auth.Status(), "please update this case if return status")
 
-	newAuth := &Authentication{}
+	newAuth := &MQTTClientAuth{}
 	newAuth.Inherit(filterSpec, auth)
 	newAuth.Close()
 }
@@ -94,7 +94,7 @@ func TestAuthMQTTClient(t *testing.T) {
 	}
 
 	filterSpec := defaultFilterSpec(spec)
-	auth := &Authentication{}
+	auth := &MQTTClientAuth{}
 	auth.Init(filterSpec)
 
 	tests := []struct {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package authentication
+package mqttclientauth
 
 import (
 	"crypto/sha256"
@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	// Kind is the kind of Authentication
-	Kind = "Authentication"
+	// Kind is the kind of MQTTClientAuth
+	Kind = "MQTTClientAuth"
 
 	resultAuthFail = "AuthFail"
 )
@@ -39,18 +39,18 @@ const (
 var errAuthFail = errors.New(resultAuthFail)
 
 func init() {
-	pipeline.Register(&Authentication{})
+	pipeline.Register(&MQTTClientAuth{})
 }
 
 type (
-	// Authentication is used to check authentication for MQTT client
-	Authentication struct {
+	// MQTTClientAuth is used to check authentication for MQTT client
+	MQTTClientAuth struct {
 		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		authMap    map[string]string
 	}
 
-	// Spec is spec for Authentication
+	// Spec is spec for MQTTClientAuth
 	Spec struct {
 		Auth []Auth `yaml:"auth" jsonschema:"required"`
 	}
@@ -63,31 +63,31 @@ type (
 	}
 )
 
-var _ pipeline.Filter = (*Authentication)(nil)
-var _ pipeline.MQTTFilter = (*Authentication)(nil)
+var _ pipeline.Filter = (*MQTTClientAuth)(nil)
+var _ pipeline.MQTTFilter = (*MQTTClientAuth)(nil)
 
-// Kind return kind of Authentication
-func (a *Authentication) Kind() string {
+// Kind return kind of MQTTClientAuth
+func (a *MQTTClientAuth) Kind() string {
 	return Kind
 }
 
-// DefaultSpec return default spec of Authentication
-func (a *Authentication) DefaultSpec() interface{} {
+// DefaultSpec return default spec of MQTTClientAuth
+func (a *MQTTClientAuth) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Description return description of Authentication
-func (a *Authentication) Description() string {
+// Description return description of MQTTClientAuth
+func (a *MQTTClientAuth) Description() string {
 	return "Authentication can check MQTT client's username and password"
 }
 
-// Results return possible results of Authentication
-func (a *Authentication) Results() []string {
+// Results return possible results of MQTTClientAuth
+func (a *MQTTClientAuth) Results() []string {
 	return []string{resultAuthFail}
 }
 
-// Init init Authentication
-func (a *Authentication) Init(filterSpec *pipeline.FilterSpec) {
+// Init init MQTTClientAuth
+func (a *MQTTClientAuth) Init(filterSpec *pipeline.FilterSpec) {
 	if filterSpec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
@@ -107,18 +107,18 @@ func (a *Authentication) Init(filterSpec *pipeline.FilterSpec) {
 	}
 }
 
-// Inherit init Authentication based on previous generation
-func (k *Authentication) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+// Inherit init MQTTClientAuth based on previous generation
+func (a *MQTTClientAuth) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
-	k.Init(filterSpec)
+	a.Init(filterSpec)
 }
 
-// Close close Authentication
-func (a *Authentication) Close() {
+// Close close MQTTClientAuth
+func (a *MQTTClientAuth) Close() {
 }
 
-// Status return status of Authentication
-func (a *Authentication) Status() interface{} {
+// Status return status of MQTTClientAuth
+func (a *MQTTClientAuth) Status() interface{} {
 	return nil
 }
 
@@ -127,7 +127,7 @@ func sha256Sum(data []byte) string {
 	return hex.EncodeToString(sha256Bytes[:])
 }
 
-func (a *Authentication) checkAuth(connect *packets.ConnectPacket) error {
+func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) error {
 	if connect.ClientIdentifier == "" {
 		return errAuthFail
 	}
@@ -142,7 +142,7 @@ func (a *Authentication) checkAuth(connect *packets.ConnectPacket) error {
 }
 
 // HandleMQTT handle MQTT context
-func (a *Authentication) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
+func (a *MQTTClientAuth) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	if ctx.PacketType() != context.MQTTConnect {
 		return &context.MQTTResult{}
 	}
