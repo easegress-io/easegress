@@ -35,7 +35,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	_ "github.com/megaease/easegress/pkg/filter/authentication"
+	_ "github.com/megaease/easegress/pkg/filter/mqttclientauth"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -135,7 +135,7 @@ kind: Pipeline
 protocol: MQTT
 filters:
 - name: connect
-  kind: Authentication
+  kind: MQTTClientAuth
   auth:
   - userName: test
     passBase64: %s

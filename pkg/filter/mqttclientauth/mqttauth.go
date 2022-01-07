@@ -52,7 +52,8 @@ type (
 
 	// Spec is spec for MQTTClientAuth
 	Spec struct {
-		Auth []Auth `yaml:"auth" jsonschema:"required"`
+		Auth     []Auth `yaml:"auth" jsonschema:"required"`
+		AuthFile string `yaml:"authFile" jsonschema:"required"`
 	}
 
 	// Auth describes username and password for MQTTProxy
