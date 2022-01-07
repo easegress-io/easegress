@@ -21,6 +21,8 @@ import (
 	stdcontext "context"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -28,6 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -62,13 +65,7 @@ func base64Encode(text string) string {
 
 func TestAuth(t *testing.T) {
 	assert := assert.New(t)
-	spec := &Spec{
-		Auth: []Auth{
-			{UserName: "test", PassBase64: base64Encode("test")},
-			{UserName: "admin", PassBase64: base64Encode("admin")},
-		},
-	}
-	fmt.Printf("auth %+v", spec.Auth)
+	spec := &Spec{}
 	filterSpec := defaultFilterSpec(spec)
 	auth := &MQTTClientAuth{}
 	auth.Init(filterSpec)
@@ -84,13 +81,28 @@ func TestAuth(t *testing.T) {
 	newAuth.Close()
 }
 
-func TestAuthMQTTClient(t *testing.T) {
+func TestAuthFile(t *testing.T) {
+	fileStr := `
+- username: test
+  passBase64: %s
+- username: admin
+  passBase64: %s
+`
+	fileStr = fmt.Sprintf(fileStr, base64Encode("test"), base64Encode("admin"))
+
+	tmpFile, err := ioutil.TempFile(os.TempDir(), "prefix-")
+	require.Nil(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	_, err = tmpFile.Write([]byte(fileStr))
+	require.Nil(t, err)
+
+	err = tmpFile.Close()
+	require.Nil(t, err)
+
 	assert := assert.New(t)
 	spec := &Spec{
-		Auth: []Auth{
-			{UserName: "test", PassBase64: base64Encode("test")},
-			{UserName: "admin", PassBase64: base64Encode("admin")},
-		},
+		AuthFile: tmpFile.Name(),
 	}
 
 	filterSpec := defaultFilterSpec(spec)

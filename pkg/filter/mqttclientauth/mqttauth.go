@@ -22,11 +22,14 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"os"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -51,15 +54,17 @@ type (
 	}
 
 	// Spec is spec for MQTTClientAuth
+	// authFile format:
+	// - username: test
+	//   passBase64: dGVzdA==
 	Spec struct {
-		Auth     []Auth `yaml:"auth" jsonschema:"required"`
 		AuthFile string `yaml:"authFile" jsonschema:"required"`
 	}
 
 	// Auth describes username and password for MQTTProxy
 	// passSha256 make sure customer's password is safe.
 	Auth struct {
-		UserName   string `yaml:"userName" jsonschema:"required"`
+		Username   string `yaml:"username" jsonschema:"required"`
 		PassBase64 string `yaml:"passBase64" jsonschema:"required"`
 	}
 )
@@ -87,6 +92,33 @@ func (a *MQTTClientAuth) Results() []string {
 	return []string{resultAuthFail}
 }
 
+func (a *MQTTClientAuth) loadAuthFromFile(fileName string) []Auth {
+	if fileName == "" {
+		return nil
+	}
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		panic(fmt.Errorf("invalid file name %s", fileName))
+	}
+	auth := []Auth{}
+	err = yaml.Unmarshal(data, &auth)
+	if err != nil {
+		panic(fmt.Errorf("file %s unmarshal failed, %v", fileName, err))
+	}
+	return auth
+}
+
+func (a *MQTTClientAuth) updateAuth(auth []Auth) {
+	for _, auth := range auth {
+		passwd, err := base64.StdEncoding.DecodeString(auth.PassBase64)
+		if err != nil {
+			logger.Errorf("auth with name %v, base64 password %v decode failed: %v", auth.Username, auth.PassBase64, err)
+			continue
+		}
+		a.authMap[auth.Username] = sha256Sum(passwd)
+	}
+}
+
 // Init init MQTTClientAuth
 func (a *MQTTClientAuth) Init(filterSpec *pipeline.FilterSpec) {
 	if filterSpec.Protocol() != context.MQTT {
@@ -95,14 +127,11 @@ func (a *MQTTClientAuth) Init(filterSpec *pipeline.FilterSpec) {
 	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	a.authMap = make(map[string]string)
 
-	for _, auth := range a.spec.Auth {
-		passwd, err := base64.StdEncoding.DecodeString(auth.PassBase64)
-		if err != nil {
-			logger.Errorf("auth with name %v, base64 password %v decode failed: %v", auth.UserName, auth.PassBase64, err)
-			continue
-		}
-		a.authMap[auth.UserName] = sha256Sum(passwd)
+	auth := a.loadAuthFromFile(a.spec.AuthFile)
+	if auth != nil {
+		a.updateAuth(auth)
 	}
+
 	if len(a.authMap) == 0 {
 		logger.Errorf("empty valid authentication for MQTT filter %v", filterSpec.Name())
 	}
