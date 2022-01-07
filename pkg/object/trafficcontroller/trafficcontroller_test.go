@@ -164,7 +164,7 @@ func checkSpec(t *testing.T, superSpec *supervisor.Spec, spec *MockSpec, name, k
 	assert := assert.New(t)
 	assert.Equal(name, superSpec.Name(), msg)
 	assert.Equal(kind, superSpec.Kind(), msg)
-	assert.Equal(protocol, spec.Protocol, msg)
+	assert.Equal(protocol, spec.ProtocolType, msg)
 	assert.Equal(pipeline, spec.Pipeline, msg)
 	assert.Equal(tag, spec.Tag, msg)
 }
