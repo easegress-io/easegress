@@ -21,7 +21,6 @@ import (
 
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filter/apiaggregator"
-	_ "github.com/megaease/easegress/pkg/filter/authentication"
 	_ "github.com/megaease/easegress/pkg/filter/bridge"
 	_ "github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	_ "github.com/megaease/easegress/pkg/filter/connectcontrol"
@@ -30,6 +29,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/kafka"
 	_ "github.com/megaease/easegress/pkg/filter/meshadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/mock"
+	_ "github.com/megaease/easegress/pkg/filter/mqttclientauth"
 	_ "github.com/megaease/easegress/pkg/filter/proxy"
 	_ "github.com/megaease/easegress/pkg/filter/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filter/remotefilter"
