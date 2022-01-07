@@ -19,18 +19,49 @@ package command
 
 import (
 	"bufio"
+	"fmt"
 	"io"
-	"strings"
+	"os"
 
+	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// SpecVisitorFunc executes visition logic
-type SpecVisitorFunc func(*spec)
+// YAMLVisitor walk through multiple YAML documents
+type YAMLVisitor interface {
+	Visit(func(yamlDoc []byte) error) error
+	Close()
+}
 
-// SpecVisitor walk through the document via SpecVisitorFunc
-type SpecVisitor interface {
-	Visit(SpecVisitorFunc)
+type yamlVisitor struct {
+	reader io.Reader
+}
+
+// Visit implements YAMLVisitor
+func (v *yamlVisitor) Visit(fn func(yamlDoc []byte) error) error {
+	r := yaml.NewYAMLReader(bufio.NewReader(v.reader))
+
+	for {
+		data, err := r.Read()
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if len(data) == 0 {
+			continue
+		}
+		if err = fn(data); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Close closes the yamlVisitor
+func (v *yamlVisitor) Close() {
+	if closer, ok := v.reader.(io.Closer); ok {
+		closer.Close()
+	}
 }
 
 type spec struct {
@@ -39,65 +70,71 @@ type spec struct {
 	doc  string
 }
 
+// SpecVisitor walk through multiple specs
+type SpecVisitor interface {
+	Visit(func(*spec) error) error
+	Close()
+}
+
 type specVisitor struct {
-	io.Reader
-}
-
-// NewSpecVisitor returns a spec visitor.
-func NewSpecVisitor(src string) SpecVisitor {
-	return &specVisitor{
-		Reader: strings.NewReader(src),
-	}
-}
-
-type yamlDecoder struct {
-	reader *yaml.YAMLReader
-	doc    string
-}
-
-func newYAMLDecoder(r io.Reader) *yamlDecoder {
-	return &yamlDecoder{
-		reader: yaml.NewYAMLReader(bufio.NewReader(r)),
-	}
-}
-
-// Decode reads a YAML document into bytes and tries to yaml.Unmarshal it.
-func (d *yamlDecoder) Decode(into interface{}) error {
-	bytes, err := d.reader.Read()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	d.doc = string(bytes)
-	if len(bytes) != 0 {
-		err = yaml.Unmarshal(bytes, into)
-	}
-	return err
+	v YAMLVisitor
 }
 
 // Visit implements SpecVisitor
-func (v *specVisitor) Visit(fn SpecVisitorFunc) {
-	d := newYAMLDecoder(v.Reader)
-	var validSpecs []spec
-	for {
-		var s spec
-		if err := d.Decode(&s); err != nil {
-			if err == io.EOF {
-				break
-			} else {
-				ExitWithErrorf("error parsing %s: %v", d.doc, err)
-			}
+func (v *specVisitor) Visit(fn func(*spec) error) error {
+	var specs []spec
+
+	err := v.v.Visit(func(yamlDoc []byte) error {
+		s := spec{}
+		doc := string(yamlDoc)
+
+		err := yaml.Unmarshal(yamlDoc, &s)
+		if err != nil {
+			return fmt.Errorf("error parsing %s: %v", doc, err)
 		}
+
 		if s.Name == "" {
-			ExitWithErrorf("name is empty: %s", d.doc)
+			return fmt.Errorf("name is empty: %s", doc)
 		}
+
 		if s.Kind == "" {
-			ExitWithErrorf("kind is empty: %s", d.doc)
+			return fmt.Errorf("kind is empty: %s", doc)
 		}
-		s.doc = d.doc
-		//TODO can validate spec's Kind here
-		validSpecs = append(validSpecs, s)
+
+		s.doc = doc
+		specs = append(specs, s)
+		return nil
+	})
+
+	if err != nil {
+		ExitWithError(err)
 	}
-	for _, s := range validSpecs {
+
+	for _, s := range specs {
 		fn(&s)
 	}
+
+	return nil
+}
+
+// Close closes the specVisitor
+func (v *specVisitor) Close() {
+	v.v.Close()
+}
+
+func buildYAMLVisitor(yamlFile string, cmd *cobra.Command) YAMLVisitor {
+	var r io.ReadCloser
+	if yamlFile == "" {
+		r = io.NopCloser(os.Stdin)
+	} else if f, err := os.Open(yamlFile); err != nil {
+		ExitWithErrorf("%s failed: %v", cmd.Short, err)
+	} else {
+		r = f
+	}
+	return &yamlVisitor{reader: r}
+}
+
+func buildSpecVisitor(yamlFile string, cmd *cobra.Command) SpecVisitor {
+	v := buildYAMLVisitor(yamlFile, cmd)
+	return &specVisitor{v: v}
 }

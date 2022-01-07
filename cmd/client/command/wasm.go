@@ -85,10 +85,12 @@ func wasmApplyDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
-			visitor.Visit(func(s *spec) {
+			visitor := buildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *spec) error {
 				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(s.doc), cmd)
+				return nil
 			})
+			visitor.Close()
 		},
 	}
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
