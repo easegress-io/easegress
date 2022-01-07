@@ -35,6 +35,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	_ "github.com/megaease/easegress/pkg/filter/authentication"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -48,10 +49,12 @@ func init() {
 	logger.InitNop()
 	pipeline.Register(&pipeline.MockMQTTFilter{})
 	pipeline.Register(&MockKafka{})
+	// pipeline.Register(&authentication.Authentication{})
 }
 
 var (
 	publishPipeline = "publish-pipeline"
+	connectPipeline = "connect-pipeline"
 )
 
 func getMQTTClient(t *testing.T, clientID, userName, password string, cleanSession bool) paho.Client {
@@ -86,16 +89,17 @@ func getMQTTSubscribeHandler(ch chan CheckMsg) paho.MessageHandler {
 }
 
 func getDefaultSpec() *Spec {
-	b64passwd := base64.StdEncoding.EncodeToString([]byte("test"))
 	spec := &Spec{
 		Name:   "test",
 		EGName: "test",
 		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: b64passwd},
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipeline, PacketType: Publish},
+		Rules: []*Rule{
+			{
+				When: &When{
+					PacketType: Publish,
+				},
+				Pipeline: publishPipeline,
+			},
 		},
 	}
 	return spec
@@ -122,6 +126,28 @@ func getBrokerFromSpec(spec *Spec) *Broker {
 func getDefaultBroker() *Broker {
 	spec := getDefaultSpec()
 	return getBrokerFromSpec(spec)
+}
+
+func getConnectPipeline(t *testing.T) *pipeline.Pipeline {
+	yamlStr := `
+name: %s
+kind: Pipeline
+protocol: MQTT
+filters:
+- name: connect
+  kind: Authentication
+  auth:
+  - userName: test
+    passBase64: %s
+`
+	yamlStr = fmt.Sprintf(yamlStr, connectPipeline, base64.StdEncoding.EncodeToString([]byte("test")))
+
+	super := supervisor.NewDefaultMock()
+	superSpec, err := super.NewSpec(yamlStr)
+	require.Nil(t, err)
+	pipe := &pipeline.Pipeline{}
+	pipe.Init(superSpec)
+	return pipe
 }
 
 func getPublishPipeline(t *testing.T) (*pipeline.Pipeline, *MockKafka) {
@@ -179,8 +205,18 @@ func checkSessionStore(broker *Broker, cid, topic string) error {
 }
 
 func TestConnection(t *testing.T) {
-	broker := getDefaultBroker()
+	spec := getDefaultSpec()
+	spec.Rules = append(spec.Rules, &Rule{
+		When: &When{
+			PacketType: Connect,
+		},
+		Pipeline: connectPipeline,
+	})
+	broker := getBrokerFromSpec(spec)
 	defer broker.close()
+
+	pipe := getConnectPipeline(t)
+	defer pipe.Close()
 
 	c1 := getDefaultMQTTClient(t, "test", true)
 	c1.Disconnect(200)
@@ -475,11 +511,7 @@ func TestSpec(t *testing.T) {
 	want := Spec{
 		Port:        1883,
 		BackendType: "Kafka",
-		Auth: []Auth{
-			{"test", "dGVzdA=="},
-			{"admin", "YWRtaW4="},
-		},
-		UseTLS: true,
+		UseTLS:      true,
 		Certificate: []Certificate{
 			{"cert1", "balabala", "keyForbalabala"},
 			{"cert2", "foo", "bar"},
@@ -1222,15 +1254,9 @@ func TestBrokerListen(t *testing.T) {
 		Name:   "test-1",
 		EGName: "test-1",
 		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: "test"},
-		},
 		UseTLS: true,
 		Certificate: []Certificate{
 			{"fake", "abc", "abc"},
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
 	broker := getBrokerFromSpec(spec)
@@ -1243,15 +1269,9 @@ func TestBrokerListen(t *testing.T) {
 		Name:   "test-1",
 		EGName: "test-1",
 		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: base64.StdEncoding.EncodeToString([]byte("test"))},
-		},
 		UseTLS: true,
 		Certificate: []Certificate{
 			{"demo", certPem, keyPem},
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipeline, PacketType: Publish},
 		},
 	}
 	broker = getBrokerFromSpec(spec)
@@ -1269,12 +1289,6 @@ func TestBrokerListen(t *testing.T) {
 		Name:   "test-1",
 		EGName: "test-1",
 		Port:   1883,
-		Auth: []Auth{
-			{UserName: "test", PassBase64: "test"},
-		},
-		Pipelines: []Pipeline{
-			{Name: publishPipeline, PacketType: Publish},
-		},
 	}
 	broker2 := getBrokerFromSpec(spec)
 	if broker2 != nil {
@@ -1472,36 +1486,6 @@ filters:
 		t.Errorf("non auth user should fail %s", token.Error())
 	}
 	client.Disconnect(200)
-}
-
-func TestEmptyAuthAndAuthByPipeline(t *testing.T) {
-	spec := &Spec{
-		Name:   "test",
-		EGName: "test",
-		Port:   1883,
-		Pipelines: []Pipeline{
-			{Name: "connect-pipeline", PacketType: Connect},
-			{Name: "publish-pipeline", PacketType: Publish},
-		},
-	}
-	broker := getBrokerFromSpec(spec)
-	if broker == nil {
-		t.Errorf("broker with empty auth should not be nil when AuthByPipeline is true")
-	}
-	broker.close()
-
-	spec = &Spec{
-		Name:   "test",
-		EGName: "test",
-		Port:   1883,
-		Pipelines: []Pipeline{
-			{Name: publishPipeline, PacketType: Publish},
-		},
-	}
-	broker = getBrokerFromSpec(spec)
-	if broker != nil {
-		t.Errorf("broker with empty auth should be nil when AuthByPipeline is false")
-	}
 }
 
 func TestMaxAllowedConnection(t *testing.T) {

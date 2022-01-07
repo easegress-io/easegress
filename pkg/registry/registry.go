@@ -21,6 +21,7 @@ import (
 
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filter/apiaggregator"
+	_ "github.com/megaease/easegress/pkg/filter/authentication"
 	_ "github.com/megaease/easegress/pkg/filter/bridge"
 	_ "github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	_ "github.com/megaease/easegress/pkg/filter/connectcontrol"

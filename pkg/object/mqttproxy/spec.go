@@ -64,19 +64,24 @@ type (
 		Name                 string        `yaml:"-"`
 		Port                 uint16        `yaml:"port" jsonschema:"required"`
 		BackendType          string        `yaml:"backendType" jsonschema:"required"`
-		Auth                 []Auth        `yaml:"auth" jsonschema:"required"`
 		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
 		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
 		ConnectionLimit      *RateLimit    `yaml:"connectionLimit" jsonschema:"omitempty"`
 		ClientPublishLimit   *RateLimit    `yaml:"clientPublishLimit" jsonschema:"omitempty"`
-		Pipelines            []Pipeline    `yaml:"pipelines" jsonschema:"required"`
+		Rules                []*Rule       `yaml:"rules" jsonschema:"omitempty"`
 	}
 
-	Pipeline struct {
-		Name       string     `yaml:"name" jsonschema:"required"`
-		PacketType PacketType `yaml:"packetType" jsonschema:"required"`
+	// Rule used to route MQTT packets to different pipelines
+	Rule struct {
+		When     *When  `yaml:"when" jsonschema:"omitempty"`
+		Pipeline string `yaml:"pipeline" jsonschema:"omitempty"`
+	}
+
+	// When is used to check if MQTT packet match this pipeline
+	When struct {
+		PacketType PacketType `yaml:"packetType" jsonschema:"omitempty"`
 	}
 
 	// RateLimit describes rate limit for connection or publish.
@@ -94,12 +99,6 @@ type (
 		Name string `yaml:"name" jsonschema:"required"`
 		Cert string `yaml:"cert" jsonschema:"required"`
 		Key  string `yaml:"key" jsonschema:"required"`
-	}
-
-	// Auth describes username and password for MQTTProxy
-	Auth struct {
-		UserName   string `yaml:"userName" jsonschema:"required"`
-		PassBase64 string `yaml:"passBase64" jsonschema:"required"`
 	}
 )
 
