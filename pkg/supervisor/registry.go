@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocol"
 )
 
@@ -69,6 +70,19 @@ type (
 		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
 		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
+
+		// Type return type of object, which can be server type or pipeline type.
+		// this method will be called in rawconfigtrafficcontroller.
+		Type() ObjectType
+
+		// Protocol return protocol of object. If protocol is context.General, then their spec should be able to
+		// check their running protocol.
+		Protocol() context.Protocol
+	}
+
+	// ProtocolObject is a object that return object's running object
+	ProtocolObject interface {
+		Protocol() context.Protocol
 	}
 
 	// TrafficGate is the object in category of TrafficGate.
@@ -97,6 +111,17 @@ type (
 
 	// ObjectCategory is the type to classify all objects.
 	ObjectCategory string
+
+	// ObjectType is the type of object, server or pipeline
+	ObjectType string
+)
+
+const (
+	// ServerType is ObjectType of server
+	ServerType ObjectType = "server"
+
+	// PipelineType is ObjectType of pipeline
+	PipelineType ObjectType = "pipeline"
 )
 
 const (
@@ -148,6 +173,21 @@ func ObjectKinds() []string {
 	return kinds
 }
 
+func checkTrafficObject(obj TrafficObject) error {
+	if obj.Type() != ServerType && obj.Type() != PipelineType {
+		return fmt.Errorf("TrafficObject return wrong type %v, not %s or %s", obj.Type(), ServerType, PipelineType)
+	}
+	if obj.Protocol() == context.General {
+		_, ok := obj.DefaultSpec().(ProtocolObject)
+		if !ok {
+			return fmt.Errorf("TrafficObject return General protocol type should provide Protocol() method for spec to get running protocol")
+		}
+	} else if _, ok := context.ProtocolMap[obj.Protocol()]; !ok {
+		return fmt.Errorf("TrafficObject return unsupported protocol %s", obj.Protocol())
+	}
+	return nil
+}
+
 // Register registers object.
 func Register(o Object) {
 	if o.Kind() == "" {
@@ -161,9 +201,12 @@ func Register(o Object) {
 			panic(fmt.Errorf("%s: doesn't implement interface Controller", o.Kind()))
 		}
 	case CategoryPipeline, CategoryTrafficGate:
-		_, ok := o.(TrafficObject)
+		trafficObject, ok := o.(TrafficObject)
 		if !ok {
 			panic(fmt.Errorf("%s: doesn't implement interface TrafficObject", o.Kind()))
+		}
+		if err := checkTrafficObject(trafficObject); err != nil {
+			panic(fmt.Errorf("%s check failed, %v", o.Kind(), err))
 		}
 	}
 

@@ -134,17 +134,41 @@ func (rctc *RawConfigTrafficController) run() {
 	}
 }
 
+func getTypeAndProtocol(entity *supervisor.ObjectEntity) (supervisor.ObjectType, context.Protocol, error) {
+	trafficObj, ok := entity.Instance().(supervisor.TrafficObject)
+	if !ok {
+		return "", "", fmt.Errorf("%s is not a TrafficObject", entity.Spec().Kind())
+	}
+	protocol := trafficObj.Protocol()
+	if protocol == context.General {
+		objSpec, ok := entity.Spec().ObjectSpec().(supervisor.ProtocolObject)
+		if !ok {
+			return "", "", fmt.Errorf("%s return General protocol, its Spec should provide Protocol() method to get running protocol", entity.Spec().Kind())
+		}
+		protocol = objSpec.Protocol()
+		if _, ok := context.ProtocolMap[protocol]; !ok {
+			return "", "", fmt.Errorf("%s return running protocol of %s, which is not supported now", entity.Spec().Kind(), protocol)
+		}
+	}
+	return trafficObj.Type(), protocol, nil
+}
+
 func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEntityWatcherEvent) {
 	for name, entity := range event.Delete {
 		var err error
 
 		kind := entity.Spec().Kind()
-		switch kind {
-		case httpserver.Kind:
-			err = rctc.tc.DeleteServer(DefaultNamespace, context.HTTP, name)
-		case httppipeline.Kind:
-			err = rctc.tc.DeletePipeline(DefaultNamespace, context.HTTP, name)
-		default:
+		objType, protocol, err := getTypeAndProtocol(entity)
+		if err != nil {
+			logger.Errorf("%s get type and protocol failed, %s", kind, err)
+			continue
+		}
+
+		if objType == supervisor.ServerType {
+			err = rctc.tc.DeleteServer(DefaultNamespace, protocol, name)
+		} else if objType == supervisor.PipelineType {
+			err = rctc.tc.DeletePipeline(DefaultNamespace, protocol, name)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 
@@ -157,12 +181,17 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		var err error
 
 		kind := entity.Spec().Kind()
-		switch kind {
-		case httpserver.Kind:
-			_, err = rctc.tc.CreateServer(DefaultNamespace, context.HTTP, entity)
-		case httppipeline.Kind:
-			_, err = rctc.tc.CreatePipeline(DefaultNamespace, context.HTTP, entity)
-		default:
+		objType, protocol, err := getTypeAndProtocol(entity)
+		if err != nil {
+			logger.Errorf("%s get type and protocol failed, %s", kind, err)
+			continue
+		}
+
+		if objType == supervisor.ServerType {
+			_, err = rctc.tc.CreateServer(DefaultNamespace, protocol, entity)
+		} else if objType == supervisor.PipelineType {
+			_, err = rctc.tc.CreatePipeline(DefaultNamespace, protocol, entity)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 
@@ -174,13 +203,18 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 	for _, entity := range event.Update {
 		var err error
 
-		kind := entity.Instance().Kind()
-		switch kind {
-		case httpserver.Kind:
-			_, err = rctc.tc.UpdateServer(DefaultNamespace, context.HTTP, entity)
-		case httppipeline.Kind:
-			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, context.HTTP, entity)
-		default:
+		kind := entity.Spec().Kind()
+		objType, protocol, err := getTypeAndProtocol(entity)
+		if err != nil {
+			logger.Errorf("%s get type and protocol failed, %s", kind, err)
+			continue
+		}
+
+		if objType == supervisor.ServerType {
+			_, err = rctc.tc.UpdateServer(DefaultNamespace, protocol, entity)
+		} else if objType == supervisor.PipelineType {
+			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, protocol, entity)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 

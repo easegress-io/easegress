@@ -95,6 +95,7 @@ type (
 	}
 )
 
+var _ supervisor.Pipeline = (*HTTPPipeline)(nil)
 var _ protocol.Handler = (*HTTPPipeline)(nil)
 
 func (fs *FilterStat) selfDuration() time.Duration {
@@ -296,6 +297,16 @@ func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxM
 	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	hp.reload(nil /*no previous generation*/)
+}
+
+// Type return type of HTTPPipeline
+func (hp *HTTPPipeline) Type() supervisor.ObjectType {
+	return supervisor.PipelineType
+}
+
+// Protocol return protocol of HTTPPipeline
+func (hp *HTTPPipeline) Protocol() context.Protocol {
+	return context.HTTP
 }
 
 // Inherit inherits previous generation of HTTPPipeline.

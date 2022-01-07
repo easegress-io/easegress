@@ -18,6 +18,7 @@
 package httpserver
 
 import (
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -40,6 +41,8 @@ type (
 		runtime *runtime
 	}
 )
+
+var _ supervisor.TrafficGate = (*HTTPServer)(nil)
 
 // Category returns the category of HTTPServer.
 func (hs *HTTPServer) Category() supervisor.ObjectCategory {
@@ -91,4 +94,14 @@ func (hs *HTTPServer) Status() *supervisor.Status {
 // Close closes HTTPServer.
 func (hs *HTTPServer) Close() {
 	hs.runtime.Close()
+}
+
+// Protocol return protocol of HTTPServer
+func (hs *HTTPServer) Protocol() context.Protocol {
+	return context.HTTP
+}
+
+// Type return ObjectType of HTTPServer
+func (hs *HTTPServer) Type() supervisor.ObjectType {
+	return supervisor.ServerType
 }

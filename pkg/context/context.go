@@ -44,8 +44,14 @@ const (
 
 	// UDP is UDP protocol
 	UDP Protocol = "UDP"
+
+	// General is a special Protocol, which mean object can support multiple protocols.
+	General Protocol = "General"
 )
 
 // Protocols are all the protocols that we support now.
 // Please update this value when add new protocols.
 var Protocols = []Protocol{HTTP, MQTT, TCP, UDP}
+
+// ProtocolMap is a map that contain all protocol types we support
+var ProtocolMap = map[Protocol]struct{}{HTTP: {}, MQTT: {}, TCP: {}, UDP: {}}

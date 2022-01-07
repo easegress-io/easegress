@@ -42,9 +42,13 @@ type MockTrafficObject struct {
 	mapper    protocol.MuxMapper
 }
 type MockSpec struct {
-	Protocol context.Protocol `yaml:"protocol" jsonschema:"required"`
-	Pipeline string           `yaml:"pipeline" jsonschema:"required"`
-	Tag      string           `yaml:"tag" jsonschema:"required"`
+	ProtocolType context.Protocol `yaml:"protocol" jsonschema:"required"`
+	Pipeline     string           `yaml:"pipeline" jsonschema:"required"`
+	Tag          string           `yaml:"tag" jsonschema:"required"`
+}
+
+func (s *MockSpec) Protocol() context.Protocol {
+	return s.ProtocolType
 }
 
 func (obj *MockTrafficObject) DefaultSpec() interface{} { return &MockSpec{} }
@@ -71,6 +75,14 @@ func (obj *MockTrafficObject) Close() {}
 // MockPipeline is a mock pipeline used for test
 type MockPipeline struct {
 	MockTrafficObject
+}
+
+func (p *MockPipeline) Type() supervisor.ObjectType {
+	return supervisor.PipelineType
+}
+
+func (p *MockPipeline) Protocol() context.Protocol {
+	return context.General
 }
 
 const MockPipelineKind = "MockPipeline"
@@ -104,8 +116,16 @@ func (s *MockServer) Kind() string {
 	return MockServerKind
 }
 
+func (s *MockServer) Type() supervisor.ObjectType {
+	return supervisor.ServerType
+}
+
+func (s *MockServer) Protocol() context.Protocol {
+	return context.General
+}
+
 func (s *MockServer) CheckPipeline() error {
-	_, ok := s.mapper.GetHandler(s.spec.Protocol, s.spec.Pipeline)
+	_, ok := s.mapper.GetHandler(s.spec.ProtocolType, s.spec.Pipeline)
 	if !ok {
 		return fmt.Errorf("server %s get pipeline %s failed", s.superSpec.Name(), s.spec.Pipeline)
 	}
