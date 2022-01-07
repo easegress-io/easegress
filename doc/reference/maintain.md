@@ -1,6 +1,6 @@
 # Release steps
 
-These are the steps to release new version of Easegress.
+These are the steps to release a new version of Easegress.
 
 ## Pre-requisites
 
