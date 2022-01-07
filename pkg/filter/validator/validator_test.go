@@ -388,8 +388,11 @@ func TestBasicAuth(t *testing.T) {
 		"userY", "userZ", "nonExistingUser",
 	}
 	passwords := []string{
-		"md5-encrypted-pw-1", "md5-encrypted-pw-2", "md5-encrypted-pw3",
+		sha256Sum([]byte("userpasswordY")),
+		sha256Sum([]byte("userpasswordZ")),
+		sha256Sum([]byte("userpasswordX")),
 	}
+
 	t.Run("credentials from userFile", func(t *testing.T) {
 		userFile, err := os.CreateTemp("", "apache2-htpasswd")
 		check(err)
@@ -404,10 +407,6 @@ basicAuth:
 		expectedValid := []bool{true, true, false}
 
 		v := createValidator(yamlSpec, nil, nil)
-		// set shorted syncInterval for test
-		v.basicAuth.authorizedUsersCache = newHtpasswdUserCache(v.basicAuth.spec.UserFile, 200*time.Millisecond)
-		go v.basicAuth.authorizedUsersCache.WatchChanges()
-
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
@@ -424,32 +423,22 @@ basicAuth:
 			}
 		}
 
-		v.basicAuth.authorizedUsersCache.Lock()
 		err = userFile.Truncate(0)
 		check(err)
 		_, err = userFile.Seek(0, 0)
 		check(err)
 		userFile.Write([]byte("")) // no more authorized users
-		v.basicAuth.authorizedUsersCache.Unlock()
+		v.basicAuth.authorizedUsersCache.Refresh()
 
-		tryCount := 5
-		for i := 0; i <= tryCount; i++ {
-			time.Sleep(300 * time.Millisecond) // wait that cache item gets deleted
-			ctx, header := prepareCtxAndHeader()
-			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
-			header.Set("Authorization", "Basic "+b64creds)
-			result := v.Handle(ctx)
-			if result == resultInvalid {
-				break // successfully unauthorized
-			}
-			if i == tryCount && result != resultInvalid {
-				t.Errorf("should be unauthorized")
-			}
+		ctx, header := prepareCtxAndHeader()
+		b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
+		header.Set("Authorization", "Basic "+b64creds)
+		result := v.Handle(ctx)
+		if result != resultInvalid {
+			t.Errorf("should be unauthorized")
 		}
 
-		v.basicAuth.authorizedUsersCache.Lock()
 		os.Remove(userFile.Name())
-		v.basicAuth.authorizedUsersCache.Unlock()
 		v.Close()
 	})
 	t.Run("credentials from etcd", func(t *testing.T) {
@@ -490,6 +479,7 @@ basicAuth:
 		}
 
 		clusterInstance.Delete("/credentials/" + userIds[0]) // first user is not authorized anymore
+
 		tryCount := 5
 		for i := 0; i <= tryCount; i++ {
 			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted

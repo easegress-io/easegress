@@ -18,9 +18,10 @@
 package validator
 
 import (
-	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/tg123/go-htpasswd"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"
@@ -53,20 +55,20 @@ type (
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
 	AuthorizedUsersCache interface {
-		GetUser(string) (string, bool)
+		Match(string, string) bool
 		WatchChanges() error
+		Refresh() error
 		Close()
-		Lock() // for testing purposes
-		Unlock()
 	}
 
 	htpasswdUserCache struct {
-		cache        *lru.Cache
-		userFile     string
-		fileMutex    sync.RWMutex
-		syncInterval time.Duration
-		stopCtx      context.Context
-		cancel       context.CancelFunc
+		cache          *lru.Cache
+		userFile       string
+		userFileObject *htpasswd.File
+		fileMutex      sync.RWMutex
+		syncInterval   time.Duration
+		stopCtx        context.Context
+		cancel         context.CancelFunc
 	}
 
 	etcdUserCache struct {
@@ -94,24 +96,9 @@ func parseCredentials(creds string) (string, string, error) {
 	return parts[0], parts[1], nil
 }
 
-func readPasswordFile(userFile string) (map[string]string, error) {
-	credentials := make(map[string]string)
-	file, err := os.OpenFile(userFile, os.O_RDONLY, os.ModePerm)
-	if err != nil {
-		return credentials, err
-	}
-	defer file.Close()
-
-	sc := bufio.NewScanner(file)
-	for sc.Scan() {
-		line := sc.Text()
-		userID, password, err := parseCredentials(line)
-		if err != nil {
-			return credentials, err
-		}
-		credentials[userID] = password
-	}
-	return credentials, nil
+func sha256Sum(data []byte) string {
+	sha256Bytes := sha256.Sum256(data)
+	return hex.EncodeToString(sha256Bytes[:])
 }
 
 func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswdUserCache {
@@ -120,35 +107,27 @@ func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswd
 		panic(err)
 	}
 	stopCtx, cancel := context.WithCancel(context.Background())
+	userFileObject, err := htpasswd.New(userFile, htpasswd.DefaultSystems, nil)
+	if err != nil {
+		panic(err)
+	}
 	return &htpasswdUserCache{
-		cache:    cache,
-		userFile: userFile,
-		stopCtx:  stopCtx,
-		cancel:   cancel,
+		cache:          cache,
+		userFile:       userFile,
+		stopCtx:        stopCtx,
+		cancel:         cancel,
+		userFileObject: userFileObject,
 		// Removed access or updated passwords are updated according syncInterval.
 		syncInterval: syncInterval,
 	}
 }
 
-func (huc *htpasswdUserCache) GetUser(targetUserID string) (string, bool) {
-	if val, ok := huc.cache.Get(targetUserID); ok {
-		return val.(string), true
-	}
-
+// Refresh reloads users from userFile.
+func (huc *htpasswdUserCache) Refresh() error {
 	huc.fileMutex.RLock()
-	credentials, err := readPasswordFile(huc.userFile)
+	err := huc.userFileObject.Reload(nil)
 	huc.fileMutex.RUnlock()
-	if err != nil {
-		logger.Errorf(err.Error())
-		return "", false
-	}
-	if password, ok := credentials[targetUserID]; ok {
-		huc.cache.Add(targetUserID, password)
-		return password, true
-	}
-
-	logger.Errorf("unauthorized")
-	return "", false
+	return err
 }
 
 func (huc *htpasswdUserCache) WatchChanges() error {
@@ -169,13 +148,10 @@ func (huc *htpasswdUserCache) WatchChanges() error {
 			return err
 		}
 		if stat.Size() != initialStat.Size() || stat.ModTime() != initialStat.ModTime() {
-			huc.fileMutex.RLock()
-			credentials, err := readPasswordFile(huc.userFile)
-			huc.fileMutex.RUnlock()
+			err := huc.Refresh()
 			if err != nil {
 				return err
 			}
-			updateCache(credentials, huc.cache)
 
 			// reset initial stat and watch for next modification
 			initialStat, err = getFileStat()
@@ -197,12 +173,8 @@ func (huc *htpasswdUserCache) Close() {
 	huc.cancel()
 }
 
-func (huc *htpasswdUserCache) Lock() {
-	huc.fileMutex.Lock()
-}
-
-func (huc *htpasswdUserCache) Unlock() {
-	huc.fileMutex.Unlock()
+func (huc *htpasswdUserCache) Match(username string, password string) bool {
+	return huc.userFileObject.Match(username, password)
 }
 
 func newEtcdUserCache(cluster cluster.Cluster) *etcdUserCache {
@@ -302,8 +274,27 @@ func (euc *etcdUserCache) Close() {
 	euc.cancel()
 }
 
-func (euc *etcdUserCache) Lock()   {}
-func (euc *etcdUserCache) Unlock() {}
+func (euc *etcdUserCache) Refresh() error { return nil }
+
+func (euc *etcdUserCache) Match(targetUserID string, targetPassword string) bool {
+	var password string
+	if val, ok := euc.cache.Get(targetUserID); ok {
+		password = val.(string)
+	} else {
+		result, err := euc.cluster.Get(credsPrefix + targetUserID)
+		if err != nil {
+			logger.Errorf(err.Error())
+			return false
+		}
+		if result == nil {
+			logger.Errorf("unauthorized")
+			return false
+		}
+		password = *result
+		euc.cache.Add(targetUserID, password)
+	}
+	return password == targetPassword
+}
 
 // NewBasicAuthValidator creates a new Basic Auth validator
 func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
@@ -350,12 +341,12 @@ func (bav *BasicAuthValidator) Validate(req httpcontext.HTTPRequest) error {
 		return fmt.Errorf("error occured during base64 decode: %s", err.Error())
 	}
 	credentials := string(credentialBytes)
-	userID, token, err := parseCredentials(credentials)
+	userID, password, err := parseCredentials(credentials)
 	if err != nil {
 		return fmt.Errorf("unauthorized")
 	}
 
-	if expectedToken, ok := bav.authorizedUsersCache.GetUser(userID); ok && expectedToken == token {
+	if bav.authorizedUsersCache.Match(userID, password) {
 		return nil
 	}
 	return fmt.Errorf("unauthorized")
