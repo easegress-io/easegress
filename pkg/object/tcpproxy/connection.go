@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,7 +53,9 @@ type Connection struct {
 	writeBufferChan chan *iobufferpool.StreamBuffer
 
 	mu               sync.Mutex
-	connStopChan     chan struct{} // use for connection close
+	readLoopExit     chan struct{}
+	writeLoopExit    chan struct{}
+	connStopChan     chan struct{} // notify write loop doesn't block on read buffer channel
 	listenerStopChan chan struct{} // notify tcp listener has been closed, just use in read loop
 
 	lastReadDeadlineTime  time.Time
@@ -70,10 +71,12 @@ func NewClientConn(conn net.Conn, listenerStopChan chan struct{}) *Connection {
 		rawConn:          conn,
 		localAddr:        conn.LocalAddr(),
 		remoteAddr:       conn.RemoteAddr(),
+		readLoopExit:     make(chan struct{}),
+		writeLoopExit:    make(chan struct{}),
+		connStopChan:     make(chan struct{}),
 		listenerStopChan: listenerStopChan,
 
 		mu:              sync.Mutex{},
-		connStopChan:    make(chan struct{}),
 		writeBufferChan: make(chan *iobufferpool.StreamBuffer, writeBufSize),
 	}
 }
@@ -138,6 +141,7 @@ func (c *Connection) Write(buf *iobufferpool.StreamBuffer) (err error) {
 
 func (c *Connection) startReadLoop() {
 	defer func() {
+		close(c.readLoopExit)
 		if c.readBuffer != nil {
 			tcpBufferPool.Put(c.readBuffer[:iobufferpool.DefaultBufferReadCapacity])
 		}
@@ -177,27 +181,30 @@ func (c *Connection) startReadLoop() {
 				c.localAddr.String(), c.remoteAddr.String(), err.Error())
 			c.Close(NoFlush, RemoteClose)
 		} else {
-			// it's hard to distinguish errors caused by c.rawConn.Close()
-			if atomic.LoadUint32(&c.closed) == 1 &&
-				strings.Contains(err.Error(), "use of closed network connection") {
-				logger.Debugf("stop read due to close connection, local addr: %s, remote addr: %s, err: %s",
-					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-			} else {
-				logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
-					c.localAddr.String(), c.remoteAddr.String(), err.Error())
-				c.Close(NoFlush, OnReadErrClose)
-			}
+			logger.Errorf("error on read, local addr: %s, remote addr: %s, err: %s",
+				c.localAddr.String(), c.remoteAddr.String(), err.Error())
+			c.Close(NoFlush, OnReadErrClose)
 		}
 		return
 	}
 }
 
 func (c *Connection) startWriteLoop() {
-	var err error
+
+	defer func() {
+		close(c.writeLoopExit)
+	}()
+
 	for {
+		if atomic.LoadUint32(&c.closed) == 1 {
+			logger.Debugf("connection has been closed, exit write loop, local addr: %s, remote addr: %s",
+				c.localAddr.String(), c.remoteAddr.String())
+			return
+		}
+
 		select {
 		case <-c.connStopChan:
-			logger.Debugf("connection exit write loop, local addr: %s, remote addr: %s",
+			logger.Debugf("connection has been closed, exit write loop, local addr: %s, remote addr: %s",
 				c.localAddr.String(), c.remoteAddr.String())
 			return
 		case buf, ok := <-c.writeBufferChan:
@@ -221,18 +228,12 @@ func (c *Connection) startWriteLoop() {
 			}
 		}
 
-		if _, err = c.doWrite(); err == nil {
+		_, err := c.doWrite()
+		if err == nil {
 			continue
 		}
-
 		if te, ok := err.(net.Error); ok && te.Timeout() {
-			if atomic.LoadUint32(&c.closed) == 1 {
-				logger.Debugf("connection has been close, exit write loop, local addr: %s, remote addr: %s",
-					c.localAddr.String(), c.remoteAddr.String())
-			} else {
-				c.Close(NoFlush, OnWriteTimeout)
-			}
-			return
+			continue
 		}
 
 		if err == io.EOF {
@@ -273,14 +274,19 @@ func (c *Connection) Close(ccType CloseType, event ConnectionEvent) {
 		// connection has already closed, so there is no need to execute below code
 		return
 	}
-
-	close(c.connStopChan)
-	_ = c.rawConn.SetDeadline(time.Now()) // notify read/write loop to break
-	logger.Debugf("enter connection close func(%s), local addr: %s, remote addr: %s",
+	logger.Infof("enter connection close func(%s), local addr: %s, remote addr: %s",
 		event, c.localAddr.String(), c.remoteAddr.String())
 
+	_ = c.rawConn.SetDeadline(time.Now()) // notify read/write loop to exit
+	close(c.connStopChan)
 	c.onClose(event)
-	_ = c.rawConn.Close()
+
+	go func() {
+		<-c.readLoopExit
+		<-c.writeLoopExit
+		// wait for read/write loop exit, then close socket(avoid exceptions caused by close operations)
+		_ = c.rawConn.Close()
+	}()
 }
 
 func (c *Connection) doReadIO() (bufLen int, err error) {
@@ -346,12 +352,13 @@ type ServerConnection struct {
 func NewServerConn(connectTimeout uint32, serverAddr net.Addr, listenerStopChan chan struct{}) *ServerConnection {
 	conn := &ServerConnection{
 		Connection: Connection{
-			remoteAddr: serverAddr,
-
+			remoteAddr:      serverAddr,
+			readLoopExit:    make(chan struct{}),
+			writeLoopExit:   make(chan struct{}),
+			connStopChan:    make(chan struct{}),
 			writeBufferChan: make(chan *iobufferpool.StreamBuffer, writeBufSize),
 
 			mu:               sync.Mutex{},
-			connStopChan:     make(chan struct{}),
 			listenerStopChan: listenerStopChan,
 		},
 		connectTimeout: time.Duration(connectTimeout) * time.Millisecond,
