@@ -135,12 +135,11 @@ kind: Pipeline
 protocol: MQTT
 filters:
 - name: connect
-  kind: MQTTClientAuth
-  auth:
-  - userName: test
-    passBase64: %s
+  kind: MockMQTTFilter
+  userName: test
+  password: test
 `
-	yamlStr = fmt.Sprintf(yamlStr, connectPipeline, base64.StdEncoding.EncodeToString([]byte("test")))
+	yamlStr = fmt.Sprintf(yamlStr, connectPipeline)
 
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
