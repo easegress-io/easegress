@@ -18,6 +18,7 @@
 package validator
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -194,7 +195,7 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdYamlFormat *EtcdYamlFormatSpe
 	passwordKey := etcdYamlFormat.PasswordKey
 	pwReader, err := mapToReader(kvs, passwordKey)
 	if err != nil {
-		panic(err)
+		logger.Errorf(err.Error())
 	}
 	userFileObject, err := htpasswd.NewFromReader(pwReader, htpasswd.DefaultSystems, nil)
 	if err != nil {
@@ -214,9 +215,17 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdYamlFormat *EtcdYamlFormatSpe
 }
 
 func parseYamlPW(entry string, key string) (string, bool) {
+	ok := false
+	value := ""
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("Could not marshal credentials. Ensure that credentials are valid yaml.")
+			ok = false
+		}
+	}()
 	credentials := make(map[string]string)
 	yamltool.Unmarshal([]byte(entry), &credentials)
-	value, ok := credentials[key]
+	value, ok = credentials[key]
 	return value, ok
 }
 
@@ -225,7 +234,8 @@ func mapToReader(kvs map[string]string, yamlKey string) (io.Reader, error) {
 	for key, yaml := range kvs {
 		pw, ok := parseYamlPW(yaml, yamlKey)
 		if !ok {
-			return nil, fmt.Errorf("parsing pw updates failed")
+			return bytes.NewReader([]byte("")),
+				fmt.Errorf("Parsing password updates failed. Make sure that '" + yamlKey + "' is a valid yaml entry.")
 		}
 		username := strings.TrimPrefix(key, credsPrefix)
 		pwStrSlice = append(pwStrSlice, username+":"+pw)
@@ -265,11 +275,11 @@ func (euc *etcdUserCache) WatchChanges() error {
 		case <-euc.stopCtx.Done():
 			return nil
 		case kvs := <-ch:
-			reader, err := mapToReader(kvs, euc.passwordKey)
+			pwReader, err := mapToReader(kvs, euc.passwordKey)
 			if err != nil {
 				logger.Errorf(err.Error())
 			}
-			euc.userFileObject.ReloadFromReader(reader, nil)
+			euc.userFileObject.ReloadFromReader(pwReader, nil)
 		}
 	}
 	return nil
