@@ -29,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/phayes/freeport"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
@@ -304,40 +303,6 @@ signature:
 	}
 }
 
-func TestBasicAuthUpdateCache(t *testing.T) {
-	kvs1 := make(map[string]string)
-	cache, _ := lru.New(16)
-	for i := 0; i < 30; i++ {
-		kvs1[fmt.Sprintf("u%d", i)] = fmt.Sprintf("md5-%d", i)
-	}
-	updateCache(kvs1, cache) // does nothing
-	if cache.Len() != 0 {
-		t.Errorf("cache should not be modified")
-	}
-
-	cache.Add("u0", "md5-0")     // present in kvs1
-	cache.Add("u743", "md5-743") // not present in kvs1
-	cache.Add("u744", "md5-744") // not present in kvs1
-
-	if cache.Len() != 3 {
-		t.Errorf("cache should have 3 items")
-	}
-	updateCache(kvs1, cache) // removes u743 and u744
-	if cache.Len() != 1 {
-		t.Errorf("cache should have 1 item")
-	}
-
-	cache.Add("u7", "md5-old-password") // present in kvs1 but different value
-	updateCache(kvs1, cache)            // updates u7
-	if val, ok := cache.Get("u7"); ok {
-		if val.(string) != "md5-7" {
-			t.Errorf("cache value should be updated")
-		}
-	} else {
-		t.Errorf("cache should contain u7")
-	}
-}
-
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -388,9 +353,15 @@ func TestBasicAuth(t *testing.T) {
 		"userY", "userZ", "nonExistingUser",
 	}
 	passwords := []string{
-		sha256Sum([]byte("userpasswordY")),
-		sha256Sum([]byte("userpasswordZ")),
-		sha256Sum([]byte("userpasswordX")),
+		"userpasswordY", "userpasswordZ", "userpasswordX",
+	}
+	encrypt := func(pw string) string {
+		encPw, err := bcryptHash([]byte(pw))
+		check(err)
+		return encPw
+	}
+	encryptedPasswords := []string{
+		encrypt("userpasswordY"), encrypt("userpasswordZ"), encrypt("userpasswordX"),
 	}
 
 	t.Run("credentials from userFile", func(t *testing.T) {
@@ -403,7 +374,8 @@ name: validator
 basicAuth:
   userFile: ` + userFile.Name()
 
-		userFile.Write([]byte(userIds[0] + ":" + passwords[0] + "\n" + userIds[1] + ":" + passwords[1]))
+		userFile.Write(
+			[]byte(userIds[0] + ":" + encryptedPasswords[0] + "\n" + userIds[1] + ":" + encryptedPasswords[1]))
 		expectedValid := []bool{true, true, false}
 
 		v := createValidator(yamlSpec, nil, nil)
@@ -447,8 +419,11 @@ basicAuth:
 		defer os.RemoveAll(etcdDirName)
 		clusterInstance := createCluster(etcdDirName)
 
-		clusterInstance.Put("/credentials/"+userIds[0], passwords[0])
-		clusterInstance.Put("/credentials/"+userIds[2], passwords[2])
+		pwToYaml := func(pw string) string {
+			return fmt.Sprintf("password: %s", pw)
+		}
+		clusterInstance.Put("/credentials/"+userIds[0], pwToYaml(encryptedPasswords[0]))
+		clusterInstance.Put("/credentials/"+userIds[2], pwToYaml(encryptedPasswords[2]))
 
 		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
@@ -458,7 +433,8 @@ basicAuth:
 kind: Validator
 name: validator
 basicAuth:
-  useEtcd: true`
+  etcdYamlFormat:
+    passwordKey: "password"`
 
 		expectedValid := []bool{true, false, true}
 		v := createValidator(yamlSpec, nil, supervisor)
