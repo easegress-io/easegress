@@ -433,7 +433,8 @@ basicAuth:
 kind: Validator
 name: validator
 basicAuth:
-  etcdYamlFormat:
+  etcd:
+    prefix: /credentials/
     passwordKey: "password"`
 
 		expectedValid := []bool{true, false, true}

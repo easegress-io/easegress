@@ -41,11 +41,13 @@ import (
 )
 
 type (
-	// EtcdYamlFormatSpec defines which yaml entry is the password. For example spec
+	// EtcdSpec defines etcd prefix and which yaml entry is the password. For example spec
+	//   prefix: "/creds/"
 	//   passwordKey: "pw"
-	// expects following yaml
+	// expects the yaml to be stored with key /creds/{username} in following yaml
 	//  pw: {encrypted password}
-	EtcdYamlFormatSpec struct {
+	EtcdSpec struct {
+		Prefix      string `yaml:"prefix" jsonschema:"onitempty"`
 		PasswordKey string `yaml:"passwordKey" jsonschema:"omitempty"`
 	}
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
@@ -57,8 +59,8 @@ type (
 		UserFile string `yaml:"userFile" jsonschema:"omitempty"`
 		// When etcdYamlFormat is specified, verify user credentials from etcd. Etcd stores them:
 		// key: /credentials/{username}
-		// value: {yaml string in format of etcdYamlFormat}
-		EtcdYamlFormat *EtcdYamlFormatSpec `yaml:"etcdYamlFormat" jsonschema:"omitempty"`
+		// value: {yaml string in format of etcd}
+		Etcd *EtcdSpec `yaml:"etcd" jsonschema:"omitempty"`
 	}
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
@@ -81,6 +83,7 @@ type (
 	etcdUserCache struct {
 		userFileObject *htpasswd.File
 		cluster        cluster.Cluster
+		prefix         string
 		passwordKey    string
 		syncInterval   time.Duration
 		stopCtx        context.Context
@@ -180,13 +183,16 @@ func (huc *htpasswdUserCache) Match(username string, password string) bool {
 	return huc.userFileObject.Match(username, password)
 }
 
-func newEtcdUserCache(cluster cluster.Cluster, etcdYamlFormat *EtcdYamlFormatSpec) *etcdUserCache {
-	kvs, err := cluster.GetPrefix(credsPrefix)
+func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCache {
+	prefix := etcdConfig.Prefix
+	if prefix == "" {
+		prefix = "/custom-data/credentials/"
+	}
+	kvs, err := cluster.GetPrefix(prefix)
 	if err != nil {
 		panic(err)
 	}
-	passwordKey := etcdYamlFormat.PasswordKey
-	pwReader, err := mapToReader(kvs, passwordKey)
+	pwReader, err := mapToReader(kvs, etcdConfig.PasswordKey, prefix)
 	if err != nil {
 		logger.Errorf(err.Error())
 	}
@@ -198,7 +204,8 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdYamlFormat *EtcdYamlFormatSpe
 	return &etcdUserCache{
 		userFileObject: userFileObject,
 		cluster:        cluster,
-		passwordKey:    passwordKey,
+		prefix:         prefix,
+		passwordKey:    etcdConfig.PasswordKey,
 		cancel:         cancel,
 		stopCtx:        stopCtx,
 		// cluster.Syncer updates changes (removed access or updated passwords) immediately.
@@ -222,7 +229,7 @@ func parseYamlPW(entry string, key string) (string, bool) {
 	return value.(string), ok
 }
 
-func mapToReader(kvs map[string]string, yamlKey string) (io.Reader, error) {
+func mapToReader(kvs map[string]string, yamlKey string, prefix string) (io.Reader, error) {
 	pwStrSlice := make([]string, 0, len(kvs))
 	for key, yaml := range kvs {
 		pw, ok := parseYamlPW(yaml, yamlKey)
@@ -230,7 +237,7 @@ func mapToReader(kvs map[string]string, yamlKey string) (io.Reader, error) {
 			return bytes.NewReader([]byte("")),
 				fmt.Errorf("Parsing password updates failed. Make sure that '" + yamlKey + "' is a valid yaml entry.")
 		}
-		username := strings.TrimPrefix(key, credsPrefix)
+		username := strings.TrimPrefix(key, prefix)
 		pwStrSlice = append(pwStrSlice, username+":"+pw)
 	}
 	stringData := strings.Join(pwStrSlice, "\n")
@@ -268,7 +275,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 		case <-euc.stopCtx.Done():
 			return nil
 		case kvs := <-ch:
-			pwReader, err := mapToReader(kvs, euc.passwordKey)
+			pwReader, err := mapToReader(kvs, euc.passwordKey, euc.prefix)
 			if err != nil {
 				logger.Errorf(err.Error())
 			}
@@ -291,11 +298,11 @@ func (euc *etcdUserCache) Match(username string, password string) bool {
 // NewBasicAuthValidator creates a new Basic Auth validator
 func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
 	var cache AuthorizedUsersCache
-	if spec.EtcdYamlFormat != nil {
+	if spec.Etcd != nil {
 		if supervisor == nil || supervisor.Cluster() == nil {
 			logger.Errorf("BasicAuth validator : failed to read data from etcd")
 		} else {
-			cache = newEtcdUserCache(supervisor.Cluster(), spec.EtcdYamlFormat)
+			cache = newEtcdUserCache(supervisor.Cluster(), spec.Etcd)
 		}
 	} else if spec.UserFile != "" {
 		cache = newHtpasswdUserCache(spec.UserFile, 1*time.Minute)
