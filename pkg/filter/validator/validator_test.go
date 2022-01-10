@@ -455,6 +455,14 @@ basicAuth:
 		}
 
 		clusterInstance.Delete("/credentials/" + userIds[0]) // first user is not authorized anymore
+		clusterInstance.Put("/credentials/doge",
+			`
+randomEntry1: 21
+nestedEntry:
+  key1: val1
+password: doge
+lastEntry: "byebye"
+`)
 
 		tryCount := 5
 		for i := 0; i <= tryCount; i++ {
@@ -469,6 +477,14 @@ basicAuth:
 			if i == tryCount && result != resultInvalid {
 				t.Errorf("should be unauthorized")
 			}
+		}
+
+		ctx, header := prepareCtxAndHeader()
+		b64creds := base64.StdEncoding.EncodeToString([]byte("doge:doge"))
+		header.Set("Authorization", "Basic "+b64creds)
+		result := v.Handle(ctx)
+		if result == resultInvalid {
+			t.Errorf("should be authorized")
 		}
 
 		v.Close()

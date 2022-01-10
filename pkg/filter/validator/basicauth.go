@@ -20,9 +20,7 @@ package validator
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -104,11 +102,6 @@ func parseCredentials(creds string) (string, string, error) {
 		return "", "", fmt.Errorf("bad format")
 	}
 	return parts[0], parts[1], nil
-}
-
-func sha256Sum(data []byte) string {
-	sha256Bytes := sha256.Sum256(data)
-	return hex.EncodeToString(sha256Bytes[:])
 }
 
 func bcryptHash(data []byte) (string, error) {
@@ -216,17 +209,17 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdYamlFormat *EtcdYamlFormatSpe
 
 func parseYamlPW(entry string, key string) (string, bool) {
 	ok := false
-	value := ""
+	var value interface{}
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("Could not marshal credentials. Ensure that credentials are valid yaml.")
 			ok = false
 		}
 	}()
-	credentials := make(map[string]string)
+	credentials := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(entry), &credentials)
 	value, ok = credentials[key]
-	return value, ok
+	return value.(string), ok
 }
 
 func mapToReader(kvs map[string]string, yamlKey string) (io.Reader, error) {
@@ -252,7 +245,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 	)
 
 	for {
-		syncer, err = euc.cluster.Syncer(20 * time.Minute)
+		syncer, err = euc.cluster.Syncer(euc.syncInterval)
 		if err != nil {
 			logger.Errorf("failed to create syncer: %v", err)
 		} else if ch, err = syncer.SyncPrefix(credsPrefix); err != nil {
