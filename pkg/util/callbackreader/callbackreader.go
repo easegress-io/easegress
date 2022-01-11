@@ -51,6 +51,10 @@ func New(r io.Reader) *CallbackReader {
 }
 
 func (cr *CallbackReader) Read(p []byte) (int, error) {
+	if cr.reader == nil {
+		return 0, io.EOF
+	}
+
 	cr.num++
 
 	for _, fn := range cr.beforeFuncs {
