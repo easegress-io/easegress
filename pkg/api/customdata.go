@@ -42,9 +42,9 @@ type (
 	}
 )
 
-// ID returns the 'id' field of the custom data
-func (cd CustomData) ID() string {
-	if v, ok := cd["id"].(string); ok {
+// Key returns the 'key' field of the custom data
+func (cd CustomData) Key() string {
+	if v, ok := cd["key"].(string); ok {
 		return v
 	}
 	return ""
@@ -63,7 +63,7 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Handler: s.updateCustomData,
 		},
 		{
-			Path:    CustomDataPrefix + "/{id}",
+			Path:    CustomDataPrefix + "/{key}",
 			Method:  http.MethodGet,
 			Handler: s.getCustomData,
 		},
@@ -115,14 +115,14 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 
 	err = s.cluster.STM(func(stm concurrency.STM) error {
 		if !cr.Rebuild {
-			for _, id := range cr.Delete {
-				key := s.cluster.Layout().CustomDataItem(kind, id)
+			for _, key := range cr.Delete {
+				key = s.cluster.Layout().CustomDataItem(kind, key)
 				stm.Del(key)
 			}
 		}
 		for _, v := range cr.List {
-			id := v.ID()
-			key := s.cluster.Layout().CustomDataItem(kind, id)
+			key := v.Key()
+			key = s.cluster.Layout().CustomDataItem(kind, key)
 			data, err := yaml.Marshal(v)
 			if err != nil {
 				return err
@@ -138,9 +138,9 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
-	id := chi.URLParam(r, "id")
+	key := chi.URLParam(r, "key")
 
-	key := s.cluster.Layout().CustomDataItem(kind, id)
+	key = s.cluster.Layout().CustomDataItem(kind, key)
 	kv, err := s.cluster.GetRaw(key)
 	if err != nil {
 		ClusterPanic(err)
