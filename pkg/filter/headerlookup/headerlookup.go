@@ -108,7 +108,9 @@ func (hl *HeaderLookup) Results() []string {
 // Init initializes HeaderLookup.
 func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
 	hl.filterSpec, hl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	hl.cluster = filterSpec.Super().Cluster()
+	if filterSpec.Super() != nil && filterSpec.Super().Cluster() != nil {
+		hl.cluster = filterSpec.Super().Cluster()
+	}
 }
 
 // Inherit inherits previous generation of HeaderLookup.
@@ -154,6 +156,11 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 
 // Handle retrieves header values and sets request headers.
 func (hl *HeaderLookup) Handle(ctx context.HTTPContext) string {
+	result := hl.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
 	header := ctx.Request().Header()
 	headerVal := header.Get(hl.spec.HeaderKey)
 	if headerVal == "" {
@@ -165,7 +172,6 @@ func (hl *HeaderLookup) Handle(ctx context.HTTPContext) string {
 		logger.Errorf(err.Error())
 		return ""
 	}
-	fmt.Println(len(headersToAdd))
 	for hk, hv := range headersToAdd {
 		header.Set(hk, hv)
 	}
