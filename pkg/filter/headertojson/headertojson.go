@@ -19,10 +19,10 @@ package headertojson
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"net/http"
 
+	json "github.com/goccy/go-json"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 )
