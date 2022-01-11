@@ -489,6 +489,9 @@ lastEntry: "byebye"
 		if result == resultInvalid {
 			t.Errorf("should be authorized")
 		}
+		if header.Get("X-AUTH-USER") != "doge" {
+			t.Errorf("x-auth-user header not set")
+		}
 
 		v.Close()
 		wg := &sync.WaitGroup{}

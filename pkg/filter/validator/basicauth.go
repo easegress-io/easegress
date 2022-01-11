@@ -360,6 +360,7 @@ func (bav *BasicAuthValidator) Validate(req httpcontext.HTTPRequest) error {
 	}
 
 	if bav.authorizedUsersCache.Match(userID, password) {
+		req.Header().Set("X-AUTH-USER", userID)
 		return nil
 	}
 	return fmt.Errorf("unauthorized")
