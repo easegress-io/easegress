@@ -29,14 +29,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/phayes/freeport"
-
 	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/env"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
@@ -309,36 +305,6 @@ func check(e error) {
 	}
 }
 
-func createCluster(tempDir string) cluster.Cluster {
-	ports, err := freeport.GetFreePorts(3)
-	check(err)
-	name := fmt.Sprintf("test-member-x")
-	opt := option.New()
-	opt.Name = name
-	opt.ClusterName = "test-cluster"
-	opt.ClusterRole = "primary"
-	opt.ClusterRequestTimeout = "10s"
-	opt.Cluster.ListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
-	opt.Cluster.AdvertiseClientURLs = opt.Cluster.ListenClientURLs
-	opt.Cluster.ListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
-	opt.Cluster.InitialAdvertisePeerURLs = opt.Cluster.ListenPeerURLs
-	opt.Cluster.InitialCluster = make(map[string]string)
-	opt.Cluster.InitialCluster[name] = opt.Cluster.InitialAdvertisePeerURLs[0]
-	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
-	opt.DataDir = fmt.Sprintf("%s/data", tempDir)
-	opt.LogDir = fmt.Sprintf("%s/log", tempDir)
-	opt.MemberDir = fmt.Sprintf("%s/member", tempDir)
-
-	_, err = opt.Parse()
-	check(err)
-
-	env.InitServerDir(opt)
-
-	clusterInstance, err := cluster.New(opt)
-	check(err)
-	return clusterInstance
-}
-
 func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
 	ctx := &contexttest.MockedHTTPContext{}
 	header := http.Header{}
@@ -417,7 +383,7 @@ basicAuth:
 		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
 		check(err)
 		defer os.RemoveAll(etcdDirName)
-		clusterInstance := createCluster(etcdDirName)
+		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
 
 		pwToYaml := func(user string, pw string) string {
 			return fmt.Sprintf("username: %s\npassword: %s", user, pw)
