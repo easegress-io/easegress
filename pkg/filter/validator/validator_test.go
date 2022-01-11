@@ -419,11 +419,11 @@ basicAuth:
 		defer os.RemoveAll(etcdDirName)
 		clusterInstance := createCluster(etcdDirName)
 
-		pwToYaml := func(pw string) string {
-			return fmt.Sprintf("password: %s", pw)
+		pwToYaml := func(user string, pw string) string {
+			return fmt.Sprintf("username: %s\npassword: %s", user, pw)
 		}
-		clusterInstance.Put("/credentials/"+userIds[0], pwToYaml(encryptedPasswords[0]))
-		clusterInstance.Put("/credentials/"+userIds[2], pwToYaml(encryptedPasswords[2]))
+		clusterInstance.Put("/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
+		clusterInstance.Put("/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
 
 		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
@@ -435,6 +435,7 @@ name: validator
 basicAuth:
   etcd:
     prefix: /credentials/
+    usernameKey: "username"
     passwordKey: "password"`
 
 		expectedValid := []bool{true, false, true}
@@ -455,13 +456,14 @@ basicAuth:
 			}
 		}
 
-		clusterInstance.Delete("/credentials/" + userIds[0]) // first user is not authorized anymore
+		clusterInstance.Delete("/credentials/1") // first user is not authorized anymore
 		clusterInstance.Put("/credentials/doge",
 			`
 randomEntry1: 21
 nestedEntry:
   key1: val1
 password: doge
+username: doge
 lastEntry: "byebye"
 `)
 

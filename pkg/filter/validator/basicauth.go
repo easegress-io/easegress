@@ -41,13 +41,16 @@ import (
 )
 
 type (
-	// EtcdSpec defines etcd prefix and which yaml entry is the password. For example spec
+	// EtcdSpec defines etcd prefix and which yaml entries are the username and password. For example spec
 	//   prefix: "/creds/"
+	//   usernameKey: "user"
 	//   passwordKey: "pw"
-	// expects the yaml to be stored with key /creds/{username} in following yaml
-	//  pw: {encrypted password}
+	// expects the yaml to be stored with key /creds/{id} in following yaml (extra keys are allowed)
+	//   user: doge
+	//   pw: {encrypted password}
 	EtcdSpec struct {
 		Prefix      string `yaml:"prefix" jsonschema:"onitempty"`
+		UsernameKey string `yaml:"usernameKey" jsonschema:"omitempty"`
 		PasswordKey string `yaml:"passwordKey" jsonschema:"omitempty"`
 	}
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
@@ -84,6 +87,7 @@ type (
 		userFileObject *htpasswd.File
 		cluster        cluster.Cluster
 		prefix         string
+		usernameKey    string
 		passwordKey    string
 		syncInterval   time.Duration
 		stopCtx        context.Context
@@ -192,7 +196,7 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCa
 	if err != nil {
 		panic(err)
 	}
-	pwReader, err := mapToReader(kvs, etcdConfig.PasswordKey, prefix)
+	pwReader, err := kvsToReader(kvs, etcdConfig.UsernameKey, etcdConfig.PasswordKey)
 	if err != nil {
 		logger.Errorf(err.Error())
 	}
@@ -205,6 +209,7 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCa
 		userFileObject: userFileObject,
 		cluster:        cluster,
 		prefix:         prefix,
+		usernameKey:    etcdConfig.UsernameKey,
 		passwordKey:    etcdConfig.PasswordKey,
 		cancel:         cancel,
 		stopCtx:        stopCtx,
@@ -214,31 +219,40 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCa
 	}
 }
 
-func parseYamlPW(entry string, key string) (string, bool) {
-	ok := false
-	var value interface{}
+func parseYamlCreds(entry string) (map[string]interface{}, error) {
+	var err error
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("Could not marshal credentials. Ensure that credentials are valid yaml.")
-			ok = false
+			err = fmt.Errorf("could not marshal credentials, ensure that credentials are valid yaml")
 		}
 	}()
 	credentials := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(entry), &credentials)
-	value, ok = credentials[key]
-	return value.(string), ok
+	return credentials, err
 }
 
-func mapToReader(kvs map[string]string, yamlKey string, prefix string) (io.Reader, error) {
+func kvsToReader(kvs map[string]string, usernameKey string, passwordKey string) (io.Reader, error) {
+	reader := bytes.NewReader([]byte(""))
 	pwStrSlice := make([]string, 0, len(kvs))
-	for key, yaml := range kvs {
-		pw, ok := parseYamlPW(yaml, yamlKey)
-		if !ok {
-			return bytes.NewReader([]byte("")),
-				fmt.Errorf("Parsing password updates failed. Make sure that '" + yamlKey + "' is a valid yaml entry.")
+	for _, yaml := range kvs {
+		credentials, err := parseYamlCreds(yaml)
+		if err != nil {
+			return reader, err
 		}
-		username := strings.TrimPrefix(key, prefix)
-		pwStrSlice = append(pwStrSlice, username+":"+pw)
+		var ok bool
+		username, ok := credentials[usernameKey]
+		if !ok {
+			return reader,
+				fmt.Errorf("Parsing password updates failed. Make sure that '" +
+					usernameKey + "' is a valid yaml entry.")
+		}
+		password, ok := credentials[passwordKey]
+		if !ok {
+			return reader,
+				fmt.Errorf("Parsing password updates failed. Make sure that '" +
+					passwordKey + "' is a valid yaml entry.")
+		}
+		pwStrSlice = append(pwStrSlice, username.(string)+":"+password.(string))
 	}
 	stringData := strings.Join(pwStrSlice, "\n")
 	return strings.NewReader(stringData), nil
@@ -275,7 +289,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 		case <-euc.stopCtx.Done():
 			return nil
 		case kvs := <-ch:
-			pwReader, err := mapToReader(kvs, euc.passwordKey, euc.prefix)
+			pwReader, err := kvsToReader(kvs, euc.usernameKey, euc.passwordKey)
 			if err != nil {
 				logger.Errorf(err.Error())
 			}
