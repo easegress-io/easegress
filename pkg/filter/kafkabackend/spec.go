@@ -20,7 +20,18 @@ package kafka
 type (
 	// Spec is spec of Kafka
 	Spec struct {
-		Backend        []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
-		TopicHeaderKey string   `yaml:"topicHeaderKey" jsonschema:"required,uniqueItems=true"`
+		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
+		Topic   *Topic   `yaml:"topic" jsonschema:"required"`
+	}
+
+	// Topic defined ways to get Kafka topic
+	Topic struct {
+		Default string   `yaml:"default" jsonschema:"required"`
+		Dynamic *Dynamic `yaml:"dynamic" jsonschema:"omitempty"`
+	}
+
+	// Dynamic defines dynamic ways to get Kafka topic from http request
+	Dynamic struct {
+		Header string `yaml:"header" jsonschema:"omitempty"`
 	}
 )

@@ -57,15 +57,22 @@ func TestKafka(t *testing.T) {
 	assert := assert.New(t)
 	kafka := Kafka{
 		spec: &Spec{
-			TopicHeaderKey: "Kafka-Topic",
+			Topic: &Topic{
+				Default: "default-topic",
+				Dynamic: &Dynamic{
+					Header: "x-kafka-topic",
+				},
+			},
 		},
 		producer: newMockAsyncProducer(),
 		done:     make(chan struct{}),
 	}
+	kafka.setHeader(kafka.spec)
 
+	// test header
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
-	req.Header.Add("Kafka-Topic", "kafka")
+	req.Header.Add("x-kafka-topic", "kafka")
 	w := httptest.NewRecorder()
 	ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 
@@ -73,9 +80,25 @@ func TestKafka(t *testing.T) {
 	assert.Equal("", ans)
 
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, "kafka")
+	assert.Equal("kafka", msg.Topic)
 	assert.Equal(0, len(msg.Headers))
 	value, err := msg.Value.Encode()
+	assert.Nil(err)
+	assert.Equal("text", string(value))
+
+	// test default
+	req, err = http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
+	assert.Nil(err)
+	w = httptest.NewRecorder()
+	ctx = context.New(w, req, tracing.NoopTracing, "no trace")
+
+	ans = kafka.Handle(ctx)
+	assert.Equal("", ans)
+
+	msg = <-kafka.producer.(*mockAsyncProducer).ch
+	assert.Equal("default-topic", msg.Topic)
+	assert.Equal(0, len(msg.Headers))
+	value, err = msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
 }

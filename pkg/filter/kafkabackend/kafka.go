@@ -20,6 +20,7 @@ package kafka
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/Shopify/sarama"
 	"github.com/megaease/easegress/pkg/context"
@@ -45,6 +46,7 @@ type (
 		spec       *Spec
 		producer   sarama.AsyncProducer
 		done       chan struct{}
+		header     string
 	}
 )
 
@@ -70,14 +72,20 @@ func (k *Kafka) Results() []string {
 	return []string{resultParseErr}
 }
 
+func (k *Kafka) setHeader(spec *Spec) {
+	if k.spec.Topic.Dynamic != nil {
+		k.header = k.spec.Topic.Dynamic.Header
+	}
+	if k.header == "" {
+		panic("empty header")
+	}
+}
+
 // Init init Kafka
 func (k *Kafka) Init(filterSpec *httppipeline.FilterSpec) {
 	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	if k.spec.TopicHeaderKey == "" {
-		panic("filter kafka not set topic header key")
-	}
-
 	k.done = make(chan struct{})
+	k.setHeader(k.spec)
 
 	config := sarama.NewConfig()
 	config.ClientID = filterSpec.Name()
@@ -124,12 +132,21 @@ func (k *Kafka) Status() interface{} {
 	return nil
 }
 
+func (k *Kafka) getTopic(ctx context.HTTPContext) string {
+	if k.header == "" {
+		return k.spec.Topic.Default
+	}
+	topic := ctx.Request().Header().Get(http.CanonicalHeaderKey(k.header))
+	if topic == "" {
+		return k.spec.Topic.Default
+	}
+	return topic
+}
+
 // HandleMQTT handle MQTT context
 func (k *Kafka) Handle(ctx context.HTTPContext) (result string) {
-	topic := ctx.Request().Header().Get(k.spec.TopicHeaderKey)
-	if topic == "" {
-		return resultParseErr
-	}
+	topic := k.getTopic(ctx)
+
 	body, err := ioutil.ReadAll(ctx.Request().Body())
 	if err != nil {
 		return resultParseErr
