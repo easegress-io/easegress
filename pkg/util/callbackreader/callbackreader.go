@@ -57,7 +57,10 @@ func (cr *CallbackReader) Read(p []byte) (int, error) {
 		p = fn(cr.num, p)
 	}
 
-	n, err := cr.reader.Read(p)
+	n, err := 0, io.EOF
+	if cr.reader != nil {
+		n, err = cr.reader.Read(p)
+	}
 
 	for _, fn := range cr.afterFuncs {
 		p, n, err = fn(cr.num, p, n, err)
