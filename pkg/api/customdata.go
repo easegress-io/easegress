@@ -78,7 +78,7 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	result := map[string]CustomData{}
+	result := make([]CustomData, 0, len(kvs))
 	for key, kv := range kvs {
 		key = key[len(prefix):]
 		cd := CustomData{}
@@ -86,7 +86,7 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		result[key] = cd
+		result = append(result, cd)
 	}
 
 	w.Header().Set("Content-Type", "text/vnd.yaml")

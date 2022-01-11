@@ -43,18 +43,19 @@ func (v *yamlVisitor) Visit(fn func(yamlDoc []byte) error) error {
 
 	for {
 		data, err := r.Read()
-		if err != nil && err != io.EOF {
-			return err
-		}
 		if len(data) == 0 {
+			if err == io.EOF {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
 			continue
 		}
 		if err = fn(data); err != nil {
 			return err
 		}
 	}
-
-	return nil
 }
 
 // Close closes the yamlVisitor
