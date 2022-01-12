@@ -58,6 +58,8 @@ dockers:
   - image_templates:
     - megaease/easegress:latest
     - megaease/easegress:{{ .Tag }}
+    - megaease/easegress:easemesh
+    - megaease/easegress:server-sidecar
 
     goos: linux
     goarch: amd64
