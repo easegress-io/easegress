@@ -64,10 +64,7 @@ func (p *mqttPublishPacket) SetTopic(topic string) {
 
 // GetHeader get header of given key, if key not exist, return empty string
 func (p *mqttPublishPacket) GetHeader(key string) string {
-	if value, ok := p.header[key]; ok {
-		return value
-	}
-	return ""
+	return p.header[key]
 }
 
 // SetAllHeader set header of mqttPublishPacket

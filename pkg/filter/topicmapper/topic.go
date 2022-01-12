@@ -58,11 +58,11 @@ func getTopicRoute(p *Policy) topicRouteType {
 }
 
 func getPolicyMap(ps []*Policy) map[string]*Policy {
-	ans := make(map[string]*Policy)
+	res := make(map[string]*Policy)
 	for _, p := range ps {
-		ans[p.Name] = p
+		res[p.Name] = p
 	}
-	return ans
+	return res
 }
 
 func getTopicMapFunc(topicMapper *Spec) topicMapFunc {

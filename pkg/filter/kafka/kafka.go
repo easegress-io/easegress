@@ -90,6 +90,10 @@ func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 		for {
 			select {
 			case <-k.done:
+				err := producer.Close()
+				if err != nil {
+					logger.Errorf("close kafka producer failed: %v", err)
+				}
 				return
 			case err, ok := <-producer.Errors():
 				if !ok {
@@ -112,10 +116,6 @@ func (k *Kafka) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipe
 // Close close Kafka
 func (k *Kafka) Close() {
 	close(k.done)
-	err := k.producer.Close()
-	if err != nil {
-		logger.Errorf("close kafka producer failed: %v", err)
-	}
 }
 
 // Status return status of Kafka

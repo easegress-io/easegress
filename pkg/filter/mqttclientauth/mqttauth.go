@@ -62,7 +62,6 @@ type (
 	}
 
 	// Auth describes username and password for MQTTProxy
-	// passSha256 make sure customer's password is safe.
 	Auth struct {
 		Username   string `yaml:"username" jsonschema:"required"`
 		PassBase64 string `yaml:"passBase64" jsonschema:"required"`

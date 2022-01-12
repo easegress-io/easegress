@@ -122,11 +122,12 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.Co
 		client:     client,
 	}
 
-	switch packet.(type) {
+	switch packet := packet.(type) {
 	case *packets.ConnectPacket:
 		mqttCtx.packetType = MQTTConnect
 	case *packets.PublishPacket:
 		mqttCtx.packetType = MQTTPublish
+		mqttCtx.publishPacket = newMQTTPublishPacket(packet)
 	case *packets.DisconnectPacket:
 		mqttCtx.packetType = MQTTDisconnect
 	case *packets.SubscribePacket:
@@ -138,9 +139,6 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.Co
 	}
 	mqttCtx.packet = packet
 
-	if mqttCtx.packetType == MQTTPublish {
-		mqttCtx.publishPacket = newMQTTPublishPacket(packet.(*packets.PublishPacket))
-	}
 	return mqttCtx
 }
 
