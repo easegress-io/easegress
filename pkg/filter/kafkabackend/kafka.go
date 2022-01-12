@@ -143,8 +143,7 @@ func (k *Kafka) getTopic(ctx context.HTTPContext) string {
 	return topic
 }
 
-// HandleMQTT handle MQTT context
-func (k *Kafka) Handle(ctx context.HTTPContext) (result string) {
+func (k *Kafka) handle(ctx context.HTTPContext) (result string) {
 	topic := k.getTopic(ctx)
 
 	body, err := ioutil.ReadAll(ctx.Request().Body())
@@ -158,4 +157,10 @@ func (k *Kafka) Handle(ctx context.HTTPContext) (result string) {
 	}
 	k.producer.Input() <- msg
 	return ""
+}
+
+// Handle handles HTTPContext.
+func (k *Kafka) Handle(ctx context.HTTPContext) (result string) {
+	result = k.handle(ctx)
+	return ctx.CallNextHandler(result)
 }

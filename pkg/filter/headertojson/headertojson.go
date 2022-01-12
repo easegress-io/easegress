@@ -29,79 +29,79 @@ import (
 
 const (
 	// Kind is the kind of Kafka
-	Kind = "HeaderToJson"
+	Kind = "HeaderToJSON"
 
-	resultJsonEncodeDecodeErr = "jsonEncodeDecodeErr"
+	resultJSONEncodeDecodeErr = "JSONEncodeDecodeErr"
 )
 
 func init() {
-	httppipeline.Register(&HeaderToJson{})
+	httppipeline.Register(&HeaderToJSON{})
 }
 
 type (
-	// HeaderToJson is make http request header to json
-	HeaderToJson struct {
+	// HeaderToJSON is make http request header to json
+	HeaderToJSON struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
 		headerMap  map[string]string
 	}
 )
 
-var _ httppipeline.Filter = (*HeaderToJson)(nil)
+var _ httppipeline.Filter = (*HeaderToJSON)(nil)
 
-// Kind return kind of HeaderToJson
-func (h *HeaderToJson) Kind() string {
+// Kind return kind of HeaderToJSON
+func (h *HeaderToJSON) Kind() string {
 	return Kind
 }
 
-// DefaultSpec return default spec of HeaderToJson
-func (h *HeaderToJson) DefaultSpec() interface{} {
+// DefaultSpec return default spec of HeaderToJSON
+func (h *HeaderToJSON) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
-// Description return description of HeaderToJson
-func (h *HeaderToJson) Description() string {
-	return "HeaderToJson convert http request header to json"
+// Description return description of HeaderToJSON
+func (h *HeaderToJSON) Description() string {
+	return "HeaderToJSON convert http request header to json"
 }
 
-// Results return possible results of HeaderToJson
-func (h *HeaderToJson) Results() []string {
-	return []string{resultJsonEncodeDecodeErr}
+// Results return possible results of HeaderToJSON
+func (h *HeaderToJSON) Results() []string {
+	return []string{resultJSONEncodeDecodeErr}
 }
 
-func (h *HeaderToJson) init() {
+func (h *HeaderToJSON) init() {
 	h.headerMap = make(map[string]string)
 	for _, header := range h.spec.HeaderMap {
-		h.headerMap[header.Header] = header.Json
+		h.headerMap[header.Header] = header.JSON
 	}
 }
 
-// Init init HeaderToJson
-func (h *HeaderToJson) Init(filterSpec *httppipeline.FilterSpec) {
+// Init init HeaderToJSON
+func (h *HeaderToJSON) Init(filterSpec *httppipeline.FilterSpec) {
 	h.filterSpec, h.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	h.init()
 }
 
-// Inherit init HeaderToJson based on previous generation
-func (h *HeaderToJson) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+// Inherit init HeaderToJSON based on previous generation
+func (h *HeaderToJSON) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
 	previousGeneration.Close()
 	h.Init(filterSpec)
 }
 
-// Close close HeaderToJson
-func (h *HeaderToJson) Close() {
+// Close close HeaderToJSON
+func (h *HeaderToJSON) Close() {
 }
 
-// Status return status of HeaderToJson
-func (h *HeaderToJson) Status() interface{} {
+// Status return status of HeaderToJSON
+func (h *HeaderToJSON) Status() interface{} {
 	return nil
 }
 
-func (h *HeaderToJson) encodeJson(input map[string]interface{}) ([]byte, error) {
+func (h *HeaderToJSON) encodeJSON(input map[string]interface{}) ([]byte, error) {
 	return json.Marshal(input)
 }
 
-func (h *HeaderToJson) decodeJson(ctx context.HTTPContext) (map[string]interface{}, error) {
+func (h *HeaderToJSON) decodeJSON(ctx context.HTTPContext) (map[string]interface{}, error) {
 	ans := make(map[string]interface{})
 
 	b, err := io.ReadAll(ctx.Request().Body())
@@ -112,19 +112,24 @@ func (h *HeaderToJson) decodeJson(ctx context.HTTPContext) (map[string]interface
 	return ans, nil
 }
 
-// HandleMQTT handle MQTT context
-func (h *HeaderToJson) Handle(ctx context.HTTPContext) (result string) {
-	ans, err := h.decodeJson(ctx)
+// Handle handle HTTPContext
+func (h *HeaderToJSON) Handle(ctx context.HTTPContext) string {
+	result := h.handle(ctx)
+	return ctx.CallNextHandler(result)
+}
+
+func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
+	ans, err := h.decodeJSON(ctx)
 	if err != nil {
-		return resultJsonEncodeDecodeErr
+		return resultJSONEncodeDecodeErr
 	}
 	for header, json := range h.headerMap {
 		value := ctx.Request().Header().Get(http.CanonicalHeaderKey(header))
 		ans[json] = value
 	}
-	body, err := h.encodeJson(ans)
+	body, err := h.encodeJSON(ans)
 	if err != nil {
-		return resultJsonEncodeDecodeErr
+		return resultJSONEncodeDecodeErr
 	}
 	ctx.Request().SetBody(bytes.NewReader(body))
 	return ""

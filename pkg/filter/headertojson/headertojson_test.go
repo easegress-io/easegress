@@ -62,6 +62,9 @@ func TestHeaderToJson(t *testing.T) {
 		req.Header.Add("x-id", "abc123")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
+		ctx.SetHandlerCaller(func(lastResult string) string {
+			return lastResult
+		})
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
@@ -88,6 +91,9 @@ func TestHeaderToJson(t *testing.T) {
 		req.Header.Add("x-id", "abc123")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
+		ctx.SetHandlerCaller(func(lastResult string) string {
+			return lastResult
+		})
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)

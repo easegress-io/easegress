@@ -75,6 +75,9 @@ func TestKafka(t *testing.T) {
 	req.Header.Add("x-kafka-topic", "kafka")
 	w := httptest.NewRecorder()
 	ctx := context.New(w, req, tracing.NoopTracing, "no trace")
+	ctx.SetHandlerCaller(func(lastResult string) string {
+		return lastResult
+	})
 
 	ans := kafka.Handle(ctx)
 	assert.Equal("", ans)
@@ -91,6 +94,9 @@ func TestKafka(t *testing.T) {
 	assert.Nil(err)
 	w = httptest.NewRecorder()
 	ctx = context.New(w, req, tracing.NoopTracing, "no trace")
+	ctx.SetHandlerCaller(func(lastResult string) string {
+		return lastResult
+	})
 
 	ans = kafka.Handle(ctx)
 	assert.Equal("", ans)
