@@ -35,7 +35,7 @@ const (
 	wasmCodeEvent            = "/wasm/code"
 	wasmDataPrefixFormat     = "/wasm/data/%s/%s/"  // + pipelineName + filterName
 	customDataPrefixFormat   = "/custom-data/%s/"   // + kind
-	customDataItemFormat     = "/custom-data/%s/%s" // + kind + itemID
+	customDataItemFormat     = "/custom-data/%s/%s" // + kind + item key
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
@@ -136,7 +136,7 @@ func (l *Layout) CustomDataPrefix(kind string) string {
 	return fmt.Sprintf(customDataPrefixFormat, kind)
 }
 
-// CustomDataItem returns the key of a custom data item
-func (l *Layout) CustomDataItem(kind, id string) string {
-	return fmt.Sprintf(customDataItemFormat, kind, id)
+// CustomDataItem returns the full key of a custom data item
+func (l *Layout) CustomDataItem(kind, key string) string {
+	return fmt.Sprintf(customDataItemFormat, kind, key)
 }
