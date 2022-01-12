@@ -43,6 +43,7 @@ func TestHeaderToJSON(t *testing.T) {
 			{Header: "x-id", JSON: "id"},
 		},
 	}
+
 	h2j := HeaderToJSON{}
 	h2j.spec = spec
 	h2j.init()
