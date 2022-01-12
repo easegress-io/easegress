@@ -35,15 +35,15 @@ func init() {
 	logger.InitNop()
 }
 
-func TestHeaderToJson(t *testing.T) {
+func TestHeaderToJSON(t *testing.T) {
 	assert := assert.New(t)
 	spec := &Spec{
 		HeaderMap: []*Header{
-			{Header: "x-username", Json: "username"},
-			{Header: "x-id", Json: "id"},
+			{Header: "x-username", JSON: "username"},
+			{Header: "x-id", JSON: "id"},
 		},
 	}
-	h2j := HeaderToJson{}
+	h2j := HeaderToJSON{}
 	h2j.spec = spec
 	h2j.init()
 
