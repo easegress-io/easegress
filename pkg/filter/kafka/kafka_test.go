@@ -22,10 +22,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/Shopify/sarama"
-	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+
+	"github.com/Shopify/sarama"
+	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/stretchr/testify/assert"
 )
 
