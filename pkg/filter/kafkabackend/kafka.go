@@ -75,9 +75,9 @@ func (k *Kafka) Results() []string {
 func (k *Kafka) setHeader(spec *Spec) {
 	if k.spec.Topic.Dynamic != nil {
 		k.header = k.spec.Topic.Dynamic.Header
-	}
-	if k.header == "" {
-		panic("empty header")
+		if k.header == "" {
+			panic("empty header")
+		}
 	}
 }
 

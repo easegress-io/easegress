@@ -26,9 +26,15 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	logger.InitNop()
+}
 
 type mockAsyncProducer struct {
 	ch chan *sarama.ProducerMessage
@@ -53,7 +59,29 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 	}
 }
 
+func defaultFilterSpec(spec *Spec) *httppipeline.FilterSpec {
+	meta := &httppipeline.FilterMetaSpec{
+		Name:     "kafka",
+		Kind:     Kind,
+		Pipeline: "pipeline-demo",
+	}
+	filterSpec := httppipeline.MockFilterSpec(nil, nil, "", meta, spec)
+	return filterSpec
+}
+
 func TestKafka(t *testing.T) {
+	assert := assert.New(t)
+	k := &Kafka{}
+	filterSpec := defaultFilterSpec(&Spec{})
+
+	assert.Panics(func() { k.Init(filterSpec) }, "no valid backend should panic")
+	assert.NotEmpty(k.Description())
+
+	newK := &Kafka{}
+	assert.Panics(func() { newK.Inherit(filterSpec, k) })
+}
+
+func TestHandleHTTP(t *testing.T) {
 	assert := assert.New(t)
 	kafka := Kafka{
 		spec: &Spec{
@@ -68,6 +96,7 @@ func TestKafka(t *testing.T) {
 		done:     make(chan struct{}),
 	}
 	kafka.setHeader(kafka.spec)
+	defer kafka.Close()
 
 	// test header
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
