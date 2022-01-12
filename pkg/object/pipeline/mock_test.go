@@ -35,7 +35,6 @@ func TestMockFilter(t *testing.T) {
 	assert.Equal(mock.Description(), "mock filter")
 	assert.Nil(mock.Results())
 	assert.Nil(mock.Status())
-	assert.Nil(mock.APIs())
 	mock.Init(nil)
 	newMock := &mockFilter{}
 	newMock.Inherit(nil, mock)

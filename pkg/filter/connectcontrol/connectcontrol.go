@@ -162,7 +162,7 @@ func (cc *ConnectControl) checkBan(ctx context.MQTTContext) bool {
 	if _, ok := cc.bannedClients[cid]; ok {
 		return true
 	}
-	topic := ctx.PublishPacket().TopicName
+	topic := ctx.PublishPacket().Topic()
 	if cc.bannedTopicRe != nil && cc.bannedTopicRe.MatchString(topic) {
 		return true
 	}

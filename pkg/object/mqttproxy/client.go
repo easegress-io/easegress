@@ -58,11 +58,19 @@ var processPacketMap = map[string]processFnWithErr{
 	"*packets.SubackPacket":      errorWrapper("broker not subscribe"),
 	"*packets.UnsubackPacket":    errorWrapper("broker not unsubscribe"),
 	"*packets.PingrespPacket":    errorWrapper("broker not ping"),
-	"*packets.PublishPacket":     pipelineWrapper(processPublish),
-	"*packets.SubscribePacket":   pipelineWrapper(processSubscribe),
-	"*packets.UnsubscribePacket": pipelineWrapper(processUnsubscribe),
+	"*packets.SubscribePacket":   pipelineWrapper(processSubscribe, Subscribe),
+	"*packets.UnsubscribePacket": pipelineWrapper(processUnsubscribe, Unsubscribe),
 	"*packets.PingreqPacket":     nilErrWrapper(processPingreq),
 	"*packets.PubackPacket":      nilErrWrapper(processPuback),
+	"*packets.PublishPacket": func(c *Client, packet packets.ControlPacket) error {
+		publish := packet.(*packets.PublishPacket)
+		logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
+		if !c.checkPublishLimit(publish) {
+			logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
+			return nil
+		}
+		return pipelineWrapper(processPublish, Publish)(c, packet)
+	},
 }
 
 type (
@@ -154,7 +162,7 @@ func newClient(connect *packets.ConnectPacket, broker *Broker, conn net.Conn, li
 func (c *Client) readLoop() {
 	defer func() {
 		if c.info.will != nil {
-			c.broker.backend.publish(c.info.will)
+			c.runPipeline(c.info.will, Publish)
 		}
 		c.closeAndDelSession()
 		c.broker.removeClient(c.info.cid)
@@ -208,18 +216,19 @@ func (c *Client) checkPublishLimit(publish *packets.PublishPacket) bool {
 
 // runPipeline will run MQTT pipeline by using packet.
 // it will return an error if MQTT pipline set MQTTContext to Disconnect or Drop.
-func (c *Client) runPipeline(packet packets.ControlPacket) error {
-	if c.broker.pipeline == "" {
+func (c *Client) runPipeline(packet packets.ControlPacket, packetType PacketType) error {
+	pipelineName, ok := c.broker.pipelines[packetType]
+	if !ok {
 		return nil
 	}
 
-	pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
+	pipe, err := pipeline.GetPipeline(pipelineName, context.MQTT)
 	if err != nil {
-		logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
+		logger.SpanErrorf(nil, "get pipeline %v failed, %v", pipelineName, err)
 		return nil
 	}
 
-	ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, packet)
+	ctx := context.NewMQTTContext(stdcontext.Background(), c, packet)
 	pipe.HandleMQTT(ctx)
 	if ctx.Disconnect() {
 		c.close()
@@ -262,15 +271,17 @@ func (c *Client) close() {
 	c.Unlock()
 
 	// pipeline
-	if c.broker.pipeline != "" {
-		pipe, err := pipeline.GetPipeline(c.broker.pipeline, context.MQTT)
-		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", c.broker.pipeline, err)
-		} else {
-			disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
-			ctx := context.NewMQTTContext(stdcontext.Background(), c.broker.backend, c, disconnect)
-			pipe.HandleMQTT(ctx)
-		}
+	pipelineName, ok := c.broker.pipelines[Disconnect]
+	if !ok {
+		return
+	}
+	pipe, err := pipeline.GetPipeline(pipelineName, context.MQTT)
+	if err != nil {
+		logger.SpanErrorf(nil, "get pipeline %v failed, %v", pipelineName, err)
+	} else {
+		disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
+		ctx := context.NewMQTTContext(stdcontext.Background(), c, disconnect)
+		pipe.HandleMQTT(ctx)
 	}
 }
 
@@ -303,9 +314,9 @@ func nilErrWrapper(fn processFn) processFnWithErr {
 	}
 }
 
-func pipelineWrapper(fn processFn) processFnWithErr {
+func pipelineWrapper(fn processFn, packetType PacketType) processFnWithErr {
 	return func(c *Client, p packets.ControlPacket) error {
-		err := c.runPipeline(p)
+		err := c.runPipeline(p, packetType)
 		if err != nil {
 			logger.SpanDebugf(nil, "client process pipeline failed, %v", c.info.cid, err)
 			return nil
@@ -317,17 +328,6 @@ func pipelineWrapper(fn processFn) processFnWithErr {
 
 func processPublish(c *Client, packet packets.ControlPacket) {
 	publish := packet.(*packets.PublishPacket)
-	logger.SpanDebugf(nil, "client %s process publish %v", c.info.cid, publish.TopicName)
-
-	if !c.checkPublishLimit(publish) {
-		logger.SpanErrorf(nil, "client %v publish limiter drop packet %v", c.info.cid, publish.TopicName)
-		return
-	}
-
-	err := c.broker.backend.publish(publish)
-	if err != nil {
-		logger.SpanErrorf(nil, "client %v publish %v failed: %v", c.info.cid, publish.TopicName, err)
-	}
 	switch publish.Qos {
 	case QoS0:
 		// do nothing

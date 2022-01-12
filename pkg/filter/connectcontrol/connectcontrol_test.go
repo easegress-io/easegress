@@ -34,15 +34,12 @@ func init() {
 }
 
 func newContext(cid string, topic string) context.MQTTContext {
-	backend := &context.MockMQTTBackend{
-		Messages: make(map[string]context.MockMQTTMsg),
-	}
 	client := &context.MockMQTTClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
-	return context.NewMQTTContext(stdcontext.Background(), backend, client, packet)
+	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
 func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {

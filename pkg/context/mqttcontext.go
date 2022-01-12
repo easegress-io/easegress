@@ -31,7 +31,6 @@ type (
 	MQTTContext interface {
 		Context
 		Client() MQTTClient
-		Backend() MQTTBackend
 		Cancel(error)
 		Canceled() bool
 		Duration() time.Duration
@@ -39,10 +38,11 @@ type (
 
 		PacketType() MQTTPacketType
 		ConnectPacket() *packets.ConnectPacket         // read only
-		PublishPacket() *packets.PublishPacket         // read only
 		DisconnectPacket() *packets.DisconnectPacket   // read only
 		SubscribePacket() *packets.SubscribePacket     // read only
 		UnsubscribePacket() *packets.UnsubscribePacket // read only
+
+		PublishPacket() MQTTPublishPacket
 
 		SetDrop()         // set drop value to true
 		Drop() bool       // if true, this mqtt packet will be dropped
@@ -50,11 +50,6 @@ type (
 		Disconnect() bool // if true, this mqtt client will be disconnected
 		SetEarlyStop()    // set early stop value to true
 		EarlyStop() bool  // if early stop is true, pipeline will skip following filters and return
-	}
-
-	// MQTTBackend is backend of MQTT proxy
-	MQTTBackend interface {
-		Publish(target string, data []byte, headers map[string]string) error
 	}
 
 	// MQTTClient contains client info that send this packet
@@ -77,9 +72,10 @@ type (
 		startTime  time.Time
 		endTime    time.Time
 		client     MQTTClient
-		backend    MQTTBackend
 		packet     packets.ControlPacket
 		packetType MQTTPacketType
+
+		publishPacket MQTTPublishPacket
 
 		err        error
 		drop       int32
@@ -101,13 +97,13 @@ const (
 	MQTTPublish MQTTPacketType = 2
 
 	// MQTTDisconnect is mqtt packet type of disconnect
-	MQTTDisconnect = 3
+	MQTTDisconnect MQTTPacketType = 3
 
 	// MQTTSubscribe is mqtt packet type of subscribe
-	MQTTSubscribe = 4
+	MQTTSubscribe MQTTPacketType = 4
 
 	// MQTTUnsubscribe is mqtt packet type of unsubscribe
-	MQTTUnsubscribe = 5
+	MQTTUnsubscribe MQTTPacketType = 5
 
 	// MQTTOther is all other mqtt packet type
 	MQTTOther MQTTPacketType = 99
@@ -116,7 +112,7 @@ const (
 var _ MQTTContext = (*mqttContext)(nil)
 
 // NewMQTTContext create new MQTTContext
-func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClient, packet packets.ControlPacket) MQTTContext {
+func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.ControlPacket) MQTTContext {
 	stdctx, cancelFunc := stdcontext.WithCancel(ctx)
 	startTime := time.Now()
 	mqttCtx := &mqttContext{
@@ -124,14 +120,14 @@ func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClie
 		cancelFunc: cancelFunc,
 		startTime:  startTime,
 		client:     client,
-		backend:    backend,
 	}
 
-	switch packet.(type) {
+	switch packet := packet.(type) {
 	case *packets.ConnectPacket:
 		mqttCtx.packetType = MQTTConnect
 	case *packets.PublishPacket:
 		mqttCtx.packetType = MQTTPublish
+		mqttCtx.publishPacket = newMQTTPublishPacket(packet)
 	case *packets.DisconnectPacket:
 		mqttCtx.packetType = MQTTDisconnect
 	case *packets.SubscribePacket:
@@ -142,6 +138,7 @@ func NewMQTTContext(ctx stdcontext.Context, backend MQTTBackend, client MQTTClie
 		mqttCtx.packetType = MQTTOther
 	}
 	mqttCtx.packet = packet
+
 	return mqttCtx
 }
 
@@ -226,8 +223,8 @@ func (ctx *mqttContext) ConnectPacket() *packets.ConnectPacket {
 	return ctx.packet.(*packets.ConnectPacket)
 }
 
-func (ctx *mqttContext) PublishPacket() *packets.PublishPacket {
-	return ctx.packet.(*packets.PublishPacket)
+func (ctx *mqttContext) PublishPacket() MQTTPublishPacket {
+	return ctx.publishPacket
 }
 
 func (ctx *mqttContext) DisconnectPacket() *packets.DisconnectPacket {
@@ -264,8 +261,4 @@ func (ctx *mqttContext) SetEarlyStop() {
 
 func (ctx *mqttContext) EarlyStop() bool {
 	return atomic.LoadInt32(&ctx.earlyStop) == 1
-}
-
-func (ctx *mqttContext) Backend() MQTTBackend {
-	return ctx.backend
 }
