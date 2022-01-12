@@ -20,8 +20,6 @@ package kafka
 import (
 	stdcontext "context"
 	"fmt"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -65,13 +63,15 @@ func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
 	return filterSpec
 }
 
-func newContext(cid string, topic string) context.MQTTContext {
+func newContext(cid string, topic string, header map[string]string) context.MQTTContext {
 	client := &context.MockMQTTClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
-	return context.NewMQTTContext(stdcontext.Background(), client, packet)
+	ctx := context.NewMQTTContext(stdcontext.Background(), client, packet)
+	ctx.PublishPacket().SetAllHeader(header)
+	return ctx
 }
 
 func TestKafka(t *testing.T) {
@@ -83,30 +83,21 @@ func TestKafka(t *testing.T) {
 	k := &Kafka{}
 	assert.Panics(func() { k.Init(filterSpec) }, "kafka should panic for invalid backend")
 
-	mapFunc := func(mqttTopic string) (string, map[string]string, error) {
-		levels := strings.Split(mqttTopic, "/")
-		m := make(map[string]string)
-		for i, l := range levels {
-			m[strconv.Itoa(i)] = l
-		}
-		return mqttTopic, m, nil
-	}
 	kafka := Kafka{
 		producer: newMockAsyncProducer(),
-		mapFunc:  mapFunc,
 		done:     make(chan struct{}),
 	}
-	mqttCtx := newContext("test", "a/b/c")
+	mqttCtx := newContext("test", "a/b/c", map[string]string{"a": "1", "b": "2"})
 
 	kafka.HandleMQTT(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, mqttCtx.PublishPacket().TopicName)
-	assert.Equal(3, len(msg.Headers))
+	assert.Equal(msg.Topic, mqttCtx.PublishPacket().Topic())
+	assert.Equal(2, len(msg.Headers))
 
-	kafka.mapFunc = nil
+	mqttCtx = newContext("test", "a/b/c", map[string]string{})
 	kafka.HandleMQTT(mqttCtx)
 	msg = <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, mqttCtx.PublishPacket().TopicName)
+	assert.Equal(msg.Topic, mqttCtx.PublishPacket().Topic())
 	assert.Equal(0, len(msg.Headers))
 	kafka.Close()
 }

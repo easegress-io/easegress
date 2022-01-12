@@ -18,7 +18,6 @@
 package kafka
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Shopify/sarama"
@@ -34,8 +33,6 @@ const (
 	resultMQTTTopicMapFailed = "MQTTTopicMapFailed"
 )
 
-var errMQTTTopicMapFailed = errors.New(resultMQTTTopicMapFailed)
-
 func init() {
 	pipeline.Register(&Kafka{})
 }
@@ -45,7 +42,6 @@ type (
 	Kafka struct {
 		filterSpec *pipeline.FilterSpec
 		spec       *Spec
-		mapFunc    topicMapFunc
 		producer   sarama.AsyncProducer
 		done       chan struct{}
 	}
@@ -77,10 +73,9 @@ func (k *Kafka) Results() []string {
 // Init init Kafka
 func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 	if filterSpec.Protocol() != context.MQTT {
-		panic("filter ConnectControl only support MQTT protocol for now")
+		panic("filter Kafka only support MQTT protocol for now")
 	}
 	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	k.mapFunc = getTopicMapFunc(k.spec.TopicMapper)
 	k.done = make(chan struct{})
 
 	config := sarama.NewConfig()
@@ -133,31 +128,19 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	if ctx.PacketType() != context.MQTTPublish {
 		return &context.MQTTResult{}
 	}
+
 	p := ctx.PublishPacket()
-	var msg *sarama.ProducerMessage
-	logger.Debugf("produce msg with topic %s", p.TopicName)
+	logger.Debugf("produce msg with topic %s", p.Topic())
 
-	if k.mapFunc != nil {
-		topic, headers, err := k.mapFunc(p.TopicName)
-		if err != nil {
-			logger.Errorf("packet TopicName %s not match TopicMapper rules", p.TopicName)
-			return &context.MQTTResult{Err: errMQTTTopicMapFailed}
-		}
-		kafkaHeaders := []sarama.RecordHeader{}
-		for k, v := range headers {
-			kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
-		}
+	kafkaHeaders := []sarama.RecordHeader{}
+	p.VisitAllHeader(func(k, v string) {
+		kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+	})
 
-		msg = &sarama.ProducerMessage{
-			Topic:   topic,
-			Headers: kafkaHeaders,
-			Value:   sarama.ByteEncoder(p.Payload),
-		}
-	} else {
-		msg = &sarama.ProducerMessage{
-			Topic: p.TopicName,
-			Value: sarama.ByteEncoder(p.Payload),
-		}
+	msg := &sarama.ProducerMessage{
+		Topic:   p.Topic(),
+		Headers: kafkaHeaders,
+		Value:   sarama.ByteEncoder(p.Payload()),
 	}
 	k.producer.Input() <- msg
 	return &context.MQTTResult{}

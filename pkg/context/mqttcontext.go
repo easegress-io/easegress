@@ -38,10 +38,11 @@ type (
 
 		PacketType() MQTTPacketType
 		ConnectPacket() *packets.ConnectPacket         // read only
-		PublishPacket() *packets.PublishPacket         // read only
 		DisconnectPacket() *packets.DisconnectPacket   // read only
 		SubscribePacket() *packets.SubscribePacket     // read only
 		UnsubscribePacket() *packets.UnsubscribePacket // read only
+
+		PublishPacket() MQTTPublishPacket
 
 		SetDrop()         // set drop value to true
 		Drop() bool       // if true, this mqtt packet will be dropped
@@ -68,12 +69,13 @@ type (
 		ctx        stdcontext.Context
 		cancelFunc stdcontext.CancelFunc
 
-		startTime time.Time
-		endTime   time.Time
-		client    MQTTClient
-		// backend    MQTTBackend
+		startTime  time.Time
+		endTime    time.Time
+		client     MQTTClient
 		packet     packets.ControlPacket
 		packetType MQTTPacketType
+
+		publishPacket MQTTPublishPacket
 
 		err        error
 		drop       int32
@@ -95,13 +97,13 @@ const (
 	MQTTPublish MQTTPacketType = 2
 
 	// MQTTDisconnect is mqtt packet type of disconnect
-	MQTTDisconnect = 3
+	MQTTDisconnect MQTTPacketType = 3
 
 	// MQTTSubscribe is mqtt packet type of subscribe
-	MQTTSubscribe = 4
+	MQTTSubscribe MQTTPacketType = 4
 
 	// MQTTUnsubscribe is mqtt packet type of unsubscribe
-	MQTTUnsubscribe = 5
+	MQTTUnsubscribe MQTTPacketType = 5
 
 	// MQTTOther is all other mqtt packet type
 	MQTTOther MQTTPacketType = 99
@@ -135,6 +137,10 @@ func NewMQTTContext(ctx stdcontext.Context, client MQTTClient, packet packets.Co
 		mqttCtx.packetType = MQTTOther
 	}
 	mqttCtx.packet = packet
+
+	if mqttCtx.packetType == MQTTPublish {
+		mqttCtx.publishPacket = newMQTTPublishPacket(packet.(*packets.PublishPacket))
+	}
 	return mqttCtx
 }
 
@@ -219,8 +225,8 @@ func (ctx *mqttContext) ConnectPacket() *packets.ConnectPacket {
 	return ctx.packet.(*packets.ConnectPacket)
 }
 
-func (ctx *mqttContext) PublishPacket() *packets.PublishPacket {
-	return ctx.packet.(*packets.PublishPacket)
+func (ctx *mqttContext) PublishPacket() MQTTPublishPacket {
+	return ctx.publishPacket
 }
 
 func (ctx *mqttContext) DisconnectPacket() *packets.DisconnectPacket {
