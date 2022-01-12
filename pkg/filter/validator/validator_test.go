@@ -379,17 +379,33 @@ basicAuth:
 		os.Remove(userFile.Name())
 		v.Close()
 	})
+
 	t.Run("credentials from etcd", func(t *testing.T) {
 		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
 		check(err)
 		defer os.RemoveAll(etcdDirName)
 		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
 
+		// Test newEtcdUserCache
+		if euc := newEtcdUserCache(clusterInstance, &EtcdSpec{
+			UsernameKey: "user",
+			PasswordKey: "pass",
+		}); euc.prefix != "/custom-data/credentials/" {
+			t.Errorf("newEtcdUserCache failed")
+		}
+		if euc := newEtcdUserCache(clusterInstance, &EtcdSpec{
+			Prefix:      "/extra-slash/",
+			UsernameKey: "user",
+			PasswordKey: "pass",
+		}); euc.prefix != "/custom-data/extra-slash/" {
+			t.Errorf("newEtcdUserCache failed")
+		}
+
 		pwToYaml := func(user string, pw string) string {
 			return fmt.Sprintf("username: %s\npassword: %s", user, pw)
 		}
-		clusterInstance.Put("/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
-		clusterInstance.Put("/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
+		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
+		clusterInstance.Put("/custom-data/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
 
 		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
@@ -400,7 +416,7 @@ kind: Validator
 name: validator
 basicAuth:
   etcd:
-    prefix: /credentials/
+    prefix: credentials/
     usernameKey: "username"
     passwordKey: "password"`
 
@@ -422,8 +438,8 @@ basicAuth:
 			}
 		}
 
-		clusterInstance.Delete("/credentials/1") // first user is not authorized anymore
-		clusterInstance.Put("/credentials/doge",
+		clusterInstance.Delete("/custom-data/credentials/1") // first user is not authorized anymore
+		clusterInstance.Put("/custom-data/credentials/doge",
 			`
 randomEntry1: 21
 nestedEntry:

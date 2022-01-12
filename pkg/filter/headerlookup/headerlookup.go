@@ -20,6 +20,7 @@ package headerlookup
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
@@ -31,6 +32,8 @@ import (
 const (
 	// Kind is the kind of HeaderLookup.
 	Kind = "HeaderLookup"
+	// customDataPrefix is prefix for lookup data.
+	customDataPrefix = "/custom-data/"
 )
 
 var results = []string{}
@@ -54,8 +57,8 @@ type (
 		HeaderKey string `yaml:"headerKey,omitempty" jsonschema:"omitempty"`
 	}
 
-	// Spec defines header key and etcd prefix that form etcd key like {etcdPrefix}/{headerKey's value}.
-	// This {etcdPrefix}/{headerKey's value} is retrieved from etcd and HeaderSetters extract keys from the
+	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
+	// This /custom-data/{etcdPrefix}/{headerKey's value} is retrieved from etcd and HeaderSetters extract keys from the
 	// from the retrieved etcd item.
 	Spec struct {
 		HeaderKey     string              `yaml:"headerKey" jsonschema:"required"`
@@ -133,8 +136,7 @@ func parseYamlCreds(entry string) (map[string]string, error) {
 }
 
 func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
-	etcdKey := hl.spec.EtcdPrefix + headerVal
-	fmt.Println(etcdKey)
+	etcdKey := customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/") + headerVal
 	etcdVal, err := hl.cluster.Get(etcdKey)
 	if err != nil {
 		return nil, err

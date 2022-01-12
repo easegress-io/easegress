@@ -71,7 +71,7 @@ func TestValidate(t *testing.T) {
 name: headerLookup
 kind: HeaderLookup
 headerKey: "X-AUTH-USER"
-etcdPrefix: "/credentials/"
+etcdPrefix: "credentials/"
 headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
@@ -123,7 +123,7 @@ func TestHandle(t *testing.T) {
 		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 
 	// let's put data to 'foobar'
-	clusterInstance.Put("/credentials/foobar",
+	clusterInstance.Put("/custom-data/credentials/foobar",
 		`
 ext-id: 123456789
 extra-entry: "extra"
@@ -133,7 +133,7 @@ extra-entry: "extra"
 name: headerLookup
 kind: HeaderLookup
 headerKey: "X-AUTH-USER"
-etcdPrefix: "/credentials/"
+etcdPrefix: "credentials/"
 headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"

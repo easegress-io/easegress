@@ -45,23 +45,23 @@ type (
 	//   prefix: "/creds/"
 	//   usernameKey: "user"
 	//   passwordKey: "pw"
-	// expects the yaml to be stored with key /creds/{id} in following yaml (extra keys are allowed)
+	// expects the yaml to be stored with key /custom-data/creds/{id} in following yaml (extra keys are allowed)
 	//   user: doge
-	//   pw: {encrypted password}
+	//   pw: {encrypted or plain text password}
 	EtcdSpec struct {
 		Prefix      string `yaml:"prefix" jsonschema:"onitempty"`
 		UsernameKey string `yaml:"usernameKey" jsonschema:"omitempty"`
 		PasswordKey string `yaml:"passwordKey" jsonschema:"omitempty"`
 	}
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
-	// Only one of UserFile or EtcdYamlFormat should be defined.
+	// Only one of UserFile or Etcd should be defined.
 	BasicAuthValidatorSpec struct {
 		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
 		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
 		// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
 		UserFile string `yaml:"userFile" jsonschema:"omitempty"`
-		// When etcdYamlFormat is specified, verify user credentials from etcd. Etcd stores them:
-		// key: /credentials/{username}
+		// When etcd is specified, verify user credentials from etcd. Etcd stores them:
+		// key: /custom-data/{etcd.prefix}/{username}
 		// value: {yaml string in format of etcd}
 		Etcd *EtcdSpec `yaml:"etcd" jsonschema:"omitempty"`
 	}
@@ -101,7 +101,7 @@ type (
 	}
 )
 
-const credsPrefix = "/credentials/"
+const customDataPrefix = "/custom-data/"
 
 func parseCredentials(creds string) (string, string, error) {
 	parts := strings.Split(creds, ":")
@@ -188,10 +188,13 @@ func (huc *htpasswdUserCache) Match(username string, password string) bool {
 }
 
 func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCache {
-	prefix := etcdConfig.Prefix
-	if prefix == "" {
-		prefix = "/custom-data/credentials/"
+	prefix := customDataPrefix
+	if etcdConfig.Prefix == "" {
+		prefix += "credentials/"
+	} else {
+		prefix += strings.TrimPrefix(etcdConfig.Prefix, "/")
 	}
+	logger.Infof("credentials etcd prefix %s", prefix)
 	kvs, err := cluster.GetPrefix(prefix)
 	if err != nil {
 		panic(err)
@@ -269,7 +272,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 		syncer, err = euc.cluster.Syncer(euc.syncInterval)
 		if err != nil {
 			logger.Errorf("failed to create syncer: %v", err)
-		} else if ch, err = syncer.SyncPrefix(credsPrefix); err != nil {
+		} else if ch, err = syncer.SyncPrefix(euc.prefix); err != nil {
 			logger.Errorf("failed to sync prefix: %v", err)
 			syncer.Close()
 		} else {
@@ -289,6 +292,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 		case <-euc.stopCtx.Done():
 			return nil
 		case kvs := <-ch:
+			logger.Infof("basic auth credentials update")
 			pwReader, err := kvsToReader(kvs, euc.usernameKey, euc.passwordKey)
 			if err != nil {
 				logger.Errorf(err.Error())
