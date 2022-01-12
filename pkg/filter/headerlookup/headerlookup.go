@@ -19,6 +19,7 @@ package headerlookup
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
@@ -162,7 +163,7 @@ func (hl *HeaderLookup) Handle(ctx context.HTTPContext) string {
 
 func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
 	header := ctx.Request().Header()
-	headerVal := header.Get(hl.spec.HeaderKey)
+	headerVal := header.Get(http.CanonicalHeaderKey(hl.spec.HeaderKey))
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
 		return ""
@@ -173,7 +174,7 @@ func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
 		return ""
 	}
 	for hk, hv := range headersToAdd {
-		header.Set(hk, hv)
+		header.Set(http.CanonicalHeaderKey(hk), hv)
 	}
 	return ""
 }
