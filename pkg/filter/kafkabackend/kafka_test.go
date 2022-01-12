@@ -74,8 +74,9 @@ func TestKafka(t *testing.T) {
 	k := &Kafka{}
 	filterSpec := defaultFilterSpec(&Spec{})
 
-	assert.Panics(func() { k.Init(filterSpec) }, "no valid backend should panic")
 	assert.NotEmpty(k.Description())
+	assert.Nil(k.Status())
+	assert.Panics(func() { k.Init(filterSpec) }, "no valid backend should panic")
 
 	newK := &Kafka{}
 	assert.Panics(func() { newK.Inherit(filterSpec, k) })
@@ -96,6 +97,7 @@ func TestHandleHTTP(t *testing.T) {
 		done:     make(chan struct{}),
 	}
 	kafka.setHeader(kafka.spec)
+	go kafka.checkProduceError()
 	defer kafka.Close()
 
 	// test header

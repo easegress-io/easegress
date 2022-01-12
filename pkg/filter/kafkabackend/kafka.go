@@ -95,21 +95,22 @@ func (k *Kafka) Init(filterSpec *httppipeline.FilterSpec) {
 		panic(fmt.Errorf("start sarama producer with address %v failed: %v", k.spec.Backend, err))
 	}
 
-	go func() {
-		for {
-			select {
-			case <-k.done:
-				return
-			case err, ok := <-producer.Errors():
-				if !ok {
-					return
-				}
-				logger.SpanErrorf(nil, "sarama producer failed: %v", err)
-			}
-		}
-	}()
-
 	k.producer = producer
+	go k.checkProduceError()
+}
+
+func (k *Kafka) checkProduceError() {
+	for {
+		select {
+		case <-k.done:
+			return
+		case err, ok := <-k.producer.Errors():
+			if !ok {
+				return
+			}
+			logger.Errorf("sarama producer failed: %v", err)
+		}
+	}
 }
 
 // Inherit init Kafka based on previous generation
