@@ -156,6 +156,7 @@ filters:
   - kind: Validator
     name: oauth-validator
     basicAuth:
+      mode: "FILE"
       userFile: '/etc/apache2/.htpasswd'
   - name: proxy
     kind: Proxy
@@ -282,6 +283,7 @@ filters:
   - kind: Validator
     name: basic-auth-validator
     basicAuth:
+      mode: "FILE"
       userFile: '/etc/apache2/.htpasswd'
   - name: proxy
     kind: Proxy

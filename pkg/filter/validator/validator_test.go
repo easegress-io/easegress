@@ -338,6 +338,7 @@ func TestBasicAuth(t *testing.T) {
 kind: Validator
 name: validator
 basicAuth:
+  mode: FILE
   userFile: ` + userFile.Name()
 
 		userFile.Write(
@@ -387,22 +388,15 @@ basicAuth:
 		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
 
 		// Test newEtcdUserCache
-		if euc := newEtcdUserCache(clusterInstance, &EtcdSpec{
-			UsernameKey: "user",
-			PasswordKey: "pass",
-		}); euc.prefix != "/custom-data/credentials/" {
+		if euc := newEtcdUserCache(clusterInstance, ""); euc.prefix != "/custom-data/credentials/" {
 			t.Errorf("newEtcdUserCache failed")
 		}
-		if euc := newEtcdUserCache(clusterInstance, &EtcdSpec{
-			Prefix:      "/extra-slash/",
-			UsernameKey: "user",
-			PasswordKey: "pass",
-		}); euc.prefix != "/custom-data/extra-slash/" {
+		if euc := newEtcdUserCache(clusterInstance, "/extra-slash/"); euc.prefix != "/custom-data/extra-slash/" {
 			t.Errorf("newEtcdUserCache failed")
 		}
 
 		pwToYaml := func(user string, pw string) string {
-			return fmt.Sprintf("username: %s\npassword: %s", user, pw)
+			return fmt.Sprintf("key: %s\npassword: %s", user, pw)
 		}
 		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
 		clusterInstance.Put("/custom-data/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
@@ -415,11 +409,9 @@ basicAuth:
 kind: Validator
 name: validator
 basicAuth:
-  etcd:
-    prefix: credentials/
-    usernameKey: "username"
-    passwordKey: "password"`
-
+  mode: ETCD
+  etcdPrefix: credentials/
+`
 		expectedValid := []bool{true, false, true}
 		v := createValidator(yamlSpec, nil, supervisor)
 		for i := 0; i < 3; i++ {
@@ -445,7 +437,7 @@ randomEntry1: 21
 nestedEntry:
   key1: val1
 password: doge
-username: doge
+key: doge
 lastEntry: "byebye"
 `)
 

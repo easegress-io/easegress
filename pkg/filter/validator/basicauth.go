@@ -41,29 +41,22 @@ import (
 )
 
 type (
-	// EtcdSpec defines etcd prefix and which yaml entries are the username and password. For example spec
-	//   prefix: "/creds/"
-	//   usernameKey: "user"
-	//   passwordKey: "pw"
-	// expects the yaml to be stored with key /custom-data/creds/{id} in following yaml (extra keys are allowed)
-	//   user: doge
-	//   pw: {encrypted or plain text password}
-	EtcdSpec struct {
-		Prefix      string `yaml:"prefix" jsonschema:"onitempty"`
-		UsernameKey string `yaml:"usernameKey" jsonschema:"omitempty"`
-		PasswordKey string `yaml:"passwordKey" jsonschema:"omitempty"`
-	}
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
-	// Only one of UserFile or Etcd should be defined.
+	// There are 'file' and 'etcd' modes.
 	BasicAuthValidatorSpec struct {
+		Mode string `yaml:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD"`
+		// Required for 'FILE' mode.
 		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
 		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
 		// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
 		UserFile string `yaml:"userFile" jsonschema:"omitempty"`
-		// When etcd is specified, verify user credentials from etcd. Etcd stores them:
-		// key: /custom-data/{etcd.prefix}/{username}
-		// value: {yaml string in format of etcd}
-		Etcd *EtcdSpec `yaml:"etcd" jsonschema:"omitempty"`
+		// Required for 'ETCD' mode.
+		// When EtcdPrefix is specified, verify user credentials from etcd. Etcd should store them:
+		// key: /custom-data/{etcdPrefix}/{$key}
+		// value:
+		//   key: "$key"
+		//   password: "$password"
+		EtcdPrefix string `yaml:"etcdPrefix" jsonschema:"omitempty"`
 	}
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
@@ -87,8 +80,6 @@ type (
 		userFileObject *htpasswd.File
 		cluster        cluster.Cluster
 		prefix         string
-		usernameKey    string
-		passwordKey    string
 		syncInterval   time.Duration
 		stopCtx        context.Context
 		cancel         context.CancelFunc
@@ -101,7 +92,11 @@ type (
 	}
 )
 
-const customDataPrefix = "/custom-data/"
+const (
+	customDataPrefix = "/custom-data/"
+	etcdUsernameKey  = "key"
+	etcdPasswordKey  = "password"
+)
 
 func parseCredentials(creds string) (string, string, error) {
 	parts := strings.Split(creds, ":")
@@ -117,6 +112,9 @@ func bcryptHash(data []byte) (string, error) {
 }
 
 func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswdUserCache {
+	if userFile == "" {
+		userFile = "/etc/apache2/.htpasswd"
+	}
 	stopCtx, cancel := context.WithCancel(context.Background())
 	userFileObject, err := htpasswd.New(userFile, htpasswd.DefaultSystems, nil)
 	if err != nil {
@@ -187,33 +185,30 @@ func (huc *htpasswdUserCache) Match(username string, password string) bool {
 	return huc.userFileObject.Match(username, password)
 }
 
-func newEtcdUserCache(cluster cluster.Cluster, etcdConfig *EtcdSpec) *etcdUserCache {
+func newEtcdUserCache(cluster cluster.Cluster, etcdPrefix string) *etcdUserCache {
 	prefix := customDataPrefix
-	if etcdConfig.Prefix == "" {
+	if etcdPrefix == "" {
 		prefix += "credentials/"
 	} else {
-		prefix += strings.TrimPrefix(etcdConfig.Prefix, "/")
+		prefix = customDataPrefix + strings.TrimPrefix(etcdPrefix, "/")
 	}
 	logger.Infof("credentials etcd prefix %s", prefix)
 	kvs, err := cluster.GetPrefix(prefix)
 	if err != nil {
-		panic(err)
-	}
-	pwReader, err := kvsToReader(kvs, etcdConfig.UsernameKey, etcdConfig.PasswordKey)
-	if err != nil {
 		logger.Errorf(err.Error())
+		return &etcdUserCache{}
 	}
+	pwReader := kvsToReader(kvs)
 	userFileObject, err := htpasswd.NewFromReader(pwReader, htpasswd.DefaultSystems, nil)
 	if err != nil {
-		panic(err)
+		logger.Errorf(err.Error())
+		return &etcdUserCache{}
 	}
 	stopCtx, cancel := context.WithCancel(context.Background())
 	return &etcdUserCache{
 		userFileObject: userFileObject,
 		cluster:        cluster,
 		prefix:         prefix,
-		usernameKey:    etcdConfig.UsernameKey,
-		passwordKey:    etcdConfig.PasswordKey,
 		cancel:         cancel,
 		stopCtx:        stopCtx,
 		// cluster.Syncer updates changes (removed access or updated passwords) immediately.
@@ -234,34 +229,42 @@ func parseYamlCreds(entry string) (map[string]interface{}, error) {
 	return credentials, err
 }
 
-func kvsToReader(kvs map[string]string, usernameKey string, passwordKey string) (io.Reader, error) {
-	reader := bytes.NewReader([]byte(""))
+func kvsToReader(kvs map[string]string) io.Reader {
 	pwStrSlice := make([]string, 0, len(kvs))
 	for _, yaml := range kvs {
 		credentials, err := parseYamlCreds(yaml)
 		if err != nil {
-			return reader, err
+			logger.Errorf(err.Error())
+			continue
 		}
 		var ok bool
-		username, ok := credentials[usernameKey]
+		username, ok := credentials[etcdUsernameKey]
 		if !ok {
-			return reader,
-				fmt.Errorf("Parsing password updates failed. Make sure that '" +
-					usernameKey + "' is a valid yaml entry.")
+			logger.Errorf("Parsing credential updates failed. Make sure that credentials contains '" +
+				etcdUsernameKey + "' entry.")
+			continue
 		}
-		password, ok := credentials[passwordKey]
+		password, ok := credentials[etcdPasswordKey]
 		if !ok {
-			return reader,
-				fmt.Errorf("Parsing password updates failed. Make sure that '" +
-					passwordKey + "' is a valid yaml entry.")
+			logger.Errorf("Parsing credential updates failed. Make sure that credentials contains '" +
+				etcdPasswordKey + "' entry.")
+			continue
 		}
 		pwStrSlice = append(pwStrSlice, username.(string)+":"+password.(string))
 	}
+	if len(pwStrSlice) == 0 {
+		// no credentials found, let's return empty reader
+		return bytes.NewReader([]byte(""))
+	}
 	stringData := strings.Join(pwStrSlice, "\n")
-	return strings.NewReader(stringData), nil
+	return strings.NewReader(stringData)
 }
 
 func (euc *etcdUserCache) WatchChanges() error {
+	if euc.prefix == "" {
+		logger.Errorf("missing etcd prefix, skip watching changes")
+		return nil
+	}
 	var (
 		syncer *cluster.Syncer
 		err    error
@@ -293,10 +296,7 @@ func (euc *etcdUserCache) WatchChanges() error {
 			return nil
 		case kvs := <-ch:
 			logger.Infof("basic auth credentials update")
-			pwReader, err := kvsToReader(kvs, euc.usernameKey, euc.passwordKey)
-			if err != nil {
-				logger.Errorf(err.Error())
-			}
+			pwReader := kvsToReader(kvs)
 			euc.userFileObject.ReloadFromReader(pwReader, nil)
 		}
 	}
@@ -304,27 +304,34 @@ func (euc *etcdUserCache) WatchChanges() error {
 }
 
 func (euc *etcdUserCache) Close() {
+	if euc.prefix == "" {
+		return
+	}
 	euc.cancel()
 }
 
 func (euc *etcdUserCache) Refresh() error { return nil }
 
 func (euc *etcdUserCache) Match(username string, password string) bool {
+	if euc.prefix == "" {
+		return false
+	}
 	return euc.userFileObject.Match(username, password)
 }
 
 // NewBasicAuthValidator creates a new Basic Auth validator
 func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
 	var cache AuthorizedUsersCache
-	if spec.Etcd != nil {
+	switch spec.Mode {
+	case "ETCD":
 		if supervisor == nil || supervisor.Cluster() == nil {
 			logger.Errorf("BasicAuth validator : failed to read data from etcd")
-		} else {
-			cache = newEtcdUserCache(supervisor.Cluster(), spec.Etcd)
+			return nil
 		}
-	} else if spec.UserFile != "" {
+		cache = newEtcdUserCache(supervisor.Cluster(), spec.EtcdPrefix)
+	case "FILE":
 		cache = newHtpasswdUserCache(spec.UserFile, 1*time.Minute)
-	} else {
+	default:
 		logger.Errorf("BasicAuth validator spec unvalid.")
 		return nil
 	}

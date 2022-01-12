@@ -597,6 +597,7 @@ Here's an example for `basicAuth` validation method which uses [Apache2 htpasswd
 kind: Validator
 name: basicAuth-validator-example
 basicAuth:
+  mode: "FILE"
   userFile: /etc/apache2/.htpasswd
 ```
 
@@ -608,6 +609,7 @@ basicAuth:
 | jwt       | [validator.JWTValidatorSpec](#validatorJWTValidatorSpec)          | JWT validation rule, validates JWT token string from the `Authorization` header or cookies                                                                                                                    | No       |
 | signature | [signer.Spec](#signerSpec)                                        | Signature validation rule, implements an [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) compatible signature validation validator, with customizable literal strings | No       |
 | oauth2    | [validator.OAuth2ValidatorSpec](#validatorOAuth2ValidatorSpec)    | The `OAuth/2` method support `Token Introspection` mode and `Self-Encoded Access Tokens` mode, only one mode can be configured at a time                                                                      | No       |
+| basicAuth    | [basicauth.BasicAuthValidatorSpec](#basicauthBasicAuthValidatorSpec)    | The `BasicAuth` method support `FILE` mode and `ETCD` mode, only one mode can be configured at a time.                                                                  | No       |
 
 ### Results
 
