@@ -20,34 +20,6 @@ package kafka
 type (
 	// Spec is spec of Kafka
 	Spec struct {
-		Backend     []string     `yaml:"backend" jsonschema:"required,uniqueItems=true"`
-		TopicMapper *TopicMapper `yaml:"topicMapper" jsonschema:"omitempty"`
-	}
-
-	// TopicMapper map MQTT multi-level topic to Kafka topic with headers
-	TopicMapper struct {
-		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
-		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
-		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
-	}
-
-	// PolicyRe to match right policy to do topic map
-	PolicyRe struct {
-		Name      string `yaml:"name" jsonschema:"required"`
-		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
-	}
-
-	// Policy describes topic map between MQTT topic and Backend MQ topic
-	Policy struct {
-		Name       string         `yaml:"name" jsonschema:"required"`
-		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
-		Route      []TopicRe      `yaml:"route" jsonschema:"required"`
-		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
-	}
-
-	// TopicRe to match right topic in given policy
-	TopicRe struct {
-		Topic string   `yaml:"topic" jsonschema:"required"`
-		Exprs []string `yaml:"exprs" jsonschema:"required"`
+		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}
 )

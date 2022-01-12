@@ -23,12 +23,17 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	logger.InitNop()
+}
 
 type mockAsyncProducer struct {
 	ch chan *sarama.ProducerMessage
