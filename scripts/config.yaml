@@ -61,19 +61,19 @@
 
 
 ## path to the home directory
-# home-dir: /opt/easegress
+# home-dir: ##DIR##
 
 ## path to the data directory
-# data-dir: /opt/easegress/data
+# data-dir: ##DIR##/data
 
 ## path to the wal directory
-# wal-dir: /opt/easegress/wal
+# wal-dir: ##DIR##/wal
 
 ## path to the log directory
-# log-dir: /opt/easegress/log
+# log-dir: ##DIR##/log
 
 ## path to the member directory
-# member-dir: /opt/easegress/member
+# member-dir: ##DIR##/member
 
 ## path to the CPU profile file
 # cpu-profile-file:
