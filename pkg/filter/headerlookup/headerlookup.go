@@ -18,14 +18,17 @@
 package headerlookup
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/context"
+	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 )
@@ -35,6 +38,8 @@ const (
 	Kind = "HeaderLookup"
 	// customDataPrefix is prefix for lookup data.
 	customDataPrefix = "/custom-data/"
+	// size of the LRU cache
+	cacheSize = 128
 )
 
 var results = []string{}
@@ -51,7 +56,10 @@ type (
 		etcdPrefix string
 		headerKey  string
 
+		cache   *lru.Cache
 		cluster cluster.Cluster
+		stopCtx context.Context
+		cancel  context.CancelFunc
 	}
 
 	// HeaderSetterSpec defines etcd source key and request destination header.
@@ -120,6 +128,9 @@ func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
 	}
 	hl.etcdPrefix = customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/")
 	hl.headerKey = http.CanonicalHeaderKey(hl.spec.HeaderKey)
+	hl.cache, _ = lru.New(cacheSize)
+	hl.stopCtx, hl.cancel = context.WithCancel(context.Background())
+	hl.watchChanges()
 }
 
 // Inherit inherits previous generation of HeaderLookup.
@@ -129,6 +140,10 @@ func (hl *HeaderLookup) Inherit(filterSpec *httppipeline.FilterSpec, previousGen
 }
 
 func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
+	if val, ok := hl.cache.Get(hl.etcdPrefix + headerVal); ok {
+		return val.(map[string]string), nil
+	}
+
 	etcdVal, err := hl.cluster.Get(hl.etcdPrefix + headerVal)
 	if err != nil {
 		return nil, err
@@ -147,16 +162,79 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 			result[setter.HeaderKey] = val
 		}
 	}
+
+	hl.cache.Add(hl.etcdPrefix+headerVal, result)
 	return result, nil
 }
 
+func findModifiedValues(kvs map[string]string, cache *lru.Cache) []string {
+	keysToUpdate := []string{}
+	for key, newValues := range kvs {
+		if oldValues, ok := cache.Peek(key); ok {
+			if newValues != oldValues {
+				keysToUpdate = append(keysToUpdate, key)
+			}
+		}
+	}
+	return keysToUpdate
+}
+
+func (hl *HeaderLookup) watchChanges() {
+	var (
+		syncer *cluster.Syncer
+		err    error
+		ch     <-chan map[string]string
+	)
+
+	for {
+		syncer, err = hl.cluster.Syncer(30 * time.Minute)
+		if err != nil {
+			logger.Errorf("failed to create syncer: %v", err)
+		} else if ch, err = syncer.SyncPrefix(hl.etcdPrefix); err != nil {
+			logger.Errorf("failed to sync prefix: %v", err)
+			syncer.Close()
+		} else {
+			break
+		}
+
+		select {
+		case <-time.After(10 * time.Second):
+		case <-hl.stopCtx.Done():
+			return
+		}
+	}
+	// start listening in background
+	go func() {
+		defer syncer.Close()
+
+		for {
+			select {
+			case <-hl.stopCtx.Done():
+				return
+			case kvs := <-ch:
+				logger.Infof("HeaderLookup update")
+				keysToUpdate := findModifiedValues(kvs, hl.cache)
+				for _, cacheKey := range keysToUpdate {
+					hl.cache.Remove(cacheKey)
+				}
+			}
+		}
+	}()
+	return
+}
+
+// Close closes HeaderLookup.
+func (hl *HeaderLookup) Close() {
+	hl.cancel()
+}
+
 // Handle retrieves header values and sets request headers.
-func (hl *HeaderLookup) Handle(ctx context.HTTPContext) string {
+func (hl *HeaderLookup) Handle(ctx httpcontext.HTTPContext) string {
 	result := hl.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
+func (hl *HeaderLookup) handle(ctx httpcontext.HTTPContext) string {
 	header := ctx.Request().Header()
 	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {
@@ -176,6 +254,3 @@ func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
 
 // Status returns status.
 func (hl *HeaderLookup) Status() interface{} { return nil }
-
-// Close closes RequestAdaptor.
-func (hl *HeaderLookup) Close() {}

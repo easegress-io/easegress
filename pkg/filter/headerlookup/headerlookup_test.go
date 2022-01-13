@@ -23,6 +23,9 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -113,6 +116,19 @@ headerSetters:
 	}
 }
 
+func TestfindModifiedValues(t *testing.T) {
+	cache, _ := lru.New(10)
+	kvs := make(map[string]string)
+	kvs["doge"] = "headerA: 3\nheaderB: 6"
+	kvs["foo"] = "headerA: 3\nheaderB: 232"
+	kvs["bar"] = "headerA: 11\nheaderB: 43"
+	cache.Add("doge", "headerA: 3\nheaderB: 6")  // same values
+	cache.Add("foo", "headerA: 3\nheaderB: 232") // new value
+	if res := findModifiedValues(kvs, cache); res[0] == "foo" && len(res) == 1 {
+		t.Errorf("findModifiedValues failed")
+	}
+}
+
 func TestHandle(t *testing.T) {
 	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-test")
 	check(err)
@@ -126,48 +142,67 @@ headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
 `
-	t.Run("handle", func(t *testing.T) {
-		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
-		var mockMap sync.Map
-		supervisor := supervisor.NewMock(
-			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+	var mockMap sync.Map
+	supervisor := supervisor.NewMock(
+		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 
-		// let's put data to 'foobar'
-		clusterInstance.Put("/custom-data/credentials/foobar",
-			`
+	// let's put data to 'foobar'
+	clusterInstance.Put("/custom-data/credentials/foobar",
+		`
 ext-id: 123456789
 extra-entry: "extra"
 `)
-		hl, err := createHeaderLookup(config, supervisor)
-		check(err)
+	hl, err := createHeaderLookup(config, supervisor)
+	check(err)
 
-		// 'foobar' is the id
-		ctx := &contexttest.MockedHTTPContext{}
-		header := httpheader.New(http.Header{})
-		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-			return header
+	// 'foobar' is the id
+	ctx := &contexttest.MockedHTTPContext{}
+	header := httpheader.New(http.Header{})
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return header
+	}
+
+	hl.Handle(ctx) // does nothing as header missing
+
+	if header.Get("user-ext-id") != "" {
+		t.Errorf("header should not be set")
+	}
+
+	header.Set("X-AUTH-USER", "unknown-user")
+
+	hl.Handle(ctx) // does nothing as user is missing
+
+	if header.Get("user-ext-id") != "" {
+		t.Errorf("header should be set")
+	}
+
+	header.Set("X-AUTH-USER", "foobar")
+
+	hl.Handle(ctx) // now updates header
+	hdr1 := header.Get("user-ext-id")
+	hl.Handle(ctx) // get from cache
+	hdr2 := header.Get("user-ext-id")
+
+	if hdr1 != hdr2 || hdr1 != "123456789" {
+		t.Errorf("header should be set")
+	}
+
+	// update key-value store
+	clusterInstance.Put("/custom-data/credentials/foobar", `
+ext-id: 77341
+extra-entry: "extra"
+`)
+
+	tryCount := 5
+	for i := 0; i <= tryCount; i++ {
+		time.Sleep(200 * time.Millisecond) // wait that cache item gets updated
+		hl.Handle(ctx)                     // get updated value
+		if header.Get("user-ext-id") == "77341" {
+			break // successfully updated
+		} else if i == tryCount {
+			t.Errorf("header should be updated")
 		}
-
-		hl.Handle(ctx) // does nothing as header missing
-
-		if header.Get("user-ext-id") != "" {
-			t.Errorf("header should not be set")
-		}
-
-		header.Set("X-AUTH-USER", "unknown-user")
-
-		hl.Handle(ctx) // does nothing as user is missing
-
-		if header.Get("user-ext-id") != "" {
-			t.Errorf("header should be set")
-		}
-
-		header.Set("X-AUTH-USER", "foobar")
-
-		hl.Handle(ctx) // now updates header
-
-		if header.Get("user-ext-id") != "123456789" {
-			t.Errorf("header should be set")
-		}
-	})
+	}
+	hl.Close()
 }
