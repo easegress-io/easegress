@@ -42,7 +42,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func createHeaderLookup(yamlSpec string, supervisor *supervisor.Supervisor) (*HeaderLookup, error) {
+func createHeaderLookup(
+	yamlSpec string, prev *HeaderLookup, supervisor *supervisor.Supervisor) (*HeaderLookup, error) {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 	spec, err := httppipeline.NewFilterSpec(rawSpec, supervisor)
@@ -50,8 +51,11 @@ func createHeaderLookup(yamlSpec string, supervisor *supervisor.Supervisor) (*He
 		return nil, err
 	}
 	hl := &HeaderLookup{}
-	hl.Init(spec)
-	hl.Inherit(spec, hl)
+	if prev == nil {
+		hl.Init(spec)
+	} else {
+		hl.Inherit(spec, prev)
+	}
 	return hl, nil
 }
 
@@ -106,25 +110,28 @@ headerSetters:
 	}
 
 	for _, unvalidYaml := range unvalidYamls {
-		if _, err := createHeaderLookup(unvalidYaml, supervisor); err == nil {
+		if _, err := createHeaderLookup(unvalidYaml, nil, supervisor); err == nil {
 			t.Errorf("validate should return error")
 		}
 	}
 
-	if _, err := createHeaderLookup(validYaml, supervisor); err != nil {
+	if _, err := createHeaderLookup(validYaml, nil, supervisor); err != nil {
 		t.Errorf("validate should not return error: %s", err.Error())
 	}
 }
 
-func TestfindModifiedValues(t *testing.T) {
+func TestFindKeysToDelete(t *testing.T) {
 	cache, _ := lru.New(10)
 	kvs := make(map[string]string)
 	kvs["doge"] = "headerA: 3\nheaderB: 6"
 	kvs["foo"] = "headerA: 3\nheaderB: 232"
 	kvs["bar"] = "headerA: 11\nheaderB: 43"
-	cache.Add("doge", "headerA: 3\nheaderB: 6")  // same values
-	cache.Add("foo", "headerA: 3\nheaderB: 232") // new value
-	cache.Add("key4", "---") // new value
+	kvs["key5"] = "headerA: 11\nheaderB: 43"
+	kvs["key6"] = "headerA: 11\nheaderB: 43"
+	cache.Add("doge", "headerA: 3\nheaderB: 6")   // same values
+	cache.Add("foo", "headerA: 3\nheaderB: 232")  // new value
+	cache.Add("key4", "---")                      // new value
+	cache.Add("key6", "headerA: 11\nheaderB: 44") // new value
 	if res := findKeysToDelete(kvs, cache); res[0] == "foo" && res[1] == "key4" {
 		t.Errorf("findModifiedValues failed")
 	}
@@ -163,7 +170,7 @@ headerSetters:
 ext-id: 123456789
 extra-entry: "extra"
 `)
-	hl, err := createHeaderLookup(config, supervisor)
+	hl, err := createHeaderLookup(config, nil, supervisor)
 	check(err)
 
 	// 'foobar' is the id
@@ -199,6 +206,7 @@ extra-entry: "extra"
 ext-id: 77341
 extra-entry: "extra"
 `)
+	hl, err = createHeaderLookup(config, hl, supervisor)
 	ctx, header = prepareCtxAndHeader()
 	header.Set("X-AUTH-USER", "foobar")
 
@@ -212,6 +220,7 @@ extra-entry: "extra"
 			t.Errorf("header should be updated")
 		}
 	}
+	hl, err = createHeaderLookup(config, hl, supervisor)
 	ctx, header = prepareCtxAndHeader()
 	header.Set("X-AUTH-USER", "foobar")
 	// delete foobar completely
@@ -226,5 +235,10 @@ extra-entry: "extra"
 			t.Errorf("header should be deleted, got %s", header.Get("user-ext-id"))
 		}
 	}
+
 	hl.Close()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	clusterInstance.CloseServer(wg)
+	wg.Wait()
 }
