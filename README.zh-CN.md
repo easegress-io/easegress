@@ -128,7 +128,10 @@ Easegress 的基本用法是做为后端服务器的代理。下面分步说明�
 
 ### 安装 Easegress
 
-我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。下面的 Shell 命令会下载并解压最新版的 Easegress 到 `./easegress` 目录下：
+我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。下面的 Shell 命令会做如下的事：
+
+- 下载并解压最新版的 Easegress 到 `./easegress` 目录下
+- 安装 Systemd 服务，并启动 easegress
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/megaease/easegress/main/scripts/install.sh)"

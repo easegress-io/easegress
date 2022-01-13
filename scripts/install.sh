@@ -48,7 +48,7 @@ echo "Extract the files successfully"
 
 # Fourth - configure the easegress
 echo "Download the config.yaml file"
-RAW_GITHUB_URL=https://raw.githubusercontent.com/haoel/easegress
+RAW_GITHUB_URL=https://raw.githubusercontent.com/megaease/easegress
 curl -sL ${RAW_GITHUB_URL}/main/scripts/config.yaml -o ./easegress/config.yaml
 if [[ "${OS}" == "linux" ]]; then
 
