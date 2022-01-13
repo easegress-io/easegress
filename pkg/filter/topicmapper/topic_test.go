@@ -36,6 +36,10 @@ func getDefaultSpec() *Spec {
 	// /d2s/{tenant}/{device_type}/{things_id}/raw
 	// /g2s/{gwTenantId}/{gwInfoModelId}/{gwThingsId}/d2s/{tenantId}/{infoModelId}/{thingsId}/data
 	spec := Spec{
+		SetKV: &SetKV{
+			Topic:   "topic",
+			Headers: "headers",
+		},
 		MatchIndex: 0,
 		Route: []*PolicyRe{
 			{"g2s", "g2s"},

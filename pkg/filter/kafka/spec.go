@@ -21,5 +21,13 @@ type (
 	// Spec is spec of Kafka
 	Spec struct {
 		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
+		KVMap   *KVMap   `yaml:"mqtt" jsonschema:"required"`
+	}
+
+	// KVMap defines ways to get kafka data from MQTTContext kv map
+	KVMap struct {
+		Topic   string `yaml:"topic" jsonschema:"required"`
+		Headers string `yaml:"headers" jsonschema:"required"`
+		Payload string `yaml:"payload" jsonschema:"required"`
 	}
 )

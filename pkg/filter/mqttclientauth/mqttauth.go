@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 
@@ -38,8 +37,6 @@ const (
 
 	resultAuthFail = "AuthFail"
 )
-
-var errAuthFail = errors.New(resultAuthFail)
 
 func init() {
 	pipeline.Register(&MQTTClientAuth{})
@@ -156,18 +153,18 @@ func sha256Sum(data []byte) string {
 	return hex.EncodeToString(sha256Bytes[:])
 }
 
-func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) error {
+func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) string {
 	if connect.ClientIdentifier == "" {
-		return errAuthFail
+		return resultAuthFail
 	}
 	pass, ok := a.authMap[connect.Username]
 	if !ok {
-		return errAuthFail
+		return resultAuthFail
 	}
 	if pass != sha256Sum(connect.Password) {
-		return errAuthFail
+		return resultAuthFail
 	}
-	return nil
+	return context.NilErr
 }
 
 // HandleMQTT handle MQTT context
@@ -175,10 +172,10 @@ func (a *MQTTClientAuth) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 	if ctx.PacketType() != context.MQTTConnect {
 		return &context.MQTTResult{}
 	}
-	err := a.checkAuth(ctx.ConnectPacket())
-	if err != nil {
+	result := a.checkAuth(ctx.ConnectPacket())
+	if result != "" {
 		ctx.SetDisconnect()
-		return &context.MQTTResult{Err: errAuthFail}
+		return &context.MQTTResult{ErrString: resultAuthFail}
 	}
-	return &context.MQTTResult{}
+	return &context.MQTTResult{ErrString: context.NilErr}
 }

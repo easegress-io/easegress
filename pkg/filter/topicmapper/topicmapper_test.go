@@ -87,12 +87,7 @@ func TestTopicMapper(t *testing.T) {
 	for _, tt := range tests {
 		ctx := newContext("client", tt.mqttTopic)
 		topicMapper.HandleMQTT(ctx)
-		assert.Equal(t, tt.topic, ctx.PublishPacket().Topic())
-
-		headers := make(map[string]string)
-		ctx.PublishPacket().VisitAllHeader(func(k, v string) {
-			headers[k] = v
-		})
-		assert.Equal(t, tt.headers, headers)
+		assert.Equal(t, tt.topic, ctx.GetKV("topic").(string))
+		assert.Equal(t, tt.headers, ctx.GetKV("headers").(map[string]string))
 	}
 }

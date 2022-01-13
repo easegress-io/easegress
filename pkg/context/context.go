@@ -44,4 +44,7 @@ const (
 
 	// UDP is UDP protocol
 	UDP Protocol = "UDP"
+
+	// NilErr defines nil error string
+	NilErr = ""
 )

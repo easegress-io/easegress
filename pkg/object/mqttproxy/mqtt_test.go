@@ -242,7 +242,7 @@ func TestPublish(t *testing.T) {
 		token := client.Publish(topic, 0, false, text)
 		token.Wait()
 		p := backend.get()
-		if p.Topic() != topic || string(p.Payload()) != text {
+		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
 	}
@@ -256,7 +256,7 @@ func TestPublish(t *testing.T) {
 			t.Errorf("should support qos1")
 		}
 		p := backend.get()
-		if p.Topic() != topic || string(p.Payload()) != text {
+		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
 	}
@@ -413,17 +413,17 @@ func TestMultiClientPublish(t *testing.T) {
 		ans := make(map[string]int)
 		for i := 0; i < clientNum*msgNum; i++ {
 			p := backend.get()
-			num, _ := strconv.Atoi(string(p.Payload()))
-			if val, ok := ans[p.Topic()]; ok {
+			num, _ := strconv.Atoi(string(p.Payload))
+			if val, ok := ans[p.TopicName]; ok {
 				if num != val+1 {
 					t.Errorf("received publish not in order")
 				}
-				ans[p.Topic()] = num
+				ans[p.TopicName] = num
 			} else {
 				if num != 0 {
 					t.Errorf("received publish not in order")
 				}
-				ans[p.Topic()] = num
+				ans[p.TopicName] = num
 			}
 		}
 	}()
@@ -594,17 +594,17 @@ func TestSendMsgBack(t *testing.T) {
 		ans := make(map[string]int)
 		for i := 0; i < clientNum*msgNum; i++ {
 			p := backend.get()
-			num, _ := strconv.Atoi(string(p.Payload()))
-			if val, ok := ans[p.Topic()]; ok {
+			num, _ := strconv.Atoi(string(p.Payload))
+			if val, ok := ans[p.TopicName]; ok {
 				if num != val+1 {
 					t.Errorf("received publish not in order")
 				}
-				ans[p.Topic()] = num
+				ans[p.TopicName] = num
 			} else {
 				if num != 0 {
 					t.Errorf("received publish not in order")
 				}
-				ans[p.Topic()] = num
+				ans[p.TopicName] = num
 			}
 		}
 	}()
@@ -1394,7 +1394,7 @@ filters:
 		token.Wait()
 
 		p := backend.get()
-		if p.Topic() != topic || string(p.Payload()) != text {
+		if p.TopicName != topic || string(p.Payload) != text {
 			t.Errorf("get wrong publish")
 		}
 		c := broker.getClient(strconv.Itoa(i))
