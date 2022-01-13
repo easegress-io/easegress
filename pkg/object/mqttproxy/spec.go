@@ -30,6 +30,34 @@ const (
 	mqttAPISessionDeletePrefix = "/mqttproxy/%s/sessions"
 )
 
+// PacketType is mqtt packet type
+type PacketType string
+
+const (
+	// Connect is connect type of MQTT packet
+	Connect PacketType = "Connect"
+
+	// Disconnect is disconnect type of MQTT packet
+	Disconnect PacketType = "Disconnect"
+
+	// Publish is publish type of MQTT packet
+	Publish PacketType = "Publish"
+
+	// Subscribe is subscribe type of MQTT packet
+	Subscribe PacketType = "Subscribe"
+
+	// Unsubscribe is unsubscribe type of MQTT packet
+	Unsubscribe PacketType = "Unsubscribe"
+)
+
+var pipelinePacketTypes = map[PacketType]struct{}{
+	Connect:     {},
+	Disconnect:  {},
+	Publish:     {},
+	Subscribe:   {},
+	Unsubscribe: {},
+}
+
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
@@ -37,17 +65,24 @@ type (
 		Name                 string        `yaml:"-"`
 		Port                 uint16        `yaml:"port" jsonschema:"required"`
 		BackendType          string        `yaml:"backendType" jsonschema:"required"`
-		Auth                 []Auth        `yaml:"auth" jsonschema:"required"`
-		TopicMapper          *TopicMapper  `yaml:"topicMapper" jsonschema:"omitempty"`
-		Kafka                *KafkaSpec    `yaml:"kafkaBroker" jsonschema:"omitempty"`
 		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
-		Pipeline             string        `yaml:"pipeline" jsonschema:"omitempty"`
-		AuthByPipeline       bool          `yaml:"authByPipeline" jsonschema:"omitempty"`
 		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
 		ConnectionLimit      *RateLimit    `yaml:"connectionLimit" jsonschema:"omitempty"`
 		ClientPublishLimit   *RateLimit    `yaml:"clientPublishLimit" jsonschema:"omitempty"`
+		Rules                []*Rule       `yaml:"rules" jsonschema:"omitempty"`
+	}
+
+	// Rule used to route MQTT packets to different pipelines
+	Rule struct {
+		When     *When  `yaml:"when" jsonschema:"omitempty"`
+		Pipeline string `yaml:"pipeline" jsonschema:"omitempty"`
+	}
+
+	// When is used to check if MQTT packet match this pipeline
+	When struct {
+		PacketType PacketType `yaml:"packetType" jsonschema:"omitempty"`
 	}
 
 	// RateLimit describes rate limit for connection or publish.
@@ -65,42 +100,6 @@ type (
 		Name string `yaml:"name" jsonschema:"required"`
 		Cert string `yaml:"cert" jsonschema:"required"`
 		Key  string `yaml:"key" jsonschema:"required"`
-	}
-
-	// Auth describes username and password for MQTTProxy
-	Auth struct {
-		UserName   string `yaml:"userName" jsonschema:"required"`
-		PassBase64 string `yaml:"passBase64" jsonschema:"required"`
-	}
-	// TopicMapper map MQTT multi-level topic to Kafka topic with headers
-	TopicMapper struct {
-		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
-		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
-		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
-	}
-	// PolicyRe to match right policy to do topic map
-	PolicyRe struct {
-		Name      string `yaml:"name" jsonschema:"required"`
-		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
-	}
-
-	// Policy describes topic map between MQTT topic and Backend MQ topic
-	Policy struct {
-		Name       string         `yaml:"name" jsonschema:"required"`
-		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
-		Route      []TopicRe      `yaml:"route" jsonschema:"required"`
-		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
-	}
-
-	// TopicRe to match right topic in given policy
-	TopicRe struct {
-		Topic string   `yaml:"topic" jsonschema:"required"`
-		Exprs []string `yaml:"exprs" jsonschema:"required"`
-	}
-
-	// KafkaSpec describes Kafka producer
-	KafkaSpec struct {
-		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 	}
 )
 

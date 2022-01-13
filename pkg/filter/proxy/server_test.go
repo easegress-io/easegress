@@ -407,3 +407,44 @@ func TestDynamicService(t *testing.T) {
 		t.Fatalf("want: %+v\ngot :%+v\n", wantStatic, s.static)
 	}
 }
+
+func TestCheckAddrPattern(t *testing.T) {
+	server := Server{}
+
+	// regard invalid url as IP:port
+	server.URL = "@@+=%^httpsidfssjflsdkjfsjf"
+	server.checkAddrPattern()
+	if server.addrIsHostName {
+		t.Error("address should be IP:port")
+	}
+
+	server.URL = "http://127.0.0.1:1111"
+	server.checkAddrPattern()
+	if server.addrIsHostName {
+		t.Error("address should be IP:port")
+	}
+
+	server.URL = "https://127.0.0.1:1111"
+	server.checkAddrPattern()
+	if server.addrIsHostName {
+		t.Error("address should be IP:port")
+	}
+
+	server.URL = "https://[FE80:CD00:0000:0CDE:1257:0000:211E:729C]:1111"
+	server.checkAddrPattern()
+	if server.addrIsHostName {
+		t.Error("address should be IP:port")
+	}
+
+	server.URL = "https://www.megaease.com:1111"
+	server.checkAddrPattern()
+	if !server.addrIsHostName {
+		t.Error("address should be host name")
+	}
+
+	server.URL = "https://www.megaease.com"
+	server.checkAddrPattern()
+	if !server.addrIsHostName {
+		t.Error("address should be host name")
+	}
+}

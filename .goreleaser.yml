@@ -23,7 +23,7 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.4.0
+      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
       - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
@@ -37,7 +37,7 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE=v1.4.0
+      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
       - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
       - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
 
@@ -58,6 +58,8 @@ dockers:
   - image_templates:
     - megaease/easegress:latest
     - megaease/easegress:{{ .Tag }}
+    - megaease/easegress:easemesh
+    - megaease/easegress:server-sidecar
 
     goos: linux
     goarch: amd64

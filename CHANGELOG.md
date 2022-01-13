@@ -1,5 +1,29 @@
 # Changelog
 
+## [v1.4.1](https://github.com/megaease/easegress/tree/v1.4.1) (2022-01-07)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.4.0...v1.4.1)
+
+**Implemented enhancements:**
+
+- Improve performance of Proxy filter [\#414](https://github.com/megaease/easegress/pull/414)
+- Ingress Controller tutorial and Helm Charts to support multi nodes [\#395](https://github.com/megaease/easegress/pull/395)
+
+**Fixed bugs:**
+
+- Reduce etcd server memory usage [\#439](https://github.com/megaease/easegress/pull/439)
+- Support PEM in both base64 and plain text [\#425](https://github.com/megaease/easegress/pull/425)
+- Only set host when server addr is IP (close #447) [\#451](https://github.com/megaease/easegress/pull/451)
+- Copy backend http response header to httpresponse [\#449](https://github.com/megaease/easegress/pull/449)
+- Fix httpserver httppipeline status not show error [\#441](https://github.com/megaease/easegress/pull/441)
+- Mock filter to support header match [\#409](https://github.com/megaease/easegress/pull/409)
+- Fix wrong content-type [\#430](https://github.com/megaease/easegress/pull/430)
+- Fix easegress-server yaml validation [\#432](https://github.com/megaease/easegress/pull/432)
+- Change status code 403 to 401 when jwt signer and oauth2 validation fail [\#426](https://github.com/megaease/easegress/pull/426)
+- Fix typos [\#423](https://github.com/megaease/easegress/pull/423) [\#417](https://github.com/megaease/easegress/pull/417) [\#416](https://github.com/megaease/easegress/pull/416) [\#410](https://github.com/megaease/easegress/pull/410)
+- Expose max-sync-message-size in options [\#419](https://github.com/megaease/easegress/pull/419)
+- Enable calling mirrorPool reader Read after EOF [\#411](https://github.com/megaease/easegress/pull/411)
+- Use ClusterJoinURLs for secondary members [\#403](https://github.com/megaease/easegress/pull/403)
 
 ## [v1.4.0](https://github.com/megaease/easegress/tree/v1.4.0) (2021-12-07)
 
