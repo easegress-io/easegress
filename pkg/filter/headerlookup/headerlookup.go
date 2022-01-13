@@ -22,11 +22,12 @@ import (
 	"net/http"
 	"strings"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
 const (
@@ -47,6 +48,8 @@ type (
 	HeaderLookup struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
+		etcdPrefix string
+		headerKey  string
 
 		cluster cluster.Cluster
 	}
@@ -115,6 +118,8 @@ func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
 	if filterSpec.Super() != nil && filterSpec.Super().Cluster() != nil {
 		hl.cluster = filterSpec.Super().Cluster()
 	}
+	hl.etcdPrefix = customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/")
+	hl.headerKey = http.CanonicalHeaderKey(hl.spec.HeaderKey)
 }
 
 // Inherit inherits previous generation of HeaderLookup.
@@ -123,21 +128,8 @@ func (hl *HeaderLookup) Inherit(filterSpec *httppipeline.FilterSpec, previousGen
 	hl.Init(filterSpec)
 }
 
-func parseYamlCreds(entry string) (map[string]string, error) {
-	var err error
-	defer func() {
-		if err := recover(); err != nil {
-			err = fmt.Errorf("could not marshal custom-data, ensure that it's valid yaml")
-		}
-	}()
-	yamlMap := make(map[string]string)
-	yamltool.Unmarshal([]byte(entry), &yamlMap)
-	return yamlMap, err
-}
-
 func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
-	etcdKey := customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/") + headerVal
-	etcdVal, err := hl.cluster.Get(etcdKey)
+	etcdVal, err := hl.cluster.Get(hl.etcdPrefix + headerVal)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +137,8 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 		return nil, fmt.Errorf("no data found")
 	}
 	result := make(map[string]string, len(hl.spec.HeaderSetters))
-	etcdValues, err := parseYamlCreds(*etcdVal)
+	etcdValues := make(map[string]string)
+	err = yaml.Unmarshal([]byte(*etcdVal), etcdValues)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +158,7 @@ func (hl *HeaderLookup) Handle(ctx context.HTTPContext) string {
 
 func (hl *HeaderLookup) handle(ctx context.HTTPContext) string {
 	header := ctx.Request().Header()
-	headerVal := header.Get(http.CanonicalHeaderKey(hl.spec.HeaderKey))
+	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
 		return ""

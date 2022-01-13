@@ -117,18 +117,6 @@ func TestHandle(t *testing.T) {
 	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-test")
 	check(err)
 	defer os.RemoveAll(etcdDirName)
-	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
-	var mockMap sync.Map
-	supervisor := supervisor.NewMock(
-		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
-
-	// let's put data to 'foobar'
-	clusterInstance.Put("/custom-data/credentials/foobar",
-		`
-ext-id: 123456789
-extra-entry: "extra"
-`)
-
 	const config = `
 name: headerLookup
 kind: HeaderLookup
@@ -138,35 +126,48 @@ headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
 `
-	hl, err := createHeaderLookup(config, supervisor)
-	check(err)
+	t.Run("handle", func(t *testing.T) {
+		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+		var mockMap sync.Map
+		supervisor := supervisor.NewMock(
+			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 
-	// 'foobar' is the id
-	ctx := &contexttest.MockedHTTPContext{}
-	header := httpheader.New(http.Header{})
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return header
-	}
+		// let's put data to 'foobar'
+		clusterInstance.Put("/custom-data/credentials/foobar",
+			`
+ext-id: 123456789
+extra-entry: "extra"
+`)
+		hl, err := createHeaderLookup(config, supervisor)
+		check(err)
 
-	hl.Handle(ctx) // does nothing as header missing
+		// 'foobar' is the id
+		ctx := &contexttest.MockedHTTPContext{}
+		header := httpheader.New(http.Header{})
+		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+			return header
+		}
 
-	if header.Get("user-ext-id") != "" {
-		t.Errorf("header should not be set")
-	}
+		hl.Handle(ctx) // does nothing as header missing
 
-	header.Set("X-AUTH-USER", "unknown-user")
+		if header.Get("user-ext-id") != "" {
+			t.Errorf("header should not be set")
+		}
 
-	hl.Handle(ctx) // does nothing as user is missing
+		header.Set("X-AUTH-USER", "unknown-user")
 
-	if header.Get("user-ext-id") != "" {
-		t.Errorf("header should be set")
-	}
+		hl.Handle(ctx) // does nothing as user is missing
 
-	header.Set("X-AUTH-USER", "foobar")
+		if header.Get("user-ext-id") != "" {
+			t.Errorf("header should be set")
+		}
 
-	hl.Handle(ctx) // now updates header
+		header.Set("X-AUTH-USER", "foobar")
 
-	if header.Get("user-ext-id") != "123456789" {
-		t.Errorf("header should be set")
-	}
+		hl.Handle(ctx) // now updates header
+
+		if header.Get("user-ext-id") != "123456789" {
+			t.Errorf("header should be set")
+		}
+	})
 }

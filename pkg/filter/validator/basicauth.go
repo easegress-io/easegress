@@ -30,12 +30,13 @@ import (
 	"github.com/tg123/go-htpasswd"
 	"golang.org/x/crypto/bcrypt"
 
+	yaml "gopkg.in/yaml.v2"
+
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
-	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
 type (
@@ -87,12 +88,15 @@ type (
 		spec                 *BasicAuthValidatorSpec
 		authorizedUsersCache AuthorizedUsersCache
 	}
+
+	credentials struct {
+		Key      string `yaml:"key" jsonschema:"omitempty"`
+		Password string `yaml:"password" jsonschema:"omitempty"`
+	}
 )
 
 const (
 	customDataPrefix = "/custom-data/"
-	etcdUsernameKey  = "key"
-	etcdPasswordKey  = "password"
 )
 
 func parseCredentials(creds string) (string, string, error) {
@@ -206,40 +210,22 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdPrefix string) *etcdUserCache
 	}
 }
 
-func parseYamlCreds(entry string) (map[string]interface{}, error) {
-	var err error
-	defer func() {
-		if err := recover(); err != nil {
-			err = fmt.Errorf("could not marshal credentials, ensure that credentials are valid yaml")
-		}
-	}()
-	credentials := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(entry), &credentials)
-	return credentials, err
-}
-
 func kvsToReader(kvs map[string]string) io.Reader {
 	pwStrSlice := make([]string, 0, len(kvs))
-	for _, yaml := range kvs {
-		credentials, err := parseYamlCreds(yaml)
+	for _, item := range kvs {
+		creds := &credentials{}
+		err := yaml.Unmarshal([]byte(item), creds)
 		if err != nil {
 			logger.Errorf(err.Error())
 			continue
 		}
-		var ok bool
-		username, ok := credentials[etcdUsernameKey]
-		if !ok {
-			logger.Errorf("Parsing credential updates failed. Make sure that credentials contains '" +
-				etcdUsernameKey + "' entry.")
+		if creds.Key == "" || creds.Password == "" {
+			logger.Errorf(
+				"Parsing credential updates failed. Make sure that credentials contains 'key' and 'password' entries.",
+			)
 			continue
 		}
-		password, ok := credentials[etcdPasswordKey]
-		if !ok {
-			logger.Errorf("Parsing credential updates failed. Make sure that credentials contains '" +
-				etcdPasswordKey + "' entry.")
-			continue
-		}
-		pwStrSlice = append(pwStrSlice, username.(string)+":"+password.(string))
+		pwStrSlice = append(pwStrSlice, creds.Key+":"+creds.Password)
 	}
 	if len(pwStrSlice) == 0 {
 		// no credentials found, let's return empty reader
