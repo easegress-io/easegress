@@ -50,6 +50,7 @@ echo "Extract the files successfully"
 echo "Download the config.yaml file"
 RAW_GITHUB_URL=https://raw.githubusercontent.com/megaease/easegress
 curl -sL ${RAW_GITHUB_URL}/main/scripts/config.yaml -o ./easegress/config.yaml
+sed -i -e "s~##DIR##~${DIR}~g" ./easegress/config.yaml
 if [[ "${OS}" == "linux" ]]; then
 
     # SELinux prevents you from running a system service where the binary is in a user's home directory.
