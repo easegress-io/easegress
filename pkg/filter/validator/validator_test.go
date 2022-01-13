@@ -314,6 +314,14 @@ func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
 	return ctx, header
 }
 
+func cleanFile(userFile *os.File) {
+	err := userFile.Truncate(0)
+	check(err)
+	_, err = userFile.Seek(0, 0)
+	check(err)
+	userFile.Write([]byte(""))
+}
+
 func TestBasicAuth(t *testing.T) {
 	userIds := []string{
 		"userY", "userZ", "nonExistingUser",
@@ -330,6 +338,19 @@ func TestBasicAuth(t *testing.T) {
 		encrypt("userpasswordY"), encrypt("userpasswordZ"), encrypt("userpasswordX"),
 	}
 
+	t.Run("unexisting userFile", func(t *testing.T) {
+		yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  mode: FILE
+  userFile: unexisting-file`
+		v := createValidator(yamlSpec, nil, nil)
+		ctx, _ := prepareCtxAndHeader()
+		if v.Handle(ctx) != resultInvalid {
+			t.Errorf("should be invalid")
+		}
+	})
 	t.Run("credentials from userFile", func(t *testing.T) {
 		userFile, err := os.CreateTemp("", "apache2-htpasswd")
 		check(err)
@@ -341,11 +362,21 @@ basicAuth:
   mode: FILE
   userFile: ` + userFile.Name()
 
+		// test invalid format
+		userFile.Write([]byte("keypass"))
+		v := createValidator(yamlSpec, nil, nil)
+		ctx, _ := prepareCtxAndHeader()
+		if v.Handle(ctx) != resultInvalid {
+			t.Errorf("should be invalid")
+		}
+
+		// now proper format
+		cleanFile(userFile)
 		userFile.Write(
 			[]byte(userIds[0] + ":" + encryptedPasswords[0] + "\n" + userIds[1] + ":" + encryptedPasswords[1]))
 		expectedValid := []bool{true, true, false}
 
-		v := createValidator(yamlSpec, nil, nil)
+		v = createValidator(yamlSpec, nil, nil)
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
@@ -362,23 +393,39 @@ basicAuth:
 			}
 		}
 
-		err = userFile.Truncate(0)
-		check(err)
-		_, err = userFile.Seek(0, 0)
-		check(err)
-		userFile.Write([]byte("")) // no more authorized users
-		v.basicAuth.authorizedUsersCache.Refresh()
+		cleanFile(userFile) // no more authorized users
 
-		ctx, header := prepareCtxAndHeader()
-		b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
-		header.Set("Authorization", "Basic "+b64creds)
-		result := v.Handle(ctx)
-		if result != resultInvalid {
-			t.Errorf("should be unauthorized")
+		tryCount := 5
+		for i := 0; i <= tryCount; i++ {
+			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if result == resultInvalid {
+				break // successfully unauthorized
+			}
+			if i == tryCount && result != resultInvalid {
+				t.Errorf("should be unauthorized")
+			}
 		}
 
 		os.Remove(userFile.Name())
 		v.Close()
+	})
+
+	t.Run("test kvsToReader", func(t *testing.T) {
+		kvs := make(map[string]string)
+		kvs["/creds/key1"] = "key: key1\npass: pw"     // invalid
+		kvs["/creds/key2"] = "ky: key2\npassword: pw"  // invalid
+		kvs["/creds/key3"] = "key: key3\npassword: pw" // valid
+		reader := kvsToReader(kvs)
+		b, err := io.ReadAll(reader)
+		check(err)
+		s := string(b)
+		if s != "key3:pw" {
+			t.Errorf("parsing failed, %s", s)
+		}
 	})
 
 	t.Run("credentials from etcd", func(t *testing.T) {

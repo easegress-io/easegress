@@ -23,12 +23,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/fs"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/tg123/go-htpasswd"
 	"golang.org/x/crypto/bcrypt"
 
@@ -62,15 +60,14 @@ type (
 	// AuthorizedUsersCache provides cached lookup for authorized users.
 	AuthorizedUsersCache interface {
 		Match(string, string) bool
-		WatchChanges() error
-		Refresh() error
+		WatchChanges()
 		Close()
 	}
 
 	htpasswdUserCache struct {
 		userFile       string
 		userFileObject *htpasswd.File
-		fileMutex      sync.RWMutex
+		watcher        *fsnotify.Watcher
 		syncInterval   time.Duration
 		stopCtx        context.Context
 		cancel         context.CancelFunc
@@ -118,67 +115,59 @@ func newHtpasswdUserCache(userFile string, syncInterval time.Duration) *htpasswd
 	stopCtx, cancel := context.WithCancel(context.Background())
 	userFileObject, err := htpasswd.New(userFile, htpasswd.DefaultSystems, nil)
 	if err != nil {
-		panic(err)
+		logger.Errorf(err.Error())
+		userFileObject = nil
+	}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logger.Errorf(err.Error())
+		watcher = nil
 	}
 	return &htpasswdUserCache{
 		userFile:       userFile,
 		stopCtx:        stopCtx,
 		cancel:         cancel,
+		watcher:        watcher,
 		userFileObject: userFileObject,
 		// Removed access or updated passwords are updated according syncInterval.
 		syncInterval: syncInterval,
 	}
 }
 
-// Refresh reloads users from userFile.
-func (huc *htpasswdUserCache) Refresh() error {
-	huc.fileMutex.RLock()
-	err := huc.userFileObject.Reload(nil)
-	huc.fileMutex.RUnlock()
-	return err
-}
-
-func (huc *htpasswdUserCache) WatchChanges() error {
-	getFileStat := func() (fs.FileInfo, error) {
-		huc.fileMutex.RLock()
-		stat, err := os.Stat(huc.userFile)
-		huc.fileMutex.RUnlock()
-		return stat, err
+func (huc *htpasswdUserCache) WatchChanges() {
+	if huc.userFileObject == nil || huc.watcher == nil {
+		return
 	}
-
-	initialStat, err := getFileStat()
+	go func() {
+		for {
+			select {
+			case _, ok := <-huc.watcher.Events:
+				if !ok {
+					return
+				}
+				err := huc.userFileObject.Reload(nil)
+				if err != nil {
+					logger.Errorf(err.Error())
+				}
+			case err, ok := <-huc.watcher.Errors:
+				if !ok {
+					return
+				}
+				logger.Errorf(err.Error())
+			}
+		}
+	}()
+	err := huc.watcher.Add(huc.userFile)
 	if err != nil {
-		return err
+		logger.Errorf(err.Error())
 	}
-	for {
-		stat, err := getFileStat()
-		if err != nil {
-			return err
-		}
-		if stat.Size() != initialStat.Size() || stat.ModTime() != initialStat.ModTime() {
-			err := huc.Refresh()
-			if err != nil {
-				return err
-			}
-
-			// reset initial stat and watch for next modification
-			initialStat, err = getFileStat()
-			if err != nil {
-				return err
-			}
-		}
-		select {
-		case <-time.After(huc.syncInterval):
-			continue
-		case <-huc.stopCtx.Done():
-			return nil
-		}
-	}
-	return nil
+	return
 }
 
 func (huc *htpasswdUserCache) Close() {
-	huc.cancel()
+	if huc.watcher != nil {
+		huc.watcher.Close()
+	}
 }
 
 func (huc *htpasswdUserCache) Match(username string, password string) bool {
@@ -260,10 +249,10 @@ func kvsToReader(kvs map[string]string) io.Reader {
 	return strings.NewReader(stringData)
 }
 
-func (euc *etcdUserCache) WatchChanges() error {
+func (euc *etcdUserCache) WatchChanges() {
 	if euc.prefix == "" {
 		logger.Errorf("missing etcd prefix, skip watching changes")
-		return nil
+		return
 	}
 	var (
 		syncer *cluster.Syncer
@@ -285,22 +274,25 @@ func (euc *etcdUserCache) WatchChanges() error {
 		select {
 		case <-time.After(10 * time.Second):
 		case <-euc.stopCtx.Done():
-			return nil
+			return
 		}
 	}
-	defer syncer.Close()
+	// start listening in background
+	go func() {
+		defer syncer.Close()
 
-	for {
-		select {
-		case <-euc.stopCtx.Done():
-			return nil
-		case kvs := <-ch:
-			logger.Infof("basic auth credentials update")
-			pwReader := kvsToReader(kvs)
-			euc.userFileObject.ReloadFromReader(pwReader, nil)
+		for {
+			select {
+			case <-euc.stopCtx.Done():
+				return
+			case kvs := <-ch:
+				logger.Infof("basic auth credentials update")
+				pwReader := kvsToReader(kvs)
+				euc.userFileObject.ReloadFromReader(pwReader, nil)
+			}
 		}
-	}
-	return nil
+	}()
+	return
 }
 
 func (euc *etcdUserCache) Close() {
@@ -309,8 +301,6 @@ func (euc *etcdUserCache) Close() {
 	}
 	euc.cancel()
 }
-
-func (euc *etcdUserCache) Refresh() error { return nil }
 
 func (euc *etcdUserCache) Match(username string, password string) bool {
 	if euc.prefix == "" {
@@ -335,7 +325,7 @@ func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.
 		logger.Errorf("BasicAuth validator spec unvalid.")
 		return nil
 	}
-	go cache.WatchChanges()
+	cache.WatchChanges()
 	bav := &BasicAuthValidator{
 		spec:                 spec,
 		authorizedUsersCache: cache,
