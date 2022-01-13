@@ -1,0 +1,83 @@
+## name of this easegress instance
+# name: eg-default-name
+
+## labels for the instance (key/value pairs)
+# labels:
+
+## address([host]:port) to listen on for administration traffic
+# api-addr: localhost:2381
+
+## flag to set lowest log level from INFO to DEBUG
+# debug: false
+
+## flag to disable access log
+# disable-access-log: false
+
+## list of configuration files for initial objects, these objects will be created at startup if not already exist
+# initial-object-config-files:
+
+## human-readable name for new cluster, ignored while joining an existed cluster
+# cluster-name: eg-cluster-default-name
+
+## cluster role for this member (primary, secondary)
+# cluster-role: primary
+
+## timeout to handle request in the cluster
+# cluster-request-timeout: 10s
+
+
+## cluster options (note this option contains several sub-options)
+# cluster:
+
+## list of URLs to listen on for cluster client traffic
+#   listen-client-urls:
+#     - http://localhost:2379
+
+## list of URLs to listen on for cluster peer traffic
+#   listen-peer-urls:
+#     - http://localhost:2380
+
+## list of this member's client URLs to advertise to the rest of the cluster
+#   advertise-client-urls:
+#     - http://localhost:2379
+
+## list of this member's peer URLs to advertise to the rest of the cluster
+#   initial-advertise-peer-urls:
+#     - http://localhost:2380
+
+## list of (member name, URL) pairs that will form the cluster. E.g.
+##         primary-1: http://localhost:2380
+#   initial-cluster:
+
+## cluster state (new, existing)
+#   state-flag: new
+
+## list of peer URLs of primary members. Define this only when cluster-role is secondary
+#   primary-listen-peer-urls:
+#     - http://localhost:2380
+
+## maximum size in bytes for cluster synchronization messages
+#   max-call-send-msg-size: 10485760
+
+
+## path to the home directory
+# home-dir: ##DIR##
+
+## path to the data directory
+# data-dir: ##DIR##/data
+
+## path to the wal directory
+# wal-dir: ##DIR##/wal
+
+## path to the log directory
+# log-dir: ##DIR##/log
+
+## path to the member directory
+# member-dir: ##DIR##/member
+
+## path to the CPU profile file
+# cpu-profile-file:
+
+## path to the memory profile file
+# memory-profile-file:
+
