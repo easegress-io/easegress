@@ -39,7 +39,7 @@ func init() {
 }
 
 type (
-	// HeaderToJSON is make http request header to json
+	// HeaderToJSON put http request headers into body as JSON fields.
 	HeaderToJSON struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
@@ -72,7 +72,7 @@ func (h *HeaderToJSON) Results() []string {
 func (h *HeaderToJSON) init() {
 	h.headerMap = make(map[string]string)
 	for _, header := range h.spec.HeaderMap {
-		h.headerMap[header.Header] = header.JSON
+		h.headerMap[http.CanonicalHeaderKey(header.Header)] = header.JSON
 	}
 }
 
@@ -102,14 +102,13 @@ func (h *HeaderToJSON) encodeJSON(input map[string]interface{}) ([]byte, error) 
 }
 
 func (h *HeaderToJSON) decodeJSON(ctx context.HTTPContext) (map[string]interface{}, error) {
-	ans := make(map[string]interface{})
-
-	b, err := io.ReadAll(ctx.Request().Body())
-	if err != nil {
+	res := make(map[string]interface{})
+	decoder := json.NewDecoder(ctx.Request().Body())
+	err := decoder.Decode(&res)
+	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	json.Unmarshal(b, &ans)
-	return ans, nil
+	return res, nil
 }
 
 // Handle handle HTTPContext
@@ -119,15 +118,25 @@ func (h *HeaderToJSON) Handle(ctx context.HTTPContext) string {
 }
 
 func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
-	ans, err := h.decodeJSON(ctx)
+	headerMap := make(map[string]interface{})
+	for header, json := range h.headerMap {
+		value := ctx.Request().Header().Get(header)
+		if value != "" {
+			headerMap[json] = value
+		}
+	}
+	if len(headerMap) == 0 {
+		return ""
+	}
+
+	bodyMap, err := h.decodeJSON(ctx)
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	for header, json := range h.headerMap {
-		value := ctx.Request().Header().Get(http.CanonicalHeaderKey(header))
-		ans[json] = value
+	for k, v := range headerMap {
+		bodyMap[k] = v
 	}
-	body, err := h.encodeJSON(ans)
+	body, err := h.encodeJSON(bodyMap)
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
