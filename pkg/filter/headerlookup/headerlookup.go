@@ -167,16 +167,24 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 	return result, nil
 }
 
-func findModifiedValues(kvs map[string]string, cache *lru.Cache) []string {
-	keysToUpdate := []string{}
+func findKeysToDelete(kvs map[string]string, cache *lru.Cache) []string {
+	keysToDelete := []string{}
+	intersection := make(map[string]string)
 	for key, newValues := range kvs {
 		if oldValues, ok := cache.Peek(key); ok {
+			intersection[key] = ""
 			if newValues != oldValues {
-				keysToUpdate = append(keysToUpdate, key)
+				keysToDelete = append(keysToDelete, key)
 			}
 		}
 	}
-	return keysToUpdate
+	// delete cache items that were not in kvs
+	for _, cacheKey := range cache.Keys() {
+		if _, exists := intersection[cacheKey.(string)]; !exists {
+			keysToDelete = append(keysToDelete, cacheKey.(string))
+		}
+	}
+	return keysToDelete
 }
 
 func (hl *HeaderLookup) watchChanges() {
@@ -213,8 +221,8 @@ func (hl *HeaderLookup) watchChanges() {
 				return
 			case kvs := <-ch:
 				logger.Infof("HeaderLookup update")
-				keysToUpdate := findModifiedValues(kvs, hl.cache)
-				for _, cacheKey := range keysToUpdate {
+				keysToDelete := findKeysToDelete(kvs, hl.cache)
+				for _, cacheKey := range keysToDelete {
 					hl.cache.Remove(cacheKey)
 				}
 			}

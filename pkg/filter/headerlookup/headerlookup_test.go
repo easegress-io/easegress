@@ -124,9 +124,19 @@ func TestfindModifiedValues(t *testing.T) {
 	kvs["bar"] = "headerA: 11\nheaderB: 43"
 	cache.Add("doge", "headerA: 3\nheaderB: 6")  // same values
 	cache.Add("foo", "headerA: 3\nheaderB: 232") // new value
-	if res := findModifiedValues(kvs, cache); res[0] == "foo" && len(res) == 1 {
+	cache.Add("key4", "---") // new value
+	if res := findKeysToDelete(kvs, cache); res[0] == "foo" && res[1] == "key4" {
 		t.Errorf("findModifiedValues failed")
 	}
+}
+
+func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
+	ctx := &contexttest.MockedHTTPContext{}
+	header := http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	return ctx, header
 }
 
 func TestHandle(t *testing.T) {
@@ -157,11 +167,7 @@ extra-entry: "extra"
 	check(err)
 
 	// 'foobar' is the id
-	ctx := &contexttest.MockedHTTPContext{}
-	header := httpheader.New(http.Header{})
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return header
-	}
+	ctx, header := prepareCtxAndHeader()
 
 	hl.Handle(ctx) // does nothing as header missing
 
@@ -193,6 +199,8 @@ extra-entry: "extra"
 ext-id: 77341
 extra-entry: "extra"
 `)
+	ctx, header = prepareCtxAndHeader()
+	header.Set("X-AUTH-USER", "foobar")
 
 	tryCount := 5
 	for i := 0; i <= tryCount; i++ {
@@ -202,6 +210,20 @@ extra-entry: "extra"
 			break // successfully updated
 		} else if i == tryCount {
 			t.Errorf("header should be updated")
+		}
+	}
+	ctx, header = prepareCtxAndHeader()
+	header.Set("X-AUTH-USER", "foobar")
+	// delete foobar completely
+	clusterInstance.Delete("/custom-data/credentials/foobar")
+
+	for j := 0; j <= tryCount; j++ {
+		time.Sleep(200 * time.Millisecond) // wait that cache item get deleted
+		hl.Handle(ctx)                     // get updated value
+		if len(header.Get("user-ext-id")) == 0 {
+			break // successfully deleted
+		} else if j == tryCount {
+			t.Errorf("header should be deleted, got %s", header.Get("user-ext-id"))
 		}
 	}
 	hl.Close()
