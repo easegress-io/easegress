@@ -46,6 +46,12 @@
   - [WasmHost](#wasmhost)
     - [Configuration](#configuration-14)
     - [Results](#results-14)
+  - [Kafka](#kafka)
+    - [Configuration](#configuration-15)
+    - [Results](#results-15)
+  - [HeaderToJSON](#headertojson)
+    - [Configuration](#configuration-16)
+    - [Results](#results-16)
   - [Common Types](#common-types)
     - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -76,6 +82,8 @@
     - [validator.OAuth2ValidatorSpec](#validatoroauth2validatorspec)
     - [validator.OAuth2TokenIntrospect](#validatoroauth2tokenintrospect)
     - [validator.OAuth2JWT](#validatoroauth2jwt)
+    - [kafka.Topic](#kafkatopic)
+    - [headertojson.HeaderMap](#headertojsonheadermap)
 
 A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter need to take extra action.
 
@@ -663,6 +671,68 @@ $ make wasm
 | ...                                                                         |
 | wasmResult9                                                                 |
 
+
+
+## Kafka
+
+The Kafka filter converts HTTP Requests to Kafka messages and sends them to the Kafka backend. The topic of the Kafka message comes from the HTTP header, if not found, then the default topic will be used. The payload of the Kafka message comes from the body of the HTTP Request.
+
+Below is an example configuration. 
+
+```yaml
+kind: Kafka
+name: kafka-example
+backend: [":9093"] 
+topic:
+  default: kafka-topic
+  dynamic:
+    header: X-Kafka-Topic
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| backend | []string | Addresses of Kafka backend | Yes      |
+| topic | [Kafka.Topic](#kafkatopic) | the topic is Spec used to get Kafka topic used to send message to the backend | Yes      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| parseErr     | Failed to get Kafka message from the HTTP request |
+
+## HeaderToJSON
+
+The HeaderToJSON converts HTTP headers to JSON and combines it with the HTTP request body. To use this filter, make sure your HTTP Request body is empty or JSON schema.
+
+Below is an example configuration. 
+
+```yaml
+kind: HeaderToJSON
+name: headertojson-example
+headerMap:
+  - header: X-User-Name
+    json: username
+  - header: X-Type
+    json: type
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON filed name
+  | Yes      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| jsonEncodeDecodeErr     | Failed to convert HTTP headers to JSON. |
+
 ## Common Types
 
 ### apiaggregator.Pipeline
@@ -935,3 +1005,17 @@ The relationship between `methods` and `url` is `AND`.
 | --------- | ------ | ------------------------------------------------------------------------ | -------- |
 | algorithm | string | The algorithm for validation, `HS256`, `HS384` and `HS512` are supported | Yes      |
 | secret    | string | The secret for validation, in hex encoding                               | Yes      |
+
+### kafka.Topic
+
+| Name      | Type   | Description                                                              | Required |
+| --------- | ------ | ------------------------------------------------------------------------ | -------- |
+| default | string | Default topic for Kafka backend | Yes      |
+| dynamic.header | string | The HTTP header that contains Kafka topic | Yes      |
+
+### headertojson.HeaderMap
+
+| Name      | Type   | Description                                                              | Required |
+| --------- | ------ | ------------------------------------------------------------------------ | -------- |
+| header | string | The HTTP header that contains JSON value   | Yes      |
+| json    | string | The field name to put JSON value into HTTP body | Yes      |
