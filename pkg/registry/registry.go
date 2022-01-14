@@ -27,6 +27,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/fallback"
 	_ "github.com/megaease/easegress/pkg/filter/headertojson"
+	_ "github.com/megaease/easegress/pkg/filter/headerlookup"
 	_ "github.com/megaease/easegress/pkg/filter/kafka"
 	_ "github.com/megaease/easegress/pkg/filter/kafkabackend"
 	_ "github.com/megaease/easegress/pkg/filter/meshadaptor"

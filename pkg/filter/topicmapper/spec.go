@@ -23,6 +23,13 @@ type (
 		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
 		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
 		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
+		SetKV      *SetKV      `yaml:"setKV" jsonschema:"required"`
+	}
+
+	// SetKV set topic mapper result to MQTT context kv map
+	SetKV struct {
+		Topic   string `yaml:"topic" jsonschema:"topic"`
+		Headers string `yaml:"headers" jsonschema:"headers"`
 	}
 
 	// PolicyRe to match right policy to do topic map

@@ -1,0 +1,15 @@
+[Unit]
+Description=Easegress Gateway
+Documentation=https://github.com/megaease/easegress/tree/main/doc
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=##BINDIR##/easegress-server -f ##DIR##/config.yaml
+ExecStop=/bin/kill -INT $MAINPID
+Restart=on-failure
+WorkingDirectory=##DIR##
+
+[Install]
+WantedBy=multi-user.target
+

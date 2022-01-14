@@ -18,8 +18,6 @@
 package topicmapper
 
 import (
-	"errors"
-
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
@@ -47,7 +45,6 @@ type (
 
 var _ pipeline.Filter = (*TopicMapper)(nil)
 var _ pipeline.MQTTFilter = (*TopicMapper)(nil)
-var errMQTTTopicMapFailed = errors.New(resultMQTTTopicMapFailed)
 
 // Kind return kind of TopicMapper
 func (k *TopicMapper) Kind() string {
@@ -101,14 +98,15 @@ func (k *TopicMapper) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	if ctx.PacketType() != context.MQTTPublish {
 		return &context.MQTTResult{}
 	}
+
 	publish := ctx.PublishPacket()
-	topic, headers, err := k.mapFn(publish.Topic())
+	topic, headers, err := k.mapFn(publish.TopicName)
 	if err != nil {
-		logger.Errorf("map topic %v failed, %v", publish.Topic(), err)
+		logger.Errorf("map topic %v failed, %v", publish.TopicName, err)
 		ctx.SetEarlyStop()
-		return &context.MQTTResult{Err: errMQTTTopicMapFailed}
+		return &context.MQTTResult{ErrString: resultMQTTTopicMapFailed}
 	}
-	ctx.PublishPacket().SetTopic(topic)
-	ctx.PublishPacket().SetAllHeader(headers)
-	return nil
+	ctx.SetKV(k.spec.SetKV.Topic, topic)
+	ctx.SetKV(k.spec.SetKV.Headers, headers)
+	return &context.MQTTResult{ErrString: ""}
 }

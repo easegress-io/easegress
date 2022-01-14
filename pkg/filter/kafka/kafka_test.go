@@ -69,14 +69,14 @@ func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
 	return filterSpec
 }
 
-func newContext(cid string, topic string, header map[string]string) context.MQTTContext {
+func newContext(cid string, topic string, payload []byte) context.MQTTContext {
 	client := &context.MockMQTTClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
+	packet.Payload = payload
 	ctx := context.NewMQTTContext(stdcontext.Background(), client, packet)
-	ctx.PublishPacket().SetAllHeader(header)
 	return ctx
 }
 
@@ -93,17 +93,44 @@ func TestKafka(t *testing.T) {
 		producer: newMockAsyncProducer(),
 		done:     make(chan struct{}),
 	}
-	mqttCtx := newContext("test", "a/b/c", map[string]string{"a": "1", "b": "2"})
+
+	mqttCtx := newContext("test", "a/b/c", []byte("text"))
+	kafka.HandleMQTT(mqttCtx)
+	msg := <-kafka.producer.(*mockAsyncProducer).ch
+	assert.Equal(msg.Topic, mqttCtx.PublishPacket().TopicName)
+	assert.Equal(0, len(msg.Headers))
+	value, err := msg.Value.Encode()
+	assert.Nil(err)
+	assert.Equal("text", string(value))
+}
+
+func TestKafkaWithKVMap(t *testing.T) {
+	assert := assert.New(t)
+	spec := &Spec{
+		Backend: []string{"localhost:1234"},
+		KVMap: &KVMap{
+			TopicKey:  "topic",
+			HeaderKey: "headers",
+		},
+	}
+
+	kafka := Kafka{
+		spec:     spec,
+		producer: newMockAsyncProducer(),
+		done:     make(chan struct{}),
+	}
+	kafka.setKV()
+	defer kafka.Close()
+
+	mqttCtx := newContext("test", "a/b/c", []byte("text"))
+	mqttCtx.SetKV("topic", "123")
+	mqttCtx.SetKV("headers", map[string]string{"1": "a"})
 
 	kafka.HandleMQTT(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, mqttCtx.PublishPacket().Topic())
-	assert.Equal(2, len(msg.Headers))
-
-	mqttCtx = newContext("test", "a/b/c", map[string]string{})
-	kafka.HandleMQTT(mqttCtx)
-	msg = <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, mqttCtx.PublishPacket().Topic())
-	assert.Equal(0, len(msg.Headers))
-	kafka.Close()
+	assert.Equal("123", msg.Topic)
+	assert.Equal(1, len(msg.Headers))
+	value, err := msg.Value.Encode()
+	assert.Nil(err)
+	assert.Equal("text", string(value))
 }

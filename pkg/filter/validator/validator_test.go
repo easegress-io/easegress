@@ -18,16 +18,22 @@
 package validator
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -38,10 +44,13 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func createValidator(yamlSpec string, prev *Validator) *Validator {
+func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Supervisor) *Validator {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
-	spec, _ := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, err := httppipeline.NewFilterSpec(rawSpec, supervisor)
+	if err != nil {
+		panic(err.Error())
+	}
 	v := &Validator{}
 	if prev == nil {
 		v.Init(spec)
@@ -61,7 +70,7 @@ headers:
     regexp: "^ok-.+$"
 `
 
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	header := http.Header{}
 	ctx := &contexttest.MockedHTTPContext{}
@@ -102,7 +111,7 @@ jwt:
   algorithm: HS256
   secret: 313233343536
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedCookie = func(name string) (*http.Cookie, error) {
@@ -148,7 +157,7 @@ jwt:
 		t.Errorf("the jwt token in cookie should be valid")
 	}
 
-	v = createValidator(yamlSpec, v)
+	v = createValidator(yamlSpec, v, nil)
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in cookie should be valid")
@@ -169,7 +178,7 @@ oauth2:
     algorithm: HS256
     secret: 313233343536
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 
@@ -216,7 +225,7 @@ oauth2:
     clientId: megaease
     clientSecret: secret
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 	ctx := &contexttest.MockedHTTPContext{}
 
 	header := http.Header{}
@@ -253,7 +262,7 @@ oauth2:
     clientSecret: secret
     basicAuth: megaease@megaease
 `
-	v = createValidator(yamlSpec, nil)
+	v = createValidator(yamlSpec, nil, nil)
 
 	body = `{
 			"subject":"megaease.com",
@@ -276,7 +285,7 @@ signature:
   accessKeys:
     AKID: SECRET
 `
-	v := createValidator(yamlSpec, nil)
+	v := createValidator(yamlSpec, nil, nil)
 
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedStd = func() *http.Request {
@@ -288,4 +297,227 @@ signature:
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
+	ctx := &contexttest.MockedHTTPContext{}
+	header := http.Header{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(header)
+	}
+	return ctx, header
+}
+
+func cleanFile(userFile *os.File) {
+	err := userFile.Truncate(0)
+	check(err)
+	_, err = userFile.Seek(0, 0)
+	check(err)
+	userFile.Write([]byte(""))
+}
+
+func TestBasicAuth(t *testing.T) {
+	userIds := []string{
+		"userY", "userZ", "nonExistingUser",
+	}
+	passwords := []string{
+		"userpasswordY", "userpasswordZ", "userpasswordX",
+	}
+	encrypt := func(pw string) string {
+		encPw, err := bcryptHash([]byte(pw))
+		check(err)
+		return encPw
+	}
+	encryptedPasswords := []string{
+		encrypt("userpasswordY"), encrypt("userpasswordZ"), encrypt("userpasswordX"),
+	}
+
+	t.Run("unexisting userFile", func(t *testing.T) {
+		yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  mode: FILE
+  userFile: unexisting-file`
+		v := createValidator(yamlSpec, nil, nil)
+		ctx, _ := prepareCtxAndHeader()
+		if v.Handle(ctx) != resultInvalid {
+			t.Errorf("should be invalid")
+		}
+	})
+	t.Run("credentials from userFile", func(t *testing.T) {
+		userFile, err := os.CreateTemp("", "apache2-htpasswd")
+		check(err)
+
+		yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  mode: FILE
+  userFile: ` + userFile.Name()
+
+		// test invalid format
+		userFile.Write([]byte("keypass"))
+		v := createValidator(yamlSpec, nil, nil)
+		ctx, _ := prepareCtxAndHeader()
+		if v.Handle(ctx) != resultInvalid {
+			t.Errorf("should be invalid")
+		}
+
+		// now proper format
+		cleanFile(userFile)
+		userFile.Write(
+			[]byte(userIds[0] + ":" + encryptedPasswords[0] + "\n" + userIds[1] + ":" + encryptedPasswords[1]))
+		expectedValid := []bool{true, true, false}
+
+		v = createValidator(yamlSpec, nil, nil)
+		for i := 0; i < 3; i++ {
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if expectedValid[i] {
+				if result == resultInvalid {
+					t.Errorf("should be authorized")
+				}
+			} else {
+				if result != resultInvalid {
+					t.Errorf("should be unauthorized")
+				}
+			}
+		}
+
+		cleanFile(userFile) // no more authorized users
+
+		tryCount := 5
+		for i := 0; i <= tryCount; i++ {
+			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if result == resultInvalid {
+				break // successfully unauthorized
+			}
+			if i == tryCount && result != resultInvalid {
+				t.Errorf("should be unauthorized")
+			}
+		}
+
+		os.Remove(userFile.Name())
+		v.Close()
+	})
+
+	t.Run("test kvsToReader", func(t *testing.T) {
+		kvs := make(map[string]string)
+		kvs["/creds/key1"] = "key: key1\npass: pw"     // invalid
+		kvs["/creds/key2"] = "ky: key2\npassword: pw"  // invalid
+		kvs["/creds/key3"] = "key: key3\npassword: pw" // valid
+		reader := kvsToReader(kvs)
+		b, err := io.ReadAll(reader)
+		check(err)
+		s := string(b)
+		if s != "key3:pw" {
+			t.Errorf("parsing failed, %s", s)
+		}
+	})
+
+	t.Run("credentials from etcd", func(t *testing.T) {
+		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
+		check(err)
+		defer os.RemoveAll(etcdDirName)
+		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+
+		// Test newEtcdUserCache
+		if euc := newEtcdUserCache(clusterInstance, ""); euc.prefix != "/custom-data/credentials/" {
+			t.Errorf("newEtcdUserCache failed")
+		}
+		if euc := newEtcdUserCache(clusterInstance, "/extra-slash/"); euc.prefix != "/custom-data/extra-slash/" {
+			t.Errorf("newEtcdUserCache failed")
+		}
+
+		pwToYaml := func(user string, pw string) string {
+			return fmt.Sprintf("key: %s\npassword: %s", user, pw)
+		}
+		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
+		clusterInstance.Put("/custom-data/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
+
+		var mockMap sync.Map
+		supervisor := supervisor.NewMock(
+			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+
+		yamlSpec := `
+kind: Validator
+name: validator
+basicAuth:
+  mode: ETCD
+  etcdPrefix: credentials/
+`
+		expectedValid := []bool{true, false, true}
+		v := createValidator(yamlSpec, nil, supervisor)
+		for i := 0; i < 3; i++ {
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if expectedValid[i] {
+				if result == resultInvalid {
+					t.Errorf("should be authorized")
+				}
+			} else {
+				if result != resultInvalid {
+					t.Errorf("should be unauthorized")
+				}
+			}
+		}
+
+		clusterInstance.Delete("/custom-data/credentials/1") // first user is not authorized anymore
+		clusterInstance.Put("/custom-data/credentials/doge",
+			`
+randomEntry1: 21
+nestedEntry:
+  key1: val1
+password: doge
+key: doge
+lastEntry: "byebye"
+`)
+
+		tryCount := 5
+		for i := 0; i <= tryCount; i++ {
+			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if result == resultInvalid {
+				break // successfully unauthorized
+			}
+			if i == tryCount && result != resultInvalid {
+				t.Errorf("should be unauthorized")
+			}
+		}
+
+		ctx, header := prepareCtxAndHeader()
+		b64creds := base64.StdEncoding.EncodeToString([]byte("doge:doge"))
+		header.Set("Authorization", "Basic "+b64creds)
+		result := v.Handle(ctx)
+		if result == resultInvalid {
+			t.Errorf("should be authorized")
+		}
+		if header.Get("X-AUTH-USER") != "doge" {
+			t.Errorf("x-auth-user header not set")
+		}
+
+		v.Close()
+		wg := &sync.WaitGroup{}
+		wg.Add(1)
+		clusterInstance.CloseServer(wg)
+		wg.Wait()
+	})
 }
