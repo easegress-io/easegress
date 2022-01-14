@@ -30,7 +30,7 @@ const (
 	// Kind is the kind of Kafka
 	Kind = "Kafka"
 
-	resultMQTTTopicMapFailed = "MQTTTopicMapFailed"
+	resultGetDataFailed = "GetDataFailed"
 )
 
 func init() {
@@ -44,6 +44,11 @@ type (
 		spec       *Spec
 		producer   sarama.AsyncProducer
 		done       chan struct{}
+
+		defaultTopic string
+		topicKey     string
+		headerKey    string
+		payloadKey   string
 	}
 )
 
@@ -67,24 +72,30 @@ func (k *Kafka) Description() string {
 
 // Results return possible results of Kafka
 func (k *Kafka) Results() []string {
-	return []string{resultMQTTTopicMapFailed}
+	return []string{resultGetDataFailed}
 }
 
-// Init init Kafka
-func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
-	if filterSpec.Protocol() != context.MQTT {
-		panic("filter Kafka only support MQTT protocol for now")
+func (k *Kafka) setKV() {
+	kv := k.spec.KVMap
+	if kv != nil {
+		k.topicKey = kv.TopicKey
+		k.headerKey = kv.HeaderKey
+		k.payloadKey = kv.PayloadKey
 	}
-	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	k.done = make(chan struct{})
+	if k.spec.Topic != nil {
+		k.defaultTopic = k.spec.Topic.Default
+	}
+}
 
+func (k *Kafka) setProducer() {
 	config := sarama.NewConfig()
-	config.ClientID = filterSpec.Name()
+	config.ClientID = k.filterSpec.Name()
 	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(k.spec.Backend, config)
 	if err != nil {
 		panic(fmt.Errorf("start sarama producer with address %v failed: %v", k.spec.Backend, err))
 	}
+	k.producer = producer
 
 	go func() {
 		for {
@@ -103,8 +114,17 @@ func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 			}
 		}
 	}()
+}
 
-	k.producer = producer
+// Init init Kafka
+func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
+	if filterSpec.Protocol() != context.MQTT {
+		panic("filter Kafka only support MQTT protocol for now")
+	}
+	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	k.done = make(chan struct{})
+	k.setKV()
+	k.setProducer()
 }
 
 // Inherit init Kafka based on previous generation
@@ -125,22 +145,59 @@ func (k *Kafka) Status() interface{} {
 
 // HandleMQTT handle MQTT context
 func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
-	if ctx.PacketType() != context.MQTTPublish {
-		return &context.MQTTResult{}
+	var topic string
+	var headers map[string]string
+	var payload []byte
+	var ok bool
+
+	// set data from kv map
+	if k.topicKey != "" {
+		topic, ok = ctx.GetKV(k.topicKey).(string)
+		if !ok {
+			return &context.MQTTResult{ErrString: resultGetDataFailed}
+		}
+	}
+	if k.headerKey != "" {
+		headers, ok = ctx.GetKV(k.headerKey).(map[string]string)
+		if !ok {
+			return &context.MQTTResult{ErrString: resultGetDataFailed}
+		}
+	}
+	if k.payloadKey != "" {
+		payload, ok = ctx.GetKV(k.payloadKey).([]byte)
+		if !ok {
+			return &context.MQTTResult{ErrString: resultGetDataFailed}
+		}
 	}
 
-	p := ctx.PublishPacket()
-	logger.Debugf("produce msg with topic %s", p.Topic())
+	// set data from PublishPacket if data is missing
+	if ctx.PacketType() == context.MQTTPublish {
+		p := ctx.PublishPacket()
+		if topic == "" {
+			topic = p.TopicName
+		}
+		if payload == nil {
+			payload = p.Payload
+		}
+	}
+
+	if topic == "" {
+		topic = k.defaultTopic
+	}
+
+	if topic == "" || payload == nil {
+		return &context.MQTTResult{ErrString: resultGetDataFailed}
+	}
 
 	kafkaHeaders := []sarama.RecordHeader{}
-	p.VisitAllHeader(func(k, v string) {
+	for k, v := range headers {
 		kafkaHeaders = append(kafkaHeaders, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
-	})
+	}
 
 	msg := &sarama.ProducerMessage{
-		Topic:   p.Topic(),
+		Topic:   topic,
 		Headers: kafkaHeaders,
-		Value:   sarama.ByteEncoder(p.Payload()),
+		Value:   sarama.ByteEncoder(payload),
 	}
 	k.producer.Input() <- msg
 	return &context.MQTTResult{}

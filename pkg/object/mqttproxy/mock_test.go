@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
@@ -195,7 +196,7 @@ func TestMockStorage(t *testing.T) {
 }
 
 type MockKafka struct {
-	ch chan context.MQTTPublishPacket
+	ch chan *packets.PublishPacket
 }
 
 type MockKafkaSpec struct{}
@@ -211,7 +212,7 @@ func (k *MockKafka) Close()                                                     
 func (k *MockKafka) Results() []string                                                 { return nil }
 
 func (k *MockKafka) Init(filterSpec *pipeline.FilterSpec) {
-	k.ch = make(chan context.MQTTPublishPacket, 100)
+	k.ch = make(chan *packets.PublishPacket, 100)
 }
 
 func (k *MockKafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
@@ -222,7 +223,7 @@ func (k *MockKafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	return &context.MQTTResult{}
 }
 
-func (k *MockKafka) get() context.MQTTPublishPacket {
+func (k *MockKafka) get() *packets.PublishPacket {
 	p := <-k.ch
 	return p
 }
