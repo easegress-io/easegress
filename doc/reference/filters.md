@@ -46,6 +46,12 @@
   - [WasmHost](#wasmhost)
     - [Configuration](#configuration-14)
     - [Results](#results-14)
+  - [Kafka](#kafka)
+    - [Configuration](#configuration-15)
+    - [Results](#results-15)
+  - [HeaderToJSON](#headertojson)
+    - [Configuration](#configuration-16)
+    - [Results](#results-16)
   - [Common Types](#common-types)
     - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -652,6 +658,74 @@ $ make wasm
 | wasmResult1 <td rowspan="3">Results defined and returned by wasm code.</td> |
 | ...                                                                         |
 | wasmResult9                                                                 |
+
+
+
+## Kafka
+
+The Kafka filter converts HTTP Requests to Kafka messages and send them to Kafka backend. The topic of Kafka message comes from HTTP header, if not find, then default topic will be used. The payload of Kafka message comes from body of HTTP Request.
+
+Below is an example configuration. 
+
+```yaml
+kind: Kafka
+name: kafka-example
+backend: [":9093"] 
+topic:
+  default: kafka-topic
+  dynamic:
+    header: X-Kafka-Topic
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| backend | []string | Addresses of Kafka backend | Yes      |
+| topic | Kafka.Topic | topic is Spec used to get Kafka topic usd to send message to backend | Yes      |
+| default | string | Default kafka topic| No      |
+| dynamic | Kafka.Dynamic | Dynamic defines ways to get Kafka topic from HTTP Request. | No      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| parseErr     | Failed to get Kafka message from HTTP request. |
+
+## HeaderToJSON
+
+The HeaderToJSON convert HTTP headers to JSON and combine it with HTTP request body. To use this filter, make sure you HTTP Request body is empty or JSON schema.
+
+Below is an example configuration. 
+
+```yaml
+kind: HeaderToJSON
+name: headertojson-example
+headerMap:
+  - header: X-User-Name
+    json: username
+    type: string
+  - header: X-Type
+    json: type
+    type: string 
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| headerMap | HeaderToJSON.HeaderMap | headerMap defines map between HTTP headers and JSON  | Yes      |
+| header | string | Key to get JSON value from HTTP header  | Yes      |
+| json | string | Key to put JSON value into HTTP Request body  | Yes      |
+| type| string | Type of value, current support: int, float, string, bool, null  | Yes      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| jsonEncodeDecodeErr     | Failed to convert HTTP headers to JSON. |
 
 ## Common Types
 

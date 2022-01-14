@@ -63,9 +63,12 @@ func TestHeaderToJSON(t *testing.T) {
 func TestHandleHTTP(t *testing.T) {
 	assert := assert.New(t)
 	spec := &Spec{
-		HeaderMap: []*Header{
-			{Header: "x-username", JSON: "username"},
-			{Header: "x-id", JSON: "id"},
+		HeaderMap: []*HeaderMap{
+			{Header: "x-int", JSON: "int-value", Type: jsonInt},
+			{Header: "x-float", JSON: "float-value", Type: jsonFloat},
+			{Header: "x-string", JSON: "string-value", Type: jsonString},
+			{Header: "x-bool", JSON: "bool-value", Type: jsonBool},
+			{Header: "x-null", JSON: "null-value", Type: jsonNull},
 		},
 	}
 	filterSpec := defaultFilterSpec(spec)
@@ -76,16 +79,19 @@ func TestHandleHTTP(t *testing.T) {
 	{
 		//test http request with body
 		bodyMap := map[string]interface{}{
-			"topic":  "log",
-			"number": 123,
+			"topic": "log",
+			"id":    "abc123",
 		}
 		body, err := json.Marshal(bodyMap)
 		assert.Nil(err)
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
 		assert.Nil(err)
 
-		req.Header.Add("x-username", "clientA")
-		req.Header.Add("x-id", "abc123")
+		req.Header.Add("x-int", "123")
+		req.Header.Add("x-float", "123.0")
+		req.Header.Add("x-string", "string")
+		req.Header.Add("x-bool", "true")
+		req.Header.Add("x-null", "null")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -103,18 +109,24 @@ func TestHandleHTTP(t *testing.T) {
 		err = json.Unmarshal(body, &res)
 		assert.Nil(err)
 		assert.Equal("log", res["topic"])
-		assert.Equal(123.0, res["number"])
-		assert.Equal("clientA", res["username"])
 		assert.Equal("abc123", res["id"])
+		assert.Equal(float64(123), res["int-value"])
+		assert.Equal(float64(123), res["float-value"])
+		assert.Equal("string", res["string-value"])
+		assert.Equal(true, res["bool-value"])
+		assert.Equal(nil, res["null-value"])
 	}
 
 	{
-		// test http request with body
+		// test http request without body
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
 		assert.Nil(err)
 
-		req.Header.Add("x-username", "clientA")
-		req.Header.Add("x-id", "abc123")
+		req.Header.Add("x-int", "123")
+		req.Header.Add("x-float", "123.0")
+		req.Header.Add("x-string", "string")
+		req.Header.Add("x-bool", "true")
+		req.Header.Add("x-null", "null")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -130,7 +142,10 @@ func TestHandleHTTP(t *testing.T) {
 		res := map[string]interface{}{}
 		err = json.Unmarshal(body, &res)
 		assert.Nil(err)
-		assert.Equal("clientA", res["username"])
-		assert.Equal("abc123", res["id"])
+		assert.Equal(float64(123), res["int-value"])
+		assert.Equal(float64(123), res["float-value"])
+		assert.Equal("string", res["string-value"])
+		assert.Equal(true, res["bool-value"])
+		assert.Equal(nil, res["null-value"])
 	}
 }
