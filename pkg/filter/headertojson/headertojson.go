@@ -19,7 +19,6 @@ package headertojson
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -44,12 +43,7 @@ type (
 	HeaderToJSON struct {
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
-		headerMap  map[string]JsonInfo
-	}
-
-	JsonInfo struct {
-		json     string
-		jsonType JSONType
+		headerMap  map[string]string
 	}
 )
 
@@ -76,15 +70,9 @@ func (h *HeaderToJSON) Results() []string {
 }
 
 func (h *HeaderToJSON) init() {
-	h.headerMap = make(map[string]JsonInfo)
+	h.headerMap = make(map[string]string)
 	for _, header := range h.spec.HeaderMap {
-		h.headerMap[http.CanonicalHeaderKey(header.Header)] = JsonInfo{
-			json:     header.JSON,
-			jsonType: header.Type,
-		}
-		if _, ok := jsonTypeMap[header.Type]; !ok {
-			panic(fmt.Errorf("json data type %v not supported, current only support %v", header.Type, jsonTypeMap))
-		}
+		h.headerMap[http.CanonicalHeaderKey(header.Header)] = header.JSON
 	}
 }
 
@@ -131,14 +119,10 @@ func (h *HeaderToJSON) Handle(ctx context.HTTPContext) string {
 
 func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 	headerMap := make(map[string]interface{})
-	for header, jsonInfo := range h.headerMap {
+	for header, json := range h.headerMap {
 		value := ctx.Request().Header().Get(header)
 		if value != "" {
-			fn := jsonValueMap[jsonInfo.jsonType]
-			err := fn(jsonInfo.json, value, headerMap)
-			if err != nil {
-				return resultJSONEncodeDecodeErr
-			}
+			headerMap[json] = value
 		}
 	}
 	if len(headerMap) == 0 {

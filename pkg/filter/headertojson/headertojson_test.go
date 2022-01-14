@@ -64,11 +64,7 @@ func TestHandleHTTP(t *testing.T) {
 	assert := assert.New(t)
 	spec := &Spec{
 		HeaderMap: []*HeaderMap{
-			{Header: "x-int", JSON: "int-value", Type: jsonInt},
-			{Header: "x-float", JSON: "float-value", Type: jsonFloat},
-			{Header: "x-string", JSON: "string-value", Type: jsonString},
-			{Header: "x-bool", JSON: "bool-value", Type: jsonBool},
-			{Header: "x-null", JSON: "null-value", Type: jsonNull},
+			{Header: "x-username", JSON: "username"},
 		},
 	}
 	filterSpec := defaultFilterSpec(spec)
@@ -87,11 +83,7 @@ func TestHandleHTTP(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
 		assert.Nil(err)
 
-		req.Header.Add("x-int", "123")
-		req.Header.Add("x-float", "123.0")
-		req.Header.Add("x-string", "string")
-		req.Header.Add("x-bool", "true")
-		req.Header.Add("x-null", "null")
+		req.Header.Add("x-username", "clientA")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -110,11 +102,7 @@ func TestHandleHTTP(t *testing.T) {
 		assert.Nil(err)
 		assert.Equal("log", res["topic"])
 		assert.Equal("abc123", res["id"])
-		assert.Equal(float64(123), res["int-value"])
-		assert.Equal(float64(123), res["float-value"])
-		assert.Equal("string", res["string-value"])
-		assert.Equal(true, res["bool-value"])
-		assert.Equal(nil, res["null-value"])
+		assert.Equal("clientA", res["username"])
 	}
 
 	{
@@ -122,11 +110,7 @@ func TestHandleHTTP(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
 		assert.Nil(err)
 
-		req.Header.Add("x-int", "123")
-		req.Header.Add("x-float", "123.0")
-		req.Header.Add("x-string", "string")
-		req.Header.Add("x-bool", "true")
-		req.Header.Add("x-null", "null")
+		req.Header.Add("x-username", "clientA")
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -142,10 +126,6 @@ func TestHandleHTTP(t *testing.T) {
 		res := map[string]interface{}{}
 		err = json.Unmarshal(body, &res)
 		assert.Nil(err)
-		assert.Equal(float64(123), res["int-value"])
-		assert.Equal(float64(123), res["float-value"])
-		assert.Equal("string", res["string-value"])
-		assert.Equal(true, res["bool-value"])
-		assert.Equal(nil, res["null-value"])
+		assert.Equal("clientA", res["username"])
 	}
 }
