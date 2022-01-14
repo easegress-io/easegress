@@ -7,11 +7,13 @@
     - [JWT](#jwt)
     - [Signature](#signature)
     - [OAuth2](#oauth2)
+    - [Basic Auth](#basic-auth)
   - [References](#references)
     - [Header](#header-1)
     - [JWT](#jwt-1)
     - [Signature](#signature-1)
     - [OAuth2](#oauth2-1)
+    - [Basic Auth](#basic-auth-1)
     - [Concepts](#concepts)
 
 As a production-ready cloud-native traffic orchestrator, Easegress cares about security and provides several features to ensure that.
@@ -134,12 +136,35 @@ filters:
       insecureTls: false
   - name: proxy
     kind: Proxy
-
 ```
 
 * The example above uses a token introspection server, which is provided by `endpoint` filed for validation. It also supports `Self-Encoded Access Tokens mode` which will require a JWT related configuration included. Check it out in the Easegress filter doc if needed. [5]
 
 * For the full YAML, see [here](#oauth-1)
+
+### Basic Auth
+
+* Using Basic Auth validation in Easegress. Basic access authentication is the simplest technique for enforcing access control to web resources [6]. You can create .htpasswd file using *apache2-util* `htpasswd` [7] for storing encrypted user credentials. Please note that Basic Auth is not the most secure access control technique and it is not recommended to depend solely to Basic Auth when designing the security features of your environment.
+
+``` yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
+flow:
+  - filter: oauth-validator
+  - filter: proxy
+filters:
+  - kind: Validator
+    name: oauth-validator
+    basicAuth:
+      mode: "FILE"
+      userFile: '/etc/apache2/.htpasswd'
+  - name: proxy
+    kind: Proxy
+```
+
+* The example above uses credentials defined in `/etc/apache2/.htpasswd` to restrict access. Please check out apache2-utils documentation [7] for more details.
+
+* For the full YAML, see [here](#basic-auth-1)
 
 ## References
 
@@ -167,7 +192,6 @@ filters:
       - url: http://127.0.0.1:9097
       loadBalance:
         policy: roundRobin
-
 ```
 
 ### JWT
@@ -247,6 +271,30 @@ filters:
         policy: roundRobin
 ```
 
+### Basic Auth
+
+``` yaml
+name: pipeline-reverse-proxy
+kind: HTTPPipeline
+flow:
+  - filter: header-validator
+  - filter: proxy
+filters:
+  - kind: Validator
+    name: basic-auth-validator
+    basicAuth:
+      mode: "FILE"
+      userFile: '/etc/apache2/.htpasswd'
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+      - url: http://127.0.0.1:9095
+      - url: http://127.0.0.1:9096
+      - url: http://127.0.0.1:9097
+      loadBalance:
+        policy: roundRobin
+```
 
 ### Concepts
 
@@ -255,3 +303,5 @@ filters:
 3. https://github.com/megaease/easegress/blob/main/doc/filters.md#signerliteral
 4. https://oauth.net/2/
 5. https://github.com/megaease/easegress/blob/main/doc/filters.md#validatorOAuth2JWT
+6. https://en.wikipedia.org/wiki/Basic_access_authentication
+7. https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html
