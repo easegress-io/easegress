@@ -694,9 +694,7 @@ topic:
 | Name         | Type     | Description                      | Required |
 | ------------ | -------- | -------------------------------- | -------- |
 | backend | []string | Addresses of Kafka backend | Yes      |
-| topic | Kafka.Topic | the topic is Spec used to get Kafka topic used to send message to the backend | Yes      |
-| default | string | Default kafka topic| No      |
-| dynamic | Kafka.Dynamic | Dynamic defines ways to get Kafka topic from HTTP Request. | No      |
+| topic | [Kafka.Topic](#kafkatopic) | the topic is Spec used to get Kafka topic used to send message to the backend | Yes      |
 
 
 ### Results
@@ -725,10 +723,8 @@ headerMap:
 
 | Name         | Type     | Description                      | Required |
 | ------------ | -------- | -------------------------------- | -------- |
-| headerMap | HeaderToJSON.HeaderMap | headerMap defines a map between HTTP header name and corresponding JSON filed name
+| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON filed name
   | Yes      |
-| header | string | HTTP header that contains JSON value | Yes      |
-| json | string | JSON filed name to put value into the HTTP request body  | Yes      |
 
 
 ### Results
