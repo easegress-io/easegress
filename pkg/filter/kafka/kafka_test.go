@@ -109,8 +109,8 @@ func TestKafkaWithKVMap(t *testing.T) {
 	spec := &Spec{
 		Backend: []string{"localhost:1234"},
 		KVMap: &KVMap{
-			Topic:   "topic",
-			Headers: "headers",
+			TopicKey:  "topic",
+			HeaderKey: "headers",
 		},
 	}
 

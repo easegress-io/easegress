@@ -45,9 +45,10 @@ type (
 		producer   sarama.AsyncProducer
 		done       chan struct{}
 
-		topic   string
-		headers string
-		payload string
+		defaultTopic string
+		topicKey     string
+		headerKey    string
+		payloadKey   string
 	}
 )
 
@@ -77,9 +78,12 @@ func (k *Kafka) Results() []string {
 func (k *Kafka) setKV() {
 	kv := k.spec.KVMap
 	if kv != nil {
-		k.topic = kv.Topic
-		k.headers = kv.Headers
-		k.payload = kv.Payload
+		k.topicKey = kv.TopicKey
+		k.headerKey = kv.HeaderKey
+		k.payloadKey = kv.PayloadKey
+	}
+	if k.spec.Topic != nil {
+		k.defaultTopic = k.spec.Topic.Default
 	}
 }
 
@@ -147,20 +151,20 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	var ok bool
 
 	// set data from kv map
-	if k.topic != "" {
-		topic, ok = ctx.GetKV(k.topic).(string)
+	if k.topicKey != "" {
+		topic, ok = ctx.GetKV(k.topicKey).(string)
 		if !ok {
 			return &context.MQTTResult{ErrString: resultGetDataFailed}
 		}
 	}
-	if k.headers != "" {
-		headers, ok = ctx.GetKV(k.headers).(map[string]string)
+	if k.headerKey != "" {
+		headers, ok = ctx.GetKV(k.headerKey).(map[string]string)
 		if !ok {
 			return &context.MQTTResult{ErrString: resultGetDataFailed}
 		}
 	}
-	if k.payload != "" {
-		payload, ok = ctx.GetKV(k.payload).([]byte)
+	if k.payloadKey != "" {
+		payload, ok = ctx.GetKV(k.payloadKey).([]byte)
 		if !ok {
 			return &context.MQTTResult{ErrString: resultGetDataFailed}
 		}
@@ -175,6 +179,10 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 		if payload == nil {
 			payload = p.Payload
 		}
+	}
+
+	if topic == "" {
+		topic = k.defaultTopic
 	}
 
 	if topic == "" || payload == nil {
