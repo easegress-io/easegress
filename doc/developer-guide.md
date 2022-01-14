@@ -3,6 +3,7 @@
 - [Developer Guide](#developer-guide)
 	- [Architecture](#architecture)
 	- [Project Layout](#project-layout)
+	- [Building and testing](#building-and-testing)
 - [Extending Easegress](#extending-easegress)
 	- [Developing an Object](#developing-an-object)
 		- [Main Business Logic](#main-business-logic)
@@ -57,6 +58,14 @@ Easegress code structure follows the [go project layout standard](https://github
 │   └── version				// release version
 ├── test				// scripts of integration testing
 ```
+
+## Building and testing
+
+If you are new to Easegress, please go through the  [Getting Started](../README.md#getting-started) tutorial,  if you have not already. Also try out different [Cookbook](./README.md) tutorials.
+
+To build `easegress-server` and `egctl`, run `make` and they will appear to `bin` directory.
+
+After modifying the code, run `make fmt` to format the code and `make test` to run unit tests.
 
 # Extending Easegress
 
