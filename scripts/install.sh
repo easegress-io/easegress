@@ -35,22 +35,24 @@ ARTIFACT="easegress-${LATEST_VERSION}-${OS}-${ARCH}.tar.gz"
 ARTIFACT_URL="${GITHUB_URL}/releases/download/${LATEST_VERSION}/${ARTIFACT}"
 
 
-DIR=$(pwd)/easegress
+read -p "Enter the install directory [$(pwd)/easegress]: " DIR
+DIR=${DIR:-$(pwd)/easegress}
 BINDIR=${DIR}/bin
 
-mkdir -p ${DIR}/easegress
+mkdir -p ${DIR}
 echo "Create the directory - \"${DIR}\" successfully."
 echo "Downloading the release file - \"${ARTIFACT}\" ..."
-curl -sL ${ARTIFACT_URL} -o ${DIR}/easegress/${ARTIFACT}
+curl -sL ${ARTIFACT_URL} -o ${DIR}/${ARTIFACT}
 echo "Downloaded \"${ARTIFACT}\""
-tar -zxf ${DIR}/easegress/${ARTIFACT} -C easegress 
+tar -zxf ${DIR}/${ARTIFACT} -C easegress 
 echo "Extract the files successfully"
 
 # Fourth - configure the easegress
 echo "Download the config.yaml file"
 RAW_GITHUB_URL=https://raw.githubusercontent.com/megaease/easegress
-curl -sL ${RAW_GITHUB_URL}/main/scripts/config.yaml -o ${DIR}/easegress/config.yaml
-sed -i -e "s~##DIR##~${DIR}~g" ${DIR}/easegress/config.yaml
+curl -sL ${RAW_GITHUB_URL}/main/scripts/config.yaml -o ${DIR}/config.yaml
+sed -i -e "s~##DIR##~${DIR}~g" ${DIR}/config.yaml
+
 if [[ "${OS}" == "linux" ]]; then
 
     # SELinux prevents you from running a system service where the binary is in a user's home directory.
@@ -58,18 +60,18 @@ if [[ "${OS}" == "linux" ]]; then
     if [[ "${DISTRO}" == "CentOS"* ]] && [[ $(getenforce) != "Disabled" ]] &&  [[ "$(pwd)" == "/home"* ]]; then
         BINDIR=/usr/local/bin
         echo "SELinux enabled, cannot install in home, copy Easegress to ${BINDIR}"
-        sudo cp -f ${DIR}/easegress/bin/* ${BINDIR}
+        sudo cp -f ${DIR}/bin/* ${BINDIR}
     fi
 
     # Prepare the unit file for Systemd
     echo "Configuring the systemd unit file..."
-    curl -sL ${RAW_GITHUB_URL}/main/scripts/easegress.service -o ${DIR}/easegress/easegress.service
-    sed -i -e "s~##BINDIR##~${BINDIR}~g" ${DIR}/easegress/easegress.service
-    sed -i -e "s~##DIR##~${DIR}~g" ${DIR}/easegress/easegress.service
+    curl -sL ${RAW_GITHUB_URL}/main/scripts/easegress.service -o ${DIR}/easegress.service
+    sed -i -e "s~##BINDIR##~${BINDIR}~g" ${DIR}/easegress.service
+    sed -i -e "s~##DIR##~${DIR}~g" ${DIR}/easegress.service
     
     # install the systemd unit file
     echo "Enable the easegress service"
-    sudo cp -f ${DIR}/easegress/easegress.service /etc/systemd/system 
+    sudo cp -f ${DIR}/easegress.service /etc/systemd/system 
     sudo systemctl daemon-reload
     sudo systemctl enable easegress
     
