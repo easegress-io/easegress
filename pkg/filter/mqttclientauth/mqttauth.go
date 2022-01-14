@@ -164,7 +164,7 @@ func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) string {
 	if pass != sha256Sum(connect.Password) {
 		return resultAuthFail
 	}
-	return context.NilErr
+	return ""
 }
 
 // HandleMQTT handle MQTT context
@@ -177,5 +177,5 @@ func (a *MQTTClientAuth) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult
 		ctx.SetDisconnect()
 		return &context.MQTTResult{ErrString: resultAuthFail}
 	}
-	return &context.MQTTResult{ErrString: context.NilErr}
+	return &context.MQTTResult{ErrString: ""}
 }

@@ -108,5 +108,5 @@ func (k *TopicMapper) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	}
 	ctx.SetKV(k.spec.SetKV.Topic, topic)
 	ctx.SetKV(k.spec.SetKV.Headers, headers)
-	return &context.MQTTResult{ErrString: context.NilErr}
+	return &context.MQTTResult{ErrString: ""}
 }
