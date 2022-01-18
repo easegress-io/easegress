@@ -347,7 +347,7 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 
 Our core logic is very simple, now let's add some non-business code to make our new filter conform with the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/httppipeline/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/object/httppipeline/registry.go).
 
-All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`. It is called when the pipeline is updated, without modifying the filters identity (*name* and *kind*). In practice this happens when underlying machine restarts and Easegress. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
+All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`. It is called when the pipeline is updated, without modifying the filter's identity (*name* and *kind*). In practice, this happens when the underlying machine reboots and restarts Easegress. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
 
 ```go
 // init registers itself to pipeline registry.
