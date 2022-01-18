@@ -15,7 +15,7 @@
 
 ## Architecture
 
-The following diagram describes the high-level architecture of Easegress. The Cluster component is responsible for synchronizing data between of different nodes or after restarts. The Supervisor manages the lifecycle of all kinds of objects.
+The following diagram describes the high-level architecture of Easegress. The Cluster component is responsible for synchronizing data among different nodes or after restarts. The Supervisor manages the lifecycle of all kinds of objects.
 
 ![architecture](./imgs/architecture.png)
 
