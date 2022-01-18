@@ -21,7 +21,7 @@ The following diagram describes the high-level architecture of Easegress. The Cl
 
 Easegress has four different *kind* of objects:
 1. **System Controllers** operate essential system-level activities. Every instance of Easegress launches exactly one instance of each kind of System Controllers after the very start.
-2. **Business Controllers** can be created and deleted using admin operations. Business Controller operate mainly other tasks than handling directly the traffic.
+2. **Business Controllers** can be created and deleted using admin operations. Business Controllers operate mainly on other tasks than handling directly the traffic.
 3. **Traffic Gate** receives traffic of different protocols, and dispatches them to pipelines.
 4. **Pipeline** is a filter chain that handles traffic from the traffic gate.
 
