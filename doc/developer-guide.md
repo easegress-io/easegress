@@ -69,7 +69,7 @@ After modifying the code, run `make fmt` to format the code and `make test` to r
 
 # Extending Easegress
 
-Let's suppose that you have a requirement or a feature enchantment in your mind. The most common ways to extend Easegress is developing new Object or Filter.
+Let's suppose that you have a requirement or a feature enhancement in your mind. The most common way to extend Easegress is to develop a new Object or Filter.
 
 ## Developing an Object
 
