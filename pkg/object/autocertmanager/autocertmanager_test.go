@@ -1,9 +1,11 @@
 package autocertmanager
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -17,10 +19,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/libdns/libdns"
 	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
@@ -273,24 +277,6 @@ var discoTmpl = template.Must(template.New("disco").Parse(`{
 	"newOrder": "{{.}}/new-cert"
 }`))
 
-// //Reg          string `json:"new-reg"`
-// //RegRFC       string `json:"newAccount"`
-// Authz        string `json:"new-authz"`
-// //AuthzRFC     string `json:"newAuthz"`
-// OrderRFC     string `json:"newOrder"`
-// //Cert         string `json:"new-cert"`
-// Revoke       string `json:"revoke-cert"`
-// RevokeRFC    string `json:"revokeCert"`
-// NonceRFC     string `json:"newNonce"`
-// KeyChangeRFC string `json:"keyChange"`
-// Meta         struct {
-// 	Terms           string   `json:"terms-of-service"`
-// 	TermsRFC        string   `json:"termsOfService"`
-// 	WebsiteRFC      string   `json:"website"`
-// 	CAA             []string `json:"caa-identities"`
-// 	CAARFC          []string `json:"caaIdentities"`
-// 	ExternalAcctRFC bool     `json:"externalAccountRequired"`
-
 // https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L50
 var authzTmpl = template.Must(template.New("authz").Parse(`{
 	"status": "pending",
@@ -351,10 +337,53 @@ func dateDummyCert(pub interface{}, start, end time.Time, san ...string) ([]byte
 	return x509.CreateCertificate(rand.Reader, t, t, pub, key)
 }
 
+func createChallenges(url string) map[string]interface{} {
+	resp := make(map[string]interface{})
+	resp["challenges"] = []struct {
+		Type  string `json:"type"`
+		Uri   string `json:"uri"`
+		Token string `json:"token"`
+	}{
+		{
+			Type:  "http-01",
+			Uri:   fmt.Sprintf("%s/http-01-accepted", url),
+			Token: "t01",
+		},
+		{
+			Type:  "dns-01",
+			Uri:   fmt.Sprintf("%s/dns-01-accepted", url),
+			Token: "t02",
+		},
+		{
+			Type:  "tls-alpn-01",
+			Uri:   fmt.Sprintf("%s/tls-alpn-01-accepted", url),
+			Token: "t03",
+		},
+		{
+			Type:  "unexisting-challenge",
+			Uri:   "",
+			Token: "",
+		},
+	}
+	return resp
+}
+
 // Inspired by https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L477
-func startACMEServerStub(t *testing.T, domain string, wg *sync.WaitGroup) (url string, finish func()) {
-	// ACME CA server stub
+func startACMEServerStub(
+	t *testing.T,
+	domain string,
+	wg *sync.WaitGroup,
+	acceptChallenge bool,
+	acceptAuth bool) (url string, finish func()) {
 	csrContainer := make([]byte, 0)
+	challengeAccepted := false
+	challengeStatus := "accepted"
+	challengeStatusCode := http.StatusOK
+	if !acceptChallenge {
+		challengeStatus = "error"
+		challengeStatusCode = http.StatusNotFound
+	}
+	// ACME CA server stub
 	var ca *httptest.Server
 	ca = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Replay-Nonce", "nonce")
@@ -363,7 +392,6 @@ func startACMEServerStub(t *testing.T, domain string, wg *sync.WaitGroup) (url s
 			// a nonce request
 			return
 		}
-
 		switch r.URL.Path {
 		// discovery
 		case "/":
@@ -375,22 +403,48 @@ func startACMEServerStub(t *testing.T, domain string, wg *sync.WaitGroup) (url s
 			w.Header().Set("Location", ca.URL+"/new-reg/1")
 			w.WriteHeader(http.StatusCreated)
 			w.Write([]byte("{}"))
-		// domain authorization
-		case "/new-authz":
-			w.Header().Set("Location", ca.URL+"/authz/1")
-			w.WriteHeader(http.StatusCreated)
-			if err := authzTmpl.Execute(w, ca.URL); err != nil {
-				t.Errorf("authzTmpl: %v", err)
-			}
 		// cert request
 		case "/new-cert":
 			w.Header().Set("Location", ca.URL+"/order/1")
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(fmt.Sprintf(`{"status": "valid", "finalize": "%s/finalize/1"}`, ca.URL)))
+			challengeAccepted = false
+			w.Write([]byte(
+				fmt.Sprintf(`{"status": "valid", "finalize": "%s/finalize/1", "Authorizations": ["%s/authz/1"]}`,
+					ca.URL, ca.URL)))
 		// CA chain cert
 		case "/order/1":
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status": "valid"}`))
+		case "/authz/1":
+			statusCode := http.StatusOK
+			if !acceptAuth {
+				statusCode = http.StatusNotFound
+			}
+			w.WriteHeader(statusCode)
+			status := "pending"
+			if challengeAccepted {
+				status = "valid"
+			}
+			resp := createChallenges(ca.URL)
+			resp["status"] = status
+			body, _ := json.Marshal(resp)
+			w.Write(body)
+			if !acceptAuth {
+				wg.Done()
+			}
+		case "/http-01-accepted":
+			challengeAccepted = true
+			w.WriteHeader(challengeStatusCode)
+			w.Write([]byte(fmt.Sprintf(`{"status": "%s"}`, challengeStatus)))
+		case "/dns-01-accepted":
+			w.WriteHeader(challengeStatusCode)
+			w.Write([]byte(fmt.Sprintf(`{"status": "%s"}`, challengeStatus)))
+		case "/tls-alpn-01-accepted":
+			w.WriteHeader(challengeStatusCode)
+			w.Write([]byte(fmt.Sprintf(`{"status": "%s"}`, challengeStatus)))
+			if !acceptChallenge {
+				wg.Done() // no certificates this time, stop early
+			}
 		case "/finalize/1":
 			var req struct {
 				CSR string `json:"csr"`
@@ -435,14 +489,37 @@ func helloInfo(sni string) *tls.ClientHelloInfo {
 	}
 }
 
-func TestAutoCertManagerCreation(t *testing.T) {
-	//TODO only to debug test
-	logger.EtcdClientLoggerConfig(&option.Options{}, "blaa")
+type dnsProvideMock struct{}
 
+func (dpm *dnsProvideMock) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
+	return nil, nil
+}
+func (dpm *dnsProvideMock) AppendRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
+	return nil, fmt.Errorf("append error")
+}
+func (dpm *dnsProvideMock) SetRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
+	return nil, nil
+}
+func (dpm *dnsProvideMock) DeleteRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
+	return nil, nil
+}
+
+func mockDBSprovider(provider string) {
+	dnsProviderCreators[provider] = &dnsProviderCreator{
+		requiredFields: []string{},
+		creatorFn: func(d *DomainSpec) (dnsProvider, error) {
+			return &dnsProvideMock{}, nil
+		},
+	}
+}
+
+func TestAutoCertManager(t *testing.T) {
 	acmWg := &sync.WaitGroup{}
-	acmWg.Add(1)
+	domainCnt := 2
+	acmWg.Add(domainCnt)
+	mockDBSprovider("customDNS")
 
-	url, finish := startACMEServerStub(t, "www.example.com", acmWg)
+	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, true, true)
 	defer finish()
 
 	yaml := `
@@ -452,6 +529,10 @@ email: someone@megaease.com
 renewBefore: 720h
 domains:
   - name: "www.megaease.com"
+  - name: "*.megaease.com"
+    dnsProvider:
+      name: customDNS
+      zone: megaease.com
 directoryURL: ` + url
 	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
 	if err != nil {
@@ -460,7 +541,6 @@ directoryURL: ` + url
 	defer os.RemoveAll(etcdDirName)
 
 	cls := cluster.CreateClusterForTest(etcdDirName)
-	//cls := &clustertest.MockedCluster{}
 	supervisor.MustNew(&option.Options{}, cls)
 
 	spec, err := supervisor.NewSpec(yaml)
@@ -477,25 +557,56 @@ directoryURL: ` + url
 	hello.SupportedProtos = []string{acme.ALPNProto}
 	GetCertificate(hello, false)
 
+	hello = helloInfo(".megaease.com")
+	hello.SupportedProtos = []string{acme.ALPNProto}
+	GetCertificate(hello, false)
+
 	hello.SupportedProtos = []string{"random protos"}
 	GetCertificate(hello, false)
 	GetCertificate(hello, true)
 
-	// w http.ResponseWriter, r *http.Request
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HandleHTTP01Challenge(w, r)
-		wg.Done()
-	}))
-	defer ts.Close()
-	_, err = http.Get(ts.URL)
+	hello = helloInfo("unexistingdomain.io")
+	hello.SupportedProtos = []string{acme.ALPNProto}
+	GetCertificate(hello, false)
+
+	w := httptest.NewRecorder()
+	r, err := http.NewRequest("GET", "http://example.org/challenge-suffix", nil)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	wg.Wait()
+	acm.spec.EnableHTTP01 = false
+	HandleHTTP01Challenge(w, r)
+	if !strings.Contains(w.Body.String(), "HTTP01 challenge is disabled") {
+		t.Error("should be disabled")
+	}
+	acm.spec.EnableHTTP01 = true
+	w = httptest.NewRecorder()
+	HandleHTTP01Challenge(w, r)
+	if !strings.Contains(w.Body.String(), `host "example.org" is not configured`) {
+		t.Error("host should not exist")
+	}
+	// fake host
+	r.Host = "*.megaease.com"
+	w = httptest.NewRecorder()
+	HandleHTTP01Challenge(w, r)
+	if !strings.Contains(w.Body.String(), `token does not exist`) {
+		t.Error("token should not exist")
+	}
 
-	if len(acm.Status().ObjectStatus.(*Status).Domains) != 1 {
+	key := "autocert/http/*.megaease.com//challenge-suffix"
+	token := "asdlijasdoiashvouid"
+	err = cls.Put(key, token) // add data for http01 challenge
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	w = httptest.NewRecorder()
+	HandleHTTP01Challenge(w, r)
+	if !strings.Contains(w.Body.String(), token) {
+		t.Error("token should exist")
+	}
+
+	if len(acm.Status().ObjectStatus.(*Status).Domains) != 2 {
 		t.Error("bad status")
 	}
 	if acm.spec.Domains[0].Zone() != "" {
@@ -510,7 +621,105 @@ directoryURL: ` + url
 	closeWG.Wait()
 }
 
-func TestAutoCertManagerCreationNotRunning(t *testing.T) {
+func TestAutoCertManagerChallengeFailues(t *testing.T) {
+	acmWg := &sync.WaitGroup{}
+	domainCnt := 2
+	acmWg.Add(domainCnt)
+
+	mockDBSprovider("customDNS")
+
+	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, false, true)
+	defer finish()
+
+	yaml := `
+name: autocert
+kind: AutoCertManager
+email: someone@megaease.com
+renewBefore: 720h
+domains:
+  - name: "notexisting.com"
+  - name: "*.megaease.com"
+    dnsProvider:
+      name: customDNS
+      zone: megaease.com
+directoryURL: ` + url
+	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	defer os.RemoveAll(etcdDirName)
+
+	cls := cluster.CreateClusterForTest(etcdDirName)
+	supervisor.MustNew(&option.Options{}, cls)
+
+	spec, err := supervisor.NewSpec(yaml)
+	if err != nil {
+		t.Errorf("spec creation should have succeeded: %v", err)
+	}
+
+	acm := &AutoCertManager{}
+	acm.Init(spec)
+	acmWg.Wait()
+	time.Sleep(100 * time.Millisecond)
+
+	acm.Close()
+
+	closeWG := &sync.WaitGroup{}
+	closeWG.Add(1)
+	cls.CloseServer(closeWG)
+	closeWG.Wait()
+}
+
+func TestAutoCertManagerNoAuthz(t *testing.T) {
+	acmWg := &sync.WaitGroup{}
+	domainCnt := 2
+	acmWg.Add(domainCnt)
+
+	mockDBSprovider("customDNS")
+
+	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, false, false)
+	defer finish()
+
+	yaml := `
+name: autocert
+kind: AutoCertManager
+email: someone@megaease.com
+renewBefore: 720h
+domains:
+  - name: "notexisting.com"
+  - name: "*.megaease.com"
+    dnsProvider:
+      name: customDNS
+      zone: megaease.com
+directoryURL: ` + url
+	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	defer os.RemoveAll(etcdDirName)
+
+	cls := cluster.CreateClusterForTest(etcdDirName)
+	supervisor.MustNew(&option.Options{}, cls)
+
+	spec, err := supervisor.NewSpec(yaml)
+	if err != nil {
+		t.Errorf("spec creation should have succeeded: %v", err)
+	}
+
+	acm := &AutoCertManager{}
+	acm.Init(spec)
+	acmWg.Wait()
+	time.Sleep(100 * time.Millisecond)
+
+	acm.Close()
+
+	closeWG := &sync.WaitGroup{}
+	closeWG.Add(1)
+	cls.CloseServer(closeWG)
+	closeWG.Wait()
+}
+
+func TestAutoCertManagerNotRunning(t *testing.T) {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -525,4 +734,21 @@ func TestAutoCertManagerCreationNotRunning(t *testing.T) {
 	wg.Wait()
 
 	GetCertificate(helloInfo("example.org"), false)
+}
+
+func TestEncodeCertificate(t *testing.T) {
+	reader := rand.Reader
+	bitSize := 2048
+
+	key, err := rsa.GenerateKey(reader, bitSize)
+
+	cert := &tls.Certificate{
+		PrivateKey:  key,
+		Certificate: nil,
+		Leaf:        nil,
+	}
+	_, err = encodeCertificate(cert)
+	if err != nil {
+		t.Errorf("encode cert failed")
+	}
 }
