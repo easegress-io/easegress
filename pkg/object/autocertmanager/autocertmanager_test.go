@@ -294,28 +294,6 @@ var discoTmpl = template.Must(template.New("disco").Parse(`{
 	"newOrder": "{{.}}/new-cert"
 }`))
 
-// https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L50
-var authzTmpl = template.Must(template.New("authz").Parse(`{
-	"status": "pending",
-	"challenges": [
-		{
-			"uri": "{{.}}/challenge/tls-alpn-01",
-			"type": "tls-alpn-01",
-			"token": "token-alpn"
-		},
-		{
-			"uri": "{{.}}/challenge/dns-01",
-			"type": "dns-01",
-			"token": "token-dns-01"
-		},
-		{
-			"uri": "{{.}}/challenge/http-01",
-			"type": "http-01",
-			"token": "token-http-01"
-		}
-	]
-}`))
-
 // https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L170
 func decodePayload(v interface{}, r io.Reader) error {
 	var req struct{ Payload string }
@@ -570,21 +548,41 @@ directoryURL: ` + url
 	acmWg.Wait()
 	time.Sleep(1 * time.Second)
 
+	if _, err := GetCertificate(helloInfo(""), false); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
+	if _, err := GetCertificate(helloInfo("."), false); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
 	hello := helloInfo("example.org")
 	hello.SupportedProtos = []string{acme.ALPNProto}
-	GetCertificate(hello, false)
+	if _, err := GetCertificate(hello, false); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
 
 	hello = helloInfo(".megaease.com")
 	hello.SupportedProtos = []string{acme.ALPNProto}
-	GetCertificate(hello, false)
+	if _, err := GetCertificate(hello, false); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
+	acm.spec.EnableTLSALPN01 = false
+	if _, err := GetCertificate(hello, false); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
+	acm.spec.EnableTLSALPN01 = true
 
-	hello.SupportedProtos = []string{"random protos"}
-	GetCertificate(hello, false)
-	GetCertificate(hello, true)
-
+	hello.SupportedProtos = []string{"proto"}
+	if _, err := GetCertificate(hello, false); err != nil {
+		t.Errorf("GetCertificate failed; %v", err.Error())
+	}
+	if _, err := GetCertificate(hello, true); err == nil {
+		t.Errorf("GetCertificate should fail")
+	}
 	hello = helloInfo("unexistingdomain.io")
-	hello.SupportedProtos = []string{acme.ALPNProto}
-	GetCertificate(hello, false)
+	hello.SupportedProtos = []string{"proto"}
+	if _, err := GetCertificate(hello, false); err != nil {
+		t.Errorf("GetCertificate failed; %v", err.Error())
+	}
 
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "http://example.org/challenge-suffix", nil)
@@ -753,16 +751,11 @@ func TestAutoCertManagerNotRunning(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 	wg.Wait()
-
 	GetCertificate(helloInfo("example.org"), false)
 }
 
-func TestEncodeCertificate(t *testing.T) {
-	reader := rand.Reader
-	bitSize := 2048
-
-	key, err := rsa.GenerateKey(reader, bitSize)
-
+func TestCertificateHelpers(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	cert := &tls.Certificate{
 		PrivateKey:  key,
 		Certificate: nil,
