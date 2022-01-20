@@ -23,7 +23,7 @@ type (
 		HeaderMap []*HeaderMap `yaml:"headerMap" jsonschema:"required"`
 	}
 
-	// Header defines relationship between http header and json
+	// HeaderMap defines relationship between http header and json
 	HeaderMap struct {
 		Header string `yaml:"header" jsonschema:"required"`
 		JSON   string `yaml:"json" jsonschema:"required"`
