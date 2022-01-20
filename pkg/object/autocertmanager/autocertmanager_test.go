@@ -629,6 +629,10 @@ directoryURL: ` + url
 	if acm.spec.Domains[0].Zone() != "" {
 		t.Error("bad status")
 	}
+	acm.Close()
+
+	// Test inherit
+	acm = &AutoCertManager{}
 	acm.Inherit(spec, acm)
 	acm.Close()
 
