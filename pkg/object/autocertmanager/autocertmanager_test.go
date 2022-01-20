@@ -19,6 +19,8 @@ package autocertmanager
 
 import (
 	"context"
+	"crypto"
+	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -313,7 +315,6 @@ func dummyCert(pub interface{}, san ...string) ([]byte, error) {
 }
 
 func dateDummyCert(pub interface{}, start, end time.Time, san ...string) ([]byte, error) {
-	// use EC key to run faster on 386
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
@@ -755,14 +756,58 @@ func TestAutoCertManagerNotRunning(t *testing.T) {
 }
 
 func TestCertificateHelpers(t *testing.T) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	cert := &tls.Certificate{
-		PrivateKey:  key,
-		Certificate: nil,
-		Leaf:        nil,
+	keys := make([]crypto.PrivateKey, 4)
+	success := []bool{true, true, false, true}
+
+	rsaKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+	keys[0] = rsaKey
+	ecdsaKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	keys[1] = ecdsaKey
+	dsaKey := &dsa.PrivateKey{}
+	_ = dsa.GenerateKey(dsaKey, rand.Reader)
+	keys[2] = dsaKey
+	rsaKey2, _ := rsa.GenerateKey(rand.Reader, 2048)
+	rsaKey2.D = nil
+	keys[3] = rsaKey2
+	for i := 0; i < len(keys); i++ {
+		cert := &tls.Certificate{
+			PrivateKey:  keys[i],
+			Certificate: nil,
+			Leaf:        nil,
+		}
+		encodedCert, err := encodeCertificate(cert)
+		if success[i] {
+			if err != nil {
+				t.Errorf("encode cert failed")
+			}
+		} else {
+			if err == nil {
+				t.Errorf("encode should fail")
+			}
+		}
+		if _, err := decodeCertificate(encodedCert); err == nil {
+			t.Errorf("decode should fail") // all certs missing public key
+		}
 	}
-	_, err = encodeCertificate(cert)
+
+	der := make([]byte, 10)
+	if _, err := parsePrivateKey(der); err == nil {
+		t.Errorf("parsePrivateKey should fail")
+	}
+
+	id := acme.AuthzID{Value: "dnsName"}
+	csr, certkey, err := newCSR(id)
 	if err != nil {
-		t.Errorf("encode cert failed")
+		t.Errorf("newCSR failed %v", err)
+	}
+	certDer, _ := dummyCert(csr, "example.org")
+	if err != nil {
+		t.Errorf("dummyCert failed %v", err)
+	}
+
+	var unvalidDer [][]byte
+	unvalidDer = append(unvalidDer, certDer)
+	if _, err := validCert(unvalidDer, certkey); err == nil {
+		t.Errorf("validCert should fail")
 	}
 }
