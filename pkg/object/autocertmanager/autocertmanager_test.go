@@ -167,6 +167,14 @@ func TestDNSProvider(t *testing.T) {
 		}
 	})
 
+	t.Run("empty DNS provider name", func(t *testing.T) {
+		spec.DNSProvider["name"] = ""
+		_, err := newDNSProvider(spec)
+		if err == nil {
+			t.Errorf("DNS provider creation should have failed")
+		}
+	})
+
 	t.Run("no zone", func(t *testing.T) {
 		spec.DNSProvider["name"] = "alidns"
 		_, err := newDNSProvider(spec)
@@ -385,8 +393,7 @@ func startACMEServerStub(
 		w.Header().Set("Replay-Nonce", "nonce")
 		// Directory request.
 		if r.Method == "HEAD" {
-			// a nonce request
-			return
+			return // a nonce request
 		}
 		switch r.URL.Path {
 		// discovery
@@ -538,7 +545,6 @@ directoryURL: ` + url
 
 	cls := cluster.CreateClusterForTest(etcdDirName)
 	supervisor.MustNew(&option.Options{}, cls)
-
 	spec, err := supervisor.NewSpec(yaml)
 	if err != nil {
 		t.Errorf("spec creation should have succeeded: %v", err)
@@ -628,6 +634,7 @@ directoryURL: ` + url
 	if acm.spec.Domains[0].Zone() != "" {
 		t.Error("bad status")
 	}
+
 	acm.Close()
 
 	// Test inherit
@@ -639,9 +646,10 @@ directoryURL: ` + url
 	closeWG.Add(1)
 	cls.CloseServer(closeWG)
 	closeWG.Wait()
+	time.Sleep(100 * time.Millisecond)
 }
 
-func TestAutoCertManagerChallengeFailues(t *testing.T) {
+func TestAutoCertManagerChallengeFailures(t *testing.T) {
 	acmWg := &sync.WaitGroup{}
 	domainCnt := 2
 	acmWg.Add(domainCnt)
@@ -671,7 +679,6 @@ directoryURL: ` + url
 
 	cls := cluster.CreateClusterForTest(etcdDirName)
 	supervisor.MustNew(&option.Options{}, cls)
-
 	spec, err := supervisor.NewSpec(yaml)
 	if err != nil {
 		t.Errorf("spec creation should have succeeded: %v", err)
@@ -810,4 +817,50 @@ func TestCertificateHelpers(t *testing.T) {
 	if _, err := validCert(unvalidDer, certkey); err == nil {
 		t.Errorf("validCert should fail")
 	}
+}
+
+func waitDNSRecordTest(t *testing.T, d Domain) {
+	defer func() {
+		if err := recover(); err == nil {
+			t.Errorf("waitDNSRecord should have failed")
+		}
+	}()
+	d.waitDNSRecord("")
+}
+
+func TestDomain(t *testing.T) {
+	t.Run("waitDNSRecord", func(t *testing.T) {
+		d := Domain{}
+		waitDNSRecordTest(t, d)
+		d = Domain{
+			nameInPunyCode: "name",
+		}
+		waitDNSRecordTest(t, d)
+		d = Domain{
+			nameInPunyCode: "*.name",
+		}
+		waitDNSRecordTest(t, d)
+	})
+
+	t.Run("renewCert", func(t *testing.T) {
+		var ca *httptest.Server
+		ca = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Replay-Nonce", "nonce")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte("{}"))
+		}))
+
+		fakeAcm := &AutoCertManager{}
+		fakeAcm.stopCtx, fakeAcm.cancel = context.WithCancel(context.Background())
+		key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+		acmWg := &sync.WaitGroup{}
+		acmWg.Add(1)
+		fakeAcm.client = &acme.Client{Key: key, DirectoryURL: ca.URL}
+		d := Domain{nameInPunyCode: "name"}
+		if err := d.renewCert(fakeAcm); err == nil {
+			t.Errorf("should have failed")
+		}
+		ca.Close()
+	})
 }
