@@ -345,27 +345,27 @@ func createChallenges(url string) map[string]interface{} {
 	resp := make(map[string]interface{})
 	resp["challenges"] = []struct {
 		Type  string `json:"type"`
-		Uri   string `json:"uri"`
+		URI   string `json:"uri"`
 		Token string `json:"token"`
 	}{
 		{
 			Type:  "http-01",
-			Uri:   fmt.Sprintf("%s/http-01-accepted", url),
+			URI:   fmt.Sprintf("%s/http-01-accepted", url),
 			Token: "t01",
 		},
 		{
 			Type:  "dns-01",
-			Uri:   fmt.Sprintf("%s/dns-01-accepted", url),
+			URI:   fmt.Sprintf("%s/dns-01-accepted", url),
 			Token: "t02",
 		},
 		{
 			Type:  "tls-alpn-01",
-			Uri:   fmt.Sprintf("%s/tls-alpn-01-accepted", url),
+			URI:   fmt.Sprintf("%s/tls-alpn-01-accepted", url),
 			Token: "t03",
 		},
 		{
 			Type:  "unexisting-challenge",
-			Uri:   "",
+			URI:   "",
 			Token: "",
 		},
 	}
