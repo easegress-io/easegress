@@ -357,7 +357,7 @@ filters:
 	cleanup()
 }
 
-func TestMockFilterSpec(t * testing.T) {
+func TestMockFilterSpec(t *testing.T) {
 	meta := &FilterMetaSpec{
 		Name:     "name",
 		Kind:     "kind",

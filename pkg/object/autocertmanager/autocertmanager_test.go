@@ -871,7 +871,7 @@ func TestDomain(t *testing.T) {
 		ca.Close()
 	})
 
-	t.Run("runHTTP01",func(t *testing.T) {
+	t.Run("runHTTP01", func(t *testing.T) {
 		fakeAcm := &AutoCertManager{}
 		fakeAcm.stopCtx, fakeAcm.cancel = context.WithCancel(context.Background())
 		key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -884,18 +884,18 @@ func TestDomain(t *testing.T) {
 		cls.CloseServer(closeWG)
 		closeWG.Wait()
 		d := Domain{nameInPunyCode: "name"}
-		if err := d.runHTTP01(fakeAcm,chal); err == nil {
+		if err := d.runHTTP01(fakeAcm, chal); err == nil {
 			t.Errorf("should have failed")
 		}
 	})
 
-	t.Run("runTLSALPN01",func(t *testing.T) {
+	t.Run("runTLSALPN01", func(t *testing.T) {
 		fakeAcm := &AutoCertManager{}
 		fakeAcm.stopCtx, fakeAcm.cancel = context.WithCancel(context.Background())
 		key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		fakeAcm.client = &acme.Client{Key: key, DirectoryURL: ""}
 		chal := &acme.Challenge{Token: "asdoilj"}
-		auth := &acme.Authorization{Identifier:acme.AuthzID{Value: "authzID"}}
+		auth := &acme.Authorization{Identifier: acme.AuthzID{Value: "authzID"}}
 		fakeAcm.storage = &storage{cls: cls}
 		// let's close the cluster to make runTLSALPN01 fail
 		closeWG := &sync.WaitGroup{}
