@@ -346,7 +346,7 @@ timeout: 500ms
 
 The RequestAdaptor modifies the original request according to configuration.
 
-The below example configuration adds prefix `/v3` to the request path.
+The example configuration below adds prefix `/v3` to the request path.
 
 ```yaml
 kind: RequestAdaptor
@@ -356,7 +356,7 @@ path:
 ```
 
 
-The below example configuration removes header `X-Version` from all `GET` requests.
+The example configuration below removes header `X-Version` from all `GET` requests.
 
 ```yaml
 kind: RequestAdaptor
@@ -364,6 +364,17 @@ name: request-adaptor-example
 method: GET
 header:
   del: ["X-Version"]
+```
+
+The example configuration below modifies request path using regular expressions.
+
+```yaml
+kind: RequestAdaptor
+name: request-adaptor-example
+path:
+  regexpReplace:
+    regexp: "^/([a-z]+)/([a-z]+)" # groups /$1/$2 for lowercase alphabet
+    replace: "/$2/$1" # changes the order of groups
 ```
 
 ### Configuration
@@ -752,7 +763,7 @@ headerMap:
 | replace      | string                                                 | Replaces request path with the value of this option when specified          | No       |
 | addPrefix    | string                                                 | Prepend the value of this option to request path when specified             | No       |
 | trimPrefix   | string                                                 | Trims the value of this option if request path start with it when specified | No       |
-| regexReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression                                 | No       |
+| regexpReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression                                 | No       |
 
 ### pathadaptor.RegexpReplace
 
