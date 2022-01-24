@@ -54,7 +54,10 @@ type (
 		// key: /custom-data/{etcdPrefix}/{$key}
 		// value:
 		//   key: "$key"
+		//   username: "$username" # optional
 		//   password: "$password"
+		// Username and password are used for Basic Authentication. If "username" is empty, the value of "key"
+		// entry is used as username for Basic Auth.
 		EtcdPrefix string `yaml:"etcdPrefix" jsonschema:"omitempty"`
 	}
 
@@ -89,15 +92,25 @@ type (
 		authorizedUsersCache AuthorizedUsersCache
 	}
 
-	credentials struct {
+	// etcdCredentials defines the format for credentials in etcd
+	etcdCredentials struct {
 		Key      string `yaml:"key" jsonschema:"omitempty"`
-		Password string `yaml:"password" jsonschema:"omitempty"`
+		Username string `yaml:"username" jsonschema:"omitempty"`
+		Password string `yaml:"password" jsonschema:"required"`
 	}
 )
 
 const (
 	customDataPrefix = "/custom-data/"
 )
+
+// DefaultUsername uses Username if present, otherwise Key
+func (cred *etcdCredentials) DefaultUsername() string {
+	if cred.Username != "" {
+		return cred.Username
+	}
+	return cred.Key
+}
 
 func parseCredentials(creds string) (string, string, error) {
 	parts := strings.Split(creds, ":")
@@ -213,19 +226,20 @@ func newEtcdUserCache(cluster cluster.Cluster, etcdPrefix string) *etcdUserCache
 func kvsToReader(kvs map[string]string) io.Reader {
 	pwStrSlice := make([]string, 0, len(kvs))
 	for _, item := range kvs {
-		creds := &credentials{}
+		creds := &etcdCredentials{}
 		err := yaml.Unmarshal([]byte(item), creds)
 		if err != nil {
 			logger.Errorf(err.Error())
 			continue
 		}
-		if creds.Key == "" || creds.Password == "" {
+		if creds.DefaultUsername() == "" || creds.Password == "" {
 			logger.Errorf(
-				"Parsing credential updates failed. Make sure that credentials contains 'key' and 'password' entries.",
+				"Parsing credential updates failed. " +
+					"Make sure that credentials contains 'key' or 'password' entry for password and 'password' entries.",
 			)
 			continue
 		}
-		pwStrSlice = append(pwStrSlice, creds.Key+":"+creds.Password)
+		pwStrSlice = append(pwStrSlice, creds.DefaultUsername()+":"+creds.Password)
 	}
 	if len(pwStrSlice) == 0 {
 		// no credentials found, let's return empty reader
