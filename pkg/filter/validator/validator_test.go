@@ -377,6 +377,17 @@ basicAuth:
 		expectedValid := []bool{true, true, false}
 
 		v = createValidator(yamlSpec, nil, nil)
+
+		t.Run("invalid headers", func(t *testing.T) {
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0])) // missing : and pw
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			if result != resultInvalid {
+				t.Errorf("should be bad format")
+			}
+		})
+
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
@@ -428,6 +439,15 @@ basicAuth:
 		}
 	})
 
+	t.Run("dummy etcd", func(t *testing.T) {
+		userCache := &etcdUserCache{prefix: ""} // should now skip cluster ops
+		userCache.WatchChanges()
+		if userCache.Match("doge", "dogepw") {
+			t.Errorf("should not match")
+		}
+		userCache.Close()
+	})
+
 	t.Run("credentials from etcd", func(t *testing.T) {
 		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
 		check(err)
@@ -442,11 +462,14 @@ basicAuth:
 			t.Errorf("newEtcdUserCache failed")
 		}
 
-		pwToYaml := func(user string, pw string) string {
-			return fmt.Sprintf("key: %s\npassword: %s", user, pw)
+		pwToYaml := func(key string, user string, pw string) string {
+			if user != "" {
+				return fmt.Sprintf("username: %s\npassword: %s", user, pw)
+			}
+			return fmt.Sprintf("key: %s\npassword: %s", key, pw)
 		}
-		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], encryptedPasswords[0]))
-		clusterInstance.Put("/custom-data/credentials/2", pwToYaml(userIds[2], encryptedPasswords[2]))
+		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], "", encryptedPasswords[0]))
+		clusterInstance.Put("/custom-data/credentials/2", pwToYaml("", userIds[2], encryptedPasswords[2]))
 
 		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
