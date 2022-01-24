@@ -19,6 +19,7 @@ package context
 
 import (
 	stdcontext "context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -105,6 +106,8 @@ type (
 		Std() *http.Request
 
 		Size() uint64 // bytes
+
+		TLS() *tls.ConnectionState
 	}
 
 	// HTTPResponse is all operations for HTTP response.

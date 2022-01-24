@@ -18,6 +18,7 @@
 package context
 
 import (
+	"crypto/tls"
 	"io"
 	"net/http"
 
@@ -161,6 +162,10 @@ func (r *httpRequest) SetBody(reader io.Reader) {
 
 func (r *httpRequest) Size() uint64 {
 	return uint64(r.metaSize + r.bodyCount)
+}
+
+func (r *httpRequest) TLS() *tls.ConnectionState {
+	return r.std.TLS
 }
 
 func (r *httpRequest) finish() {
