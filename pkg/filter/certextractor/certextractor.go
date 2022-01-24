@@ -19,7 +19,6 @@ package certextractor
 
 import (
 	"crypto/x509/pkix"
-	"fmt"
 
 	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
