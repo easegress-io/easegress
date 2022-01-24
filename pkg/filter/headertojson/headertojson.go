@@ -19,6 +19,7 @@ package headertojson
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 
@@ -32,6 +33,11 @@ const (
 	Kind = "HeaderToJSON"
 
 	resultJSONEncodeDecodeErr = "jsonEncodeDecodeErr"
+	resultBodyReadErr         = "bodyReadErr"
+)
+
+var (
+	errJSONEncodeDecode = errors.New(resultJSONEncodeDecodeErr)
 )
 
 func init() {
@@ -66,7 +72,7 @@ func (h *HeaderToJSON) Description() string {
 
 // Results return possible results of HeaderToJSON
 func (h *HeaderToJSON) Results() []string {
-	return []string{resultJSONEncodeDecodeErr}
+	return []string{resultJSONEncodeDecodeErr, resultBodyReadErr}
 }
 
 func (h *HeaderToJSON) init() {
@@ -97,24 +103,73 @@ func (h *HeaderToJSON) Status() interface{} {
 	return nil
 }
 
-func (h *HeaderToJSON) encodeJSON(input map[string]interface{}) ([]byte, error) {
-	return json.Marshal(input)
+// Handle handle HTTPContext
+func (h *HeaderToJSON) Handle(ctx context.HTTPContext) string {
+	result := h.handle(ctx)
+	return ctx.CallNextHandler(result)
 }
 
-func (h *HeaderToJSON) decodeJSON(ctx context.HTTPContext) (map[string]interface{}, error) {
+func decodeMapJSON(body []byte) (map[string]interface{}, error) {
 	res := make(map[string]interface{})
-	decoder := json.NewDecoder(ctx.Request().Body())
-	err := decoder.Decode(&res)
+	err := json.Unmarshal(body, &res)
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
 	return res, nil
 }
 
-// Handle handle HTTPContext
-func (h *HeaderToJSON) Handle(ctx context.HTTPContext) string {
-	result := h.handle(ctx)
-	return ctx.CallNextHandler(result)
+func decodeArrayJSON(body []byte) ([]map[string]interface{}, error) {
+	res := []map[string]interface{}{}
+	err := json.Unmarshal(body, &res)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return res, nil
+}
+
+func mergeMap(m1 map[string]interface{}, m2 map[string]interface{}) map[string]interface{} {
+	for k, v := range m2 {
+		m1[k] = v
+	}
+	return m1
+}
+
+func mergeMapToArrayMap(arrayMap []map[string]interface{}, m map[string]interface{}) []map[string]interface{} {
+	for i := range arrayMap {
+		arrayMap[i] = mergeMap(arrayMap[i], m)
+	}
+	return arrayMap
+}
+
+func firstNonBlandByte(bytes []byte) byte {
+	for _, b := range bytes {
+		switch b {
+		case '\n', '\t', '\r', ' ':
+			continue
+		}
+		return b
+	}
+	return 0
+}
+
+func getNewBody(reqBody []byte, headerMap map[string]interface{}) (interface{}, error) {
+	char := firstNonBlandByte(reqBody)
+
+	if char == '{' {
+		bodyMap, err := decodeMapJSON(reqBody)
+		if err != nil {
+			return nil, errJSONEncodeDecode
+		}
+		return mergeMap(bodyMap, headerMap), nil
+
+	} else if char == '[' {
+		bodyArray, err := decodeArrayJSON(reqBody)
+		if err != nil {
+			return nil, errJSONEncodeDecode
+		}
+		return mergeMapToArrayMap(bodyArray, headerMap), nil
+	}
+	return nil, errJSONEncodeDecode
 }
 
 func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
@@ -129,17 +184,25 @@ func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 		return ""
 	}
 
-	bodyMap, err := h.decodeJSON(ctx)
+	reqBody, err := io.ReadAll(ctx.Request().Body())
+	if err != nil {
+		return resultBodyReadErr
+	}
+
+	var body interface{}
+	if len(reqBody) == 0 {
+		body = headerMap
+	} else {
+		body, err = getNewBody(reqBody, headerMap)
+		if err != nil {
+			return resultJSONEncodeDecodeErr
+		}
+	}
+
+	bodyBytes, err := json.Marshal(body)
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	for k, v := range headerMap {
-		bodyMap[k] = v
-	}
-	body, err := h.encodeJSON(bodyMap)
-	if err != nil {
-		return resultJSONEncodeDecodeErr
-	}
-	ctx.Request().SetBody(bytes.NewReader(body))
+	ctx.Request().SetBody(bytes.NewReader(bodyBytes))
 	return ""
 }
