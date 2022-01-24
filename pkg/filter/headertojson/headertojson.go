@@ -127,56 +127,47 @@ func decodeArrayJSON(body []byte) ([]map[string]interface{}, error) {
 	return res, nil
 }
 
-func addHeaderToMap(bodyMap map[string]interface{}, headerMap map[string]interface{}) interface{} {
-	for k, v := range headerMap {
-		bodyMap[k] = v
+func mergeMap(m1 map[string]interface{}, m2 map[string]interface{}) map[string]interface{} {
+	for k, v := range m2 {
+		m1[k] = v
 	}
-	return bodyMap
+	return m1
 }
 
-func addHeaderToArray(bodyArray []map[string]interface{}, headerMap map[string]interface{}) interface{} {
-	for i := range bodyArray {
-		for k, v := range headerMap {
-			bodyArray[i][k] = v
-		}
+func mergeMapToArrayMap(arrayMap []map[string]interface{}, m map[string]interface{}) []map[string]interface{} {
+	for i := range arrayMap {
+		arrayMap[i] = mergeMap(arrayMap[i], m)
 	}
-	return bodyArray
+	return arrayMap
 }
 
-func firstNonControlChar(bytes []byte) (byte, error) {
+func firstNonBlandByte(bytes []byte) byte {
 	for _, b := range bytes {
 		switch b {
 		case '\n', '\t', '\r', ' ':
 			continue
-		case '{':
-			return '{', nil
-		case '[':
-			return '[', nil
-		default:
-			return 0, errJSONEncodeDecode
 		}
+		return b
 	}
-	return 0, errJSONEncodeDecode
+	return 0
 }
 
 func getNewBody(reqBody []byte, headerMap map[string]interface{}) (interface{}, error) {
-	char, err := firstNonControlChar(reqBody)
-	if err != nil {
-		return nil, errJSONEncodeDecode
-	}
+	char := firstNonBlandByte(reqBody)
+
 	if char == '{' {
 		bodyMap, err := decodeMapJSON(reqBody)
 		if err != nil {
 			return nil, errJSONEncodeDecode
 		}
-		return addHeaderToMap(bodyMap, headerMap), nil
+		return mergeMap(bodyMap, headerMap), nil
 
 	} else if char == '[' {
 		bodyArray, err := decodeArrayJSON(reqBody)
 		if err != nil {
 			return nil, errJSONEncodeDecode
 		}
-		return addHeaderToArray(bodyArray, headerMap), nil
+		return mergeMapToArrayMap(bodyArray, headerMap), nil
 	}
 	return nil, errJSONEncodeDecode
 }
@@ -200,8 +191,7 @@ func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 
 	var body interface{}
 	if len(reqBody) == 0 {
-		m := make(map[string]interface{})
-		body = addHeaderToMap(m, headerMap)
+		body = headerMap
 	} else {
 		body, err = getNewBody(reqBody, headerMap)
 		if err != nil {
