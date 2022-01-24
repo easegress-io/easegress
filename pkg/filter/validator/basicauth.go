@@ -94,9 +94,9 @@ type (
 
 	// etcdCredentials defines the format for credentials in etcd
 	etcdCredentials struct {
-		Key      string `yaml:"key" jsonschema:"omitempty"`
-		Username string `yaml:"username" jsonschema:"omitempty"`
-		Password string `yaml:"password" jsonschema:"required"`
+		Key  string `yaml:"key" jsonschema:"omitempty"`
+		User string `yaml:"username" jsonschema:"omitempty"`
+		Pass string `yaml:"password" jsonschema:"required"`
 	}
 )
 
@@ -104,12 +104,17 @@ const (
 	customDataPrefix = "/custom-data/"
 )
 
-// DefaultUsername uses Username if present, otherwise Key
-func (cred *etcdCredentials) DefaultUsername() string {
-	if cred.Username != "" {
-		return cred.Username
+// Username uses username if present, otherwise key
+func (cred *etcdCredentials) Username() string {
+	if cred.User != "" {
+		return cred.User
 	}
 	return cred.Key
+}
+
+// Password returns password.
+func (cred *etcdCredentials) Password() string {
+	return cred.Pass
 }
 
 func parseCredentials(creds string) (string, string, error) {
@@ -232,14 +237,14 @@ func kvsToReader(kvs map[string]string) io.Reader {
 			logger.Errorf(err.Error())
 			continue
 		}
-		if creds.DefaultUsername() == "" || creds.Password == "" {
+		if creds.Username() == "" || creds.Password() == "" {
 			logger.Errorf(
 				"Parsing credential updates failed. " +
 					"Make sure that credentials contains 'key' or 'password' entry for password and 'password' entries.",
 			)
 			continue
 		}
-		pwStrSlice = append(pwStrSlice, creds.DefaultUsername()+":"+creds.Password)
+		pwStrSlice = append(pwStrSlice, creds.Username()+":"+creds.Password())
 	}
 	if len(pwStrSlice) == 0 {
 		// no credentials found, let's return empty reader
