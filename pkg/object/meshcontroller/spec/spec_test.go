@@ -363,16 +363,11 @@ func TestSidecarEgressPipelineSpecWithMock(t *testing.T) {
 		},
 	}
 
-	if s.Runnable() != false {
-		t.Fatalf("service spec %+v should be not runnable", s)
-	}
-
 	instanceSpecs := []*ServiceInstanceSpec{}
 	_, err := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	if err == nil {
 		t.Fatalf("mocking service should failed: %v", err)
 	}
-	//fmt.Println(superSpec.YAMLConfig())
 }
 
 func TestMockPBConvert(t *testing.T) {

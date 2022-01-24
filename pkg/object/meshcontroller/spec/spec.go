@@ -1028,15 +1028,6 @@ https: false
 	return superSpec, nil
 }
 
-// Runnable indicates this service is runnable inside mesh or not.
-//   e.g., If this is a mock service, there is not need to be deployed and run.
-func (s *Service) Runnable() bool {
-	if s.Mock != nil && s.Mock.Enabled {
-		return false
-	}
-	return true
-}
-
 // SidecarIngressPipelineSpec returns a spec for sidecar ingress pipeline
 func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
@@ -1075,7 +1066,7 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 
 	pipelineSpecBuilder.appendMeshAdaptor(canaries)
 
-	if !s.Runnable() {
+	if s.Mock != nil && s.Mock.Enabled {
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
 	}
 
