@@ -128,4 +128,46 @@ func TestHandleHTTP(t *testing.T) {
 		assert.Nil(err)
 		assert.Equal("clientA", res["username"])
 	}
+
+	{
+		// test http request with array body
+		bodyMap := []map[string]interface{}{
+			{"log": "123", "id": "abc"},
+			{"log": "456", "id": "def"},
+		}
+		body, err := json.Marshal(bodyMap)
+		assert.Nil(err)
+		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
+		assert.Nil(err)
+
+		req.Header.Add("x-username", "clientA")
+		w := httptest.NewRecorder()
+		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
+		ctx.SetHandlerCaller(func(lastResult string) string {
+			return lastResult
+		})
+
+		ans := h2j.Handle(ctx)
+		assert.Equal("", ans)
+		ctx.Finish()
+
+		body, err = io.ReadAll(ctx.Request().Body())
+		assert.Nil(err)
+
+		res := []map[string]interface{}{}
+		err = json.Unmarshal(body, &res)
+		assert.Nil(err)
+		for _, r := range res {
+			if r["log"] == "123" {
+				assert.Equal("abc", r["id"])
+				assert.Equal("clientA", r["username"])
+
+			} else if r["log"] == "456" {
+				assert.Equal("def", r["id"])
+				assert.Equal("clientA", r["username"])
+			} else {
+				t.Error("wrong result")
+			}
+		}
+	}
 }
