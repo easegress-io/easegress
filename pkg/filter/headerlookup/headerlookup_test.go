@@ -115,6 +115,16 @@ etcdPrefix: "/credentials/"
 headerSetters:
   - headerKey: "X-ext-id"
 `,
+		`
+name: headerLookup
+kind: HeaderLookup
+headerKey: "X-AUTH-USER"
+pathRegExp: "**"
+etcdPrefix: "/credentials/"
+headerSetters:
+  - headerKey: "X-ext-id"
+    etcdKey: "ext-id"
+`,
 	}
 
 	for _, unvalidYaml := range unvalidYamls {
@@ -266,7 +276,7 @@ name: headerLookup
 kind: HeaderLookup
 headerKey: "X-AUTH-USER"
 etcdPrefix: "credentials/"
-appendPath: true
+pathRegExp: "^/api/([a-z]+)/[0-9]*"
 headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
@@ -291,17 +301,20 @@ extra-entry: "extra"
 	check(err)
 
 	ctx, header := prepareCtxAndHeader()
-
 	header.Set("X-AUTH-USER", "bob")
+	hl.Handle(ctx) // path does not match
+	if header.Get("user-ext-id") != "" {
+		t.Errorf("failed")
+	}
 	ctx.MockedRequest.MockedPath = func() string {
-		return "/bananas"
+		return "/api/bananas/9281"
 	}
 	hl.Handle(ctx)
 	if header.Get("user-ext-id") != "333" {
 		t.Errorf("failed")
 	}
 	ctx.MockedRequest.MockedPath = func() string {
-		return "/pearls"
+		return "/api/pearls/"
 	}
 	hl.Handle(ctx)
 	if header.Get("user-ext-id") != "4444" {
