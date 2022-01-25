@@ -51,7 +51,7 @@ Contributing code, like bug fixes or new features are equally encouraged! Easegr
 - Fixing a bug in the code
 - Code refactoring
 - Performance improvement
-- New unittest or improvement of existing test
+- New unit test or improvement of existing test
 
 
 If you’re unsure, whether your code contribution will be beneficial, open a ticket or ask in Slack. You can check the [Developer Guide](./doc/developer-guide.md#developer-guide) to understand the high level architecture and Filter and Object extensions of Easegress.
