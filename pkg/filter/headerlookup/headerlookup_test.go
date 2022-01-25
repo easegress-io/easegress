@@ -107,7 +107,7 @@ etcdPrefix: "/credentials/"
 headerSetters:
   - etcdKey: "ext-id"
 `,
-`
+		`
 name: headerLookup
 kind: HeaderLookup
 headerKey: "X-AUTH-USER"
@@ -282,8 +282,8 @@ headerSetters:
 ext-id: 333
 extra-entry: "extra"
 `)
-clusterInstance.Put("/custom-data/credentials/bob-pearls",
-`
+	clusterInstance.Put("/custom-data/credentials/bob-pearls",
+		`
 ext-id: 4444
 extra-entry: "extra"
 `)
