@@ -107,6 +107,14 @@ etcdPrefix: "/credentials/"
 headerSetters:
   - etcdKey: "ext-id"
 `,
+`
+name: headerLookup
+kind: HeaderLookup
+headerKey: "X-AUTH-USER"
+etcdPrefix: "/credentials/"
+headerSetters:
+  - headerKey: "X-ext-id"
+`,
 	}
 
 	for _, unvalidYaml := range unvalidYamls {
@@ -234,6 +242,70 @@ extra-entry: "extra"
 		} else if j == tryCount {
 			t.Errorf("header should be deleted, got %s", header.Get("user-ext-id"))
 		}
+	}
+
+	if hl.Status() != nil {
+		t.Errorf("status should be nil")
+	}
+	if len(hl.Description()) == 0 {
+		t.Errorf("description should not be empty")
+	}
+	hl.Close()
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	clusterInstance.CloseServer(wg)
+	wg.Wait()
+}
+
+func TestHandleWithPath(t *testing.T) {
+	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-path-test")
+	check(err)
+	defer os.RemoveAll(etcdDirName)
+	const config = `
+name: headerLookup
+kind: HeaderLookup
+headerKey: "X-AUTH-USER"
+etcdPrefix: "credentials/"
+appendPath: true
+headerSetters:
+  - etcdKey: "ext-id"
+    headerKey: "user-ext-id"
+`
+	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+	var mockMap sync.Map
+	supervisor := supervisor.NewMock(
+		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+
+	// let's put data to 'bob'
+	clusterInstance.Put("/custom-data/credentials/bob-bananas",
+		`
+ext-id: 333
+extra-entry: "extra"
+`)
+clusterInstance.Put("/custom-data/credentials/bob-pearls",
+`
+ext-id: 4444
+extra-entry: "extra"
+`)
+	hl, err := createHeaderLookup(config, nil, supervisor)
+	check(err)
+
+	ctx, header := prepareCtxAndHeader()
+
+	header.Set("X-AUTH-USER", "bob")
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/bananas"
+	}
+	hl.Handle(ctx)
+	if header.Get("user-ext-id") != "333" {
+		t.Errorf("failed")
+	}
+	ctx.MockedRequest.MockedPath = func() string {
+		return "/pearls"
+	}
+	hl.Handle(ctx)
+	if header.Get("user-ext-id") != "4444" {
+		t.Errorf("failed")
 	}
 
 	hl.Close()

@@ -71,9 +71,13 @@ type (
 	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
 	// This /custom-data/{etcdPrefix}/{headerKey's value} is retrieved from etcd and HeaderSetters extract keys from the
 	// from the retrieved etcd item.
+	// When AppendPath is true, the path (without leading slash) is appended to the etcd key in following format:
+	// /custom-data/{etcdPrefix}/{headerKey's value}-{path} . For example, for path "/bananas", the etcd key is
+	// /custom-data/{etcdPrefix}/{headerKey's value}-bananas.
 	Spec struct {
 		HeaderKey     string              `yaml:"headerKey" jsonschema:"required"`
 		EtcdPrefix    string              `yaml:"etcdPrefix" jsonschema:"required"`
+		AppendPath    bool                `yaml:"appendPath" jsonschema:"omitempty"`
 		HeaderSetters []*HeaderSetterSpec `yaml:"headerSetters" jsonschema:"required"`
 	}
 )
@@ -248,6 +252,9 @@ func (hl *HeaderLookup) handle(ctx httpcontext.HTTPContext) string {
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
 		return ""
+	}
+	if hl.spec.AppendPath {
+		headerVal = headerVal + "-" + strings.TrimPrefix(ctx.Request().Path(), "/")
 	}
 	headersToAdd, err := hl.lookup(headerVal)
 	if err != nil {
