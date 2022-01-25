@@ -286,7 +286,7 @@ func (acm *AutoCertManager) renew() bool {
 		if err := d.renewCert(acm); err == nil {
 			logger.Infof("certificate for domain %s has been renewed", d.Name)
 		} else {
-			logger.Errorf("failed to renew cerficate for domain %s: %v", d.Name, err)
+			logger.Errorf("failed to renew certificate for domain %s: %v", d.Name, err)
 			allSucc = false
 		}
 	}

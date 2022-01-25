@@ -180,7 +180,7 @@ func (opt *Options) UseInitialCluster() bool {
 func (opt *Options) renameLegacyClusterRoles() {
 	warning := "Cluster roles writer/reader are deprecated. \n" +
 		"Renamed cluster role '%s' to '%s'. Please use primary/secondary instead. \n"
-	fmtLogger := fmt.Printf // Importing logger here is a import cycle, so use fmt instead.
+	fmtLogger := fmt.Printf // Importing logger here is an import cycle, so use fmt instead.
 	if opt.ClusterRole == "writer" {
 		opt.ClusterRole = "primary"
 		fmtLogger(warning, "writer", "primary")
