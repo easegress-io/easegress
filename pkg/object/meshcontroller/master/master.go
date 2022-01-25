@@ -44,7 +44,7 @@ type (
 		superSpec         *supervisor.Spec
 		spec              *spec.Admin
 		heartbeatInterval time.Duration
-		certMananger      *certmanager.CertManager
+		certManager       *certmanager.CertManager
 
 		registrySyncer *registrySyncer
 		store          storage.Storage
@@ -102,7 +102,7 @@ func (m *Master) initMTLS() error {
 		return err
 	}
 
-	m.certMananger = certmanager.NewCertManager(m.superSpec, m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL, m.store)
+	m.certManager = certmanager.NewCertManager(m.superSpec, m.service, m.spec.Security.CertProvider, appCertTTL, rootCertTTL, m.store)
 
 	return nil
 }
@@ -124,7 +124,7 @@ func (m *Master) run() {
 	}
 }
 
-// only handle master routines when its the cluster leader.
+// only handle master routines when it's the cluster leader.
 func (m *Master) needHandle() bool {
 	return m.superSpec.Super().Cluster().IsLeader()
 }
@@ -242,7 +242,7 @@ func (m *Master) updateInstanceStatus(_spec *spec.ServiceInstanceSpec, status st
 // Close closes the master
 func (m *Master) Close() {
 	if m.spec.EnablemTLS() {
-		m.certMananger.Close()
+		m.certManager.Close()
 	}
 	close(m.done)
 }
