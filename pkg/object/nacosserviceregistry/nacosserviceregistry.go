@@ -441,6 +441,7 @@ func (n *NacosServiceRegistry) ListAllServiceInstances() (map[string]*servicereg
 		}
 
 		serviceNames = append(serviceNames, services.Doms...)
+		pageNo++
 	}
 
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
