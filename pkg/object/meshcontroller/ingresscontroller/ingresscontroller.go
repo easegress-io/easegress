@@ -162,6 +162,7 @@ func (ic *IngressController) handleCert(event informer.Event, cert *spec.Certifi
 	ic.reloadTraffic()
 	return
 }
+
 func (ic *IngressController) handleServices(services map[string]*spec.Service) (continueWatch bool) {
 	continueWatch = true
 

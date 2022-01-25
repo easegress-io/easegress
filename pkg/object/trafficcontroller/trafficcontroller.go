@@ -66,8 +66,7 @@ type (
 	WalkFunc = supervisor.WalkFunc
 
 	// Spec describes TrafficController.
-	Spec struct {
-	}
+	Spec struct{}
 
 	// Status is the status of namespaces
 	Status struct {

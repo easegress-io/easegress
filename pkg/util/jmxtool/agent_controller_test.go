@@ -56,7 +56,7 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 		finished <- true
 	}()
 
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	for i := 0; ; i++ {
 		resp, err := client.Get("http://127.0.0.1:8181/hello")
 		if err == nil {
@@ -119,7 +119,7 @@ func TestAgentClientSuccess(t *testing.T) {
 	}
 
 	// shutdown
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	client.Get("http://127.0.0.1:8181/shutdown")
 	<-finished
 }
@@ -160,7 +160,7 @@ func TestAgentClientFail(t *testing.T) {
 	}
 
 	// shutdown
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	client.Get("http://127.0.0.1:8181/shutdown")
 	<-finished
 }

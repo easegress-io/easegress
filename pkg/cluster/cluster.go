@@ -513,7 +513,6 @@ func (c *cluster) initLease() error {
 
 	}
 	return c.grantNewLease()
-
 }
 
 func (c *cluster) grantNewLease() error {
@@ -644,9 +643,7 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		close(done)
 		return done, timeout, nil
 	}
-	var (
-		etcdConfig *embed.Config
-	)
+	var etcdConfig *embed.Config
 	if c.opt.UseInitialCluster() {
 		etcdConfig, err = CreateStaticClusterEtcdConfig(c.opt)
 	} else {

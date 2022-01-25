@@ -86,7 +86,6 @@ func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 
 // Inherit inherits previous generation of RequestAdaptor.
 func (ra *RequestAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
-
 	previousGeneration.Close()
 	ra.Init(filterSpec)
 }
