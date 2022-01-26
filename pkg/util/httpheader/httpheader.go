@@ -74,11 +74,6 @@ func (h *HTTPHeader) Std() http.Header {
 	return h.h
 }
 
-// SetRaw set the http.Header object to header.
-func (h *HTTPHeader) SetRaw(header http.Header) {
-	h.h = header
-}
-
 // Add adds the key value pair.
 func (h *HTTPHeader) Add(key, value string) {
 	h.h.Add(key, value)
