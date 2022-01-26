@@ -63,7 +63,7 @@ jobs:
         run: |
           go mod verify
           go mod download
-          go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+          go test -v -race ./...
   integration-test-ubuntu:
     needs: [test, test-win]
     runs-on: ubuntu-latest
