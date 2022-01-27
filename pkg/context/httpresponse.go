@@ -155,11 +155,6 @@ func (w *httpResponse) FlushedBodyBytes() uint64 {
 }
 
 func (w *httpResponse) finish() {
-	// copy backend http response header
-	// NOTE: this copy should call before WriteHeader
-	w.header.VisitAll(func(k, v string) {
-		w.std.Header().Add(k, v)
-	})
 	// NOTE: WriteHeader must be called at most one time.
 	w.std.WriteHeader(w.StatusCode())
 	w.flushBody()

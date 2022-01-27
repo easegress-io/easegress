@@ -208,7 +208,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 
 	if p.writeResponse {
 		ctx.Response().SetStatusCode(resp.StatusCode)
-		ctx.Response().Header().SetRaw(resp.Header)
+		ctx.Response().Header().AddFromStd(resp.Header)
 		ctx.Response().SetBody(respBody)
 
 		return ""
