@@ -125,6 +125,7 @@ func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
 	}
 	if isCorsRequest {
 		a.cors.HandlerFunc(w.Std(), r.Std())
+		ctx.CallNextHandler("")		
 		return ""
 	}
 	return ""
