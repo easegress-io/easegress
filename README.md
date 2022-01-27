@@ -10,7 +10,7 @@
 - [Easegress](#easegress)
   - [What is Easegress](#what-is-easegress)
   - [Features](#features)
-  - [User Cases](#user-cases)
+  - [Use Cases](#use-cases)
   - [Getting Started](#getting-started)
     - [Setting up Easegress](#setting-up-easegress)
     - [Create an HTTPServer and Pipeline](#create-an-httpserver-and-pipeline)
@@ -19,6 +19,7 @@
   - [Documentation](#documentation)
   - [Roadmap](#roadmap)
   - [Community](#community)
+  - [Contributing](#contributing)
   - [License](#license)
 
 ## What is Easegress
@@ -98,7 +99,7 @@ The architecture of Easegress:
       - **Status Codes:** HTTP status codes.
       - **TopN:** sorted by aggregated APIs(only in server dimension).
 
-## User Cases
+## Use Cases
 
 The following examples show how to use Easegress for different scenarios.
 
@@ -318,6 +319,10 @@ See [Easegress Roadmap](./doc/Roadmap.md) for details.
 
 - [Join Slack Workspace](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) for requirement, issue and development.
 - [MegaEase on Twitter](https://twitter.com/megaease)
+
+## Contributing
+
+See [Contributing guide](./CONTRIBUTING.md#contributing).
 
 ## License
 
