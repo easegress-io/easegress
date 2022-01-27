@@ -736,7 +736,7 @@ headerMap:
 
 | Name         | Type     | Description                      | Required |
 | ------------ | -------- | -------------------------------- | -------- |
-| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON filed name | Yes      |
+| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON field name | Yes      |
 
 
 ### Results
