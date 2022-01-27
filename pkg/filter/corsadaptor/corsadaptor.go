@@ -55,6 +55,7 @@ type (
 		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
 		AllowCredentials bool     `yaml:"allowCredentials" jsonschema:"omitempty"`
 		ExposedHeaders   []string `yaml:"exposedHeaders" jsonschema:"omitempty"`
+		MaxAge           int      `yaml:"maxAge" jsonschema:"omitempty"`
 	}
 )
 
@@ -98,6 +99,7 @@ func (a *CORSAdaptor) reload() {
 		AllowedHeaders:   a.spec.AllowedHeaders,
 		AllowCredentials: a.spec.AllowCredentials,
 		ExposedHeaders:   a.spec.ExposedHeaders,
+		MaxAge:           a.spec.MaxAge,
 	})
 }
 
@@ -111,10 +113,19 @@ func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
 	r := ctx.Request()
 	w := ctx.Response()
 	method := r.Method()
-	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
-	if method == http.MethodOptions && headerAllowMethod != "" {
+	isCorsRequest := r.Header().Get("Origin") != ""
+	if !isCorsRequest {
+		ctx.CallNextHandler("")
+		return ""
+	}
+	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
+	if isPreflight {
 		a.cors.HandlerFunc(w.Std(), r.Std())
 		return resultPreflighted
+	}
+	if isCorsRequest {
+		a.cors.HandlerFunc(w.Std(), r.Std())
+		return ""
 	}
 	return ""
 }
