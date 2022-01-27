@@ -25,12 +25,10 @@ type (
 	// Spec describes the CertExtractor.
 	Spec struct {
 		CertIndex int16  `yaml:"certIndex" jsonschema:"required"`
-		Target    string `yaml:"target" "omitempty,enum=subject,enum=issuer"`
+		Target    string `yaml:"target" jsonschema:"required,enum=subject,enum=issuer"`
 		// Different field options listed here https://pkg.go.dev/crypto/x509/pkix#Name
-		Field string `yaml:"field" "omitempty,enum=Country,enum=Organization,enum=OrganizationalUnit,
-													enum=Locality,enum=Province,enum=StreetAddress,enum=PostalCode
-													enum=SerialNumber,enum=CommonName"`
-		HeaderKey string `yaml:"headerKey" "omitempty"`
+		Field string `yaml:"field" jsonschema:"required,enum=Country,enum=Organization,enum=OrganizationalUnit,enum=Locality,enum=Province,enum=StreetAddress,enum=PostalCode,enum=SerialNumber,enum=CommonName"`
+		HeaderKey string `yaml:"headerKey" jsonschema:"required"`
 	}
 )
 
