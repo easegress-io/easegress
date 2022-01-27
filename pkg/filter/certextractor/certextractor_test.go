@@ -95,8 +95,10 @@ field: "CommonName"
 func prepareCtxAndHeader(connState *tls.ConnectionState) (*contexttest.MockedHTTPContext, http.Header) {
 	ctx := &contexttest.MockedHTTPContext{}
 	header := http.Header{}
-	ctx.MockedRequest.MockedTLS = func() *tls.ConnectionState {
-		return connState
+	stdr := &http.Request{}
+	stdr.TLS = connState
+	ctx.MockedRequest.MockedStd = func() *http.Request {
+		return stdr
 	}
 	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
 		return httpheader.New(header)
@@ -176,13 +178,6 @@ func TestHandle(t *testing.T) {
 			assert.Equal([]string{"1", "2", "3", "4", "5", "6", "7", "8"}, header["Key"])
 		})
 		t.Run("multiple certs", func(t *testing.T) {
-			yamlConfig := `
-kind: "CertExtractor"
-name: "cn-extractor"
-certIndex: -2 # second last certificate
-target: "subject"
-field: "Province"
-`
 			for _, val := range []string{"second", "third", "fourth"} {
 				peerCertificates = append(peerCertificates, &x509.Certificate{
 					Subject: pkix.Name{
@@ -193,10 +188,22 @@ field: "Province"
 			}
 			connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
 			ctx, header := prepareCtxAndHeader(connState)
-
+			yamlConfig := `
+kind: "CertExtractor"
+name: "cn-extractor"
+certIndex: -2 # second last certificate
+target: "subject"
+field: "Province"
+`
 			ce, _ := createCertExtractor(yamlConfig, nil, nil)
 			assert.Equal("", ce.Handle(ctx))
 			assert.Equal("third", header.Get("tls-subject-province"))
+
+			ctx, header = prepareCtxAndHeader(connState)
+			yamlConfig2 := strings.ReplaceAll(yamlConfig, "certIndex: -2", "certIndex: -15")
+			ce, _ = createCertExtractor(yamlConfig2, nil, nil)
+			assert.Equal("", ce.Handle(ctx))
+			assert.Equal("second", header.Get("tls-subject-province"))
 		})
 	})
 }

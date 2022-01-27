@@ -90,47 +90,53 @@ func (ce *CertExtractor) Handle(ctx httpcontext.HTTPContext) string {
 // CertExtractor extracts given field from TLS certificates and sets it to request headers.
 func (ce *CertExtractor) handle(ctx httpcontext.HTTPContext) string {
 	r := ctx.Request()
-	if connectionState := r.TLS(); connectionState != nil {
-		certs := connectionState.PeerCertificates
-		if certs != nil && len(certs) > 0 {
-			n := int16(len(certs))
-			// positive ce.spec.CertIndex from the beginning, negative from the end
-			index := (n + ce.spec.CertIndex) % n
-			cert := certs[index]
+	connectionState := r.Std().TLS
+	if connectionState == nil {
+		return ""
+	}
 
-			var target pkix.Name
-			if ce.spec.Target == "subject" {
-				target = cert.Subject
-			} else {
-				target = cert.Issuer
-			}
+	certs := connectionState.PeerCertificates
+	if certs == nil || len(certs) < 1 {
+		return ""
+	}
 
-			var result []string
-			switch ce.spec.Field {
-			case "Country":
-				result = target.Country
-			case "Organization":
-				result = target.Organization
-			case "OrganizationalUnit":
-				result = target.OrganizationalUnit
-			case "Locality":
-				result = target.Locality
-			case "Province":
-				result = target.Province
-			case "StreetAddress":
-				result = target.StreetAddress
-			case "PostalCode":
-				result = target.PostalCode
-			case "SerialNumber":
-				result = append(result, target.SerialNumber)
-			case "CommonName":
-				result = append(result, target.CommonName)
-			}
-			for _, res := range result {
-				if res != "" {
-					r.Header().Add(ce.headerKey, res)
-				}
-			}
+	n := int16(len(certs))
+	// positive ce.spec.CertIndex from the beginning, negative from the end
+	relativeIndex := ce.spec.CertIndex % n
+	index := (n + relativeIndex) % n
+	cert := certs[index]
+
+	var target pkix.Name
+	if ce.spec.Target == "subject" {
+		target = cert.Subject
+	} else {
+		target = cert.Issuer
+	}
+
+	var result []string
+	switch ce.spec.Field {
+	case "Country":
+		result = target.Country
+	case "Organization":
+		result = target.Organization
+	case "OrganizationalUnit":
+		result = target.OrganizationalUnit
+	case "Locality":
+		result = target.Locality
+	case "Province":
+		result = target.Province
+	case "StreetAddress":
+		result = target.StreetAddress
+	case "PostalCode":
+		result = target.PostalCode
+	case "SerialNumber":
+		result = append(result, target.SerialNumber)
+	case "CommonName":
+		result = append(result, target.CommonName)
+	}
+	for _, res := range result {
+		if res != "" {
+			r.Header().Add(ce.headerKey, res)
 		}
 	}
 	return ""

@@ -18,7 +18,6 @@
 package contexttest
 
 import (
-	"crypto/tls"
 	"io"
 	"net/http"
 
@@ -48,7 +47,6 @@ type MockedHTTPRequest struct {
 	MockedSetBody     func(io.Reader)
 	MockedStd         func() *http.Request
 	MockedSize        func() uint64
-	MockedTLS         func() *tls.ConnectionState
 }
 
 // RealIP mocks the RealIP function of HTTPRequest
@@ -211,12 +209,4 @@ func (r *MockedHTTPRequest) Size() uint64 {
 		return r.MockedSize()
 	}
 	return 0
-}
-
-// TLS mocks the TLS function of HTTPRequest
-func (r *MockedHTTPRequest) TLS() *tls.ConnectionState {
-	if r.MockedTLS != nil {
-		return r.MockedTLS()
-	}
-	return nil
 }
