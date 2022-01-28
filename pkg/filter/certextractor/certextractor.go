@@ -19,6 +19,7 @@ package certextractor
 
 import (
 	"crypto/x509/pkix"
+	"fmt"
 
 	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
@@ -43,7 +44,19 @@ type (
 
 		headerKey string
 	}
+
+	// Spec describes the CertExtractor.
+	Spec struct {
+		CertIndex int16  `yaml:"certIndex" jsonschema:"required"`
+		Target    string `yaml:"target" jsonschema:"required,enum=subject,enum=issuer"`
+		// Different field options listed here https://pkg.go.dev/crypto/x509/pkix#Name
+		Field     string `yaml:"field" jsonschema:"required,enum=Country,enum=Organization,enum=OrganizationalUnit,enum=Locality,enum=Province,enum=StreetAddress,enum=PostalCode,enum=SerialNumber,enum=CommonName"`
+		HeaderKey string `yaml:"headerKey" jsonschema:"required"`
+	}
 )
+
+// Validate is dummy as yaml rules already validate Spec.
+func (spec *Spec) Validate() error { return nil }
 
 // Kind returns the kind of CertExtractor.
 func (ce *CertExtractor) Kind() string {
@@ -69,7 +82,10 @@ func (ce *CertExtractor) Results() []string {
 func (ce *CertExtractor) Init(filterSpec *httppipeline.FilterSpec) {
 	ce.filterSpec, ce.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 
-	ce.headerKey = ce.spec.DefaultHeaderKey()
+	ce.headerKey = fmt.Sprintf("tls-%s-%s", ce.spec.Target, ce.spec.Field)
+	if ce.spec.HeaderKey != "" {
+		ce.headerKey = ce.spec.HeaderKey
+	}
 }
 
 // Inherit inherits previous generation of CertExtractor.

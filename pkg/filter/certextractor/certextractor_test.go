@@ -85,11 +85,11 @@ field: "CommonName"
 	assert.Nil(ce.Status())
 	ce, err = createCertExtractor(yaml, ce, nil)
 	assert.Nil(err)
-	assert.Equal(ce.spec.DefaultHeaderKey(), "key")
+	assert.Equal(ce.headerKey, "key")
 
 	ce, err = createCertExtractor(yamlNoKey, ce, nil)
 	assert.Nil(err)
-	assert.Equal(ce.spec.DefaultHeaderKey(), "tls-subject-CommonName")
+	assert.Equal(ce.headerKey, "tls-subject-CommonName")
 }
 
 func prepareCtxAndHeader(connState *tls.ConnectionState) (*contexttest.MockedHTTPContext, http.Header) {
@@ -112,6 +112,12 @@ func TestHandle(t *testing.T) {
 	t.Run("no TLS", func(t *testing.T) {
 		ctx := &contexttest.MockedHTTPContext{}
 		ce, _ := createCertExtractor(yaml, nil, nil)
+		assert.Equal("", ce.Handle(ctx))
+
+		peerCertificates := make([]*x509.Certificate, 0)
+		connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
+		ctx, _ = prepareCtxAndHeader(connState)
+		ce, _ = createCertExtractor(yaml, nil, nil)
 		assert.Equal("", ce.Handle(ctx))
 	})
 
