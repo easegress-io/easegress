@@ -25,7 +25,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.11
 	github.com/klauspost/compress v1.13.6
-	github.com/libdns/alidns v1.0.2-x2
+	github.com/libdns/alidns v1.0.2
 	github.com/libdns/azure v0.2.0
 	github.com/libdns/cloudflare v0.1.0
 	github.com/libdns/digitalocean v0.0.0-20210310230526-186c4ebd2215

@@ -868,8 +868,8 @@ github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f h1:sgU
 github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f/go.mod h1:UGmTpUd3rjbtfIpwAPrcfmGf/Z1HS95TATB+m57TPB8=
 github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042 h1:Bvq8AziQ5jFF4BHGAEDSqwPW1NJS3XshxbRCxtjFAZc=
 github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042/go.mod h1:TPpsiPUEh0zFL1Snz4crhMlBe60PYxRHr5oFF3rRYg0=
-github.com/libdns/alidns v1.0.2-x2 h1:KwuC1AmihOJjoFWXFRFaQx1PcD/jRpY04jo7yNK5zfk=
-github.com/libdns/alidns v1.0.2-x2/go.mod h1:e18uAG6GanfRhcJj6/tps2rCMzQJaYVcGKT+ELjdjGE=
+github.com/libdns/alidns v1.0.2 h1:WiT1cO2LWY95YNocTVBGipHjvRaFQOxMQ9X5bTiryRo=
+github.com/libdns/alidns v1.0.2/go.mod h1:e18uAG6GanfRhcJj6/tps2rCMzQJaYVcGKT+ELjdjGE=
 github.com/libdns/azure v0.2.0 h1:SVYG+iMKtSpSJZBZ0hjETAMNscPoWRMJI7nnlLonwD4=
 github.com/libdns/azure v0.2.0/go.mod h1:vu7sD/dXAExlzdne/OTPKTEOXOpDUxPuAKQwqzUT8nk=
 github.com/libdns/cloudflare v0.1.0 h1:93WkJaGaiXCe353LHEP36kAWCUw0YjFqwhkBkU2/iic=
