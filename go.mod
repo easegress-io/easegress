@@ -6,7 +6,7 @@ require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Shopify/sarama v1.30.0
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
-	github.com/bytecodealliance/wasmtime-go v0.31.0
+	github.com/bytecodealliance/wasmtime-go v0.33.1
 	github.com/eclipse/paho.mqtt.golang v1.3.5
 	github.com/facebookgo/ensure v0.0.0-20200202191622-63f1cf65ac4c // indirect
 	github.com/facebookgo/freeport v0.0.0-20150612182905-d4adf43b75b9 // indirect
