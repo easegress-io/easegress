@@ -38,22 +38,25 @@ Based on our product principles, we have made a classification of Easegress' fea
 
 | Name                           | Issue                                                    | Description                                                                                                    |
 | ------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| HTTP basic authentication      | [#404](https://github.com/megaease/easegress/issues/404) | Using HTTP basic authentication to restrict access.                                                            |
+| More enterprise user cases     |                                                          | API and traffic orchestration for complex tasks and enterprise user cases.                                                            |
 | Configurable System Controller | [#397](https://github.com/megaease/easegress/issues/397) | Make the system controllers support dynamic configuration.                                                     |
 | Enhanced Validation Message    |                                                          | Make JSON schema validation messages more readable, e.g., include item index.                                  |
-| Operation Enhancement          |                                                          | For better supporting daily cluster operation routine,e.g., one-click installation supported, cluster scaling. |
-| API Orchestration              |                                                          | Coordinate multiple APIs for complex tasks.                                                                    |
+| Operation Enhancement          |                                                          | For better supporting daily cluster operation routine,e.g., one-click installation supported, ansible script, backup and restore. |
+| Observability                  |                                                          | Support Zipkin tracing (B3 protocol), upload metrics to Prometheus.                                            |
 | Controller/Filter Versioning   |                                                          | Configuring  `Controller/Filter` with specified versions.                                                      |
 | Protobuf Models Generating     |                                                          | Generating Easegress inner models and related docs with pre-defined Protobuf.                                  |
 | Unit Testing                   |                                                          | Eliminate global components for better unit testing experience, improve unit test coverage.                    |
 | Modularized Logger             |                                                          | Make logger modularized and automatical environment perception.                                                |
+| Admin API to support JSON      |                                                          | Admin API to support JSON input and output, in addition to YAML.                                             |
 
 ###  Traffic Orchestration 
 
 | Name                           | Issue                                                    | Description                                                                                                    |
 | ------------------------------ | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| HTTP basic authentication      | [#404](https://github.com/megaease/easegress/issues/404) | Using HTTP basic authentication to restrict access.                                                            |
 | Universal Pipeline             |                                                          | Pipeline to support multiple protocol.                                                                         |
 | Traffic coloring               |                                                          | Supporting coloring ingress traffic by adding a special HTTP header according to users' model.                 |
 | Layer 4 Proxy                  |                                                          | TCP & UDP                                                                                                      |
 | More protocol supporting       |                                                          | Such as gRPC..                                                                                                 |
+| mTLS for more protocol         |                                                          | Such as MQTT                                                                                                      |
 | Benchmark                      |                                                          | Reach 85% of the nginx QPS when using a mocked backend.                                                        |
