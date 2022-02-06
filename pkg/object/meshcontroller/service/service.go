@@ -26,6 +26,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -41,15 +42,19 @@ type (
 		spec      *spec.Admin
 
 		store storage.Storage
+		cds   *cluster.CustomDataStore
 	}
 )
 
 // New creates a service with spec
 func New(superSpec *supervisor.Spec) *Service {
+	kindPrefix := layout.CustomResourceKindPrefix()
+	dataPrefix := layout.AllCustomResourcePrefix()
 	s := &Service{
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
 		store:     storage.New(superSpec.Name(), superSpec.Super().Cluster()),
+		cds:       cluster.NewCustomDataStore(superSpec.Super().Cluster(), kindPrefix, dataPrefix),
 	}
 
 	return s
@@ -657,163 +662,77 @@ func (s *Service) DeleteIngressSpec(ingressName string) {
 
 // ListCustomResourceKinds lists custom resource kinds
 func (s *Service) ListCustomResourceKinds() []*spec.CustomResourceKind {
-	kvs, err := s.store.GetRawPrefix(layout.CustomResourceKindPrefix())
+	kinds, err := s.cds.ListKinds()
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
-
-	kinds := []*spec.CustomResourceKind{}
-	for _, v := range kvs {
-		kind := &spec.CustomResourceKind{}
-		err := yaml.Unmarshal(v.Value, kind)
-		if err != nil {
-			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
-			continue
-		}
-		kinds = append(kinds, kind)
-	}
-
 	return kinds
 }
 
 // DeleteCustomResourceKind deletes a custom resource kind
 func (s *Service) DeleteCustomResourceKind(kind string) {
-	err := s.store.Delete(layout.CustomResourceKindKey(kind))
+	err := s.cds.DeleteKind(kind)
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
 }
 
 // GetCustomResourceKind gets custom resource kind with its name
 func (s *Service) GetCustomResourceKind(name string) *spec.CustomResourceKind {
-	kvs, err := s.store.GetRaw(layout.CustomResourceKindKey(name))
+	kind, err := s.cds.GetKind(name)
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
-
-	if kvs == nil {
-		return nil
-	}
-
-	kind := &spec.CustomResourceKind{}
-	err = yaml.Unmarshal(kvs.Value, kind)
-	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
-	}
-
 	return kind
 }
 
 // PutCustomResourceKind writes the custom resource kind to storage.
-func (s *Service) PutCustomResourceKind(kind *spec.CustomResourceKind) {
-	buff, err := yaml.Marshal(kind)
+func (s *Service) PutCustomResourceKind(kind *spec.CustomResourceKind, update bool) {
+	err := s.cds.PutKind(kind, update)
 	if err != nil {
 		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", kind, err))
-	}
-
-	err = s.store.Put(layout.CustomResourceKindKey(kind.Name), string(buff))
-	if err != nil {
-		api.ClusterPanic(err)
 	}
 }
 
 // ListCustomResources lists custom resources of specified kind.
 // if kind is empty, it returns custom objects of all kinds.
-func (s *Service) ListCustomResources(kind string) []*spec.CustomResource {
-	prefix := layout.AllCustomResourcePrefix()
-	if kind != "" {
-		prefix = layout.CustomResourcePrefix(kind)
-	}
-	kvs, err := s.store.GetRawPrefix(prefix)
+func (s *Service) ListCustomResources(kind string) []spec.CustomResource {
+	resources, err := s.cds.ListData(kind)
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
-
-	resources := []*spec.CustomResource{}
-	for _, v := range kvs {
-		resource := &spec.CustomResource{}
-		err := yaml.Unmarshal(v.Value, resource)
-		if err != nil {
-			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", v, err)
-			continue
-		}
-		resources = append(resources, resource)
-	}
-
 	return resources
 }
 
 // DeleteCustomResource deletes a custom resource
 func (s *Service) DeleteCustomResource(kind, name string) {
-	err := s.store.Delete(layout.CustomResourceKey(kind, name))
+	err := s.cds.DeleteData(kind, name)
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
 }
 
 // GetCustomResource gets custom resource with its kind & name
-func (s *Service) GetCustomResource(kind, name string) *spec.CustomResource {
-	kvs, err := s.store.GetRaw(layout.CustomResourceKey(kind, name))
+func (s *Service) GetCustomResource(kind, name string) spec.CustomResource {
+	resource, err := s.cds.GetData(kind, name)
 	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
-
-	if kvs == nil {
-		return nil
-	}
-
-	resource := &spec.CustomResource{}
-	err = yaml.Unmarshal(kvs.Value, resource)
-	if err != nil {
-		panic(fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(kvs.Value), err))
-	}
-
 	return resource
 }
 
 // PutCustomResource writes the custom resource kind to storage.
-func (s *Service) PutCustomResource(obj *spec.CustomResource) {
-	buff, err := yaml.Marshal(obj)
+func (s *Service) PutCustomResource(resource spec.CustomResource, update bool) {
+	kind := resource.GetString("kind")
+	_, err := s.cds.PutData(kind, resource, update)
 	if err != nil {
-		panic(fmt.Errorf("BUG: marshal %#v to yaml failed: %v", obj, err))
-	}
-
-	err = s.store.Put(layout.CustomResourceKey(obj.Kind(), obj.Name()), string(buff))
-	if err != nil {
-		api.ClusterPanic(err)
+		panic(err)
 	}
 }
 
 // WatchCustomResource watches custom resources of the specified kind
-func (s *Service) WatchCustomResource(ctx context.Context, kind string, onChange func([]*spec.CustomResource)) error {
-	syncer, err := s.store.Syncer()
-	if err != nil {
-		return err
-	}
-
-	prefix := layout.CustomResourcePrefix(kind)
-	ch, err := syncer.SyncRawPrefix(prefix)
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			syncer.Close()
-			return nil
-		case m := <-ch:
-			resources := make([]*spec.CustomResource, 0, len(m))
-			for _, v := range m {
-				resource := &spec.CustomResource{}
-				err = yaml.Unmarshal(v.Value, resource)
-				if err == nil {
-					resources = append(resources, resource)
-				}
-			}
-			onChange(resources)
-		}
-	}
+func (s *Service) WatchCustomResource(ctx context.Context, kind string, onChange func([]spec.CustomResource)) error {
+	return s.cds.Watch(ctx, kind, onChange)
 }
 
 // ListHTTPRouteGroups lists HTTP route groups

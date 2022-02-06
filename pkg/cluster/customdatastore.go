@@ -29,7 +29,7 @@ import (
 )
 
 // CustomData represents a custom data
-type CustomData dynamicobject.DynamicObject
+type CustomData = dynamicobject.DynamicObject
 
 // CustomDataKind defines the spec of a custom data kind
 type CustomDataKind struct {
@@ -114,7 +114,8 @@ func (cds *CustomDataStore) ListKinds() ([]*CustomDataKind, error) {
 	return kinds, nil
 }
 
-func (cds *CustomDataStore) saveKind(kind *CustomDataKind, update bool) error {
+// PutKind creates or updates a custom data kind
+func (cds *CustomDataStore) PutKind(kind *CustomDataKind, update bool) error {
 	if len(kind.JSONSchema) > 0 {
 		sl := gojsonschema.NewGoLoader(kind.JSONSchema)
 		if _, err := gojsonschema.NewSchema(sl); err != nil {
@@ -141,16 +142,6 @@ func (cds *CustomDataStore) saveKind(kind *CustomDataKind, update bool) error {
 
 	key := cds.kindKey(kind.Name)
 	return cds.cluster.Put(key, string(buf))
-}
-
-// CreateKind creates a custom data kind
-func (cds *CustomDataStore) CreateKind(kind *CustomDataKind) error {
-	return cds.saveKind(kind, false)
-}
-
-// UpdateKind updates a custom data kind
-func (cds *CustomDataStore) UpdateKind(kind *CustomDataKind) error {
-	return cds.saveKind(kind, true)
 }
 
 // DeleteKind deletes a custom data kind
@@ -223,7 +214,8 @@ func (cds *CustomDataStore) ListData(kind string) ([]CustomData, error) {
 	return results, nil
 }
 
-func (cds *CustomDataStore) saveData(kind string, data CustomData, update bool) (string, error) {
+// PutData creates or updates a custom data item
+func (cds *CustomDataStore) PutData(kind string, data CustomData, update bool) (string, error) {
 	k, err := cds.GetKind(kind)
 	if err != nil {
 		return "", err
@@ -272,16 +264,6 @@ func (cds *CustomDataStore) saveData(kind string, data CustomData, update bool) 
 	}
 
 	return id, nil
-}
-
-// CreateData creates a custom data
-func (cds *CustomDataStore) CreateData(kind string, data CustomData) (string, error) {
-	return cds.saveData(kind, data, false)
-}
-
-// UpdateData updates a custom data
-func (cds *CustomDataStore) UpdateData(kind string, data CustomData) (string, error) {
-	return cds.saveData(kind, data, true)
 }
 
 // BatchUpdateData updates multiple custom data in a transaction

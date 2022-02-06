@@ -24,6 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/meshadaptor"
 	"github.com/megaease/easegress/pkg/filter/mock"
@@ -34,7 +35,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/dynamicobject"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/urlrule"
@@ -362,13 +362,10 @@ type (
 	}
 
 	// CustomResourceKind defines the spec of a custom resource kind
-	CustomResourceKind struct {
-		Name       string                      `yaml:"name" jsonschema:"required"`
-		JSONSchema dynamicobject.DynamicObject `yaml:"jsonSchema" jsonschema:"omitempty"`
-	}
+	CustomResourceKind = cluster.CustomDataKind
 
 	// CustomResource defines the spec of a custom resource
-	CustomResource dynamicobject.DynamicObject
+	CustomResource = cluster.CustomData
 
 	// HTTPMatch defines an individual route for HTTP traffic
 	HTTPMatch struct {
@@ -458,27 +455,6 @@ func (tr *TrafficRules) Clone() *TrafficRules {
 	return &TrafficRules{
 		Headers: headers,
 	}
-}
-
-// Name returns the 'name' field of the custom resource
-func (cr CustomResource) Name() string {
-	if v, ok := cr["name"].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// Kind returns the 'kind' field of the custom resource
-func (cr CustomResource) Kind() string {
-	if v, ok := cr["kind"].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler
-func (cr *CustomResource) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	return (*dynamicobject.DynamicObject)(cr).UnmarshalYAML(unmarshal)
 }
 
 // Validate validates Spec.

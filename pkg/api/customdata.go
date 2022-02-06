@@ -135,7 +135,7 @@ func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	err = s.cds.CreateKind(&k)
+	err = s.cds.PutKind(&k, false)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -151,7 +151,7 @@ func (s *Server) updateCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	s.cds.UpdateKind(&k)
+	err = s.cds.PutKind(&k, true)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -204,7 +204,7 @@ func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	id, err := s.cds.CreateData(kind, data)
+	id, err := s.cds.PutData(kind, data, false)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -223,7 +223,7 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	_, err = s.cds.UpdateData(kind, data)
+	_, err = s.cds.PutData(kind, data, true)
 	if err != nil {
 		ClusterPanic(err)
 	}
