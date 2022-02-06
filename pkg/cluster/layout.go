@@ -33,9 +33,9 @@ const (
 	configObjectFormat       = "/config/objects/%s" // +objectName
 	configVersion            = "/config/version"
 	wasmCodeEvent            = "/wasm/code"
-	wasmDataPrefixFormat     = "/wasm/data/%s/%s/"  // + pipelineName + filterName
-	customDataPrefixFormat   = "/custom-data/%s/"   // + kind
-	customDataItemFormat     = "/custom-data/%s/%s" // + kind + item key
+	wasmDataPrefixFormat     = "/wasm/data/%s/%s/" // + pipelineName + filterName
+	customDataKindPrefix     = "/custom-data-kinds/"
+	customDataPrefix         = "/custom-data/"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
@@ -131,12 +131,12 @@ func (l *Layout) WasmDataPrefix(pipeline string, name string) string {
 	return fmt.Sprintf(wasmDataPrefixFormat, pipeline, name)
 }
 
-// CustomDataPrefix returns the prefix of a custom data kind
-func (l *Layout) CustomDataPrefix(kind string) string {
-	return fmt.Sprintf(customDataPrefixFormat, kind)
+// CustomDataPrefix returns the prefix of all custom data
+func (l *Layout) CustomDataPrefix() string {
+	return customDataPrefix
 }
 
-// CustomDataItem returns the full key of a custom data item
-func (l *Layout) CustomDataItem(kind, key string) string {
-	return fmt.Sprintf(customDataItemFormat, kind, key)
+// CustomDataKindPrefix returns the prefix of all custom data kind
+func (l *Layout) CustomDataKindPrefix() string {
+	return customDataKindPrefix
 }

@@ -37,6 +37,7 @@ type (
 		router  *dynamicMux
 		cluster cluster.Cluster
 		super   *supervisor.Supervisor
+		cds     *cluster.CustomDataStore
 
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
@@ -57,10 +58,10 @@ type (
 )
 
 // MustNewServer creates an api server.
-func MustNewServer(opt *option.Options, cluster cluster.Cluster, super *supervisor.Supervisor) *Server {
+func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.Supervisor) *Server {
 	s := &Server{
 		opt:     opt,
-		cluster: cluster,
+		cluster: cls,
 		super:   super,
 	}
 	s.router = newDynamicMux(s)
@@ -70,6 +71,10 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster, super *supervis
 	if err != nil {
 		logger.Errorf("get cluster mutex %s failed: %v", lockKey, err)
 	}
+
+	kindPrefix := cls.Layout().CustomDataKindPrefix()
+	dataPrefix := cls.Layout().CustomDataPrefix()
+	s.cds = cluster.NewCustomDataStore(cls, kindPrefix, dataPrefix)
 
 	s.initMetadata()
 	s.registerAPIs()

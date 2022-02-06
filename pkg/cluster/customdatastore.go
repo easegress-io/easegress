@@ -29,9 +29,7 @@ import (
 )
 
 // CustomData represents a custom data
-type CustomData struct {
-	dynamicobject.DynamicObject `yaml:",inline"`
-}
+type CustomData dynamicobject.DynamicObject
 
 // CustomDataKind defines the spec of a custom data kind
 type CustomDataKind struct {
@@ -42,6 +40,16 @@ type CustomDataKind struct {
 	IDField string `yaml:"idField" jsonschema:"omitempty"`
 	// JSONSchema is JSON schema to validate a CustomData of this kind
 	JSONSchema dynamicobject.DynamicObject `yaml:"jsonSchema" jsonschema:"omitempty"`
+}
+
+func (cdk *CustomDataKind) dataID(data CustomData) string {
+	var id string
+	if cdk.IDField == "" {
+		id, _ = data["name"].(string)
+	} else {
+		id, _ = data[cdk.IDField].(string)
+	}
+	return id
 }
 
 // CustomDataStore defines the storage for custom data
@@ -168,9 +176,9 @@ func (cds *CustomDataStore) dataKey(kind string, id string) string {
 	return cds.dataPrefix(kind) + id
 }
 
-func unmarshalCustomData(in []byte) (*CustomData, error) {
-	data := &CustomData{}
-	err := yaml.Unmarshal(in, data)
+func unmarshalCustomData(in []byte) (CustomData, error) {
+	data := CustomData{}
+	err := yaml.Unmarshal(in, &data)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(in), err)
 	}
@@ -178,7 +186,7 @@ func unmarshalCustomData(in []byte) (*CustomData, error) {
 }
 
 // GetData gets custom data by its id
-func (cds *CustomDataStore) GetData(kind string, id string) (*CustomData, error) {
+func (cds *CustomDataStore) GetData(kind string, id string) (CustomData, error) {
 	kvs, err := cds.cluster.GetRaw(cds.dataKey(kind, id))
 	if err != nil {
 		return nil, err
@@ -193,7 +201,7 @@ func (cds *CustomDataStore) GetData(kind string, id string) (*CustomData, error)
 
 // ListData lists custom data of specified kind.
 // if kind is empty, it returns custom data of all kinds.
-func (cds *CustomDataStore) ListData(kind string) ([]*CustomData, error) {
+func (cds *CustomDataStore) ListData(kind string) ([]CustomData, error) {
 	key := cds.DataPrefix
 	if kind != "" {
 		key = cds.dataPrefix(kind)
@@ -203,7 +211,7 @@ func (cds *CustomDataStore) ListData(kind string) ([]*CustomData, error) {
 		return nil, err
 	}
 
-	results := make([]*CustomData, 0, len(kvs))
+	results := make([]CustomData, 0, len(kvs))
 	for _, v := range kvs {
 		data, err := unmarshalCustomData(v.Value)
 		if err != nil {
@@ -215,18 +223,18 @@ func (cds *CustomDataStore) ListData(kind string) ([]*CustomData, error) {
 	return results, nil
 }
 
-func (cds *CustomDataStore) saveData(kind string, data *CustomData, update bool) error {
+func (cds *CustomDataStore) saveData(kind string, data CustomData, update bool) (string, error) {
 	k, err := cds.GetKind(kind)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if k == nil {
-		return fmt.Errorf("kind %s not found", kind)
+		return "", fmt.Errorf("kind %s not found", kind)
 	}
 
-	id := data.GetString(k.IDField)
+	id := k.dataID(data)
 	if id == "" {
-		return fmt.Errorf("data id is empty")
+		return "", fmt.Errorf("data id is empty")
 	}
 
 	if len(k.JSONSchema) > 0 {
@@ -234,45 +242,50 @@ func (cds *CustomDataStore) saveData(kind string, data *CustomData, update bool)
 		doc := gojsonschema.NewGoLoader(data)
 		res, err := gojsonschema.Validate(schema, doc)
 		if err != nil {
-			return fmt.Errorf("error occurs during validation: %v", err)
+			return "", fmt.Errorf("error occurs during validation: %v", err)
 		}
 		if !res.Valid() {
-			return fmt.Errorf("validation failed: %v", res.Errors())
+			return "", fmt.Errorf("validation failed: %v", res.Errors())
 		}
 	}
 
 	oldData, err := cds.GetData(kind, id)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if update && (oldData == nil) {
-		return fmt.Errorf("%s/%s not found", kind, id)
+		return "", fmt.Errorf("%s/%s not found", kind, id)
 	}
 	if (!update) && (oldData != nil) {
-		return fmt.Errorf("%s/%s existed", kind, id)
+		return "", fmt.Errorf("%s/%s existed", kind, id)
 	}
 
 	buf, err := yaml.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("BUG: marshal %#v to yaml failed: %v", data, err)
+		return "", fmt.Errorf("BUG: marshal %#v to yaml failed: %v", data, err)
 	}
 
 	key := cds.dataKey(kind, id)
-	return cds.cluster.Put(key, string(buf))
+	err = cds.cluster.Put(key, string(buf))
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
 
 // CreateData creates a custom data
-func (cds *CustomDataStore) CreateData(kind string, data *CustomData) error {
+func (cds *CustomDataStore) CreateData(kind string, data CustomData) (string, error) {
 	return cds.saveData(kind, data, false)
 }
 
 // UpdateData updates a custom data
-func (cds *CustomDataStore) UpdateData(kind string, data *CustomData) error {
+func (cds *CustomDataStore) UpdateData(kind string, data CustomData) (string, error) {
 	return cds.saveData(kind, data, true)
 }
 
-// UpdateMultipleData updates multiple custom data in a transaction
-func (cds *CustomDataStore) UpdateMultipleData(kind string, data []*CustomData) error {
+// BatchUpdateData updates multiple custom data in a transaction
+func (cds *CustomDataStore) BatchUpdateData(kind string, del []string, update []CustomData) error {
 	k, err := cds.GetKind(kind)
 	if err != nil {
 		return err
@@ -281,10 +294,10 @@ func (cds *CustomDataStore) UpdateMultipleData(kind string, data []*CustomData) 
 		return fmt.Errorf("kind %s not found", kind)
 	}
 
-	if len(k.JSONSchema) > 0 {
+	if len(update) > 0 && len(k.JSONSchema) > 0 {
 		schema := gojsonschema.NewGoLoader(k.JSONSchema)
-		for _, d := range data {
-			doc := gojsonschema.NewGoLoader(d)
+		for _, data := range update {
+			doc := gojsonschema.NewGoLoader(data)
 			res, err := gojsonschema.Validate(schema, doc)
 			if err != nil {
 				return fmt.Errorf("error occurs during validation: %v", err)
@@ -295,15 +308,20 @@ func (cds *CustomDataStore) UpdateMultipleData(kind string, data []*CustomData) 
 		}
 	}
 
-	for _, d := range data {
-		if d.GetString(k.IDField) == "" {
+	for _, data := range update {
+		if k.dataID(data) == "" {
 			return fmt.Errorf("data id is empty")
 		}
 	}
 
 	return cds.cluster.STM(func(s concurrency.STM) error {
-		for _, d := range data {
-			id := d.GetString(k.IDField)
+		for _, id := range del {
+			key := cds.dataKey(kind, id)
+			s.Del(key)
+		}
+
+		for _, data := range update {
+			id := k.dataID(data)
 			buf, err := yaml.Marshal(data)
 			if err != nil {
 				return fmt.Errorf("BUG: marshal %#v to yaml failed: %v", data, err)
@@ -336,7 +354,7 @@ func (cds *CustomDataStore) DeleteAllData(kind string) error {
 }
 
 // Watch watches the data of custom data kind 'kind'
-func (cds *CustomDataStore) Watch(ctx context.Context, kind string, onChange func([]*CustomData)) error {
+func (cds *CustomDataStore) Watch(ctx context.Context, kind string, onChange func([]CustomData)) error {
 	syncer, err := cds.cluster.Syncer(5 * time.Minute)
 	if err != nil {
 		return err
@@ -354,7 +372,7 @@ func (cds *CustomDataStore) Watch(ctx context.Context, kind string, onChange fun
 			syncer.Close()
 			return nil
 		case m := <-ch:
-			data := make([]*CustomData, 0, len(m))
+			data := make([]CustomData, 0, len(m))
 			for _, v := range m {
 				d, err := unmarshalCustomData(v.Value)
 				if err == nil {
