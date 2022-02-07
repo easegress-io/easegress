@@ -55,6 +55,7 @@ type (
 		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
 		AllowCredentials bool     `yaml:"allowCredentials" jsonschema:"omitempty"`
 		ExposedHeaders   []string `yaml:"exposedHeaders" jsonschema:"omitempty"`
+		MaxAge           int      `yaml:"maxAge" jsonschema:"omitempty"`
 	}
 )
 
@@ -98,6 +99,7 @@ func (a *CORSAdaptor) reload() {
 		AllowedHeaders:   a.spec.AllowedHeaders,
 		AllowCredentials: a.spec.AllowCredentials,
 		ExposedHeaders:   a.spec.ExposedHeaders,
+		MaxAge:           a.spec.MaxAge,
 	})
 }
 
