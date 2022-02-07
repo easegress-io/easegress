@@ -28,50 +28,109 @@ import (
 )
 
 func TestCORSAdaptor(t *testing.T) {
-	const yamlSpec = `
+	t.Run("CORS preflight-request", func(t *testing.T) {
+		const yamlSpec = `
 kind: CORSAdaptor
 name: cors
 `
-	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
-	if e != nil {
-		t.Errorf("unexpected error: %v", e)
-	}
+		spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+		if e != nil {
+			t.Errorf("unexpected error: %v", e)
+		}
 
-	cors := &CORSAdaptor{}
-	cors.Init(spec)
+		cors := &CORSAdaptor{}
+		cors.Init(spec)
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedMethod = func() string {
-		return http.MethodOptions
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+		header := http.Header{}
+		ctx := &contexttest.MockedHTTPContext{}
+		ctx.MockedRequest.MockedMethod = func() string {
+			return http.MethodOptions
+		}
+		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+			return httpheader.New(header)
+		}
 
-	result := cors.Handle(ctx)
-	if result == resultPreflighted {
-		t.Error("request should not be preflighted")
-	}
+		result := cors.Handle(ctx)
+		if result == resultPreflighted {
+			t.Error("request should not be preflighted")
+		}
 
-	header.Add("Access-Control-Request-Method", "abc")
-	result = cors.Handle(ctx)
-	if result != resultPreflighted {
-		t.Error("request should be preflighted")
-	}
+		header.Add("Access-Control-Request-Method", "abc")
+		result = cors.Handle(ctx)
+		if result != resultPreflighted {
+			t.Error("request should be preflighted")
+		}
 
-	newCors := &CORSAdaptor{}
-	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
-	newCors.Inherit(spec, cors)
-	cors.Close()
-	ctx.MockedRequest.MockedMethod = func() string {
-		return http.MethodGet
-	}
-	result = newCors.Handle(ctx)
-	if result == resultPreflighted {
-		t.Error("request should not be preflighted")
-	}
+		newCors := &CORSAdaptor{}
+		spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+		newCors.Inherit(spec, cors)
+		cors.Close()
+		ctx.MockedRequest.MockedMethod = func() string {
+			return http.MethodGet
+		}
+		result = newCors.Handle(ctx)
+		if result == resultPreflighted {
+			t.Error("request should not be preflighted")
+		}
+	})
+	t.Run("CORS request", func(t *testing.T) {
+		const yamlSpec = `
+kind: CORSAdaptor
+name: cors
+supportCORSRequest: true
+allowedOrigins:
+  - test.orig.test
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+		if e != nil {
+			t.Errorf("unexpected error: %v", e)
+		}
+
+		cors := &CORSAdaptor{}
+		cors.Init(spec)
+		cors.Description()
+		cors.Status()
+		header := http.Header{}
+		ctx := &contexttest.MockedHTTPContext{}
+		ctx.MockedRequest.MockedMethod = func() string {
+			return http.MethodOptions
+		}
+		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+			return httpheader.New(header)
+		}
+		result := cors.Handle(ctx)
+		if result == resultPreflighted {
+			t.Error("request should not be preflighted")
+		}
+		header.Add("Access-Control-Request-Method", "abc")
+		result = cors.Handle(ctx)
+		if result != resultPreflighted {
+			t.Error("request should be preflighted")
+		}
+		header.Add("Origin", "test.orig.test")
+		result = cors.Handle(ctx)
+		if result == resultPreflighted {
+			t.Error("request should not be preflighted")
+		}
+
+		header = http.Header{}
+		header.Add("Origin", "test.orig.test")
+		ctx = &contexttest.MockedHTTPContext{}
+		ctx.MockedRequest.MockedMethod = func() string {
+			return http.MethodGet
+		}
+		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+			return httpheader.New(header)
+		}
+		result = cors.Handle(ctx)
+		if result == resultPreflighted {
+			t.Error("request should not be preflighted")
+		}
+	})
 }
