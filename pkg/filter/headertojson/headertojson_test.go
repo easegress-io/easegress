@@ -19,6 +19,7 @@ package headertojson
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -60,7 +61,31 @@ func TestHeaderToJSON(t *testing.T) {
 	newh.Close()
 }
 
-func TestHandleHTTP(t *testing.T) {
+func getGzipEncoding(t *testing.T, data []byte) io.Reader {
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	defer gw.Close()
+	_, err := gw.Write(data)
+	assert.Nil(t, err)
+	return &buf
+}
+
+func getRequest(t *testing.T, data []byte, encoding string) (*http.Request, error) {
+	var req *http.Request
+	var err error
+	if encoding == "" {
+		req, err = http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(data))
+		assert.Nil(t, err)
+	} else if encoding == "gzip" {
+		reader := getGzipEncoding(t, data)
+		req, err = http.NewRequest(http.MethodPost, "127.0.0.1", reader)
+		assert.Nil(t, err)
+		req.Header.Add("Content-Encoding", "gzip")
+	}
+	return req, err
+}
+
+func basicTest(t *testing.T, encoding string) {
 	assert := assert.New(t)
 	spec := &Spec{
 		HeaderMap: []*HeaderMap{
@@ -80,10 +105,11 @@ func TestHandleHTTP(t *testing.T) {
 		}
 		body, err := json.Marshal(bodyMap)
 		assert.Nil(err)
-		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
-		assert.Nil(err)
 
+		req, err := getRequest(t, body, encoding)
+		assert.Nil(err)
 		req.Header.Add("x-username", "clientA")
+
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -137,10 +163,11 @@ func TestHandleHTTP(t *testing.T) {
 		}
 		body, err := json.Marshal(bodyMap)
 		assert.Nil(err)
-		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
-		assert.Nil(err)
 
+		req, err := getRequest(t, body, encoding)
+		assert.Nil(err)
 		req.Header.Add("x-username", "clientA")
+
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -170,4 +197,12 @@ func TestHandleHTTP(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestHandleHTTP(t *testing.T) {
+	basicTest(t, "")
+}
+
+func TestGzipEncodingHTTP(t *testing.T) {
+	basicTest(t, "gzip")
 }

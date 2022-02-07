@@ -19,6 +19,7 @@ package headertojson
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"io"
 	"net/http"
@@ -172,6 +173,24 @@ func getNewBody(reqBody []byte, headerMap map[string]interface{}) (interface{}, 
 	return nil, errJSONEncodeDecode
 }
 
+func getReqBody(ctx context.HTTPContext) ([]byte, error) {
+	encoding := ctx.Request().Header().Get("Content-Encoding")
+	if encoding == "" {
+		return io.ReadAll(ctx.Request().Body())
+
+	} else if encoding == "gzip" {
+		reader, err := gzip.NewReader(ctx.Request().Body())
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return io.ReadAll(reader)
+
+	} else {
+		return nil, errors.New("unknown encoding method")
+	}
+}
+
 func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 	headerMap := make(map[string]interface{})
 	for header, json := range h.headerMap {
@@ -184,7 +203,7 @@ func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 		return ""
 	}
 
-	reqBody, err := io.ReadAll(ctx.Request().Body())
+	reqBody, err := getReqBody(ctx)
 	if err != nil {
 		return resultBodyReadErr
 	}
@@ -204,5 +223,6 @@ func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 		return resultJSONEncodeDecodeErr
 	}
 	ctx.Request().SetBody(bytes.NewReader(bodyBytes))
+	ctx.Request().Header().Del("Content-Encoding")
 	return ""
 }
