@@ -133,12 +133,12 @@ func (a *CORSAdaptor) handleCORS(ctx context.HTTPContext) string {
 	w := ctx.Response()
 	method := r.Method()
 	isCorsRequest := r.Header().Get("Origin") != ""
+	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
 	// set CORS headers to response
 	a.cors.HandlerFunc(w.Std(), r.Std())
 	if !isCorsRequest {
 		return "" // next filter
 	}
-	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
 	if isPreflight {
 		return resultPreflighted // pipeline jumpIf skips following filters
 	}

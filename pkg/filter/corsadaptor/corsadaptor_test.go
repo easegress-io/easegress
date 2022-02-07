@@ -108,15 +108,11 @@ allowedOrigins:
 		if result == resultPreflighted {
 			t.Error("request should not be preflighted")
 		}
-		header.Add("Access-Control-Request-Method", "abc")
+		header.Add("Origin", "test.orig.test")
+		header.Add("Access-Control-Request-Method", "get")
 		result = cors.Handle(ctx)
 		if result != resultPreflighted {
 			t.Error("request should be preflighted")
-		}
-		header.Add("Origin", "test.orig.test")
-		result = cors.Handle(ctx)
-		if result == resultPreflighted {
-			t.Error("request should not be preflighted")
 		}
 
 		header = http.Header{}
