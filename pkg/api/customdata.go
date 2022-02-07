@@ -74,7 +74,7 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Handler: s.listCustomData,
 		},
 		{
-			Path:    CustomDataPrefix + "/{key}",
+			Path:    CustomDataPrefix + "/{id}",
 			Method:  http.MethodGet,
 			Handler: s.getCustomData,
 		},
@@ -89,14 +89,14 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Handler: s.updateCustomData,
 		},
 		{
-			Path:    CustomDataPrefix + "/{key}",
+			Path:    CustomDataPrefix + "/{id}",
 			Method:  http.MethodDelete,
 			Handler: s.deleteCustomData,
 		},
 
 		{
 			Path:    CustomDataPrefix + "/items",
-			Method:  http.MethodPut,
+			Method:  http.MethodPost,
 			Handler: s.batchUpdateCustomData,
 		},
 	}
@@ -182,9 +182,9 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
-	key := chi.URLParam(r, "key")
+	id := chi.URLParam(r, "id")
 
-	data, err := s.cds.GetData(kind, key)
+	data, err := s.cds.GetData(kind, id)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -210,7 +210,6 @@ func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	// TODO:
 	location := fmt.Sprintf("%s/%s", r.URL.Path, id)
 	w.Header().Set("Location", location)
 }
@@ -231,8 +230,8 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
-	key := chi.URLParam(r, "key")
-	err := s.cds.DeleteData(kind, key)
+	id := chi.URLParam(r, "id")
+	err := s.cds.DeleteData(kind, id)
 	if err != nil {
 		ClusterPanic(err)
 	}
