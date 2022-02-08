@@ -19,6 +19,8 @@ package requestadaptor
 
 import (
 	"bytes"
+	"compress/gzip"
+	"io"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -31,9 +33,11 @@ import (
 const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
+
+	resultDecompressFail = "decompressFail"
 )
 
-var results = []string{}
+var results = []string{resultDecompressFail}
 
 func init() {
 	httppipeline.Register(&RequestAdaptor{})
@@ -50,11 +54,12 @@ type (
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		Host   string                `yaml:"host" jsonschema:"omitempty"`
-		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
-		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
-		Body   string                `yaml:"body" jsonschema:"omitempty"`
+		Host       string                `yaml:"host" jsonschema:"omitempty"`
+		Method     string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path       *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Header     *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
+		Body       string                `yaml:"body" jsonschema:"omitempty"`
+		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
 	}
 )
 
@@ -81,6 +86,9 @@ func (ra *RequestAdaptor) Results() []string {
 // Init initializes RequestAdaptor.
 func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
+		panic("RequestAdaptor only support decompress type of gzip")
+	}
 	ra.reload()
 }
 
@@ -150,6 +158,28 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		} else {
 			ctx.Request().SetHost(ra.spec.Host)
 		}
+	}
+
+	if ra.spec.Decompress != "" {
+		ra.processDecompress(ctx)
+	}
+	return ""
+}
+
+func (ra *RequestAdaptor) processDecompress(ctx context.HTTPContext) string {
+	encoding := ctx.Request().Header().Get("Content-Encoding")
+	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
+		reader, err := gzip.NewReader(ctx.Request().Body())
+		if err != nil {
+			return resultDecompressFail
+		}
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return resultDecompressFail
+		}
+		ctx.Request().SetBody(bytes.NewReader(data))
+		ctx.Request().Header().Del("Content-Encoding")
 	}
 	return ""
 }
