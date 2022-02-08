@@ -186,9 +186,8 @@ func getReqBody(ctx context.HTTPContext) ([]byte, error) {
 		defer reader.Close()
 		return io.ReadAll(reader)
 
-	} else {
-		return nil, errors.New("unknown encoding method")
 	}
+	return nil, errors.New("unknown encoding method")
 }
 
 func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
