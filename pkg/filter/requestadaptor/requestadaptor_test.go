@@ -137,11 +137,13 @@ func TestDecompose(t *testing.T) {
 	}
 }
 
-func TestMethod(t *testing.T) {
+func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
 	spec := &Spec{
 		Method: http.MethodDelete,
+		Host:   "127.0.0.2",
+		Body:   "123",
 	}
 	filterSpec := defaultFilterSpec(spec)
 	httpTemp := getTemplate(t, filterSpec)
@@ -160,4 +162,11 @@ func TestMethod(t *testing.T) {
 
 	method := ctx.Request().Method()
 	assert.Equal(http.MethodDelete, method)
+
+	host := ctx.Request().Host()
+	assert.Equal("127.0.0.2", host)
+
+	body, err := io.ReadAll(ctx.Request().Body())
+	assert.Nil(err)
+	assert.Equal("123", string(body))
 }
