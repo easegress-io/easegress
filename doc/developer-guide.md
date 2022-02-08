@@ -340,8 +340,9 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 	// NOTE: The filter must call the next handler to satisfy the Chain of Responsibility Pattern.
 	return ctx.CallNextHandler("")
 }
-
 ```
+
+`HeaderCounter` struct contains compulsory fields of type `*httppipeline.FilterSpec` and `*Spec`, mainly for configuring the filter. Fields `countMutex` and `count` are specific to this filter; the `Handle` function uses them to count the headers. Last but not least it's worth mentioning that `ctx.CallNextHandler` in the end of `Handle` is obligatory, even if the filter is designed to be the last filter of the Pipeline (chain of Filters), as it ensures that filters result is handled correctly.
 
 ### Register Filter to Pipeline
 
@@ -446,10 +447,9 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 
 	if !counted { // New code
 		// No headers counted; let's skip the rest of the pipeline
-		return resultInvalidHeader // New code
-
+		return ctx.CallNextHandler(resultInvalidHeader) // New code
 	} // New code
 
-	return ""
+	return ctx.CallNextHandler("")
 }
 ```
