@@ -161,7 +161,10 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 	}
 
 	if ra.spec.Decompress != "" {
-		ra.processDecompress(ctx)
+		res := ra.processDecompress(ctx)
+		if res != "" {
+			return res
+		}
 	}
 	return ""
 }

@@ -65,25 +65,92 @@ func getContext(t *testing.T, req *http.Request, httpTemp *context.HTTPTemplate)
 	return ctx
 }
 
-func TestDecompose(t *testing.T) {
-	assert := assert.New(t)
-	spec := &Spec{
-		Decompress: "gzip",
-	}
-	filterSpec := defaultFilterSpec(spec)
-	ra := &RequestAdaptor{}
-	ra.Init(filterSpec)
-
+func getTemplate(t *testing.T, filterSpec *httppipeline.FilterSpec) *context.HTTPTemplate {
 	filterBuffs := []context.FilterBuff{
 		{Name: filterSpec.Name(), Buff: []byte(filterSpec.YAMLConfig())},
 	}
 	httpTemp, err := context.NewHTTPTemplate(filterBuffs)
-	assert.Nil(err)
+	assert.Nil(t, err)
+	return httpTemp
+}
 
-	data := "123"
-	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", getGzipEncoding(t, []byte(data)))
+func TestRequestAdaptor(t *testing.T) {
+	assert := assert.New(t)
+	spec := &Spec{}
+	filterSpec := defaultFilterSpec(spec)
+	ra := &RequestAdaptor{}
+	ra.Init(filterSpec)
+	assert.Equal(Kind, ra.Kind())
+	assert.NotEmpty(ra.Description())
+	assert.NotNil(ra.DefaultSpec())
+	assert.NotEmpty(ra.Results())
+	assert.Nil(ra.Status())
+
+	newRA := &RequestAdaptor{}
+	newRA.Inherit(filterSpec, ra)
+	newRA.Close()
+}
+
+func TestDecompose(t *testing.T) {
+	assert := assert.New(t)
+
+	spec := &Spec{
+		Decompress: "gzip",
+	}
+	filterSpec := defaultFilterSpec(spec)
+	httpTemp := getTemplate(t, filterSpec)
+
+	ra := &RequestAdaptor{}
+	ra.Init(filterSpec)
+
+	{
+		data := "123"
+		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", getGzipEncoding(t, []byte(data)))
+		assert.Nil(err)
+		req.Header.Add("Content-Encoding", "gzip")
+
+		ctx := getContext(t, req, httpTemp)
+
+		ans := ra.Handle(ctx)
+		assert.Equal("", ans)
+		ctx.Finish()
+
+		encoding := ctx.Request().Header().Get("Content-Encoding")
+		assert.Equal("", encoding)
+
+		body, err := io.ReadAll(ctx.Request().Body())
+		assert.Nil(err)
+		assert.Equal("123", string(body))
+	}
+
+	{
+		data := "123"
+		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader([]byte(data)))
+		assert.Nil(err)
+		req.Header.Add("Content-Encoding", "gzip")
+
+		ctx := getContext(t, req, httpTemp)
+
+		ans := ra.Handle(ctx)
+		assert.Equal(resultDecompressFail, ans)
+		ctx.Finish()
+	}
+}
+
+func TestMethod(t *testing.T) {
+	assert := assert.New(t)
+
+	spec := &Spec{
+		Method: http.MethodDelete,
+	}
+	filterSpec := defaultFilterSpec(spec)
+	httpTemp := getTemplate(t, filterSpec)
+
+	ra := &RequestAdaptor{}
+	ra.Init(filterSpec)
+
+	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
 	assert.Nil(err)
-	req.Header.Add("Content-Encoding", "gzip")
 
 	ctx := getContext(t, req, httpTemp)
 
@@ -91,10 +158,6 @@ func TestDecompose(t *testing.T) {
 	assert.Equal("", ans)
 	ctx.Finish()
 
-	encoding := ctx.Request().Header().Get("Content-Encoding")
-	assert.Equal("", encoding)
-
-	body, err := io.ReadAll(ctx.Request().Body())
-	assert.Nil(err)
-	assert.Equal("123", string(body))
+	method := ctx.Request().Method()
+	assert.Equal(http.MethodDelete, method)
 }
