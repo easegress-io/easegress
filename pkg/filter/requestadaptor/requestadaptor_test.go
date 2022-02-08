@@ -29,6 +29,8 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/util/pathadaptor"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -144,6 +146,13 @@ func TestHandle(t *testing.T) {
 		Method: http.MethodDelete,
 		Host:   "127.0.0.2",
 		Body:   "123",
+		Header: &httpheader.AdaptSpec{
+			Add: map[string]string{"X-Add": "add-value"},
+			Set: map[string]string{"X-Set": "set-value"},
+		},
+		Path: &pathadaptor.Spec{
+			Replace: "/path",
+		},
 	}
 	filterSpec := defaultFilterSpec(spec)
 	httpTemp := getTemplate(t, filterSpec)
@@ -169,4 +178,13 @@ func TestHandle(t *testing.T) {
 	body, err := io.ReadAll(ctx.Request().Body())
 	assert.Nil(err)
 	assert.Equal("123", string(body))
+
+	headerValue := ctx.Request().Header().Get("X-Add")
+	assert.Equal("add-value", headerValue)
+
+	headerValue = ctx.Request().Header().Get("X-Set")
+	assert.Equal("set-value", headerValue)
+
+	path := ctx.Request().Path()
+	assert.Equal("/path", path)
 }
