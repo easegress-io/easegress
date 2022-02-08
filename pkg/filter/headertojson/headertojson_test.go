@@ -19,7 +19,6 @@ package headertojson
 
 import (
 	"bytes"
-	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -59,15 +58,6 @@ func TestHeaderToJSON(t *testing.T) {
 	newh := HeaderToJSON{}
 	newh.Inherit(filterSpec, h)
 	newh.Close()
-}
-
-func getGzipEncoding(t *testing.T, data []byte) io.Reader {
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	defer gw.Close()
-	_, err := gw.Write(data)
-	assert.Nil(t, err)
-	return &buf
 }
 
 func TestHandleHTTP(t *testing.T) {
