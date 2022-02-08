@@ -379,17 +379,20 @@ path:
 
 ### Configuration
 
-| Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
-| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| method | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
-| path   | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body   | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
-| host   | string                                       | If provided the host of the original request is replaced by the value of this option. Note: the host can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| Name       | Type                                         | Description                                                                                                                                                                                                         | Required |
+| -----------| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
+| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
+| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option. Note: the host can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| decompress | string                                       | If provided, the request body is replaced by the value of decomposed body. Now support "gzip" compose                                                                                                               | No       |
 
 ### Results
 
-The RequestAdaptor always returns an empty result.
+| Value          | Description                            |
+| -------------- | -------------------------------------- |
+| decompressFail | the request body can not be decomposed |
 
 ## CircuitBreaker
 
