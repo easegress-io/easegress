@@ -35,9 +35,10 @@ const (
 	Kind = "RequestAdaptor"
 
 	resultDecompressFail = "decompressFail"
+	resultCompressFail   = "compressFail"
 )
 
-var results = []string{resultDecompressFail}
+var results = []string{resultDecompressFail, resultCompressFail}
 
 func init() {
 	httppipeline.Register(&RequestAdaptor{})
@@ -59,6 +60,7 @@ type (
 		Path       *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
 		Header     *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
 		Body       string                `yaml:"body" jsonschema:"omitempty"`
+		Compress   string                `yaml:"compress" jsonschema:"omitempty"`
 		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
 	}
 )
@@ -88,6 +90,12 @@ func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
 		panic("RequestAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Compress != "gzip" {
+		panic("RequestAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Decompress != "" {
+		panic("RequestAdaptor can only do compress or decompress for given request body, not both")
 	}
 	ra.reload()
 }
@@ -145,6 +153,7 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		} else {
 			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
 		}
+		ctx.Request().Header().Del("Content-Encoding")
 	}
 
 	if len(ra.spec.Host) != 0 {
@@ -160,12 +169,43 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		}
 	}
 
+	if ra.spec.Compress != "" {
+		res := ra.processCompress(ctx)
+		if res != "" {
+			return res
+		}
+	}
+
 	if ra.spec.Decompress != "" {
 		res := ra.processDecompress(ctx)
 		if res != "" {
 			return res
 		}
 	}
+	return ""
+}
+
+func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
+	encoding := ctx.Request().Header().Get("Content-Encoding")
+	if encoding != "" {
+		return ""
+	}
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	defer gw.Close()
+
+	data, err := io.ReadAll(ctx.Request().Body())
+	if err != nil {
+		logger.Errorf("read request body failed, %v", err)
+		return resultCompressFail
+	}
+	_, err = gw.Write(data)
+	if err != nil {
+		logger.Errorf("compress request body failed, %v", err)
+		return resultCompressFail
+	}
+	ctx.Request().SetBody(&buf)
+	ctx.Request().Header().Set("Content-Encoding", "gzip")
 	return ""
 }
 
