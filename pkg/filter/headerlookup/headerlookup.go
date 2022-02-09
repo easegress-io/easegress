@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -55,6 +56,7 @@ type (
 		spec       *Spec
 		etcdPrefix string
 		headerKey  string
+		pathRegExp *regexp.Regexp
 
 		cache   *lru.Cache
 		cluster cluster.Cluster
@@ -71,9 +73,15 @@ type (
 	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
 	// This /custom-data/{etcdPrefix}/{headerKey's value} is retrieved from etcd and HeaderSetters extract keys from the
 	// from the retrieved etcd item.
+	// When PathRegExp is defined, PathRegExp is used with `regexp.FindStringSubmatch` to identify a group from path.
+	// The first captured group is appended to the etcd key in following format:
+	// /custom-data/{etcdPrefix}/{headerKey's value}-{regex group} . For example, for path
+	// "/api/bananas/33" and pathRegExp: "^/api/([a-z]+)/[0-9]*", the group "bananas" is extracted and etcd key is
+	// /custom-data/{etcdPrefix}/{headerKey's value}-bananas.
 	Spec struct {
 		HeaderKey     string              `yaml:"headerKey" jsonschema:"required"`
 		EtcdPrefix    string              `yaml:"etcdPrefix" jsonschema:"required"`
+		PathRegExp    string              `yaml:"pathRegExp" jsonschema:"omitempty"`
 		HeaderSetters []*HeaderSetterSpec `yaml:"headerSetters" jsonschema:"required"`
 	}
 )
@@ -96,6 +104,10 @@ func (spec Spec) Validate() error {
 		if hs.HeaderKey == "" {
 			return fmt.Errorf("headerSetters[i].headerKey is required")
 		}
+	}
+
+	if _, err := regexp.Compile(spec.PathRegExp); err != nil {
+		return err
 	}
 	return nil
 }
@@ -130,6 +142,7 @@ func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
 	hl.headerKey = http.CanonicalHeaderKey(hl.spec.HeaderKey)
 	hl.cache, _ = lru.New(cacheSize)
 	hl.stopCtx, hl.cancel = context.WithCancel(context.Background())
+	hl.pathRegExp = regexp.MustCompile(hl.spec.PathRegExp)
 	hl.watchChanges()
 }
 
@@ -248,6 +261,12 @@ func (hl *HeaderLookup) handle(ctx httpcontext.HTTPContext) string {
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
 		return ""
+	}
+	if hl.spec.PathRegExp != "" {
+		path := ctx.Request().Path()
+		if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
+			headerVal = headerVal + "-" + match[1]
+		}
 	}
 	headersToAdd, err := hl.lookup(headerVal)
 	if err != nil {
