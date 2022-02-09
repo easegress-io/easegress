@@ -1,3 +1,20 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package customdata
 
 import (
@@ -369,13 +386,14 @@ jsonSchema:
 	  required: true
 `)}, nil
 	}
+	d := Data{}
 	_, err = s.PutData("kind1", nil, true)
 	if err == nil {
 		t.Errorf("PutData should fail")
 	}
 
 	// validation failure
-	d := Data{"name": "data1"}
+	d["name"] = "data1"
 	_, err = s.PutData("kind1", d, true)
 	if err == nil {
 		t.Errorf("PutData should fail")
@@ -518,6 +536,47 @@ jsonSchema:
 	if err != nil {
 		t.Errorf("BatchUpdateData should succeed")
 	}
+}
+
+func TestDeleteData(t *testing.T) {
+	cls := clustertest.NewMockedCluster()
+	s := NewStore(cls, "/kind/", "/data/")
+
+	cls.MockedGetRaw = func(key string) (*mvccpb.KeyValue, error) {
+		return nil, fmt.Errorf("mocked error")
+	}
+	err := s.DeleteData("kind1", "data1")
+	if err == nil {
+		t.Errorf("DeleteData should fail")
+	}
+
+	cls.MockedGetRaw = func(key string) (*mvccpb.KeyValue, error) {
+		if strings.HasSuffix(key, "data1") {
+			return nil, nil
+		}
+		return &mvccpb.KeyValue{Value: []byte(`name: kind1`)}, nil
+	}
+	err = s.DeleteData("kind1", "data1")
+	if err == nil {
+		t.Errorf("DeleteData should fail")
+	}
+
+	cls.MockedGetRaw = func(key string) (*mvccpb.KeyValue, error) {
+		if strings.HasSuffix(key, "data1") {
+			return &mvccpb.KeyValue{Value: []byte(`name: data1`)}, nil
+		}
+		return &mvccpb.KeyValue{Value: []byte(`name: kind1`)}, nil
+	}
+	err = s.DeleteData("kind1", "data1")
+	if err != nil {
+		t.Errorf("DeleteData should succeed")
+	}
+}
+
+func testDeleteAllData(t *testing.T) {
+	cls := clustertest.NewMockedCluster()
+	s := NewStore(cls, "/kind/", "/data/")
+	s.DeleteAllData("kind1")
 }
 
 func TestWatch(t *testing.T) {
