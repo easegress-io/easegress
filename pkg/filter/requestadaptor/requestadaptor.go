@@ -97,6 +97,9 @@ func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 	if ra.spec.Compress != "" && ra.spec.Decompress != "" {
 		panic("RequestAdaptor can only do compress or decompress for given request body, not both")
 	}
+	if ra.spec.Body != "" && ra.spec.Decompress != "" {
+		panic("No need to decompress when body is specified in RequestAdaptor spec")
+	}
 	ra.reload()
 }
 
@@ -192,18 +195,14 @@ func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
 	}
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
-	defer gw.Close()
 
-	data, err := io.ReadAll(ctx.Request().Body())
-	if err != nil {
-		logger.Errorf("read request body failed, %v", err)
-		return resultCompressFail
-	}
-	_, err = gw.Write(data)
+	_, err := io.Copy(gw, ctx.Request().Body())
 	if err != nil {
 		logger.Errorf("compress request body failed, %v", err)
 		return resultCompressFail
 	}
+	gw.Close()
+
 	ctx.Request().SetBody(&buf)
 	ctx.Request().Header().Set("Content-Encoding", "gzip")
 	return ""
