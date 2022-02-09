@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -37,7 +38,7 @@ type (
 		router  *dynamicMux
 		cluster cluster.Cluster
 		super   *supervisor.Supervisor
-		cds     *cluster.CustomDataStore
+		cds     *customdata.Store
 
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
@@ -74,7 +75,7 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 
 	kindPrefix := cls.Layout().CustomDataKindPrefix()
 	dataPrefix := cls.Layout().CustomDataPrefix()
-	s.cds = cluster.NewCustomDataStore(cls, kindPrefix, dataPrefix)
+	s.cds = customdata.NewStore(cls, kindPrefix, dataPrefix)
 
 	s.initMetadata()
 	s.registerAPIs()

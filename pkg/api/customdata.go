@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"gopkg.in/yaml.v2"
 )
 
@@ -35,9 +35,9 @@ const (
 
 // ChangeRequest represents a change request to custom data
 type ChangeRequest struct {
-	Rebuild bool                 `yaml:"rebuild"`
-	Delete  []string             `yaml:"delete"`
-	List    []cluster.CustomData `yaml:"list"`
+	Rebuild bool              `yaml:"rebuild"`
+	Delete  []string          `yaml:"delete"`
+	List    []customdata.Data `yaml:"list"`
 }
 
 func (s *Server) customDataAPIEntries() []*Entry {
@@ -130,7 +130,7 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
-	k := cluster.CustomDataKind{}
+	k := customdata.Kind{}
 	err := yaml.NewDecoder(r.Body).Decode(&k)
 	if err != nil {
 		panic(err)
@@ -146,7 +146,7 @@ func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateCustomDataKind(w http.ResponseWriter, r *http.Request) {
-	k := cluster.CustomDataKind{}
+	k := customdata.Kind{}
 	err := yaml.NewDecoder(r.Body).Decode(&k)
 	if err != nil {
 		panic(err)
@@ -199,7 +199,7 @@ func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
-	data := cluster.CustomData{}
+	data := customdata.Data{}
 	err := yaml.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		panic(err)
@@ -217,7 +217,7 @@ func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
-	data := cluster.CustomData{}
+	data := customdata.Data{}
 	err := yaml.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		panic(err)

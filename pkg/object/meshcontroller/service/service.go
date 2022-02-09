@@ -26,7 +26,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -42,7 +42,7 @@ type (
 		spec      *spec.Admin
 
 		store storage.Storage
-		cds   *cluster.CustomDataStore
+		cds   *customdata.Store
 	}
 )
 
@@ -54,7 +54,7 @@ func New(superSpec *supervisor.Spec) *Service {
 		superSpec: superSpec,
 		spec:      superSpec.ObjectSpec().(*spec.Admin),
 		store:     storage.New(superSpec.Name(), superSpec.Super().Cluster()),
-		cds:       cluster.NewCustomDataStore(superSpec.Super().Cluster(), kindPrefix, dataPrefix),
+		cds:       customdata.NewStore(superSpec.Super().Cluster(), kindPrefix, dataPrefix),
 	}
 
 	return s

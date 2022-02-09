@@ -24,7 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/meshadaptor"
 	"github.com/megaease/easegress/pkg/filter/mock"
@@ -362,10 +362,10 @@ type (
 	}
 
 	// CustomResourceKind defines the spec of a custom resource kind
-	CustomResourceKind = cluster.CustomDataKind
+	CustomResourceKind = customdata.Kind
 
 	// CustomResource defines the spec of a custom resource
-	CustomResource = cluster.CustomData
+	CustomResource = customdata.Data
 
 	// HTTPMatch defines an individual route for HTTP traffic
 	HTTPMatch struct {
