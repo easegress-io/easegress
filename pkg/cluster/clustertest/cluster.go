@@ -23,6 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"go.etcd.io/etcd/api/v3/mvccpb"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
@@ -220,4 +221,44 @@ func (mc *MockedCluster) PurgeMember(member string) error {
 		return mc.MockedPurgeMember(member)
 	}
 	return nil
+}
+
+// MockedSTM is a mocked cocurrency.STM
+type MockedSTM struct {
+	// embed concurrency.STM for commit & reset
+	concurrency.STM
+	MockedGet func(key ...string) string
+	MockedPut func(key, val string, opts ...clientv3.OpOption)
+	MockedRev func(key string) int64
+	MockedDel func(key string)
+}
+
+// Get implements STM.Get
+func (stm *MockedSTM) Get(key ...string) string {
+	if stm.MockedGet != nil {
+		return stm.MockedGet(key...)
+	}
+	return ""
+}
+
+// Put implements STM.Put
+func (stm *MockedSTM) Put(key, val string, opts ...clientv3.OpOption) {
+	if stm.MockedPut != nil {
+		stm.MockedPut(key, val, opts...)
+	}
+}
+
+// Rev implements STM.Rev
+func (stm *MockedSTM) Rev(key string) int64 {
+	if stm.MockedRev != nil {
+		return stm.MockedRev(key)
+	}
+	return 0
+}
+
+// Del implements STM.Del
+func (stm *MockedSTM) Del(key string) {
+	if stm.MockedRev != nil {
+		stm.MockedDel(key)
+	}
 }

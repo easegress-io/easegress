@@ -29,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/dynamicobject"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
+	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
 func TestDataID(t *testing.T) {
@@ -382,12 +383,12 @@ jsonSchema:
   type: object
   properties:
     field1:
-	  type: string
-	  required: true
+      type: string
+      required: true
 `)}, nil
 	}
 	d := Data{}
-	_, err = s.PutData("kind1", nil, true)
+	_, err = s.PutData("kind1", d, true)
 	if err == nil {
 		t.Errorf("PutData should fail")
 	}
@@ -404,18 +405,7 @@ jsonSchema:
 
 	// get data fail
 	cls.MockedGetRaw = func(key string) (*mvccpb.KeyValue, error) {
-		if strings.HasSuffix(key, "data1") {
-			return nil, fmt.Errorf("mocked error")
-		}
-		return &mvccpb.KeyValue{
-			Value: []byte(`name: kind1
-jsonSchema:
-  type: object
-  properties:
-    field1:
-	  type: string
-	  required: true
-`)}, nil
+		return nil, fmt.Errorf("mocked error")
 	}
 	_, err = s.PutData("kind1", d, true)
 	if err == nil {
@@ -427,15 +417,7 @@ jsonSchema:
 		if strings.HasSuffix(key, "data1") {
 			return nil, nil
 		}
-		return &mvccpb.KeyValue{
-			Value: []byte(`name: kind1
-jsonSchema:
-  type: object
-  properties:
-    field1:
-	  type: string
-	  required: true
-`)}, nil
+		return &mvccpb.KeyValue{Value: []byte(`name: kind1`)}, nil
 	}
 	_, err = s.PutData("kind1", d, true)
 	if err == nil {
@@ -445,12 +427,9 @@ jsonSchema:
 	// get data success
 	cls.MockedGetRaw = func(key string) (*mvccpb.KeyValue, error) {
 		if strings.HasSuffix(key, "data1") {
-			return &mvccpb.KeyValue{
-				Value: []byte(`name: data1`),
-			}, nil
+			return &mvccpb.KeyValue{Value: []byte(`name: data1`)}, nil
 		}
-		return &mvccpb.KeyValue{
-			Value: []byte(`name: kind1`)}, nil
+		return &mvccpb.KeyValue{Value: []byte(`name: kind1`)}, nil
 	}
 	_, err = s.PutData("kind1", d, false)
 	if err == nil {
@@ -510,8 +489,8 @@ jsonSchema:
   type: object
   properties:
     field1:
-	  type: string
-	  required: true
+      type: string
+      required: true
 `)}, nil
 	}
 	err = s.BatchUpdateData("kind1", nil, data)
@@ -531,6 +510,10 @@ jsonSchema:
 	}
 
 	// make validation success
+	cls.MockedSTM = func(apply func(concurrency.STM) error) error {
+		stm := &clustertest.MockedSTM{}
+		return apply(stm)
+	}
 	data[1]["name"] = "data2"
 	err = s.BatchUpdateData("kind1", []string{"data1", "data3"}, data)
 	if err != nil {
@@ -573,7 +556,7 @@ func TestDeleteData(t *testing.T) {
 	}
 }
 
-func testDeleteAllData(t *testing.T) {
+func TestDeleteAllData(t *testing.T) {
 	cls := clustertest.NewMockedCluster()
 	s := NewStore(cls, "/kind/", "/data/")
 	s.DeleteAllData("kind1")
