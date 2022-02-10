@@ -155,8 +155,8 @@ func (r *httpRequest) Body() io.Reader {
 	return r.body
 }
 
-func (r *httpRequest) SetBody(reader io.Reader) {
-	r.body = callbackreader.New(reader)
+func (r *httpRequest) SetBody(reader io.Reader, closePreviousReader bool) {
+	r.body.SetReader(reader, closePreviousReader)
 }
 
 func (r *httpRequest) Size() uint64 {

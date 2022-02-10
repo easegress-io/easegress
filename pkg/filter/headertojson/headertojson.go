@@ -203,6 +203,6 @@ func (h *HeaderToJSON) handle(ctx context.HTTPContext) string {
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	ctx.Request().SetBody(bytes.NewReader(bodyBytes))
+	ctx.Request().SetBody(bytes.NewReader(bodyBytes), true)
 	return ""
 }

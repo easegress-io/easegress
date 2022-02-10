@@ -332,7 +332,7 @@ func saveReqBody(e *HTTPTemplate, filterName string, ctx HTTPContext) error {
 	}
 	e.Engine.SetDict(fmt.Sprintf(filterReqBody, filterName), string(bodyBuff.Bytes()))
 	// Reset back into Request's Body
-	ctx.Request().SetBody(bodyBuff)
+	ctx.Request().SetBody(bodyBuff, true)
 
 	return nil
 }

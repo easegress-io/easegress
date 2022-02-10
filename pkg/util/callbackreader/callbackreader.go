@@ -88,3 +88,13 @@ func (cr *CallbackReader) Close() error {
 
 	return nil
 }
+
+func (cr *CallbackReader) SetReader(reader io.Reader, closePreviousReader bool) {
+	if closePreviousReader {
+		closer, ok := cr.reader.(io.Closer)
+		if ok {
+			closer.Close()
+		}
+	}
+	cr.reader = reader
+}

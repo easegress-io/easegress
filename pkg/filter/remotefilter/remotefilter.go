@@ -309,7 +309,7 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.HTTPContex
 	r.SetPath(re.Path)
 	r.SetQuery(re.Query)
 	r.Header().Reset(re.Header)
-	r.SetBody(bytes.NewReader(re.Body))
+	r.SetBody(bytes.NewReader(re.Body), true)
 
 	if we == nil {
 		return

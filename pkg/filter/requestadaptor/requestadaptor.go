@@ -151,10 +151,10 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 				logger.Errorf("BUG request render body failed, template %s, err %v",
 					ra.spec.Body, err)
 			} else {
-				ctx.Request().SetBody(bytes.NewReader([]byte(body)))
+				ctx.Request().SetBody(bytes.NewReader([]byte(body)), true)
 			}
 		} else {
-			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
+			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)), true)
 		}
 		ctx.Request().Header().Del("Content-Encoding")
 	}
@@ -203,7 +203,7 @@ func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
 	}
 	gw.Close()
 
-	ctx.Request().SetBody(&buf)
+	ctx.Request().SetBody(&buf, true)
 	ctx.Request().Header().Set("Content-Encoding", "gzip")
 	return ""
 }
@@ -220,7 +220,7 @@ func (ra *RequestAdaptor) processDecompress(ctx context.HTTPContext) string {
 		if err != nil {
 			return resultDecompressFail
 		}
-		ctx.Request().SetBody(bytes.NewReader(data))
+		ctx.Request().SetBody(bytes.NewReader(data), true)
 		ctx.Request().Header().Del("Content-Encoding")
 	}
 	return ""

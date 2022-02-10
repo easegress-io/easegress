@@ -318,7 +318,7 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
-		ctx.Request().SetBody(primaryBody)
+		ctx.Request().SetBody(primaryBody, false)
 
 		wg := &sync.WaitGroup{}
 		wg.Add(1)

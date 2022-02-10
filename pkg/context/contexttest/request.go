@@ -44,7 +44,7 @@ type MockedHTTPRequest struct {
 	MockedCookies     func() []*http.Cookie
 	MockedAddCookie   func(cookie *http.Cookie)
 	MockedBody        func() io.Reader
-	MockedSetBody     func(io.Reader)
+	MockedSetBody     func(io.Reader, bool)
 	MockedStd         func() *http.Request
 	MockedSize        func() uint64
 }
@@ -189,9 +189,9 @@ func (r *MockedHTTPRequest) Body() io.Reader {
 }
 
 // SetBody mocks the SetBody function of HTTPRequest
-func (r *MockedHTTPRequest) SetBody(body io.Reader) {
+func (r *MockedHTTPRequest) SetBody(body io.Reader, closePreviousReader bool) {
 	if r.MockedSetBody != nil {
-		r.MockedSetBody(body)
+		r.MockedSetBody(body, closePreviousReader)
 	}
 }
 
