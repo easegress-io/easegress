@@ -93,13 +93,13 @@ field3: [1, 2, 3, 4]
 	* **Method**: POST
 	* **Body**: A change request in YAML, as defined below.
 
-		```yaml
-		rebuild: false
-		delete: [data1, data2]
-		list:
-		- name: data3
-			field1: 12
-		- name: data4
-			field1: foo
+```yaml
+rebuild: false
+delete: [data1, data2]
+list:
+- name: data3
+  field1: 12
+- name: data4
+  field1: foo
 		```
 		When `rebuild` is true (default is false), all existing data items are deleted before processing the data items in `list`. `delete` is an array of data identifiers to be deleted, this array is ignored when `rebuild` is true. `list` is an array of data items to be created or updated.
