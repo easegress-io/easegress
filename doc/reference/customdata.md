@@ -25,7 +25,7 @@ The `jsonSchema` is optional, if provided, data items of this kind will be valid
 
 ## CustomData
 
-CustomData is a map, the keys of this map must be strings while the values can be any valid JSON values, but when value is also a map, its keys must be strings too.
+CustomData is a map, the keys of this map must be strings while the values can be any valid JSON values, but the keys of a nested map must be strings too.
 
 A CustomData item must contain the `idField` defined by its corresponding CustomDataKind, for example, the data items of the kind defined in the above example must contain the `name` field as their identifiers.
 
@@ -101,5 +101,5 @@ list:
   field1: 12
 - name: data4
   field1: foo
-		```
-		When `rebuild` is true (default is false), all existing data items are deleted before processing the data items in `list`. `delete` is an array of data identifiers to be deleted, this array is ignored when `rebuild` is true. `list` is an array of data items to be created or updated.
+```
+When `rebuild` is true (default is false), all existing data items are deleted before processing the data items in `list`. `delete` is an array of data identifiers to be deleted, this array is ignored when `rebuild` is true. `list` is an array of data items to be created or updated.
