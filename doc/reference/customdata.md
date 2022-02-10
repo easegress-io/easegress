@@ -15,8 +15,8 @@ jsonSchema:
   type: object
   properties:
     name:
-	  type: string
-	  required: true
+      type: string
+      required: true
 ```
 
 The `name` field is required, it is the kind name of custom data items of this kind.
