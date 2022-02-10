@@ -80,10 +80,11 @@ func TestHandleHTTP(t *testing.T) {
 		}
 		body, err := json.Marshal(bodyMap)
 		assert.Nil(err)
+
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
 		assert.Nil(err)
-
 		req.Header.Add("x-username", "clientA")
+
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
@@ -137,10 +138,11 @@ func TestHandleHTTP(t *testing.T) {
 		}
 		body, err := json.Marshal(bodyMap)
 		assert.Nil(err)
+
 		req, err := http.NewRequest(http.MethodPost, "127.0.0.1", bytes.NewReader(body))
 		assert.Nil(err)
-
 		req.Header.Add("x-username", "clientA")
+
 		w := httptest.NewRecorder()
 		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 		ctx.SetHandlerCaller(func(lastResult string) string {
