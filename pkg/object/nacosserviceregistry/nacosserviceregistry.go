@@ -187,9 +187,10 @@ func (n *NacosServiceRegistry) buildClient() (naming_client.INamingClient, error
 		NotLoadCacheAtStart: true,
 		LogDir:              logDir,
 		CacheDir:            cacheDir,
-		RotateTime:          "1h",
-		MaxAge:              3,
 		LogLevel:            "info",
+		LogRollingConfig: &constant.ClientLogRollingConfig{
+			MaxAge: 3,
+		},
 	}
 
 	serverConfigs := []constant.ServerConfig{}

@@ -256,14 +256,16 @@ func TestDNSProvider(t *testing.T) {
 		}
 	})
 
-	t.Run("google", func(t *testing.T) {
-		spec.DNSProvider["name"] = "google"
-		spec.DNSProvider["project"] = "project"
-		_, err := newDNSProvider(spec)
-		if err != nil {
-			t.Errorf("DNS provider creation should have succeeded: %v", err)
-		}
-	})
+	/*
+		t.Run("google", func(t *testing.T) {
+			spec.DNSProvider["name"] = "google"
+			spec.DNSProvider["project"] = "project"
+			_, err := newDNSProvider(spec)
+			if err != nil {
+				t.Errorf("DNS provider creation should have succeeded: %v", err)
+			}
+		})
+	*/
 
 	t.Run("hetzner", func(t *testing.T) {
 		spec.DNSProvider["name"] = "hetzner"
