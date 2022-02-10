@@ -52,6 +52,8 @@
   - [HeaderToJSON](#headertojson)
     - [Configuration](#configuration-16)
     - [Results](#results-16)
+  - [CertExtractor](#certextractor)
+    - [Configuration](#configuration-17)
   - [Common Types](#common-types)
     - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -734,8 +736,7 @@ headerMap:
 
 | Name         | Type     | Description                      | Required |
 | ------------ | -------- | -------------------------------- | -------- |
-| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON filed name
-  | Yes      |
+| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON field name | Yes      |
 
 
 ### Results
@@ -743,6 +744,31 @@ headerMap:
 | Value                   | Description                          |
 | ----------------------- | ------------------------------------ |
 | jsonEncodeDecodeErr     | Failed to convert HTTP headers to JSON. |
+
+## CertExtractor
+
+CertExtractor extracts a value from requests TLS certificates Subject or Issuer metadata (https://pkg.go.dev/crypto/x509/pkix#Name) and adds the value to headers. Request can contain zero or multiple certificates so the position (first, second, last, etc) of the certificate in the chain is required.
+
+Here's an example configuration, that adds a new header `tls-cert-postalcode`, based on the PostalCode of the last TLS certificate's Subject:
+
+```yaml
+kind: "CertExtractor"
+name: "postalcode-extractor"
+certIndex: -1 # take last certificate in chain
+target: "subject"
+field: "PostalCode"
+headerKey: "tls-cert-postalcode"
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| certIndex | int16 | The index of the certificate in the chain. Negative indexes from the end of the chain (-1 is the last index, -2 second last etc.) | Yes      |
+| target | string | Either `subject` or `issuer` of the [x509.Certificate](https://pkg.go.dev/crypto/x509#Certificate) | Yes      |
+| field | string | One of the string or string slice fields from https://pkg.go.dev/crypto/x509/pkix#Name  | Yes      |
+| headerKey | string | Extracted value is added to this request header key. | Yes      |
+
 
 ## Common Types
 
