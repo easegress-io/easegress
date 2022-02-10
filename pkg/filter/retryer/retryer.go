@@ -179,7 +179,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 	data, _ := io.ReadAll(ctx.Request().Body())
 	for {
 		attempt++
-		ctx.Request().SetBody(bytes.NewReader(data))
+		ctx.Request().SetBody(bytes.NewReader(data), true)
 
 		result := ctx.CallNextHandler("")
 
