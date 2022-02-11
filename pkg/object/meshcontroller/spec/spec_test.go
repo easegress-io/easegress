@@ -1205,30 +1205,6 @@ func TestEgressName(t *testing.T) {
 
 func TestCustomResource(t *testing.T) {
 	r := CustomResource{}
-	if r.Name() != "" {
-		t.Error("name should be empty")
-	}
-	r["name"] = 1
-	if r.Name() != "" {
-		t.Error("name should be empty")
-	}
-	r["name"] = "obj1"
-	if r.Name() != "obj1" {
-		t.Error("name should be obj1")
-	}
-
-	if r.Kind() != "" {
-		t.Error("kind should be empty")
-	}
-	r["kind"] = 1
-	if r.Kind() != "" {
-		t.Error("kind should be empty")
-	}
-	r["kind"] = "kind1"
-	if r.Kind() != "kind1" {
-		t.Error("kind should be kind1")
-	}
-
 	r["field1"] = map[string]interface{}{
 		"sub1": 1,
 		"sub2": "value2",

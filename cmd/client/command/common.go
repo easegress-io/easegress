@@ -63,8 +63,10 @@ const (
 	wasmCodeURL = apiURL + "/wasm/code"
 	wasmDataURL = apiURL + "/wasm/data/%s/%s"
 
-	customDataKindURL = apiURL + "/customdata/%s"
-	customDataURL     = apiURL + "/customdata/%s/%s"
+	customDataKindURL     = apiURL + "/customdatakinds"
+	customDataKindItemURL = apiURL + "/customdatakinds/%s"
+	customDataURL         = apiURL + "/customdata/%s"
+	customDataItemURL     = apiURL + "/customdata/%s/%s"
 
 	// MeshTenantsURL is the mesh tenant prefix.
 	MeshTenantsURL = apiURL + "/mesh/tenants"

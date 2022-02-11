@@ -124,7 +124,7 @@ func (a *API) saveCustomResourceKind(w http.ResponseWriter, r *http.Request, upd
 		return err
 	}
 
-	a.service.PutCustomResourceKind(kind)
+	a.service.PutCustomResourceKind(kind, update)
 	return nil
 }
 
@@ -163,14 +163,14 @@ func (a *API) deleteCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 func (a *API) listAllCustomResources(w http.ResponseWriter, r *http.Request) {
 	resources := a.service.ListCustomResources("")
 	sort.Slice(resources, func(i, j int) bool {
-		k1, k2 := resources[i].Kind(), resources[j].Kind()
+		k1, k2 := resources[i].GetString("kind"), resources[j].GetString("kind")
 		if k1 < k2 {
 			return true
 		}
 		if k1 > k2 {
 			return false
 		}
-		return resources[i].Name() < resources[j].Name()
+		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -194,7 +194,7 @@ func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 
 	resources := a.service.ListCustomResources(kind)
 	sort.Slice(resources, func(i, j int) bool {
-		return resources[i].Name() < resources[j].Name()
+		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -235,15 +235,15 @@ func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update bool) error {
-	resource := &spec.CustomResource{}
-	err := json.NewDecoder(r.Body).Decode(resource)
+	resource := spec.CustomResource{}
+	err := json.NewDecoder(r.Body).Decode(&resource)
 	if err != nil {
 		err = fmt.Errorf("unmarshal custom resource failed: %v", err)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return err
 	}
 
-	kind, name := resource.Kind(), resource.Name()
+	kind, name := resource.GetString("kind"), resource.GetString("name")
 	if kind == "" {
 		err = fmt.Errorf("kind cannot be empty")
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -292,7 +292,7 @@ func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update 
 		return err
 	}
 
-	a.service.PutCustomResource(resource)
+	a.service.PutCustomResource(resource, update)
 	return nil
 }
 
@@ -342,7 +342,7 @@ func (a *API) watchCustomResources(w http.ResponseWriter, r *http.Request) {
 	logger.Infof("begin watch custom resources of kind '%s'", kind)
 
 	w.Header().Set("Content-type", "application/octet-stream")
-	a.service.WatchCustomResource(r.Context(), kind, func(resources []*spec.CustomResource) {
+	a.service.WatchCustomResource(r.Context(), kind, func(resources []spec.CustomResource) {
 		err = json.NewEncoder(w).Encode(resources)
 		if err != nil {
 			logger.Errorf("marshal custom resource failed: %v", err)

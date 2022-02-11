@@ -18,75 +18,94 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"go.etcd.io/etcd/client/v3/concurrency"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	// CustomDataPrefix is the object prefix.
+	// CustomDataKindPrefix is the URL prefix of APIs for custom data kind
+	CustomDataKindPrefix = "/customdatakinds"
+	// CustomDataPrefix is the URL prefix of APIs for custom data
 	CustomDataPrefix = "/customdata/{kind}"
 )
 
-type (
-	// CustomData defines the custom data type
-	CustomData map[string]interface{}
-
-	// ChangeRequest represents a change request to custom data
-	ChangeRequest struct {
-		Rebuild bool         `yaml:"rebuild"`
-		Delete  []string     `yaml:"delete"`
-		List    []CustomData `yaml:"list"`
-	}
-)
-
-// Key returns the 'key' field of the custom data
-func (cd CustomData) Key() string {
-	if v, ok := cd["key"].(string); ok {
-		return v
-	}
-	return ""
+// ChangeRequest represents a change request to custom data
+type ChangeRequest struct {
+	Rebuild bool              `yaml:"rebuild"`
+	Delete  []string          `yaml:"delete"`
+	List    []customdata.Data `yaml:"list"`
 }
 
 func (s *Server) customDataAPIEntries() []*Entry {
 	return []*Entry{
+		{
+			Path:    CustomDataKindPrefix,
+			Method:  http.MethodGet,
+			Handler: s.listCustomDataKind,
+		},
+		{
+			Path:    CustomDataKindPrefix + "/{name}",
+			Method:  http.MethodGet,
+			Handler: s.getCustomDataKind,
+		},
+		{
+			Path:    CustomDataKindPrefix,
+			Method:  http.MethodPost,
+			Handler: s.createCustomDataKind,
+		},
+		{
+			Path:    CustomDataKindPrefix,
+			Method:  http.MethodPut,
+			Handler: s.updateCustomDataKind,
+		},
+		{
+			Path:    CustomDataKindPrefix + "/{name}",
+			Method:  http.MethodDelete,
+			Handler: s.deleteCustomDataKind,
+		},
+
 		{
 			Path:    CustomDataPrefix,
 			Method:  http.MethodGet,
 			Handler: s.listCustomData,
 		},
 		{
+			Path:    CustomDataPrefix + "/{id}",
+			Method:  http.MethodGet,
+			Handler: s.getCustomData,
+		},
+		{
 			Path:    CustomDataPrefix,
 			Method:  http.MethodPost,
+			Handler: s.createCustomData,
+		},
+		{
+			Path:    CustomDataPrefix,
+			Method:  http.MethodPut,
 			Handler: s.updateCustomData,
 		},
 		{
-			Path:    CustomDataPrefix + "/{key}",
-			Method:  http.MethodGet,
-			Handler: s.getCustomData,
+			Path:    CustomDataPrefix + "/{id}",
+			Method:  http.MethodDelete,
+			Handler: s.deleteCustomData,
+		},
+
+		{
+			Path:    CustomDataPrefix + "/items",
+			Method:  http.MethodPost,
+			Handler: s.batchUpdateCustomData,
 		},
 	}
 }
 
-func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
-	kind := chi.URLParam(r, "kind")
-	prefix := s.cluster.Layout().CustomDataPrefix(kind)
-	kvs, err := s.cluster.GetRawPrefix(prefix)
+func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	result, err := s.cds.ListKinds()
 	if err != nil {
 		ClusterPanic(err)
-	}
-
-	result := make([]CustomData, 0, len(kvs))
-	for key, kv := range kvs {
-		key = key[len(prefix):]
-		cd := CustomData{}
-		err = yaml.Unmarshal(kv.Value, &cd)
-		if err != nil {
-			panic(err)
-		}
-		result = append(result, cd)
 	}
 
 	w.Header().Set("Content-Type", "text/vnd.yaml")
@@ -96,7 +115,129 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	k, err := s.cds.GetKind(name)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	err = yaml.NewEncoder(w).Encode(k)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	k := customdata.Kind{}
+	err := yaml.NewDecoder(r.Body).Decode(&k)
+	if err != nil {
+		panic(err)
+	}
+	err = s.cds.PutKind(&k, false)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	location := fmt.Sprintf("%s/%s", r.URL.Path, k.Name)
+	w.Header().Set("Location", location)
+}
+
+func (s *Server) updateCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	k := customdata.Kind{}
+	err := yaml.NewDecoder(r.Body).Decode(&k)
+	if err != nil {
+		panic(err)
+	}
+	err = s.cds.PutKind(&k, true)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) deleteCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	err := s.cds.DeleteKind(name)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+
+	result, err := s.cds.ListData(kind)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	err = yaml.NewEncoder(w).Encode(result)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	id := chi.URLParam(r, "id")
+
+	data, err := s.cds.GetData(kind, id)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	w.Header().Set("Content-Type", "text/vnd.yaml")
+	err = yaml.NewEncoder(w).Encode(data)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+
+	data := customdata.Data{}
+	err := yaml.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	id, err := s.cds.PutData(kind, data, false)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	location := fmt.Sprintf("%s/%s", r.URL.Path, id)
+	w.Header().Set("Location", location)
+}
+
 func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+
+	data := customdata.Data{}
+	err := yaml.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		panic(err)
+	}
+	_, err = s.cds.PutData(kind, data, true)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) deleteCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	id := chi.URLParam(r, "id")
+	err := s.cds.DeleteData(kind, id)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) batchUpdateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	var cr ChangeRequest
@@ -105,47 +246,15 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	prefix := s.cluster.Layout().CustomDataPrefix(kind)
 	if cr.Rebuild {
-		err = s.cluster.DeletePrefix(prefix)
+		err = s.cds.DeleteAllData(kind)
 		if err != nil {
 			ClusterPanic(err)
 		}
 	}
 
-	err = s.cluster.STM(func(stm concurrency.STM) error {
-		if !cr.Rebuild {
-			for _, key := range cr.Delete {
-				key = s.cluster.Layout().CustomDataItem(kind, key)
-				stm.Del(key)
-			}
-		}
-		for _, v := range cr.List {
-			key := v.Key()
-			key = s.cluster.Layout().CustomDataItem(kind, key)
-			data, err := yaml.Marshal(v)
-			if err != nil {
-				return err
-			}
-			stm.Put(key, string(data))
-		}
-		return nil
-	})
+	err = s.cds.BatchUpdateData(kind, cr.Delete, cr.List)
 	if err != nil {
 		ClusterPanic(err)
 	}
-}
-
-func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
-	kind := chi.URLParam(r, "kind")
-	key := chi.URLParam(r, "key")
-
-	key = s.cluster.Layout().CustomDataItem(kind, key)
-	kv, err := s.cluster.GetRaw(key)
-	if err != nil {
-		ClusterPanic(err)
-	}
-
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	w.Write(kv.Value)
 }
