@@ -55,7 +55,7 @@ type (
 		STM(apply func(concurrency.STM) error) error
 
 		Watcher() (Watcher, error)
-		Syncer(pullInterval time.Duration) (*Syncer, error)
+		Syncer(pullInterval time.Duration) (Syncer, error)
 
 		Mutex(name string) (Mutex, error)
 
@@ -77,6 +77,20 @@ type (
 		WatchRaw(key string) (<-chan *clientv3.Event, error)
 		WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error)
 		WatchWithOp(key string, ops ...ClientOp) (<-chan map[string]*string, error)
+		Close()
+	}
+
+	// Syncer syncs data from Etcd, it uses an Etcd watcher to receive update.
+	// The syncer keeps a full copy of data, and keeps apply changes onto it when an
+	// update event is received from the watcher, and then send out the full data copy.
+	// The syncer also pulls full data from Etcd at a configurable pull interval, this
+	// is to ensure data consistency, as Etcd watcher may be cancelled if it cannot catch
+	// up with the key-value store.
+	Syncer interface {
+		Sync(string) (<-chan *string, error)
+		SyncRaw(string) (<-chan *mvccpb.KeyValue, error)
+		SyncPrefix(string) (<-chan map[string]string, error)
+		SyncRawPrefix(string) (<-chan map[string]*mvccpb.KeyValue, error)
 		Close()
 	}
 )

@@ -202,7 +202,7 @@ func findKeysToDelete(kvs map[string]string, cache *lru.Cache) []string {
 
 func (hl *HeaderLookup) watchChanges() {
 	var (
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 		ch     <-chan map[string]string
 	)

@@ -566,7 +566,7 @@ func TestWatch(t *testing.T) {
 	cls := clustertest.NewMockedCluster()
 	s := NewStore(cls, "/kind/", "/data/")
 
-	cls.MockedSyncer = func(pullInterval time.Duration) (*cluster.Syncer, error) {
+	cls.MockedSyncer = func(pullInterval time.Duration) (cluster.Syncer, error) {
 		return nil, fmt.Errorf("mocked error")
 	}
 

@@ -44,13 +44,15 @@ type MockedCluster struct {
 	MockedDeletePrefix           func(prefix string) error
 	MockedSTM                    func(apply func(concurrency.STM) error) error
 	MockedWatcher                func() (cluster.Watcher, error)
-	MockedSyncer                 func(pullInterval time.Duration) (*cluster.Syncer, error)
+	MockedSyncer                 func(pullInterval time.Duration) (cluster.Syncer, error)
 	MockedMutex                  func(name string) (cluster.Mutex, error)
 	MockedCloseServer            func(wg *sync.WaitGroup)
 	MockedStartServer            func() (chan struct{}, chan struct{}, error)
 	MockedClose                  func(wg *sync.WaitGroup)
 	MockedPurgeMember            func(member string) error
 }
+
+var _ cluster.Cluster = (*MockedCluster)(nil)
 
 // NewMockedCluster creates a new mocked cluster
 func NewMockedCluster() *MockedCluster {
@@ -178,7 +180,7 @@ func (mc *MockedCluster) Watcher() (cluster.Watcher, error) {
 }
 
 // Syncer implements interface function Syncer
-func (mc *MockedCluster) Syncer(pullInterval time.Duration) (*cluster.Syncer, error) {
+func (mc *MockedCluster) Syncer(pullInterval time.Duration) (cluster.Syncer, error) {
 	if mc.MockedSyncer != nil {
 		return mc.MockedSyncer(pullInterval)
 	}

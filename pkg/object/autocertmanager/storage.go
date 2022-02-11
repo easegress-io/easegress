@@ -291,7 +291,7 @@ func (s *storage) deleteTLSALPNCert(domain string) error {
 
 func (s *storage) watchCertificate(ctx context.Context, onChange func(domain string, cert *tls.Certificate)) {
 	var (
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 		ch     <-chan map[string]*mvccpb.KeyValue
 	)

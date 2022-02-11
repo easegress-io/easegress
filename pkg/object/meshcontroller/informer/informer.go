@@ -151,7 +151,7 @@ type (
 	meshInformer struct {
 		mutex   sync.RWMutex
 		store   storage.Storage
-		syncers map[string]*cluster.Syncer
+		syncers map[string]cluster.Syncer
 
 		service         string
 		globalServices  map[string]bool   // name of service in global tenant
@@ -181,7 +181,7 @@ var (
 func NewInformer(store storage.Storage, service string) Informer {
 	inf := &meshInformer{
 		store:           store,
-		syncers:         make(map[string]*cluster.Syncer),
+		syncers:         make(map[string]cluster.Syncer),
 		done:            make(chan struct{}),
 		service:         service,
 		globalServices:  make(map[string]bool),

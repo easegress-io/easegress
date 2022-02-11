@@ -70,7 +70,7 @@ type (
 	ObjectRegistry struct {
 		super *Supervisor
 
-		configSyncer    *cluster.Syncer
+		configSyncer    cluster.Syncer
 		configSyncChan  <-chan map[string]string
 		configPrefix    string
 		configLocalPath string

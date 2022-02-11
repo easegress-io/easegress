@@ -28,25 +28,21 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// Syncer syncs data from Etcd, it uses an Etcd watcher to receive update.
-// The syncer keeps a full copy of data, and keeps apply changes onto it when an
-// update event is received from the watcher, and then send out the full data copy.
-// The syncer also pulls full data from Etcd at a configurable pull interval, this
-// is to ensure data consistency, as Etcd watcher may be cancelled if it cannot catch
-// up with the key-value store.
-type Syncer struct {
+type syncer struct {
 	cluster      *cluster
 	client       *clientv3.Client
 	pullInterval time.Duration
 	done         chan struct{}
 }
 
-func (c *cluster) Syncer(pullInterval time.Duration) (*Syncer, error) {
+var _ Syncer = (*syncer)(nil)
+
+func (c *cluster) Syncer(pullInterval time.Duration) (Syncer, error) {
 	client, err := c.getClient()
 	if err != nil {
 		return nil, err
 	}
-	return &Syncer{
+	return &syncer{
 		cluster:      c,
 		client:       client,
 		pullInterval: pullInterval,
@@ -54,7 +50,7 @@ func (c *cluster) Syncer(pullInterval time.Duration) (*Syncer, error) {
 	}, nil
 }
 
-func (s *Syncer) pull(key string, prefix bool) (map[string]*mvccpb.KeyValue, error) {
+func (s *syncer) pull(key string, prefix bool) (map[string]*mvccpb.KeyValue, error) {
 	if prefix {
 		result, err := s.cluster.GetRawPrefix(key)
 		if err != nil {
@@ -77,7 +73,7 @@ func (s *Syncer) pull(key string, prefix bool) (map[string]*mvccpb.KeyValue, err
 	return result, nil
 }
 
-func (s *Syncer) watch(key string, prefix bool) (clientv3.Watcher, clientv3.WatchChan) {
+func (s *syncer) watch(key string, prefix bool) (clientv3.Watcher, clientv3.WatchChan) {
 	opts := make([]clientv3.OpOption, 0, 1)
 	if prefix {
 		opts = append(opts, clientv3.WithPrefix())
@@ -122,7 +118,7 @@ func isKeyValueEqual(kv1, kv2 *mvccpb.KeyValue) bool {
 	return false
 }
 
-func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.KeyValue)) {
+func (s *syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.KeyValue)) {
 	watcher, watchChan := s.watch(key, prefix)
 	defer watcher.Close()
 
@@ -172,7 +168,7 @@ func (s *Syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 }
 
 // Sync syncs a given Etcd key's value through the returned channel.
-func (s *Syncer) Sync(key string) (<-chan *string, error) {
+func (s *syncer) Sync(key string) (<-chan *string, error) {
 	ch := make(chan *string, 10)
 
 	fn := func(data map[string]*mvccpb.KeyValue) {
@@ -193,7 +189,7 @@ func (s *Syncer) Sync(key string) (<-chan *string, error) {
 }
 
 // SyncRaw syncs a given Etcd key's raw Etcd mvccpb structure through the returned channel.
-func (s *Syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
+func (s *syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
 	ch := make(chan *mvccpb.KeyValue, 10)
 
 	fn := func(data map[string]*mvccpb.KeyValue) {
@@ -209,7 +205,7 @@ func (s *Syncer) SyncRaw(key string) (<-chan *mvccpb.KeyValue, error) {
 }
 
 // SyncPrefix syncs Etcd keys' values with the same prefix through the returned channel.
-func (s *Syncer) SyncPrefix(prefix string) (<-chan map[string]string, error) {
+func (s *syncer) SyncPrefix(prefix string) (<-chan map[string]string, error) {
 	ch := make(chan map[string]string, 10)
 
 	fn := func(data map[string]*mvccpb.KeyValue) {
@@ -229,7 +225,7 @@ func (s *Syncer) SyncPrefix(prefix string) (<-chan map[string]string, error) {
 }
 
 // SyncRawPrefix syncs Etcd keys' values with the same prefix in raw Etcd mvccpb structure format through the returned channel.
-func (s *Syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValue, error) {
+func (s *syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValue, error) {
 	ch := make(chan map[string]*mvccpb.KeyValue, 10)
 
 	fn := func(data map[string]*mvccpb.KeyValue) {
@@ -250,6 +246,6 @@ func (s *Syncer) SyncRawPrefix(prefix string) (<-chan map[string]*mvccpb.KeyValu
 }
 
 // Close closes the syncer.
-func (s *Syncer) Close() {
+func (s *syncer) Close() {
 	close(s.done)
 }
