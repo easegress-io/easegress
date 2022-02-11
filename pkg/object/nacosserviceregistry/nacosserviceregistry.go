@@ -502,9 +502,10 @@ func (n *NacosServiceRegistry) nacosInstanceToServiceInstance(nacosInstance *mod
 		registryName = n.Name()
 	}
 
+	grpSvcName := strings.Split(nacosInstance.ServiceName, "@@")
 	instance := &serviceregistry.ServiceInstanceSpec{
 		RegistryName: registryName,
-		ServiceName:  nacosInstance.ServiceName,
+		ServiceName:  grpSvcName[len(grpSvcName)-1],
 		InstanceID:   instanceID,
 		Address:      nacosInstance.Ip,
 		Port:         uint16(nacosInstance.Port),
