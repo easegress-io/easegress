@@ -34,6 +34,7 @@ type MockedWatcher struct {
 
 var _ cluster.Watcher = (*MockedWatcher)(nil)
 
+// NewMockedWatcher return MockedWatcher
 func NewMockedWatcher() *MockedWatcher {
 	return &MockedWatcher{}
 }

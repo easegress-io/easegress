@@ -19,6 +19,7 @@ package clustertest
 
 import "go.etcd.io/etcd/api/v3/mvccpb"
 
+// MockedSyncer is a mock for cluster.Syncer
 type MockedSyncer struct {
 	MockedSync          func(string) (<-chan *string, error)
 	MockedSyncRaw       func(string) (<-chan *mvccpb.KeyValue, error)
