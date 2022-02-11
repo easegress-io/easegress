@@ -20,6 +20,7 @@ package nacosserviceregistry
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
