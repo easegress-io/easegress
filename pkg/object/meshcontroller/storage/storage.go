@@ -46,7 +46,7 @@ type (
 		Delete(key string) error
 		DeletePrefix(prefix string) error
 
-		Syncer() (*cluster.Syncer, error)
+		Syncer() (cluster.Syncer, error)
 	}
 
 	clusterStorage struct {
@@ -146,6 +146,6 @@ func (cs *clusterStorage) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyVal
 	return cs.cls.GetRawPrefix(prefix)
 }
 
-func (cs *clusterStorage) Syncer() (*cluster.Syncer, error) {
+func (cs *clusterStorage) Syncer() (cluster.Syncer, error) {
 	return cs.cls.Syncer(time.Minute)
 }

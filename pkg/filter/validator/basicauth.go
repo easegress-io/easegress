@@ -260,7 +260,7 @@ func (euc *etcdUserCache) WatchChanges() {
 		return
 	}
 	var (
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 		ch     <-chan map[string]string
 	)
