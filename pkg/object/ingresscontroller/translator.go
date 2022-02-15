@@ -404,7 +404,7 @@ func (st *specTranslator) translate() error {
 		sort.Slice(r.Paths, func(i, j int) bool {
 			p1, p2 := r.Paths[i], r.Paths[j]
 			switch {
-			case p1.Path == "" && p2.Path == "":
+			case p1.Path != "" && p2.Path != "":
 				return p1.Path < p2.Path
 			case p1.Path != "" && p2.Path == "":
 				return false
