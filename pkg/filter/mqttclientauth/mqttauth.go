@@ -19,16 +19,12 @@ package mqttclientauth
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
-	"fmt"
-	"os"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -48,20 +44,21 @@ type (
 		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		authMap    map[string]string
+		salt       string
 	}
 
-	// Spec is spec for MQTTClientAuth
-	// authFile format:
-	// - username: test
-	//   passBase64: dGVzdA==
+	// Spec is spec for MQTTClientAuth.
+	// For security of password, passwords in yaml file should be salted SHA256 checksum.
+	// password = sha256sum(connect.password + salt)
 	Spec struct {
-		AuthFile string `yaml:"authFile" jsonschema:"required"`
+		Salt string  `yaml:"salt" jsonschema:"omitempty"`
+		Auth []*Auth `yaml:"auth" jsonschema:"required"`
 	}
 
 	// Auth describes username and password for MQTTProxy
 	Auth struct {
-		Username   string `yaml:"username" jsonschema:"required"`
-		PassBase64 string `yaml:"passBase64" jsonschema:"required"`
+		Username         string `yaml:"username" jsonschema:"required"`
+		SaltedSha256Pass string `yaml:"saltedSha256Pass" jsonschema:"required"`
 	}
 )
 
@@ -88,44 +85,19 @@ func (a *MQTTClientAuth) Results() []string {
 	return []string{resultAuthFail}
 }
 
-func (a *MQTTClientAuth) loadAuthFromFile(fileName string) []Auth {
-	if fileName == "" {
-		return nil
-	}
-	data, err := os.ReadFile(fileName)
-	if err != nil {
-		panic(fmt.Errorf("invalid file name %s", fileName))
-	}
-	auth := []Auth{}
-	err = yaml.Unmarshal(data, &auth)
-	if err != nil {
-		panic(fmt.Errorf("file %s unmarshal failed, %v", fileName, err))
-	}
-	return auth
-}
-
-func (a *MQTTClientAuth) updateAuth(auth []Auth) {
-	for _, auth := range auth {
-		passwd, err := base64.StdEncoding.DecodeString(auth.PassBase64)
-		if err != nil {
-			logger.Errorf("auth with name %v, base64 password %v decode failed: %v", auth.Username, auth.PassBase64, err)
-			continue
-		}
-		a.authMap[auth.Username] = sha256Sum(passwd)
-	}
-}
-
 // Init init MQTTClientAuth
 func (a *MQTTClientAuth) Init(filterSpec *pipeline.FilterSpec) {
 	if filterSpec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
-	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	spec := filterSpec.FilterSpec().(*Spec)
+	a.filterSpec = filterSpec
+	a.spec = spec
+	a.salt = spec.Salt
 	a.authMap = make(map[string]string)
 
-	auth := a.loadAuthFromFile(a.spec.AuthFile)
-	if auth != nil {
-		a.updateAuth(auth)
+	for _, auth := range spec.Auth {
+		a.authMap[auth.Username] = auth.SaltedSha256Pass
 	}
 
 	if len(a.authMap) == 0 {
@@ -157,11 +129,11 @@ func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) string {
 	if connect.ClientIdentifier == "" {
 		return resultAuthFail
 	}
-	pass, ok := a.authMap[connect.Username]
+	saltedSha256Pass, ok := a.authMap[connect.Username]
 	if !ok {
 		return resultAuthFail
 	}
-	if pass != sha256Sum(connect.Password) {
+	if saltedSha256Pass != sha256Sum(append(connect.Password, []byte(a.salt)...)) {
 		return resultAuthFail
 	}
 	return ""
