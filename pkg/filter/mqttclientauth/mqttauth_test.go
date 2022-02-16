@@ -19,10 +19,8 @@ package mqttclientauth
 
 import (
 	stdcontext "context"
-	"encoding/base64"
 	"fmt"
-	"io/ioutil"
-	"os"
+	"sync"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -30,7 +28,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -59,10 +56,6 @@ func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
 	return filterSpec
 }
 
-func base64Encode(text string) string {
-	return base64.StdEncoding.EncodeToString([]byte(text))
-}
-
 func TestAuth(t *testing.T) {
 	assert := assert.New(t)
 	spec := &Spec{}
@@ -82,39 +75,27 @@ func TestAuth(t *testing.T) {
 }
 
 func TestAuthFile(t *testing.T) {
-	fileStr := `
-- username: test
-  passBase64: %s
-- username: admin
-  passBase64: %s
-`
-	fileStr = fmt.Sprintf(fileStr, base64Encode("test"), base64Encode("admin"))
-
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "prefix-")
-	require.Nil(t, err)
-	defer os.Remove(tmpFile.Name())
-
-	_, err = tmpFile.Write([]byte(fileStr))
-	require.Nil(t, err)
-
-	err = tmpFile.Close()
-	require.Nil(t, err)
-
 	assert := assert.New(t)
+	salt := "abcfdlfkjaslfkalfjslfskfjslf"
 	spec := &Spec{
-		AuthFile: tmpFile.Name(),
+		Salt: salt,
+		Auth: []*Auth{
+			{Username: "test", SaltedSha256Pass: sha256Sum([]byte("test" + salt))},
+			{Username: "admin", SaltedSha256Pass: sha256Sum([]byte("admin" + salt))},
+		},
 	}
 
 	filterSpec := defaultFilterSpec(spec)
 	auth := &MQTTClientAuth{}
 	auth.Init(filterSpec)
 
-	tests := []struct {
+	type testCase struct {
 		cid        string
 		name       string
 		pass       string
 		disconnect bool
-	}{
+	}
+	tests := []testCase{
 		{"client1", "test", "test", false},
 		{"client2", "admin", "admin", false},
 		{"client3", "fake", "test", true},
@@ -122,9 +103,15 @@ func TestAuthFile(t *testing.T) {
 		{"", "test", "test", true},
 	}
 
+	var wg sync.WaitGroup
 	for _, test := range tests {
-		ctx := newContext(test.cid, test.name, test.pass)
-		auth.HandleMQTT(ctx)
-		assert.Equal(test.disconnect, ctx.Disconnect(), fmt.Errorf("test case %+v got wrong result", test))
+		wg.Add(1)
+		go func(test testCase) {
+			ctx := newContext(test.cid, test.name, test.pass)
+			auth.HandleMQTT(ctx)
+			assert.Equal(test.disconnect, ctx.Disconnect(), fmt.Errorf("test case %+v got wrong result", test))
+			wg.Done()
+		}(test)
 	}
+	wg.Wait()
 }
