@@ -72,7 +72,7 @@ require (
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
 	knative.dev/client v0.29.0
-	knative.dev/serving v0.29.0
+	knative.dev/serving v0.29.1
 )
 
 replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.3
