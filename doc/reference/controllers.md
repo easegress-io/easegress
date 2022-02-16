@@ -437,7 +437,7 @@ The self-defining specification of each filter references to [filters](./filters
 | dnsProvider | map[string]string | DNS provider information  | No (Yes if `name` is a wildcard one) |
 
 The fields in `dnsProvider` vary from DNS providers, but `name` and `zone` are required for all DNS providers.
-Below table list other required fields for each supported DNS provider:
+Below table list other required fields for each supported DNS provider (Note: `google` is temporarily disabled due to dependency conflict):
 
 | DNS Provider Name | Required Fields                                                     |
 | ----------------- | ------------------------------------------------------------------- |

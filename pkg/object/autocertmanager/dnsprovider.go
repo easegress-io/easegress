@@ -26,7 +26,8 @@ import (
 	"github.com/libdns/digitalocean"
 	"github.com/libdns/dnspod"
 	"github.com/libdns/duckdns"
-	"github.com/libdns/googleclouddns"
+
+	// "github.com/libdns/googleclouddns"
 	"github.com/libdns/hetzner"
 	"github.com/libdns/libdns"
 	"github.com/libdns/route53"
@@ -125,12 +126,14 @@ var dnsProviderCreators = map[string]*dnsProviderCreator{
 		},
 	},
 
-	"google": {
-		requiredFields: []string{"project"},
-		creatorFn: func(d *DomainSpec) (dnsProvider, error) {
-			return &googleclouddns.Provider{Project: d.DNSProvider["project"]}, nil
+	/*
+		"google": {
+			requiredFields: []string{"project"},
+			creatorFn: func(d *DomainSpec) (dnsProvider, error) {
+				return &googleclouddns.Provider{Project: d.DNSProvider["project"]}, nil
+			},
 		},
-	},
+	*/
 
 	"hetzner": {
 		requiredFields: []string{"authApiToken"},
