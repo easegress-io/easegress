@@ -69,7 +69,7 @@ require (
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.5
-	k8s.io/apimachinery v0.22.5
+	k8s.io/apimachinery v0.22.6
 	k8s.io/client-go v0.22.5
 	knative.dev/client v0.29.0
 	knative.dev/serving v0.29.0
