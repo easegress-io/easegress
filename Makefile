@@ -91,6 +91,7 @@ build_docker:
 	docker build -t megaease/easegress:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag megaease/easegress:${RELEASE} megaease/easegress:latest
 	docker tag megaease/easegress:latest megaease/easegress:server-sidecar
+	docker tag megaease/easegress:latest megaease/easegress:easemesh
 
 test:
 	cd ${MKFILE_DIR}

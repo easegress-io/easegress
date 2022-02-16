@@ -126,6 +126,13 @@ type (
 		CleanExternalRegistry bool `yaml:"cleanExternalRegistry"`
 
 		Security *Security `yaml:"security" jsonschema:"omitempty"`
+
+		// Sidecar injection relevant config.
+		ImageRegistryURL          string `yaml:"imageRegistryURL" jsonschema:"omitempty"`
+		ImagePullPolicy           string `yaml:"imagePullPolicy" jsonschema:"omitempty"`
+		SidecarImageName          string `yaml:"sidecarImageName" jsonschema:"omitempty"`
+		AgentInitializerImageName string `yaml:"agentInitializerImageName" jsonschema:"omitempty"`
+		Log4jConfigName           string `yaml:"log4jConfigName" jsonschema:"omitempty"`
 	}
 
 	// Security is the spec for mesh-wide security.
