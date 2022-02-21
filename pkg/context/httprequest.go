@@ -30,8 +30,6 @@ import (
 type (
 	httpRequest struct {
 		std       *http.Request
-		method    string
-		path      string
 		header    *httpheader.HTTPHeader
 		body      *callbackreader.CallbackReader
 		bodyCount int
@@ -51,8 +49,6 @@ func newHTTPRequest(stdr *http.Request) *httpRequest {
 
 	hq := &httpRequest{
 		std:    stdr,
-		method: stdr.Method,
-		path:   stdr.URL.Path,
 		header: httpheader.New(stdr.Header),
 		body:   callbackreader.New(stdr.Body),
 		realIP: realip.FromRequest(stdr),
@@ -88,11 +84,11 @@ func (r *httpRequest) RealIP() string {
 }
 
 func (r *httpRequest) Method() string {
-	return r.method
+	return r.std.Method
 }
 
 func (r *httpRequest) SetMethod(method string) {
-	r.method = method
+	r.std.Method = method
 }
 
 func (r *httpRequest) Scheme() string {
@@ -108,11 +104,11 @@ func (r *httpRequest) SetHost(host string) {
 }
 
 func (r *httpRequest) Path() string {
-	return r.path
+	return r.std.URL.Path
 }
 
 func (r *httpRequest) SetPath(path string) {
-	r.path = path
+	r.std.URL.Path = path
 }
 
 func (r *httpRequest) EscapedPath() string {
