@@ -19,6 +19,7 @@ package cluster
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -31,20 +32,30 @@ type Mutex interface {
 }
 
 type mutex struct {
+	// concurrency.Mutex is a session level mutex, so sync.Mutex is
+	// required to make it goroutine safe
+	lock    sync.Mutex
 	m       *concurrency.Mutex
 	timeout time.Duration
 }
 
 func (m *mutex) Lock() error {
+	m.lock.Lock()
+
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
 	defer cancel()
 
-	return m.m.Lock(ctx)
+	err := m.m.Lock(ctx)
+	if err != nil {
+		m.lock.Unlock()
+	}
+	return err
 }
 
 func (m *mutex) Unlock() error {
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
 	defer cancel()
+	defer m.lock.Unlock()
 
 	return m.m.Unlock(ctx)
 }

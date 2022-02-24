@@ -66,8 +66,6 @@ func New(name string, cls cluster.Cluster) Storage {
 	err := cs.mutexGoReady()
 	if err != nil {
 		logger.Errorf(err.Error())
-
-		return cs
 	}
 
 	return cs
