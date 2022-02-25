@@ -39,6 +39,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
@@ -308,6 +309,19 @@ func (worker *Worker) pushSpecToJavaAgent() {
 		}
 
 		sort.Strings(transmission.Headers)
+
+		if worker.spec.MonitorMTLS != nil && worker.spec.MonitorMTLS.Enabled {
+			for _, monitorCert := range worker.spec.MonitorMTLS.Certs {
+				if stringtool.StrInSlice(worker.serviceName, monitorCert.Services) {
+					transmission.MomitorMTLS = &spec.MTLSTransmission{
+						CaCertBase64: worker.spec.MonitorMTLS.CaCertBase64,
+						CertBase64:   monitorCert.CertBase64,
+						KeyBase64:    monitorCert.KeyBase64,
+					}
+					break
+				}
+			}
+		}
 
 		err = worker.observabilityManager.UpdateGlobalTransmission(transmission)
 		if err != nil {
