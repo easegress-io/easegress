@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"gopkg.in/yaml.v2"
@@ -35,16 +34,58 @@ const (
 	serviceConfigURL            = "/config-service"
 )
 
-// AgentInterface is the interface operate the agent client
-type AgentInterface interface {
-	UpdateService(newService *spec.Service, version int64) error
-	UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error
+type (
+	// AgentInterface is the interface operate the agent client.
+	AgentInterface interface {
+		UpdateAgentConfig(config *AgentConfig) error
+	}
+
+	// AgentClient stores the information of agent client
+	AgentClient struct {
+		URL        string
+		HTTPClient *http.Client
+	}
+
+	// AgentConfig is the config pushed to agent.
+	AgentConfig struct {
+		spec.Service `yaml:",inline"`
+
+		Headers  string            `yaml:"easeagent.progress.forwarded.headers"`
+		Reporter *AgentReporterTLS `yaml:"reporter.outputServer.tls"`
+	}
+
+	// AgentReporterTLS is the TLS config for agent resporter.
+	AgentReporterTLS struct {
+		Enable bool   `yaml:"enable"`
+		Key    string `yaml:"key"`
+		Cert   string `yaml:"cert"`
+		CACert string `yaml:"ca_cert"`
+	}
+)
+
+func newAgentConfig() {
 }
 
-// AgentClient stores the information of agent client
-type AgentClient struct {
-	URL        string
-	HTTPClient *http.Client
+func (ac *AgentConfig) marshal() ([]byte, error) {
+	yamlBuff, err := yaml.Marshal(ac)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", ac, err)
+	}
+	jsonBytes, err := yamljsontool.YAMLToJSON(yamlBuff)
+	if err != nil {
+		return nil, fmt.Errorf("convert yaml %s to json failed: %v", yamlBuff, err)
+	}
+	kvMap, err := JSONToKVMap(string(jsonBytes))
+	if err != nil {
+		return nil, fmt.Errorf("json to kv failed: %v", err)
+	}
+
+	result, err := json.Marshal(kvMap)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
+	}
+
+	return result, nil
 }
 
 // NewAgentClient creates the agent client
@@ -55,52 +96,21 @@ func NewAgentClient(host, port string) *AgentClient {
 	}
 }
 
-// UpdateService updates service.
-func (agent *AgentClient) UpdateService(newService *spec.Service, version int64) error {
-	buff, err := yaml.Marshal(newService)
+// UpdateAgentConfig updates agent config.
+func (agent *AgentClient) UpdateAgentConfig(config *AgentConfig) error {
+	configBuff, err := config.marshal()
 	if err != nil {
-		return fmt.Errorf("marshal %#v to yaml failed: %v", newService, err)
-	}
-	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
-	if err != nil {
-		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
-	}
-	kvMap, err := JSONToKVMap(string(jsonBytes))
-	kvMap["version"] = strconv.FormatInt(version, 10)
-
-	bytes, err := json.Marshal(kvMap)
-	if err != nil {
-		return fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
+		return err
 	}
 
 	url := agent.URL + serviceConfigURL
-	bodyString, err := handleRequest(http.MethodPut, url, bytes)
-	if err != nil {
-		return fmt.Errorf("handleRequest error: %v", err)
-	}
-	logger.Debugf("update service: URL: %s request: %s result: %v", url, string(bytes), string(bodyString))
-	return err
-}
-
-// UpdateGlobalTransmission updates GlobalTransmission.
-func (agent *AgentClient) UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error {
-	buff, err := yaml.Marshal(transmission)
-	if err != nil {
-		return fmt.Errorf("marshal %#v to yaml failed: %v", transmission, err)
-	}
-
-	jsonBytes, err := yamljsontool.YAMLToJSON(buff)
-	if err != nil {
-		return fmt.Errorf("convert yaml %s to json failed: %v", buff, err)
-	}
-
-	url := agent.URL + globalTransmissionConfigURL
-	bodyString, err := handleRequest(http.MethodPut, url, jsonBytes)
+	bodyString, err := handleRequest(http.MethodPut, url, configBuff)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)
 	}
 
-	logger.Infof("update global transmission %s req: %s resp: %s", url, jsonBytes, bodyString)
+	logger.Debugf("update agent config: URL: %s request: %s result: %v",
+		url, configBuff, string(bodyString))
 
 	return err
 }
