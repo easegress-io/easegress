@@ -158,7 +158,11 @@ func (worker *Worker) updateState(w http.ResponseWriter, r *http.Request, event 
 	if !stateUpdated {
 		return
 	}
-	worker.store.Lock()
+	err = worker.store.Lock()
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	defer worker.store.Unlock()
 	err = worker.updateFunctionStatus(function.Status)
 	if err != nil {
@@ -206,7 +210,11 @@ func (worker *Worker) Delete(w http.ResponseWriter, r *http.Request) {
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
-	worker.Lock()
+	err = worker.Lock()
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
 	defer worker.Unlock()
 
 	// delete function in FaaS Provider

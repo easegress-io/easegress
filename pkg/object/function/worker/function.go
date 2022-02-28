@@ -234,8 +234,8 @@ func (worker *Worker) listFunctionSpecs(all bool, functionName string) ([]*spec.
 }
 
 // Lock locks the cluster store.
-func (worker *Worker) Lock() {
-	worker.store.Lock()
+func (worker *Worker) Lock() error {
+	return worker.store.Lock()
 }
 
 // Unlock unlocks the cluster store.
