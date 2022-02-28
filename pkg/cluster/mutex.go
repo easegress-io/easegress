@@ -39,17 +39,22 @@ type mutex struct {
 	timeout time.Duration
 }
 
-func (m *mutex) Lock() error {
+func (m *mutex) Lock() (err error) {
+	panicked := true
+
 	m.lock.Lock()
+	defer func() {
+		if panicked || err != nil {
+			m.lock.Unlock()
+		}
+	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), m.timeout)
 	defer cancel()
 
-	err := m.m.Lock(ctx)
-	if err != nil {
-		m.lock.Unlock()
-	}
-	return err
+	err = m.m.Lock(ctx)
+	panicked = false
+	return
 }
 
 func (m *mutex) Unlock() error {
