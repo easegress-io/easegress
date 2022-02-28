@@ -92,7 +92,19 @@ func (r *httpRequest) SetMethod(method string) {
 }
 
 func (r *httpRequest) Scheme() string {
-	return r.std.URL.Scheme
+	if scheme := r.std.URL.Scheme; scheme != "" {
+		return scheme
+	}
+
+	if scheme := r.std.Header.Get("X-Forwarded-Proto"); scheme != "" {
+		return scheme
+	}
+
+	if r.std.TLS != nil {
+		return "https"
+	}
+
+	return "http"
 }
 
 func (r *httpRequest) Host() string {
