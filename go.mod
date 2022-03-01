@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/consul/api v1.12.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.12
-	github.com/klauspost/compress v1.14.2
+	github.com/klauspost/compress v1.14.4
 	github.com/libdns/alidns v1.0.2-x2
 	github.com/libdns/azure v0.2.0
 	github.com/libdns/cloudflare v0.1.0
