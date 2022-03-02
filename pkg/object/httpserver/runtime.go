@@ -18,8 +18,11 @@
 package httpserver
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -30,6 +33,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/filterwriter"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"github.com/megaease/easegress/pkg/util/topn"
@@ -245,10 +249,14 @@ func (r *runtime) startServer() {
 		}
 	}
 
+	fw := filterwriter.New(os.Stderr, func(p []byte) bool {
+		return !bytes.Contains(p, []byte("TLS handshake error"))
+	})
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
 		Handler:     r.mux,
 		IdleTimeout: keepAliveTimeout,
+		ErrorLog:    log.New(fw, "", log.LstdFlags),
 	}
 	srv.SetKeepAlivesEnabled(r.spec.KeepAlive)
 
