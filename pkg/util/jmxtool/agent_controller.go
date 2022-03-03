@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	globalTransmissionConfigURL = "/config-global-transmission"
-	serviceConfigURL            = "/config-service"
+	serviceConfigURL = "/config-service"
 )
 
 type (
@@ -50,8 +49,16 @@ type (
 	AgentConfig struct {
 		spec.Service `yaml:",inline"`
 
-		Headers  string            `yaml:"easeagent.progress.forwarded.headers"`
-		Reporter *AgentReporterTLS `yaml:"reporter.outputServer.tls"`
+		Headers     string            `yaml:"easeagent.progress.forwarded.headers"`
+		Reporter    *AgentReporter    `yaml:"reporter.outputServer"`
+		ReporterTLS *AgentReporterTLS `yaml:"reporter.outputServer.tls"`
+	}
+
+	// AgentReporter is the basic config for agent reporter.
+	AgentReporter struct {
+		BootstrapServer string `yaml:"bootstrapServer"`
+		Username        string `yaml:"username"`
+		Password        string `yaml:"password"`
 	}
 
 	// AgentReporterTLS is the TLS config for agent resporter.

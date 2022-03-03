@@ -45,9 +45,6 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 			m.HandleFunc(serviceConfigURL, func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 			})
-			m.HandleFunc(globalTransmissionConfigURL, func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-			})
 		}
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Println(err)

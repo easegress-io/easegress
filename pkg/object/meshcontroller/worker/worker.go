@@ -312,7 +312,13 @@ func (worker *Worker) updateAgentConfig() {
 		if worker.spec.MonitorMTLS != nil && worker.spec.MonitorMTLS.Enabled {
 			for _, monitorCert := range worker.spec.MonitorMTLS.Certs {
 				if stringtool.StrInSlice(worker.serviceName, monitorCert.Services) {
-					agentConfig.Reporter = &jmxtool.AgentReporterTLS{
+					agentConfig.Reporter = &jmxtool.AgentReporter{
+						BootstrapServer: worker.spec.MonitorMTLS.URL,
+						Username:        worker.spec.MonitorMTLS.Username,
+						Password:        worker.spec.MonitorMTLS.Password,
+					}
+					agentConfig.ReporterTLS = &jmxtool.AgentReporterTLS{
+						Enable: true,
 						CACert: decodeBase64(worker.spec.MonitorMTLS.CaCertBase64),
 						Cert:   decodeBase64(monitorCert.CertBase64),
 						Key:    decodeBase64(monitorCert.KeyBase64),
