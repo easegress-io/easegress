@@ -12,6 +12,8 @@
 - CertExtractor filter [\#474](https://github.com/megaease/easegress/pull/474)
 - Custom data management [\#456](https://github.com/megaease/easegress/pull/456), [\#500](https://github.com/megaease/easegress/pull/500)
 
+  **NOTE:** The dynamic cluster management feature (e.g. adding a new primary node without stopping the cluster) is deprecated and will be removed in the next release, please switch to static cluster management.
+
 **Implemented enhancements:**
 
 - Add pipeline route for mqttproxy [\#453](https://github.com/megaease/easegress/pull/453)
