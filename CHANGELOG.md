@@ -17,7 +17,7 @@
 **Implemented enhancements:**
 
 - Add pipeline route for mqttproxy [\#453](https://github.com/megaease/easegress/pull/453)
-- Install script to install the systemd service [#\461](https://github.com/megaease/easegress/pull/461), [#\463](https://github.com/megaease/easegress/pull/463)
+- Install script to install the systemd service [\#461](https://github.com/megaease/easegress/pull/461), [\#463](https://github.com/megaease/easegress/pull/463)
 - RequestAdaptor support compress/decompress request body [\#497](https://github.com/megaease/easegress/pull/497)
 - CorsAdaptor support origin [\#498](https://github.com/megaease/easegress/pull/498)
 - Filter out 'TLS handshake error' [\#533](https://github.com/megaease/easegress/pull/533)
@@ -27,8 +27,8 @@
 **Fixed bugs:**
 
 - Fix empty http request body read panic [\#457](https://github.com/megaease/easegress/pull/457)
-- Fix paging in query nacos service registry [\478](https://github.com/megaease/easegress/pull/478)
-- Fix duplicate response header [\482](https://github.com/megaease/easegress/pull/482)
+- Fix paging in query nacos service registry [\#478](https://github.com/megaease/easegress/pull/478)
+- Fix duplicate response header [\#482](https://github.com/megaease/easegress/pull/482)
 - Add close option to httpRequest.SetBody [\#502](https://github.com/megaease/easegress/pull/502)
 - Fix wrong service name in nacos service registry [\#504](https://github.com/megaease/easegress/pull/504)
 - Remove method & path from httpRequest [\#524](https://github.com/megaease/easegress/pull/524)
