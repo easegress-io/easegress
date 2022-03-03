@@ -144,8 +144,9 @@ type (
 		Username string `yaml:"username" jsonschema:"required"`
 		Password string `yaml:"password" jsonschema:"required"`
 
-		CaCertBase64 string         `yaml:"caCertBase64" jsonschema:"required,format=base64"`
-		Certs        []*MonitorCert `yaml:"certs" jsonschema:"required"`
+		ReporterAppendType string         `yaml:"reporterAppendType"`
+		CaCertBase64       string         `yaml:"caCertBase64" jsonschema:"required,format=base64"`
+		Certs              []*MonitorCert `yaml:"certs" jsonschema:"required"`
 	}
 
 	// MonitorCert is the spec for single pack of mTLS.

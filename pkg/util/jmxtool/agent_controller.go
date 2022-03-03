@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	serviceConfigURL = "/config-service"
+	agentConfigURL = "/config"
 )
 
 type (
@@ -52,6 +52,9 @@ type (
 		Headers     string            `yaml:"easeagent.progress.forwarded.headers"`
 		Reporter    *AgentReporter    `yaml:"reporter.outputServer"`
 		ReporterTLS *AgentReporterTLS `yaml:"reporter.outputServer.tls"`
+
+		ReporterAppendType string `yaml:"reporter.tracing.sender.appendType"`
+		PluginAppendType   string `yaml:"plugin.observability.global.metric.appendType"`
 	}
 
 	// AgentReporter is the basic config for agent reporter.
@@ -110,7 +113,7 @@ func (agent *AgentClient) UpdateAgentConfig(config *AgentConfig) error {
 		return err
 	}
 
-	url := agent.URL + serviceConfigURL
+	url := agent.URL + agentConfigURL
 	bodyString, err := handleRequest(http.MethodPut, url, configBuff)
 	if err != nil {
 		return fmt.Errorf("handleRequest error: %v", err)

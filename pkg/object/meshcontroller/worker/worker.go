@@ -312,6 +312,13 @@ func (worker *Worker) updateAgentConfig() {
 		if worker.spec.MonitorMTLS != nil && worker.spec.MonitorMTLS.Enabled {
 			for _, monitorCert := range worker.spec.MonitorMTLS.Certs {
 				if stringtool.StrInSlice(worker.serviceName, monitorCert.Services) {
+					reporterType := worker.spec.MonitorMTLS.ReporterAppendType
+					if reporterType == "" {
+						reporterType = "http"
+					}
+					agentConfig.ReporterAppendType = reporterType
+					agentConfig.PluginAppendType = reporterType
+
 					agentConfig.Reporter = &jmxtool.AgentReporter{
 						BootstrapServer: worker.spec.MonitorMTLS.URL,
 						Username:        worker.spec.MonitorMTLS.Username,
