@@ -42,7 +42,7 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 			s.Shutdown(context.Background())
 		})
 		if !notFoundFlag {
-			m.HandleFunc(serviceConfigURL, func(w http.ResponseWriter, r *http.Request) {
+			m.HandleFunc(agentConfigURL, func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 			})
 		}
