@@ -1,5 +1,40 @@
 # Changelog
 
+## [v1.5.0](https://github.com/megaease/easegress/tree/v1.5.0) (2022-03-03)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.4.1...v1.5.0)
+
+**Significant changes:**
+
+- HTTP basic auth filter [\#454](https://github.com/megaease/easegress/pull/454)
+- HeaderLookup filter [\#454](https://github.com/megaease/easegress/pull/454)
+- HeaderToJSON filter [\#458](https://github.com/megaease/easegress/pull/458)
+- CertExtractor filter [\#474](https://github.com/megaease/easegress/pull/474)
+- Custom data management [\#456](https://github.com/megaease/easegress/pull/456), [\#500](https://github.com/megaease/easegress/pull/500)
+
+**Implemented enhancements:**
+
+- Add pipeline route for mqttproxy [\#453](https://github.com/megaease/easegress/pull/453)
+- Install script to install the systemd service [#\461](https://github.com/megaease/easegress/pull/461), [#\463](https://github.com/megaease/easegress/pull/463)
+- RequestAdaptor support compress/decompress request body [\#497](https://github.com/megaease/easegress/pull/497)
+- CorsAdaptor support origin [\#498](https://github.com/megaease/easegress/pull/498)
+- Filter out 'TLS handshake error' [\#533](https://github.com/megaease/easegress/pull/533)
+- Test [\#469](https://github.com/megaease/easegress/pull/469), [\#507](https://github.com/megaease/easegress/pull/507)
+- Documentation [\#464](https://github.com/megaease/easegress/pull/464), [\#465](https://github.com/megaease/easegress/pull/465), [\#475](https://github.com/megaease/easegress/pull/475), [\#499](https://github.com/megaease/easegress/pull/499)
+
+**Fixed bugs:**
+
+- Fix empty http request body read panic [\#457](https://github.com/megaease/easegress/pull/457)
+- Fix paging in query nacos service registry [\478](https://github.com/megaease/easegress/pull/478)
+- Fix duplicate response header [\482](https://github.com/megaease/easegress/pull/482)
+- Add close option to httpRequest.SetBody [\#502](https://github.com/megaease/easegress/pull/502)
+- Fix wrong service name in nacos service registry [\#504](https://github.com/megaease/easegress/pull/504)
+- Remove method & path from httpRequest [\#524](https://github.com/megaease/easegress/pull/524)
+- Make cluster.Mutex to be goroutine same [\#527](https://github.com/megaease/easegress/pull/527)
+- Fix empty request scheme [\#529](https://github.com/megaease/easegress/pull/529)
+- Fix typo [\#471](https://github.com/megaease/easegress/pull/471), [\#479](https://github.com/megaease/easegress/pull/479), 
+
+
 ## [v1.4.1](https://github.com/megaease/easegress/tree/v1.4.1) (2022-01-07)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.4.0...v1.4.1)
