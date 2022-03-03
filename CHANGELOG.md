@@ -12,7 +12,7 @@
 - CertExtractor filter [\#474](https://github.com/megaease/easegress/pull/474)
 - Custom data management [\#456](https://github.com/megaease/easegress/pull/456), [\#500](https://github.com/megaease/easegress/pull/500)
 
-  **NOTE:** The dynamic cluster management feature (e.g. adding a new primary node without stopping the cluster) is deprecated and will be removed in the next release, please switch to static cluster management.
+  **NOTE:** The dynamic cluster management feature (e.g. adding a new primary node without stopping the cluster) is deprecated and will be removed in the next release, please switch to static cluster management. You can refer this cookbook [chapter](https://github.com/megaease/easegress/blob/main/doc/cookbook/multi-node-cluster.md) or follow [Helm example](https://github.com/megaease/easegress/tree/main/helm-charts/easegress) for more info, how to define a static cluster.
 
 **Implemented enhancements:**
 
