@@ -20,11 +20,9 @@ package httppipeline
 import "github.com/megaease/easegress/pkg/supervisor"
 
 // MockFilterSpec help to create FilterSpec for test
-func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}, yamlConfig string,
-	meta *FilterMetaSpec, filterSpec interface{}) *FilterSpec {
+func MockFilterSpec(super *supervisor.Supervisor, yamlConfig string, meta *FilterMetaSpec, filterSpec interface{}) *FilterSpec {
 	return &FilterSpec{
 		super:      super,
-		rawSpec:    rawSpec,
 		yamlConfig: yamlConfig,
 		meta:       meta,
 		filterSpec: filterSpec,

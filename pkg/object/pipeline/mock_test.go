@@ -45,7 +45,6 @@ func TestMockFilterSpec(t *testing.T) {
 	assert := assert.New(t)
 
 	super := supervisor.NewDefaultMock()
-	rawSpec := map[string]interface{}{"name": "testMock"}
 	yamlConfig := "fake yaml config string"
 	meta := &FilterMetaSpec{
 		Name:     "testMock",
@@ -54,9 +53,8 @@ func TestMockFilterSpec(t *testing.T) {
 		Protocol: context.TCP,
 	}
 	filterSpec := &MockMQTTSpec{}
-	mockSpec := MockFilterSpec(super, rawSpec, yamlConfig, meta, filterSpec)
+	mockSpec := MockFilterSpec(super, yamlConfig, meta, filterSpec)
 	assert.Equal(mockSpec.Super(), super)
-	assert.Equal(mockSpec.RawSpec(), rawSpec)
 	assert.Equal(mockSpec.Kind(), meta.Kind)
 	assert.Equal(mockSpec.Name(), meta.Name)
 	assert.Equal(mockSpec.Pipeline(), meta.Pipeline)

@@ -364,15 +364,12 @@ func TestMockFilterSpec(t *testing.T) {
 		Pipeline: "pipeline-demo",
 	}
 	spec := &FilterSpec{}
-	filterSpec := MockFilterSpec(nil, nil, "", meta, spec)
+	filterSpec := MockFilterSpec(nil, "", meta, spec)
 	if filterSpec.Super() != nil {
 		t.Errorf("expect nil")
 	}
 	if filterSpec.Pipeline() != "pipeline-demo" {
 		t.Errorf("expect empty string")
-	}
-	if filterSpec.RawSpec() != nil {
-		t.Errorf("expect nil")
 	}
 	if filterSpec.FilterSpec() != spec {
 		t.Errorf("expect spec")

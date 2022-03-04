@@ -44,7 +44,6 @@ type (
 	FilterSpec struct {
 		super *supervisor.Supervisor
 
-		rawSpec    map[string]interface{}
 		yamlConfig string
 		meta       *FilterMetaSpec
 		filterSpec interface{}
@@ -191,7 +190,6 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 
 	s.meta = meta
 	s.filterSpec = filterSpec
-	s.rawSpec = rawSpec
 	s.yamlConfig = yamlConfig
 
 	return
@@ -217,11 +215,6 @@ func (s *FilterSpec) Protocol() context.Protocol { return s.meta.Protocol }
 // YAMLConfig returns the config in yaml format.
 func (s *FilterSpec) YAMLConfig() string {
 	return s.yamlConfig
-}
-
-// RawSpec returns raw spec in type map[string]interface{}.
-func (s *FilterSpec) RawSpec() map[string]interface{} {
-	return s.rawSpec
 }
 
 // FilterSpec returns the filter spec in its own type.
