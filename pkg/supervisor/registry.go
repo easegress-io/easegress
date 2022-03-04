@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols"
 )
 
 type (
@@ -62,13 +62,13 @@ type (
 		Object
 
 		// Init initializes the Object.
-		Init(superSpec *Spec, muxMapper protocol.MuxMapper)
+		Init(superSpec *Spec, muxMapper protocols.MuxMapper)
 
 		// Inherit also initializes the Object.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
-		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
+		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocols.MuxMapper)
 	}
 
 	// TrafficGate is the object in category of TrafficGate.

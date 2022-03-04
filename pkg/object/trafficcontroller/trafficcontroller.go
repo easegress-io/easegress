@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -106,13 +106,13 @@ func newNamespace(namespace string) *Namespace {
 }
 
 // GetHandler gets handler within the namespace
-func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
+func (ns *Namespace) GetHandler(name string) (protocols.HTTPHandler, bool) {
 	entity, exists := ns.httppipelines.Load(name)
 	if !exists {
 		return nil, false
 	}
 
-	handler := entity.(*supervisor.ObjectEntity).Instance().(protocol.HTTPHandler)
+	handler := entity.(*supervisor.ObjectEntity).Instance().(protocols.HTTPHandler)
 	return handler, true
 }
 

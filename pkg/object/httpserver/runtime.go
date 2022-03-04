@@ -31,7 +31,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/filterwriter"
 	"github.com/megaease/easegress/pkg/util/httpstat"
@@ -67,7 +67,7 @@ type (
 	}
 	eventReload struct {
 		nextSuperSpec *supervisor.Spec
-		muxMapper     protocol.MuxMapper
+		muxMapper     protocols.MuxMapper
 	}
 	eventClose struct{ done chan struct{} }
 
@@ -101,7 +101,7 @@ type (
 	}
 )
 
-func newRuntime(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) *runtime {
+func newRuntime(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) *runtime {
 	r := &runtime{
 		superSpec: superSpec,
 		eventChan: make(chan interface{}, 10),
@@ -161,7 +161,7 @@ func (r *runtime) fsm() {
 	}
 }
 
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
 	r.superSpec = nextSuperSpec
 	r.mux.reloadRules(nextSuperSpec, muxMapper)
 

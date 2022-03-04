@@ -23,7 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols"
 )
 
 const (
@@ -61,7 +61,7 @@ type (
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
 
-		muxMapper protocol.MuxMapper
+		muxMapper protocols.MuxMapper
 	}
 
 	// Spec describes the Mock.
@@ -115,7 +115,7 @@ func (b *Bridge) Handle(ctx context.HTTPContext) (result string) {
 }
 
 // InjectMuxMapper injects mux mapper into Bridge.
-func (b *Bridge) InjectMuxMapper(mapper protocol.MuxMapper) {
+func (b *Bridge) InjectMuxMapper(mapper protocols.MuxMapper) {
 	b.muxMapper = mapper
 }
 

@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -54,7 +54,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper      protocol.MuxMapper
+		muxMapper      protocols.MuxMapper
 		runningFilters []*runningFilter
 		ht             *context.HTTPTemplate
 	}
@@ -290,14 +290,14 @@ func (hp *HTTPPipeline) DefaultSpec() interface{} {
 }
 
 // Init initializes HTTPPipeline.
-func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+func (hp *HTTPPipeline) Init(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
 	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	hp.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of HTTPPipeline.
-func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
+func (hp *HTTPPipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocols.MuxMapper) {
 	hp.superSpec, hp.spec, hp.muxMapper = superSpec, superSpec.ObjectSpec().(*Spec), muxMapper
 
 	hp.reload(previousGeneration.(*HTTPPipeline))

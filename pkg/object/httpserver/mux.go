@@ -26,11 +26,11 @@ import (
 	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/object/globalfilter"
+	"github.com/megaease/easegress/pkg/protocols"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
-	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -52,7 +52,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper protocol.MuxMapper
+		muxMapper protocols.MuxMapper
 
 		cache *cache
 
@@ -284,7 +284,7 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
 	return false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocols.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
@@ -299,7 +299,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMap
 	return m
 }
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
+func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracing

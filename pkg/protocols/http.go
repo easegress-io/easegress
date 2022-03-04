@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-// Package protocol gathers protocol-specific stuff,
+// Package protocols gathers protocol-specific stuff,
 // which eliminate the coupling of framework and implementation.
-package protocol
+package protocols
 
 import (
 	"github.com/megaease/easegress/pkg/context"
