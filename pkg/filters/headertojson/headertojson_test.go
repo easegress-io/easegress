@@ -42,7 +42,7 @@ func defaultFilterSpec(spec *Spec) *httppipeline.FilterSpec {
 		Kind:     Kind,
 		Pipeline: "pipeline-demo",
 	}
-	filterSpec := httppipeline.MockFilterSpec(nil, nil, "", meta, spec)
+	filterSpec := httppipeline.MockFilterSpec(nil, "", meta, spec)
 	return filterSpec
 }
 
