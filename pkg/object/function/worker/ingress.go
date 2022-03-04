@@ -23,8 +23,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/filter/proxy"
-	"github.com/megaease/easegress/pkg/filter/requestadaptor"
+	"github.com/megaease/easegress/pkg/filters/proxy"
+	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/httppipeline"

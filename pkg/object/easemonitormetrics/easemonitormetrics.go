@@ -27,7 +27,7 @@ import (
 	"github.com/Shopify/sarama"
 	jsoniter "github.com/json-iterator/go"
 
-	"github.com/megaease/easegress/pkg/filter/proxy"
+	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"

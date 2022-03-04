@@ -35,7 +35,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	_ "github.com/megaease/easegress/pkg/filter/mqttclientauth"
+	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"

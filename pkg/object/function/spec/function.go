@@ -22,7 +22,7 @@ import (
 
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/megaease/easegress/pkg/filter/requestadaptor"
+	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 )
 

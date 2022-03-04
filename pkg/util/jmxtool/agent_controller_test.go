@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/megaease/easegress/pkg/filter/proxy"
+	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
