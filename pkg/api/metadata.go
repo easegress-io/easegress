@@ -26,7 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -37,8 +37,8 @@ const (
 	// ObjectMetadataPrefix is the object metadata prefix.
 	ObjectMetadataPrefix = "/metadata/objects"
 
-	// FilterMetaPrefix is the filter of HTTPPipeline metadata prefix.
-	FilterMetaPrefix = "/metadata/objects/httppipeline/filters"
+	// FilterMetaPrefix is the filter of Pipeline metadata prefix.
+	FilterMetaPrefix = "/metadata/objects/pipeline/filters"
 )
 
 type (
@@ -57,7 +57,7 @@ var (
 )
 
 func (s *Server) initMetadata() {
-	filterRegistry := httppipeline.GetFilterRegistry()
+	filterRegistry := pipeline.GetFilterRegistry()
 	for kind, f := range filterRegistry {
 		filterMetaBook[kind] = &FilterMeta{
 			Kind:        kind,

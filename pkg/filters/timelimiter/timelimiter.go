@@ -24,7 +24,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	httppipeline.Register(&TimeLimiter{})
+	pipeline.Register(&TimeLimiter{})
 }
 
 type (
@@ -60,7 +60,7 @@ type (
 
 	// TimeLimiter is the time limiter struct
 	TimeLimiter struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 )
@@ -86,7 +86,7 @@ func (tl *TimeLimiter) Results() []string {
 }
 
 // Init initializes TimeLimiter.
-func (tl *TimeLimiter) Init(filterSpec *httppipeline.FilterSpec) {
+func (tl *TimeLimiter) Init(filterSpec *pipeline.FilterSpec) {
 	tl.filterSpec, tl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 
 	if d := tl.spec.DefaultTimeoutDuration; d != "" {
@@ -106,7 +106,7 @@ func (tl *TimeLimiter) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of TimeLimiter.
-func (tl *TimeLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (tl *TimeLimiter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	tl.Init(filterSpec)
 }
 

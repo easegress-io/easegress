@@ -24,7 +24,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -41,13 +41,13 @@ const (
 var results = []string{resultDecompressFail, resultCompressFail}
 
 func init() {
-	httppipeline.Register(&RequestAdaptor{})
+	pipeline.Register(&RequestAdaptor{})
 }
 
 type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		pa *pathadaptor.PathAdaptor
@@ -86,7 +86,7 @@ func (ra *RequestAdaptor) Results() []string {
 }
 
 // Init initializes RequestAdaptor.
-func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ra *RequestAdaptor) Init(filterSpec *pipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
 		panic("RequestAdaptor only support decompress type of gzip")
@@ -104,7 +104,7 @@ func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of RequestAdaptor.
-func (ra *RequestAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ra *RequestAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 
 	previousGeneration.Close()
 	ra.Init(filterSpec)

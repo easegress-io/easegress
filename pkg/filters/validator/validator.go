@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/signer"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -39,13 +39,13 @@ const (
 var results = []string{resultInvalid}
 
 func init() {
-	httppipeline.Register(&Validator{})
+	pipeline.Register(&Validator{})
 }
 
 type (
 	// Validator is filter Validator.
 	Validator struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		headers   *httpheader.Validator
@@ -94,13 +94,13 @@ func (v *Validator) Results() []string {
 }
 
 // Init initializes Validator.
-func (v *Validator) Init(filterSpec *httppipeline.FilterSpec) {
+func (v *Validator) Init(filterSpec *pipeline.FilterSpec) {
 	v.filterSpec, v.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	v.reload()
 }
 
 // Inherit inherits previous generation of Validator.
-func (v *Validator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (v *Validator) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	v.Init(filterSpec)
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters/retryer"
 	"github.com/megaease/easegress/pkg/filters/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -363,9 +363,9 @@ type (
 		Kind string `yaml:"kind"`
 		Name string `yaml:"name"`
 
-		// NOTE: Can't use *httppipeline.Spec here.
+		// NOTE: Can't use *pipeline.Spec here.
 		// Reference: https://github.com/go-yaml/yaml/issues/356
-		httppipeline.Spec `yaml:",inline"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	// CustomResourceKind defines the spec of a custom resource kind
@@ -520,9 +520,9 @@ func (s *ServiceInstanceSpec) Key() string {
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: name,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
@@ -541,7 +541,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineS
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             ratelimiter.Kind,
 		"name":             name,
@@ -559,7 +559,7 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pip
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             circuitbreaker.Kind,
 		"name":             name,
@@ -577,7 +577,7 @@ func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilde
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             retryer.Kind,
 		"name":             name,
@@ -594,7 +594,7 @@ func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":  mock.Kind,
 		"name":  name,
@@ -611,7 +611,7 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":           timelimiter.Kind,
 		"name":           name,
@@ -718,7 +718,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: filterName})
 
 	return b
 }
@@ -758,7 +758,7 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 	filter["serviceCanaries"] = adaptors
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: filterName})
 
 	return b
 }
@@ -772,7 +772,7 @@ func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy
 		}
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,

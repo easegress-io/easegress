@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -91,7 +91,7 @@ rules:
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}
@@ -227,7 +227,7 @@ rules:
 		return "/customer"
 	}
 	newM := &Mock{}
-	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, _ = pipeline.NewFilterSpec(rawSpec, nil)
 	newM.Inherit(spec, m)
 	m.Close()
 	newM.Handle(ctx)

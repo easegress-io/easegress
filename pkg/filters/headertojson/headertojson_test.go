@@ -27,7 +27,7 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,13 +36,13 @@ func init() {
 	logger.InitNop()
 }
 
-func defaultFilterSpec(spec *Spec) *httppipeline.FilterSpec {
-	meta := &httppipeline.FilterMetaSpec{
+func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
+	meta := &pipeline.FilterMetaSpec{
 		Name:     "header-to-json",
 		Kind:     Kind,
 		Pipeline: "pipeline-demo",
 	}
-	filterSpec := httppipeline.MockFilterSpec(nil, "", meta, spec)
+	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec)
 	return filterSpec
 }
 

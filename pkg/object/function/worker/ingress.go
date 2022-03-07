@@ -27,8 +27,8 @@ import (
 	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -54,9 +54,9 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind              string `yaml:"kind"`
-		Name              string `yaml:"name"`
-		httppipeline.Spec `yaml:",inline"`
+		Kind          string `yaml:"kind"`
+		Name          string `yaml:"name"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
@@ -90,9 +90,9 @@ func newIngressServer(superSpec *supervisor.Spec, controllerName string) *ingres
 
 func newPipelineSpecBuilder(funcName string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: funcName,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
@@ -134,7 +134,7 @@ func (b *pipelineSpecBuilder) yamlConfig() string {
 
 func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespace, faasHostSuffix string) *pipelineSpecBuilder {
 	adaptorName := "requestAdaptor"
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: adaptorName})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: adaptorName})
 
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":   requestadaptor.Kind,
@@ -163,7 +163,7 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 		Policy: proxy.PolicyRoundRobin,
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,

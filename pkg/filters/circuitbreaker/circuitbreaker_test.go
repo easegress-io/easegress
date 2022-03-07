@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -60,7 +60,7 @@ urls:
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}
@@ -112,7 +112,7 @@ urls:
 		return "/circuitbreak"
 	}
 	newCb := &CircuitBreaker{}
-	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, _ = pipeline.NewFilterSpec(rawSpec, nil)
 	newCb.Inherit(spec, cb)
 	cb.Close()
 	result = newCb.Handle(ctx)

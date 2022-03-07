@@ -25,7 +25,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 	"github.com/megaease/easegress/pkg/util/yamltool"
@@ -76,7 +76,7 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}

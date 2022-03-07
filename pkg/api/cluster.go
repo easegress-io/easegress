@@ -24,8 +24,8 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -183,7 +183,7 @@ func getSubStatusFromTrafficControllerStatus(status *trafficcontroller.Status, s
 				return string(b)
 			}
 			return ""
-		} else if spec.Kind() == httppipeline.Kind {
+		} else if spec.Kind() == pipeline.Kind {
 			if val, ok := ns.HTTPPipelines[spec.Name()]; ok {
 				b, err := yaml.Marshal(val.Status)
 				if err != nil {

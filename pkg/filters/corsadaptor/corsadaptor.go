@@ -23,7 +23,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -36,13 +36,13 @@ const (
 var results = []string{resultPreflighted}
 
 func init() {
-	httppipeline.Register(&CORSAdaptor{})
+	pipeline.Register(&CORSAdaptor{})
 }
 
 type (
 	// CORSAdaptor is filter for CORS request.
 	CORSAdaptor struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		cors *cors.Cors
@@ -83,13 +83,13 @@ func (a *CORSAdaptor) Results() []string {
 }
 
 // Init initializes CORSAdaptor.
-func (a *CORSAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (a *CORSAdaptor) Init(filterSpec *pipeline.FilterSpec) {
 	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	a.reload()
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (a *CORSAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 
 	previousGeneration.Close()
 	a.Init(filterSpec)

@@ -22,7 +22,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols"
 )
 
@@ -52,13 +52,13 @@ func init() {
 	// FIXME: Bridge is a temporary product for some historical reason.
 	// I(@xxx7xxxx) think we should not empower filter to cross pipelines.
 
-	// httppipeline.Register(&Bridge{})
+	// pipeline.Register(&Bridge{})
 }
 
 type (
 	// Bridge is filter Bridge.
 	Bridge struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		muxMapper protocols.MuxMapper
@@ -91,13 +91,13 @@ func (b *Bridge) Results() []string {
 }
 
 // Init initializes Bridge.
-func (b *Bridge) Init(filterSpec *httppipeline.FilterSpec) {
+func (b *Bridge) Init(filterSpec *pipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Bridge.
-func (b *Bridge) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (b *Bridge) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	b.Init(filterSpec)
 }

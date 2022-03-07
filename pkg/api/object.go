@@ -26,8 +26,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -227,7 +227,7 @@ func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var status map[string]string
-	if spec.Kind() == httpserver.Kind || spec.Kind() == httppipeline.Kind {
+	if spec.Kind() == httpserver.Kind || spec.Kind() == pipeline.Kind {
 		status = s._getStatusObjectFromTrafficController(name, spec)
 	} else {
 		// NOTE: Maybe inconsistent, the object was deleted already here.

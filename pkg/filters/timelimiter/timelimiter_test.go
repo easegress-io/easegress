@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
@@ -53,7 +53,7 @@ urls:
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}
@@ -115,7 +115,7 @@ urls:
 	tl.Description()
 
 	newTl := &TimeLimiter{}
-	spec, _ = httppipeline.NewFilterSpec(rawSpec, nil)
+	spec, _ = pipeline.NewFilterSpec(rawSpec, nil)
 	newTl.Inherit(spec, tl)
 	tl.Close()
 	result = newTl.Handle(ctx)

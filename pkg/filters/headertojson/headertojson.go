@@ -25,7 +25,7 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -41,19 +41,19 @@ var (
 )
 
 func init() {
-	httppipeline.Register(&HeaderToJSON{})
+	pipeline.Register(&HeaderToJSON{})
 }
 
 type (
 	// HeaderToJSON put http request headers into body as JSON fields.
 	HeaderToJSON struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		headerMap  map[string]string
 	}
 )
 
-var _ httppipeline.Filter = (*HeaderToJSON)(nil)
+var _ pipeline.Filter = (*HeaderToJSON)(nil)
 
 // Kind return kind of HeaderToJSON
 func (h *HeaderToJSON) Kind() string {
@@ -83,13 +83,13 @@ func (h *HeaderToJSON) init() {
 }
 
 // Init init HeaderToJSON
-func (h *HeaderToJSON) Init(filterSpec *httppipeline.FilterSpec) {
+func (h *HeaderToJSON) Init(filterSpec *pipeline.FilterSpec) {
 	h.filterSpec, h.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	h.init()
 }
 
 // Inherit init HeaderToJSON based on previous generation
-func (h *HeaderToJSON) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (h *HeaderToJSON) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	h.Init(filterSpec)
 }

@@ -19,7 +19,7 @@ package meshadaptor
 
 import (
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
@@ -33,13 +33,13 @@ const (
 var results = []string{}
 
 func init() {
-	httppipeline.Register(&MeshAdaptor{})
+	pipeline.Register(&MeshAdaptor{})
 }
 
 type (
 	// MeshAdaptor is filter MeshAdaptor.
 	MeshAdaptor struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		pa *pathadaptor.PathAdaptor
@@ -80,13 +80,13 @@ func (ra *MeshAdaptor) Results() []string {
 }
 
 // Init initializes MeshAdaptor.
-func (ra *MeshAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ra *MeshAdaptor) Init(filterSpec *pipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of MeshAdaptor.
-func (ra *MeshAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ra *MeshAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	ra.Init(filterSpec)
 }

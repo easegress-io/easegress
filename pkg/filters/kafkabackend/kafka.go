@@ -25,7 +25,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -36,13 +36,13 @@ const (
 )
 
 func init() {
-	httppipeline.Register(&Kafka{})
+	pipeline.Register(&Kafka{})
 }
 
 type (
 	// Kafka is kafka backend for MQTT proxy
 	Kafka struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		producer   sarama.AsyncProducer
 		done       chan struct{}
@@ -50,7 +50,7 @@ type (
 	}
 )
 
-var _ httppipeline.Filter = (*Kafka)(nil)
+var _ pipeline.Filter = (*Kafka)(nil)
 
 // Kind return kind of Kafka
 func (k *Kafka) Kind() string {
@@ -82,7 +82,7 @@ func (k *Kafka) setHeader(spec *Spec) {
 }
 
 // Init init Kafka
-func (k *Kafka) Init(filterSpec *httppipeline.FilterSpec) {
+func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
 	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	k.done = make(chan struct{})
 	k.setHeader(k.spec)
@@ -118,7 +118,7 @@ func (k *Kafka) checkProduceError() {
 }
 
 // Inherit init Kafka based on previous generation
-func (k *Kafka) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (k *Kafka) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	k.Init(filterSpec)
 }

@@ -30,7 +30,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -50,7 +50,7 @@ const (
 var results = []string{resultFailed, resultResponseAlready}
 
 func init() {
-	httppipeline.Register(&RemoteFilter{})
+	pipeline.Register(&RemoteFilter{})
 }
 
 // All RemoteFilter instances use one globalClient in order to reuse
@@ -104,7 +104,7 @@ func (rf *RemoteFilter) Results() []string {
 type (
 	// RemoteFilter is the filter making remote service acting like internal filter.
 	RemoteFilter struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 
@@ -147,13 +147,13 @@ type (
 )
 
 // Init initializes RemoteFilter.
-func (rf *RemoteFilter) Init(filterSpec *httppipeline.FilterSpec) {
+func (rf *RemoteFilter) Init(filterSpec *pipeline.FilterSpec) {
 	rf.filterSpec, rf.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rf.reload()
 }
 
 // Inherit inherits previous generation of RemoteFilter.
-func (rf *RemoteFilter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (rf *RemoteFilter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	rf.Init(filterSpec)
 }

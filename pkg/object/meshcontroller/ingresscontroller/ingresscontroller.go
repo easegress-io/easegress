@@ -24,12 +24,12 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -312,7 +312,7 @@ func (ic *IngressController) Status() *supervisor.Status {
 	ic.tc.WalkHTTPPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
 			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),
+			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
 		}
 		return true
 	})

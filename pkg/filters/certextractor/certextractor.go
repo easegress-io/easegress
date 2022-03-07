@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	httpcontext "github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -33,13 +33,13 @@ const (
 var results = []string{}
 
 func init() {
-	httppipeline.Register(&CertExtractor{})
+	pipeline.Register(&CertExtractor{})
 }
 
 type (
 	// CertExtractor extracts given field from TLS certificates and sets it to request headers.
 	CertExtractor struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		headerKey string
@@ -79,7 +79,7 @@ func (ce *CertExtractor) Results() []string {
 }
 
 // Init initializes CertExtractor.
-func (ce *CertExtractor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ce *CertExtractor) Init(filterSpec *pipeline.FilterSpec) {
 	ce.filterSpec, ce.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 
 	ce.headerKey = fmt.Sprintf("tls-%s-%s", ce.spec.Target, ce.spec.Field)
@@ -89,7 +89,7 @@ func (ce *CertExtractor) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of CertExtractor.
-func (ce *CertExtractor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ce *CertExtractor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	ce.Init(filterSpec)
 }

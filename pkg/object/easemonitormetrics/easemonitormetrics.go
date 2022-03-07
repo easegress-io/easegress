@@ -29,8 +29,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -339,7 +339,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 	return messages
 }
 
-func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pipelineStatus *httppipeline.Status) (
+func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pipelineStatus *pipeline.Status) (
 	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
 	for filterName, filterStatus := range pipelineStatus.Filters {

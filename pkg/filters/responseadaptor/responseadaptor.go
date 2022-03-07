@@ -22,7 +22,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
@@ -34,13 +34,13 @@ const (
 var results = []string{}
 
 func init() {
-	httppipeline.Register(&ResponseAdaptor{})
+	pipeline.Register(&ResponseAdaptor{})
 }
 
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 
@@ -73,13 +73,13 @@ func (ra *ResponseAdaptor) Results() []string {
 }
 
 // Init initializes ResponseAdaptor.
-func (ra *ResponseAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
+func (ra *ResponseAdaptor) Init(filterSpec *pipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of ResponseAdaptor.
-func (ra *ResponseAdaptor) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (ra *ResponseAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	ra.Init(filterSpec)
 }

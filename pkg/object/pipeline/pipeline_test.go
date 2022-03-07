@@ -1,206 +1,377 @@
 /*
- * Copyright (c) 2017, MegaEase
- * All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+* Copyright (c) 2017, MegaEase
+* All rights reserved.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*     http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
  */
 
 package pipeline
 
 import (
-	stdcontext "context"
-	"strconv"
-	"sync"
+	"reflect"
 	"testing"
 
-	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	Register(&MockMQTTFilter{})
-	logger.InitNop()
+func CreateObjectMock(kind string) Filter {
+	return &FilterMock{kind, []string{}}
 }
 
-func getPipeline(yamlStr string, t *testing.T) *Pipeline {
-	super := supervisor.NewDefaultMock()
-	superSpec, err := super.NewSpec(yamlStr)
-	if err != nil {
-		t.Errorf("supervisor unmarshal yaml failed, %s", err)
-		t.Skip()
+type (
+	FilterMock struct {
+		kind    string
+		results []string
 	}
-	p := &Pipeline{}
-	p.Init(superSpec)
-	return p
+)
+
+func (m *FilterMock) Kind() string                                              { return m.kind }
+func (m *FilterMock) Close()                                                    {}
+func (m *FilterMock) DefaultSpec() interface{}                                  { return &Spec{} }
+func (m *FilterMock) Description() string                                       { return "test" }
+func (m *FilterMock) Results() []string                                         { return m.results }
+func (m *FilterMock) Handle(ctx context.HTTPContext) (result string)            { return "" }
+func (m *FilterMock) Init(filterSpec *FilterSpec)                               {}
+func (m *FilterMock) Inherit(filterSpec *FilterSpec, previousGeneration Filter) {}
+func (m *FilterMock) Status() interface{}                                       { return nil }
+
+func cleanup() {
+	filterRegistry = map[string]Filter{}
 }
 
-func TestPipeline(t *testing.T) {
-	assert := assert.New(t)
-
-	yamlStr := `
-    name: pipeline
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    - filter: mqtt-filter2
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      backendType: Kafka
-    - name: mqtt-filter2
-      kind: MockMQTTFilter`
-	p := getPipeline(yamlStr, t)
-
-	assert.Equal(p.spec.Name, "pipeline", "wrong name")
-	assert.Equal(p.spec.Protocol, context.MQTT, "wrong protocol")
-	assert.Equal(len(p.spec.Flow), 2, "wrong flow length")
-	assert.Equal(p.spec.Flow[0].Filter, "mqtt-filter", "wrong filter name")
-	assert.Equal(len(p.runningFilters), 2, "wrong running filters")
-
-	s := p.runningFilters[0].spec
-	assert.Equal(s.Name(), "mqtt-filter", "wrong filter name")
-	assert.Equal(s.Kind(), "MockMQTTFilter", "wrong filter kind")
-	assert.Equal(s.Pipeline(), "pipeline", "wrong filter pipeline")
-	assert.Equal(s.Protocol(), context.MQTT, "wrong filter protocol")
-
-	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(f.spec.UserName, "test", "wrong filter username")
-	assert.Equal(f.spec.Port, uint16(1234), "wrong filter port")
-	assert.Equal(f.spec.BackendType, "Kafka", "wrong filter BackendType")
-
-	f = p.getRunningFilter("mqtt-filter2").filter.(*MockMQTTFilter)
-	assert.Equal(f.spec.UserName, "", "wrong filter username")
-	assert.Equal(f.spec.Port, uint16(0), "wrong filter port")
-	assert.Equal(f.spec.BackendType, "", "wrong filter BackendType")
-
-	pipeline, err := GetPipeline("pipeline", context.MQTT)
-	assert.Nil(err, "get pipeline failed")
-	assert.Equal(pipeline, p, "get wrong pipeline")
-
-	status := p.Status().ObjectStatus.(*Status)
-	assert.Equal(len(status.Filters), 2)
-
-	filter := p.getRunningFilter("not-exist-filter")
-	assert.Nil(filter)
-
-	newP := &Pipeline{}
-	newP.Inherit(p.superSpec, p)
-	newP.Close()
+func TestSpecValidate(t *testing.T) {
+	cleanup()
+	t.Run("spec missing flow", func(t *testing.T) {
+		Register(CreateObjectMock("mock-filter"))
+		Register(CreateObjectMock("mock-pipeline"))
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"flow": []Flow{
+				Flow{Filter: "filter-1"}, // no such a filter defined
+			},
+			"filters": []map[string]interface{}{
+				map[string]interface{}{
+					"name": "filter-2",
+					"kind": "mock-filter",
+				},
+			},
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+	})
+	cleanup()
+	t.Run("ordered filters with flow", func(t *testing.T) {
+		Register(CreateObjectMock("mock-filter"))
+		Register(CreateObjectMock("mock-pipeline"))
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"flow": []Flow{
+				Flow{Filter: "filter-1"}, Flow{Filter: "filter-2"},
+			},
+			"filters": []map[string]interface{}{
+				map[string]interface{}{
+					"name": "filter-2",
+					"kind": "mock-filter",
+					// Reference to filter-1 before it's defined.
+					// Flow defines the order filters are evaluated, so filter-1 will be available for filter-2.
+					"mock-field": "[[filter.filter-1.rsp.body]]",
+				},
+				map[string]interface{}{
+					"name": "filter-1",
+					"kind": "mock-filter",
+				},
+			},
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err != nil {
+			t.Errorf("failed creating valid filter spec %s", err)
+		}
+	})
+	cleanup()
+	t.Run("ordered filters without flow", func(t *testing.T) {
+		Register(CreateObjectMock("mock-filter"))
+		Register(CreateObjectMock("mock-pipeline"))
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"filters": []map[string]interface{}{
+				map[string]interface{}{
+					"name": "filter-2",
+					"kind": "mock-filter",
+					// Reference to filter-1 before it's defined.
+					// There is no Flow so filters are evaluated in the same order as listed here -> this will fail
+					"mock-field": "[[filter.filter-1.rsp.body]]",
+				},
+				map[string]interface{}{
+					"name": "filter-1",
+					"kind": "mock-filter",
+				},
+			},
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+	})
+	cleanup()
+	t.Run("invalid spec", func(t *testing.T) {
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+		Register(CreateObjectMock("mock-pipeline"))
+		spec = map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"filters": []map[string]interface{}{
+				map[string]interface{}{
+					"name": "filter-1",
+					"kind": "mock-filter", // missing this
+				},
+			},
+		}
+		_, err = NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+		spec = map[string]interface{}{"name": "pipeline"}
+		_, err = NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+	})
+	cleanup()
+	t.Run("duplicate filter", func(t *testing.T) {
+		Register(CreateObjectMock("mock-pipeline"))
+		Register(CreateObjectMock("mock-filter"))
+		spec := map[string]interface{}{
+			"name": "pipeline",
+			"kind": "mock-pipeline",
+			"filters": []map[string]interface{}{
+				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
+				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
+			},
+		}
+		_, err := NewFilterSpec(spec, nil)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+	})
+	cleanup()
 }
 
-func TestHandleMQTT(t *testing.T) {
-	assert := assert.New(t)
+func TestRegistry(t *testing.T) {
+	cleanup()
+	t.Run("duplicate filter name", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Errorf("register did not panic")
+			}
+		}()
+		Register(CreateObjectMock("mock-filter"))
+		Register(CreateObjectMock("mock-filter"))
+	})
+	cleanup()
+	t.Run("empty kind", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Errorf("register did not panic")
+			}
+		}()
+		Register(CreateObjectMock(""))
+	})
+	cleanup()
+	t.Run("repeated results", func(t *testing.T) {
+		defer func() {
+			if err := recover(); err == nil {
+				t.Errorf("register did not panic")
+			}
+		}()
+		results := []string{"res1", "res2", "res3", "res1"}
+		Register(&FilterMock{"filter", results})
+	})
+	cleanup()
+	t.Run("export registry", func(t *testing.T) {
+		Register(CreateObjectMock("mock-pipeline-2"))
+		filters := GetFilterRegistry()
+		if len(filters) != 1 {
+			t.Errorf("couldn't get the filter")
+		}
+	})
+	cleanup()
+}
 
-	yamlStr := `
-name: pipeline
+func TestHttpipeline(t *testing.T) {
+	superSpecYaml := `
+name: http-pipeline-test
 kind: Pipeline
-protocol: MQTT
 flow:
-- filter: mqtt-filter
+  - filter: validator
+    jumpIf: { invalid: END }
+  - filter: requestAdaptor
+    jumpIf: { specialCase: proxy }
+  - filter: proxy
 filters:
-- name: mqtt-filter
-  kind: MockMQTTFilter
-  userName: test
-  port: 1234
-  earlyStop: true
-  backendType: Kafka
-  keysToStore:
-  - mock
-  - mqtt
-  - filter
-  publishBackendClientID: true`
-	p := getPipeline(yamlStr, t)
-	defer p.Close()
-
-	var wg sync.WaitGroup
-	for i := 0; i < 1000; i++ {
-		wg.Add(1)
-		go func(i int) {
-			c := &mockMQTTClient{cid: strconv.Itoa(i), userName: strconv.Itoa(i + 1)}
-			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
-			assert.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
-			p.HandleMQTT(ctx)
-			_, ok := ctx.Client().Load("mock")
-			assert.Equal(true, ok)
-			_, ok = ctx.Client().Load("mqtt")
-			assert.Equal(true, ok)
-			_, ok = ctx.Client().Load("filter")
-			assert.Equal(true, ok)
-
-			subscribe := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
-			subscribe.Topics = []string{strconv.Itoa(i)}
-			ctx = context.NewMQTTContext(stdcontext.Background(), c, subscribe)
-			p.HandleMQTT(ctx)
-
-			unsubscribe := packets.NewControlPacket(packets.Unsubscribe).(*packets.UnsubscribePacket)
-			subscribe.Topics = []string{strconv.Itoa(i)}
-			ctx = context.NewMQTTContext(stdcontext.Background(), c, unsubscribe)
-			p.HandleMQTT(ctx)
-
-			wg.Done()
-		}(i)
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+        - url: http://127.0.0.1:9095
+      loadBalance:
+        policy: roundRobin
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    header:
+      set:
+        X-Adapt-Key: goodplan
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+`
+	logger.InitNop()
+	Register(CreateObjectMock("Proxy"))
+	Register(CreateObjectMock("Pipeline"))
+	t.Run("missing filter results", func(t *testing.T) {
+		Register(CreateObjectMock("Validator"))
+		Register(CreateObjectMock("RequestAdaptor"))
+		_, err := supervisor.NewSpec(superSpecYaml)
+		if err == nil {
+			t.Errorf("spec creation should have failed")
+		}
+		delete(filterRegistry, "Validator")
+		delete(filterRegistry, "RequestAdaptor")
+	})
+	Register(&FilterMock{"Validator", []string{"invalid", "END"}})
+	Register(&FilterMock{"RequestAdaptor", []string{"specialCase"}})
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	if err != nil {
+		t.Errorf("failed to create spec %s", err)
 	}
-	wg.Wait()
-	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	status := f.Status().(MockMQTTStatus)
-	assert.Equal(len(status.ClientCount), 1000, "wrong client count")
-	assert.Equal(1000, len(status.Subscribe))
-	assert.Equal(1000, len(status.Unsubscribe))
+	httpPipeline := Pipeline{nil, nil, nil, []*runningFilter{}, nil}
+	httpPipeline.Init(superSpec, nil)
+	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
-	newP := &Pipeline{}
-	newP.spec = &Spec{Protocol: context.HTTP}
-	assert.NotPanics(func() { newP.HandleMQTT(nil) }, "handle mqtt will log and return since pipeline protocol is http")
+	t.Run("test getNextFilterIndex", func(t *testing.T) {
+		if ind, end := httpPipeline.getNextFilterIndex(0, ""); ind != 1 && end != false {
+			t.Errorf("next index should be 1, was %d", ind)
+		}
+		if ind, end := httpPipeline.getNextFilterIndex(0, "invalid"); ind != 3 && end != true {
+			t.Errorf("next index should be 3, was %d", ind)
+		}
+		if ind, end := httpPipeline.getNextFilterIndex(0, "unknown"); ind != -1 && end != false {
+			t.Errorf("next index should be -1, was %d", ind)
+		}
+		if ind, end := httpPipeline.getNextFilterIndex(1, "specialCase"); ind != 2 && end != false {
+			t.Errorf("next index should be 2, was %d", ind)
+		}
+	})
 
-	yamlStr = `
-    name: pipeline-no-flow
-    kind: Pipeline
-    protocol: MQTT
-    filters:
-    - name: mqtt-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      earlyStop: true
-      backendType: Kafka`
-	assert.NotPanics(func() { getPipeline(yamlStr, t) }, "no flow should work")
+	ctx := &contexttest.MockedHTTPContext{}
+	httpPipeline.Handle(ctx)
+	status := httpPipeline.Status()
+	if reflect.TypeOf(status).Kind() == reflect.Struct {
+		t.Errorf("should be type of Status")
+	}
+	if httpPipeline.getRunningFilter("unknown") != nil {
+		t.Errorf("should not have filters")
+	}
+	httpPipeline.Close()
+	cleanup()
+}
 
-	yamlStr = `
-    name: pipeline-flow-no-filter
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter
-    filters:
-    - name: http-filter
-      kind: MockMQTTFilter
-      userName: test
-      port: 1234
-      earlyStop: true
-      backendType: Kafka`
-	assert.Panics(func() { getPipeline(yamlStr, t) }, "flow and filter have different name")
+func TestHttpipelineNoFlow(t *testing.T) {
+	superSpecYaml := `
+name: http-pipeline-test
+kind: Pipeline
+filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Content-Type:
+        values:
+        - application/json
+  - name: requestAdaptor
+    kind: RequestAdaptor
+    header:
+      set:
+        X-Adapt-Key: goodplan
+  - name: proxy
+    kind: Proxy
+    mainPool:
+      servers:
+      - url: http://127.0.0.1:9095
+      loadBalance:
+        policy: roundRobin
+`
+	logger.InitNop()
+	Register(CreateObjectMock("Proxy"))
+	Register(CreateObjectMock("Pipeline"))
+	Register(CreateObjectMock("Validator"))
+	Register(CreateObjectMock("RequestAdaptor"))
 
-	yamlStr = `
-    name: pipeline-flow-no-filter
-    kind: Pipeline
-    protocol: MQTT
-    flow:
-    - filter: mqtt-filter`
-	assert.Panics(func() { getPipeline(yamlStr, t) }, "flow and no filter should panic")
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	if err != nil {
+		t.Errorf("failed to create spec %s", err)
+	}
+	httpPipeline := Pipeline{nil, nil, nil, []*runningFilter{}, nil}
+	httpPipeline.Init(superSpec, nil)
+	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
+
+	ctx := &contexttest.MockedHTTPContext{}
+	httpPipeline.Handle(ctx)
+	status := httpPipeline.Status()
+	if reflect.TypeOf(status).Kind() == reflect.Struct {
+		t.Errorf("should be type of Status")
+	}
+	if httpPipeline.getRunningFilter("unknown") != nil {
+		t.Errorf("should not have filters")
+	}
+	if httpPipeline.getRunningFilter("proxy") == nil {
+		t.Errorf("should have filter")
+	}
+	httpPipeline.Close()
+	cleanup()
+}
+
+func TestMockFilterSpec(t *testing.T) {
+	meta := &FilterMetaSpec{
+		Name:     "name",
+		Kind:     "kind",
+		Pipeline: "pipeline-demo",
+	}
+	spec := &FilterSpec{}
+	filterSpec := MockFilterSpec(nil, "", meta, spec)
+	if filterSpec.Super() != nil {
+		t.Errorf("expect nil")
+	}
+	if filterSpec.Pipeline() != "pipeline-demo" {
+		t.Errorf("expect empty string")
+	}
+	if filterSpec.FilterSpec() != spec {
+		t.Errorf("expect spec")
+	}
 }

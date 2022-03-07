@@ -27,7 +27,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -39,7 +39,7 @@ const (
 var results = []string{}
 
 func init() {
-	httppipeline.Register(&Retryer{})
+	pipeline.Register(&Retryer{})
 }
 
 type (
@@ -73,7 +73,7 @@ type (
 
 	// Retryer is the struct of retryer
 	Retryer struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 )
@@ -159,7 +159,7 @@ func (r *Retryer) initURL(u *URLRule) {
 }
 
 // Init initializes Retryer.
-func (r *Retryer) Init(filterSpec *httppipeline.FilterSpec) {
+func (r *Retryer) Init(filterSpec *pipeline.FilterSpec) {
 	r.filterSpec = filterSpec
 	r.spec = filterSpec.FilterSpec().(*Spec)
 	for _, url := range r.spec.URLs {
@@ -168,7 +168,7 @@ func (r *Retryer) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of Retryer.
-func (r *Retryer) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (r *Retryer) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	r.Init(filterSpec)
 }
 

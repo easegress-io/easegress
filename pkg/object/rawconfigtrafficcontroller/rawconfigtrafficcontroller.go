@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -141,7 +141,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		switch kind {
 		case httpserver.Kind:
 			err = rctc.tc.DeleteHTTPServer(DefaultNamespace, name)
-		case httppipeline.Kind:
+		case pipeline.Kind:
 			err = rctc.tc.DeleteHTTPPipeline(DefaultNamespace, name)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
@@ -159,7 +159,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		switch kind {
 		case httpserver.Kind:
 			_, err = rctc.tc.CreateHTTPServer(DefaultNamespace, entity)
-		case httppipeline.Kind:
+		case pipeline.Kind:
 			_, err = rctc.tc.CreateHTTPPipeline(DefaultNamespace, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
@@ -177,7 +177,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		switch kind {
 		case httpserver.Kind:
 			_, err = rctc.tc.UpdateHTTPServer(DefaultNamespace, entity)
-		case httppipeline.Kind:
+		case pipeline.Kind:
 			_, err = rctc.tc.UpdateHTTPPipeline(DefaultNamespace, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
@@ -208,7 +208,7 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	rctc.tc.WalkHTTPPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
 		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
 			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*httppipeline.Status),
+			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
 		}
 		return true
 	})

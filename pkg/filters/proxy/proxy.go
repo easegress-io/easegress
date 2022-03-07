@@ -29,7 +29,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
 
@@ -51,7 +51,7 @@ var results = []string{
 }
 
 func init() {
-	httppipeline.Register(&Proxy{})
+	pipeline.Register(&Proxy{})
 }
 
 var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
@@ -61,7 +61,7 @@ var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, 
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		fallback *fallback.Fallback
@@ -170,13 +170,13 @@ func (b *Proxy) Results() []string {
 }
 
 // Init initializes Proxy.
-func (b *Proxy) Init(filterSpec *httppipeline.FilterSpec) {
+func (b *Proxy) Init(filterSpec *pipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Proxy.
-func (b *Proxy) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (b *Proxy) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	b.Init(filterSpec)
 }

@@ -26,8 +26,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 	apicorev1 "k8s.io/api/core/v1"
@@ -50,9 +50,9 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind              string `yaml:"kind"`
-		Name              string `yaml:"name"`
-		httppipeline.Spec `yaml:",inline"`
+		Kind          string `yaml:"kind"`
+		Name          string `yaml:"name"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
@@ -64,9 +64,9 @@ type (
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: name,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
@@ -83,7 +83,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 		pool.Servers = append(pool.Servers, &proxy.Server{URL: ep})
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.Flow{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":     proxy.Kind,
 		"name":     name,

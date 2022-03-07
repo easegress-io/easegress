@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
@@ -50,15 +50,15 @@ type (
 
 	// Spec describes the GlobalFilter.
 	Spec struct {
-		BeforePipeline httppipeline.Spec `yaml:"beforePipeline" jsonschema:"omitempty"`
-		AfterPipeline  httppipeline.Spec `yaml:"afterPipeline" jsonschema:"omitempty"`
+		BeforePipeline pipeline.Spec `yaml:"beforePipeline" jsonschema:"omitempty"`
+		AfterPipeline  pipeline.Spec `yaml:"afterPipeline" jsonschema:"omitempty"`
 	}
 
-	// pipelineSpec defines httppipeline spec to create an httppipeline entity.
+	// pipelineSpec defines pipeline spec to create an pipeline entity.
 	pipelineSpec struct {
-		Kind              string `yaml:"kind" jsonschema:"omitempty"`
-		Name              string `yaml:"name" jsonschema:"omitempty"`
-		httppipeline.Spec `yaml:",inline"`
+		Kind          string `yaml:"kind" jsonschema:"omitempty"`
+		Name          string `yaml:"name" jsonschema:"omitempty"`
+		pipeline.Spec `yaml:",inline"`
 	}
 )
 
@@ -67,9 +67,9 @@ func init() {
 }
 
 // CreateAndUpdateBeforePipelineForSpec creates beforPipeline if the spec is nil, otherwise it updates by the spec.
-func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
+func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previousGeneration *pipeline.Pipeline) error {
 	beforePipeline := &pipelineSpec{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: "before",
 		Spec: spec.BeforePipeline,
 	}
@@ -85,9 +85,9 @@ func (gf *GlobalFilter) CreateAndUpdateBeforePipelineForSpec(spec *Spec, previou
 }
 
 // CreateAndUpdateAfterPipelineForSpec creates afterPipeline if the spec is nil, otherwise it updates with the spec.
-func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previousGeneration *httppipeline.HTTPPipeline) error {
+func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previousGeneration *pipeline.Pipeline) error {
 	afterPipeline := &pipelineSpec{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: "after",
 		Spec: spec.AfterPipeline,
 	}
@@ -103,7 +103,7 @@ func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previous
 }
 
 // CreateAndUpdatePipeline creates and updates GlobalFilter's pipelines.
-func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *httppipeline.HTTPPipeline) (*httppipeline.HTTPPipeline, error) {
+func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *pipeline.Pipeline) (*pipeline.Pipeline, error) {
 	// init config
 	config := yamltool.Marshal(spec)
 	specs, err := supervisor.NewSpec(string(config))
@@ -112,7 +112,7 @@ func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGene
 	}
 
 	// init or update pipeline
-	var pipeline = new(httppipeline.HTTPPipeline)
+	var pipeline = new(pipeline.Pipeline)
 	if previousGeneration != nil {
 		pipeline.Inherit(specs, previousGeneration, nil)
 	} else {
@@ -159,11 +159,11 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 // Handle `beforePipeline` and `afterPipeline` before and after the httpHandler is executed.
 func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocols.HTTPHandler) {
 	result := gf.beforeHandle(ctx)
-	if result == httppipeline.LabelEND {
+	if result == pipeline.LabelEND {
 		return
 	}
 	result = httpHandle.Handle(ctx)
-	if result == httppipeline.LabelEND {
+	if result == pipeline.LabelEND {
 		return
 	}
 	gf.afterHandle(ctx)
@@ -176,7 +176,7 @@ func (gf *GlobalFilter) beforeHandle(ctx context.HTTPContext) string {
 	if value == nil {
 		return ""
 	}
-	handler, ok := value.(*httppipeline.HTTPPipeline)
+	handler, ok := value.(*pipeline.Pipeline)
 	if !ok {
 		return ""
 	}
@@ -189,7 +189,7 @@ func (gf *GlobalFilter) afterHandle(ctx context.HTTPContext) string {
 	if value == nil {
 		return ""
 	}
-	handler, ok := value.(*httppipeline.HTTPPipeline)
+	handler, ok := value.(*pipeline.Pipeline)
 	if !ok {
 		return ""
 	}
@@ -217,13 +217,13 @@ func (s *Spec) Validate() (err error) {
 }
 
 func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
-	var beforePreviousPipeline, afterPreviousPipeline *httppipeline.HTTPPipeline
+	var beforePreviousPipeline, afterPreviousPipeline *pipeline.Pipeline
 	// create and update beforePipeline entity
 	if len(gf.spec.BeforePipeline.Flow) != 0 {
 		if previousGeneration != nil {
 			previous := previousGeneration.beforePipeline.Load()
 			if previous != nil {
-				beforePreviousPipeline = previous.(*httppipeline.HTTPPipeline)
+				beforePreviousPipeline = previous.(*pipeline.Pipeline)
 			}
 		}
 		err := gf.CreateAndUpdateBeforePipelineForSpec(gf.spec, beforePreviousPipeline)
@@ -236,7 +236,7 @@ func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 		if previousGeneration != nil {
 			previous := previousGeneration.afterPipeline.Load()
 			if previous != nil {
-				afterPreviousPipeline = previous.(*httppipeline.HTTPPipeline)
+				afterPreviousPipeline = previous.(*pipeline.Pipeline)
 			}
 		}
 		err := gf.CreateAndUpdateAfterPipelineForSpec(gf.spec, afterPreviousPipeline)

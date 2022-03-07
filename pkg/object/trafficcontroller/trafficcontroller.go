@@ -23,8 +23,8 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -83,7 +83,7 @@ type (
 	// HTTPPipelineStatus is the HTTP pipeline status
 	HTTPPipelineStatus struct {
 		Spec   map[string]interface{} `yaml:"spec"`
-		Status *httppipeline.Status   `yaml:"status"`
+		Status *pipeline.Status       `yaml:"status"`
 	}
 
 	// StatusInSameNamespace is the universal status in one space.
@@ -606,7 +606,7 @@ func (tc *TrafficController) Clean(namespace string) error {
 	return nil
 }
 
-// _cleanSpace must be called after deleting HTTPServer or HTTPPipeline.
+// _cleanSpace must be called after deleting HTTPServer or Pipeline.
 // It's caller's duty to keep concurrent safety.
 func (tc *TrafficController) _cleanSpace(namespace string) {
 	space, exists := tc.namespaces[namespace]
@@ -660,7 +660,7 @@ func (tc *TrafficController) Status() *supervisor.Status {
 
 			httpPipelines[k] = &HTTPPipelineStatus{
 				Spec:   v.Spec().RawSpec(),
-				Status: v.Instance().Status().ObjectStatus.(*httppipeline.Status),
+				Status: v.Instance().Status().ObjectStatus.(*pipeline.Status),
 			}
 
 			return true

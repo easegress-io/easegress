@@ -27,7 +27,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
@@ -38,13 +38,13 @@ func init() {
 	logger.InitNop()
 }
 
-func defaultFilterSpec(spec *Spec) *httppipeline.FilterSpec {
-	meta := &httppipeline.FilterMetaSpec{
+func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
+	meta := &pipeline.FilterMetaSpec{
 		Name:     "request-adaptor",
 		Kind:     Kind,
 		Pipeline: "pipeline-demo",
 	}
-	filterSpec := httppipeline.MockFilterSpec(nil, "", meta, spec)
+	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec)
 	return filterSpec
 }
 
@@ -67,7 +67,7 @@ func getContext(t *testing.T, req *http.Request, httpTemp *context.HTTPTemplate)
 	return ctx
 }
 
-func getTemplate(t *testing.T, filterSpec *httppipeline.FilterSpec) *context.HTTPTemplate {
+func getTemplate(t *testing.T, filterSpec *pipeline.FilterSpec) *context.HTTPTemplate {
 	filterBuffs := []context.FilterBuff{
 		{Name: filterSpec.Name(), Buff: []byte(filterSpec.YAMLConfig())},
 	}

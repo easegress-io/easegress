@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
@@ -62,7 +62,7 @@ func init() {
 	for i := int32(1); i <= maxWasmResult; i++ {
 		results = append(results, wasmResultToFilterResult(i))
 	}
-	httppipeline.Register(&WasmHost{})
+	pipeline.Register(&WasmHost{})
 }
 
 type (
@@ -77,7 +77,7 @@ type (
 
 	// WasmHost is the WebAssembly filter
 	WasmHost struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		code       []byte
@@ -264,7 +264,7 @@ func (wh *WasmHost) watchWasmData() {
 	}
 }
 
-func (wh *WasmHost) reload(filterSpec *httppipeline.FilterSpec) {
+func (wh *WasmHost) reload(filterSpec *pipeline.FilterSpec) {
 	wh.filterSpec = filterSpec
 	wh.spec = filterSpec.FilterSpec().(*Spec)
 
@@ -279,12 +279,12 @@ func (wh *WasmHost) reload(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Init initializes WasmHost.
-func (wh *WasmHost) Init(pipeSpec *httppipeline.FilterSpec) {
+func (wh *WasmHost) Init(pipeSpec *pipeline.FilterSpec) {
 	wh.reload(pipeSpec)
 }
 
 // Inherit inherits previous generation of WasmHost.
-func (wh *WasmHost) Inherit(pipeSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (wh *WasmHost) Inherit(pipeSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	wh.reload(pipeSpec)
 }

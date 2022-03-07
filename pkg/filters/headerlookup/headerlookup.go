@@ -31,7 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -46,13 +46,13 @@ const (
 var results = []string{}
 
 func init() {
-	httppipeline.Register(&HeaderLookup{})
+	pipeline.Register(&HeaderLookup{})
 }
 
 type (
 	// HeaderLookup retrieves values from etcd to headers.
 	HeaderLookup struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		etcdPrefix string
 		headerKey  string
@@ -133,7 +133,7 @@ func (hl *HeaderLookup) Results() []string {
 }
 
 // Init initializes HeaderLookup.
-func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
+func (hl *HeaderLookup) Init(filterSpec *pipeline.FilterSpec) {
 	hl.filterSpec, hl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	if filterSpec.Super() != nil && filterSpec.Super().Cluster() != nil {
 		hl.cluster = filterSpec.Super().Cluster()
@@ -147,7 +147,7 @@ func (hl *HeaderLookup) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of HeaderLookup.
-func (hl *HeaderLookup) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (hl *HeaderLookup) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	hl.Init(filterSpec)
 }

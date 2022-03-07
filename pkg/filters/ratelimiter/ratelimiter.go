@@ -25,7 +25,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	librl "github.com/megaease/easegress/pkg/util/ratelimiter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -39,7 +39,7 @@ const (
 var results = []string{resultRateLimited}
 
 func init() {
-	httppipeline.Register(&RateLimiter{})
+	pipeline.Register(&RateLimiter{})
 }
 
 type (
@@ -67,7 +67,7 @@ type (
 
 	// RateLimiter defines the rate limiter
 	RateLimiter struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 )
@@ -225,13 +225,13 @@ OuterLoop:
 }
 
 // Init initializes RateLimiter.
-func (rl *RateLimiter) Init(filterSpec *httppipeline.FilterSpec) {
+func (rl *RateLimiter) Init(filterSpec *pipeline.FilterSpec) {
 	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(nil)
 }
 
 // Inherit inherits previous generation of RateLimiter.
-func (rl *RateLimiter) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (rl *RateLimiter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	rl.reload(previousGeneration.(*RateLimiter))
 }

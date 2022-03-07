@@ -31,7 +31,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -48,13 +48,13 @@ const (
 var results = []string{resultFailed}
 
 func init() {
-	httppipeline.Register(&APIAggregator{})
+	pipeline.Register(&APIAggregator{})
 }
 
 type (
 	// APIAggregator is a filter to aggregate several HTTP API responses.
 	APIAggregator struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 
 		// rctc is for getting Pipeline in default namespace.
@@ -127,7 +127,7 @@ func (aa *APIAggregator) Results() []string {
 }
 
 // Init initializes APIAggregator.
-func (aa *APIAggregator) Init(filterSpec *httppipeline.FilterSpec) {
+func (aa *APIAggregator) Init(filterSpec *pipeline.FilterSpec) {
 	aa.filterSpec, aa.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	entity, exists := filterSpec.Super().GetSystemController(rawconfigtrafficcontroller.Kind)
 	if !exists {
@@ -143,7 +143,7 @@ func (aa *APIAggregator) Init(filterSpec *httppipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of APIAggregator.
-func (aa *APIAggregator) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (aa *APIAggregator) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	aa.Init(filterSpec)
 }
@@ -232,7 +232,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 
 	data := make(map[string][]byte)
 
-	// Get all HTTPPipeline response' body
+	// Get all Pipeline response' body
 	for i, resp := range httpResps {
 		if resp == nil && !aa.spec.PartialSucceed {
 			ctx.Response().Std().Header().Set("X-EG-Aggregator", fmt.Sprintf("failed-in-%s",

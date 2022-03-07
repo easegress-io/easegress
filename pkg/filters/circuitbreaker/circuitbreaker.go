@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/urlrule"
@@ -41,7 +41,7 @@ const (
 var results = []string{resultShortCircuited}
 
 func init() {
-	httppipeline.Register(&CircuitBreaker{})
+	pipeline.Register(&CircuitBreaker{})
 }
 
 type (
@@ -77,7 +77,7 @@ type (
 
 	// CircuitBreaker defines the circuit breaker
 	CircuitBreaker struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 
@@ -276,13 +276,13 @@ OuterLoop:
 }
 
 // Init initializes CircuitBreaker.
-func (cb *CircuitBreaker) Init(filterSpec *httppipeline.FilterSpec) {
+func (cb *CircuitBreaker) Init(filterSpec *pipeline.FilterSpec) {
 	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
-func (cb *CircuitBreaker) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (cb *CircuitBreaker) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }

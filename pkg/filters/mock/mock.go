@@ -23,7 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -37,13 +37,13 @@ const (
 var results = []string{resultMocked}
 
 func init() {
-	httppipeline.Register(&Mock{})
+	pipeline.Register(&Mock{})
 }
 
 type (
 	// Mock is filter Mock.
 	Mock struct {
-		filterSpec *httppipeline.FilterSpec
+		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 	}
 
@@ -93,13 +93,13 @@ func (m *Mock) Results() []string {
 }
 
 // Init initializes Mock.
-func (m *Mock) Init(filterSpec *httppipeline.FilterSpec) {
+func (m *Mock) Init(filterSpec *pipeline.FilterSpec) {
 	m.filterSpec, m.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
 	m.reload()
 }
 
 // Inherit inherits previous generation of Mock.
-func (m *Mock) Inherit(filterSpec *httppipeline.FilterSpec, previousGeneration httppipeline.Filter) {
+func (m *Mock) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
 	previousGeneration.Close()
 	m.Init(filterSpec)
 }

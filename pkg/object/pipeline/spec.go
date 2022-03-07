@@ -20,26 +20,12 @@ package pipeline
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
 type (
-	// Spec describes the Pipeline.
-	Spec struct {
-		Name     string                   `yaml:"-" jsonschema:"-"`
-		Protocol context.Protocol         `yaml:"protocol" jsonschema:"required"`
-		Flow     []Flow                   `yaml:"flow" jsonschema:"omitempty"`
-		Filters  []map[string]interface{} `yaml:"filters" jsonschema:"required"`
-	}
-
-	// Flow controls the flow of pipeline.
-	Flow struct {
-		Filter string `yaml:"filter" jsonschema:"required,format=urlname"`
-	}
-
 	// FilterSpec is the universal spec for all filters.
 	FilterSpec struct {
 		super *supervisor.Supervisor
@@ -47,93 +33,16 @@ type (
 		yamlConfig string
 		meta       *FilterMetaSpec
 		filterSpec interface{}
+		rootFilter Filter
 	}
 
 	// FilterMetaSpec is metadata for all specs.
 	FilterMetaSpec struct {
-		Name     string           `yaml:"name" jsonschema:"required,format=urlname"`
-		Kind     string           `yaml:"kind" jsonschema:"required"`
-		Pipeline string           `yaml:"-" jsonschema:"-"`
-		Protocol context.Protocol `yaml:"-" jsonschema:"-"`
-	}
-
-	// Status is the status of HTTPPipeline.
-	Status struct {
-		Health string `yaml:"health"`
-
-		Filters map[string]interface{} `yaml:"filters"`
+		Name     string `yaml:"name" jsonschema:"required,format=urlname"`
+		Kind     string `yaml:"kind" jsonschema:"required"`
+		Pipeline string `yaml:"-" jsonschema:"-"`
 	}
 )
-
-func extractFiltersData(config []byte) interface{} {
-	var whole map[string]interface{}
-	yamltool.Unmarshal(config, &whole)
-	return whole["filters"]
-}
-
-// creates FilterSpecs from a list of filters
-func filtersToFilterSpecs(filters []map[string]interface{}, super *supervisor.Supervisor) (map[string]*FilterSpec, []string) {
-	filterMap := make(map[string]*FilterSpec)
-	filterNames := []string{}
-	for _, filter := range filters {
-		spec, err := NewFilterSpec(filter, super)
-		if err != nil {
-			panic(err)
-		}
-		if _, exists := filterMap[spec.Name()]; exists {
-			panic(fmt.Errorf("conflict name: %s", spec.Name()))
-		}
-		filterMap[spec.Name()] = spec
-		filterNames = append(filterNames, spec.Name())
-	}
-	return filterMap, filterNames
-}
-
-// Validate validates Spec.
-func (s Spec) Validate() (err error) {
-	errPrefix := "filters"
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%s: %s", errPrefix, r)
-		}
-	}()
-
-	config := yamltool.Marshal(s)
-
-	filtersData := extractFiltersData(config)
-	if filtersData == nil {
-		return fmt.Errorf("filters is required")
-	}
-
-	filterSpecs, _ := filtersToFilterSpecs(
-		s.Filters,
-		nil, /*NOTE: Nil supervisor is fine in spec validating phrase.*/
-	)
-
-	for _, spec := range filterSpecs {
-		kind := spec.Kind()
-		filter, exists := filterRegistry[kind]
-		if !exists {
-			panic(fmt.Errorf("kind %s not found", kind))
-		}
-		protocols, err := getProtocols(filter)
-		if err != nil {
-			panic(fmt.Errorf("filter %v get protocols failed, %v", kind, err))
-		}
-		if _, ok := protocols[s.Protocol]; !ok {
-			panic(fmt.Errorf("filter %v not support pipeline protocol %s", spec.Name(), s.Protocol))
-		}
-	}
-
-	errPrefix = "flow"
-	filters := make(map[string]struct{})
-	for _, f := range s.Flow {
-		if _, exists := filters[f.Filter]; exists {
-			panic(fmt.Errorf("repeated filter %s", f.Filter))
-		}
-	}
-	return nil
-}
 
 // NewFilterSpec creates a filter spec and validates it.
 func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Supervisor) (
@@ -191,6 +100,7 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	s.meta = meta
 	s.filterSpec = filterSpec
 	s.yamlConfig = yamlConfig
+	s.rootFilter = rootFilter
 
 	return
 }
@@ -209,9 +119,6 @@ func (s *FilterSpec) Kind() string { return s.meta.Kind }
 // Pipeline returns the name of the pipeline this filter belongs to.
 func (s *FilterSpec) Pipeline() string { return s.meta.Pipeline }
 
-// Protocol return protocol for this filter
-func (s *FilterSpec) Protocol() context.Protocol { return s.meta.Protocol }
-
 // YAMLConfig returns the config in yaml format.
 func (s *FilterSpec) YAMLConfig() string {
 	return s.yamlConfig
@@ -220,4 +127,9 @@ func (s *FilterSpec) YAMLConfig() string {
 // FilterSpec returns the filter spec in its own type.
 func (s *FilterSpec) FilterSpec() interface{} {
 	return s.filterSpec
+}
+
+// RootFilter returns the root filter of the filter spec.
+func (s *FilterSpec) RootFilter() Filter {
+	return s.rootFilter
 }
