@@ -21,11 +21,9 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -39,12 +37,22 @@ const (
 	// Kind is the kind of Pipeline.
 	Kind = "Pipeline"
 
-	// LabelEND is the built-in label for jumping of flow.
-	LabelEND = "END"
+	// builtInFilterEnd is the name of the build-in end filter.
+	builtInFilterEnd = "END"
+
+	// defaultRequest is the name of the default request.
+	defaultRequest = "Default"
+
+	// defaultResponse is the name of the default response.
+	defaultResponse = "Default"
 )
 
 func init() {
 	supervisor.Register(&Pipeline{})
+}
+
+func isBuiltInFilter(name string) bool {
+	return name == builtInFilterEnd
 }
 
 type (
@@ -53,128 +61,43 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		filters []*filterInstance
-		ht      *context.HTTPTemplate
-	}
-
-	filterInstance struct {
-		spec       *FilterSpec
-		requestID  string
-		responseID string
-		useRequest string
-		jumpIf     map[string]string
-		instance   Filter
+		filters map[string]Filter
+		flow    []FlowNode
 	}
 
 	// Spec describes the Pipeline.
 	Spec struct {
-		Flow    []Flow                   `yaml:"flow" jsonschema:"omitempty"`
+		Flow    []FlowNode               `yaml:"flow" jsonschema:"omitempty"`
 		Filters []map[string]interface{} `yaml:"filters" jsonschema:"required"`
 	}
 
-	// Flow controls the flow of pipeline.
-	Flow struct {
+	// FlowNode describes one node of the pipeline flow.
+	FlowNode struct {
 		Filter     string            `yaml:"filter" jsonschema:"required,format=urlname"`
 		RequestID  string            `yaml:"requestID" jsonschema:"requestID,omitempty"`
 		ResponseID string            `yaml:"responseID" jsonschema:"responseID,omitempty"`
 		UseRequest string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
 		JumpIf     map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
+		filter     Filter
 	}
 
-	// Status is the status of Pipeline.
-	Status struct {
-		Health string `yaml:"health"`
-
-		Filters map[string]interface{} `yaml:"filters"`
-	}
-
-	// FilterStat records the statistics of the running filter.
+	// FilterStat records the statistics of a filter.
 	FilterStat struct {
 		Name     string
 		Kind     string
 		Result   string
 		Duration time.Duration
-		Next     []*FilterStat
+	}
+
+	// Status is the status of Pipeline.
+	Status struct {
+		Health  string                 `yaml:"health"`
+		Filters map[string]interface{} `yaml:"filters"`
 	}
 )
 
-func (fs *FilterStat) selfDuration() time.Duration {
-	d := fs.Duration
-	for _, s := range fs.Next {
-		d -= s.Duration
-	}
-	return d
-}
-
-var filterStatPool = sync.Pool{
-	New: func() interface{} {
-		return &FilterStat{}
-	},
-}
-
-func newFilterStat() *FilterStat {
-	return filterStatPool.Get().(*FilterStat)
-}
-
-func releaseFilterStat(fs *FilterStat) {
-	fs.Next = nil
-	filterStatPool.Put(fs)
-}
-
-func (fs *FilterStat) marshalAndRelease() string {
-	defer releaseFilterStat(fs)
-	if len(fs.Next) == 0 {
-		return "pipeline: <empty>"
-	}
-
-	var buf strings.Builder
-	buf.WriteString("pipeline: ")
-
-	var fn func(stat *FilterStat)
-	fn = func(stat *FilterStat) {
-		defer releaseFilterStat(stat)
-
-		buf.WriteString(stat.Name)
-		buf.WriteByte('(')
-		if stat.Result != "" {
-			buf.WriteString(stat.Result)
-			buf.WriteByte(',')
-		}
-		buf.WriteString(stat.selfDuration().String())
-		buf.WriteByte(')')
-		if len(stat.Next) == 0 {
-			return
-		}
-		buf.WriteString("->")
-		if len(stat.Next) > 1 {
-			buf.WriteByte('[')
-		}
-		for i, s := range stat.Next {
-			if i > 0 {
-				buf.WriteByte(',')
-			}
-			fn(s)
-		}
-		if len(stat.Next) > 1 {
-			buf.WriteByte(']')
-		}
-	}
-
-	fn(fs.Next[0])
-	return buf.String()
-}
-
-// FlowFilterNames returns the filter names of the flow
-func (s Spec) FlowFilterNames() []string {
-	names := make([]string, len(s.Flow))
-	for i, f := range s.Flow {
-		names[i] = f.Filter
-	}
-	return names
-}
-
 // Validate validates Spec.
-func (s Spec) Validate() (err error) {
+func (s *Spec) Validate() (err error) {
 	errPrefix := "filters"
 	defer func() {
 		if r := recover(); r != nil {
@@ -182,10 +105,9 @@ func (s Spec) Validate() (err error) {
 		}
 	}()
 
-	filterSpecs := map[string]*FilterSpec{}
-	filterNames := []string{}
+	specs := map[string]*FilterSpec{}
 
-	// validate filter spec
+	// 1: validate filter spec
 	for _, f := range s.Filters {
 		// NOTE: Nil supervisor is fine in spec validating phrase.
 		spec, err := NewFilterSpec(f, nil)
@@ -193,314 +115,239 @@ func (s Spec) Validate() (err error) {
 			panic(err)
 		}
 
-		if spec.meta.Name == LabelEND {
-			return fmt.Errorf("can't use %s(built-in label) for filter name", LabelEND)
+		name := spec.Name()
+		if isBuiltInFilter(name) {
+			panic(fmt.Errorf("can't use %s(built-in) for filter name", name))
 		}
 
-		filterSpecs[spec.meta.Name] = spec
-		filterNames = append(filterNames, spec.meta.Name)
+		specs[name] = spec
 	}
 
-	// validate flow
+	// 2: validate flow
 	errPrefix = "flow"
-	filterOrder := []string{}
-	validLabels := map[string]struct{}{LabelEND: {}}
+
+	// 2.1: validate jumpIfs
+	validNames := map[string]bool{builtInFilterEnd: true}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
-		f := s.Flow[i]
-		if strings.EqualFold(f.Filter, "end") {
+		node := &s.Flow[i]
+		if node.Filter == builtInFilterEnd {
 			continue
 		}
-		spec, exists := filterSpecs[f.Filter]
-		if !exists {
-			panic(fmt.Errorf("filter %s not found", f.Filter))
+		spec := specs[node.Filter]
+		if spec == nil {
+			panic(fmt.Errorf("filter %s not found", node.Filter))
 		}
 		results := QueryFilterRegistry(spec.Kind()).Results()
-		for result, label := range f.JumpIf {
+		for result, target := range node.JumpIf {
 			if !stringtool.StrInSlice(result, results) {
-				panic(fmt.Errorf("filter %s: result %s is not in %v", f.Filter, result, results))
+				msgFmt := "filter %s: result %s is not in %v"
+				panic(fmt.Errorf(msgFmt, node.Filter, result, results))
 			}
-			if _, exists := validLabels[label]; !exists {
-				panic(fmt.Errorf("filter %s: label %s not found", f.Filter, label))
+			if ok := validNames[target]; !ok {
+				msgFmt := "filter %s: target filter %s not found"
+				panic(fmt.Errorf(msgFmt, node.Filter, target))
 			}
 		}
-		validLabels[f.Filter] = struct{}{}
-		filterOrder = append(filterOrder, f.Filter)
+		validNames[node.Filter] = true
 	}
 
-	// TODO: remove below code?
-
-	// sort filters using the Flow or the order they were defined
-	if len(filterOrder) == 0 {
-		filterOrder = filterNames
-	}
-	templateFilterBuffs := make([]context.FilterBuff, len(filterOrder))
-	for i, name := range filterOrder {
-		spec := filterSpecs[name]
-		templateFilterBuffs[i] = context.FilterBuff{
-			Name: name,
-			Buff: []byte(spec.yamlConfig),
+	// 2.2: validate request IDs
+	validNames = map[string]bool{defaultRequest: true}
+	for i := 0; i < len(s.Flow); i++ {
+		node := &s.Flow[i]
+		if node.UseRequest != "" && !validNames[node.UseRequest] {
+			msgFmt := "filter %s: desired request %s not found"
+			panic(fmt.Errorf(msgFmt, node.Filter, node.UseRequest))
 		}
-	}
-	// validate http template inside filter specs
-	_, err = context.NewHTTPTemplate(templateFilterBuffs)
-	if err != nil {
-		panic(fmt.Errorf("filter has invalid httptemplate: %v", err))
+		if node.RequestID != "" {
+			validNames[node.RequestID] = true
+		}
 	}
 
 	return nil
 }
 
+func serializeStats(stats []FilterStat) string {
+	if len(stats) == 0 {
+		return "pipeline: <empty>"
+	}
+
+	var sb strings.Builder
+	sb.WriteString("pipeline: ")
+
+	for i := range stats {
+		if i > 0 {
+			sb.WriteString("->")
+		}
+
+		stat := &stats[i]
+		sb.WriteString(stat.Name)
+		sb.WriteByte('(')
+		if stat.Result != "" {
+			sb.WriteString(stat.Result)
+			sb.WriteByte(',')
+		}
+		sb.WriteString(stat.Duration.String())
+		sb.WriteByte(')')
+	}
+
+	return sb.String()
+}
+
 // Category returns the category of Pipeline.
-func (hp *Pipeline) Category() supervisor.ObjectCategory {
+func (p *Pipeline) Category() supervisor.ObjectCategory {
 	return Category
 }
 
 // Kind returns the kind of Pipeline.
-func (hp *Pipeline) Kind() string {
+func (p *Pipeline) Kind() string {
 	return Kind
 }
 
 // DefaultSpec returns the default spec of Pipeline.
-func (hp *Pipeline) DefaultSpec() interface{} {
+func (p *Pipeline) DefaultSpec() interface{} {
 	return &Spec{}
 }
 
 // Init initializes Pipeline.
-func (hp *Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
-	hp.superSpec, hp.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
+	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 
-	hp.reload(nil /*no previous generation*/)
+	p.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of Pipeline.
-func (hp *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocols.MuxMapper) {
-	hp.superSpec, hp.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocols.MuxMapper) {
+	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 
-	hp.reload(previousGeneration.(*Pipeline))
+	p.reload(previousGeneration.(*Pipeline))
 
+	// TODO: below behavior must be changed!!
+	//
 	// NOTE: It's filters' responsibility to inherit and clean their resources.
 	// previousGeneration.Close()
 }
 
-// creates FilterSpecs from a list of filters
-func filtersToFilterSpecs(filters []map[string]interface{}, super *supervisor.Supervisor) (map[string]*FilterSpec, []string) {
-	filterMap := make(map[string]*FilterSpec)
-	filterNames := make([]string, 0)
-	for _, filter := range filters {
-		spec, err := NewFilterSpec(filter, super)
+func (p *Pipeline) reload(previousGeneration *Pipeline) {
+	pipelineName := p.superSpec.Name()
+
+	filters := make([]Filter, 0, len(p.spec.Filters))
+	specs := make([]*FilterSpec, 0, len(p.spec.Filters))
+
+	// create new filters.
+	for _, rawSpec := range p.spec.Filters {
+		spec, err := NewFilterSpec(rawSpec, p.superSpec.Super())
 		if err != nil {
 			panic(err)
 		}
-		if _, exists := filterMap[spec.Name()]; exists {
-			panic(fmt.Errorf("conflict name: %s", spec.Name()))
+
+		rootInst := QueryFilterRegistry(spec.Kind())
+		if rootInst == nil {
+			panic(fmt.Errorf("kind %s not found", spec.Kind()))
 		}
-		filterMap[spec.Name()] = spec
-		filterNames = append(filterNames, spec.Name())
+
+		spec.pipeline = pipelineName
+		filter := reflect.New(reflect.TypeOf(rootInst).Elem()).Interface().(Filter)
+		filters = append(filters, filter)
+		specs = append(specs, spec)
 	}
-	return filterMap, filterNames
-}
 
-// Transforms map of FilterSpecs to list,
-// sorted by Flow if present and otherwise in the order filters were defined
-func filterSpecMapToSortedList(filterMap map[string]*FilterSpec, flowItems []Flow, filterNames []string) []*filterInstance {
-	filters := make([]*filterInstance, len(filterNames))
-	if len(flowItems) == 0 {
-		for i, filterName := range filterNames {
-			spec, _ := filterMap[filterName]
-			filters[i] = &filterInstance{
-				spec: spec,
-			}
-		}
-	} else {
-		for i, f := range flowItems {
-			spec, specDefined := filterMap[f.Filter]
-			if !specDefined {
-				panic(fmt.Errorf("flow filter %s not found in filters", f.Filter))
-			}
+	// initialize or inherit the new filters.
+	for i, filter := range filters {
+		spec := specs[i]
 
-			filters[i] = &filterInstance{
-				spec:   spec,
-				jumpIf: f.JumpIf,
-			}
-		}
-	}
-	return filters
-}
-
-func (hp *Pipeline) reload(previousGeneration *Pipeline) {
-	filterSpecMap, filterNames := filtersToFilterSpecs(hp.spec.Filters, hp.superSpec.Super())
-	filters := filterSpecMapToSortedList(filterSpecMap, hp.spec.Flow, filterNames)
-
-	pipelineName := hp.superSpec.Name()
-	var filterBuffs []context.FilterBuff
-	for _, filter := range filters {
-		name, kind := filter.spec.Name(), filter.spec.Kind()
-		rootFilter := QueryFilterRegistry(kind)
-		if rootFilter == nil {
-			panic(fmt.Errorf("kind %s not found", kind))
-		}
-
-		var prevInstance Filter
+		var prev Filter
 		if previousGeneration != nil {
-			prevFilter := previousGeneration.getFilter(name)
-			if prevFilter != nil {
-				prevInstance = prevFilter.instance
-			}
+			prev = previousGeneration.filters[spec.Name()]
 		}
 
-		instance := reflect.New(reflect.TypeOf(rootFilter).Elem()).Interface().(Filter)
-		filter.spec.pipeline = pipelineName
-		if prevInstance == nil {
-			instance.Init(filter.spec)
+		if prev == nil {
+			filter.Init(spec)
 		} else {
-			instance.Inherit(filter.spec, prevInstance)
+			filter.Inherit(spec, prev)
 		}
 
-		filter.instance = instance
-
-		filterBuffs = append(filterBuffs, context.FilterBuff{
-			Name: name,
-			Buff: []byte(filter.spec.YAMLConfig()),
-		})
+		p.filters[spec.Name()] = filter
 	}
 
-	// creating a valid httptemplates
-	var err error
-	hp.ht, err = context.NewHTTPTemplate(filterBuffs)
-	if err != nil {
-		panic(fmt.Errorf("create http template failed %v", err))
+	// if the pipeline spec does not define a flow, define it in the filter
+	// appear order.
+	flow := p.spec.Flow
+	if len(flow) == 0 {
+		flow = make([]FlowNode, 0, len(specs))
+		for _, spec := range specs {
+			flow = append(flow, FlowNode{Filter: spec.Name()})
+		}
 	}
 
-	hp.filters = filters
+	// bind filter instance to flow node.
+	for i := range flow {
+		node := &flow[i]
+		if node.Filter != builtInFilterEnd {
+			node.filter = p.filters[node.Filter]
+		}
+	}
+
+	p.flow = flow
 }
 
-// getNextFilterIndex return filter index and whether jumped to the end of the pipeline.
-func (hp *Pipeline) getNextFilterIndex(index int, result string) (int, bool) {
-	// return index + 1 if last filter succeeded
-	if result == "" {
-		return index + 1, false
-	}
+// Handle is the handler to deal with the request.
+func (p *Pipeline) Handle(ctx context.HTTPContext) string {
+	result, next := "", ""
+	stats := make([]FilterStat, 0, len(p.flow))
 
-	// check the jumpIf table of current filter, return its index if the jump
-	// target is valid and -1 otherwise
-	filter := hp.filters[index]
-	if !stringtool.StrInSlice(result, filter.instance.Results()) {
-		format := "BUG: invalid result %s not in %v"
-		logger.Errorf(format, result, filter.instance.Results())
-	}
-
-	if len(filter.jumpIf) == 0 {
-		return -1, false
-	}
-	name, ok := filter.jumpIf[result]
-	if !ok {
-		return -1, false
-	}
-	if name == LabelEND {
-		return len(hp.filters), true
-	}
-
-	for index++; index < len(hp.filters); index++ {
-		if hp.filters[index].spec.Name() == name {
-			return index, false
-		}
-	}
-
-	return -1, false
-}
-
-// Handle is the handler to deal with HTTP
-func (hp *Pipeline) Handle(ctx context.HTTPContext) string {
-	ctx.SetTemplate(hp.ht)
-
-	filterIndex := -1
-	filterStat := newFilterStat()
-	isEnd := false
-
-	handle := func(lastResult string) string {
-		// For saving the `filterIndex`'s filter generated HTTP Response.
-		// Note: the sequence of pipeline is stack-liked, we save the filter's response into template
-		// at the beginning of the next filter.
-		if filterIndex != -1 {
-			name := hp.filters[filterIndex].spec.Name()
-			if err := ctx.SaveRspToTemplate(name); err != nil {
-				format := "save http rsp failed, dict is %#v err is %v"
-				logger.Errorf(format, ctx.Template().GetDict(), err)
-			}
-			logger.LazyDebug(func() string {
-				return fmt.Sprintf("filter %s, saved response dict %v", name, ctx.Template().GetDict())
-			})
+	for i := range p.flow {
+		node := &p.flow[i]
+		if next != "" && node.Filter != next {
+			continue
 		}
 
-		// Filters are called recursively as a stack, so we need to save current
-		// state and restore it before return
-		lastIndex := filterIndex
-		lastStat := filterStat
-		defer func() {
-			filterIndex = lastIndex
-			filterStat = lastStat
-		}()
-
-		filterIndex, isEnd = hp.getNextFilterIndex(filterIndex, lastResult)
-		if isEnd {
-			return LabelEND // jumpIf end of pipeline
-		}
-		if filterIndex == len(hp.filters) {
-			return "" // reach the end of pipeline
-		} else if filterIndex == -1 {
-			return lastResult // an error occurs but no filter can handle it
+		if node.Filter == builtInFilterEnd {
+			break
 		}
 
-		filter := hp.filters[filterIndex]
-		name := filter.spec.Name()
-
-		if err := ctx.SaveReqToTemplate(name); err != nil {
-			format := "save http req failed, dict is %#v err is %v"
-			logger.Errorf(format, ctx.Template().GetDict(), err)
+		start := fasttime.Now()
+		if node.UseRequest == "" {
+		} else {
 		}
 
-		logger.LazyDebug(func() string {
-			return fmt.Sprintf("filter %s saved request dict %v", name, ctx.Template().GetDict())
+		if node.RequestID == "" {
+		} else {
+		}
+
+		if node.ResponseID == "" {
+		} else {
+		}
+
+		result = node.filter.Handle(ctx)
+		stats = append(stats, FilterStat{
+			Name:     node.Filter,
+			Kind:     node.filter.Kind(),
+			Duration: fasttime.Since(start),
+			Result:   result,
 		})
-		filterStat = newFilterStat()
-		filterStat.Name = name
-		filterStat.Kind = filter.spec.Kind()
 
-		startTime := fasttime.Now()
-		result := filter.instance.Handle(ctx)
+		if result != "" {
+			next = node.JumpIf[result]
+		}
 
-		filterStat.Duration = fasttime.Since(startTime)
-		filterStat.Result = result
-
-		lastStat.Next = append(lastStat.Next, filterStat)
-		return result
+		if next == builtInFilterEnd {
+			break
+		}
 	}
 
-	ctx.SetHandlerCaller(handle)
-	result := handle("")
-
-	ctx.AddTag(filterStat.marshalAndRelease())
+	ctx.AddTag(serializeStats(stats))
 	return result
 }
 
-func (hp *Pipeline) getFilter(name string) *filterInstance {
-	for _, filter := range hp.filters {
-		if filter.spec.Name() == name {
-			return filter
-		}
-	}
-
-	return nil
-}
-
 // Status returns Status generated by Runtime.
-func (hp *Pipeline) Status() *supervisor.Status {
+func (p *Pipeline) Status() *supervisor.Status {
 	s := &Status{
 		Filters: make(map[string]interface{}),
 	}
 
-	for _, filter := range hp.filters {
-		s.Filters[filter.spec.Name()] = filter.instance.Status()
+	for name, filter := range p.filters {
+		s.Filters[name] = filter.Status()
 	}
 
 	return &supervisor.Status{
@@ -509,8 +356,8 @@ func (hp *Pipeline) Status() *supervisor.Status {
 }
 
 // Close closes Pipeline.
-func (hp *Pipeline) Close() {
-	for _, filter := range hp.filters {
-		filter.instance.Close()
+func (p *Pipeline) Close() {
+	for _, filter := range p.filters {
+		filter.Close()
 	}
 }

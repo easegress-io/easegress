@@ -44,6 +44,13 @@ type (
 		Init(filterSpec *FilterSpec)
 
 		// Inherit also initializes the Filter.
+		//
+		// TODO: below behavior must be changed, because pipeline has many filters,
+		// if one of the next filters failed to initialize, the pipeline will failed
+		// to initialize, but if previous filter is closed, both pipeline are broken.
+		// So 'Inherit' should only initialize the new instance, but do nothing to
+		// the existing instance, and leave the pipeline to close it.
+		//
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the filter to inherit and clean the previous generation stuff.
 		// The http pipeline won't call Close for the previous generation.
