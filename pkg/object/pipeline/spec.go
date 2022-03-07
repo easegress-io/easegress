@@ -29,25 +29,16 @@ type (
 	// FilterSpec is the universal spec for all filters.
 	FilterSpec struct {
 		super *supervisor.Supervisor
+		meta  *supervisor.MetaSpec
 
 		yamlConfig string
-		meta       *FilterMetaSpec
 		filterSpec interface{}
-		rootFilter Filter
-	}
-
-	// FilterMetaSpec is metadata for all specs.
-	FilterMetaSpec struct {
-		Name     string `yaml:"name" jsonschema:"required,format=urlname"`
-		Kind     string `yaml:"kind" jsonschema:"required"`
-		Pipeline string `yaml:"-" jsonschema:"-"`
+		pipeline   string
 	}
 )
 
 // NewFilterSpec creates a filter spec and validates it.
-func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Supervisor) (
-	s *FilterSpec, err error) {
-
+func NewFilterSpec(rawSpec map[string]interface{}, super *supervisor.Supervisor) (s *FilterSpec, err error) {
 	s = &FilterSpec{super: super}
 
 	defer func() {
@@ -59,10 +50,10 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 		}
 	}()
 
-	yamlBuff := yamltool.Marshal(originalRawSpec)
+	yamlBuff := yamltool.Marshal(rawSpec)
 
 	// Meta part.
-	meta := &FilterMetaSpec{}
+	meta := &supervisor.MetaSpec{}
 	yamltool.Unmarshal(yamlBuff, meta)
 	verr := v.Validate(meta)
 	if !verr.Valid() {
@@ -70,11 +61,11 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	}
 
 	// Filter self part.
-	rootFilter, exists := filterRegistry[meta.Kind]
-	if !exists {
+	filter := QueryFilterRegistry(meta.Kind)
+	if filter == nil {
 		panic(fmt.Errorf("kind %s not found", meta.Kind))
 	}
-	filterSpec := rootFilter.DefaultSpec()
+	filterSpec := filter.DefaultSpec()
 	yamltool.Unmarshal(yamlBuff, filterSpec)
 	verr = v.Validate(filterSpec)
 	if !verr.Valid() {
@@ -88,7 +79,7 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	}
 
 	// Build final yaml config and raw spec.
-	var rawSpec map[string]interface{}
+	rawSpec = nil
 	filterBuff := yamltool.Marshal(filterSpec)
 	yamltool.Unmarshal(filterBuff, &rawSpec)
 
@@ -100,7 +91,6 @@ func NewFilterSpec(originalRawSpec map[string]interface{}, super *supervisor.Sup
 	s.meta = meta
 	s.filterSpec = filterSpec
 	s.yamlConfig = yamlConfig
-	s.rootFilter = rootFilter
 
 	return
 }
@@ -111,13 +101,19 @@ func (s *FilterSpec) Super() *supervisor.Supervisor {
 }
 
 // Name returns name.
-func (s *FilterSpec) Name() string { return s.meta.Name }
+func (s *FilterSpec) Name() string {
+	return s.meta.Name
+}
 
 // Kind returns kind.
-func (s *FilterSpec) Kind() string { return s.meta.Kind }
+func (s *FilterSpec) Kind() string {
+	return s.meta.Kind
+}
 
 // Pipeline returns the name of the pipeline this filter belongs to.
-func (s *FilterSpec) Pipeline() string { return s.meta.Pipeline }
+func (s *FilterSpec) Pipeline() string {
+	return s.pipeline
+}
 
 // YAMLConfig returns the config in yaml format.
 func (s *FilterSpec) YAMLConfig() string {
@@ -127,9 +123,4 @@ func (s *FilterSpec) YAMLConfig() string {
 // FilterSpec returns the filter spec in its own type.
 func (s *FilterSpec) FilterSpec() interface{} {
 	return s.filterSpec
-}
-
-// RootFilter returns the root filter of the filter spec.
-func (s *FilterSpec) RootFilter() Filter {
-	return s.rootFilter
 }

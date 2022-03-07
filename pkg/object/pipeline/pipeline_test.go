@@ -271,7 +271,7 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, nil, []*runningFilter{}, nil}
+	httpPipeline := Pipeline{nil, nil, []*filterInstance{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
@@ -296,7 +296,7 @@ filters:
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
 	}
-	if httpPipeline.getRunningFilter("unknown") != nil {
+	if httpPipeline.getFilter("unknown") != nil {
 		t.Errorf("should not have filters")
 	}
 	httpPipeline.Close()
@@ -337,7 +337,7 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, nil, []*runningFilter{}, nil}
+	httpPipeline := Pipeline{nil, nil, []*filterInstance{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
@@ -347,10 +347,10 @@ filters:
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
 	}
-	if httpPipeline.getRunningFilter("unknown") != nil {
+	if httpPipeline.getFilter("unknown") != nil {
 		t.Errorf("should not have filters")
 	}
-	if httpPipeline.getRunningFilter("proxy") == nil {
+	if httpPipeline.getFilter("proxy") == nil {
 		t.Errorf("should have filter")
 	}
 	httpPipeline.Close()
@@ -358,13 +358,12 @@ filters:
 }
 
 func TestMockFilterSpec(t *testing.T) {
-	meta := &FilterMetaSpec{
-		Name:     "name",
-		Kind:     "kind",
-		Pipeline: "pipeline-demo",
+	meta := &supervisor.MetaSpec{
+		Name: "name",
+		Kind: "kind",
 	}
 	spec := &FilterSpec{}
-	filterSpec := MockFilterSpec(nil, "", meta, spec)
+	filterSpec := MockFilterSpec(nil, "", meta, spec, "pipeline-demo")
 	if filterSpec.Super() != nil {
 		t.Errorf("expect nil")
 	}

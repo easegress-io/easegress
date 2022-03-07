@@ -116,3 +116,8 @@ func GetFilterRegistry() map[string]Filter {
 
 	return result
 }
+
+// QueryFilterRegistry returns the filter from registry by kind.
+func QueryFilterRegistry(kind string) Filter {
+	return filterRegistry[kind]
+}
