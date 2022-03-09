@@ -37,8 +37,8 @@ const (
 	// Kind is the kind of Pipeline.
 	Kind = "Pipeline"
 
-	// builtInFilterEnd is the name of the build-in end filter.
-	builtInFilterEnd = "END"
+	// BuiltInFilterEnd is the name of the build-in end filter.
+	BuiltInFilterEnd = "END"
 
 	// defaultRequest is the name of the default request.
 	defaultRequest = "Default"
@@ -52,7 +52,7 @@ func init() {
 }
 
 func isBuiltInFilter(name string) bool {
-	return name == builtInFilterEnd
+	return name == BuiltInFilterEnd
 }
 
 type (
@@ -127,10 +127,10 @@ func (s *Spec) Validate() (err error) {
 	errPrefix = "flow"
 
 	// 2.1: validate jumpIfs
-	validNames := map[string]bool{builtInFilterEnd: true}
+	validNames := map[string]bool{BuiltInFilterEnd: true}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		node := &s.Flow[i]
-		if node.Filter == builtInFilterEnd {
+		if node.Filter == BuiltInFilterEnd {
 			continue
 		}
 		spec := specs[node.Filter]
@@ -283,12 +283,16 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 	// bind filter instance to flow node.
 	for i := range flow {
 		node := &flow[i]
-		if node.Filter != builtInFilterEnd {
+		if node.Filter != BuiltInFilterEnd {
 			node.filter = p.filters[node.Filter]
 		}
 	}
 
 	p.flow = flow
+}
+
+func (p *Pipeline) getFilter(name string) Filter {
+	return p.filters[name]
 }
 
 // Handle is the handler to deal with the request.
@@ -302,7 +306,7 @@ func (p *Pipeline) Handle(ctx context.HTTPContext) string {
 			continue
 		}
 
-		if node.Filter == builtInFilterEnd {
+		if node.Filter == BuiltInFilterEnd {
 			break
 		}
 
@@ -331,7 +335,7 @@ func (p *Pipeline) Handle(ctx context.HTTPContext) string {
 			next = node.JumpIf[result]
 		}
 
-		if next == builtInFilterEnd {
+		if next == BuiltInFilterEnd {
 			break
 		}
 	}

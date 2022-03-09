@@ -60,8 +60,8 @@ func TestSpecValidate(t *testing.T) {
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
-			"flow": []Flow{
-				Flow{Filter: "filter-1"}, // no such a filter defined
+			"flow": []FlowNode{
+				{Filter: "filter-1"}, // no such a filter defined
 			},
 			"filters": []map[string]interface{}{
 				map[string]interface{}{
@@ -82,8 +82,8 @@ func TestSpecValidate(t *testing.T) {
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
-			"flow": []Flow{
-				Flow{Filter: "filter-1"}, Flow{Filter: "filter-2"},
+			"flow": []FlowNode{
+				{Filter: "filter-1"}, {Filter: "filter-2"},
 			},
 			"filters": []map[string]interface{}{
 				map[string]interface{}{
@@ -271,24 +271,9 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, []*filterInstance{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]Filter{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
-
-	t.Run("test getNextFilterIndex", func(t *testing.T) {
-		if ind, end := httpPipeline.getNextFilterIndex(0, ""); ind != 1 && end != false {
-			t.Errorf("next index should be 1, was %d", ind)
-		}
-		if ind, end := httpPipeline.getNextFilterIndex(0, "invalid"); ind != 3 && end != true {
-			t.Errorf("next index should be 3, was %d", ind)
-		}
-		if ind, end := httpPipeline.getNextFilterIndex(0, "unknown"); ind != -1 && end != false {
-			t.Errorf("next index should be -1, was %d", ind)
-		}
-		if ind, end := httpPipeline.getNextFilterIndex(1, "specialCase"); ind != 2 && end != false {
-			t.Errorf("next index should be 2, was %d", ind)
-		}
-	})
 
 	ctx := &contexttest.MockedHTTPContext{}
 	httpPipeline.Handle(ctx)
@@ -337,7 +322,7 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, []*filterInstance{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]Filter{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
