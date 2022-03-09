@@ -73,6 +73,11 @@ func (spec Spec) Validate() error {
 	return nil
 }
 
+// Name returns the name of the Validator filter instance.
+func (v *Validator) Name() string {
+	return v.filterSpec.Name()
+}
+
 // Kind returns the kind of Validator.
 func (v *Validator) Kind() string {
 	return Kind

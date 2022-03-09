@@ -112,6 +112,11 @@ func (spec Spec) Validate() error {
 	return nil
 }
 
+// Name returns the name of the HeaderLookup filter instance.
+func (hl *HeaderLookup) Name() string {
+	return hl.filterSpec.Name()
+}
+
 // Kind returns the kind of HeaderLookup.
 func (hl *HeaderLookup) Kind() string {
 	return Kind

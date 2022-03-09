@@ -146,6 +146,11 @@ func (s Spec) Validate() error {
 	return nil
 }
 
+// Name returns the name of the Proxy filter instance.
+func (b *Proxy) Name() string {
+	return b.filterSpec.Name()
+}
+
 // Kind returns the kind of Proxy.
 func (b *Proxy) Kind() string {
 	return Kind

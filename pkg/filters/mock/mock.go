@@ -72,6 +72,11 @@ type (
 	}
 )
 
+// Name returns the name of the Mock filter instance.
+func (m *Mock) Name() string {
+	return m.filterSpec.Name()
+}
+
 // Kind returns the kind of Mock.
 func (m *Mock) Kind() string {
 	return Kind

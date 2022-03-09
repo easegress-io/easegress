@@ -65,6 +65,11 @@ type (
 	}
 )
 
+// Name returns the name of the RequestAdaptor filter instance.
+func (ra *RequestAdaptor) Name() string {
+	return ra.filterSpec.Name()
+}
+
 // Kind returns the kind of RequestAdaptor.
 func (ra *RequestAdaptor) Kind() string {
 	return Kind

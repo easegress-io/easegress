@@ -58,6 +58,11 @@ type (
 // Validate is dummy as yaml rules already validate Spec.
 func (spec *Spec) Validate() error { return nil }
 
+// Name returns the name of the CertExtractor filter instance.
+func (ce *CertExtractor) Name() string {
+	return ce.filterSpec.Name()
+}
+
 // Kind returns the kind of CertExtractor.
 func (ce *CertExtractor) Kind() string {
 	return Kind

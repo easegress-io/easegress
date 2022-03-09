@@ -98,6 +98,11 @@ type (
 	}
 )
 
+// Name returns the name of the WasmHost filter instance.
+func (wh *WasmHost) Name() string {
+	return wh.filterSpec.Name()
+}
+
 // Kind returns the kind of WasmHost.
 func (wh *WasmHost) Kind() string {
 	return Kind

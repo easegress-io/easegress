@@ -52,6 +52,11 @@ type (
 	}
 )
 
+// Name returns the name of the ResponseAdaptor filter instance.
+func (ra *ResponseAdaptor) Name() string {
+	return ra.filterSpec.Name()
+}
+
 // Kind returns the kind of ResponseAdaptor.
 func (ra *ResponseAdaptor) Kind() string {
 	return Kind

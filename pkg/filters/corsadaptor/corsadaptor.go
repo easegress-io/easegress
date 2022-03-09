@@ -62,6 +62,11 @@ type (
 	}
 )
 
+// Name returns the name of the CORSAdaptor filter instance.
+func (a *CORSAdaptor) Name() string {
+	return a.filterSpec.Name()
+}
+
 // Kind returns the kind of CORSAdaptor.
 func (a *CORSAdaptor) Kind() string {
 	return Kind

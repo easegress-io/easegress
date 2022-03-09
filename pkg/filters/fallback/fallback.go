@@ -51,6 +51,11 @@ type (
 	}
 )
 
+// Name returns the name of the Fallback filter instance.
+func (f *Fallback) Name() string {
+	return f.filterSpec.Name()
+}
+
 // Kind returns the kind of Fallback.
 func (f *Fallback) Kind() string {
 	return Kind

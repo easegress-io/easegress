@@ -25,12 +25,17 @@ import (
 )
 
 type (
-	// Filter is the common interface for filters handling HTTP traffic.
+	// Filter is the interface of filters handling traffic of various protocols.
 	Filter interface {
-		// Kind returns the unique kind name to represent itself.
+		// Name returns the name of the filter.
+		Name() string
+
+		// Kind returns the unique kind of the filter.
 		Kind() string
 
-		// DefaultSpec returns the default spec.
+		// DefaultSpec returns a spec for the filter, with default values. The
+		// function should always return a new spec copy, because the caller
+		// may modify the returned spec.
 		DefaultSpec() interface{}
 
 		// Description returns the description of the filter.
@@ -43,17 +48,15 @@ type (
 		// Init initializes the Filter.
 		Init(filterSpec *FilterSpec)
 
-		// Inherit also initializes the Filter.
+		// Inherit also initializes the Filter, the difference from Init is it
+		// inherit something from the previousGeneration, but Inherit does NOT
+		// handle the lifecycle of previousGeneration.
 		//
-		// TODO: below behavior must be changed, because pipeline has many filters,
-		// if one of the next filters failed to initialize, the pipeline will failed
-		// to initialize, but if previous filter is closed, both pipeline are broken.
-		// So 'Inherit' should only initialize the new instance, but do nothing to
-		// the existing instance, and leave the pipeline to close it.
-		//
-		// But it needs to handle the lifecycle of the previous generation.
-		// So it's own responsibility for the filter to inherit and clean the previous generation stuff.
-		// The http pipeline won't call Close for the previous generation.
+		// TODO: currently, Inherit handles the lifecycle of previousGeneration,
+		// but this is wrong, because pipeline has many filters, if one of the
+		// next filters failed to Inherit, the pipeline initialization fails,
+		// but if previous filter is closed, both pipelines are broken. This
+		// need to be fixed.
 		Inherit(filterSpec *FilterSpec, previousGeneration Filter)
 
 		// Handle handles one HTTP request, all possible results

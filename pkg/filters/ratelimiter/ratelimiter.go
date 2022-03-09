@@ -117,6 +117,11 @@ func (url *URLRule) createRateLimiter() {
 	url.rl = librl.New(&policy)
 }
 
+// Name returns the name of the RateLimiter filter instance.
+func (rl *RateLimiter) Name() string {
+	return rl.filterSpec.Name()
+}
+
 // Kind returns the kind of RateLimiter.
 func (rl *RateLimiter) Kind() string {
 	return Kind

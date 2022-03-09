@@ -81,6 +81,11 @@ var globalClient = &http.Client{
 	},
 }
 
+// Name returns the name of the RemoteFilter filter instance.
+func (rf *RemoteFilter) Name() string {
+	return rf.filterSpec.Name()
+}
+
 // Kind returns the kind of RemoteFilter.
 func (rf *RemoteFilter) Kind() string {
 	return Kind

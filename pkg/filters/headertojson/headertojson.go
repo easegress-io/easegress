@@ -55,6 +55,11 @@ type (
 
 var _ pipeline.Filter = (*HeaderToJSON)(nil)
 
+// Name returns the name of the HeaderToJSON filter instance.
+func (h *HeaderToJSON) Name() string {
+	return h.filterSpec.Name()
+}
+
 // Kind return kind of HeaderToJSON
 func (h *HeaderToJSON) Kind() string {
 	return Kind

@@ -65,6 +65,11 @@ type (
 	}
 )
 
+// Name returns the name of the TimeLimiter filter instance.
+func (tl *TimeLimiter) Name() string {
+	return tl.filterSpec.Name()
+}
+
 // Kind returns the kind of TimeLimiter.
 func (tl *TimeLimiter) Kind() string {
 	return Kind

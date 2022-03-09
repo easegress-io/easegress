@@ -166,6 +166,11 @@ func (url *URLRule) createCircuitBreaker() {
 	url.cb = libcb.New(policy)
 }
 
+// Name returns the name of the CircuitBreaker filter instance.
+func (cb *CircuitBreaker) Name() string {
+	return cb.filterSpec.Name()
+}
+
 // Kind returns the kind of CircuitBreaker.
 func (cb *CircuitBreaker) Kind() string {
 	return Kind

@@ -59,6 +59,11 @@ type (
 	}
 )
 
+// Name returns the name of the MeshAdaptor filter instance.
+func (ra *MeshAdaptor) Name() string {
+	return ra.filterSpec.Name()
+}
+
 // Kind returns the kind of MeshAdaptor.
 func (ra *MeshAdaptor) Kind() string {
 	return Kind

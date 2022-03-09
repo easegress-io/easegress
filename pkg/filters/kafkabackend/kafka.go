@@ -52,6 +52,11 @@ type (
 
 var _ pipeline.Filter = (*Kafka)(nil)
 
+// Name returns the name of the Kafka filter instance.
+func (k *Kafka) Name() string {
+	return k.filterSpec.Name()
+}
+
 // Kind return kind of Kafka
 func (k *Kafka) Kind() string {
 	return Kind

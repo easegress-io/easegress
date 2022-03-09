@@ -103,6 +103,11 @@ type (
 	}
 )
 
+// Name returns the name of the APIAggregator filter instance.
+func (aa *APIAggregator) Name() string {
+	return aa.filterSpec.Name()
+}
+
 // Kind returns the kind of APIAggregator.
 func (aa *APIAggregator) Kind() string {
 	return Kind

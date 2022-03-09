@@ -65,6 +65,11 @@ type (
 var _ pipeline.Filter = (*MQTTClientAuth)(nil)
 var _ pipeline.MQTTFilter = (*MQTTClientAuth)(nil)
 
+// Name returns the name of the MQTTClientAuth filter instance.
+func (a *MQTTClientAuth) Name() string {
+	return a.filterSpec.Name()
+}
+
 // Kind return kind of MQTTClientAuth
 func (a *MQTTClientAuth) Kind() string {
 	return Kind

@@ -38,6 +38,7 @@ type (
 	}
 )
 
+func (m *FilterMock) Name() string                                              { return "mock1" }
 func (m *FilterMock) Kind() string                                              { return m.kind }
 func (m *FilterMock) Close()                                                    {}
 func (m *FilterMock) DefaultSpec() interface{}                                  { return &Spec{} }
@@ -64,7 +65,7 @@ func TestSpecValidate(t *testing.T) {
 				{Filter: "filter-1"}, // no such a filter defined
 			},
 			"filters": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"name": "filter-2",
 					"kind": "mock-filter",
 				},
@@ -86,14 +87,14 @@ func TestSpecValidate(t *testing.T) {
 				{Filter: "filter-1"}, {Filter: "filter-2"},
 			},
 			"filters": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"name": "filter-2",
 					"kind": "mock-filter",
 					// Reference to filter-1 before it's defined.
 					// Flow defines the order filters are evaluated, so filter-1 will be available for filter-2.
 					"mock-field": "[[filter.filter-1.rsp.body]]",
 				},
-				map[string]interface{}{
+				{
 					"name": "filter-1",
 					"kind": "mock-filter",
 				},
@@ -112,14 +113,14 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "mock-pipeline",
 			"filters": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"name": "filter-2",
 					"kind": "mock-filter",
 					// Reference to filter-1 before it's defined.
 					// There is no Flow so filters are evaluated in the same order as listed here -> this will fail
 					"mock-field": "[[filter.filter-1.rsp.body]]",
 				},
-				map[string]interface{}{
+				{
 					"name": "filter-1",
 					"kind": "mock-filter",
 				},
@@ -145,7 +146,7 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "mock-pipeline",
 			"filters": []map[string]interface{}{
-				map[string]interface{}{
+				{
 					"name": "filter-1",
 					"kind": "mock-filter", // missing this
 				},
@@ -169,8 +170,8 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "mock-pipeline",
 			"filters": []map[string]interface{}{
-				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
-				map[string]interface{}{"name": "filter-1", "kind": "mock-filter"},
+				{"name": "filter-1", "kind": "mock-filter"},
+				{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
 		_, err := NewFilterSpec(spec, nil)

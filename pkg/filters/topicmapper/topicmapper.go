@@ -46,6 +46,11 @@ type (
 var _ pipeline.Filter = (*TopicMapper)(nil)
 var _ pipeline.MQTTFilter = (*TopicMapper)(nil)
 
+// Name returns the name of the TopicMapper filter instance.
+func (k *TopicMapper) Name() string {
+	return k.filterSpec.Name()
+}
+
 // Kind return kind of TopicMapper
 func (k *TopicMapper) Kind() string {
 	return Kind

@@ -104,6 +104,11 @@ URLLoop:
 	return nil
 }
 
+// Name returns the name of the Retryer filter instance.
+func (r *Retryer) Name() string {
+	return r.filterSpec.Name()
+}
+
 // Kind returns the kind of Retryer.
 func (r *Retryer) Kind() string {
 	return Kind

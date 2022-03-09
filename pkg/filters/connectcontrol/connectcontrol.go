@@ -73,6 +73,11 @@ type (
 var _ pipeline.Filter = (*ConnectControl)(nil)
 var _ pipeline.MQTTFilter = (*ConnectControl)(nil)
 
+// Name returns the name of the ConnectControl filter instance.
+func (cc *ConnectControl) Name() string {
+	return cc.filterSpec.Name()
+}
+
 // Kind return kind of ConnectControl
 func (cc *ConnectControl) Kind() string {
 	return Kind
