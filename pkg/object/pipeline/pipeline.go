@@ -212,73 +212,60 @@ func (p *Pipeline) DefaultSpec() interface{} {
 // Init initializes Pipeline.
 func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-
 	p.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of Pipeline.
 func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocols.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-
 	p.reload(previousGeneration.(*Pipeline))
-
-	// TODO: below behavior must be changed!!
-	//
-	// NOTE: It's filters' responsibility to inherit and clean their resources.
-	// previousGeneration.Close()
+	previousGeneration.Close()
 }
 
 func (p *Pipeline) reload(previousGeneration *Pipeline) {
 	pipelineName := p.superSpec.Name()
 
-	filters := make([]Filter, 0, len(p.spec.Filters))
-	specs := make([]*FilterSpec, 0, len(p.spec.Filters))
+	// create a flow in case the pipeline spec does not define one.
+	flow := p.spec.Flow
+	if len(flow) == 0 {
+		flow = make([]FlowNode, 0, len(p.spec.Filters))
+	}
 
-	// create new filters.
 	for _, rawSpec := range p.spec.Filters {
+		// build the filter spec.
 		spec, err := NewFilterSpec(rawSpec, p.superSpec.Super())
 		if err != nil {
 			panic(err)
 		}
 
+		// create filter instance.
 		rootInst := QueryFilterRegistry(spec.Kind())
 		if rootInst == nil {
 			panic(fmt.Errorf("kind %s not found", spec.Kind()))
 		}
-
 		spec.pipeline = pipelineName
 		filter := reflect.New(reflect.TypeOf(rootInst).Elem()).Interface().(Filter)
-		filters = append(filters, filter)
-		specs = append(specs, spec)
-	}
 
-	// initialize or inherit the new filters.
-	for i, filter := range filters {
-		spec := specs[i]
-
+		// init or inherit from previous instance.
 		var prev Filter
 		if previousGeneration != nil {
-			prev = previousGeneration.filters[spec.Name()]
+			prev = previousGeneration.getFilter(spec.Name())
 		}
-
 		if prev == nil {
 			filter.Init(spec)
 		} else {
 			filter.Inherit(spec, prev)
 		}
 
-		p.filters[spec.Name()] = filter
-	}
-
-	// if the pipeline spec does not define a flow, define it in the filter
-	// appear order.
-	flow := p.spec.Flow
-	if len(flow) == 0 {
-		flow = make([]FlowNode, 0, len(specs))
-		for _, spec := range specs {
+		// add the filter to pipeline, and if the pipeline does not define a
+		// flow, append it to the flow we just created.
+		p.filters[filter.Name()] = filter
+		if len(p.spec.Flow) == 0 {
 			flow = append(flow, FlowNode{Filter: spec.Name()})
 		}
 	}
+
+	p.flow = flow
 
 	// bind filter instance to flow node.
 	for i := range flow {
@@ -287,8 +274,6 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 			node.filter = p.filters[node.Filter]
 		}
 	}
-
-	p.flow = flow
 }
 
 func (p *Pipeline) getFilter(name string) Filter {
