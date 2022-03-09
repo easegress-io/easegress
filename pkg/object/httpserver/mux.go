@@ -36,6 +36,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/pathsearch"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/topn"
 )
@@ -63,12 +64,6 @@ type (
 		rules []*muxRule
 	}
 
-	muxRuleInterface interface {
-		pass(ctx context.HTTPContext) bool
-		match(ctx context.HTTPContext) bool
-		paths() []muxPathInterface
-	}
-
 	muxRule struct {
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
@@ -77,15 +72,6 @@ type (
 		hostRegexp string
 		hostRE     *regexp.Regexp
 		muxPaths   []*muxPath
-	}
-
-	muxPathInterface interface {
-		pass(ctx context.HTTPContext) bool
-		matchPath(ctx context.HTTPContext) bool
-		matchMethod(ctx context.HTTPContext) bool
-		hasHeaders() bool
-		matchHeaders(ctx context.HTTPContext) bool
-		getIPFilterChain() *ipfilter.IPFilters
 	}
 
 	muxPath struct {
@@ -185,7 +171,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPat
 	}
 }
 
-func (mr *muxRule) pass(ctx context.HTTPContext) bool {
+func (mr *muxRule) Pass(ctx context.HTTPContext) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
@@ -193,7 +179,7 @@ func (mr *muxRule) pass(ctx context.HTTPContext) bool {
 	return mr.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mr *muxRule) match(ctx context.HTTPContext) bool {
+func (mr *muxRule) Match(ctx context.HTTPContext) bool {
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
@@ -213,8 +199,8 @@ func (mr *muxRule) match(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (mr *muxRule) paths() []muxPathInterface {
-	res := make([]muxPathInterface, len(mr.muxPaths))
+func (mr *muxRule) Paths() []pathsearch.MuxPathInterface {
+	res := make([]pathsearch.MuxPathInterface, len(mr.muxPaths))
 	for i := 0; i < len(mr.muxPaths); i++ {
 		res[i] = mr.muxPaths[i]
 	}
@@ -252,7 +238,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 	}
 }
 
-func (mp *muxPath) pass(ctx context.HTTPContext) bool {
+func (mp *muxPath) Pass(ctx context.HTTPContext) bool {
 	if mp.ipFilter == nil {
 		return true
 	}
@@ -260,7 +246,7 @@ func (mp *muxPath) pass(ctx context.HTTPContext) bool {
 	return mp.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mp *muxPath) matchPath(ctx context.HTTPContext) bool {
+func (mp *muxPath) MatchPath(ctx context.HTTPContext) bool {
 	r := ctx.Request()
 
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
@@ -280,7 +266,7 @@ func (mp *muxPath) matchPath(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
+func (mp *muxPath) MatchMethod(ctx context.HTTPContext) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
@@ -288,11 +274,11 @@ func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
 	return stringtool.StrInSlice(ctx.Request().Method(), mp.methods)
 }
 
-func (mp *muxPath) hasHeaders() bool {
+func (mp *muxPath) HasHeaders() bool {
 	return len(mp.headers) > 0
 }
 
-func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
+func (mp *muxPath) MatchHeaders(ctx context.HTTPContext) bool {
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
@@ -307,7 +293,7 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (mp *muxPath) getIPFilterChain() *ipfilter.IPFilters {
+func (mp *muxPath) GetIPFilterChain() *ipfilter.IPFilters {
 	return mp.ipFilterChain
 }
 
@@ -409,90 +395,35 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		return
 	}
 
-	rulesI := make([]muxRuleInterface, len(rules.rules))
+	rulesI := make([]pathsearch.MuxRuleInterface, len(rules.rules))
 	for i := 0; i < len(rules.rules); i++ {
 		rulesI[i] = rules.rules[i]
 	}
 
-	result, path := SearchPath(ctx, rulesI)
+	result, path := pathsearch.SearchPath(ctx, rulesI)
 	switch result {
-	case Found:
-		ci = &cacheItem{ipFilterChan: path.getIPFilterChain(), path: path.(*muxPath)}
+	case pathsearch.Found:
+		_path := path.(*muxPath)
+		ci = &cacheItem{ipFilterChan: _path.GetIPFilterChain(), path: _path}
 		rules.putCacheItem(ctx, ci)
 		m.handleRequestWithCache(rules, ctx, ci)
-	case FoundSkipCache:
-		ci := &cacheItem{ipFilterChan: path.getIPFilterChain(), path: path.(*muxPath)}
+	case pathsearch.FoundSkipCache:
+		_path := path.(*muxPath)
+		ci := &cacheItem{ipFilterChan: _path.GetIPFilterChain(), path: _path}
 		m.handleRequestWithCache(rules, ctx, ci)
-	case MethodNotAllowed:
-		ci := &cacheItem{ipFilterChan: path.getIPFilterChain(), methodNotAllowed: true}
+	case pathsearch.MethodNotAllowed:
+		_path := path.(*muxPath)
+		ci := &cacheItem{ipFilterChan: _path.GetIPFilterChain(), methodNotAllowed: true}
 		rules.putCacheItem(ctx, ci)
 		m.handleRequestWithCache(rules, ctx, ci)
-	case IPNotAllowed:
+	case pathsearch.IPNotAllowed:
 		m.handleIPNotAllow(ctx)
-	case NotFound:
+	case pathsearch.NotFound:
 	default:
 		ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
 		rules.putCacheItem(ctx, ci)
 		m.handleRequestWithCache(rules, ctx, ci)
 	}
-}
-
-// SearchResult is returned by SearchPath
-type SearchResult string
-
-const (
-	// NotFound means no path found
-	NotFound SearchResult = "not-found"
-	// IPNotAllowed means context IP is not allowd
-	IPNotAllowed SearchResult = "ip-not-allowed"
-	// MethodNotAllowed means context method is not allowd
-	MethodNotAllowed SearchResult = "method-not-allowed"
-	// Found path
-	Found SearchResult = "found"
-	// FoundSkipCache means found path but skip caching result
-	FoundSkipCache SearchResult = "found-skip-cache"
-)
-
-// SearchPath searches path among list of mux rules
-func SearchPath(ctx context.HTTPContext, rulesToCheck []muxRuleInterface) (searchResult, muxPathInterface) {
-	methodAllowed := false
-	for _, host := range rulesToCheck {
-		if !host.match(ctx) {
-			continue
-		}
-
-		if !host.pass(ctx) {
-			return IPNotAllowed, &muxPath{}
-		}
-
-		for _, path := range host.paths() {
-			if !path.matchPath(ctx) {
-				continue
-			}
-
-			if !path.matchMethod(ctx) {
-				continue
-			}
-			// at least one path has correct method
-			methodAllowed = true
-
-			if !path.pass(ctx) {
-				return IPNotAllowed, path
-			}
-
-			if !path.hasHeaders() {
-				return Found, path
-			}
-
-			if path.matchHeaders(ctx) {
-				return FoundSkipCache, path
-			}
-		}
-	}
-	if !methodAllowed {
-		return MethodNotAllowed, &muxPath{}
-	}
-	return NotFound, &muxPath{}
 }
 
 func (m *mux) handleIPNotAllow(ctx context.HTTPContext) {
