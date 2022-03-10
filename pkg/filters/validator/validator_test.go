@@ -166,7 +166,6 @@ jwt:
 	if v.Status() != nil {
 		t.Error("behavior changed, please update this case")
 	}
-	v.Description()
 }
 
 func TestOAuth2JWT(t *testing.T) {

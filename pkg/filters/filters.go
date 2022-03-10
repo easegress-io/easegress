@@ -22,12 +22,32 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/megaease/easegress/pkg/v"
 	"gopkg.in/yaml.v2"
 )
 
 type (
+	// Kind contains the meta data and functions of a filter kind.
+	Kind struct {
+		// Name is the name of the filter kind.
+		Name string
+
+		// Description is the description of the filter.
+		Description string
+
+		// Results list all possible results of the filter, except the normal
+		// result (i.e. empty string).
+		Results []string
+
+		// CreateInstance creates a new filter instance of the kind.
+		CreateInstance func() Filter
+
+		// DefaultSpec returns a spec for the filter, with default values. The
+		// function should always return a new spec copy, because the caller
+		// may modify the returned spec.
+		DefaultSpec func() Spec
+	}
+
 	// Filter is the interface of filters handling traffic of various protocols.
 	Filter interface {
 		// Name returns the name of the filter.
@@ -35,18 +55,6 @@ type (
 
 		// Kind returns the unique kind of the filter.
 		Kind() string
-
-		// DefaultSpec returns a spec for the filter, with default values. The
-		// function should always return a new spec copy, because the caller
-		// may modify the returned spec.
-		DefaultSpec() Spec
-
-		// Description returns the description of the filter.
-		Description() string
-
-		// Results returns all possible results, the normal result
-		// (i.e. empty string) could not be in it.
-		Results() []string
 
 		// Init initializes the Filter.
 		Init(spec Spec)
@@ -123,11 +131,11 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 	}
 
 	// Filter self part.
-	root := GetRoot(meta.Kind)
-	if root == nil {
+	kind := GetKind(meta.Kind)
+	if kind == nil {
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
-	spec = root.DefaultSpec()
+	spec = kind.DefaultSpec()
 	if err = yaml.Unmarshal(yamlBuff, spec); err != nil {
 		return nil, err
 	}
@@ -141,14 +149,19 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("%v", vr)
 	}
 
+	yamlBuff, err = yaml.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
+
 	baseSpec := spec.baseSpec()
 	baseSpec.super = super
 	baseSpec.pipeline = pipeline
-	baseSpec.yamlConfig = string(yamltool.Marshal(spec))
+	baseSpec.yamlConfig = string(yamlBuff)
 	return
 }
 
-// Super returns super
+// Super returns super.
 func (s *BaseSpec) Super() *supervisor.Supervisor {
 	return s.super
 }
@@ -173,6 +186,9 @@ func (s *BaseSpec) YAMLConfig() string {
 	return s.yamlConfig
 }
 
+// baseSpec returns the pointer to the BaseSpec of the spec instance, it is an
+// internal function. baseSpec returns the receiver directly, it is existed for
+// getting the corresponding BaseSpec from a Spec interface.
 func (s *BaseSpec) baseSpec() *BaseSpec {
 	return s
 }

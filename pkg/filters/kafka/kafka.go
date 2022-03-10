@@ -34,8 +34,20 @@ const (
 	resultGetDataFailed = "GetDataFailed"
 )
 
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Kafka is a backend of MQTTProxy",
+	Results:     []string{resultGetDataFailed},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Kafka{}
+	},
+}
+
 func init() {
-	filters.Register(&Kafka{})
+	filters.Register(kind)
 }
 
 type (
@@ -63,21 +75,6 @@ func (k *Kafka) Name() string {
 // Kind return kind of Kafka
 func (k *Kafka) Kind() string {
 	return Kind
-}
-
-// DefaultSpec return default spec of Kafka
-func (k *Kafka) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description return description of Kafka
-func (k *Kafka) Description() string {
-	return "Kafka is a backend of MQTTProxy"
-}
-
-// Results return possible results of Kafka
-func (k *Kafka) Results() []string {
-	return []string{resultGetDataFailed}
 }
 
 func (k *Kafka) setKV() {

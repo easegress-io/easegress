@@ -40,8 +40,23 @@ var (
 	errJSONEncodeDecode = errors.New(resultJSONEncodeDecodeErr)
 )
 
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "HeaderToJSON convert http request header to json",
+	Results: []string{
+		resultJSONEncodeDecodeErr,
+		resultBodyReadErr,
+	},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &HeaderToJSON{}
+	},
+}
+
 func init() {
-	filters.Register(&HeaderToJSON{})
+	filters.Register(kind)
 }
 
 type (
@@ -62,21 +77,6 @@ func (h *HeaderToJSON) Name() string {
 // Kind return kind of HeaderToJSON
 func (h *HeaderToJSON) Kind() string {
 	return Kind
-}
-
-// DefaultSpec return default spec of HeaderToJSON
-func (h *HeaderToJSON) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description return description of HeaderToJSON
-func (h *HeaderToJSON) Description() string {
-	return "HeaderToJSON convert http request header to json"
-}
-
-// Results return possible results of HeaderToJSON
-func (h *HeaderToJSON) Results() []string {
-	return []string{resultJSONEncodeDecodeErr, resultBodyReadErr}
 }
 
 func (h *HeaderToJSON) init() {

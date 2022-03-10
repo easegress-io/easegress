@@ -36,10 +36,20 @@ const (
 	Kind = "Retryer"
 )
 
-var results = []string{}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Retryer implements a retryer for http request.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Retryer{}
+	},
+}
 
 func init() {
-	filters.Register(&Retryer{})
+	filters.Register(kind)
 }
 
 type (
@@ -114,21 +124,6 @@ func (r *Retryer) Name() string {
 // Kind returns the kind of Retryer.
 func (r *Retryer) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of Retryer.
-func (r *Retryer) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of Retryer
-func (r *Retryer) Description() string {
-	return "Retryer implements a retryer for http request."
-}
-
-// Results returns the results of Retryer.
-func (r *Retryer) Results() []string {
-	return results
 }
 
 func (r *Retryer) initURL(u *URLRule) {

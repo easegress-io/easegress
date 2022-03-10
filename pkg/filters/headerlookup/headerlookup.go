@@ -43,10 +43,20 @@ const (
 	cacheSize = 128
 )
 
-var results = []string{}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "HeaderLookup enriches request headers per request, looking up values from etcd.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &HeaderLookup{}
+	},
+}
 
 func init() {
-	filters.Register(&HeaderLookup{})
+	filters.Register(kind)
 }
 
 type (
@@ -121,21 +131,6 @@ func (hl *HeaderLookup) Name() string {
 // Kind returns the kind of HeaderLookup.
 func (hl *HeaderLookup) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of HeaderLookup.
-func (hl *HeaderLookup) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of HeaderLookup.
-func (hl *HeaderLookup) Description() string {
-	return "HeaderLookup enriches request headers per request, looking up values from etcd."
-}
-
-// Results returns the results of HeaderLookup.
-func (hl *HeaderLookup) Results() []string {
-	return results
 }
 
 // Init initializes HeaderLookup.

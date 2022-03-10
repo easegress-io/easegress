@@ -60,8 +60,6 @@ func TestAuth(t *testing.T) {
 	auth.Init(filterSpec)
 
 	assert.Equal(Kind, auth.Kind())
-	assert.Equal(&Spec{}, auth.DefaultSpec())
-	assert.NotEmpty(auth.Description())
 	assert.Equal(1, len(auth.Results()), "please update this case if add more results")
 	assert.Nil(auth.Status(), "please update this case if return status")
 

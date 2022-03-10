@@ -71,7 +71,6 @@ func TestKafka(t *testing.T) {
 	k := &Kafka{}
 	spec := defaultFilterSpec(&Spec{})
 
-	assert.NotEmpty(k.Description())
 	assert.Nil(k.Status())
 	assert.Panics(func() { k.Init(spec) }, "no valid backend should panic")
 

@@ -30,10 +30,20 @@ const (
 	Kind = "CertExtractor"
 )
 
-var results = []string{}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "CertExtractor extracts given field from TLS certificates and sets it to request headers.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &CertExtractor{}
+	},
+}
 
 func init() {
-	filters.Register(&CertExtractor{})
+	filters.Register(kind)
 }
 
 type (
@@ -66,21 +76,6 @@ func (ce *CertExtractor) Name() string {
 // Kind returns the kind of CertExtractor.
 func (ce *CertExtractor) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of CertExtractor.
-func (ce *CertExtractor) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of CertExtractor.
-func (ce *CertExtractor) Description() string {
-	return "CertExtractor extracts given field from TLS certificates and sets it to request headers."
-}
-
-// Results returns the results of CertExtractor.
-func (ce *CertExtractor) Results() []string {
-	return results
 }
 
 // Init initializes CertExtractor.

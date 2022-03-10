@@ -31,8 +31,20 @@ const (
 	resultMQTTTopicMapFailed = "MQTTTopicMapFailed"
 )
 
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "TopicMapper maps MQTT topic to Kafka topics and key-value headers",
+	Results:     []string{resultMQTTTopicMapFailed},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &TopicMapper{}
+	},
+}
+
 func init() {
-	filters.Register(&TopicMapper{})
+	filters.Register(kind)
 }
 
 type (
@@ -54,21 +66,6 @@ func (k *TopicMapper) Name() string {
 // Kind return kind of TopicMapper
 func (k *TopicMapper) Kind() string {
 	return Kind
-}
-
-// DefaultSpec return default spec of TopicMapper
-func (k *TopicMapper) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description return description of TopicMapper
-func (k *TopicMapper) Description() string {
-	return "Kafka is a backend of MQTTProxy"
-}
-
-// Results return possible results of TopicMapper
-func (k *TopicMapper) Results() []string {
-	return []string{resultMQTTTopicMapFailed}
 }
 
 // Init init TopicMapper

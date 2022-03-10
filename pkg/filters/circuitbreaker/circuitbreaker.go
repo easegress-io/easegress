@@ -38,10 +38,20 @@ const (
 	resultShortCircuited = "shortCircuited"
 )
 
-var results = []string{resultShortCircuited}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "CircuitBreaker implements a circuit breaker for http request.",
+	Results:     []string{resultShortCircuited},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &CircuitBreaker{}
+	},
+}
 
 func init() {
-	filters.Register(&CircuitBreaker{})
+	filters.Register(kind)
 }
 
 type (
@@ -175,21 +185,6 @@ func (cb *CircuitBreaker) Name() string {
 // Kind returns the kind of CircuitBreaker.
 func (cb *CircuitBreaker) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of CircuitBreaker.
-func (cb *CircuitBreaker) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of CircuitBreaker
-func (cb *CircuitBreaker) Description() string {
-	return "CircuitBreaker implements a circuit breaker for http request."
-}
-
-// Results returns the results of CircuitBreaker.
-func (cb *CircuitBreaker) Results() []string {
-	return results
 }
 
 func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {

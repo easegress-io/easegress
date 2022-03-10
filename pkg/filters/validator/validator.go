@@ -36,10 +36,20 @@ const (
 	resultInvalid = "invalid"
 )
 
-var results = []string{resultInvalid}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Validator validates HTTP request.",
+	Results:     []string{resultInvalid},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Validator{}
+	},
+}
 
 func init() {
-	filters.Register(&Validator{})
+	filters.Register(kind)
 }
 
 type (
@@ -82,21 +92,6 @@ func (v *Validator) Name() string {
 // Kind returns the kind of Validator.
 func (v *Validator) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of Validator.
-func (v *Validator) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of Validator.
-func (v *Validator) Description() string {
-	return "Validator validates http request."
-}
-
-// Results returns the results of Validator.
-func (v *Validator) Results() []string {
-	return results
 }
 
 // Init initializes Validator.

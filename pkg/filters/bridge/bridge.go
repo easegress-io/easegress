@@ -46,13 +46,23 @@ A Bridge Filter route requests to from one pipeline to other pipelines or http p
 	bridgeDestHeader = "X-Easegress-Bridge-Dest"
 )
 
-var results = []string{resultDestinationNotFound, resultInvokeDestinationFailed}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: Description,
+	Results:     []string{resultDestinationNotFound, resultInvokeDestinationFailed},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Bridge{}
+	},
+}
 
 func init() {
 	// FIXME: Bridge is a temporary product for some historical reason.
 	// I(@xxx7xxxx) think we should not empower filter to cross pipelines.
 
-	// filters.Register(&Bridge{})
+	// filters.Register(kind)
 }
 
 type (
@@ -77,21 +87,6 @@ func (b *Bridge) Name() string {
 // Kind returns the kind of Bridge.
 func (b *Bridge) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of Bridge.
-func (b *Bridge) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of Bridge.
-func (b *Bridge) Description() string {
-	return Description
-}
-
-// Results returns the results of Bridge.
-func (b *Bridge) Results() []string {
-	return results
 }
 
 // Init initializes Bridge.

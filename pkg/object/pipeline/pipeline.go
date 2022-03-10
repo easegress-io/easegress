@@ -137,7 +137,7 @@ func (s *Spec) Validate() (err error) {
 		if spec == nil {
 			panic(fmt.Errorf("filter %s not found", node.Filter))
 		}
-		results := filters.GetRoot(spec.Kind()).Results()
+		results := filters.GetKind(spec.Kind()).Results
 		for result, target := range node.JumpIf {
 			if !stringtool.StrInSlice(result, results) {
 				msgFmt := "filter %s: result %s is not in %v"

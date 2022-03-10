@@ -34,14 +34,23 @@ const (
 	resultTimeout = "timeout"
 )
 
-var (
-	results    = []string{resultTimeout}
-	errTimeout = fmt.Errorf("timeout")
-)
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "TimeLimiter implements a time limiter for http request.",
+	Results:     []string{resultTimeout},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &TimeLimiter{}
+	},
+}
 
 func init() {
-	filters.Register(&TimeLimiter{})
+	filters.Register(kind)
 }
+
+var errTimeout = fmt.Errorf("timeout")
 
 type (
 	// URLRule is the URL rule
@@ -74,21 +83,6 @@ func (tl *TimeLimiter) Name() string {
 // Kind returns the kind of TimeLimiter.
 func (tl *TimeLimiter) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of TimeLimiter.
-func (tl *TimeLimiter) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of TimeLimiter
-func (tl *TimeLimiter) Description() string {
-	return "TimeLimiter implements a time limiter for http request."
-}
-
-// Results returns the results of TimeLimiter.
-func (tl *TimeLimiter) Results() []string {
-	return results
 }
 
 // Init initializes TimeLimiter.

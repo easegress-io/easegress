@@ -33,10 +33,20 @@ const (
 	resultPreflighted = "preflighted"
 )
 
-var results = []string{resultPreflighted}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "CORSAdaptor adapts CORS stuff.",
+	Results:     []string{resultPreflighted},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &CORSAdaptor{}
+	},
+}
 
 func init() {
-	filters.Register(&CORSAdaptor{})
+	filters.Register(kind)
 }
 
 type (
@@ -70,21 +80,6 @@ func (a *CORSAdaptor) Name() string {
 // Kind returns the kind of CORSAdaptor.
 func (a *CORSAdaptor) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of CORSAdaptor.
-func (a *CORSAdaptor) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of CORSAdaptor.
-func (a *CORSAdaptor) Description() string {
-	return "CORSAdaptor adapts CORS stuff."
-}
-
-// Results returns the results of CORSAdaptor.
-func (a *CORSAdaptor) Results() []string {
-	return results
 }
 
 // Init initializes CORSAdaptor.

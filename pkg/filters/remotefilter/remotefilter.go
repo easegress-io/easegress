@@ -47,10 +47,20 @@ const (
 	maxContextBytes = 3 * maxBodyBytes
 )
 
-var results = []string{resultFailed, resultResponseAlready}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "RemoteFilter invokes remote apis.",
+	Results:     []string{resultFailed, resultResponseAlready},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &RemoteFilter{}
+	},
+}
 
 func init() {
-	filters.Register(&RemoteFilter{})
+	filters.Register(kind)
 }
 
 // All RemoteFilter instances use one globalClient in order to reuse
@@ -89,21 +99,6 @@ func (rf *RemoteFilter) Name() string {
 // Kind returns the kind of RemoteFilter.
 func (rf *RemoteFilter) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec.
-func (rf *RemoteFilter) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of RemoteFilter.
-func (rf *RemoteFilter) Description() string {
-	return "RemoteFilter invokes remote apis."
-}
-
-// Results returns the results of RemoteFilter.
-func (rf *RemoteFilter) Results() []string {
-	return results
 }
 
 type (

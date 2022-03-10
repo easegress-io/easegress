@@ -79,9 +79,6 @@ field: "CommonName"
 `
 	ce, err := createCertExtractor(yaml, nil, nil)
 	assert.Nil(err)
-	assert.NotEqual(ce.Description(), 0)
-	assert.Nil(err)
-	assert.NotEqual(ce.Description(), 0)
 	assert.Nil(ce.Status())
 	ce, err = createCertExtractor(yaml, ce, nil)
 	assert.Nil(err)

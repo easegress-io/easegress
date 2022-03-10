@@ -38,10 +38,20 @@ const (
 	resultCompressFail   = "compressFail"
 )
 
-var results = []string{resultDecompressFail, resultCompressFail}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "RequestAdaptor adapts request.",
+	Results:     []string{resultDecompressFail, resultCompressFail},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &RequestAdaptor{}
+	},
+}
 
 func init() {
-	filters.Register(&RequestAdaptor{})
+	filters.Register(kind)
 }
 
 type (
@@ -74,21 +84,6 @@ func (ra *RequestAdaptor) Name() string {
 // Kind returns the kind of RequestAdaptor.
 func (ra *RequestAdaptor) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of RequestAdaptor.
-func (ra *RequestAdaptor) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of RequestAdaptor.
-func (ra *RequestAdaptor) Description() string {
-	return "RequestAdaptor adapts request."
-}
-
-// Results returns the results of RequestAdaptor.
-func (ra *RequestAdaptor) Results() []string {
-	return results
 }
 
 // Init initializes RequestAdaptor.

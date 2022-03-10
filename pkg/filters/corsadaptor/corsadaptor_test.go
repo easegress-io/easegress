@@ -94,7 +94,6 @@ allowedOrigins:
 
 		cors := &CORSAdaptor{}
 		cors.Init(spec)
-		cors.Description()
 		cors.Status()
 		header := http.Header{}
 		ctx := &contexttest.MockedHTTPContext{}

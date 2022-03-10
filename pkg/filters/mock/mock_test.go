@@ -220,7 +220,6 @@ rules:
 	if m.Status() != nil {
 		t.Error("behavior changed, please update this case")
 	}
-	m.Description()
 
 	resp = httptest.NewRecorder()
 	ctx.MockedRequest.MockedPath = func() string {

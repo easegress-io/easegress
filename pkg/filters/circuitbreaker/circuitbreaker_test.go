@@ -106,7 +106,6 @@ urls:
 	if cb.Status() != nil {
 		t.Error("behavior changed, please update this case")
 	}
-	cb.Description()
 
 	ctx.MockedRequest.MockedPath = func() string {
 		return "/circuitbreak"

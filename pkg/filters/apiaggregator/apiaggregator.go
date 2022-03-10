@@ -45,10 +45,23 @@ const (
 	resultFailed = "failed"
 )
 
-var results = []string{resultFailed}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "APIAggregator aggregates apis.",
+	Results:     []string{resultFailed},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{
+			Timeout:      "60s",
+			MaxBodyBytes: 10240,
+		}
+	},
+	CreateInstance: func() filters.Filter {
+		return &APIAggregator{}
+	},
+}
 
 func init() {
-	filters.Register(&APIAggregator{})
+	filters.Register(kind)
 }
 
 type (
@@ -112,24 +125,6 @@ func (aa *APIAggregator) Name() string {
 // Kind returns the kind of APIAggregator.
 func (aa *APIAggregator) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of APIAggregator.
-func (aa *APIAggregator) DefaultSpec() filters.Spec {
-	return &Spec{
-		Timeout:      "60s",
-		MaxBodyBytes: 10240,
-	}
-}
-
-// Description returns the description of APIAggregator.
-func (aa *APIAggregator) Description() string {
-	return "APIAggregator aggregates apis."
-}
-
-// Results returns the results of APIAggregator.
-func (aa *APIAggregator) Results() []string {
-	return results
 }
 
 // Init initializes APIAggregator.

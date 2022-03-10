@@ -31,10 +31,20 @@ const (
 	Kind = "ResponseAdaptor"
 )
 
-var results = []string{}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "ResponseAdaptor adapts response.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &ResponseAdaptor{}
+	},
+}
 
 func init() {
-	filters.Register(&ResponseAdaptor{})
+	filters.Register(kind)
 }
 
 type (
@@ -60,21 +70,6 @@ func (ra *ResponseAdaptor) Name() string {
 // Kind returns the kind of ResponseAdaptor.
 func (ra *ResponseAdaptor) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of ResponseAdaptor.
-func (ra *ResponseAdaptor) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of ResponseAdaptor.
-func (ra *ResponseAdaptor) Description() string {
-	return "ResponseAdaptor adapts response."
-}
-
-// Results returns the results of ResponseAdaptor.
-func (ra *ResponseAdaptor) Results() []string {
-	return results
 }
 
 // Init initializes ResponseAdaptor.

@@ -30,13 +30,24 @@ const (
 	// Kind is the kind of ConnectControl
 	Kind = "ConnectControl"
 
+	// ErrBannedClientOrTopic is error for banned client or topic
 	resultBannedClientOrTopic = "bannedClientOrTopicError"
 )
 
-// ErrBannedClientOrTopic is error for banned client or topic
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "ConnectControl control connections of MQTT clients",
+	Results:     []string{resultBannedClientOrTopic},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &ConnectControl{}
+	},
+}
 
 func init() {
-	filters.Register(&ConnectControl{})
+	filters.Register(kind)
 }
 
 type (
@@ -83,21 +94,6 @@ func (cc *ConnectControl) Name() string {
 // Kind return kind of ConnectControl
 func (cc *ConnectControl) Kind() string {
 	return Kind
-}
-
-// DefaultSpec return default spec of ConnectControl
-func (cc *ConnectControl) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description return description of ConnectControl
-func (cc *ConnectControl) Description() string {
-	return "ConnectControl control connections of MQTT clients"
-}
-
-// Results return results of ConnectControl
-func (cc *ConnectControl) Results() []string {
-	return []string{resultBannedClientOrTopic}
 }
 
 // Init init ConnectControl with pipeline filter spec

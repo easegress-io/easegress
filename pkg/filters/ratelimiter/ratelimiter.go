@@ -36,10 +36,20 @@ const (
 	resultRateLimited = "rateLimited"
 )
 
-var results = []string{resultRateLimited}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "RateLimiter implements a rate limiter for http request.",
+	Results:     []string{resultRateLimited},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &RateLimiter{}
+	},
+}
 
 func init() {
-	filters.Register(&RateLimiter{})
+	filters.Register(kind)
 }
 
 type (
@@ -126,21 +136,6 @@ func (rl *RateLimiter) Name() string {
 // Kind returns the kind of RateLimiter.
 func (rl *RateLimiter) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of RateLimiter.
-func (rl *RateLimiter) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of RateLimiter
-func (rl *RateLimiter) Description() string {
-	return "RateLimiter implements a rate limiter for http request."
-}
-
-// Results returns the results of RateLimiter.
-func (rl *RateLimiter) Results() []string {
-	return results
 }
 
 func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {

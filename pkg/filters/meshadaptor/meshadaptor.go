@@ -30,10 +30,20 @@ const (
 	Kind = "MeshAdaptor"
 )
 
-var results = []string{}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "MeshAdaptor adapts requests for mesh traffic.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &MeshAdaptor{}
+	},
+}
 
 func init() {
-	filters.Register(&MeshAdaptor{})
+	filters.Register(kind)
 }
 
 type (
@@ -67,21 +77,6 @@ func (ra *MeshAdaptor) Name() string {
 // Kind returns the kind of MeshAdaptor.
 func (ra *MeshAdaptor) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of MeshAdaptor.
-func (ra *MeshAdaptor) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of MeshAdaptor.
-func (ra *MeshAdaptor) Description() string {
-	return "MeshAdaptor adapts requests for mesh traffic."
-}
-
-// Results returns the results of MeshAdaptor.
-func (ra *MeshAdaptor) Results() []string {
-	return results
 }
 
 // Init initializes MeshAdaptor.

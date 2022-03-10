@@ -43,15 +43,28 @@ const (
 	resultServerError   = "serverError"
 )
 
-var results = []string{
-	resultFallback,
-	resultInternalError,
-	resultClientError,
-	resultServerError,
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Proxy sets the proxy of proxy servers",
+	Results: []string{
+		resultFallback,
+		resultInternalError,
+		resultClientError,
+		resultServerError,
+	},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{
+			MaxIdleConns:        10240,
+			MaxIdleConnsPerHost: 1024,
+		}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Proxy{}
+	},
 }
 
 func init() {
-	filters.Register(&Proxy{})
+	filters.Register(kind)
 }
 
 var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
@@ -155,24 +168,6 @@ func (b *Proxy) Name() string {
 // Kind returns the kind of Proxy.
 func (b *Proxy) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns the default spec of Proxy.
-func (b *Proxy) DefaultSpec() filters.Spec {
-	return &Spec{
-		MaxIdleConns:        10240,
-		MaxIdleConnsPerHost: 1024,
-	}
-}
-
-// Description returns the description of Proxy.
-func (b *Proxy) Description() string {
-	return "Proxy sets the proxy of proxy servers"
-}
-
-// Results returns the results of Proxy.
-func (b *Proxy) Results() []string {
-	return results
 }
 
 // Init initializes Proxy.

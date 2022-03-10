@@ -76,7 +76,6 @@ mockBody: "mocked body"
 	if fb.Status() != nil {
 		t.Error("behavior changed, please update this case")
 	}
-	fb.Description()
 
 	newFb := &Fallback{}
 	spec, _ = filters.NewSpec(nil, "", rawSpec)

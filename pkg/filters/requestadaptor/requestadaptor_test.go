@@ -81,9 +81,6 @@ func TestRequestAdaptor(t *testing.T) {
 		ra := &RequestAdaptor{}
 		ra.Init(spec)
 		assert.Equal(Kind, ra.Kind())
-		assert.NotEmpty(ra.Description())
-		assert.NotNil(ra.DefaultSpec())
-		assert.NotEmpty(ra.Results())
 		assert.Nil(ra.Status())
 
 		newRA := &RequestAdaptor{}

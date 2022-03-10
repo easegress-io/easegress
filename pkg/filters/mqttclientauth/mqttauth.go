@@ -35,8 +35,20 @@ const (
 	resultAuthFail = "AuthFail"
 )
 
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Authentication can check MQTT client's username and password",
+	Results:     []string{resultAuthFail},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &MQTTClientAuth{}
+	},
+}
+
 func init() {
-	filters.Register(&MQTTClientAuth{})
+	filters.Register(kind)
 }
 
 type (
@@ -75,21 +87,6 @@ func (a *MQTTClientAuth) Name() string {
 // Kind return kind of MQTTClientAuth
 func (a *MQTTClientAuth) Kind() string {
 	return Kind
-}
-
-// DefaultSpec return default spec of MQTTClientAuth
-func (a *MQTTClientAuth) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description return description of MQTTClientAuth
-func (a *MQTTClientAuth) Description() string {
-	return "Authentication can check MQTT client's username and password"
-}
-
-// Results return possible results of MQTTClientAuth
-func (a *MQTTClientAuth) Results() []string {
-	return []string{resultAuthFail}
 }
 
 // Init init MQTTClientAuth

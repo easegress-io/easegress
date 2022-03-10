@@ -34,10 +34,20 @@ const (
 	resultMocked = "mocked"
 )
 
-var results = []string{resultMocked}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Mock mocks the response.",
+	Results:     []string{resultMocked},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Mock{}
+	},
+}
 
 func init() {
-	filters.Register(&Mock{})
+	filters.Register(kind)
 }
 
 type (
@@ -81,21 +91,6 @@ func (m *Mock) Name() string {
 // Kind returns the kind of Mock.
 func (m *Mock) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of Mock.
-func (m *Mock) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of Mock.
-func (m *Mock) Description() string {
-	return "Mock mocks the response."
-}
-
-// Results returns the results of Mock.
-func (m *Mock) Results() []string {
-	return results
 }
 
 // Init initializes Mock.

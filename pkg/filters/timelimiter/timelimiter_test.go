@@ -112,7 +112,6 @@ urls:
 	if tl.Status() != nil {
 		t.Error("behavior changed, please update this case")
 	}
-	tl.Description()
 
 	newTl := &TimeLimiter{}
 	spec, _ = filters.NewSpec(nil, "", rawSpec)

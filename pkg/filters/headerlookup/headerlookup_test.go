@@ -257,9 +257,6 @@ extra-entry: "extra"
 	if hl.Status() != nil {
 		t.Errorf("status should be nil")
 	}
-	if len(hl.Description()) == 0 {
-		t.Errorf("description should not be empty")
-	}
 	hl.Close()
 	wg := &sync.WaitGroup{}
 	wg.Add(1)

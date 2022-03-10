@@ -49,7 +49,6 @@ func TestHeaderToJSON(t *testing.T) {
 	spec := defaultFilterSpec(&Spec{})
 	h.Init(spec)
 
-	assert.NotEmpty(h.Description())
 	assert.Nil(h.Status())
 
 	newh := HeaderToJSON{}

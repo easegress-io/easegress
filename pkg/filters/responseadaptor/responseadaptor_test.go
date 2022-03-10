@@ -124,6 +124,5 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 	}
 
 	ra.Status()
-	ra.Description()
 	return ra
 }

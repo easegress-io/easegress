@@ -30,10 +30,20 @@ const (
 	resultFallback = "fallback"
 )
 
-var results = []string{resultFallback}
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "Fallback do the fallback.",
+	Results:     []string{resultFallback},
+	DefaultSpec: func() filters.Spec {
+		return &Spec{}
+	},
+	CreateInstance: func() filters.Filter {
+		return &Fallback{}
+	},
+}
 
 func init() {
-	filters.Register(&Fallback{})
+	filters.Register(kind)
 }
 
 type (
@@ -59,21 +69,6 @@ func (f *Fallback) Name() string {
 // Kind returns the kind of Fallback.
 func (f *Fallback) Kind() string {
 	return Kind
-}
-
-// DefaultSpec returns default spec of Fallback.
-func (f *Fallback) DefaultSpec() filters.Spec {
-	return &Spec{}
-}
-
-// Description returns the description of Fallback.
-func (f *Fallback) Description() string {
-	return "Fallback do the fallback."
-}
-
-// Results returns the results of Fallback.
-func (f *Fallback) Results() []string {
-	return results
 }
 
 // Init initializes Fallback.
