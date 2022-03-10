@@ -129,8 +129,13 @@ func (hl *HeaderLookup) Name() string {
 }
 
 // Kind returns the kind of HeaderLookup.
-func (hl *HeaderLookup) Kind() string {
-	return Kind
+func (hl *HeaderLookup) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the HeaderLookup
+func (hl *HeaderLookup) Spec() filters.Spec {
+	return hl.spec
 }
 
 // Init initializes HeaderLookup.

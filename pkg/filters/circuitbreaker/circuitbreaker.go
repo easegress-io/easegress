@@ -183,8 +183,13 @@ func (cb *CircuitBreaker) Name() string {
 }
 
 // Kind returns the kind of CircuitBreaker.
-func (cb *CircuitBreaker) Kind() string {
-	return Kind
+func (cb *CircuitBreaker) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the CircuitBreaker
+func (cb *CircuitBreaker) Spec() filters.Spec {
+	return cb.spec
 }
 
 func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {

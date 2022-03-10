@@ -82,8 +82,13 @@ func (ra *RequestAdaptor) Name() string {
 }
 
 // Kind returns the kind of RequestAdaptor.
-func (ra *RequestAdaptor) Kind() string {
-	return Kind
+func (ra *RequestAdaptor) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the RequestAdaptor
+func (ra *RequestAdaptor) Spec() filters.Spec {
+	return ra.spec
 }
 
 // Init initializes RequestAdaptor.

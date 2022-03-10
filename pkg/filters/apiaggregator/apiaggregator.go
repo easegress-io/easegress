@@ -123,8 +123,13 @@ func (aa *APIAggregator) Name() string {
 }
 
 // Kind returns the kind of APIAggregator.
-func (aa *APIAggregator) Kind() string {
-	return Kind
+func (aa *APIAggregator) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the APIAggregator
+func (aa *APIAggregator) Spec() filters.Spec {
+	return aa.spec
 }
 
 // Init initializes APIAggregator.

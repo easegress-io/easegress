@@ -310,7 +310,7 @@ func (p *Pipeline) Handle(ctx context.HTTPContext) string {
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{
 			Name:     node.Filter,
-			Kind:     node.filter.Kind(),
+			Kind:     node.filter.Kind().Name,
 			Duration: fasttime.Since(start),
 			Result:   result,
 		})

@@ -89,8 +89,13 @@ func (m *Mock) Name() string {
 }
 
 // Kind returns the kind of Mock.
-func (m *Mock) Kind() string {
-	return Kind
+func (m *Mock) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Mock
+func (m *Mock) Spec() filters.Spec {
+	return m.spec
 }
 
 // Init initializes Mock.

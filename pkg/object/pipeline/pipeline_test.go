@@ -29,7 +29,7 @@ import (
 )
 
 type MockedFilter struct {
-	kind string
+	kind *filters.Kind
 }
 
 type MockedSpec struct {
@@ -37,7 +37,8 @@ type MockedSpec struct {
 }
 
 func (m *MockedFilter) Name() string                                                 { return "mock1" }
-func (m *MockedFilter) Kind() string                                                 { return m.kind }
+func (m *MockedFilter) Kind() *filters.Kind                                          { return m.kind }
+func (m *MockedFilter) Spec() filters.Spec                                           { return nil }
 func (m *MockedFilter) Close()                                                       {}
 func (m *MockedFilter) Handle(ctx context.HTTPContext) (result string)               { return "" }
 func (m *MockedFilter) Init(spec filters.Spec)                                       {}
@@ -45,17 +46,18 @@ func (m *MockedFilter) Inherit(spec filters.Spec, previousGeneration filters.Fil
 func (m *MockedFilter) Status() interface{}                                          { return nil }
 
 func MockFilterKind(kind string, results []string) *filters.Kind {
-	return &filters.Kind{
+	k := &filters.Kind{
 		Name:        kind,
 		Description: kind,
 		Results:     results,
 		DefaultSpec: func() filters.Spec {
 			return &MockedSpec{}
 		},
-		CreateInstance: func() filters.Filter {
-			return &MockedFilter{kind}
-		},
 	}
+	k.CreateInstance = func() filters.Filter {
+		return &MockedFilter{k}
+	}
+	return k
 }
 
 func cleanup() {

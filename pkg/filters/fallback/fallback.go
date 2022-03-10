@@ -67,8 +67,13 @@ func (f *Fallback) Name() string {
 }
 
 // Kind returns the kind of Fallback.
-func (f *Fallback) Kind() string {
-	return Kind
+func (f *Fallback) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Fallback
+func (f *Fallback) Spec() filters.Spec {
+	return f.spec
 }
 
 // Init initializes Fallback.

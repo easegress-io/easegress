@@ -69,8 +69,13 @@ func (k *Kafka) Name() string {
 }
 
 // Kind return kind of Kafka
-func (k *Kafka) Kind() string {
-	return Kind
+func (k *Kafka) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Kafka
+func (k *Kafka) Spec() filters.Spec {
+	return k.spec
 }
 
 func (k *Kafka) setHeader(spec *Spec) {

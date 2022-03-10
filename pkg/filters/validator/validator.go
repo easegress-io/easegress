@@ -90,8 +90,13 @@ func (v *Validator) Name() string {
 }
 
 // Kind returns the kind of Validator.
-func (v *Validator) Kind() string {
-	return Kind
+func (v *Validator) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Validator
+func (v *Validator) Spec() filters.Spec {
+	return v.spec
 }
 
 // Init initializes Validator.

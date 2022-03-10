@@ -74,8 +74,13 @@ func (ce *CertExtractor) Name() string {
 }
 
 // Kind returns the kind of CertExtractor.
-func (ce *CertExtractor) Kind() string {
-	return Kind
+func (ce *CertExtractor) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the CertExtractor
+func (ce *CertExtractor) Spec() filters.Spec {
+	return ce.spec
 }
 
 // Init initializes CertExtractor.

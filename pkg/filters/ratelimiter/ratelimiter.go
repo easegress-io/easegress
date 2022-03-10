@@ -134,8 +134,13 @@ func (rl *RateLimiter) Name() string {
 }
 
 // Kind returns the kind of RateLimiter.
-func (rl *RateLimiter) Kind() string {
-	return Kind
+func (rl *RateLimiter) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the RateLimiter
+func (rl *RateLimiter) Spec() filters.Spec {
+	return rl.spec
 }
 
 func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {

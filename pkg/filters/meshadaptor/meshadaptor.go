@@ -75,8 +75,13 @@ func (ra *MeshAdaptor) Name() string {
 }
 
 // Kind returns the kind of MeshAdaptor.
-func (ra *MeshAdaptor) Kind() string {
-	return Kind
+func (ra *MeshAdaptor) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the MeshAdaptor
+func (ra *MeshAdaptor) Spec() filters.Spec {
+	return ra.spec
 }
 
 // Init initializes MeshAdaptor.

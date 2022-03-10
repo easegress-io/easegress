@@ -92,8 +92,13 @@ func (cc *ConnectControl) Name() string {
 }
 
 // Kind return kind of ConnectControl
-func (cc *ConnectControl) Kind() string {
-	return Kind
+func (cc *ConnectControl) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the ConnectControl
+func (cc *ConnectControl) Spec() filters.Spec {
+	return cc.spec
 }
 
 // Init init ConnectControl with pipeline filter spec

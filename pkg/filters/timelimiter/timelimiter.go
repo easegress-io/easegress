@@ -81,8 +81,13 @@ func (tl *TimeLimiter) Name() string {
 }
 
 // Kind returns the kind of TimeLimiter.
-func (tl *TimeLimiter) Kind() string {
-	return Kind
+func (tl *TimeLimiter) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the TimeLimiter
+func (tl *TimeLimiter) Spec() filters.Spec {
+	return tl.spec
 }
 
 // Init initializes TimeLimiter.

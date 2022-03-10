@@ -75,8 +75,13 @@ func (h *HeaderToJSON) Name() string {
 }
 
 // Kind return kind of HeaderToJSON
-func (h *HeaderToJSON) Kind() string {
-	return Kind
+func (h *HeaderToJSON) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the HeaderToJSON
+func (h *HeaderToJSON) Spec() filters.Spec {
+	return h.spec
 }
 
 func (h *HeaderToJSON) init() {

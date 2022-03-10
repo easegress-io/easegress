@@ -64,8 +64,13 @@ func (k *TopicMapper) Name() string {
 }
 
 // Kind return kind of TopicMapper
-func (k *TopicMapper) Kind() string {
-	return Kind
+func (k *TopicMapper) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the TopicMapper
+func (k *TopicMapper) Spec() filters.Spec {
+	return k.spec
 }
 
 // Init init TopicMapper

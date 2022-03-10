@@ -78,8 +78,13 @@ func (a *CORSAdaptor) Name() string {
 }
 
 // Kind returns the kind of CORSAdaptor.
-func (a *CORSAdaptor) Kind() string {
-	return Kind
+func (a *CORSAdaptor) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the CORSAdaptor
+func (a *CORSAdaptor) Spec() filters.Spec {
+	return a.spec
 }
 
 // Init initializes CORSAdaptor.

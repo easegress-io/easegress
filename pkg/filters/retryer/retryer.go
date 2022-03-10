@@ -122,8 +122,13 @@ func (r *Retryer) Name() string {
 }
 
 // Kind returns the kind of Retryer.
-func (r *Retryer) Kind() string {
-	return Kind
+func (r *Retryer) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Retryer
+func (r *Retryer) Spec() filters.Spec {
+	return r.spec
 }
 
 func (r *Retryer) initURL(u *URLRule) {

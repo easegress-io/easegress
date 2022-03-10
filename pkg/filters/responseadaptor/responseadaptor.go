@@ -68,8 +68,13 @@ func (ra *ResponseAdaptor) Name() string {
 }
 
 // Kind returns the kind of ResponseAdaptor.
-func (ra *ResponseAdaptor) Kind() string {
-	return Kind
+func (ra *ResponseAdaptor) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the ResponseAdaptor
+func (ra *ResponseAdaptor) Spec() filters.Spec {
+	return ra.spec
 }
 
 // Init initializes ResponseAdaptor.

@@ -105,8 +105,13 @@ func (wh *WasmHost) Name() string {
 }
 
 // Kind returns the kind of WasmHost.
-func (wh *WasmHost) Kind() string {
-	return Kind
+func (wh *WasmHost) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the WasmHost
+func (wh *WasmHost) Spec() filters.Spec {
+	return wh.spec
 }
 
 // DefaultSpec returns the default spec of WasmHost.

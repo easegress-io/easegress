@@ -97,8 +97,13 @@ func (rf *RemoteFilter) Name() string {
 }
 
 // Kind returns the kind of RemoteFilter.
-func (rf *RemoteFilter) Kind() string {
-	return Kind
+func (rf *RemoteFilter) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the RemoteFilter
+func (rf *RemoteFilter) Spec() filters.Spec {
+	return rf.spec
 }
 
 type (

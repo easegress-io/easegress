@@ -53,8 +53,12 @@ type (
 		// Name returns the name of the filter.
 		Name() string
 
-		// Kind returns the unique kind of the filter.
-		Kind() string
+		// Kind returns the kind of the filter, caller should never modify the
+		// return value.
+		Kind() *Kind
+
+		// Spec returns the Spec of the filter instance.
+		Spec() Spec
 
 		// Init initializes the Filter.
 		Init(spec Spec)

@@ -85,8 +85,13 @@ func (a *MQTTClientAuth) Name() string {
 }
 
 // Kind return kind of MQTTClientAuth
-func (a *MQTTClientAuth) Kind() string {
-	return Kind
+func (a *MQTTClientAuth) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the MQTTClientAuth
+func (a *MQTTClientAuth) Spec() filters.Spec {
+	return a.spec
 }
 
 // Init init MQTTClientAuth

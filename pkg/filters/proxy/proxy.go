@@ -166,8 +166,13 @@ func (b *Proxy) Name() string {
 }
 
 // Kind returns the kind of Proxy.
-func (b *Proxy) Kind() string {
-	return Kind
+func (b *Proxy) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Proxy
+func (b *Proxy) Spec() filters.Spec {
+	return b.spec
 }
 
 // Init initializes Proxy.

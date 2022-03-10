@@ -85,8 +85,13 @@ func (b *Bridge) Name() string {
 }
 
 // Kind returns the kind of Bridge.
-func (b *Bridge) Kind() string {
-	return Kind
+func (b *Bridge) Kind() *filters.Kind {
+	return kind
+}
+
+// Spec returns the spec used by the Bridge
+func (b *Bridge) Spec() filters.Spec {
+	return b.spec
 }
 
 // Init initializes Bridge.
