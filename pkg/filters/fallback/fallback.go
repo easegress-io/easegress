@@ -19,7 +19,7 @@ package fallback
 
 import (
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
 
@@ -33,27 +33,27 @@ const (
 var results = []string{resultFallback}
 
 func init() {
-	pipeline.Register(&Fallback{})
+	filters.Register(&Fallback{})
 }
 
 type (
 	// Fallback is filter Fallback.
 	Fallback struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-
-		f *fallback.Fallback
+		spec *Spec
+		f    *fallback.Fallback
 	}
 
 	// Spec describes the Fallback.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		fallback.Spec `yaml:",inline"`
 	}
 )
 
 // Name returns the name of the Fallback filter instance.
 func (f *Fallback) Name() string {
-	return f.filterSpec.Name()
+	return f.spec.Name()
 }
 
 // Kind returns the kind of Fallback.
@@ -62,7 +62,7 @@ func (f *Fallback) Kind() string {
 }
 
 // DefaultSpec returns default spec of Fallback.
-func (f *Fallback) DefaultSpec() interface{} {
+func (f *Fallback) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -77,16 +77,15 @@ func (f *Fallback) Results() []string {
 }
 
 // Init initializes Fallback.
-func (f *Fallback) Init(filterSpec *pipeline.FilterSpec) {
-	f.filterSpec, f.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (f *Fallback) Init(spec filters.Spec) {
+	f.spec = spec.(*Spec)
 	f.reload()
 }
 
 // Inherit inherits previous generation of Fallback.
-func (f *Fallback) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-
+func (f *Fallback) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	f.Init(filterSpec)
+	f.Init(spec)
 }
 
 func (f *Fallback) reload() {

@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -39,7 +39,7 @@ const (
 var results = []string{}
 
 func init() {
-	pipeline.Register(&Retryer{})
+	filters.Register(&Retryer{})
 }
 
 type (
@@ -66,6 +66,8 @@ type (
 
 	// Spec is the spec of retryer
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
 		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
@@ -73,7 +75,7 @@ type (
 
 	// Retryer is the struct of retryer
 	Retryer struct {
-		filterSpec *pipeline.FilterSpec
+		filterSpec *filters.Spec
 		spec       *Spec
 	}
 )
@@ -106,7 +108,7 @@ URLLoop:
 
 // Name returns the name of the Retryer filter instance.
 func (r *Retryer) Name() string {
-	return r.filterSpec.Name()
+	return r.spec.Name()
 }
 
 // Kind returns the kind of Retryer.
@@ -115,7 +117,7 @@ func (r *Retryer) Kind() string {
 }
 
 // DefaultSpec returns the default spec of Retryer.
-func (r *Retryer) DefaultSpec() interface{} {
+func (r *Retryer) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -164,17 +166,16 @@ func (r *Retryer) initURL(u *URLRule) {
 }
 
 // Init initializes Retryer.
-func (r *Retryer) Init(filterSpec *pipeline.FilterSpec) {
-	r.filterSpec = filterSpec
-	r.spec = filterSpec.FilterSpec().(*Spec)
+func (r *Retryer) Init(spec filters.Spec) {
+	r.spec = spec.(*Spec)
 	for _, url := range r.spec.URLs {
 		r.initURL(url)
 	}
 }
 
 // Inherit inherits previous generation of Retryer.
-func (r *Retryer) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-	r.Init(filterSpec)
+func (r *Retryer) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+	r.Init(spec)
 }
 
 func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
@@ -207,7 +208,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 
 		logger.Infof("attempts %d of retryer %s on URL(%s) failed at %d, result is '%s'",
 			attempt,
-			r.filterSpec.Name(),
+			r.spec.Name(),
 			u.ID(),
 			time.Now().UnixNano()/1e6,
 			result,

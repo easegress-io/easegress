@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/urlrule"
@@ -41,7 +41,7 @@ const (
 var results = []string{resultShortCircuited}
 
 func init() {
-	pipeline.Register(&CircuitBreaker{})
+	filters.Register(&CircuitBreaker{})
 }
 
 type (
@@ -70,6 +70,8 @@ type (
 
 	// Spec is the configuration of a circuit breaker
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
 		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
@@ -77,8 +79,7 @@ type (
 
 	// CircuitBreaker defines the circuit breaker
 	CircuitBreaker struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 
 	// Status is the status of CircuitBreaker.
@@ -168,7 +169,7 @@ func (url *URLRule) createCircuitBreaker() {
 
 // Name returns the name of the CircuitBreaker filter instance.
 func (cb *CircuitBreaker) Name() string {
-	return cb.filterSpec.Name()
+	return cb.spec.Name()
 }
 
 // Kind returns the kind of CircuitBreaker.
@@ -177,7 +178,7 @@ func (cb *CircuitBreaker) Kind() string {
 }
 
 // DefaultSpec returns the default spec of CircuitBreaker.
-func (cb *CircuitBreaker) DefaultSpec() interface{} {
+func (cb *CircuitBreaker) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -194,7 +195,7 @@ func (cb *CircuitBreaker) Results() []string {
 func (cb *CircuitBreaker) setStateListenerForURL(u *URLRule) {
 	u.cb.SetStateListener(func(event *libcb.Event) {
 		logger.Infof("state of circuit breaker '%s' on URL(%s) transited from %s to %s at %d, reason: %s",
-			cb.filterSpec.Name(),
+			cb.spec.Name(),
 			u.ID(),
 			event.OldState,
 			event.NewState,
@@ -281,14 +282,14 @@ OuterLoop:
 }
 
 // Init initializes CircuitBreaker.
-func (cb *CircuitBreaker) Init(filterSpec *pipeline.FilterSpec) {
-	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (cb *CircuitBreaker) Init(spec filters.Spec) {
+	cb.spec = spec.(*Spec)
 	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
-func (cb *CircuitBreaker) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-	cb.filterSpec, cb.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (cb *CircuitBreaker) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+	cb.spec = spec.(*Spec)
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 

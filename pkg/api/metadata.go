@@ -26,7 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -57,7 +57,7 @@ var (
 )
 
 func (s *Server) initMetadata() {
-	filterRegistry := pipeline.GetFilterRegistry()
+	filterRegistry := filters.Registry()
 	for kind, f := range filterRegistry {
 		filterMetaBook[kind] = &FilterMeta{
 			Kind:        kind,

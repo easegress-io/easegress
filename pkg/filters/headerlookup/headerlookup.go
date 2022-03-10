@@ -30,8 +30,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -46,13 +46,12 @@ const (
 var results = []string{}
 
 func init() {
-	pipeline.Register(&HeaderLookup{})
+	filters.Register(&HeaderLookup{})
 }
 
 type (
 	// HeaderLookup retrieves values from etcd to headers.
 	HeaderLookup struct {
-		filterSpec *pipeline.FilterSpec
 		spec       *Spec
 		etcdPrefix string
 		headerKey  string
@@ -79,6 +78,8 @@ type (
 	// "/api/bananas/33" and pathRegExp: "^/api/([a-z]+)/[0-9]*", the group "bananas" is extracted and etcd key is
 	// /custom-data/{etcdPrefix}/{headerKey's value}-bananas.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		HeaderKey     string              `yaml:"headerKey" jsonschema:"required"`
 		EtcdPrefix    string              `yaml:"etcdPrefix" jsonschema:"required"`
 		PathRegExp    string              `yaml:"pathRegExp" jsonschema:"omitempty"`
@@ -114,7 +115,7 @@ func (spec Spec) Validate() error {
 
 // Name returns the name of the HeaderLookup filter instance.
 func (hl *HeaderLookup) Name() string {
-	return hl.filterSpec.Name()
+	return hl.spec.Name()
 }
 
 // Kind returns the kind of HeaderLookup.
@@ -123,7 +124,7 @@ func (hl *HeaderLookup) Kind() string {
 }
 
 // DefaultSpec returns the default spec of HeaderLookup.
-func (hl *HeaderLookup) DefaultSpec() interface{} {
+func (hl *HeaderLookup) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -138,10 +139,10 @@ func (hl *HeaderLookup) Results() []string {
 }
 
 // Init initializes HeaderLookup.
-func (hl *HeaderLookup) Init(filterSpec *pipeline.FilterSpec) {
-	hl.filterSpec, hl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	if filterSpec.Super() != nil && filterSpec.Super().Cluster() != nil {
-		hl.cluster = filterSpec.Super().Cluster()
+func (hl *HeaderLookup) Init(spec filters.Spec) {
+	hl.spec = spec.(*Spec)
+	if spec.Super() != nil && spec.Super().Cluster() != nil {
+		hl.cluster = spec.Super().Cluster()
 	}
 	hl.etcdPrefix = customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/")
 	hl.headerKey = http.CanonicalHeaderKey(hl.spec.HeaderKey)
@@ -152,9 +153,9 @@ func (hl *HeaderLookup) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of HeaderLookup.
-func (hl *HeaderLookup) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (hl *HeaderLookup) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	hl.Init(filterSpec)
+	hl.Init(spec)
 }
 
 func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {

@@ -27,8 +27,8 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
@@ -45,7 +45,7 @@ func createCertExtractor(
 	yamlSpec string, prev *CertExtractor, supervisor *supervisor.Supervisor) (*CertExtractor, error) {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
-	spec, err := pipeline.NewFilterSpec(rawSpec, supervisor)
+	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		return nil, err
 	}

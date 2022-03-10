@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -36,7 +36,7 @@ name: cors
 		rawSpec := make(map[string]interface{})
 		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-		spec, e := pipeline.NewFilterSpec(rawSpec, nil)
+		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {
 			t.Errorf("unexpected error: %v", e)
 		}
@@ -65,7 +65,7 @@ name: cors
 		}
 
 		newCors := &CORSAdaptor{}
-		spec, _ = pipeline.NewFilterSpec(rawSpec, nil)
+		spec, _ = filters.NewSpec(nil, "", rawSpec)
 		newCors.Inherit(spec, cors)
 		cors.Close()
 		ctx.MockedRequest.MockedMethod = func() string {
@@ -87,7 +87,7 @@ allowedOrigins:
 		rawSpec := make(map[string]interface{})
 		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-		spec, e := pipeline.NewFilterSpec(rawSpec, nil)
+		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {
 			t.Errorf("unexpected error: %v", e)
 		}

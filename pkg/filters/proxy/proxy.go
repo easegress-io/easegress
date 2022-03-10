@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
 
@@ -51,7 +51,7 @@ var results = []string{
 }
 
 func init() {
-	pipeline.Register(&Proxy{})
+	filters.Register(&Proxy{})
 }
 
 var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
@@ -61,8 +61,7 @@ var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, 
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 
 		fallback *fallback.Fallback
 
@@ -77,6 +76,8 @@ type (
 
 	// Spec describes the Proxy.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Fallback            *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
 		MainPool            *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
 		CandidatePools      []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
@@ -148,7 +149,7 @@ func (s Spec) Validate() error {
 
 // Name returns the name of the Proxy filter instance.
 func (b *Proxy) Name() string {
-	return b.filterSpec.Name()
+	return b.spec.Name()
 }
 
 // Kind returns the kind of Proxy.
@@ -157,7 +158,7 @@ func (b *Proxy) Kind() string {
 }
 
 // DefaultSpec returns the default spec of Proxy.
-func (b *Proxy) DefaultSpec() interface{} {
+func (b *Proxy) DefaultSpec() filters.Spec {
 	return &Spec{
 		MaxIdleConns:        10240,
 		MaxIdleConnsPerHost: 1024,
@@ -175,15 +176,15 @@ func (b *Proxy) Results() []string {
 }
 
 // Init initializes Proxy.
-func (b *Proxy) Init(filterSpec *pipeline.FilterSpec) {
-	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (b *Proxy) Init(spec filters.Spec) {
+	b.spec = spec.(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Proxy.
-func (b *Proxy) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (b *Proxy) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	b.Init(filterSpec)
+	b.Init(spec)
 }
 
 func (b *Proxy) needmTLS() bool {
@@ -218,7 +219,7 @@ func (b *Proxy) tlsConfig() *tls.Config {
 }
 
 func (b *Proxy) reload() {
-	super := b.filterSpec.Super()
+	super := b.spec.Super()
 
 	b.mainPool = newPool(super, b.spec.MainPool, "proxy#main",
 		true /*writeResponse*/, b.spec.FailureCodes)

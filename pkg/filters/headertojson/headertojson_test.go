@@ -26,9 +26,8 @@ import (
 
 	json "github.com/goccy/go-json"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
@@ -37,40 +36,37 @@ func init() {
 	logger.InitNop()
 }
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &supervisor.MetaSpec{
-		Name: "header-to-json",
-		Kind: Kind,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec, "pipeline-demo")
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "header-to-json"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func TestHeaderToJSON(t *testing.T) {
 	assert := assert.New(t)
 	h := &HeaderToJSON{}
-	filterSpec := defaultFilterSpec(&Spec{})
-	h.Init(filterSpec)
+	spec := defaultFilterSpec(&Spec{})
+	h.Init(spec)
 
 	assert.NotEmpty(h.Description())
 	assert.Nil(h.Status())
 
 	newh := HeaderToJSON{}
-	newh.Inherit(filterSpec, h)
+	newh.Inherit(spec, h)
 	newh.Close()
 }
 
 func TestHandleHTTP(t *testing.T) {
 	assert := assert.New(t)
-	spec := &Spec{
+	spec := defaultFilterSpec(&Spec{
 		HeaderMap: []*HeaderMap{
 			{Header: "x-username", JSON: "username"},
 		},
-	}
-	filterSpec := defaultFilterSpec(spec)
+	})
 
 	h2j := HeaderToJSON{}
-	h2j.Init(filterSpec)
+	h2j.Init(spec)
 
 	{
 		//test http request with body

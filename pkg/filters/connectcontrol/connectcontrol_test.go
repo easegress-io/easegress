@@ -24,8 +24,8 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,15 +42,11 @@ func newContext(cid string, topic string) context.MQTTContext {
 	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &pipeline.FilterMetaSpec{
-		Name:     "connect-control-demo",
-		Kind:     Kind,
-		Pipeline: "pipeline-demo",
-		Protocol: context.MQTT,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec)
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "connect-control-demo"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func TestConnectControl(t *testing.T) {
@@ -69,24 +65,25 @@ func TestConnectControl(t *testing.T) {
 				return
 			}
 		}()
-		meta := &pipeline.FilterMetaSpec{
-			Protocol: context.HTTP,
-		}
-		filterSpec := pipeline.MockFilterSpec(nil, "", meta, nil)
-		cc.Init(filterSpec)
+		/*
+			meta := &pipeline.FilterMetaSpec{
+				Protocol: context.HTTP,
+			}
+			spec := pipeline.MockFilterSpec(nil, "", meta, nil)
+		*/
+		cc.Init(spec)
 		return
 	}
 	err := checkProtocol()
 	assert.NotNil(err, "if ConnectControl supports more protocol, please update this case")
 
-	spec := &Spec{
+	spec := defaultFilterSpec(&Spec{
 		BannedClients: []string{"banClient1", "banClient2"},
 		BannedTopics:  []string{"banTopic1", "banTopic2"},
-	}
-	filterSpec := defaultFilterSpec(spec)
-	cc.Init(filterSpec)
+	})
+	cc.Init(spec)
 	newCc := &ConnectControl{}
-	newCc.Inherit(filterSpec, cc)
+	newCc.Inherit(spec, cc)
 	defer newCc.Close()
 	status := newCc.Status().(*Status)
 	assert.Equal(status.BannedClientNum, len(spec.BannedClients))

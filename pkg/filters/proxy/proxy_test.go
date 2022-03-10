@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/memorycache"
@@ -79,7 +79,7 @@ failureCodes: [503, 504]
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}

@@ -26,9 +26,8 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
@@ -60,26 +59,24 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 	}
 }
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &supervisor.MetaSpec{
-		Name: "kafka",
-		Kind: Kind,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec, "pipeline-demo")
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "kafka"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func TestKafka(t *testing.T) {
 	assert := assert.New(t)
 	k := &Kafka{}
-	filterSpec := defaultFilterSpec(&Spec{})
+	spec := defaultFilterSpec(&Spec{})
 
 	assert.NotEmpty(k.Description())
 	assert.Nil(k.Status())
-	assert.Panics(func() { k.Init(filterSpec) }, "no valid backend should panic")
+	assert.Panics(func() { k.Init(spec) }, "no valid backend should panic")
 
 	newK := &Kafka{}
-	assert.Panics(func() { newK.Inherit(filterSpec, k) })
+	assert.Panics(func() { newK.Inherit(spec, k) })
 }
 
 func TestHandleHTTP(t *testing.T) {

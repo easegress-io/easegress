@@ -35,6 +35,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/filters"
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
@@ -47,9 +48,9 @@ import (
 
 func init() {
 	logger.InitNop()
-	pipeline.Register(&pipeline.MockMQTTFilter{})
-	pipeline.Register(&MockKafka{})
-	// pipeline.Register(&authentication.Authentication{})
+	filters.Register(&pipeline.MockMQTTFilter{})
+	filters.Register(&MockKafka{})
+	// filters.Register(&authentication.Authentication{})
 }
 
 var (

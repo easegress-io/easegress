@@ -30,8 +30,8 @@ import (
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -48,14 +48,13 @@ const (
 var results = []string{resultFailed}
 
 func init() {
-	pipeline.Register(&APIAggregator{})
+	filters.Register(&APIAggregator{})
 }
 
 type (
 	// APIAggregator is a filter to aggregate several HTTP API responses.
 	APIAggregator struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 
 		// rctc is for getting Pipeline in default namespace.
 		rctc *rawconfigtrafficcontroller.RawConfigTrafficController
@@ -63,6 +62,8 @@ type (
 
 	// Spec is APIAggregator's spec.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		// MaxBodyBytes in [0, 10MB]
 		MaxBodyBytes int64 `yaml:"maxBodyBytes" jsonschema:"omitempty,minimum=0,maximum=102400"`
 
@@ -105,7 +106,7 @@ type (
 
 // Name returns the name of the APIAggregator filter instance.
 func (aa *APIAggregator) Name() string {
-	return aa.filterSpec.Name()
+	return aa.spec.Name()
 }
 
 // Kind returns the kind of APIAggregator.
@@ -114,7 +115,7 @@ func (aa *APIAggregator) Kind() string {
 }
 
 // DefaultSpec returns default spec of APIAggregator.
-func (aa *APIAggregator) DefaultSpec() interface{} {
+func (aa *APIAggregator) DefaultSpec() filters.Spec {
 	return &Spec{
 		Timeout:      "60s",
 		MaxBodyBytes: 10240,
@@ -132,9 +133,9 @@ func (aa *APIAggregator) Results() []string {
 }
 
 // Init initializes APIAggregator.
-func (aa *APIAggregator) Init(filterSpec *pipeline.FilterSpec) {
-	aa.filterSpec, aa.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
-	entity, exists := filterSpec.Super().GetSystemController(rawconfigtrafficcontroller.Kind)
+func (aa *APIAggregator) Init(spec filters.Spec) {
+	aa.spec = spec.(*Spec)
+	entity, exists := spec.Super().GetSystemController(rawconfigtrafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: raw config traffic controller not found"))
 	}
@@ -148,9 +149,9 @@ func (aa *APIAggregator) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of APIAggregator.
-func (aa *APIAggregator) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (aa *APIAggregator) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	aa.Init(filterSpec)
+	aa.Init(spec)
 }
 
 func (aa *APIAggregator) reload() {

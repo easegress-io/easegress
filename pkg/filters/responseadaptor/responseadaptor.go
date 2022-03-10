@@ -21,8 +21,8 @@ import (
 	"bytes"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
@@ -34,27 +34,27 @@ const (
 var results = []string{}
 
 func init() {
-	pipeline.Register(&ResponseAdaptor{})
+	filters.Register(&ResponseAdaptor{})
 }
 
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
+		filters.BaseSpec `yaml:",inline"`
 
-		Body string `yaml:"body" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
+		Body   string                `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
 // Name returns the name of the ResponseAdaptor filter instance.
 func (ra *ResponseAdaptor) Name() string {
-	return ra.filterSpec.Name()
+	return ra.spec.Name()
 }
 
 // Kind returns the kind of ResponseAdaptor.
@@ -63,7 +63,7 @@ func (ra *ResponseAdaptor) Kind() string {
 }
 
 // DefaultSpec returns default spec of ResponseAdaptor.
-func (ra *ResponseAdaptor) DefaultSpec() interface{} {
+func (ra *ResponseAdaptor) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -78,15 +78,15 @@ func (ra *ResponseAdaptor) Results() []string {
 }
 
 // Init initializes ResponseAdaptor.
-func (ra *ResponseAdaptor) Init(filterSpec *pipeline.FilterSpec) {
-	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (ra *ResponseAdaptor) Init(spec filters.Spec) {
+	ra.spec = spec.(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of ResponseAdaptor.
-func (ra *ResponseAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (ra *ResponseAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(filterSpec)
+	ra.Init(spec)
 }
 
 func (ra *ResponseAdaptor) reload() {

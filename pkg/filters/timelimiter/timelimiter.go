@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	pipeline.Register(&TimeLimiter{})
+	filters.Register(&TimeLimiter{})
 }
 
 type (
@@ -53,6 +53,8 @@ type (
 
 	// Spec is the spec of time limiter
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		DefaultTimeoutDuration string `yaml:"defaultTimeoutDuration" jsonschema:"omitempty,format=duration"`
 		defaultTimeout         time.Duration
 		URLs                   []*URLRule `yaml:"urls" jsonschema:"required"`
@@ -60,14 +62,13 @@ type (
 
 	// TimeLimiter is the time limiter struct
 	TimeLimiter struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 )
 
 // Name returns the name of the TimeLimiter filter instance.
 func (tl *TimeLimiter) Name() string {
-	return tl.filterSpec.Name()
+	return tl.spec.Name()
 }
 
 // Kind returns the kind of TimeLimiter.
@@ -76,7 +77,7 @@ func (tl *TimeLimiter) Kind() string {
 }
 
 // DefaultSpec returns the default spec of TimeLimiter.
-func (tl *TimeLimiter) DefaultSpec() interface{} {
+func (tl *TimeLimiter) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -91,8 +92,8 @@ func (tl *TimeLimiter) Results() []string {
 }
 
 // Init initializes TimeLimiter.
-func (tl *TimeLimiter) Init(filterSpec *pipeline.FilterSpec) {
-	tl.filterSpec, tl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (tl *TimeLimiter) Init(spec filters.Spec) {
+	tl.spec = spec.(*Spec)
 
 	if d := tl.spec.DefaultTimeoutDuration; d != "" {
 		tl.spec.defaultTimeout, _ = time.ParseDuration(d)
@@ -111,8 +112,8 @@ func (tl *TimeLimiter) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of TimeLimiter.
-func (tl *TimeLimiter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-	tl.Init(filterSpec)
+func (tl *TimeLimiter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+	tl.Init(spec)
 }
 
 func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
@@ -123,7 +124,7 @@ func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
 	result := ctx.CallNextHandler("")
 	if !timer.Stop() {
 		ctx.AddTag("timeLimiter: timed out")
-		logger.Infof("time limiter %s timed out on URL(%s)", tl.filterSpec.Name(), u.ID())
+		logger.Infof("time limiter %s timed out on URL(%s)", tl.spec.Name(), u.ID())
 		ctx.Response().SetStatusCode(http.StatusRequestTimeout)
 		ctx.Response().Std().Header().Set("X-EG-Time-Limiter", "timed-out")
 		result = resultTimeout

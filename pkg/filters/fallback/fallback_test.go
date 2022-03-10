@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -41,7 +41,7 @@ mockBody: "mocked body"
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
-	spec, e := pipeline.NewFilterSpec(rawSpec, nil)
+	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {
 		t.Errorf("unexpected error: %v", e)
 	}
@@ -79,7 +79,7 @@ mockBody: "mocked body"
 	fb.Description()
 
 	newFb := &Fallback{}
-	spec, _ = pipeline.NewFilterSpec(rawSpec, nil)
+	spec, _ = filters.NewSpec(nil, "", rawSpec)
 	newFb.Inherit(spec, fb)
 	fb.Close()
 	ctx.MockedRequest.MockedMethod = func() string {

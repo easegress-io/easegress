@@ -21,8 +21,8 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols"
 )
 
@@ -52,23 +52,27 @@ func init() {
 	// FIXME: Bridge is a temporary product for some historical reason.
 	// I(@xxx7xxxx) think we should not empower filter to cross pipelines.
 
-	// pipeline.Register(&Bridge{})
+	// filters.Register(&Bridge{})
 }
 
 type (
 	// Bridge is filter Bridge.
 	Bridge struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-
+		spec      *Spec
 		muxMapper protocols.MuxMapper
 	}
 
 	// Spec describes the Mock.
 	Spec struct {
-		Destinations []string `yaml:"destinations" jsonschema:"required,pattern=^[^ \t]+$"`
+		filters.BaseSpec `yaml:",inline"`
+		Destinations     []string `yaml:"destinations" jsonschema:"required,pattern=^[^ \t]+$"`
 	}
 )
+
+// Name returns the name of the Bridge filter instance.
+func (b *Bridge) Name() string {
+	return b.spec.Name()
+}
 
 // Kind returns the kind of Bridge.
 func (b *Bridge) Kind() string {
@@ -76,7 +80,7 @@ func (b *Bridge) Kind() string {
 }
 
 // DefaultSpec returns the default spec of Bridge.
-func (b *Bridge) DefaultSpec() interface{} {
+func (b *Bridge) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -91,15 +95,15 @@ func (b *Bridge) Results() []string {
 }
 
 // Init initializes Bridge.
-func (b *Bridge) Init(filterSpec *pipeline.FilterSpec) {
-	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (b *Bridge) Init(spec filters.Spec) {
+	b.spec = spec.(*Spec)
 	b.reload()
 }
 
 // Inherit inherits previous generation of Bridge.
-func (b *Bridge) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (b *Bridge) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	b.Init(filterSpec)
+	b.Init(spec)
 }
 
 func (b *Bridge) reload() {

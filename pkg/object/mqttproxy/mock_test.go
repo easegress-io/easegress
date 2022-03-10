@@ -28,6 +28,7 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -203,15 +204,15 @@ type MockKafkaSpec struct{}
 
 var _ pipeline.MQTTFilter = (*MockKafka)(nil)
 
-func (k *MockKafka) Kind() string                                                      { return "MockKafka" }
-func (k *MockKafka) DefaultSpec() interface{}                                          { return &MockKafkaSpec{} }
-func (k *MockKafka) Status() interface{}                                               { return nil }
-func (k *MockKafka) Description() string                                               { return "mock kafka" }
-func (k *MockKafka) Inherit(filterSpec *pipeline.FilterSpec, previous pipeline.Filter) {}
-func (k *MockKafka) Close()                                                            {}
-func (k *MockKafka) Results() []string                                                 { return nil }
+func (k *MockKafka) Kind() string                                              { return "MockKafka" }
+func (k *MockKafka) DefaultSpec() interface{}                                  { return &MockKafkaSpec{} }
+func (k *MockKafka) Status() interface{}                                       { return nil }
+func (k *MockKafka) Description() string                                       { return "mock kafka" }
+func (k *MockKafka) Inherit(filterSpec *filters.Spec, previous filters.Filter) {}
+func (k *MockKafka) Close()                                                    {}
+func (k *MockKafka) Results() []string                                         { return nil }
 
-func (k *MockKafka) Init(filterSpec *pipeline.FilterSpec) {
+func (k *MockKafka) Init(filterSpec *filters.Spec) {
 	k.ch = make(chan *packets.PublishPacket, 100)
 }
 

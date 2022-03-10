@@ -17,9 +17,13 @@
 
 package kafka
 
+import "github.com/megaease/easegress/pkg/filters"
+
 type (
 	// Spec is spec of Kafka
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
 		Topic   *Topic   `yaml:"topic" jsonschema:"required"`
 	}

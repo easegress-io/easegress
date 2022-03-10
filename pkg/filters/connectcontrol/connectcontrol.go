@@ -21,6 +21,7 @@ import (
 	"regexp"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 )
@@ -35,7 +36,7 @@ const (
 // ErrBannedClientOrTopic is error for banned client or topic
 
 func init() {
-	pipeline.Register(&ConnectControl{})
+	filters.Register(&ConnectControl{})
 }
 
 type (
@@ -43,7 +44,6 @@ type (
 	// if MQTTContext ClientID in bannedClients, the connection will be closed,
 	// if MQTTContext publish topic in bannedTopics, the connection will be closed.
 	ConnectControl struct {
-		filterSpec     *pipeline.FilterSpec
 		spec           *Spec
 		bannedClients  map[string]struct{}
 		bannedTopics   map[string]struct{}
@@ -54,6 +54,8 @@ type (
 
 	// Spec describes the ConnectControl
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		BannedClientRe string   `yaml:"bannedClientRe" jsonschema:"omitempty"`
 		BannedClients  []string `yaml:"bannedClients" jsonschema:"omitempty"`
 		BannedTopicRe  string   `yaml:"bannedTopicRe" jsonschema:"omitempty"`
@@ -70,12 +72,12 @@ type (
 	}
 )
 
-var _ pipeline.Filter = (*ConnectControl)(nil)
+var _ filters.Filter = (*ConnectControl)(nil)
 var _ pipeline.MQTTFilter = (*ConnectControl)(nil)
 
 // Name returns the name of the ConnectControl filter instance.
 func (cc *ConnectControl) Name() string {
-	return cc.filterSpec.Name()
+	return cc.spec.Name()
 }
 
 // Kind return kind of ConnectControl
@@ -84,7 +86,7 @@ func (cc *ConnectControl) Kind() string {
 }
 
 // DefaultSpec return default spec of ConnectControl
-func (cc *ConnectControl) DefaultSpec() interface{} {
+func (cc *ConnectControl) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -99,11 +101,11 @@ func (cc *ConnectControl) Results() []string {
 }
 
 // Init init ConnectControl with pipeline filter spec
-func (cc *ConnectControl) Init(filterSpec *pipeline.FilterSpec) {
-	if filterSpec.Protocol() != context.MQTT {
+func (cc *ConnectControl) Init(spec filters.Spec) {
+	if spec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
-	cc.filterSpec, cc.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	cc.spec = spec.(*Spec)
 	cc.bannedClients = make(map[string]struct{})
 	cc.bannedTopics = make(map[string]struct{})
 	cc.reload()
@@ -143,9 +145,9 @@ func (cc *ConnectControl) reload() {
 }
 
 // Inherit init ConnectControl with previous generation
-func (cc *ConnectControl) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (cc *ConnectControl) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	cc.Init(filterSpec)
+	cc.Init(spec)
 }
 
 // Status return status of ConnectControl

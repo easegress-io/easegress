@@ -23,8 +23,8 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -58,15 +58,11 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 	}
 }
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &pipeline.FilterMetaSpec{
-		Name:     "kafka-demo",
-		Kind:     Kind,
-		Pipeline: "pipeline-demo",
-		Protocol: context.MQTT,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec)
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "kafka-demo"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func newContext(cid string, topic string, payload []byte) context.MQTTContext {

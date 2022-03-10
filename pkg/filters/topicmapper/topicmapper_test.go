@@ -23,19 +23,15 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/stretchr/testify/assert"
 )
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &pipeline.FilterMetaSpec{
-		Name:     "topicmapper-demo",
-		Kind:     Kind,
-		Pipeline: "pipeline-demo",
-		Protocol: context.MQTT,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, nil, "", meta, spec)
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "topic-mapper-demo"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func newContext(cid string, topic string) context.MQTTContext {

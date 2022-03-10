@@ -29,8 +29,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -50,7 +50,7 @@ const (
 var results = []string{resultFailed, resultResponseAlready}
 
 func init() {
-	pipeline.Register(&RemoteFilter{})
+	filters.Register(&RemoteFilter{})
 }
 
 // All RemoteFilter instances use one globalClient in order to reuse
@@ -83,7 +83,7 @@ var globalClient = &http.Client{
 
 // Name returns the name of the RemoteFilter filter instance.
 func (rf *RemoteFilter) Name() string {
-	return rf.filterSpec.Name()
+	return rf.spec.Name()
 }
 
 // Kind returns the kind of RemoteFilter.
@@ -92,7 +92,7 @@ func (rf *RemoteFilter) Kind() string {
 }
 
 // DefaultSpec returns default spec.
-func (rf *RemoteFilter) DefaultSpec() interface{} {
+func (rf *RemoteFilter) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -109,12 +109,13 @@ func (rf *RemoteFilter) Results() []string {
 type (
 	// RemoteFilter is the filter making remote service acting like internal filter.
 	RemoteFilter struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 
 	// Spec describes RemoteFilter.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		URL     string `yaml:"url" jsonschema:"required,format=uri"`
 		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 
@@ -152,15 +153,15 @@ type (
 )
 
 // Init initializes RemoteFilter.
-func (rf *RemoteFilter) Init(filterSpec *pipeline.FilterSpec) {
-	rf.filterSpec, rf.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (rf *RemoteFilter) Init(spec filters.Spec) {
+	rf.spec = spec.(*Spec)
 	rf.reload()
 }
 
 // Inherit inherits previous generation of RemoteFilter.
-func (rf *RemoteFilter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (rf *RemoteFilter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	rf.Init(filterSpec)
+	rf.Init(spec)
 }
 
 func (rf *RemoteFilter) reload() {

@@ -19,6 +19,7 @@ package topicmapper
 
 import (
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 )
@@ -31,24 +32,23 @@ const (
 )
 
 func init() {
-	pipeline.Register(&TopicMapper{})
+	filters.Register(&TopicMapper{})
 }
 
 type (
 	// TopicMapper map MQTT multi-level topic into topic and key-value headers
 	TopicMapper struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-		mapFn      topicMapFunc
+		spec  *Spec
+		mapFn topicMapFunc
 	}
 )
 
-var _ pipeline.Filter = (*TopicMapper)(nil)
+var _ filters.Filter = (*TopicMapper)(nil)
 var _ pipeline.MQTTFilter = (*TopicMapper)(nil)
 
 // Name returns the name of the TopicMapper filter instance.
 func (k *TopicMapper) Name() string {
-	return k.filterSpec.Name()
+	return k.spec.Name()
 }
 
 // Kind return kind of TopicMapper
@@ -57,7 +57,7 @@ func (k *TopicMapper) Kind() string {
 }
 
 // DefaultSpec return default spec of TopicMapper
-func (k *TopicMapper) DefaultSpec() interface{} {
+func (k *TopicMapper) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -72,11 +72,11 @@ func (k *TopicMapper) Results() []string {
 }
 
 // Init init TopicMapper
-func (k *TopicMapper) Init(filterSpec *pipeline.FilterSpec) {
-	if filterSpec.Protocol() != context.MQTT {
+func (k *TopicMapper) Init(spec filters.Spec) {
+	if spec.Protocol() != context.MQTT {
 		panic("filter TopicMapper only support MQTT protocol for now")
 	}
-	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	k.spec = spec.(*Spec)
 	k.mapFn = getTopicMapFunc(k.spec)
 	if k.mapFn == nil {
 		panic("invalid spec for TopicMapper")
@@ -84,9 +84,9 @@ func (k *TopicMapper) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit init TopicMapper based on previous generation
-func (k *TopicMapper) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (k *TopicMapper) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	k.Init(filterSpec)
+	k.Init(spec)
 }
 
 // Close close TopicMapper

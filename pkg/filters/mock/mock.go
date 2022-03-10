@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -37,18 +37,19 @@ const (
 var results = []string{resultMocked}
 
 func init() {
-	pipeline.Register(&Mock{})
+	filters.Register(&Mock{})
 }
 
 type (
 	// Mock is filter Mock.
 	Mock struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 
 	// Spec describes the Mock.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Rules []*Rule `yaml:"rules"`
 	}
 
@@ -74,7 +75,7 @@ type (
 
 // Name returns the name of the Mock filter instance.
 func (m *Mock) Name() string {
-	return m.filterSpec.Name()
+	return m.spec.Name()
 }
 
 // Kind returns the kind of Mock.
@@ -83,7 +84,7 @@ func (m *Mock) Kind() string {
 }
 
 // DefaultSpec returns default spec of Mock.
-func (m *Mock) DefaultSpec() interface{} {
+func (m *Mock) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -98,15 +99,15 @@ func (m *Mock) Results() []string {
 }
 
 // Init initializes Mock.
-func (m *Mock) Init(filterSpec *pipeline.FilterSpec) {
-	m.filterSpec, m.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (m *Mock) Init(spec filters.Spec) {
+	m.spec = spec.(*Spec)
 	m.reload()
 }
 
 // Inherit inherits previous generation of Mock.
-func (m *Mock) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (m *Mock) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	m.Init(filterSpec)
+	m.Init(spec)
 }
 
 func (m *Mock) reload() {

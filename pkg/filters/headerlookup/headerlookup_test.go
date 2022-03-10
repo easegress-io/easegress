@@ -29,8 +29,8 @@ import (
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
@@ -46,7 +46,7 @@ func createHeaderLookup(
 	yamlSpec string, prev *HeaderLookup, supervisor *supervisor.Supervisor) (*HeaderLookup, error) {
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
-	spec, err := pipeline.NewFilterSpec(rawSpec, supervisor)
+	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		return nil, err
 	}

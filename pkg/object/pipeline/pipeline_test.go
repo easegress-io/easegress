@@ -23,41 +23,46 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
-func CreateObjectMock(kind string) Filter {
-	return &FilterMock{kind, []string{}}
+func CreateMockedFilter(kind string) filters.Filter {
+	return &MockedFilter{kind, []string{}}
 }
 
 type (
-	FilterMock struct {
+	MockedFilter struct {
 		kind    string
 		results []string
 	}
+
+	MockedSpec struct {
+		filters.BaseSpec `yaml:",inline"`
+	}
 )
 
-func (m *FilterMock) Name() string                                              { return "mock1" }
-func (m *FilterMock) Kind() string                                              { return m.kind }
-func (m *FilterMock) Close()                                                    {}
-func (m *FilterMock) DefaultSpec() interface{}                                  { return &Spec{} }
-func (m *FilterMock) Description() string                                       { return "test" }
-func (m *FilterMock) Results() []string                                         { return m.results }
-func (m *FilterMock) Handle(ctx context.HTTPContext) (result string)            { return "" }
-func (m *FilterMock) Init(filterSpec *FilterSpec)                               {}
-func (m *FilterMock) Inherit(filterSpec *FilterSpec, previousGeneration Filter) {}
-func (m *FilterMock) Status() interface{}                                       { return nil }
+func (m *MockedFilter) Name() string                                                 { return "mock1" }
+func (m *MockedFilter) Kind() string                                                 { return m.kind }
+func (m *MockedFilter) Close()                                                       {}
+func (m *MockedFilter) DefaultSpec() filters.Spec                                    { return &MockedSpec{} }
+func (m *MockedFilter) Description() string                                          { return "test" }
+func (m *MockedFilter) Results() []string                                            { return m.results }
+func (m *MockedFilter) Handle(ctx context.HTTPContext) (result string)               { return "" }
+func (m *MockedFilter) Init(spec filters.Spec)                                       {}
+func (m *MockedFilter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {}
+func (m *MockedFilter) Status() interface{}                                          { return nil }
 
 func cleanup() {
-	filterRegistry = map[string]Filter{}
+	filters.ResetRegistry()
 }
 
 func TestSpecValidate(t *testing.T) {
 	cleanup()
 	t.Run("spec missing flow", func(t *testing.T) {
-		Register(CreateObjectMock("mock-filter"))
-		Register(CreateObjectMock("mock-pipeline"))
+		filters.Register(CreateMockedFilter("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-pipeline"))
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
@@ -71,15 +76,15 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := NewFilterSpec(spec, nil)
+		_, err := filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 	cleanup()
 	t.Run("ordered filters with flow", func(t *testing.T) {
-		Register(CreateObjectMock("mock-filter"))
-		Register(CreateObjectMock("mock-pipeline"))
+		filters.Register(CreateMockedFilter("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-pipeline"))
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
@@ -100,15 +105,15 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := NewFilterSpec(spec, nil)
+		_, err := filters.NewSpec(nil, "", spec)
 		if err != nil {
 			t.Errorf("failed creating valid filter spec %s", err)
 		}
 	})
 	cleanup()
 	t.Run("ordered filters without flow", func(t *testing.T) {
-		Register(CreateObjectMock("mock-filter"))
-		Register(CreateObjectMock("mock-pipeline"))
+		filters.Register(CreateMockedFilter("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-pipeline"))
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
@@ -126,7 +131,7 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := NewFilterSpec(spec, nil)
+		_, err := filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
@@ -137,11 +142,11 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "mock-pipeline",
 		}
-		_, err := NewFilterSpec(spec, nil)
+		_, err := filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
-		Register(CreateObjectMock("mock-pipeline"))
+		filters.Register(CreateMockedFilter("mock-pipeline"))
 		spec = map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
@@ -152,20 +157,20 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err = NewFilterSpec(spec, nil)
+		_, err = filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 		spec = map[string]interface{}{"name": "pipeline"}
-		_, err = NewFilterSpec(spec, nil)
+		_, err = filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 	cleanup()
 	t.Run("duplicate filter", func(t *testing.T) {
-		Register(CreateObjectMock("mock-pipeline"))
-		Register(CreateObjectMock("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-pipeline"))
+		filters.Register(CreateMockedFilter("mock-filter"))
 		spec := map[string]interface{}{
 			"name": "pipeline",
 			"kind": "mock-pipeline",
@@ -174,7 +179,7 @@ func TestSpecValidate(t *testing.T) {
 				{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
-		_, err := NewFilterSpec(spec, nil)
+		_, err := filters.NewSpec(nil, "", spec)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
@@ -190,8 +195,8 @@ func TestRegistry(t *testing.T) {
 				t.Errorf("register did not panic")
 			}
 		}()
-		Register(CreateObjectMock("mock-filter"))
-		Register(CreateObjectMock("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-filter"))
+		filters.Register(CreateMockedFilter("mock-filter"))
 	})
 	cleanup()
 	t.Run("empty kind", func(t *testing.T) {
@@ -200,7 +205,7 @@ func TestRegistry(t *testing.T) {
 				t.Errorf("register did not panic")
 			}
 		}()
-		Register(CreateObjectMock(""))
+		filters.Register(CreateMockedFilter(""))
 	})
 	cleanup()
 	t.Run("repeated results", func(t *testing.T) {
@@ -210,12 +215,12 @@ func TestRegistry(t *testing.T) {
 			}
 		}()
 		results := []string{"res1", "res2", "res3", "res1"}
-		Register(&FilterMock{"filter", results})
+		filters.Register(&MockedFilter{"filter", results})
 	})
 	cleanup()
 	t.Run("export registry", func(t *testing.T) {
-		Register(CreateObjectMock("mock-pipeline-2"))
-		filters := GetFilterRegistry()
+		filters.Register(CreateMockedFilter("mock-pipeline-2"))
+		filters := filters.Registry()
 		if len(filters) != 1 {
 			t.Errorf("couldn't get the filter")
 		}
@@ -254,25 +259,25 @@ filters:
         - application/json
 `
 	logger.InitNop()
-	Register(CreateObjectMock("Proxy"))
-	Register(CreateObjectMock("Pipeline"))
+	filters.Register(CreateMockedFilter("Proxy"))
+	filters.Register(CreateMockedFilter("Pipeline"))
 	t.Run("missing filter results", func(t *testing.T) {
-		Register(CreateObjectMock("Validator"))
-		Register(CreateObjectMock("RequestAdaptor"))
+		filters.Register(CreateMockedFilter("Validator"))
+		filters.Register(CreateMockedFilter("RequestAdaptor"))
 		_, err := supervisor.NewSpec(superSpecYaml)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
-		delete(filterRegistry, "Validator")
-		delete(filterRegistry, "RequestAdaptor")
+		filters.Unregister("Validator")
+		filters.Unregister("RequestAdaptor")
 	})
-	Register(&FilterMock{"Validator", []string{"invalid", "END"}})
-	Register(&FilterMock{"RequestAdaptor", []string{"specialCase"}})
+	filters.Register(&MockedFilter{"Validator", []string{"invalid", "END"}})
+	filters.Register(&MockedFilter{"RequestAdaptor", []string{"specialCase"}})
 	superSpec, err := supervisor.NewSpec(superSpecYaml)
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]Filter{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
@@ -314,16 +319,16 @@ filters:
         policy: roundRobin
 `
 	logger.InitNop()
-	Register(CreateObjectMock("Proxy"))
-	Register(CreateObjectMock("Pipeline"))
-	Register(CreateObjectMock("Validator"))
-	Register(CreateObjectMock("RequestAdaptor"))
+	filters.Register(CreateMockedFilter("Proxy"))
+	filters.Register(CreateMockedFilter("Pipeline"))
+	filters.Register(CreateMockedFilter("Validator"))
+	filters.Register(CreateMockedFilter("RequestAdaptor"))
 
 	superSpec, err := supervisor.NewSpec(superSpecYaml)
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]Filter{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
@@ -341,22 +346,4 @@ filters:
 	}
 	httpPipeline.Close()
 	cleanup()
-}
-
-func TestMockFilterSpec(t *testing.T) {
-	meta := &supervisor.MetaSpec{
-		Name: "name",
-		Kind: "kind",
-	}
-	spec := &FilterSpec{}
-	filterSpec := MockFilterSpec(nil, "", meta, spec, "pipeline-demo")
-	if filterSpec.Super() != nil {
-		t.Errorf("expect nil")
-	}
-	if filterSpec.Pipeline() != "pipeline-demo" {
-		t.Errorf("expect empty string")
-	}
-	if filterSpec.FilterSpec() != spec {
-		t.Errorf("expect spec")
-	}
 }

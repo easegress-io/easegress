@@ -19,7 +19,7 @@ package meshadaptor
 
 import (
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
@@ -33,21 +33,21 @@ const (
 var results = []string{}
 
 func init() {
-	pipeline.Register(&MeshAdaptor{})
+	filters.Register(&MeshAdaptor{})
 }
 
 type (
 	// MeshAdaptor is filter MeshAdaptor.
 	MeshAdaptor struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 
 		pa *pathadaptor.PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		ServiceCanaries []*ServiceCanaryAdaptor `yaml:"serviceCanaries" jsonschema:"omitempty"`
+		filters.BaseSpec `yaml:",inline"`
+		ServiceCanaries  []*ServiceCanaryAdaptor `yaml:"serviceCanaries" jsonschema:"omitempty"`
 	}
 
 	// ServiceCanaryAdaptor is the service canary adaptor.
@@ -61,7 +61,7 @@ type (
 
 // Name returns the name of the MeshAdaptor filter instance.
 func (ra *MeshAdaptor) Name() string {
-	return ra.filterSpec.Name()
+	return ra.spec.Name()
 }
 
 // Kind returns the kind of MeshAdaptor.
@@ -70,7 +70,7 @@ func (ra *MeshAdaptor) Kind() string {
 }
 
 // DefaultSpec returns default spec of MeshAdaptor.
-func (ra *MeshAdaptor) DefaultSpec() interface{} {
+func (ra *MeshAdaptor) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -85,15 +85,15 @@ func (ra *MeshAdaptor) Results() []string {
 }
 
 // Init initializes MeshAdaptor.
-func (ra *MeshAdaptor) Init(filterSpec *pipeline.FilterSpec) {
-	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (ra *MeshAdaptor) Init(spec filters.Spec) {
+	ra.spec = spec.(*Spec)
 	ra.reload()
 }
 
 // Inherit inherits previous generation of MeshAdaptor.
-func (ra *MeshAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (ra *MeshAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(filterSpec)
+	ra.Init(spec)
 }
 
 func (ra *MeshAdaptor) reload() {

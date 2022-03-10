@@ -23,7 +23,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 )
 
 const (
@@ -36,20 +36,20 @@ const (
 var results = []string{resultPreflighted}
 
 func init() {
-	pipeline.Register(&CORSAdaptor{})
+	filters.Register(&CORSAdaptor{})
 }
 
 type (
 	// CORSAdaptor is filter for CORS request.
 	CORSAdaptor struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-
+		spec *Spec
 		cors *cors.Cors
 	}
 
 	// Spec describes of CORSAdaptor.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		AllowedOrigins   []string `yaml:"allowedOrigins" jsonschema:"omitempty"`
 		AllowedMethods   []string `yaml:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
@@ -64,7 +64,7 @@ type (
 
 // Name returns the name of the CORSAdaptor filter instance.
 func (a *CORSAdaptor) Name() string {
-	return a.filterSpec.Name()
+	return a.spec.Name()
 }
 
 // Kind returns the kind of CORSAdaptor.
@@ -73,7 +73,7 @@ func (a *CORSAdaptor) Kind() string {
 }
 
 // DefaultSpec returns default spec of CORSAdaptor.
-func (a *CORSAdaptor) DefaultSpec() interface{} {
+func (a *CORSAdaptor) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -88,16 +88,15 @@ func (a *CORSAdaptor) Results() []string {
 }
 
 // Init initializes CORSAdaptor.
-func (a *CORSAdaptor) Init(filterSpec *pipeline.FilterSpec) {
-	a.filterSpec, a.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (a *CORSAdaptor) Init(spec filters.Spec) {
+	a.spec = spec.(*Spec)
 	a.reload()
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-
+func (a *CORSAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	a.Init(filterSpec)
+	a.Init(spec)
 }
 
 func (a *CORSAdaptor) reload() {

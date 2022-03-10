@@ -23,6 +23,7 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 )
@@ -35,22 +36,23 @@ const (
 )
 
 func init() {
-	pipeline.Register(&MQTTClientAuth{})
+	filters.Register(&MQTTClientAuth{})
 }
 
 type (
 	// MQTTClientAuth is used to check authentication for MQTT client
 	MQTTClientAuth struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-		authMap    map[string]string
-		salt       string
+		spec    *Spec
+		authMap map[string]string
+		salt    string
 	}
 
 	// Spec is spec for MQTTClientAuth.
 	// For security of password, passwords in yaml file should be salted SHA256 checksum.
 	// password = sha256sum(connect.password + salt)
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Salt string  `yaml:"salt" jsonschema:"omitempty"`
 		Auth []*Auth `yaml:"auth" jsonschema:"required"`
 	}
@@ -62,12 +64,12 @@ type (
 	}
 )
 
-var _ pipeline.Filter = (*MQTTClientAuth)(nil)
+var _ filters.Filter = (*MQTTClientAuth)(nil)
 var _ pipeline.MQTTFilter = (*MQTTClientAuth)(nil)
 
 // Name returns the name of the MQTTClientAuth filter instance.
 func (a *MQTTClientAuth) Name() string {
-	return a.filterSpec.Name()
+	return a.spec.Name()
 }
 
 // Kind return kind of MQTTClientAuth
@@ -76,7 +78,7 @@ func (a *MQTTClientAuth) Kind() string {
 }
 
 // DefaultSpec return default spec of MQTTClientAuth
-func (a *MQTTClientAuth) DefaultSpec() interface{} {
+func (a *MQTTClientAuth) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -91,29 +93,27 @@ func (a *MQTTClientAuth) Results() []string {
 }
 
 // Init init MQTTClientAuth
-func (a *MQTTClientAuth) Init(filterSpec *pipeline.FilterSpec) {
-	if filterSpec.Protocol() != context.MQTT {
+func (a *MQTTClientAuth) Init(spec filters.Spec) {
+	if spec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
-	spec := filterSpec.FilterSpec().(*Spec)
-	a.filterSpec = filterSpec
-	a.spec = spec
-	a.salt = spec.Salt
+	a.spec = spec.(*Spec)
+	a.salt = a.spec.Salt
 	a.authMap = make(map[string]string)
 
-	for _, auth := range spec.Auth {
+	for _, auth := range a.spec.Auth {
 		a.authMap[auth.Username] = auth.SaltedSha256Pass
 	}
 
 	if len(a.authMap) == 0 {
-		logger.Errorf("empty valid authentication for MQTT filter %v", filterSpec.Name())
+		logger.Errorf("empty valid authentication for MQTT filter %v", spec.Name())
 	}
 }
 
 // Inherit init MQTTClientAuth based on previous generation
-func (a *MQTTClientAuth) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (a *MQTTClientAuth) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	a.Init(filterSpec)
+	a.Init(spec)
 }
 
 // Close close MQTTClientAuth

@@ -24,8 +24,8 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 )
 
 const (
@@ -36,25 +36,24 @@ const (
 )
 
 func init() {
-	pipeline.Register(&Kafka{})
+	filters.Register(&Kafka{})
 }
 
 type (
 	// Kafka is kafka backend for MQTT proxy
 	Kafka struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-		producer   sarama.AsyncProducer
-		done       chan struct{}
-		header     string
+		spec     *Spec
+		producer sarama.AsyncProducer
+		done     chan struct{}
+		header   string
 	}
 )
 
-var _ pipeline.Filter = (*Kafka)(nil)
+var _ filters.Filter = (*Kafka)(nil)
 
 // Name returns the name of the Kafka filter instance.
 func (k *Kafka) Name() string {
-	return k.filterSpec.Name()
+	return k.spec.Name()
 }
 
 // Kind return kind of Kafka
@@ -63,7 +62,7 @@ func (k *Kafka) Kind() string {
 }
 
 // DefaultSpec return default spec of Kafka
-func (k *Kafka) DefaultSpec() interface{} {
+func (k *Kafka) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -87,13 +86,13 @@ func (k *Kafka) setHeader(spec *Spec) {
 }
 
 // Init init Kafka
-func (k *Kafka) Init(filterSpec *pipeline.FilterSpec) {
-	k.filterSpec, k.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (k *Kafka) Init(spec filters.Spec) {
+	k.spec = spec.(*Spec)
 	k.done = make(chan struct{})
 	k.setHeader(k.spec)
 
 	config := sarama.NewConfig()
-	config.ClientID = filterSpec.Name()
+	config.ClientID = spec.Name()
 	config.Version = sarama.V1_0_0_0
 	producer, err := sarama.NewAsyncProducer(k.spec.Backend, config)
 	if err != nil {
@@ -123,9 +122,9 @@ func (k *Kafka) checkProduceError() {
 }
 
 // Inherit init Kafka based on previous generation
-func (k *Kafka) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (k *Kafka) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	k.Init(filterSpec)
+	k.Init(spec)
 }
 
 // Close close Kafka

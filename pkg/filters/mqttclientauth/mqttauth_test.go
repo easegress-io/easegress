@@ -25,8 +25,8 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,15 +45,11 @@ func newContext(cid, username, password string) context.MQTTContext {
 	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
-func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
-	meta := &pipeline.FilterMetaSpec{
-		Name:     "connect-demo",
-		Kind:     Kind,
-		Pipeline: "pipeline-demo",
-		Protocol: context.MQTT,
-	}
-	filterSpec := pipeline.MockFilterSpec(nil, "", meta, spec)
-	return filterSpec
+func defaultFilterSpec(spec *Spec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = Kind
+	spec.BaseSpec.MetaSpec.Name = "connect-demo"
+	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	return result
 }
 
 func TestAuth(t *testing.T) {

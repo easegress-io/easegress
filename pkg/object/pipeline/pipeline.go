@@ -19,11 +19,11 @@ package pipeline
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -61,7 +61,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		filters map[string]Filter
+		filters map[string]filters.Filter
 		flow    []FlowNode
 	}
 
@@ -78,7 +78,7 @@ type (
 		ResponseID string            `yaml:"responseID" jsonschema:"responseID,omitempty"`
 		UseRequest string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
 		JumpIf     map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
-		filter     Filter
+		filter     filters.Filter
 	}
 
 	// FilterStat records the statistics of a filter.
@@ -105,12 +105,12 @@ func (s *Spec) Validate() (err error) {
 		}
 	}()
 
-	specs := map[string]*FilterSpec{}
+	specs := map[string]filters.Spec{}
 
 	// 1: validate filter spec
 	for _, f := range s.Filters {
-		// NOTE: Nil supervisor is fine in spec validating phrase.
-		spec, err := NewFilterSpec(f, nil)
+		// NOTE: Nil supervisor and pipeline are fine in spec validating phrase.
+		spec, err := filters.NewSpec(nil, "", f)
 		if err != nil {
 			panic(err)
 		}
@@ -137,7 +137,7 @@ func (s *Spec) Validate() (err error) {
 		if spec == nil {
 			panic(fmt.Errorf("filter %s not found", node.Filter))
 		}
-		results := QueryFilterRegistry(spec.Kind()).Results()
+		results := filters.GetRoot(spec.Kind()).Results()
 		for result, target := range node.JumpIf {
 			if !stringtool.StrInSlice(result, results) {
 				msgFmt := "filter %s: result %s is not in %v"
@@ -223,6 +223,7 @@ func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration superv
 }
 
 func (p *Pipeline) reload(previousGeneration *Pipeline) {
+	super := p.superSpec.Super()
 	pipelineName := p.superSpec.Name()
 
 	// create a flow in case the pipeline spec does not define one.
@@ -233,21 +234,19 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 	for _, rawSpec := range p.spec.Filters {
 		// build the filter spec.
-		spec, err := NewFilterSpec(rawSpec, p.superSpec.Super())
+		spec, err := filters.NewSpec(super, pipelineName, rawSpec)
 		if err != nil {
 			panic(err)
 		}
 
 		// create filter instance.
-		rootInst := QueryFilterRegistry(spec.Kind())
-		if rootInst == nil {
+		filter := filters.Create(spec.Kind())
+		if filter == nil {
 			panic(fmt.Errorf("kind %s not found", spec.Kind()))
 		}
-		spec.pipeline = pipelineName
-		filter := reflect.New(reflect.TypeOf(rootInst).Elem()).Interface().(Filter)
 
 		// init or inherit from previous instance.
-		var prev Filter
+		var prev filters.Filter
 		if previousGeneration != nil {
 			prev = previousGeneration.getFilter(spec.Name())
 		}
@@ -276,7 +275,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 	}
 }
 
-func (p *Pipeline) getFilter(name string) Filter {
+func (p *Pipeline) getFilter(name string) filters.Filter {
 	return p.filters[name]
 }
 

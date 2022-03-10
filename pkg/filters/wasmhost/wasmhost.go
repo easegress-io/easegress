@@ -62,12 +62,14 @@ func init() {
 	for i := int32(1); i <= maxWasmResult; i++ {
 		results = append(results, wasmResultToFilterResult(i))
 	}
-	pipeline.Register(&WasmHost{})
+	filters.Register(&WasmHost{})
 }
 
 type (
 	// Spec is the spec for WasmHost
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		MaxConcurrency int32             `yaml:"maxConcurrency" jsonschema:"required,minimum=1"`
 		Code           string            `yaml:"code" jsonschema:"required"`
 		Timeout        string            `yaml:"timeout" jsonschema:"required,format=duration"`
@@ -77,8 +79,7 @@ type (
 
 	// WasmHost is the WebAssembly filter
 	WasmHost struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 
 		code       []byte
 		dataPrefix string
@@ -100,7 +101,7 @@ type (
 
 // Name returns the name of the WasmHost filter instance.
 func (wh *WasmHost) Name() string {
-	return wh.filterSpec.Name()
+	return wh.spec.Name()
 }
 
 // Kind returns the kind of WasmHost.
@@ -109,7 +110,7 @@ func (wh *WasmHost) Kind() string {
 }
 
 // DefaultSpec returns the default spec of WasmHost.
-func (wh *WasmHost) DefaultSpec() interface{} {
+func (wh *WasmHost) DefaultSpec() filters.Spec {
 	return &Spec{
 		MaxConcurrency: 10,
 		Timeout:        "100ms",
@@ -269,9 +270,8 @@ func (wh *WasmHost) watchWasmData() {
 	}
 }
 
-func (wh *WasmHost) reload(filterSpec *pipeline.FilterSpec) {
-	wh.filterSpec = filterSpec
-	wh.spec = filterSpec.FilterSpec().(*Spec)
+func (wh *WasmHost) reload(spec filters.Spec) {
+	wh.spec = spec.(*Spec)
 
 	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(filterSpec.Pipeline(), filterSpec.Name())
 
@@ -284,14 +284,14 @@ func (wh *WasmHost) reload(filterSpec *pipeline.FilterSpec) {
 }
 
 // Init initializes WasmHost.
-func (wh *WasmHost) Init(pipeSpec *pipeline.FilterSpec) {
-	wh.reload(pipeSpec)
+func (wh *WasmHost) Init(spec filters.Spec) {
+	wh.reload(spec)
 }
 
 // Inherit inherits previous generation of WasmHost.
-func (wh *WasmHost) Inherit(pipeSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (wh *WasmHost) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	wh.reload(pipeSpec)
+	wh.reload(spec)
 }
 
 // Handle handles HTTP request

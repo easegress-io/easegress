@@ -17,9 +17,13 @@
 
 package topicmapper
 
+import "github.com/megaease/easegress/pkg/filters"
+
 type (
 	// Spec is spec of Kafka
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
 		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
 		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`

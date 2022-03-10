@@ -23,8 +23,8 @@ import (
 	"io"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -41,20 +41,21 @@ const (
 var results = []string{resultDecompressFail, resultCompressFail}
 
 func init() {
-	pipeline.Register(&RequestAdaptor{})
+	filters.Register(&RequestAdaptor{})
 }
 
 type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 
 		pa *pathadaptor.PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Host       string                `yaml:"host" jsonschema:"omitempty"`
 		Method     string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
 		Path       *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
@@ -67,7 +68,7 @@ type (
 
 // Name returns the name of the RequestAdaptor filter instance.
 func (ra *RequestAdaptor) Name() string {
-	return ra.filterSpec.Name()
+	return ra.spec.Name()
 }
 
 // Kind returns the kind of RequestAdaptor.
@@ -76,7 +77,7 @@ func (ra *RequestAdaptor) Kind() string {
 }
 
 // DefaultSpec returns default spec of RequestAdaptor.
-func (ra *RequestAdaptor) DefaultSpec() interface{} {
+func (ra *RequestAdaptor) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -91,8 +92,8 @@ func (ra *RequestAdaptor) Results() []string {
 }
 
 // Init initializes RequestAdaptor.
-func (ra *RequestAdaptor) Init(filterSpec *pipeline.FilterSpec) {
-	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (ra *RequestAdaptor) Init(spec filters.Spec) {
+	ra.spec = spec.(*Spec)
 	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
 		panic("RequestAdaptor only support decompress type of gzip")
 	}
@@ -109,10 +110,9 @@ func (ra *RequestAdaptor) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of RequestAdaptor.
-func (ra *RequestAdaptor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-
+func (ra *RequestAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(filterSpec)
+	ra.Init(spec)
 }
 
 func (ra *RequestAdaptor) reload() {

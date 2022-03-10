@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	httpcontext "github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/filters"
 )
 
 const (
@@ -33,20 +33,20 @@ const (
 var results = []string{}
 
 func init() {
-	pipeline.Register(&CertExtractor{})
+	filters.Register(&CertExtractor{})
 }
 
 type (
 	// CertExtractor extracts given field from TLS certificates and sets it to request headers.
 	CertExtractor struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
-
+		spec      *Spec
 		headerKey string
 	}
 
 	// Spec describes the CertExtractor.
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		CertIndex int16  `yaml:"certIndex" jsonschema:"required"`
 		Target    string `yaml:"target" jsonschema:"required,enum=subject,enum=issuer"`
 		// Different field options listed here https://pkg.go.dev/crypto/x509/pkix#Name
@@ -60,7 +60,7 @@ func (spec *Spec) Validate() error { return nil }
 
 // Name returns the name of the CertExtractor filter instance.
 func (ce *CertExtractor) Name() string {
-	return ce.filterSpec.Name()
+	return ce.spec.Name()
 }
 
 // Kind returns the kind of CertExtractor.
@@ -69,7 +69,7 @@ func (ce *CertExtractor) Kind() string {
 }
 
 // DefaultSpec returns the default spec of CertExtractor.
-func (ce *CertExtractor) DefaultSpec() interface{} {
+func (ce *CertExtractor) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -84,8 +84,8 @@ func (ce *CertExtractor) Results() []string {
 }
 
 // Init initializes CertExtractor.
-func (ce *CertExtractor) Init(filterSpec *pipeline.FilterSpec) {
-	ce.filterSpec, ce.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (ce *CertExtractor) Init(spec filters.Spec) {
+	ce.spec = spec.(*Spec)
 
 	ce.headerKey = fmt.Sprintf("tls-%s-%s", ce.spec.Target, ce.spec.Field)
 	if ce.spec.HeaderKey != "" {
@@ -94,9 +94,9 @@ func (ce *CertExtractor) Init(filterSpec *pipeline.FilterSpec) {
 }
 
 // Inherit inherits previous generation of CertExtractor.
-func (ce *CertExtractor) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
+func (ce *CertExtractor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ce.Init(filterSpec)
+	ce.Init(spec)
 }
 
 // Close closes CertExtractor.

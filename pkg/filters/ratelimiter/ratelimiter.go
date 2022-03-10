@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	librl "github.com/megaease/easegress/pkg/util/ratelimiter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -39,7 +39,7 @@ const (
 var results = []string{resultRateLimited}
 
 func init() {
-	pipeline.Register(&RateLimiter{})
+	filters.Register(&RateLimiter{})
 }
 
 type (
@@ -60,6 +60,8 @@ type (
 
 	// Spec is the configuration of a rate limiter
 	Spec struct {
+		filters.BaseSpec `yaml:",inline"`
+
 		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
 		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
 		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
@@ -67,8 +69,7 @@ type (
 
 	// RateLimiter defines the rate limiter
 	RateLimiter struct {
-		filterSpec *pipeline.FilterSpec
-		spec       *Spec
+		spec *Spec
 	}
 )
 
@@ -119,7 +120,7 @@ func (url *URLRule) createRateLimiter() {
 
 // Name returns the name of the RateLimiter filter instance.
 func (rl *RateLimiter) Name() string {
-	return rl.filterSpec.Name()
+	return rl.spec.Name()
 }
 
 // Kind returns the kind of RateLimiter.
@@ -128,7 +129,7 @@ func (rl *RateLimiter) Kind() string {
 }
 
 // DefaultSpec returns the default spec of RateLimiter.
-func (rl *RateLimiter) DefaultSpec() interface{} {
+func (rl *RateLimiter) DefaultSpec() filters.Spec {
 	return &Spec{}
 }
 
@@ -145,7 +146,7 @@ func (rl *RateLimiter) Results() []string {
 func (rl *RateLimiter) setStateListenerForURL(u *URLRule) {
 	u.rl.SetStateListener(func(event *librl.Event) {
 		logger.Infof("state of rate limiter '%s' on URL(%s) transited to %s at %d",
-			rl.filterSpec.Name(),
+			rl.spec.Name(),
 			u.ID(),
 			event.State,
 			event.Time.UnixNano()/1e6,
@@ -230,14 +231,14 @@ OuterLoop:
 }
 
 // Init initializes RateLimiter.
-func (rl *RateLimiter) Init(filterSpec *pipeline.FilterSpec) {
-	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (rl *RateLimiter) Init(spec filters.Spec) {
+	rl.spec = spec.(*Spec)
 	rl.reload(nil)
 }
 
 // Inherit inherits previous generation of RateLimiter.
-func (rl *RateLimiter) Inherit(filterSpec *pipeline.FilterSpec, previousGeneration pipeline.Filter) {
-	rl.filterSpec, rl.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+func (rl *RateLimiter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+	rl.spec = spec.(*Spec)
 	rl.reload(previousGeneration.(*RateLimiter))
 }
 
