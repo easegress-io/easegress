@@ -28,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
+	pprof "github.com/megaease/easegress/pkg/profile"
 )
 
 type (
@@ -39,6 +40,7 @@ type (
 		cluster cluster.Cluster
 		super   *supervisor.Supervisor
 		cds     *customdata.Store
+		profile pprof.Profile
 
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
@@ -59,11 +61,12 @@ type (
 )
 
 // MustNewServer creates an api server.
-func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.Supervisor) *Server {
+func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.Supervisor, profile pprof.Profile) *Server {
 	s := &Server{
 		opt:     opt,
 		cluster: cls,
 		super:   super,
+		profile: profile,
 	}
 	s.router = newDynamicMux(s)
 	s.server = http.Server{Addr: opt.APIAddr, Handler: s.router}

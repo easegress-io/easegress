@@ -18,23 +18,35 @@
 package api
 
 import (
-	//"fmt"
+	"fmt"
 	"net/http"
 
 	//"github.com/megaease/easegress/pkg/option/option.go"
+	//"github.com/megaease/easegress/pkg/profile"
 	"gopkg.in/yaml.v2"
 )
 
 const (
 	// ProfilePrefix is the URL prefix of profile APIs
 	ProfilePrefix = "/profile"
+	// StartAction is the URL for starting profiling
+	StartAction = "/start"
+	// StopAction is the URL for stopping profiling
+	StopAction = "/stop"
 )
 
-// ProfileStatusResponse contains cpu and memory profile file paths
-type ProfileStatusResponse struct {
-	CpuPath       string `yaml:"cpuPath"`
-	MemoryPath    string `yaml:"memoryPath"`
-}
+type (
+	// ProfileStatusResponse contains cpu and memory profile file paths
+	ProfileStatusResponse struct {
+		CpuPath       string `yaml:"cpuPath"`
+		MemoryPath    string `yaml:"memoryPath"`
+	}
+
+	// StartProfilingRequest contains file path to profile file
+	StartProfilingRequest struct {
+		Path       string `yaml:"path"`
+	}
+)
 
 func (s *Server) profileAPIEntries() []*Entry {
 	return []*Entry{
@@ -43,19 +55,49 @@ func (s *Server) profileAPIEntries() []*Entry {
 			Method:  http.MethodGet,
 			Handler: s.getProfileStatus,
 		},
+		{
+			Path:    fmt.Sprintf("%s%s/cpu", ProfilePrefix, StartAction),
+			Method:  http.MethodPost,
+			Handler: s.startCPUProfile,
+		},
+		{
+			Path:    fmt.Sprintf("%s%s/memory", ProfilePrefix, StartAction),
+			Method:  http.MethodPost,
+			Handler: s.startMemoryProfile,
+		},
 	}
 }
 
 func (s *Server) getProfileStatus(w http.ResponseWriter, r *http.Request) {
 	cpuFile := s.opt.CPUProfileFile
-	if cpuFile == "" {
-		return
-	}
+	memFile := s.opt.MemoryProfileFile
 
-	result := &ProfileStatusResponse{CpuPath: cpuFile}
+	result := &ProfileStatusResponse{CpuPath: cpuFile, MemoryPath: memFile}
 	w.Header().Set("Content-Type", "text/vnd.yaml")
 	err := yaml.NewEncoder(w).Encode(result)
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
+	spr := StartProfilingRequest{}
+	err := yaml.NewDecoder(r.Body).Decode(&spr)
+	if err != nil {
+		panic(err)
+	}
+
+	s.opt.CPUProfileFile = spr.Path
+	s.profile.UpdateCPUProfile()
+}
+
+func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
+	spr := StartProfilingRequest{}
+	err := yaml.NewDecoder(r.Body).Decode(&spr)
+	if err != nil {
+		panic(err)
+	}
+
+	// Memory profile is flushed only at stop/exit
+	s.opt.MemoryProfileFile = spr.Path
 }

@@ -31,6 +31,9 @@ import (
 
 // Profile is the Profile interface.
 type Profile interface {
+	StartCPUProfile() error
+	MemoryProfile()
+	UpdateCPUProfile()
 	Close(wg *sync.WaitGroup)
 }
 
@@ -45,7 +48,7 @@ func New(opt *option.Options) (Profile, error) {
 		opt: opt,
 	}
 
-	err := p.startCPUProfile()
+	err := p.StartCPUProfile()
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +56,7 @@ func New(opt *option.Options) (Profile, error) {
 	return p, nil
 }
 
-func (p *profile) startCPUProfile() error {
+func (p *profile) StartCPUProfile() error {
 	if p.opt.CPUProfileFile == "" {
 		return nil
 	}
@@ -74,7 +77,7 @@ func (p *profile) startCPUProfile() error {
 	return nil
 }
 
-func (p *profile) memoryProfile() {
+func (p *profile) MemoryProfile() {
 	if p.opt.MemoryProfileFile == "" {
 		return
 	}
@@ -102,6 +105,15 @@ func (p *profile) memoryProfile() {
 	}
 }
 
+func (p *profile) UpdateCPUProfile() {
+	pprof.StopCPUProfile()
+	err := p.cpuFile.Close()
+	if err != nil {
+		logger.Errorf("close %s failed: %v", p.opt.CPUProfileFile, err)
+	}
+	p.StartCPUProfile()
+}
+
 func (p *profile) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -111,7 +123,8 @@ func (p *profile) Close(wg *sync.WaitGroup) {
 		if err != nil {
 			logger.Errorf("close %s failed: %v", p.opt.CPUProfileFile, err)
 		}
+		p.cpuFile = nil
 	}
 
-	p.memoryProfile()
+	p.MemoryProfile()
 }
