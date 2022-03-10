@@ -70,7 +70,7 @@ type (
 		host       string
 		hostRegexp string
 		hostRE     *regexp.Regexp
-		paths   []*MuxPath
+		paths      []*MuxPath
 	}
 
 	// MuxPath describes httpserver's path
@@ -170,7 +170,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 		host:       rule.Host,
 		hostRegexp: rule.HostRegexp,
 		hostRE:     hostRE,
-		paths:   paths,
+		paths:      paths,
 	}
 }
 
