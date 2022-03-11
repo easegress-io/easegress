@@ -20,7 +20,6 @@ package statussynccontroller
 import (
 	"runtime/debug"
 	"sync"
-	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -175,8 +174,8 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		status := entity.Instance().Status()
 		status.Timestamp = unixTimestamp
 
-		if strings.Contains(entity.Instance().Kind(), "TrafficController") {
-			namespaces := status.ObjectStatus.(trafficcontroller.Status).Specs
+		if trafficStatus, ok := status.ObjectStatus.(*trafficcontroller.Status); ok {
+			namespaces := trafficStatus.Specs
 			for _, namespace := range namespaces {
 				for k, v := range namespace.HTTPPipelines {
 					key := "TrafficController-" + namespace.Namespace + "-" + k
