@@ -350,11 +350,10 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 	result = p.handle(ctx, ctx.Request().Body(), b.client)
 	if result != "" {
+		if b.fallbackForCodes(ctx) {
+			return resultFallback
+		}
 		return result
-	}
-
-	if b.fallbackForCodes(ctx) {
-		return resultFallback
 	}
 
 	// compression and memoryCache only work for
