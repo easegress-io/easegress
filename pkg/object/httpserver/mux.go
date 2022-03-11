@@ -424,7 +424,6 @@ const (
 
 // SearchPath searches path among list of mux rules
 func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult, *MuxPath) {
-	methodAllowed := false
 	pathFound := false
 	for _, host := range rulesToCheck {
 		if !host.match(ctx) {
@@ -446,26 +445,29 @@ func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult,
 			if !path.matchMethod(ctx) {
 				continue
 			}
-			// at least one path has correct method
-			methodAllowed = true
+
+			var searchResult SearchResult
+
+			if path.hasHeaders() {
+				if !path.matchHeaders(ctx) {
+					continue
+				}
+				searchResult = FoundSkipCache
+			} else {
+				searchResult = Found
+			}
 
 			if !path.pass(ctx) {
-				return IPNotAllowed, path
+				return IPNotAllowed, nil
 			}
 
-			if !path.hasHeaders() {
-				return Found, path
-			}
-
-			if path.matchHeaders(ctx) {
-				return FoundSkipCache, path
-			}
+			return searchResult, path
 		}
 	}
-	if !methodAllowed && pathFound {
-		return MethodNotAllowed, nil
+	if !pathFound {
+		return NotFound, nil
 	}
-	return NotFound, nil
+	return MethodNotAllowed, nil
 }
 
 func (m *mux) handleIPNotAllow(ctx context.HTTPContext) {
