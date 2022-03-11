@@ -122,12 +122,9 @@ func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := append([]string{}, k.Results...)
-	sort.Strings(results)
-
-	buff, err := yaml.Marshal(results)
+	buff, err := yaml.Marshal(k.Results)
 	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", results, err))
+		panic(fmt.Errorf("marshal %#v to yaml failed: %v", k.Results, err))
 	}
 
 	w.Header().Set("Content-Type", "text/vnd.yaml")

@@ -19,6 +19,7 @@ package filters
 
 import (
 	"fmt"
+	"sort"
 )
 
 // kinds is the filter kind registry.
@@ -35,14 +36,15 @@ func Register(k *Kind) {
 		panic(fmt.Errorf(msgFmt, k, k1, k.Name))
 	}
 
+	sort.Strings(k.Results)
+
 	// Checking results.
-	results := make(map[string]struct{})
+	last := ""
 	for _, result := range k.Results {
-		_, exists := results[result]
-		if exists {
+		if result == last {
 			panic(fmt.Errorf("duplicated result: %s", result))
 		}
-		results[result] = struct{}{}
+		last = result
 	}
 
 	kinds[k.Name] = k
