@@ -20,12 +20,15 @@ package statussynccontroller
 import (
 	"runtime/debug"
 	"sync"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/timetool"
+
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 )
 
 const (
@@ -172,15 +175,48 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		status := entity.Instance().Status()
 		status.Timestamp = unixTimestamp
 
-		statusesRecord.Statuses[name] = status
+		if strings.Contains(entity.Instance().Kind(), "TrafficController") {
+			namespaces := status.ObjectStatus.(trafficcontroller.Status).Specs
+			for _, namespace := range namespaces {
+				for k, v := range namespace.HTTPPipelines {
+					key := "TrafficController-" + namespace.Namespace + "-" + k
+					value := &supervisor.Status{ObjectStatus: v}
+					statusesRecord.Statuses[key] = value
 
-		buff, err := marshalStatus(status)
-		if err != nil {
-			logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-				status, err)
-			return false
+					buff, err := marshalStatus(value)
+					if err != nil {
+						logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+							status, err)
+						return false
+					}
+					statuses[key] = string(buff)
+				}
+				for k, v := range namespace.HTTPServers {
+					key := "TrafficController-" + namespace.Namespace + "-" + k
+					value := &supervisor.Status{ObjectStatus: v}
+					statusesRecord.Statuses[key] = value
+
+					buff, err := marshalStatus(value)
+					if err != nil {
+						logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+							status, err)
+						return false
+					}
+					statuses[key] = string(buff)
+				}
+			}
+		} else {
+			statusesRecord.Statuses[name] = status
+
+			buff, err := marshalStatus(status)
+			if err != nil {
+				logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+					status, err)
+				return false
+			}
+			statuses[name] = string(buff)
+
 		}
-		statuses[name] = string(buff)
 
 		return true
 	}
@@ -192,14 +228,19 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 }
 
 func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string) {
-	kvs := make(map[string]*string)
-
 	// Delete statuses which disappeared in current status.
 	if ssc.lastSyncStatuses != nil {
 		for k := range ssc.lastSyncStatuses {
 			if _, exists := statuses[k]; !exists {
+				kv := make(map[string]*string)
 				k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-				kvs[k] = nil
+				kv[k] = nil
+
+				err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kv)
+				if err != nil {
+					logger.Errorf("sync status failed. If the message size is too large, "+
+						"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+				}
 			}
 		}
 	}
@@ -207,14 +248,14 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 	ssc.lastSyncStatuses = statuses
 
 	for k, v := range statuses {
+		kv := make(map[string]*string)
 		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		kvs[k] = &v
-	}
-
-	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
-	if err != nil {
-		logger.Errorf("sync status failed. If the message size is too large, "+
-			"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		kv[k] = &v
+		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kv)
+		if err != nil {
+			logger.Errorf("sync status failed. If the message size is too large, "+
+				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		}
 	}
 }
 
