@@ -214,11 +214,11 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 			return splitRawconfigTrafficControllerStatus(name, rawTrafficStatus, statuses, statusesRecord)
 		} else {
 			statusesRecord.Statuses[name] = status
-			mashalledValue, ok := safeMarshal(status)
+			marshalledValue, ok := safeMarshal(status)
 			if !ok {
 				return false
 			}
-			statuses[name] = mashalledValue
+			statuses[name] = marshalledValue
 		}
 		return true
 	}
