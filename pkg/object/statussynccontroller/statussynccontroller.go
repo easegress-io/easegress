@@ -165,18 +165,19 @@ func safeMarshal(value *supervisor.Status) (string, bool) {
 	return string(buff), true
 }
 
-func splitRawTrafficControllerStatus(
+func splitRawconfigTrafficControllerStatus(
+	name string,
 	status *trafficcontroller.StatusInSameNamespace,
 	statuses map[string]string,
 	statusesRecord *StatusesRecord) bool {
 	for key, value := range status.ToSyncStatus() {
-		statusesRecord.Statuses[key] = value
+		statusesRecord.Statuses[name+"-"+key] = value
 
 		marshalledValue, ok := safeMarshal(value)
 		if !ok {
 			return false
 		}
-		statuses[key] = marshalledValue
+		statuses[name+"-"+key] = marshalledValue
 	}
 	return true
 }
@@ -204,13 +205,13 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		if trafficStatus, ok := status.ObjectStatus.(*trafficcontroller.Status); ok {
 			statusInNamespaces := trafficStatus.Specs
 			for _, statInNS := range statusInNamespaces {
-				if !splitRawTrafficControllerStatus(statInNS, statuses, statusesRecord) {
+				if !splitRawconfigTrafficControllerStatus(name, statInNS, statuses, statusesRecord) {
 					return false
 				}
 			}
 			return true
 		} else if rawTrafficStatus, ok := status.ObjectStatus.(*rawconfigtrafficcontroller.Status); ok {
-			return splitRawTrafficControllerStatus(rawTrafficStatus, statuses, statusesRecord)
+			return splitRawconfigTrafficControllerStatus(name, rawTrafficStatus, statuses, statusesRecord)
 		} else {
 			statusesRecord.Statuses[name] = status
 			mashalledValue, ok := safeMarshal(status)
