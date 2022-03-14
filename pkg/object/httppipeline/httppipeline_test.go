@@ -25,7 +25,6 @@ import (
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/topn"
 )
 
 func CreateObjectMock(kind string) Filter {
