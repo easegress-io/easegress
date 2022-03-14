@@ -386,6 +386,12 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		return
 	}
 
+	handleNotFound := func() {
+		ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
+		rules.putCacheItem(ctx, ci)
+		m.handleRequestWithCache(rules, ctx, ci)
+	}
+
 	result, path := SearchPath(ctx, rules.rules)
 	switch result {
 	case Found:
@@ -402,10 +408,9 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	case IPNotAllowed:
 		m.handleIPNotAllow(ctx)
 	case NotFound:
+		handleNotFound()
 	default:
-		ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
-		rules.putCacheItem(ctx, ci)
-		m.handleRequestWithCache(rules, ctx, ci)
+		handleNotFound()
 	}
 }
 
@@ -425,6 +430,7 @@ const (
 // SearchPath searches path among list of mux rules
 func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult, *MuxPath) {
 	pathFound := false
+	var notAllowedPath *MuxPath
 	for _, host := range rulesToCheck {
 		if !host.match(ctx) {
 			continue
@@ -441,7 +447,7 @@ func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult,
 
 			// at least one path matches
 			pathFound = true
-
+			notAllowedPath = path
 			if !path.matchMethod(ctx) {
 				continue
 			}
@@ -458,7 +464,7 @@ func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult,
 			}
 
 			if !path.pass(ctx) {
-				return IPNotAllowed, nil
+				return IPNotAllowed, path
 			}
 
 			return searchResult, path
@@ -467,7 +473,7 @@ func SearchPath(ctx context.HTTPContext, rulesToCheck []*muxRule) (SearchResult,
 	if !pathFound {
 		return NotFound, nil
 	}
-	return MethodNotAllowed, nil
+	return MethodNotAllowed, notAllowedPath
 }
 
 func (m *mux) handleIPNotAllow(ctx context.HTTPContext) {

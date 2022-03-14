@@ -21,13 +21,17 @@ import (
 	"fmt"
 
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	//"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -275,4 +279,72 @@ func TestSearchPathHeadersAndIPs(t *testing.T) {
 	result, _ = SearchPath(testCaseF.toCtx(), muxRules)
 	assert.NotNil(result)
 	assert.Equal(result, IPNotAllowed)
+}
+
+type handlerMock struct{}
+
+func (hm *handlerMock) Handle(ctx context.HTTPContext) string {
+	return "test"
+}
+
+type muxMapperMock struct {
+	hm *handlerMock
+}
+
+func (mmm *muxMapperMock) GetHandler(name string) (protocol.HTTPHandler, bool) {
+	handler := mmm.hm
+	return handler, true
+}
+
+func TestServeHTTP(t *testing.T) {
+	assert := assert.New(t)
+	superSpecYaml := `
+name: http-server-test
+kind: HTTPServer
+port: 10080
+cacheSize: 200
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec.ObjectSpec())
+	mux := &muxMapperMock{&handlerMock{}}
+	httpServer := HTTPServer{}
+	httpServer.Init(superSpec, mux)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cacheKey := stringtool.Cat(r.Host, r.Method, r.URL.Path)
+		cacheItem := httpServer.runtime.mux.rules.Load().(*muxRules).cache.get(cacheKey)
+		assert.Nil(cacheItem)
+
+		httpServer.runtime.mux.ServeHTTP(w, r)
+
+		cacheItem = httpServer.runtime.mux.rules.Load().(*muxRules).cache.get(cacheKey)
+		assert.NotNil(cacheItem)
+		assert.Equal(true, cacheItem.notFound)
+	}))
+	res, err := http.Get(ts.URL + "/unknown-path")
+	assert.Nil(err)
+	assert.Equal("404 Not Found", res.Status)
+	ts.Close()
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cacheKey := stringtool.Cat(r.Host, r.Method, r.URL.Path)
+
+		httpServer.runtime.mux.ServeHTTP(w, r)
+
+		cacheItem := httpServer.runtime.mux.rules.Load().(*muxRules).cache.get(cacheKey)
+		assert.NotNil(cacheItem)
+		assert.Equal(false, cacheItem.notFound)
+		assert.Equal("/api", cacheItem.path.pathPrefix)
+	}))
+	res, err = http.Get(ts.URL + "/api")
+	assert.Nil(err)
+	assert.Equal("200 OK", res.Status)
+	ts.Close()
+
+	httpServer.Close()
 }
