@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/timetool"
 
+	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 )
 
@@ -154,6 +155,32 @@ func (ssc *StatusSyncController) Close() {
 	ssc.timer.Close()
 }
 
+func safeMarshal(value *supervisor.Status) (string, bool) {
+	buff, err := marshalStatus(value)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+			value, err)
+		return "", false
+	}
+	return string(buff), true
+}
+
+func splitRawTrafficControllerStatus(
+	status *trafficcontroller.StatusInSameNamespace,
+	statuses map[string]string,
+	statusesRecord *StatusesRecord) bool {
+	for key, value := range status.ToSyncStatus() {
+		statusesRecord.Statuses[key] = value
+
+		marshalledValue, ok := safeMarshal(value)
+		if !ok {
+			return false
+		}
+		statuses[key] = marshalledValue
+	}
+	return true
+}
+
 func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
 	statusesRecord := &StatusesRecord{
@@ -175,48 +202,23 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		status.Timestamp = unixTimestamp
 
 		if trafficStatus, ok := status.ObjectStatus.(*trafficcontroller.Status); ok {
-			namespaces := trafficStatus.Specs
-			for _, namespace := range namespaces {
-				for k, v := range namespace.HTTPPipelines {
-					key := "TrafficController-" + namespace.Namespace + "-" + k
-					value := &supervisor.Status{ObjectStatus: v}
-					statusesRecord.Statuses[key] = value
-
-					buff, err := marshalStatus(value)
-					if err != nil {
-						logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-							status, err)
-						return false
-					}
-					statuses[key] = string(buff)
-				}
-				for k, v := range namespace.HTTPServers {
-					key := "TrafficController-" + namespace.Namespace + "-" + k
-					value := &supervisor.Status{ObjectStatus: v}
-					statusesRecord.Statuses[key] = value
-
-					buff, err := marshalStatus(value)
-					if err != nil {
-						logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-							status, err)
-						return false
-					}
-					statuses[key] = string(buff)
+			statusInNamespaces := trafficStatus.Specs
+			for _, statInNS := range statusInNamespaces {
+				if !splitRawTrafficControllerStatus(statInNS, statuses, statusesRecord) {
+					return false
 				}
 			}
+			return true
+		} else if rawTrafficStatus, ok := status.ObjectStatus.(*rawconfigtrafficcontroller.Status); ok {
+			return splitRawTrafficControllerStatus(rawTrafficStatus, statuses, statusesRecord)
 		} else {
 			statusesRecord.Statuses[name] = status
-
-			buff, err := marshalStatus(status)
-			if err != nil {
-				logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-					status, err)
+			mashalledValue, ok := safeMarshal(status)
+			if !ok {
 				return false
 			}
-			statuses[name] = string(buff)
-
+			statuses[name] = mashalledValue
 		}
-
 		return true
 	}
 

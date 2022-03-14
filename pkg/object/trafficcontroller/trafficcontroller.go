@@ -116,6 +116,27 @@ func (ns *Namespace) GetHandler(name string) (protocol.HTTPHandler, bool) {
 	return handler, true
 }
 
+func (hss *HTTPServerStatus) toSyncStatus() *supervisor.Status {
+	return &supervisor.Status{ObjectStatus: hss}
+}
+
+func (hps *HTTPPipelineStatus) toSyncStatus() *supervisor.Status {
+	return &supervisor.Status{ObjectStatus: hps}
+}
+
+// ToSyncStatus returns http servers and pipelines in a map
+func (sisn *StatusInSameNamespace) ToSyncStatus() map[string]*supervisor.Status {
+	ns := sisn.Namespace
+	objects := make(map[string]*supervisor.Status)
+	for key, server := range sisn.HTTPServers {
+		objects[ns+"-"+key] = server.toSyncStatus()
+	}
+	for key, server := range sisn.HTTPPipelines {
+		objects[ns+"-"+key] = server.toSyncStatus()
+	}
+	return objects
+}
+
 // Category returns the category of TrafficController.
 func (tc *TrafficController) Category() supervisor.ObjectCategory {
 	return Category
