@@ -35,7 +35,7 @@ type (
 		ipFilterChan     *ipfilter.IPFilters
 		notFound         bool
 		methodNotAllowed bool
-		path             *muxPath
+		path             *MuxPath
 	}
 )
 
