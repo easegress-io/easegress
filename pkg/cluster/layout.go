@@ -27,6 +27,7 @@ const (
 	statusMemberPrefix       = "/status/members/"
 	statusMemberFormat       = "/status/members/%s" // +memberName
 	statusObjectPrefix       = "/status/objects/"
+	statusObjectNameFormat   = "%s-%s"
 	statusObjectPrefixFormat = "/status/objects/%s/"   // +objectName
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
@@ -99,6 +100,11 @@ func (l *Layout) StatusObjectsPrefix() string {
 // StatusObjectPrefix returns the prefix of object status.
 func (l *Layout) StatusObjectPrefix(name string) string {
 	return fmt.Sprintf(statusObjectPrefixFormat, name)
+}
+
+// StatusObjectName returns the name of the status object.
+func (l *Layout) StatusObjectName(kind string, specName string) string {
+	return fmt.Sprintf(statusObjectNameFormat, kind, specName)
 }
 
 // StatusObjectKey returns the key of object status.

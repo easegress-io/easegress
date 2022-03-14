@@ -126,13 +126,12 @@ func (hps *HTTPPipelineStatus) toSyncStatus() *supervisor.Status {
 
 // ToSyncStatus returns http servers and pipelines in a map
 func (sisn *StatusInSameNamespace) ToSyncStatus() map[string]*supervisor.Status {
-	ns := sisn.Namespace
 	objects := make(map[string]*supervisor.Status)
 	for key, server := range sisn.HTTPServers {
-		objects[ns+"-"+key] = server.toSyncStatus()
+		objects[key] = server.toSyncStatus()
 	}
 	for key, server := range sisn.HTTPPipelines {
-		objects[ns+"-"+key] = server.toSyncStatus()
+		objects[key] = server.toSyncStatus()
 	}
 	return objects
 }
