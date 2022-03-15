@@ -233,28 +233,25 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string) {
 	// Delete statuses which disappeared in current status.
 	if ssc.lastSyncStatuses != nil {
+		kvs := make(map[string]*string)
 		for k := range ssc.lastSyncStatuses {
 			if _, exists := statuses[k]; !exists {
-				kv := make(map[string]*string)
 				k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-				kv[k] = nil
-
-				err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kv)
-				if err != nil {
-					logger.Errorf("sync status failed. If the message size is too large, "+
-						"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
-				}
+				kvs[k] = nil
 			}
+		}
+		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+		if err != nil {
+			logger.Errorf("sync status failed. If the message size is too large, "+
+				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
 		}
 	}
 
 	ssc.lastSyncStatuses = statuses
 
-	for k, v := range statuses {
-		kv := make(map[string]*string)
-		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		kv[k] = &v
-		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kv)
+	for k, value := range statuses {
+		key := ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
+		err := ssc.superSpec.Super().Cluster().PutUnderLease(key, value)
 		if err != nil {
 			logger.Errorf("sync status failed. If the message size is too large, "+
 				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
