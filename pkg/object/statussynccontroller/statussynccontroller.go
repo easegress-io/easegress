@@ -39,6 +39,9 @@ const (
 	Kind = "StatusSyncController"
 
 	maxStatusesRecordCount = 10
+
+	// statusUpdateMaxBatchSize is maximum statuses to update in one cluster transaction
+	statusUpdateMaxBatchSize = 20
 )
 
 type (
@@ -249,12 +252,17 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 
 	ssc.lastSyncStatuses = statuses
 
+	kvs := make(map[string]*string)
 	for k, value := range statuses {
 		key := ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		err := ssc.superSpec.Super().Cluster().PutUnderLease(key, value)
-		if err != nil {
-			logger.Errorf("sync status failed. If the message size is too large, "+
-				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		kvs[key] = &value
+		if len(kvs) >= statusUpdateMaxBatchSize {
+			err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+			if err != nil {
+				logger.Errorf("sync status failed. If the message size is too large, "+
+					"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+			}
+			kvs = make(map[string]*string)
 		}
 	}
 }
