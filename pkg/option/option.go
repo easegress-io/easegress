@@ -164,7 +164,7 @@ func New() *Options {
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
 	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
 
-	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "How many objects statuses to update at maximum in one transaction.")
+	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
 
 	opt.viper.BindPFlags(opt.flags)
 
