@@ -105,18 +105,7 @@ func (p *profile) MemoryProfile() {
 	}
 }
 
-func (p *profile) UpdateCPUProfile() {
-	pprof.StopCPUProfile()
-	err := p.cpuFile.Close()
-	if err != nil {
-		logger.Errorf("close %s failed: %v", p.opt.CPUProfileFile, err)
-	}
-	p.StartCPUProfile()
-}
-
-func (p *profile) Close(wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (p *profile) stopCPUProfile() {
 	if p.cpuFile != nil {
 		pprof.StopCPUProfile()
 		err := p.cpuFile.Close()
@@ -125,6 +114,15 @@ func (p *profile) Close(wg *sync.WaitGroup) {
 		}
 		p.cpuFile = nil
 	}
+}
 
+func (p *profile) UpdateCPUProfile() {
+	p.stopCPUProfile()
+	p.StartCPUProfile()
+}
+
+func (p *profile) Close(wg *sync.WaitGroup) {
+	defer wg.Done()
+	p.stopCPUProfile()
 	p.MemoryProfile()
 }

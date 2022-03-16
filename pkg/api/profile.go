@@ -19,11 +19,9 @@ package api
 
 import (
 	"fmt"
-	"net/http"
-
-	//"github.com/megaease/easegress/pkg/option/option.go"
-	//"github.com/megaease/easegress/pkg/profile"
 	"gopkg.in/yaml.v2"
+	"net/http"
+	"sync"
 )
 
 const (
@@ -38,13 +36,13 @@ const (
 type (
 	// ProfileStatusResponse contains cpu and memory profile file paths
 	ProfileStatusResponse struct {
-		CpuPath       string `yaml:"cpuPath"`
-		MemoryPath    string `yaml:"memoryPath"`
+		CpuPath    string `yaml:"cpuPath"`
+		MemoryPath string `yaml:"memoryPath"`
 	}
 
 	// StartProfilingRequest contains file path to profile file
 	StartProfilingRequest struct {
-		Path       string `yaml:"path"`
+		Path string `yaml:"path"`
 	}
 )
 
@@ -64,6 +62,11 @@ func (s *Server) profileAPIEntries() []*Entry {
 			Path:    fmt.Sprintf("%s%s/memory", ProfilePrefix, StartAction),
 			Method:  http.MethodPost,
 			Handler: s.startMemoryProfile,
+		},
+		{
+			Path:    fmt.Sprintf("%s%s", ProfilePrefix, StopAction),
+			Method:  http.MethodPost,
+			Handler: s.stopProfile,
 		},
 	}
 }
@@ -100,4 +103,10 @@ func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 
 	// Memory profile is flushed only at stop/exit
 	s.opt.MemoryProfileFile = spr.Path
+}
+
+func (s *Server) stopProfile(w http.ResponseWriter, r *http.Request) {
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	s.profile.Close(wg)
 }

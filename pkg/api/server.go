@@ -27,8 +27,8 @@ import (
 	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/supervisor"
 	pprof "github.com/megaease/easegress/pkg/profile"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 type (
