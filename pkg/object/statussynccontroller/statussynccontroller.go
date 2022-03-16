@@ -39,9 +39,6 @@ const (
 	Kind = "StatusSyncController"
 
 	maxStatusesRecordCount = 10
-
-	// statusUpdateMaxBatchSize is maximum statuses to update in one cluster transaction
-	statusUpdateMaxBatchSize = 20
 )
 
 type (
@@ -56,6 +53,9 @@ type (
 		// sorted by timestamp in ascending order
 		statusesRecords      []*StatusesRecord
 		StatusesRecordsMutex sync.RWMutex
+
+		// statusUpdateMaxBatchSize is maximum statuses to update in one cluster transaction
+		statusUpdateMaxBatchSize int
 
 		done chan struct{}
 	}
@@ -130,6 +130,13 @@ func (ssc *StatusSyncController) Inherit(spec *supervisor.Spec, previousGenerati
 func (ssc *StatusSyncController) reload() {
 	ssc.timer = timetool.NewDistributedTimer(nextSyncStatusDuration)
 	ssc.done = make(chan struct{})
+
+	opts := ssc.superSpec.Super().Options()
+	ssc.statusUpdateMaxBatchSize = opts.StatusUpdateMaxBatchSize
+	if ssc.statusUpdateMaxBatchSize < 1 {
+		ssc.statusUpdateMaxBatchSize = 20
+	}
+	logger.Infof("StatusUpdateMaxBatchSize is %d", ssc.statusUpdateMaxBatchSize)
 
 	go ssc.run()
 }
@@ -256,7 +263,7 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 	for k, value := range statuses {
 		key := ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
 		kvs[key] = &value
-		if len(kvs) >= statusUpdateMaxBatchSize {
+		if len(kvs) >= ssc.statusUpdateMaxBatchSize {
 			err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 			if err != nil {
 				logger.Errorf("sync status failed. If the message size is too large, "+
