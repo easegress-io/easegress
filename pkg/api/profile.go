@@ -36,7 +36,7 @@ const (
 type (
 	// ProfileStatusResponse contains cpu and memory profile file paths
 	ProfileStatusResponse struct {
-		CpuPath    string `yaml:"cpuPath"`
+		CPUPath    string `yaml:"cpuPath"`
 		MemoryPath string `yaml:"memoryPath"`
 	}
 
@@ -75,7 +75,7 @@ func (s *Server) getProfileStatus(w http.ResponseWriter, r *http.Request) {
 	cpuFile := s.opt.CPUProfileFile
 	memFile := s.opt.MemoryProfileFile
 
-	result := &ProfileStatusResponse{CpuPath: cpuFile, MemoryPath: memFile}
+	result := &ProfileStatusResponse{CPUPath: cpuFile, MemoryPath: memFile}
 	w.Header().Set("Content-Type", "text/vnd.yaml")
 	err := yaml.NewEncoder(w).Encode(result)
 	if err != nil {
@@ -87,7 +87,8 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
 	err := yaml.NewDecoder(r.Body).Decode(&spr)
 	if err != nil {
-		panic(err)
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
+		return
 	}
 
 	s.opt.CPUProfileFile = spr.Path
@@ -98,7 +99,8 @@ func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
 	err := yaml.NewDecoder(r.Body).Decode(&spr)
 	if err != nil {
-		panic(err)
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
+		return
 	}
 
 	// Memory profile is flushed only at stop/exit

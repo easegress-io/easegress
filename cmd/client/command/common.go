@@ -68,6 +68,10 @@ const (
 	customDataURL         = apiURL + "/customdata/%s"
 	customDataItemURL     = apiURL + "/customdata/%s/%s"
 
+	profileURL      = apiURL + "/profile"
+	profileStartURL = apiURL + "/profile/start/%s"
+	profileStopURL  = apiURL + "/profile/stop"
+
 	// MeshTenantsURL is the mesh tenant prefix.
 	MeshTenantsURL = apiURL + "/mesh/tenants"
 
