@@ -272,6 +272,13 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 			kvs = make(map[string]*string)
 		}
 	}
+	if len(kvs) > 0 {
+		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+		if err != nil {
+			logger.Errorf("sync status failed. If the message size is too large, "+
+				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		}
+	}
 }
 
 func (ssc *StatusSyncController) addStatusesRecord(statusesRecord *StatusesRecord) {
