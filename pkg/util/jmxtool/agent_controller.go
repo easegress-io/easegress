@@ -49,16 +49,15 @@ type (
 	AgentConfig struct {
 		spec.Service `yaml:",inline"`
 
-		Headers     string            `yaml:"easeagent.progress.forwarded.headers"`
-		Reporter    *AgentReporter    `yaml:"reporter.outputServer"`
-		ReporterTLS *AgentReporterTLS `yaml:"reporter.outputServer.tls"`
-
-		ReporterAppendType string `yaml:"reporter.tracing.sender.appendType"`
-		PluginAppendType   string `yaml:"plugin.observability.global.metric.appendType"`
+		Headers  string         `yaml:"easeagent.progress.forwarded.headers"`
+		Reporter *AgentReporter `yaml:"reporter.outputServer"`
 	}
 
 	// AgentReporter is the basic config for agent reporter.
 	AgentReporter struct {
+		ReporterTLS *AgentReporterTLS `yaml:"tls"`
+
+		AppendType      string `yaml:"appendType"`
 		BootstrapServer string `yaml:"bootstrapServer"`
 		Username        string `yaml:"username"`
 		Password        string `yaml:"password"`

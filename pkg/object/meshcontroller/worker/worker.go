@@ -316,19 +316,17 @@ func (worker *Worker) updateAgentConfig() {
 					if reporterType == "" {
 						reporterType = "http"
 					}
-					agentConfig.ReporterAppendType = reporterType
-					agentConfig.PluginAppendType = reporterType
-
 					agentConfig.Reporter = &jmxtool.AgentReporter{
+						ReporterTLS: &jmxtool.AgentReporterTLS{
+							Enable: true,
+							CACert: decodeBase64(worker.spec.MonitorMTLS.CaCertBase64),
+							Cert:   decodeBase64(monitorCert.CertBase64),
+							Key:    decodeBase64(monitorCert.KeyBase64),
+						},
+						AppendType:      reporterType,
 						BootstrapServer: worker.spec.MonitorMTLS.URL,
 						Username:        worker.spec.MonitorMTLS.Username,
 						Password:        worker.spec.MonitorMTLS.Password,
-					}
-					agentConfig.ReporterTLS = &jmxtool.AgentReporterTLS{
-						Enable: true,
-						CACert: decodeBase64(worker.spec.MonitorMTLS.CaCertBase64),
-						Cert:   decodeBase64(monitorCert.CertBase64),
-						Key:    decodeBase64(monitorCert.KeyBase64),
 					}
 					break
 				}
