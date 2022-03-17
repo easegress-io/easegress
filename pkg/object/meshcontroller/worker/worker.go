@@ -18,6 +18,7 @@
 package worker
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -39,6 +40,12 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/jmxtool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+)
+
+const (
+	agentConfigUpdateInterval = 5 * time.Second
 )
 
 type (
@@ -204,7 +211,7 @@ func (worker *Worker) run() {
 			}
 		}()
 
-		serviceSpec, info := worker.service.GetServiceSpecWithInfo(worker.serviceName)
+		serviceSpec := worker.service.GetServiceSpec(worker.serviceName)
 		if serviceSpec == nil {
 			return false
 		}
@@ -216,11 +223,6 @@ func (worker *Worker) run() {
 
 		worker.registryServer.Register(serviceSpec, worker.ingressServer.Ready, worker.egressServer.Ready)
 
-		err = worker.observabilityManager.UpdateService(serviceSpec, info.Version)
-		if err != nil {
-			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
-		}
-
 		return true
 	}
 
@@ -229,11 +231,11 @@ func (worker *Worker) run() {
 		return
 	}
 	go worker.heartbeat()
-	go worker.pushSpecToJavaAgent()
+	go worker.updateAgentConfig()
 }
 
 func (worker *Worker) heartbeat() {
-	informJavaAgentReady, trafficGateReady := false, false
+	trafficGateReady := false
 
 	routine := func() {
 		defer func() {
@@ -253,15 +255,6 @@ func (worker *Worker) heartbeat() {
 		}
 
 		if worker.registryServer.Registered() {
-			if !informJavaAgentReady {
-				err := worker.informJavaAgent()
-				if err != nil {
-					logger.Errorf(err.Error())
-				} else {
-					informJavaAgentReady = true
-				}
-			}
-
 			err := worker.updateHeartbeat()
 			if err != nil {
 				logger.Errorf("update heartbeat failed: %v", err)
@@ -279,7 +272,7 @@ func (worker *Worker) heartbeat() {
 	}
 }
 
-func (worker *Worker) pushSpecToJavaAgent() {
+func (worker *Worker) updateAgentConfig() {
 	routine := func() {
 		defer func() {
 			if err := recover(); err != nil {
@@ -288,32 +281,62 @@ func (worker *Worker) pushSpecToJavaAgent() {
 			}
 		}()
 
-		serviceSpec, info := worker.service.GetServiceSpecWithInfo(worker.serviceName)
-		err := worker.observabilityManager.UpdateService(serviceSpec, info.Version)
-		if err != nil {
-			logger.Errorf("update service %s failed: %v", serviceSpec.Name, err)
+		decodeBase64 := func(s string) string {
+			result, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				panic(err)
+			}
+
+			return string(result)
 		}
 
-		canaries := worker.service.ListServiceCanaries()
-		transmission := &spec.GlobalTransmission{}
+		agentConfig := &jmxtool.AgentConfig{}
 
+		serviceSpec := worker.service.GetServiceSpec(worker.serviceName)
+		agentConfig.Service = *serviceSpec
+
+		canaries := worker.service.ListServiceCanaries()
 		headersMap := map[string]struct{}{spec.ServiceCanaryHeaderKey: {}}
 		for _, canary := range canaries {
 			for key := range canary.TrafficRules.Headers {
 				headersMap[key] = struct{}{}
 			}
 		}
+		canaryHeaders := []string{}
 		for key := range headersMap {
-			transmission.Headers = append(transmission.Headers, key)
+			canaryHeaders = append(canaryHeaders, key)
+		}
+		sort.Strings(canaryHeaders)
+		agentConfig.Headers = strings.Join(canaryHeaders, ",")
+
+		if worker.spec.MonitorMTLS != nil && worker.spec.MonitorMTLS.Enabled {
+			for _, monitorCert := range worker.spec.MonitorMTLS.Certs {
+				if stringtool.StrInSlice(worker.serviceName, monitorCert.Services) {
+					reporterType := worker.spec.MonitorMTLS.ReporterAppendType
+					if reporterType == "" {
+						reporterType = "http"
+					}
+					agentConfig.Reporter = &jmxtool.AgentReporter{
+						ReporterTLS: &jmxtool.AgentReporterTLS{
+							Enable: true,
+							CACert: decodeBase64(worker.spec.MonitorMTLS.CaCertBase64),
+							Cert:   decodeBase64(monitorCert.CertBase64),
+							Key:    decodeBase64(monitorCert.KeyBase64),
+						},
+						AppendType:      reporterType,
+						BootstrapServer: worker.spec.MonitorMTLS.URL,
+						Username:        worker.spec.MonitorMTLS.Username,
+						Password:        worker.spec.MonitorMTLS.Password,
+					}
+					break
+				}
+			}
 		}
 
-		sort.Strings(transmission.Headers)
-
-		err = worker.observabilityManager.UpdateGlobalTransmission(transmission)
-		if err != nil {
-			logger.Errorf("update canary failed: %v", err)
-		}
+		worker.observabilityManager.agentClient.UpdateAgentConfig(agentConfig)
 	}
+
+	routine()
 
 	for {
 		select {
@@ -383,28 +406,6 @@ func (worker *Worker) updateHeartbeat() error {
 	}
 
 	return worker.store.Put(layout.ServiceInstanceStatusKey(worker.serviceName, worker.instanceID), string(buff))
-}
-
-func (worker *Worker) informJavaAgent() error {
-	handleServiceSpec := func(event informer.Event, service *spec.Service) bool {
-		switch event.EventType {
-		case informer.EventDelete:
-			return false
-		case informer.EventUpdate:
-			if err := worker.observabilityManager.UpdateService(service, event.RawKV.Version); err != nil {
-				logger.Errorf("update service %s failed: %v", service.Name, err)
-			}
-		}
-
-		return true
-	}
-
-	err := worker.informer.OnPartOfServiceSpec(worker.serviceName, handleServiceSpec)
-	if err != nil && err != informer.ErrAlreadyWatched {
-		return fmt.Errorf("on informer for observability failed: %v", err)
-	}
-
-	return nil
 }
 
 // Status returns the status of worker.

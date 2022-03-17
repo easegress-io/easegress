@@ -133,6 +133,27 @@ type (
 		SidecarImageName          string `yaml:"sidecarImageName" jsonschema:"omitempty"`
 		AgentInitializerImageName string `yaml:"agentInitializerImageName" jsonschema:"omitempty"`
 		Log4jConfigName           string `yaml:"log4jConfigName" jsonschema:"omitempty"`
+
+		MonitorMTLS *MonitorMTLS `yaml:"monitorMTLS" jsonschema:"omitempty"`
+	}
+
+	// MonitorMTLS is the spec of mTLS specification of monitor.
+	MonitorMTLS struct {
+		Enabled  bool   `yaml:"enabled" jsonschema:"required"`
+		URL      string `yaml:"url" jsonschema:"required"`
+		Username string `yaml:"username" jsonschema:"required"`
+		Password string `yaml:"password" jsonschema:"required"`
+
+		ReporterAppendType string         `yaml:"reporterAppendType"`
+		CaCertBase64       string         `yaml:"caCertBase64" jsonschema:"required,format=base64"`
+		Certs              []*MonitorCert `yaml:"certs" jsonschema:"required"`
+	}
+
+	// MonitorCert is the spec for single pack of mTLS.
+	MonitorCert struct {
+		CertBase64 string   `yaml:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64  string   `yaml:"keyBase64" jsonschema:"required,format=base64"`
+		Services   []string `yaml:"services" jsonschema:"required"`
 	}
 
 	// Security is the spec for mesh-wide security.
@@ -140,8 +161,8 @@ type (
 		MTLSMode     string `yaml:"mtlsMode" jsonschema:"required"`
 		CertProvider string `yaml:"certProvider" jsonschema:"required"`
 
-		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required, format=duration"`
-		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required, format=duration"`
+		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required,format=duration"`
+		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required,format=duration"`
 	}
 
 	// Service contains the information of service.
@@ -210,10 +231,19 @@ type (
 		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}
 
-	// GlobalTransmission is the spec of global transmission data.
-	// All endpoints of mesh should pass them.
+	// GlobalTransmission is the spec of global transmission data for Agent.
 	GlobalTransmission struct {
+		// Headers are the canary headers, all endpoints of mesh should transmit them.
 		Headers []string `yaml:"headers" jsonschema:"omitempty"`
+
+		MomitorMTLS *MTLSTransmission `yaml:"monitorMTLS"`
+	}
+
+	// MTLSTransmission is the mTLS config for Agent.
+	MTLSTransmission struct {
+		CaCertBase64 string `yaml:"caCertBase64" jsonschema:"required,format=base64"`
+		CertBase64   string `yaml:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64    string `yaml:"keyBase64" jsonschema:"required,format=base64"`
 	}
 
 	// LoadBalance is the spec of service load balance.
@@ -499,6 +529,19 @@ func (a Admin) Validate() error {
 		if appCertTTL >= rootCertTTL {
 			err = fmt.Errorf("appCertTTL: %s is larger than rootCertTTL: %s", appCertTTL.String(), rootCertTTL.String())
 			return err
+		}
+	}
+
+	if a.MonitorMTLS != nil {
+		serviceMap := map[string]struct{}{}
+		for _, cert := range a.MonitorMTLS.Certs {
+			for _, service := range cert.Services {
+				_, exists := serviceMap[service]
+				if exists {
+					return fmt.Errorf("service %s in monitotMTLS.certs occurred multiple times", service)
+				}
+				serviceMap[service] = struct{}{}
+			}
 		}
 	}
 
