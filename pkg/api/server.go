@@ -42,6 +42,9 @@ type (
 		cds     *customdata.Store
 		profile pprof.Profile
 
+		// runtime option for profiling
+		MemoryProfileFile string
+
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
 	}

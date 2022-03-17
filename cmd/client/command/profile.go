@@ -52,7 +52,7 @@ func infoProfileCmd() *cobra.Command {
 func startProfilingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Prepare measuring CPU or memory.",
+		Short: "Prepare measuring CPU or memory",
 	}
 	cmd.AddCommand(startCPUCmd())
 	cmd.AddCommand(startMemoryCmd())
@@ -63,7 +63,7 @@ func startProfilingCmd() *cobra.Command {
 func startCPUCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "cpu",
-		Short:   "Prepare measuring CPU.",
+		Short:   "Prepare measuring CPU",
 		Example: "egctl profile start cpu <path/to/cpu-prof-file>",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
@@ -83,7 +83,7 @@ func startCPUCmd() *cobra.Command {
 func startMemoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory",
-		Short:   "Prepare measuring memory.",
+		Short:   "Prepare measuring memory",
 		Example: "egctl profile start memory <path/to/memory-prof-file>",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {

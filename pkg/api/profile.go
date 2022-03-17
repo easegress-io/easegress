@@ -20,8 +20,9 @@ package api
 import (
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"net/http"
-	"sync"
+	"os"
 )
 
 const (
@@ -91,8 +92,11 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.opt.CPUProfileFile = spr.Path
-	s.profile.UpdateCPUProfile()
+	if spr.Path == "" || !IsPathValid(spr.Path) {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("file path not valid"))
+		return
+	}
+	s.profile.UpdateCPUProfile(spr.Path)
 }
 
 func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
@@ -103,12 +107,32 @@ func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if spr.Path == "" || !IsPathValid(spr.Path) {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("file path not valid"))
+		return
+	}
 	// Memory profile is flushed only at stop/exit
-	s.opt.MemoryProfileFile = spr.Path
+	s.MemoryProfileFile = spr.Path
 }
 
 func (s *Server) stopProfile(w http.ResponseWriter, r *http.Request) {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	s.profile.Close(wg)
+	s.profile.StopCPUProfile()
+	s.profile.MemoryProfile(s.MemoryProfileFile)
+}
+
+// IsPathValid checks whether file already exists or can be created
+func IsPathValid(fp string) bool {
+	// Check if file already exists
+	if _, err := os.Stat(fp); err == nil {
+		return true
+	}
+
+	// Attempt to create it
+	var d []byte
+	if err := ioutil.WriteFile(fp, d, 0644); err == nil {
+		os.Remove(fp) // And delete it
+		return true
+	}
+
+	return false
 }

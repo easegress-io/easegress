@@ -31,9 +31,10 @@ import (
 
 // Profile is the Profile interface.
 type Profile interface {
-	StartCPUProfile() error
-	MemoryProfile()
-	UpdateCPUProfile()
+	StartCPUProfile(fp string) error
+	MemoryProfile(fp string)
+	UpdateCPUProfile(fp string)
+	StopCPUProfile()
 	Close(wg *sync.WaitGroup)
 }
 
@@ -48,7 +49,7 @@ func New(opt *option.Options) (Profile, error) {
 		opt: opt,
 	}
 
-	err := p.StartCPUProfile()
+	err := p.StartCPUProfile("")
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +57,15 @@ func New(opt *option.Options) (Profile, error) {
 	return p, nil
 }
 
-func (p *profile) StartCPUProfile() error {
-	if p.opt.CPUProfileFile == "" {
+func (p *profile) StartCPUProfile(filepath string) error {
+	if p.opt.CPUProfileFile == "" && filepath == "" {
 		return nil
 	}
+	if filepath == "" {
+		filepath = p.opt.CPUProfileFile
+	}
 
-	f, err := os.Create(p.opt.CPUProfileFile)
+	f, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("create cpu profile failed: %v", err)
 	}
@@ -72,21 +76,24 @@ func (p *profile) StartCPUProfile() error {
 
 	p.cpuFile = f
 
-	logger.Infof("cpu profile: %s", p.opt.CPUProfileFile)
+	logger.Infof("cpu profile: %s", filepath)
 
 	return nil
 }
 
-func (p *profile) MemoryProfile() {
-	if p.opt.MemoryProfileFile == "" {
+func (p *profile) MemoryProfile(filepath string) {
+	if p.opt.MemoryProfileFile == "" && filepath == "" {
 		return
+	}
+	if filepath == "" {
+		filepath = p.opt.MemoryProfileFile
 	}
 
 	// to include every allocated block in the profile
 	runtime.MemProfileRate = 1
 
-	logger.Infof("memory profile: %s", p.opt.MemoryProfileFile)
-	f, err := os.Create(p.opt.MemoryProfileFile)
+	logger.Infof("memory profile: %s", filepath)
+	f, err := os.Create(filepath)
 	if err != nil {
 		logger.Errorf("create memory profile failed: %v", err)
 		return
@@ -105,24 +112,25 @@ func (p *profile) MemoryProfile() {
 	}
 }
 
-func (p *profile) stopCPUProfile() {
+func (p *profile) StopCPUProfile() {
 	if p.cpuFile != nil {
+		fname := p.cpuFile.Name()
 		pprof.StopCPUProfile()
 		err := p.cpuFile.Close()
 		if err != nil {
-			logger.Errorf("close %s failed: %v", p.opt.CPUProfileFile, err)
+			logger.Errorf("close %s failed: %v", fname, err)
 		}
 		p.cpuFile = nil
 	}
 }
 
-func (p *profile) UpdateCPUProfile() {
-	p.stopCPUProfile()
-	p.StartCPUProfile()
+func (p *profile) UpdateCPUProfile(filepath string) {
+	p.StopCPUProfile()
+	p.StartCPUProfile(filepath)
 }
 
 func (p *profile) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
-	p.stopCPUProfile()
-	p.MemoryProfile()
+	p.StopCPUProfile()
+	p.MemoryProfile("")
 }
