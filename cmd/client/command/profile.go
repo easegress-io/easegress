@@ -40,7 +40,7 @@ func ProfileCmd() *cobra.Command {
 func infoProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info",
-		Short: "Show memory and CPU profile file paths.",
+		Short: "Show memory and CPU profile file paths",
 		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodGet, makeURL(profileURL), nil, cmd)
 		},

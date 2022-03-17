@@ -28,9 +28,9 @@ const (
 	// ProfilePrefix is the URL prefix of profile APIs
 	ProfilePrefix = "/profile"
 	// StartAction is the URL for starting profiling
-	StartAction = "/start"
+	StartAction = "start"
 	// StopAction is the URL for stopping profiling
-	StopAction = "/stop"
+	StopAction = "stop"
 )
 
 type (
@@ -54,17 +54,17 @@ func (s *Server) profileAPIEntries() []*Entry {
 			Handler: s.getProfileStatus,
 		},
 		{
-			Path:    fmt.Sprintf("%s%s/cpu", ProfilePrefix, StartAction),
+			Path:    fmt.Sprintf("%s/%s/cpu", ProfilePrefix, StartAction),
 			Method:  http.MethodPost,
 			Handler: s.startCPUProfile,
 		},
 		{
-			Path:    fmt.Sprintf("%s%s/memory", ProfilePrefix, StartAction),
+			Path:    fmt.Sprintf("%s/%s/memory", ProfilePrefix, StartAction),
 			Method:  http.MethodPost,
 			Handler: s.startMemoryProfile,
 		},
 		{
-			Path:    fmt.Sprintf("%s%s", ProfilePrefix, StopAction),
+			Path:    fmt.Sprintf("%s/%s", ProfilePrefix, StopAction),
 			Method:  http.MethodPost,
 			Handler: s.stopProfile,
 		},
