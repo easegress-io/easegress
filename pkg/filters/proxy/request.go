@@ -48,7 +48,7 @@ type (
 )
 
 func (p *pool) newRequest(
-	ctx context.HTTPContext,
+	ctx context.Context,
 	server *Server,
 	reqBody io.Reader,
 	requestPool sync.Pool,

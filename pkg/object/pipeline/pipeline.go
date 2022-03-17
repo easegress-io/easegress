@@ -24,7 +24,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -39,12 +38,6 @@ const (
 
 	// BuiltInFilterEnd is the name of the build-in end filter.
 	BuiltInFilterEnd = "END"
-
-	// defaultRequest is the name of the default request.
-	defaultRequest = "Default"
-
-	// defaultResponse is the name of the default response.
-	defaultResponse = "Default"
 )
 
 func init() {
@@ -73,12 +66,14 @@ type (
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
-		Filter     string            `yaml:"filter" jsonschema:"required,format=urlname"`
-		RequestID  string            `yaml:"requestID" jsonschema:"requestID,omitempty"`
-		ResponseID string            `yaml:"responseID" jsonschema:"responseID,omitempty"`
-		UseRequest string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
-		JumpIf     map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
-		filter     filters.Filter
+		Filter           string            `yaml:"filter" jsonschema:"required,format=urlname"`
+		BaseRequestID    string            `yaml:"baseRequestID" jsonschema:"baseRequestID,omitempty"`
+		TargetRequestID  string            `yaml:"targetRequestID" jsonschema:"targetRequestID,omitempty"`
+		BaseResponseID   string            `yaml:"baseResponseID" jsonschema:"baseResponseID,omitempty"`
+		TargetResponseID string            `yaml:"targetResponseID" jsonschema:"targetResponseID,omitempty"`
+		UseRequest       string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
+		JumpIf           map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
+		filter           filters.Filter
 	}
 
 	// FilterStat records the statistics of a filter.
@@ -95,6 +90,74 @@ type (
 		Filters map[string]interface{} `yaml:"filters"`
 	}
 )
+
+// ValidateJumpIf validates the JumpIfs of the flow.
+func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
+	validTargets := map[string]bool{BuiltInFilterEnd: true}
+	for i := len(s.Flow) - 1; i >= 0; i-- {
+		node := &s.Flow[i]
+		if node.Filter == BuiltInFilterEnd {
+			continue
+		}
+		spec := specs[node.Filter]
+		if spec == nil {
+			panic(fmt.Errorf("filter %s not found", node.Filter))
+		}
+		results := filters.GetKind(spec.Kind()).Results
+		for result, target := range node.JumpIf {
+			if !stringtool.StrInSlice(result, results) {
+				msgFmt := "filter %s: result %s is not in %v"
+				panic(fmt.Errorf(msgFmt, node.Filter, result, results))
+			}
+			if ok := validTargets[target]; !ok {
+				msgFmt := "filter %s: target filter %s not found"
+				panic(fmt.Errorf(msgFmt, node.Filter, target))
+			}
+		}
+		validTargets[node.Filter] = true
+	}
+}
+
+// ValidateRequest validates requests.
+func (s *Spec) ValidateRequest() {
+	const errFmt = "filter %s: desired request %s not found"
+
+	validIDs := map[string]bool{context.DefaultRequestID: true}
+
+	for i := 0; i < len(s.Flow); i++ {
+		node := &s.Flow[i]
+		if node.UseRequest != "" && !validIDs[node.UseRequest] {
+			panic(fmt.Errorf(errFmt, node.Filter, node.UseRequest))
+		}
+
+		if node.BaseRequestID != "" && !validIDs[node.BaseRequestID] {
+			panic(fmt.Errorf(errFmt, node.Filter, node.BaseRequestID))
+		}
+
+		if node.TargetRequestID != "" {
+			validIDs[node.TargetRequestID] = true
+		}
+	}
+}
+
+// ValidateResponse validates responses.
+func (s *Spec) ValidateResponse() {
+	const errFmt = "filter %s: desired response %s not found"
+
+	validIDs := map[string]bool{context.DefaultResponseID: true}
+
+	for i := 0; i < len(s.Flow); i++ {
+		node := &s.Flow[i]
+
+		if node.BaseResponseID != "" && !validIDs[node.BaseResponseID] {
+			panic(fmt.Errorf(errFmt, node.Filter, node.BaseResponseID))
+		}
+
+		if node.TargetResponseID != "" {
+			validIDs[node.TargetResponseID] = true
+		}
+	}
+}
 
 // Validate validates Spec.
 func (s *Spec) Validate() (err error) {
@@ -127,42 +190,13 @@ func (s *Spec) Validate() (err error) {
 	errPrefix = "flow"
 
 	// 2.1: validate jumpIfs
-	validNames := map[string]bool{BuiltInFilterEnd: true}
-	for i := len(s.Flow) - 1; i >= 0; i-- {
-		node := &s.Flow[i]
-		if node.Filter == BuiltInFilterEnd {
-			continue
-		}
-		spec := specs[node.Filter]
-		if spec == nil {
-			panic(fmt.Errorf("filter %s not found", node.Filter))
-		}
-		results := filters.GetKind(spec.Kind()).Results
-		for result, target := range node.JumpIf {
-			if !stringtool.StrInSlice(result, results) {
-				msgFmt := "filter %s: result %s is not in %v"
-				panic(fmt.Errorf(msgFmt, node.Filter, result, results))
-			}
-			if ok := validNames[target]; !ok {
-				msgFmt := "filter %s: target filter %s not found"
-				panic(fmt.Errorf(msgFmt, node.Filter, target))
-			}
-		}
-		validNames[node.Filter] = true
-	}
+	s.ValidateJumpIf(specs)
 
-	// 2.2: validate request IDs
-	validNames = map[string]bool{defaultRequest: true}
-	for i := 0; i < len(s.Flow); i++ {
-		node := &s.Flow[i]
-		if node.UseRequest != "" && !validNames[node.UseRequest] {
-			msgFmt := "filter %s: desired request %s not found"
-			panic(fmt.Errorf(msgFmt, node.Filter, node.UseRequest))
-		}
-		if node.RequestID != "" {
-			validNames[node.RequestID] = true
-		}
-	}
+	// 2.2: validate requests
+	s.ValidateRequest()
+
+	// 2.3: validate responses
+	s.ValidateResponse()
 
 	return nil
 }
@@ -210,13 +244,13 @@ func (p *Pipeline) DefaultSpec() interface{} {
 }
 
 // Init initializes Pipeline.
-func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
+func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	p.reload(nil /*no previous generation*/)
 }
 
 // Inherit inherits previous generation of Pipeline.
-func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocols.MuxMapper) {
+func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 	p.reload(previousGeneration.(*Pipeline))
 	previousGeneration.Close()
@@ -280,7 +314,7 @@ func (p *Pipeline) getFilter(name string) filters.Filter {
 }
 
 // Handle is the handler to deal with the request.
-func (p *Pipeline) Handle(ctx context.HTTPContext) string {
+func (p *Pipeline) Handle(ctx context.Context) string {
 	result, next := "", ""
 	stats := make([]FilterStat, 0, len(p.flow))
 
@@ -296,16 +330,15 @@ func (p *Pipeline) Handle(ctx context.HTTPContext) string {
 
 		start := fasttime.Now()
 		if node.UseRequest == "" {
+			ctx.UseRequest(context.DefaultRequestID)
 		} else {
+			ctx.UseRequest(node.UseRequest)
 		}
 
-		if node.RequestID == "" {
-		} else {
-		}
-
-		if node.ResponseID == "" {
-		} else {
-		}
+		ctx.SetKV("baseRequest", node.BaseRequestID)
+		ctx.SetKV("targetRequest", node.TargetRequestID)
+		ctx.SetKV("baseResponse", node.BaseResponseID)
+		ctx.SetKV("targetResponse", node.TargetResponseID)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{
@@ -315,11 +348,13 @@ func (p *Pipeline) Handle(ctx context.HTTPContext) string {
 			Result:   result,
 		})
 
-		if result != "" {
-			next = node.JumpIf[result]
+		if result == "" {
+			next = ""
+			continue
 		}
 
-		if next == BuiltInFilterEnd {
+		next = node.JumpIf[result]
+		if next == "" || next == BuiltInFilterEnd {
 			break
 		}
 	}

@@ -173,12 +173,7 @@ func (aa *APIAggregator) reload() {
 }
 
 // Handle limits HTTPContext.
-func (aa *APIAggregator) Handle(ctx context.HTTPContext) (result string) {
-	result = aa.handle(ctx)
-	return ctx.CallNextHandler(result)
-}
-
-func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
+func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
 		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
@@ -257,7 +252,7 @@ func (aa *APIAggregator) handle(ctx context.HTTPContext) (result string) {
 	return aa.formatResponse(ctx, data)
 }
 
-func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, p *Pipeline, buff *bytes.Buffer) (*http.Request, error) {
+func (aa *APIAggregator) newHTTPReq(ctx context.Context, p *Pipeline, buff *bytes.Buffer) (*http.Request, error) {
 	var stdctx stdcontext.Context = ctx
 	if aa.spec.timeout != nil {
 		// NOTE: Cancel function could be omitted here.
@@ -282,7 +277,7 @@ func (aa *APIAggregator) newHTTPReq(ctx context.HTTPContext, p *Pipeline, buff *
 	return http.NewRequestWithContext(stdctx, method, url.String(), body)
 }
 
-func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.HTTPContext, data map[string][]byte, name string) string {
+func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.Context, data map[string][]byte, name string) string {
 	respBody := bytes.NewBuffer(nil)
 
 	written, err := io.CopyN(respBody, body, aa.spec.MaxBodyBytes)
@@ -302,7 +297,7 @@ func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.HTTPContex
 	return ""
 }
 
-func (aa *APIAggregator) formatResponse(ctx context.HTTPContext, data map[string][]byte) string {
+func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]byte) string {
 	if aa.spec.MergeResponse {
 		result := map[string]interface{}{}
 		for _, resp := range data {

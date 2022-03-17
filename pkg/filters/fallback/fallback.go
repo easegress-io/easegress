@@ -94,7 +94,7 @@ func (f *Fallback) reload() {
 
 // Handle fallbacks HTTPContext.
 // It always returns fallback.
-func (f *Fallback) Handle(ctx context.HTTPContext) string {
+func (f *Fallback) Handle(ctx context.Context) string {
 	f.f.Fallback(ctx)
 	return ctx.CallNextHandler(resultFallback)
 }

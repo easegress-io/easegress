@@ -40,7 +40,7 @@ func (m *MockedFilter) Name() string                                            
 func (m *MockedFilter) Kind() *filters.Kind                                          { return m.kind }
 func (m *MockedFilter) Spec() filters.Spec                                           { return nil }
 func (m *MockedFilter) Close()                                                       {}
-func (m *MockedFilter) Handle(ctx context.HTTPContext) (result string)               { return "" }
+func (m *MockedFilter) Handle(ctx context.Context) (result string)                   { return "" }
 func (m *MockedFilter) Init(spec filters.Spec)                                       {}
 func (m *MockedFilter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {}
 func (m *MockedFilter) Status() interface{}                                          { return nil }

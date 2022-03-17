@@ -23,7 +23,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -157,7 +156,7 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 }
 
 // Handle `beforePipeline` and `afterPipeline` before and after the httpHandler is executed.
-func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocols.HTTPHandler) {
+func (gf *GlobalFilter) Handle(ctx context.Context, httpHandle context.Handler) {
 	result := gf.beforeHandle(ctx)
 	if result == pipeline.BuiltInFilterEnd {
 		return
@@ -171,7 +170,7 @@ func (gf *GlobalFilter) Handle(ctx context.HTTPContext, httpHandle protocols.HTT
 }
 
 // BeforeHandle before handler logic for beforePipeline spec.
-func (gf *GlobalFilter) beforeHandle(ctx context.HTTPContext) string {
+func (gf *GlobalFilter) beforeHandle(ctx context.Context) string {
 	value := gf.beforePipeline.Load()
 	if value == nil {
 		return ""
@@ -184,7 +183,7 @@ func (gf *GlobalFilter) beforeHandle(ctx context.HTTPContext) string {
 }
 
 // AfterHandle after handler logic for afterPipeline spec.
-func (gf *GlobalFilter) afterHandle(ctx context.HTTPContext) string {
+func (gf *GlobalFilter) afterHandle(ctx context.Context) string {
 	value := gf.afterPipeline.Load()
 	if value == nil {
 		return ""

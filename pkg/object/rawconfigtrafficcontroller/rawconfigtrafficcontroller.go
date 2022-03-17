@@ -20,11 +20,11 @@ package rawconfigtrafficcontroller
 import (
 	"fmt"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -91,12 +91,12 @@ func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousG
 }
 
 // GetHTTPPipeline gets Pipeline within the default namespace
-func (rctc *RawConfigTrafficController) GetHTTPPipeline(name string) (protocols.HTTPHandler, bool) {
+func (rctc *RawConfigTrafficController) GetHTTPPipeline(name string) (context.Handler, bool) {
 	p, exist := rctc.tc.GetHTTPPipeline(DefaultNamespace, name)
 	if !exist {
 		return nil, false
 	}
-	handler := p.Instance().(protocols.HTTPHandler)
+	handler := p.Instance().(context.Handler)
 	return handler, true
 }
 

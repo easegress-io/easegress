@@ -60,7 +60,7 @@ func newCompression(spec *CompressionSpec) *compression {
 	}
 }
 
-func (c *compression) compress(ctx context.HTTPContext) {
+func (c *compression) compress(ctx context.Context) {
 	if !c.acceptGzip(ctx) {
 		return
 	}
@@ -88,7 +88,7 @@ func (c *compression) compress(ctx context.HTTPContext) {
 	w.SetBody(newGzipBody(w.Body()))
 }
 
-func (c *compression) alreadyGziped(ctx context.HTTPContext) bool {
+func (c *compression) alreadyGziped(ctx context.Context) bool {
 	for _, ce := range ctx.Response().Header().GetAll(httpheader.KeyContentEncoding) {
 		if strings.Contains(ce, "gzip") {
 			return true
@@ -98,7 +98,7 @@ func (c *compression) alreadyGziped(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (c *compression) acceptGzip(ctx context.HTTPContext) bool {
+func (c *compression) acceptGzip(ctx context.Context) bool {
 	acceptEncodings := ctx.Request().Header().GetAll(httpheader.KeyAcceptEncoding)
 
 	// NOTE: Easegress does not support parsing qvalue for performance.
@@ -116,7 +116,7 @@ func (c *compression) acceptGzip(ctx context.HTTPContext) bool {
 	return true
 }
 
-func (c *compression) parseContentLength(ctx context.HTTPContext) int {
+func (c *compression) parseContentLength(ctx context.Context) int {
 	contentLength := ctx.Response().Header().Get(httpheader.KeyContentLength)
 	if contentLength == "" {
 		return -1

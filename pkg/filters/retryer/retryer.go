@@ -178,7 +178,7 @@ func (r *Retryer) Inherit(spec filters.Spec, previousGeneration filters.Filter) 
 	r.Init(spec)
 }
 
-func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
+func (r *Retryer) handle(ctx context.Context, u *URLRule) string {
 	attempt := 0
 	base := float64(u.policy.waitDuration)
 
@@ -238,7 +238,7 @@ func (r *Retryer) handle(ctx context.HTTPContext, u *URLRule) string {
 }
 
 // Handle handles HTTP request
-func (r *Retryer) Handle(ctx context.HTTPContext) string {
+func (r *Retryer) Handle(ctx context.Context) string {
 	for _, u := range r.spec.URLs {
 		if u.Match(ctx.Request()) {
 			return r.handle(ctx, u)

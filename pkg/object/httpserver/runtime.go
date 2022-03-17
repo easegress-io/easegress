@@ -29,9 +29,9 @@ import (
 
 	"github.com/lucas-clemente/quic-go/http3"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/filterwriter"
 	"github.com/megaease/easegress/pkg/util/httpstat"
@@ -67,7 +67,7 @@ type (
 	}
 	eventReload struct {
 		nextSuperSpec *supervisor.Spec
-		muxMapper     protocols.MuxMapper
+		muxMapper     context.MuxMapper
 	}
 	eventClose struct{ done chan struct{} }
 
@@ -101,7 +101,7 @@ type (
 	}
 )
 
-func newRuntime(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) *runtime {
+func newRuntime(superSpec *supervisor.Spec, muxMapper context.MuxMapper) *runtime {
 	r := &runtime{
 		superSpec: superSpec,
 		eventChan: make(chan interface{}, 10),
@@ -161,7 +161,7 @@ func (r *runtime) fsm() {
 	}
 }
 
-func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
+func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	r.superSpec = nextSuperSpec
 	r.mux.reloadRules(nextSuperSpec, muxMapper)
 

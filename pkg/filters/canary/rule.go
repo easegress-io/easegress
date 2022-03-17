@@ -84,7 +84,7 @@ func (r *Rule) parse(p []byte) (err error) {
 // doMatch tries to match conditions,
 // if true, add tag.
 // if false, do nothing.
-func (r *Rule) doMatch(ctx context.HTTPContext) {
+func (r *Rule) doMatch(ctx context.Context) {
 	if r.isMatch(&sourceData{
 		req:      ctx.Request().Std(),
 		clientIP: ctx.Request().RealIP(),

@@ -224,7 +224,7 @@ func (s *servers) len() int {
 	return static.len()
 }
 
-func (s *servers) next(ctx context.HTTPContext) (*Server, error) {
+func (s *servers) next(ctx context.Context) (*Server, error) {
 	static := s.snapshot()
 
 	if static.len() == 0 {
@@ -286,7 +286,7 @@ func (ss *staticServers) len() int {
 	return len(ss.servers)
 }
 
-func (ss *staticServers) next(ctx context.HTTPContext) *Server {
+func (ss *staticServers) next(ctx context.Context) *Server {
 	switch ss.lb.Policy {
 	case PolicyRoundRobin:
 		return ss.roundRobin(ctx)
@@ -305,18 +305,18 @@ func (ss *staticServers) next(ctx context.HTTPContext) *Server {
 	return ss.roundRobin(ctx)
 }
 
-func (ss *staticServers) roundRobin(ctx context.HTTPContext) *Server {
+func (ss *staticServers) roundRobin(ctx context.Context) *Server {
 	count := atomic.AddUint64(&ss.count, 1)
 	// NOTE: start from 0.
 	count--
 	return ss.servers[int(count)%len(ss.servers)]
 }
 
-func (ss *staticServers) random(ctx context.HTTPContext) *Server {
+func (ss *staticServers) random(ctx context.Context) *Server {
 	return ss.servers[rand.Intn(len(ss.servers))]
 }
 
-func (ss *staticServers) weightedRandom(ctx context.HTTPContext) *Server {
+func (ss *staticServers) weightedRandom(ctx context.Context) *Server {
 	randomWeight := rand.Intn(ss.weightsSum)
 	for _, server := range ss.servers {
 		randomWeight -= server.Weight
@@ -331,12 +331,12 @@ func (ss *staticServers) weightedRandom(ctx context.HTTPContext) *Server {
 	return ss.random(ctx)
 }
 
-func (ss *staticServers) ipHash(ctx context.HTTPContext) *Server {
+func (ss *staticServers) ipHash(ctx context.Context) *Server {
 	sum32 := int(hashtool.Hash32(ctx.Request().RealIP()))
 	return ss.servers[sum32%len(ss.servers)]
 }
 
-func (ss *staticServers) headerHash(ctx context.HTTPContext) *Server {
+func (ss *staticServers) headerHash(ctx context.Context) *Server {
 	value := ctx.Request().Header().Get(ss.lb.HeaderHashKey)
 	sum32 := int(hashtool.Hash32(value))
 	return ss.servers[sum32%len(ss.servers)]

@@ -141,7 +141,7 @@ var httpstatResultPool = sync.Pool{
 	},
 }
 
-func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
+func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Client) string {
 	// intMsg is converted to string in AddLazyTag for better performance,
 	// as it is not run when access logs are disabled.
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
@@ -227,7 +227,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 }
 
 func (p *pool) prepareRequest(
-	ctx context.HTTPContext,
+	ctx context.Context,
 	server *Server,
 	reqBody io.Reader,
 	requestPool sync.Pool,
@@ -235,7 +235,7 @@ func (p *pool) prepareRequest(
 	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
-func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
+func (p *pool) doRequest(ctx context.Context, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
 	req.start()
 
 	spanName := p.spec.SpanName
@@ -259,7 +259,7 @@ var httpstatMetricPool = sync.Pool{
 	},
 }
 
-func (p *pool) statRequestResponse(ctx context.HTTPContext,
+func (p *pool) statRequestResponse(ctx context.Context,
 	req *request, resp *http.Response, span tracing.Span) io.Reader {
 
 	var count int

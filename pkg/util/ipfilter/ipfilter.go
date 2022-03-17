@@ -92,7 +92,7 @@ func New(spec *Spec) *IPFilter {
 }
 
 // AllowHTTPContext is the wrapper of Allow for HTTPContext.
-func (f *IPFilter) AllowHTTPContext(ctx context.HTTPContext) bool {
+func (f *IPFilter) AllowHTTPContext(ctx context.Context) bool {
 	return f.Allow(ctx.Request().RealIP())
 }
 
@@ -143,7 +143,7 @@ func (f *IPFilters) Append(filter *IPFilter) {
 }
 
 // AllowHTTPContext is the wrapper of Allow for HTTPContext.
-func (f *IPFilters) AllowHTTPContext(ctx context.HTTPContext) bool {
+func (f *IPFilters) AllowHTTPContext(ctx context.Context) bool {
 	return f.Allow(ctx.Request().RealIP())
 }
 

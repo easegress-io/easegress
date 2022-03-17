@@ -122,12 +122,12 @@ func (ra *RequestAdaptor) reload() {
 }
 
 // Handle adapts request.
-func (ra *RequestAdaptor) Handle(ctx context.HTTPContext) string {
+func (ra *RequestAdaptor) Handle(ctx context.Context) string {
 	result := ra.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
+func (ra *RequestAdaptor) handle(ctx context.Context) string {
 	r := ctx.Request()
 	method, path, header := r.Method(), r.Path(), r.Header()
 
@@ -193,7 +193,7 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 	return ""
 }
 
-func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
+func (ra *RequestAdaptor) processCompress(ctx context.Context) string {
 	encoding := ctx.Request().Header().Get("Content-Encoding")
 	if encoding != "" {
 		return ""
@@ -213,7 +213,7 @@ func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
 	return ""
 }
 
-func (ra *RequestAdaptor) processDecompress(ctx context.HTTPContext) string {
+func (ra *RequestAdaptor) processDecompress(ctx context.Context) string {
 	encoding := ctx.Request().Header().Get("Content-Encoding")
 	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
 		reader, err := gzip.NewReader(ctx.Request().Body())

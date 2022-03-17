@@ -120,7 +120,7 @@ func (m *Mock) reload() {
 }
 
 // Handle mocks HTTPContext.
-func (m *Mock) Handle(ctx context.HTTPContext) string {
+func (m *Mock) Handle(ctx context.Context) string {
 	result := ""
 	if rule := m.match(ctx); rule != nil {
 		m.mock(ctx, rule)
@@ -129,7 +129,7 @@ func (m *Mock) Handle(ctx context.HTTPContext) string {
 	return ctx.CallNextHandler(result)
 }
 
-func (m *Mock) match(ctx context.HTTPContext) *Rule {
+func (m *Mock) match(ctx context.Context) *Rule {
 	path := ctx.Request().Path()
 	header := ctx.Request().Header()
 
@@ -196,7 +196,7 @@ func (m *Mock) match(ctx context.HTTPContext) *Rule {
 	return nil
 }
 
-func (m *Mock) mock(ctx context.HTTPContext, rule *Rule) {
+func (m *Mock) mock(ctx context.Context, rule *Rule) {
 	w := ctx.Response()
 	w.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {

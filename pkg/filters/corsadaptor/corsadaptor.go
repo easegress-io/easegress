@@ -111,7 +111,7 @@ func (a *CORSAdaptor) reload() {
 }
 
 // Handle handles simple cross-origin requests or directs.
-func (a *CORSAdaptor) Handle(ctx context.HTTPContext) string {
+func (a *CORSAdaptor) Handle(ctx context.Context) string {
 	if a.spec.SupportCORSRequest {
 		result := a.handleCORS(ctx)
 		return ctx.CallNextHandler(result)
@@ -120,7 +120,7 @@ func (a *CORSAdaptor) Handle(ctx context.HTTPContext) string {
 	return ctx.CallNextHandler(result)
 }
 
-func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
+func (a *CORSAdaptor) handle(ctx context.Context) string {
 	r := ctx.Request()
 	w := ctx.Response()
 	method := r.Method()
@@ -132,7 +132,7 @@ func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
 	return ""
 }
 
-func (a *CORSAdaptor) handleCORS(ctx context.HTTPContext) string {
+func (a *CORSAdaptor) handleCORS(ctx context.Context) string {
 	r := ctx.Request()
 	w := ctx.Response()
 	method := r.Method()

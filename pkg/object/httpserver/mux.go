@@ -19,14 +19,13 @@ package httpserver
 
 import (
 	"net"
-	"net/http"
+	stdhttp "net/http"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/object/globalfilter"
-	"github.com/megaease/easegress/pkg/protocols"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -52,7 +51,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		muxMapper protocols.MuxMapper
+		muxMapper context.MuxMapper
 
 		cache *cache
 
@@ -116,7 +115,7 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (mr *muxRules) pass(ctx context.HTTPContext) bool {
+func (mr *muxRules) pass(ctx context.Context) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
@@ -124,7 +123,7 @@ func (mr *muxRules) pass(ctx context.HTTPContext) bool {
 	return mr.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
+func (mr *muxRules) getCacheItem(ctx context.Context) *cacheItem {
 	if mr.cache == nil {
 		return nil
 	}
@@ -134,7 +133,7 @@ func (mr *muxRules) getCacheItem(ctx context.HTTPContext) *cacheItem {
 	return mr.cache.get(key)
 }
 
-func (mr *muxRules) putCacheItem(ctx context.HTTPContext, ci *cacheItem) {
+func (mr *muxRules) putCacheItem(ctx context.Context, ci *cacheItem) {
 	if mr.cache == nil || ci.cached {
 		return
 	}
@@ -170,7 +169,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPat
 	}
 }
 
-func (mr *muxRule) pass(ctx context.HTTPContext) bool {
+func (mr *muxRule) pass(ctx context.Context) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
@@ -178,7 +177,7 @@ func (mr *muxRule) pass(ctx context.HTTPContext) bool {
 	return mr.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mr *muxRule) match(ctx context.HTTPContext) bool {
+func (mr *muxRule) match(ctx context.Context) bool {
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
@@ -229,7 +228,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 	}
 }
 
-func (mp *muxPath) pass(ctx context.HTTPContext) bool {
+func (mp *muxPath) pass(ctx context.Context) bool {
 	if mp.ipFilter == nil {
 		return true
 	}
@@ -237,7 +236,7 @@ func (mp *muxPath) pass(ctx context.HTTPContext) bool {
 	return mp.ipFilter.AllowHTTPContext(ctx)
 }
 
-func (mp *muxPath) matchPath(ctx context.HTTPContext) bool {
+func (mp *muxPath) matchPath(ctx context.Context) bool {
 	r := ctx.Request()
 
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
@@ -257,7 +256,7 @@ func (mp *muxPath) matchPath(ctx context.HTTPContext) bool {
 	return false
 }
 
-func (mp *muxPath) matchMethod(ctx context.HTTPContext) bool {
+func (mp *muxPath) matchMethod(ctx context.Context) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
@@ -269,7 +268,7 @@ func (mp *muxPath) hasHeaders() bool {
 	return len(mp.headers) > 0
 }
 
-func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
+func (mp *muxPath) matchHeaders(ctx context.Context) bool {
 	for _, h := range mp.headers {
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
@@ -284,7 +283,7 @@ func (mp *muxPath) matchHeaders(ctx context.HTTPContext) bool {
 	return false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocols.MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper context.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
@@ -299,7 +298,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocols.MuxMa
 	return m
 }
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocols.MuxMapper) {
+func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracing
@@ -352,7 +351,7 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocols.MuxMap
 	m.rules.Store(rules)
 }
 
-func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
+func (m *mux) ServeHTTP(stdw stdhttp.ResponseWriter, stdr *stdhttp.Request) {
 	// HTTP-01 challenges requires HTTP server to listen on port 80, but we don't
 	// know which HTTP server listen on this port (consider there's an nginx sitting
 	// in front of Easegress), so all HTTP servers need to handle HTTP-01 challenges.
@@ -430,12 +429,12 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	m.handleRequestWithCache(rules, ctx, ci)
 }
 
-func (m *mux) handleIPNotAllow(ctx context.HTTPContext) {
+func (m *mux) handleIPNotAllow(ctx context.Context) {
 	ctx.AddTag(stringtool.Cat("ip ", ctx.Request().RealIP(), " not allow"))
-	ctx.Response().SetStatusCode(http.StatusForbidden)
+	ctx.Response().SetStatusCode(stdhttp.StatusForbidden)
 }
 
-func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, ci *cacheItem) {
+func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *cacheItem) {
 	if ci.ipFilterChan != nil {
 		if !ci.ipFilterChan.AllowHTTPContext(ctx) {
 			m.handleIPNotAllow(ctx)
@@ -445,14 +444,14 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 
 	switch {
 	case ci.notFound:
-		ctx.Response().SetStatusCode(http.StatusNotFound)
+		ctx.Response().SetStatusCode(stdhttp.StatusNotFound)
 	case ci.methodNotAllowed:
-		ctx.Response().SetStatusCode(http.StatusMethodNotAllowed)
+		ctx.Response().SetStatusCode(stdhttp.StatusMethodNotAllowed)
 	case ci.path != nil:
 		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+			ctx.Response().SetStatusCode(stdhttp.StatusServiceUnavailable)
 			return
 		}
 
@@ -475,7 +474,7 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 	}
 }
 
-func (m *mux) appendXForwardedFor(ctx context.HTTPContext) {
+func (m *mux) appendXForwardedFor(ctx context.Context) {
 	v := ctx.Request().Header().Get(httpheader.KeyXForwardedFor)
 	ip := ctx.Request().RealIP()
 

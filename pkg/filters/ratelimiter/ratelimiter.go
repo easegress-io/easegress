@@ -243,12 +243,12 @@ func (rl *RateLimiter) Inherit(spec filters.Spec, previousGeneration filters.Fil
 }
 
 // Handle handles HTTP request
-func (rl *RateLimiter) Handle(ctx context.HTTPContext) string {
+func (rl *RateLimiter) Handle(ctx context.Context) string {
 	result := rl.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (rl *RateLimiter) handle(ctx context.HTTPContext) string {
+func (rl *RateLimiter) handle(ctx context.Context) string {
 	for _, u := range rl.spec.URLs {
 		if !u.Match(ctx.Request()) {
 			continue

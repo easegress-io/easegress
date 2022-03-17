@@ -54,7 +54,7 @@ func getGzipEncoding(t *testing.T, data []byte) io.Reader {
 	return &buf
 }
 
-func getContext(t *testing.T, req *http.Request, httpTemp *context.HTTPTemplate) context.HTTPContext {
+func getContext(t *testing.T, req *http.Request, httpTemp *context.HTTPTemplate) context.Context {
 	w := httptest.NewRecorder()
 	ctx := context.New(w, req, tracing.NoopTracing, "no trace")
 	ctx.SetHandlerCaller(func(lastResult string) string {

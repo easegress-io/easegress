@@ -303,7 +303,7 @@ func (b *Proxy) Close() {
 	}
 }
 
-func (b *Proxy) fallbackForCodes(ctx context.HTTPContext) bool {
+func (b *Proxy) fallbackForCodes(ctx context.Context) bool {
 	if b.fallback != nil && b.spec.Fallback.ForCodes {
 		for _, code := range b.spec.FailureCodes {
 			if ctx.Response().StatusCode() == code {
@@ -316,12 +316,12 @@ func (b *Proxy) fallbackForCodes(ctx context.HTTPContext) bool {
 }
 
 // Handle handles HTTPContext.
-func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
+func (b *Proxy) Handle(ctx context.Context) (result string) {
 	result = b.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
 
-func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
+func (b *Proxy) handle(ctx context.Context) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
 		ctx.Request().SetBody(primaryBody, false)

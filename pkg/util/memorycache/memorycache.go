@@ -78,13 +78,13 @@ func New(spec *Spec) *MemoryCache {
 	}
 }
 
-func (mc *MemoryCache) key(ctx context.HTTPContext) string {
+func (mc *MemoryCache) key(ctx context.Context) string {
 	r := ctx.Request()
 	return stringtool.Cat(r.Scheme(), r.Host(), r.Path(), r.Method())
 }
 
 // Load tries to load cache for HTTPContext.
-func (mc *MemoryCache) Load(ctx context.HTTPContext) (loaded bool) {
+func (mc *MemoryCache) Load(ctx context.Context) (loaded bool) {
 	// Reference: https://tools.ietf.org/html/rfc7234#section-5.2
 	r, w := ctx.Request(), ctx.Response()
 
@@ -118,7 +118,7 @@ func (mc *MemoryCache) Load(ctx context.HTTPContext) (loaded bool) {
 }
 
 // Store tries to store cache for HTTPContext.
-func (mc *MemoryCache) Store(ctx context.HTTPContext) {
+func (mc *MemoryCache) Store(ctx context.Context) {
 	r, w := ctx.Request(), ctx.Response()
 
 	matchMethod := false

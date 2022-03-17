@@ -52,7 +52,7 @@ func New(spec *Spec) *Fallback {
 }
 
 // Fallback fallbacks HTTPContext.
-func (f *Fallback) Fallback(ctx context.HTTPContext) {
+func (f *Fallback) Fallback(ctx context.Context) {
 	w := ctx.Response()
 
 	w.SetStatusCode(f.spec.MockCode)

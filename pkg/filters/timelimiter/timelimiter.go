@@ -115,7 +115,7 @@ func (tl *TimeLimiter) Inherit(spec filters.Spec, previousGeneration filters.Fil
 	tl.Init(spec)
 }
 
-func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
+func (tl *TimeLimiter) handle(ctx context.Context, u *URLRule) string {
 	timer := time.AfterFunc(u.timeout, func() {
 		ctx.Cancel(errTimeout)
 	})
@@ -133,7 +133,7 @@ func (tl *TimeLimiter) handle(ctx context.HTTPContext, u *URLRule) string {
 }
 
 // Handle handles HTTP request
-func (tl *TimeLimiter) Handle(ctx context.HTTPContext) string {
+func (tl *TimeLimiter) Handle(ctx context.Context) string {
 	for _, u := range tl.spec.URLs {
 		if u.Match(ctx.Request()) {
 			return tl.handle(ctx, u)

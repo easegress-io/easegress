@@ -58,7 +58,7 @@ func New(n int) *TopN {
 }
 
 // Stat stats the ctx.
-func (t *TopN) Stat(ctx context.HTTPContext) {
+func (t *TopN) Stat(ctx context.Context) {
 	pattern := t.uca.GetPattern(ctx.Request().Path())
 
 	var httpStat *httpstat.HTTPStat

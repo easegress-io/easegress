@@ -70,7 +70,7 @@ type (
 
 		// Handle handles one HTTP request, all possible results
 		// need be registered in Results.
-		Handle(context.HTTPContext) (result string)
+		Handle(context.Context) (result string)
 
 		// Status returns its runtime status.
 		// It could return nil.

@@ -130,7 +130,7 @@ func (v *Validator) reload() {
 }
 
 // Handle validates HTTPContext.
-func (v *Validator) Handle(ctx context.HTTPContext) string {
+func (v *Validator) Handle(ctx context.Context) string {
 	req := ctx.Request()
 
 	prepareErrorResponse := func(status int, tagPrefix string, err error) {

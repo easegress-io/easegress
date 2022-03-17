@@ -23,7 +23,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
 )
 
 const (
@@ -69,7 +68,7 @@ type (
 	// Bridge is filter Bridge.
 	Bridge struct {
 		spec      *Spec
-		muxMapper protocols.MuxMapper
+		muxMapper context.MuxMapper
 	}
 
 	// Spec describes the Mock.
@@ -112,18 +111,13 @@ func (b *Bridge) reload() {
 	}
 }
 
-// Handle builds a bridge for pipeline.
-func (b *Bridge) Handle(ctx context.HTTPContext) (result string) {
-	result = b.handle(ctx)
-	return ctx.CallNextHandler(result)
-}
-
 // InjectMuxMapper injects mux mapper into Bridge.
-func (b *Bridge) InjectMuxMapper(mapper protocols.MuxMapper) {
+func (b *Bridge) InjectMuxMapper(mapper context.MuxMapper) {
 	b.muxMapper = mapper
 }
 
-func (b *Bridge) handle(ctx context.HTTPContext) (result string) {
+// Handle builds a bridge for pipeline.
+func (b *Bridge) Handle(ctx context.Context) (result string) {
 	if len(b.spec.Destinations) <= 0 {
 		panic("not any destination defined")
 	}
