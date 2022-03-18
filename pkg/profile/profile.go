@@ -32,12 +32,16 @@ import (
 // Profile is the Profile interface.
 type Profile interface {
 	StartCPUProfile(fp string) error
-	MemoryProfile(fp string)
-	UpdateCPUProfile(fp string)
+
+	UpdateCPUProfile(fp string) error
 	UpdateMemoryProfile(fp string)
+
 	StopCPUProfile()
+	StopMemoryProfile(fp string)
+
 	CPUFileName() string
 	MemoryFileName() string
+
 	Close(wg *sync.WaitGroup)
 }
 
@@ -100,7 +104,7 @@ func (p *profile) StartCPUProfile(filepath string) error {
 	return nil
 }
 
-func (p *profile) MemoryProfile(filepath string) {
+func (p *profile) StopMemoryProfile(filepath string) {
 	if p.opt.MemoryProfileFile == "" && filepath == "" {
 		return
 	}
@@ -143,13 +147,13 @@ func (p *profile) StopCPUProfile() {
 	}
 }
 
-func (p *profile) UpdateCPUProfile(filepath string) {
+func (p *profile) UpdateCPUProfile(filepath string) error {
 	p.StopCPUProfile()
-	p.StartCPUProfile(filepath)
+	return p.StartCPUProfile(filepath)
 }
 
 func (p *profile) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 	p.StopCPUProfile()
-	p.MemoryProfile("")
+	p.StopMemoryProfile("")
 }

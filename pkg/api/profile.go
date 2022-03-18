@@ -94,7 +94,11 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("missing path"))
 		return
 	}
-	s.profile.UpdateCPUProfile(spr.Path)
+	err = s.profile.UpdateCPUProfile(spr.Path)
+	if err != nil {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf(err.Error()))
+		return
+	}
 }
 
 func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
@@ -115,5 +119,5 @@ func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) stopProfile(w http.ResponseWriter, r *http.Request) {
 	s.profile.StopCPUProfile()
-	s.profile.MemoryProfile(s.profile.MemoryFileName())
+	s.profile.StopMemoryProfile(s.profile.MemoryFileName())
 }
