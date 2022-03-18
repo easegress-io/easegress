@@ -34,13 +34,17 @@ type Profile interface {
 	StartCPUProfile(fp string) error
 	MemoryProfile(fp string)
 	UpdateCPUProfile(fp string)
+	UpdateMemoryProfile(fp string)
 	StopCPUProfile()
+	CPUFileName() string
+	MemoryFileName() string
 	Close(wg *sync.WaitGroup)
 }
 
 type profile struct {
-	cpuFile *os.File
-	opt     *option.Options
+	cpuFile     *os.File
+	opt         *option.Options
+	memFileName string
 }
 
 // New creates a profile.
@@ -55,6 +59,21 @@ func New(opt *option.Options) (Profile, error) {
 	}
 
 	return p, nil
+}
+
+func (p *profile) CPUFileName() string {
+	if p.cpuFile == nil {
+		return ""
+	}
+	return p.cpuFile.Name()
+}
+
+func (p *profile) MemoryFileName() string {
+	return p.memFileName
+}
+
+func (p *profile) UpdateMemoryProfile(fp string) {
+	p.memFileName = fp
 }
 
 func (p *profile) StartCPUProfile(filepath string) error {
