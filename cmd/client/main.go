@@ -112,6 +112,7 @@ func main() {
 		command.WasmCmd(),
 		command.CustomDataKindCmd(),
 		command.CustomDataCmd(),
+		command.ProfileCmd(),
 		completionCmd,
 	)
 

@@ -102,6 +102,7 @@ func (s *Server) registerAPIs() {
 	group.Entries = append(group.Entries, s.healthAPIEntries()...)
 	group.Entries = append(group.Entries, s.aboutAPIEntries()...)
 	group.Entries = append(group.Entries, s.customDataAPIEntries()...)
+	group.Entries = append(group.Entries, s.profileAPIEntries()...)
 
 	for _, fn := range appendAddonAPIs {
 		fn(s, group)

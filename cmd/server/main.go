@@ -98,7 +98,7 @@ func main() {
 
 	super := supervisor.MustNew(opt, cls)
 
-	apiServer := api.MustNewServer(opt, cls, super)
+	apiServer := api.MustNewServer(opt, cls, super, profile)
 
 	if graceupdate.CallOriProcessTerm(super.FirstHandleDone()) {
 		pidfile.Write(opt)
@@ -113,7 +113,7 @@ func main() {
 	}
 	restartCls := func() {
 		cls.StartServer()
-		apiServer = api.MustNewServer(opt, cls, super)
+		apiServer = api.MustNewServer(opt, cls, super, profile)
 	}
 	if err := graceupdate.NotifySigUsr2(closeCls, restartCls); err != nil {
 		log.Printf("failed to notify signal: %v", err)
