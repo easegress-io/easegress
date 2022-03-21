@@ -43,12 +43,16 @@ type Profile interface {
 	MemoryFileName() string
 
 	Close(wg *sync.WaitGroup)
+	Lock()
+	Unlock()
 }
 
 type profile struct {
 	cpuFile     *os.File
 	opt         *option.Options
 	memFileName string
+
+	mutex sync.Mutex
 }
 
 // New creates a profile.
@@ -156,4 +160,12 @@ func (p *profile) Close(wg *sync.WaitGroup) {
 	defer wg.Done()
 	p.StopCPUProfile()
 	p.StopMemoryProfile("")
+}
+
+func (p *profile) Lock() {
+	p.mutex.Lock()
+}
+
+func (p *profile) Unlock() {
+	p.mutex.Unlock()
 }

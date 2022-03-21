@@ -95,8 +95,8 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	s.profile.Lock()
+	defer s.profile.Unlock()
 
 	err = s.profile.UpdateCPUProfile(spr.Path)
 	if err != nil {
@@ -118,16 +118,16 @@ func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	s.profile.Lock()
+	defer s.profile.Unlock()
 
 	// Memory profile is flushed only at stop/exit
 	s.profile.UpdateMemoryProfile(spr.Path)
 }
 
 func (s *Server) stopProfile(w http.ResponseWriter, r *http.Request) {
-	s.Lock()
-	defer s.Unlock()
+	s.profile.Lock()
+	defer s.profile.Unlock()
 
 	s.profile.StopCPUProfile()
 	s.profile.StopMemoryProfile(s.profile.MemoryFileName())
