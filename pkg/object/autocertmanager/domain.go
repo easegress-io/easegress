@@ -66,28 +66,14 @@ func (d *Domain) certExpireTime() time.Time {
 }
 
 func (d *Domain) updateCert(cert *tls.Certificate) {
-	// BUG: we have a race condition here, it is possible that we replace the
-	// new certificate with an old one even we have the check below. But this
-	// should be fine as the two certificates can both be valid for a period of
-	// time, and the new one will finally become effective.
-	//
-	// To fix this bug, we will need atomic.Value.CompareAndSwap, but it is a
-	// feature of Go 1.17, and we cannot use it by now as we decide to support
-	// the latest two versions of Go.
-	//
-	// After Go 1.18 is released, the below code should be updated to:
-	//  for {
-	//  	oldCert := d.cert()
-	//  	if oldCert != nil && !cert.Leaf.NotAfter.After(oldCert.Leaf.NotAfter) {
-	//  		break
-	//  	}
-	//  	if d.certificate.CompareAndSwap(oldCert, cert) {
-	//  		break
-	//  	}
-	//  }
-	expireTime := d.certExpireTime()
-	if cert.Leaf.NotAfter.After(expireTime) {
-		d.certificate.Store(cert)
+	for {
+		oldCert := d.cert()
+		if oldCert != nil && !cert.Leaf.NotAfter.After(oldCert.Leaf.NotAfter) {
+			break
+		}
+		if d.certificate.CompareAndSwap(oldCert, cert) {
+			break
+		}
 	}
 }
 
