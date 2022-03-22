@@ -255,9 +255,7 @@ func (acm *AutoCertManager) Close() {
 	//
 	// globalACM equals nil means the AutoCertManager is being deleted, so we
 	// need to set the globalACM to nil.
-	if globalACM.Load() == acm {
-		globalACM.Store((*AutoCertManager)(nil))
-	}
+	globalACM.CompareAndSwap(acm, (*AutoCertManager)(nil))
 }
 
 func (acm *AutoCertManager) renew() bool {

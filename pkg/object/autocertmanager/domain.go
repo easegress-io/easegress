@@ -66,15 +66,15 @@ func (d *Domain) certExpireTime() time.Time {
 }
 
 func (d *Domain) updateCert(cert *tls.Certificate) {
-	firstUpdate := d.cert() == nil
-	if firstUpdate {
-		d.certificate.Store(cert)
-		return
-	}
-	// update existing certificate
 	for {
 		oldCert := d.cert()
-		if oldCert != nil && !cert.Leaf.NotAfter.After(oldCert.Leaf.NotAfter) {
+		if oldCert == nil {
+			if d.certificate.CompareAndSwap(nil, cert) {
+				break
+			}
+			continue
+		}
+		if !cert.Leaf.NotAfter.After(oldCert.Leaf.NotAfter) {
 			break
 		}
 		if d.certificate.CompareAndSwap(oldCert, cert) {
