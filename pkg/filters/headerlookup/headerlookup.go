@@ -271,7 +271,7 @@ func (hl *HeaderLookup) handle(ctx context.Context) string {
 	// TODO: now headerlookup need path which make it only support for http protocol!
 	// this may need update later
 	if hl.spec.PathRegExp != "" {
-		httpreq, ok := ctx.Request().(httpprot.Request)
+		httpreq, ok := ctx.Request().(*httpprot.Request)
 		if ok {
 			path := httpreq.Path()
 			if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {

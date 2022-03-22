@@ -118,7 +118,7 @@ func (r *URLRule) Init() {
 }
 
 // Match matches a URL to the rule
-func (r *URLRule) Match(req httpprot.Request) bool {
+func (r *URLRule) Match(req *httpprot.Request) bool {
 	if len(r.Methods) > 0 {
 		if !stringtool.StrInSlice(req.Method(), r.Methods) {
 			return false

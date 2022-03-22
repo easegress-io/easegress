@@ -79,12 +79,12 @@ func New(spec *Spec) *MemoryCache {
 	}
 }
 
-func (mc *MemoryCache) key(r httpprot.Request) string {
+func (mc *MemoryCache) key(r *httpprot.Request) string {
 	return stringtool.Cat(r.Scheme(), r.Host(), r.Path(), r.Method())
 }
 
 // Load tries to load cache for HTTPContext.
-func (mc *MemoryCache) Load(r httpprot.Request, w httpprot.Response) (loaded bool) {
+func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded bool) {
 	// Reference: https://tools.ietf.org/html/rfc7234#section-5.2
 
 	matchMethod := false
@@ -120,7 +120,7 @@ func (mc *MemoryCache) Load(r httpprot.Request, w httpprot.Response) (loaded boo
 }
 
 // Store tries to store cache for HTTPContext.
-func (mc *MemoryCache) Store(r httpprot.Request, w httpprot.Response) {
+func (mc *MemoryCache) Store(r *httpprot.Request, w *httpprot.Response) {
 
 	matchMethod := false
 	for _, method := range mc.spec.Methods {

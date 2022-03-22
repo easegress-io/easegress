@@ -52,7 +52,7 @@ func New(spec *Spec) *Fallback {
 }
 
 // Fallback fallbacks HTTPContext.
-func (f *Fallback) Fallback(w httpprot.Response) {
+func (f *Fallback) Fallback(w *httpprot.Response) {
 	w.SetStatusCode(f.spec.MockCode)
 	w.Header().Set(httpheader.KeyContentLength, f.bodyLength)
 	for key, value := range f.spec.MockHeaders {

@@ -100,7 +100,7 @@ func New(spec *Spec) *HTTPFilter {
 }
 
 // Filter filters HTTPContext.
-func (hf *HTTPFilter) Filter(req httpprot.Request) bool {
+func (hf *HTTPFilter) Filter(req *httpprot.Request) bool {
 	if len(hf.spec.Headers) > 0 {
 		matchHeader := hf.filterHeader(req)
 		if matchHeader && len(hf.spec.URLs) > 0 {
@@ -112,7 +112,7 @@ func (hf *HTTPFilter) Filter(req httpprot.Request) bool {
 	return hf.filterProbability(req)
 }
 
-func (hf *HTTPFilter) filterHeader(req httpprot.Request) bool {
+func (hf *HTTPFilter) filterHeader(req *httpprot.Request) bool {
 	h := req.Header()
 	headerMatchNum := 0
 	for key, matchRule := range hf.spec.Headers {
@@ -150,7 +150,7 @@ func (hf *HTTPFilter) filterHeader(req httpprot.Request) bool {
 	return false
 }
 
-func (hf *HTTPFilter) filterURL(req httpprot.Request) bool {
+func (hf *HTTPFilter) filterURL(req *httpprot.Request) bool {
 	urlMatch := false
 	for _, url := range hf.spec.URLs {
 		if url.Match(req) {
@@ -161,7 +161,7 @@ func (hf *HTTPFilter) filterURL(req httpprot.Request) bool {
 	return urlMatch
 }
 
-func (hf *HTTPFilter) filterProbability(req httpprot.Request) bool {
+func (hf *HTTPFilter) filterProbability(req *httpprot.Request) bool {
 	prob := hf.spec.Probability
 
 	var result uint32

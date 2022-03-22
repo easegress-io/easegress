@@ -131,7 +131,7 @@ func (m *Mock) Handle(ctx context.Context) string {
 }
 
 func (m *Mock) match(ctx context.Context) *Rule {
-	path := ctx.Request().(httpprot.Request).Path()
+	path := ctx.Request().(*httpprot.Request).Path()
 	header := ctx.Request().Header()
 
 	matchPath := func(rule *Rule) bool {
@@ -198,7 +198,7 @@ func (m *Mock) match(ctx context.Context) *Rule {
 }
 
 func (m *Mock) mock(ctx context.Context, rule *Rule) {
-	w := ctx.Response().(httpprot.Response)
+	w := ctx.Response().(*httpprot.Response)
 	w.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {
 		w.Header().Set(key, value)

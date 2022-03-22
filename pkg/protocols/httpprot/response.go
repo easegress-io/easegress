@@ -26,19 +26,16 @@ import (
 )
 
 type (
-	Response interface {
-		protocols.Response
+	// Response provide following methods
+	// 	protocols.Response
+	// 	Std() http.ResponseWriter
+	// 	StatusCode() int
+	// 	SetStatusCode(code int)
+	// 	SetCookie(cookie *http.Cookie)
+	// 	FlushedBodyBytes() uint64
+	// 	OnFlushBody(fn BodyFlushFunc)
 
-		Std() http.ResponseWriter
-
-		StatusCode() int
-		SetStatusCode(code int)
-		SetCookie(cookie *http.Cookie)
-		FlushedBodyBytes() uint64
-		OnFlushBody(fn BodyFlushFunc)
-	}
-
-	response struct {
+	Response struct {
 		std         http.ResponseWriter
 		code        int
 		bodyWritten uint64
@@ -51,46 +48,45 @@ type (
 	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
 )
 
-var _ Response = (*response)(nil)
-var _ protocols.Response = (*response)(nil)
+var _ protocols.Response = (*Response)(nil)
 
-func newResponse(w http.ResponseWriter) Response {
-	return &response{
+func newResponse(w http.ResponseWriter) *Response {
+	return &Response{
 		std:    w,
 		code:   http.StatusOK,
 		header: newHeader(w.Header()),
 	}
 }
 
-func (resp *response) Std() http.ResponseWriter {
+func (resp *Response) Std() http.ResponseWriter {
 	return resp.std
 }
 
-func (resp *response) StatusCode() int {
+func (resp *Response) StatusCode() int {
 	return resp.code
 }
 
-func (resp *response) SetStatusCode(code int) {
+func (resp *Response) SetStatusCode(code int) {
 	resp.code = code
 }
 
-func (resp *response) SetCookie(cookie *http.Cookie) {
+func (resp *Response) SetCookie(cookie *http.Cookie) {
 	http.SetCookie(resp.std, cookie)
 }
 
-func (resp *response) Payload() protocols.Payload {
+func (resp *Response) Payload() protocols.Payload {
 	return resp.payload
 }
 
-func (resp *response) Header() protocols.Header {
+func (resp *Response) Header() protocols.Header {
 	return resp.header
 }
 
-func (resp *response) FlushedBodyBytes() uint64 {
+func (resp *Response) FlushedBodyBytes() uint64 {
 	return resp.bodyWritten
 }
 
-func (resp *response) Finish() {
+func (resp *Response) Finish() {
 	resp.std.WriteHeader(resp.StatusCode())
 	reader := resp.payload.NewReader()
 	if reader == nil {
@@ -109,10 +105,10 @@ func (resp *response) Finish() {
 	resp.bodyWritten += uint64(written)
 }
 
-func (resp *response) Clone() protocols.Response {
+func (resp *Response) Clone() protocols.Response {
 	return nil
 }
 
-func (resp *response) OnFlushBody(fn BodyFlushFunc) {
+func (resp *Response) OnFlushBody(fn BodyFlushFunc) {
 	resp.bodyFlushFuncs = append(resp.bodyFlushFuncs, fn)
 }

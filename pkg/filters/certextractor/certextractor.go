@@ -110,7 +110,7 @@ func (ce *CertExtractor) Handle(ctx context.Context) string {
 
 // CertExtractor extracts given field from TLS certificates and sets it to request headers.
 func (ce *CertExtractor) handle(ctx context.Context) string {
-	r := ctx.Request().(httpprot.Request)
+	r := ctx.Request().(*httpprot.Request)
 	connectionState := r.Std().TLS
 	if connectionState == nil {
 		return ""

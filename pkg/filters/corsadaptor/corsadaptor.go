@@ -120,8 +120,8 @@ func (a *CORSAdaptor) Handle(ctx context.Context) string {
 }
 
 func (a *CORSAdaptor) handle(ctx context.Context) string {
-	r := ctx.Request().(httpprot.Request)
-	w := ctx.Response().(httpprot.Response)
+	r := ctx.Request().(*httpprot.Request)
+	w := ctx.Response().(*httpprot.Response)
 	method := r.Method()
 	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
 	if method == http.MethodOptions && headerAllowMethod != "" {
@@ -132,8 +132,8 @@ func (a *CORSAdaptor) handle(ctx context.Context) string {
 }
 
 func (a *CORSAdaptor) handleCORS(ctx context.Context) string {
-	r := ctx.Request().(httpprot.Request)
-	w := ctx.Response().(httpprot.Response)
+	r := ctx.Request().(*httpprot.Request)
+	w := ctx.Response().(*httpprot.Response)
 	method := r.Method()
 	isCorsRequest := r.Header().Get("Origin") != ""
 	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
