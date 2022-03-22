@@ -112,7 +112,7 @@ func New(req protocols.Request, resp protocols.Response) Context {
 }
 
 func (ctx *context) AddTag(tag string) {
-	// TODO
+	ctx.lazyTags = append(ctx.lazyTags, func() string { return tag })
 }
 
 // questions about tags

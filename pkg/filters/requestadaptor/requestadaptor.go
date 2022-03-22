@@ -25,6 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -123,12 +124,11 @@ func (ra *RequestAdaptor) reload() {
 
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx context.Context) string {
-	result := ra.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return ra.handle(ctx)
 }
 
 func (ra *RequestAdaptor) handle(ctx context.Context) string {
-	r := ctx.Request()
+	r := ctx.Request().(httpprot.Request)
 	method, path, header := r.Method(), r.Path(), r.Header()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {

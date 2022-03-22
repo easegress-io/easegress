@@ -18,7 +18,7 @@
 package headerlookup
 
 import (
-	"context"
+	stdcontext "context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -29,9 +29,10 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	httpcontext "github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
@@ -69,8 +70,8 @@ type (
 
 		cache   *lru.Cache
 		cluster cluster.Cluster
-		stopCtx context.Context
-		cancel  context.CancelFunc
+		stopCtx stdcontext.Context
+		cancel  stdcontext.CancelFunc
 	}
 
 	// HeaderSetterSpec defines etcd source key and request destination header.
@@ -147,7 +148,7 @@ func (hl *HeaderLookup) Init(spec filters.Spec) {
 	hl.etcdPrefix = customDataPrefix + strings.TrimPrefix(hl.spec.EtcdPrefix, "/")
 	hl.headerKey = http.CanonicalHeaderKey(hl.spec.HeaderKey)
 	hl.cache, _ = lru.New(cacheSize)
-	hl.stopCtx, hl.cancel = context.WithCancel(context.Background())
+	hl.stopCtx, hl.cancel = stdcontext.WithCancel(stdcontext.Background())
 	hl.pathRegExp = regexp.MustCompile(hl.spec.PathRegExp)
 	hl.watchChanges()
 }
@@ -256,22 +257,26 @@ func (hl *HeaderLookup) Close() {
 }
 
 // Handle retrieves header values and sets request headers.
-func (hl *HeaderLookup) Handle(ctx httpcontext.HTTPContext) string {
-	result := hl.handle(ctx)
-	return ctx.CallNextHandler(result)
+func (hl *HeaderLookup) Handle(ctx context.Context) string {
+	return hl.handle(ctx)
 }
 
-func (hl *HeaderLookup) handle(ctx httpcontext.HTTPContext) string {
+func (hl *HeaderLookup) handle(ctx context.Context) string {
 	header := ctx.Request().Header()
 	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
 		return ""
 	}
+	// TODO: now headerlookup need path which make it only support for http protocol!
+	// this may need update later
 	if hl.spec.PathRegExp != "" {
-		path := ctx.Request().Path()
-		if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
-			headerVal = headerVal + "-" + match[1]
+		httpreq, ok := ctx.Request().(httpprot.Request)
+		if ok {
+			path := httpreq.Path()
+			if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
+				headerVal = headerVal + "-" + match[1]
+			}
 		}
 	}
 	headersToAdd, err := hl.lookup(headerVal)

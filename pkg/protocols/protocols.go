@@ -17,6 +17,11 @@
 
 package protocols
 
+import (
+	"context"
+	"io"
+)
+
 var registry = map[string]Protocol{}
 
 func Register(name string, p Protocol) {
@@ -30,14 +35,41 @@ func Get(name string) Protocol {
 
 // Request is the protocol independent interface of a request.
 type Request interface {
+	Header() Header
+	Payload() Payload
+
+	// is context design in this way ok?
+	// how we deal with context relationship between multiple requests
+	Context() context.Context
+	WithContext(ctx context.Context)
+
 	Finish()
 	Clone() Request
 }
 
 // Response is the protocol independent interface of a response.
 type Response interface {
+	Header() Header
+	Payload() Payload
+
 	Finish()
 	Clone() Response
+}
+
+type Header interface {
+	Add(key, value string)
+	Set(key, value string)
+	Get(key string) string
+	Values(key string) []string
+	Del(key string)
+	Clone() Header
+	Iter(func(key string, values []string))
+}
+
+type Payload interface {
+	NewReader() io.Reader
+	SetReader(reader io.Reader, closePreviousReader bool)
+	Close()
 }
 
 type server interface {
@@ -61,8 +93,8 @@ type TrafficMatcher interface {
 
 // Protocol is the interface of a protocol.
 type Protocol interface {
-	CreateRequest() Request
-	CreateResponse() Response
+	CreateRequest(req interface{}) Request
+	CreateResponse(resp interface{}) Response
 	CreateLoadBalancer(lb string, servers []*Server) (LoadBalancer, error)
 	CreateServer(uri string) (*Server, error)
 	CreateTrafficMatcher(spec interface{}) (TrafficMatcher, error)

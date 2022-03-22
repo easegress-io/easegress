@@ -153,7 +153,7 @@ func (k *Kafka) getTopic(ctx context.Context) string {
 func (k *Kafka) handle(ctx context.Context) (result string) {
 	topic := k.getTopic(ctx)
 
-	body, err := ioutil.ReadAll(ctx.Request().Body())
+	body, err := ioutil.ReadAll(ctx.Request().Payload().NewReader())
 	if err != nil {
 		return resultParseErr
 	}
@@ -168,6 +168,5 @@ func (k *Kafka) handle(ctx context.Context) (result string) {
 
 // Handle handles HTTPContext.
 func (k *Kafka) Handle(ctx context.Context) (result string) {
-	result = k.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return k.handle(ctx)
 }

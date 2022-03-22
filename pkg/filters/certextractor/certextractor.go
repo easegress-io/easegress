@@ -21,8 +21,9 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 
-	httpcontext "github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
@@ -103,14 +104,13 @@ func (ce *CertExtractor) Inherit(spec filters.Spec, previousGeneration filters.F
 func (ce *CertExtractor) Close() {}
 
 // Handle retrieves header values and sets request headers.
-func (ce *CertExtractor) Handle(ctx httpcontext.HTTPContext) string {
-	result := ce.handle(ctx)
-	return ctx.CallNextHandler(result)
+func (ce *CertExtractor) Handle(ctx context.Context) string {
+	return ce.handle(ctx)
 }
 
 // CertExtractor extracts given field from TLS certificates and sets it to request headers.
-func (ce *CertExtractor) handle(ctx httpcontext.HTTPContext) string {
-	r := ctx.Request()
+func (ce *CertExtractor) handle(ctx context.Context) string {
+	r := ctx.Request().(httpprot.Request)
 	connectionState := r.Std().TLS
 	if connectionState == nil {
 		return ""

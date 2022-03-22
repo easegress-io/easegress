@@ -22,8 +22,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/hashtool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -33,9 +33,9 @@ func init() {
 }
 
 const (
-	policyIPHash     string = "ipHash"
-	policyHeaderHash        = "headerHash"
-	policyRandom            = "random"
+	policyIPHash     = "ipHash"
+	policyHeaderHash = "headerHash"
+	policyRandom     = "random"
 )
 
 type (
@@ -100,20 +100,20 @@ func New(spec *Spec) *HTTPFilter {
 }
 
 // Filter filters HTTPContext.
-func (hf *HTTPFilter) Filter(ctx context.Context) bool {
+func (hf *HTTPFilter) Filter(req httpprot.Request) bool {
 	if len(hf.spec.Headers) > 0 {
-		matchHeader := hf.filterHeader(ctx)
+		matchHeader := hf.filterHeader(req)
 		if matchHeader && len(hf.spec.URLs) > 0 {
-			return hf.filterURL(ctx)
+			return hf.filterURL(req)
 		}
 		return matchHeader
 	}
 
-	return hf.filterProbability(ctx)
+	return hf.filterProbability(req)
 }
 
-func (hf *HTTPFilter) filterHeader(ctx context.Context) bool {
-	h := ctx.Request().Header()
+func (hf *HTTPFilter) filterHeader(req httpprot.Request) bool {
+	h := req.Header()
 	headerMatchNum := 0
 	for key, matchRule := range hf.spec.Headers {
 		// NOTE: Quickly break for performance.
@@ -121,7 +121,7 @@ func (hf *HTTPFilter) filterHeader(ctx context.Context) bool {
 			break
 		}
 
-		values := h.GetAll(key)
+		values := h.Values(key)
 
 		if len(values) == 0 && matchRule.Empty {
 			headerMatchNum++
@@ -150,8 +150,7 @@ func (hf *HTTPFilter) filterHeader(ctx context.Context) bool {
 	return false
 }
 
-func (hf *HTTPFilter) filterURL(ctx context.Context) bool {
-	req := ctx.Request()
+func (hf *HTTPFilter) filterURL(req httpprot.Request) bool {
 	urlMatch := false
 	for _, url := range hf.spec.URLs {
 		if url.Match(req) {
@@ -162,24 +161,21 @@ func (hf *HTTPFilter) filterURL(ctx context.Context) bool {
 	return urlMatch
 }
 
-func (hf *HTTPFilter) filterProbability(ctx context.Context) bool {
+func (hf *HTTPFilter) filterProbability(req httpprot.Request) bool {
 	prob := hf.spec.Probability
 
 	var result uint32
 	switch prob.Policy {
 	case policyIPHash:
-		result = hashtool.Hash32(ctx.Request().RealIP())
+		result = hashtool.Hash32(req.RealIP())
 	case policyHeaderHash:
-		result = hashtool.Hash32(ctx.Request().Header().Get(prob.HeaderHashKey))
+		result = hashtool.Hash32(req.Header().Get(prob.HeaderHashKey))
 	case policyRandom:
 		result = uint32(rand.Int31n(1000))
 	default:
 		logger.Errorf("BUG: unsupported probability policy: %s", prob.Policy)
-		result = hashtool.Hash32(ctx.Request().RealIP())
+		result = hashtool.Hash32(req.RealIP())
 	}
 
-	if result%1000 < prob.PerMill {
-		return true
-	}
-	return false
+	return result%1000 < prob.PerMill
 }

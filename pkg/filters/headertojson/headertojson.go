@@ -114,8 +114,7 @@ func (h *HeaderToJSON) Status() interface{} {
 
 // Handle handle HTTPContext
 func (h *HeaderToJSON) Handle(ctx context.Context) string {
-	result := h.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return h.handle(ctx)
 }
 
 func decodeMapJSON(body []byte) (map[string]interface{}, error) {
@@ -193,7 +192,7 @@ func (h *HeaderToJSON) handle(ctx context.Context) string {
 		return ""
 	}
 
-	reqBody, err := io.ReadAll(ctx.Request().Body())
+	reqBody, err := io.ReadAll(ctx.Request().Payload().NewReader())
 	if err != nil {
 		return resultBodyReadErr
 	}
@@ -212,6 +211,6 @@ func (h *HeaderToJSON) handle(ctx context.Context) string {
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	ctx.Request().SetBody(bytes.NewReader(bodyBytes), true)
+	ctx.Request().Payload().SetReader(bytes.NewReader(bodyBytes), true)
 	return ""
 }

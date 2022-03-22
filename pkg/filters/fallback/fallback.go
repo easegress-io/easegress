@@ -20,6 +20,7 @@ package fallback
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/fallback"
 )
 
@@ -95,8 +96,9 @@ func (f *Fallback) reload() {
 // Handle fallbacks HTTPContext.
 // It always returns fallback.
 func (f *Fallback) Handle(ctx context.Context) string {
-	f.f.Fallback(ctx)
-	return ctx.CallNextHandler(resultFallback)
+	resp := ctx.Response().(httpprot.Response)
+	f.f.Fallback(resp)
+	return resultFallback
 }
 
 // Status returns Status.

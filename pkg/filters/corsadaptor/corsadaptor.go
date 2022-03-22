@@ -24,6 +24,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
@@ -113,16 +114,14 @@ func (a *CORSAdaptor) reload() {
 // Handle handles simple cross-origin requests or directs.
 func (a *CORSAdaptor) Handle(ctx context.Context) string {
 	if a.spec.SupportCORSRequest {
-		result := a.handleCORS(ctx)
-		return ctx.CallNextHandler(result)
+		return a.handleCORS(ctx)
 	}
-	result := a.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return a.handle(ctx)
 }
 
 func (a *CORSAdaptor) handle(ctx context.Context) string {
-	r := ctx.Request()
-	w := ctx.Response()
+	r := ctx.Request().(httpprot.Request)
+	w := ctx.Response().(httpprot.Response)
 	method := r.Method()
 	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
 	if method == http.MethodOptions && headerAllowMethod != "" {
@@ -133,8 +132,8 @@ func (a *CORSAdaptor) handle(ctx context.Context) string {
 }
 
 func (a *CORSAdaptor) handleCORS(ctx context.Context) string {
-	r := ctx.Request()
-	w := ctx.Response()
+	r := ctx.Request().(httpprot.Request)
+	w := ctx.Response().(httpprot.Response)
 	method := r.Method()
 	isCorsRequest := r.Header().Get("Origin") != ""
 	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""

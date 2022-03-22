@@ -24,6 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -126,11 +127,11 @@ func (m *Mock) Handle(ctx context.Context) string {
 		m.mock(ctx, rule)
 		result = resultMocked
 	}
-	return ctx.CallNextHandler(result)
+	return result
 }
 
 func (m *Mock) match(ctx context.Context) *Rule {
-	path := ctx.Request().Path()
+	path := ctx.Request().(httpprot.Request).Path()
 	header := ctx.Request().Header()
 
 	matchPath := func(rule *Rule) bool {
@@ -150,7 +151,7 @@ func (m *Mock) match(ctx context.Context) *Rule {
 	}
 
 	matchOneHeader := func(key string, rule *urlrule.StringMatch) bool {
-		values := header.GetAll(key)
+		values := header.Values(key)
 		if len(values) == 0 {
 			return rule.Empty
 		}
@@ -197,12 +198,12 @@ func (m *Mock) match(ctx context.Context) *Rule {
 }
 
 func (m *Mock) mock(ctx context.Context, rule *Rule) {
-	w := ctx.Response()
+	w := ctx.Response().(httpprot.Response)
 	w.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {
 		w.Header().Set(key, value)
 	}
-	w.SetBody(strings.NewReader(rule.Body))
+	w.Payload().SetReader(strings.NewReader(rule.Body), true)
 
 	if rule.delay <= 0 {
 		return
