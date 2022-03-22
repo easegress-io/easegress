@@ -72,18 +72,13 @@ type Payload interface {
 	Close()
 }
 
-type server interface {
+type Server interface {
 	SendRequest(req Request) (Response, error)
-}
-
-type Server struct {
-	Weight int
-	server server
 }
 
 // LoadBalancer is the protocol independent interface of a load balancer.
 type LoadBalancer interface {
-	ChooseServer(req Request) *Server
+	ChooseServer(req Request) Server
 }
 
 // TrafficMatcher is the protocol independent interface to match traffics.
@@ -95,7 +90,7 @@ type TrafficMatcher interface {
 type Protocol interface {
 	CreateRequest(req interface{}) Request
 	CreateResponse(resp interface{}) Response
-	CreateLoadBalancer(lb string, servers []*Server) (LoadBalancer, error)
-	CreateServer(uri string) (*Server, error)
+	CreateLoadBalancer(lb string, servers []Server) (LoadBalancer, error)
+	CreateServer(uri string) (Server, error)
 	CreateTrafficMatcher(spec interface{}) (TrafficMatcher, error)
 }

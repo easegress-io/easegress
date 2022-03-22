@@ -19,13 +19,14 @@ package httpserver
 
 import (
 	"net"
-	stdhttp "net/http"
+	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
 	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/object/globalfilter"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -115,31 +116,29 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (mr *muxRules) pass(ctx context.Context) bool {
+func (mr *muxRules) pass(r *httpprot.Request) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
 
-	return mr.ipFilter.AllowHTTPContext(ctx)
+	return mr.ipFilter.Allow(r.RealIP())
 }
 
-func (mr *muxRules) getCacheItem(ctx context.Context) *cacheItem {
+func (mr *muxRules) getCacheItem(r *httpprot.Request) *cacheItem {
 	if mr.cache == nil {
 		return nil
 	}
 
-	r := ctx.Request()
 	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
 	return mr.cache.get(key)
 }
 
-func (mr *muxRules) putCacheItem(ctx context.Context, ci *cacheItem) {
+func (mr *muxRules) putCacheItem(r *httpprot.Request, ci *cacheItem) {
 	if mr.cache == nil || ci.cached {
 		return
 	}
 
 	ci.cached = true
-	r := ctx.Request()
 	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
 	// NOTE: It's fine to cover the existed item because of concurrently updating cache.
 	mr.cache.put(key, ci)
@@ -169,20 +168,20 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*muxPat
 	}
 }
 
-func (mr *muxRule) pass(ctx context.Context) bool {
+func (mr *muxRule) pass(r *httpprot.Request) bool {
 	if mr.ipFilter == nil {
 		return true
 	}
 
-	return mr.ipFilter.AllowHTTPContext(ctx)
+	return mr.ipFilter.Allow(r.RealIP())
 }
 
-func (mr *muxRule) match(ctx context.Context) bool {
+func (mr *muxRule) match(r *httpprot.Request) bool {
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
 
-	host := ctx.Request().Host()
+	host := r.Host()
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
@@ -228,17 +227,15 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *muxPath {
 	}
 }
 
-func (mp *muxPath) pass(ctx context.Context) bool {
+func (mp *muxPath) pass(r *httpprot.Request) bool {
 	if mp.ipFilter == nil {
 		return true
 	}
 
-	return mp.ipFilter.AllowHTTPContext(ctx)
+	return mp.ipFilter.Allow(r.RealIP())
 }
 
-func (mp *muxPath) matchPath(ctx context.Context) bool {
-	r := ctx.Request()
-
+func (mp *muxPath) matchPath(r *httpprot.Request) bool {
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
@@ -256,12 +253,12 @@ func (mp *muxPath) matchPath(ctx context.Context) bool {
 	return false
 }
 
-func (mp *muxPath) matchMethod(ctx context.Context) bool {
+func (mp *muxPath) matchMethod(r *httpprot.Request) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
 
-	return stringtool.StrInSlice(ctx.Request().Method(), mp.methods)
+	return stringtool.StrInSlice(r.Method(), mp.methods)
 }
 
 func (mp *muxPath) hasHeaders() bool {
@@ -351,7 +348,7 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 	m.rules.Store(rules)
 }
 
-func (m *mux) ServeHTTP(stdw stdhttp.ResponseWriter, stdr *stdhttp.Request) {
+func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// HTTP-01 challenges requires HTTP server to listen on port 80, but we don't
 	// know which HTTP server listen on this port (consider there's an nginx sitting
 	// in front of Easegress), so all HTTP servers need to handle HTTP-01 challenges.
@@ -362,55 +359,58 @@ func (m *mux) ServeHTTP(stdw stdhttp.ResponseWriter, stdr *stdhttp.Request) {
 
 	rules := m.rules.Load().(*muxRules)
 
-	ctx := context.New(stdw, stdr, rules.tracer, rules.superSpec.Name())
+	req := httpprot.NewRequest(stdr)
+	resp := httpprot.NewResponse(stdw)
+	ctx := context.New(req, resp, rules.tracer, rules.superSpec.Name())
 	defer ctx.Finish()
 	ctx.OnFinish(func() {
 		ctx.Span().Finish()
-		m.httpStat.Stat(ctx.StatMetric())
+		// TODO:
+		//	m.httpStat.Stat(ctx.StatMetric())
 		m.topN.Stat(ctx)
 	})
 
-	ci := rules.getCacheItem(ctx)
+	ci := rules.getCacheItem(req)
 	if ci != nil {
 		m.handleRequestWithCache(rules, ctx, ci)
 		return
 	}
 
-	if !rules.pass(ctx) {
+	if !rules.pass(req) {
 		m.handleIPNotAllow(ctx)
 		return
 	}
 
 	for _, host := range rules.rules {
-		if !host.match(ctx) {
+		if !host.match(req) {
 			continue
 		}
 
-		if !host.pass(ctx) {
+		if !host.pass(req) {
 			m.handleIPNotAllow(ctx)
 			return
 		}
 
 		for _, path := range host.paths {
-			if !path.matchPath(ctx) {
+			if !path.matchPath(req) {
 				continue
 			}
 
-			if !path.matchMethod(ctx) {
+			if !path.matchMethod(req) {
 				ci = &cacheItem{ipFilterChan: path.ipFilterChain, methodNotAllowed: true}
-				rules.putCacheItem(ctx, ci)
+				rules.putCacheItem(req, ci)
 				m.handleRequestWithCache(rules, ctx, ci)
 				return
 			}
 
-			if !path.pass(ctx) {
+			if !path.pass(req) {
 				m.handleIPNotAllow(ctx)
 				return
 			}
 
 			if !path.hasHeaders() {
 				ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
-				rules.putCacheItem(ctx, ci)
+				rules.putCacheItem(req, ci)
 				m.handleRequestWithCache(rules, ctx, ci)
 				return
 			}
@@ -425,18 +425,23 @@ func (m *mux) ServeHTTP(stdw stdhttp.ResponseWriter, stdr *stdhttp.Request) {
 	}
 
 	ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
-	rules.putCacheItem(ctx, ci)
+	rules.putCacheItem(req, ci)
 	m.handleRequestWithCache(rules, ctx, ci)
 }
 
 func (m *mux) handleIPNotAllow(ctx context.Context) {
-	ctx.AddTag(stringtool.Cat("ip ", ctx.Request().RealIP(), " not allow"))
-	ctx.Response().SetStatusCode(stdhttp.StatusForbidden)
+	req := ctx.Request().(*httpprot.Request)
+	resp := ctx.Response().(*httpprot.Response)
+	ctx.AddTag(stringtool.Cat("ip ", req.RealIP(), " not allow"))
+	resp.SetStatusCode(http.StatusForbidden)
 }
 
 func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *cacheItem) {
+	req := ctx.Request().(*httpprot.Request)
+	resp := ctx.Response().(*httpprot.Response)
+
 	if ci.ipFilterChan != nil {
-		if !ci.ipFilterChan.AllowHTTPContext(ctx) {
+		if !ci.ipFilterChan.Allow(req.RealIP()) {
 			m.handleIPNotAllow(ctx)
 			return
 		}
@@ -444,25 +449,25 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *c
 
 	switch {
 	case ci.notFound:
-		ctx.Response().SetStatusCode(stdhttp.StatusNotFound)
+		resp.SetStatusCode(http.StatusNotFound)
 	case ci.methodNotAllowed:
-		ctx.Response().SetStatusCode(stdhttp.StatusMethodNotAllowed)
+		resp.SetStatusCode(http.StatusMethodNotAllowed)
 	case ci.path != nil:
 		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
 		if !exists {
 			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
-			ctx.Response().SetStatusCode(stdhttp.StatusServiceUnavailable)
+			resp.SetStatusCode(http.StatusServiceUnavailable)
 			return
 		}
 
 		if rules.spec.XForwardedFor {
-			m.appendXForwardedFor(ctx)
+			m.appendXForwardedFor(req)
 		}
 
 		if ci.path.pathRE != nil && ci.path.rewriteTarget != "" {
-			path := ctx.Request().Path()
+			path := req.Path()
 			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
-			ctx.Request().SetPath(path)
+			req.SetPath(path)
 		}
 		// global filter
 		globalFilter := m.getGlobalFilter(rules)
@@ -474,18 +479,18 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *c
 	}
 }
 
-func (m *mux) appendXForwardedFor(ctx context.Context) {
-	v := ctx.Request().Header().Get(httpheader.KeyXForwardedFor)
-	ip := ctx.Request().RealIP()
+func (m *mux) appendXForwardedFor(r *httpprot.Request) {
+	v := r.Header().Get(httpheader.KeyXForwardedFor)
+	ip := r.RealIP()
 
 	if v == "" {
-		ctx.Request().Header().Add(httpheader.KeyXForwardedFor, ip)
+		r.Header().Add(httpheader.KeyXForwardedFor, ip)
 		return
 	}
 
 	if !strings.Contains(v, ip) {
 		v = stringtool.Cat(v, ",", ip)
-		ctx.Request().Header().Set(httpheader.KeyXForwardedFor, v)
+		r.Header().Set(httpheader.KeyXForwardedFor, v)
 	}
 }
 

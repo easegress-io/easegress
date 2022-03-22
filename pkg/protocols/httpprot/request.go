@@ -34,14 +34,12 @@ type (
 	// 	Path() string
 	// 	SetPath(path string)
 	// 	Scheme() string
-
 	// 	RealIP() string
 	// 	Proto() string
 	// 	Method() string
 	// 	SetMethod(method string)
 	// 	Host() string
 	// 	SetHost(host string)
-
 	// 	Cookie(name string) (*http.Cookie, error)
 	// 	Cookies() []*http.Cookie
 	// 	AddCookie(cookie *http.Cookie)
@@ -56,7 +54,8 @@ type (
 
 var _ protocols.Request = (*Request)(nil)
 
-func newRequest(r *http.Request) *Request {
+// NewRequest creates a new request from a standard request.
+func NewRequest(r *http.Request) *Request {
 	req := &Request{}
 	req.std = r
 	req.realIP = realip.FromRequest(r)

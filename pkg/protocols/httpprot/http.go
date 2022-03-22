@@ -114,22 +114,39 @@ var _ protocols.Protocol = (*Protocol)(nil)
 
 func (p *Protocol) CreateRequest(req interface{}) protocols.Request {
 	r := req.(*http.Request)
-	return newRequest(r)
+	return NewRequest(r)
 }
 
 func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
 	w := resp.(http.ResponseWriter)
-	return newResponse(w)
+	return NewResponse(w)
 }
 
-func (p *Protocol) CreateLoadBalancer(lb string, servers []*protocols.Server) (protocols.LoadBalancer, error) {
+func (p *Protocol) CreateLoadBalancer(lb string, servers []protocols.Server) (protocols.LoadBalancer, error) {
 	return nil, nil
 }
 
-func (p *Protocol) CreateServer(uri string) (*protocols.Server, error) {
+func (p *Protocol) CreateServer(uri string) (protocols.Server, error) {
 	return nil, nil
 }
 
 func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
+	return nil, nil
+}
+
+type Server struct {
+	URL            string   `yaml:"url" jsonschema:"required,format=url"`
+	Tags           []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
+	W              int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+	addrIsHostName bool
+}
+
+func (s *Server) Weight() int {
+	return s.W
+}
+
+func (s *Server) SendRequest(req protocols.Request) (protocols.Response, error) {
+	req = req.Clone()
+
 	return nil, nil
 }

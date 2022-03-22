@@ -34,7 +34,6 @@ type (
 	// 	SetCookie(cookie *http.Cookie)
 	// 	FlushedBodyBytes() uint64
 	// 	OnFlushBody(fn BodyFlushFunc)
-
 	Response struct {
 		std         http.ResponseWriter
 		code        int
@@ -50,7 +49,8 @@ type (
 
 var _ protocols.Response = (*Response)(nil)
 
-func newResponse(w http.ResponseWriter) *Response {
+// NewResponse creates a new response from a standard response writer.
+func NewResponse(w http.ResponseWriter) *Response {
 	return &Response{
 		std:    w,
 		code:   http.StatusOK,

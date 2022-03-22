@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/tracing"
 )
 
 const (
@@ -44,6 +45,9 @@ type (
 
 	// Context defines the common interface of the context.
 	Context interface {
+		Span() tracing.Span
+		// StatMetric() *httpstat.Metric
+
 		AddTag(tag string)
 		AddLazyTag(LazyTagFunc)
 
@@ -96,7 +100,7 @@ type (
 var _ Context = (*context)(nil)
 
 // New creates a new Context.
-func New(req protocols.Request, resp protocols.Response) Context {
+func New(req protocols.Request, resp protocols.Response, tracer *tracing.Tracing, spanName string) Context {
 	ctx := &context{
 		request: req,
 		requests: map[string]protocols.Request{
@@ -145,7 +149,7 @@ func (ctx *context) GetRequest(id string) protocols.Request {
 
 func (ctx *context) SetRequest(id string, req protocols.Request) {
 	prev := ctx.requests[id]
-	if prev != nil {
+	if prev != nil && prev != req {
 		prev.Finish()
 	}
 	ctx.requests[id] = req
@@ -173,7 +177,7 @@ func (ctx *context) GetResponse(id string) protocols.Response {
 
 func (ctx *context) SetResponse(id string, resp protocols.Response) {
 	prev := ctx.responses[id]
-	if prev != nil {
+	if prev != nil && prev != resp {
 		prev.Finish()
 	}
 	ctx.responses[id] = resp
