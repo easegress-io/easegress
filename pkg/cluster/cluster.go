@@ -291,7 +291,7 @@ func (c *cluster) addSelfToCluster() error {
 
 	respList, err := func() (*clientv3.MemberListResponse, error) {
 		ctx, cancel := c.requestContext()
-		cancel()
+		defer cancel()
 		return client.MemberList(ctx)
 	}()
 	if err != nil {
@@ -306,7 +306,7 @@ func (c *cluster) addSelfToCluster() error {
 		if len(member.Name) == 0 {
 			_, err := func() (*clientv3.MemberRemoveResponse, error) {
 				ctx, cancel := c.requestContext()
-				cancel()
+				defer cancel()
 				return client.MemberRemove(ctx, member.ID)
 			}()
 			if err != nil {
@@ -345,7 +345,7 @@ func (c *cluster) addSelfToCluster() error {
 
 		respAdd, err := func() (*clientv3.MemberAddResponse, error) {
 			ctx, cancel := c.requestContext()
-			cancel()
+			defer cancel()
 			return client.MemberAdd(ctx, c.opt.ClusterInitialAdvertisePeerURLs)
 		}()
 		if err != nil {
