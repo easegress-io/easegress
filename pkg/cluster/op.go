@@ -37,8 +37,9 @@ func (c *cluster) PutUnderLease(key, value string) error {
 		return err
 	}
 
-	_, err = client.Put(c.requestContext(), key, value, clientv3.WithLease(lease))
-
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	_, err = client.Put(ctx, key, value, clientv3.WithLease(lease))
 	return err
 }
 
@@ -48,8 +49,9 @@ func (c *cluster) Put(key, value string) error {
 		return err
 	}
 
-	_, err = client.Put(c.requestContext(), key, value)
-
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	_, err = client.Put(ctx, key, value)
 	return err
 }
 
@@ -85,8 +87,9 @@ func (c *cluster) putAndDelete(kvs map[string]*string, underLease bool) error {
 		}
 	}
 
-	_, err = client.Txn(c.requestContext()).Then(ops...).Commit()
-
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	_, err = client.Txn(ctx).Then(ops...).Commit()
 	return err
 }
 
@@ -96,8 +99,9 @@ func (c *cluster) Delete(key string) error {
 		return err
 	}
 
-	_, err = client.Delete(c.requestContext(), key)
-
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	_, err = client.Delete(ctx, key)
 	return err
 }
 
@@ -107,8 +111,9 @@ func (c *cluster) DeletePrefix(prefix string) error {
 		return err
 	}
 
-	_, err = client.Delete(c.requestContext(), prefix, clientv3.WithPrefix())
-
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	_, err = client.Delete(ctx, prefix, clientv3.WithPrefix())
 	return err
 }
 
@@ -129,7 +134,9 @@ func (c *cluster) GetRaw(key string) (*mvccpb.KeyValue, error) {
 		return nil, err
 	}
 
-	resp, err := client.Get(c.requestContext(), key)
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	resp, err := client.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +170,11 @@ func (c *cluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, erro
 		return kvs, err
 	}
 
-	resp, err := client.Get(c.requestContext(), prefix, clientv3.WithPrefix())
+	resp, err := func() (*clientv3.GetResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.Get(ctx, prefix, clientv3.WithPrefix())
+	}()
 	if err != nil {
 		return kvs, err
 	}
@@ -189,7 +200,12 @@ func (c *cluster) GetWithOp(key string, op ...ClientOp) (map[string]string, erro
 			newOps = append(newOps, opOption)
 		}
 	}
-	resp, err := client.Get(c.requestContext(), key, newOps...)
+
+	resp, err := func() (*clientv3.GetResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.Get(ctx, key, newOps...)
+	}()
 	if err != nil {
 		return kvs, err
 	}
