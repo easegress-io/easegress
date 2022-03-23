@@ -125,17 +125,15 @@ func (s *syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.
 	ticker := time.NewTicker(s.pullInterval)
 	defer ticker.Stop()
 
-	data := make(map[string]*mvccpb.KeyValue)
-
 	pullCompareSend := func() {
 		newData, err := s.pull(key, prefix)
 		if err != nil {
 			logger.Errorf("pull data for key %s (prefix: %v) failed: %v", key, prefix, err)
 			return
 		}
-		if !isDataEqual(data, newData) {
-			data = newData
-			send(data)
+
+		if len(newData) > 0 {
+			send(newData)
 		}
 	}
 
