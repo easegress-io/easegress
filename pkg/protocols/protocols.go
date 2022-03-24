@@ -53,7 +53,6 @@ type Response interface {
 	Payload() Payload
 
 	Finish()
-	Clone() Response
 }
 
 type Header interface {

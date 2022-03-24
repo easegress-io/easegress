@@ -18,11 +18,11 @@
 package httpprot
 
 import (
-	"bytes"
 	"io"
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 func init() {
@@ -35,8 +35,7 @@ type (
 	}
 
 	payload struct {
-		reader io.Reader
-		data   []byte
+		readerAt *readers.ReaderAt
 	}
 )
 
@@ -79,31 +78,33 @@ func (h *header) Iter(f func(key string, values []string)) {
 var _ protocols.Payload = (*payload)(nil)
 
 func newPayload(r io.Reader) *payload {
-	data, err := io.ReadAll(r)
-	// here how to deal with readall error??????
-	// return nil when error happens????
-	if err != nil {
-		panic(err)
+	if r != nil {
+		return &payload{
+			readerAt: readers.NewReaderAt(r),
+		}
 	}
-	return &payload{reader: r, data: data}
+	return &payload{}
 }
 
 func (p *payload) NewReader() io.Reader {
-	return bytes.NewReader(p.data)
+	if p.readerAt != nil {
+		return readers.NewReaderAtReader(p.readerAt, 0)
+	}
+	return nil
 }
 
 func (p *payload) SetReader(reader io.Reader, closePreviousReader bool) {
 	if closePreviousReader {
-		if closer, ok := p.reader.(io.Closer); ok {
-			closer.Close()
+		if p.readerAt != nil {
+			p.readerAt.Close()
 		}
 	}
-	p.reader = reader
+	p.readerAt = readers.NewReaderAt(reader)
 }
 
 func (p *payload) Close() {
-	if closer, ok := p.reader.(io.Closer); ok {
-		closer.Close()
+	if p.readerAt != nil {
+		p.readerAt.Close()
 	}
 }
 

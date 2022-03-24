@@ -21,7 +21,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/fallback"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
 )
 
 const (

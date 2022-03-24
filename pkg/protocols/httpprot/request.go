@@ -19,6 +19,7 @@ package httpprot
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -59,8 +60,10 @@ func NewRequest(r *http.Request) *Request {
 	req := &Request{}
 	req.std = r
 	req.realIP = realip.FromRequest(r)
-	req.payload = newPayload(r.Body)
 	req.header = newHeader(r.Header)
+
+	req.payload = newPayload(r.Body)
+	req.std.Body = io.NopCloser(req.payload.NewReader())
 	return req
 }
 
@@ -129,7 +132,9 @@ func (r *Request) SetHost(host string) {
 }
 
 func (r *Request) Clone() protocols.Request {
-	return nil
+	req := r.std.Clone(context.Background())
+	req.Body = io.NopCloser(r.payload.NewReader())
+	return NewRequest(req)
 }
 
 func (r *Request) Path() string {

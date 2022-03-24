@@ -18,8 +18,10 @@
 package httpprot
 
 import (
+	"bytes"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
@@ -48,13 +50,16 @@ type (
 )
 
 var _ protocols.Response = (*Response)(nil)
+var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 
 // NewResponse creates a new response from a standard response writer.
 func NewResponse(w http.ResponseWriter) *Response {
 	return &Response{
-		std:    w,
-		code:   http.StatusOK,
-		header: newHeader(w.Header()),
+		std:            w,
+		code:           http.StatusOK,
+		header:         newHeader(w.Header()),
+		payload:        newPayload(nil),
+		bodyFlushFuncs: []BodyFlushFunc{},
 	}
 }
 
@@ -92,21 +97,50 @@ func (resp *Response) Finish() {
 	if reader == nil {
 		return
 	}
+	defer resp.Payload().Close()
 
-	defer func() {
-		resp.payload.Close()
-	}()
+	copyToClient := func(src io.Reader) (succeed bool) {
+		written, err := io.Copy(resp.std, src)
+		if err != nil {
+			logger.Warnf("copy body failed: %v", err)
+			return false
+		}
+		resp.bodyWritten += uint64(written)
+		return true
+	}
 
-	written, err := io.Copy(resp.std, resp.payload.NewReader())
-	if err != nil {
-		logger.Warnf("copy body failed: %v", err)
+	if len(resp.bodyFlushFuncs) == 0 {
+		copyToClient(reader)
 		return
 	}
-	resp.bodyWritten += uint64(written)
-}
 
-func (resp *Response) Clone() protocols.Response {
-	return nil
+	buff := bytes.NewBuffer(nil)
+	for {
+		buff.Reset()
+		_, err := io.CopyN(buff, reader, bodyFlushBuffSize)
+		body := buff.Bytes()
+
+		switch err {
+		case nil:
+			for _, fn := range resp.bodyFlushFuncs {
+				body = fn(body, false)
+			}
+			if !copyToClient(bytes.NewReader(body)) {
+				return
+			}
+		case io.EOF:
+			for _, fn := range resp.bodyFlushFuncs {
+				body = fn(body, true)
+			}
+
+			copyToClient(bytes.NewReader(body))
+			return
+		default:
+			resp.std.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
 }
 
 func (resp *Response) OnFlushBody(fn BodyFlushFunc) {

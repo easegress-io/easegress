@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpheader
+package httpprot
 
 const (
 	// KeyCacheControl is the key of Cache-Control.

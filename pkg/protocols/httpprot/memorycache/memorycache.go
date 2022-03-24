@@ -27,7 +27,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -98,7 +97,7 @@ func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded b
 		return false
 	}
 
-	for _, value := range r.Header().Values(httpheader.KeyCacheControl) {
+	for _, value := range r.Header().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-cache") {
 			return false
 		}
@@ -144,13 +143,13 @@ func (mc *MemoryCache) Store(r *httpprot.Request, w *httpprot.Response) {
 		return
 	}
 
-	for _, value := range r.Header().Values(httpheader.KeyCacheControl) {
+	for _, value := range r.Header().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") {
 			return
 		}
 	}
-	for _, value := range w.Header().Values(httpheader.KeyCacheControl) {
+	for _, value := range w.Header().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") ||
 			strings.Contains(value, "must-revalidate") {
