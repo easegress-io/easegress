@@ -198,6 +198,7 @@ func (m *Mock) match(ctx context.Context) *Rule {
 }
 
 func (m *Mock) mock(ctx context.Context, rule *Rule) {
+	httpreq := ctx.Request().(*httpprot.Request)
 	w := ctx.Response().(*httpprot.Response)
 	w.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {
@@ -211,7 +212,7 @@ func (m *Mock) mock(ctx context.Context, rule *Rule) {
 
 	logger.Debugf("delay for %v ...", rule.delay)
 	select {
-	case <-ctx.Done():
+	case <-httpreq.Context().Done():
 		logger.Debugf("request cancelled in the middle of delay mocking")
 	case <-time.After(rule.delay):
 	}

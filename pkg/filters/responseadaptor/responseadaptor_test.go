@@ -126,3 +126,7 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 	ra.Status()
 	return ra
 }
+
+func TestResponseAdaptorTemplate(t *testing.T) {
+	panic("update this test when context template is finished")
+}

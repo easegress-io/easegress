@@ -215,3 +215,8 @@ func (ctx *context) Finish() {
 		fn()
 	}
 }
+
+func (ctx *context) Span() tracing.Span {
+	// TODO: add span
+	return nil
+}

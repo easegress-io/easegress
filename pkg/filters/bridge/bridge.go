@@ -23,6 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
@@ -118,6 +119,7 @@ func (b *Bridge) InjectMuxMapper(mapper context.MuxMapper) {
 
 // Handle builds a bridge for pipeline.
 func (b *Bridge) Handle(ctx context.Context) (result string) {
+	httpresp := ctx.Response().(*httpprot.Response)
 	if len(b.spec.Destinations) <= 0 {
 		panic("not any destination defined")
 	}
@@ -141,7 +143,7 @@ func (b *Bridge) Handle(ctx context.Context) (result string) {
 
 	if !found {
 		logger.Errorf("dest not found: %s", dest)
-		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+		httpresp.SetStatusCode(http.StatusServiceUnavailable)
 		return resultDestinationNotFound
 	}
 
@@ -149,7 +151,7 @@ func (b *Bridge) Handle(ctx context.Context) (result string) {
 
 	if !exists {
 		logger.Errorf("failed to get running object %s", b.spec.Destinations[0])
-		ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+		httpresp.SetStatusCode(http.StatusServiceUnavailable)
 		return resultDestinationNotFound
 	}
 

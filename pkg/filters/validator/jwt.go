@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 
-	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 // JWTValidatorSpec defines the configuration of JWT validator
@@ -54,7 +54,7 @@ type JWTValidator struct {
 }
 
 // Validate validates the JWT token of a http request
-func (v *JWTValidator) Validate(req context.HTTPRequest) error {
+func (v *JWTValidator) Validate(req *httpprot.Request) error {
 	var token string
 
 	if v.spec.CookieName != "" {

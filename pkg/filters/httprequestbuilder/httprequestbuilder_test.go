@@ -15,24 +15,13 @@
  * limitations under the License.
  */
 
-package httpprot
+package requestbuilder
 
-import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
+import "testing"
 
-	"github.com/stretchr/testify/assert"
-)
-
-func TestResponse(t *testing.T) {
-	assert := assert.New(t)
-
-	w := httptest.NewRecorder()
-	resp := NewResponse(w)
-	assert.Equal(w, resp.Std())
-
-	resp.SetStatusCode(http.StatusCreated)
-	assert.Equal(http.StatusCreated, resp.StatusCode())
-
+func TestRequestBuilder(t *testing.T) {
+	// this test will panic 100% update it when ready
+	// don't forget TODO
+	rb := &HTTPRequestBuilder{}
+	rb.Handle(nil)
 }

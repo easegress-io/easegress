@@ -18,12 +18,9 @@
 package responseadaptor
 
 import (
-	"bytes"
-
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 )
 
 const (
@@ -95,25 +92,25 @@ func (ra *ResponseAdaptor) reload() {
 
 // Handle adapts response.
 func (ra *ResponseAdaptor) Handle(ctx context.Context) string {
-	result := ra.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return ra.handle(ctx)
 }
 
 func (ra *ResponseAdaptor) handle(ctx context.Context) string {
-	hte := ctx.Template()
-	ctx.Response().Header().Adapt(ra.spec.Header, hte)
+	// TODO: update this part when add template to context
+	// hte := ctx.Template()
+	// ctx.Response().Header().Adapt(ra.spec.Header, hte)
 
 	if len(ra.spec.Body) == 0 {
 		return ""
 	}
 
-	if !hte.HasTemplates(ra.spec.Body) {
-		ctx.Response().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
-	} else if body, err := hte.Render(ra.spec.Body); err != nil {
-		logger.Errorf("BUG responseadaptor render body failed, template %s , err %v", ra.spec.Body, err)
-	} else {
-		ctx.Response().SetBody(bytes.NewReader([]byte(body)))
-	}
+	// if !hte.HasTemplates(ra.spec.Body) {
+	// 	ctx.Response().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
+	// } else if body, err := hte.Render(ra.spec.Body); err != nil {
+	// 	logger.Errorf("BUG responseadaptor render body failed, template %s , err %v", ra.spec.Body, err)
+	// } else {
+	// 	ctx.Response().SetBody(bytes.NewReader([]byte(body)))
+	// }
 
 	return ""
 }

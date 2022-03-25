@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -194,12 +195,12 @@ func (rf *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 
 // Handle handles HTTPContext by calling remote service.
 func (rf *RemoteFilter) Handle(ctx context.Context) (result string) {
-	result = rf.handle(ctx)
-	return ctx.CallNextHandler(result)
+	return rf.handle(ctx)
 }
 
 func (rf *RemoteFilter) handle(ctx context.Context) (result string) {
-	r, w := ctx.Request(), ctx.Response()
+	r := ctx.Request().(*httpprot.Request)
+	w := ctx.Response().(*httpprot.Response)
 
 	var errPrefix string
 	defer func() {
@@ -213,10 +214,10 @@ func (rf *RemoteFilter) handle(ctx context.Context) (result string) {
 	}()
 
 	errPrefix = "read request body"
-	reqBody := rf.limitRead(r.Body(), maxBodyBytes)
+	reqBody := rf.limitRead(r.Payload().NewReader(), maxBodyBytes)
 
 	errPrefix = "read response body"
-	respBody := rf.limitRead(w.Body(), maxBodyBytes)
+	respBody := rf.limitRead(w.Payload().NewReader(), maxBodyBytes)
 
 	errPrefix = "marshal context"
 	ctxBuff := rf.marshalHTTPContext(ctx, reqBody, respBody)
@@ -271,7 +272,8 @@ func (rf *RemoteFilter) Status() interface{} { return nil }
 func (rf *RemoteFilter) Close() {}
 
 func (rf *RemoteFilter) marshalHTTPContext(ctx context.Context, reqBody, respBody []byte) []byte {
-	r, w := ctx.Request(), ctx.Response()
+	r := ctx.Request().(*httpprot.Request)
+	w := ctx.Response().(*httpprot.Response)
 	ctxEntity := contextEntity{
 		Request: &requestEntity{
 			RealIP:   r.RealIP(),
@@ -279,15 +281,15 @@ func (rf *RemoteFilter) marshalHTTPContext(ctx context.Context, reqBody, respBod
 			Scheme:   r.Scheme(),
 			Host:     r.Host(),
 			Path:     r.Path(),
-			Query:    r.Query(),
-			Fragment: r.Fragment(),
+			Query:    r.URL().RawQuery,
+			Fragment: r.URL().Fragment,
 			Proto:    r.Proto(),
-			Header:   r.Header().Std(),
+			Header:   r.Std().Header,
 			Body:     reqBody,
 		},
 		Response: &responseEntity{
 			StatusCode: w.StatusCode(),
-			Header:     w.Header().Std(),
+			Header:     w.Std().Header(),
 			Body:       respBody,
 		},
 	}
@@ -308,14 +310,22 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.Context) {
 		panic(err)
 	}
 
-	r, w := ctx.Request(), ctx.Response()
+	r := ctx.Request().(*httpprot.Request)
+	w := ctx.Response().(*httpprot.Response)
 	re, we := ctxEntity.Request, ctxEntity.Response
 
 	r.SetMethod(re.Method)
 	r.SetPath(re.Path)
-	r.SetQuery(re.Query)
-	r.Header().Reset(re.Header)
-	r.SetBody(bytes.NewReader(re.Body), true)
+	r.URL().RawQuery = re.Query
+	r.Header().Iter(func(key string, values []string) {
+		r.Header().Del(key)
+	})
+	for k, vs := range re.Header {
+		for _, v := range vs {
+			r.Header().Add(k, v)
+		}
+	}
+	r.Payload().SetReader(bytes.NewReader(re.Body), true)
 
 	if we == nil {
 		return
@@ -326,6 +336,10 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.Context) {
 	}
 
 	w.SetStatusCode(we.StatusCode)
-	w.Header().Reset(we.Header)
-	w.SetBody(bytes.NewReader(we.Body))
+	for k, vs := range we.Header {
+		for _, v := range vs {
+			w.Header().Add(k, v)
+		}
+	}
+	w.Payload().SetReader(bytes.NewReader(we.Body), true)
 }

@@ -20,7 +20,6 @@ package requestbuilder
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols"
 )
 
 const (
@@ -92,7 +91,8 @@ func (rb *HTTPRequestBuilder) reload() {
 
 // Handle builds request.
 func (rb *HTTPRequestBuilder) Handle(ctx context.Context) string {
-	r := protocols.HTTP().CreateRequest().(*protocols.HTTPRequest)
+	// TODO: finish it later
+	panic("finish this when ready")
 	return ""
 }
 

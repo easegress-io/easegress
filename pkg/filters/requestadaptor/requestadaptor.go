@@ -128,13 +128,13 @@ func (ra *RequestAdaptor) Handle(ctx context.Context) string {
 }
 
 func (ra *RequestAdaptor) handle(ctx context.Context) string {
-	r := ctx.Request().(*httpprot.Request)
-	method, path, header := r.Method(), r.Path(), r.Header()
+	httpreq := ctx.Request().(*httpprot.Request)
+	method, path, _ := httpreq.Method(), httpreq.Path(), httpreq.Header()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {
 		ctx.AddTag(stringtool.Cat("requestAdaptor: method ",
 			method, " adapted to ", ra.spec.Method))
-		r.SetMethod(ra.spec.Method)
+		httpreq.SetMethod(ra.spec.Method)
 	}
 
 	if ra.pa != nil {
@@ -143,39 +143,41 @@ func (ra *RequestAdaptor) handle(ctx context.Context) string {
 			ctx.AddTag(stringtool.Cat("requestAdaptor: path ",
 				path, " adapted to ", adaptedPath))
 		}
-		r.SetPath(adaptedPath)
+		httpreq.SetPath(adaptedPath)
 	}
-	hte := ctx.Template()
-	if ra.spec.Header != nil {
-		header.Adapt(ra.spec.Header, hte)
-	}
+	// TODO update tempalte part here
 
-	if len(ra.spec.Body) != 0 {
-		if hte.HasTemplates(ra.spec.Body) {
-			if body, err := hte.Render(ra.spec.Body); err != nil {
-				logger.Errorf("BUG request render body failed, template %s, err %v",
-					ra.spec.Body, err)
-			} else {
-				ctx.Request().SetBody(bytes.NewReader([]byte(body)), true)
-			}
-		} else {
-			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)), true)
-		}
-		ctx.Request().Header().Del("Content-Encoding")
-	}
+	// hte := ctx.Template()
+	// if ra.spec.Header != nil {
+	// 	header.Adapt(ra.spec.Header, hte)
+	// }
 
-	if len(ra.spec.Host) != 0 {
-		if hte.HasTemplates(ra.spec.Host) {
-			if host, err := hte.Render(ra.spec.Host); err != nil {
-				logger.Errorf("BUG request render host failed, template %s, err %v",
-					ra.spec.Host, err)
-			} else {
-				ctx.Request().SetHost(host)
-			}
-		} else {
-			ctx.Request().SetHost(ra.spec.Host)
-		}
-	}
+	// if len(ra.spec.Body) != 0 {
+	// 	if hte.HasTemplates(ra.spec.Body) {
+	// 		if body, err := hte.Render(ra.spec.Body); err != nil {
+	// 			logger.Errorf("BUG request render body failed, template %s, err %v",
+	// 				ra.spec.Body, err)
+	// 		} else {
+	// 			ctx.Request().SetBody(bytes.NewReader([]byte(body)), true)
+	// 		}
+	// 	} else {
+	// 		ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)), true)
+	// 	}
+	// 	ctx.Request().Header().Del("Content-Encoding")
+	// }
+
+	// if len(ra.spec.Host) != 0 {
+	// 	if hte.HasTemplates(ra.spec.Host) {
+	// 		if host, err := hte.Render(ra.spec.Host); err != nil {
+	// 			logger.Errorf("BUG request render host failed, template %s, err %v",
+	// 				ra.spec.Host, err)
+	// 		} else {
+	// 			ctx.Request().SetHost(host)
+	// 		}
+	// 	} else {
+	// 		ctx.Request().SetHost(ra.spec.Host)
+	// 	}
+	// }
 
 	if ra.spec.Compress != "" {
 		res := ra.processCompress(ctx)
@@ -201,14 +203,14 @@ func (ra *RequestAdaptor) processCompress(ctx context.Context) string {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 
-	_, err := io.Copy(gw, ctx.Request().Body())
+	_, err := io.Copy(gw, ctx.Request().Payload().NewReader())
 	if err != nil {
 		logger.Errorf("compress request body failed, %v", err)
 		return resultCompressFail
 	}
 	gw.Close()
 
-	ctx.Request().SetBody(&buf, true)
+	ctx.Request().Payload().SetReader(&buf, true)
 	ctx.Request().Header().Set("Content-Encoding", "gzip")
 	return ""
 }
@@ -216,7 +218,7 @@ func (ra *RequestAdaptor) processCompress(ctx context.Context) string {
 func (ra *RequestAdaptor) processDecompress(ctx context.Context) string {
 	encoding := ctx.Request().Header().Get("Content-Encoding")
 	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
-		reader, err := gzip.NewReader(ctx.Request().Body())
+		reader, err := gzip.NewReader(ctx.Request().Payload().NewReader())
 		if err != nil {
 			return resultDecompressFail
 		}
@@ -225,7 +227,7 @@ func (ra *RequestAdaptor) processDecompress(ctx context.Context) string {
 		if err != nil {
 			return resultDecompressFail
 		}
-		ctx.Request().SetBody(bytes.NewReader(data), true)
+		ctx.Request().Payload().SetReader(bytes.NewReader(data), true)
 		ctx.Request().Header().Del("Content-Encoding")
 	}
 	return ""

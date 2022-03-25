@@ -33,8 +33,9 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 )
 
@@ -174,17 +175,19 @@ func (aa *APIAggregator) reload() {
 
 // Handle limits HTTPContext.
 func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
+	httpreq := ctx.Request().(*httpprot.Request)
+	httpresp := ctx.Response().(*httpprot.Response)
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
-		written, err := io.CopyN(buff, ctx.Request().Body(), aa.spec.MaxBodyBytes+1)
+		written, err := io.CopyN(buff, httpreq.Payload().NewReader(), aa.spec.MaxBodyBytes+1)
 		if written > aa.spec.MaxBodyBytes {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: request body exceed %dB", aa.spec.MaxBodyBytes))
-			ctx.Response().SetStatusCode(http.StatusRequestEntityTooLarge)
+			httpresp.SetStatusCode(http.StatusRequestEntityTooLarge)
 			return resultFailed
 		}
 		if err != io.EOF {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: read request body failed: %v", err))
-			ctx.Response().SetStatusCode(http.StatusBadRequest)
+			httpresp.SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}
 	}
@@ -192,12 +195,12 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 	wg := &sync.WaitGroup{}
 	wg.Add(len(aa.spec.Pipelines))
 
-	httpResps := make([]context.HTTPResponse, len(aa.spec.Pipelines))
+	httpResps := make([]*httpprot.Response, len(aa.spec.Pipelines))
 	for i, p := range aa.spec.Pipelines {
 		req, err := aa.newHTTPReq(ctx, p, buff)
 		if err != nil {
 			logger.Errorf("BUG: new HTTP request failed: %v, pipelinename: %s", err, aa.spec.Pipelines[i].Name)
-			ctx.Response().SetStatusCode(http.StatusBadRequest)
+			httpresp.SetStatusCode(http.StatusBadRequest)
 			return resultFailed
 		}
 
@@ -209,9 +212,9 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 				return
 			}
 			w := httptest.NewRecorder()
-			copyCtx := context.New(w, req, tracing.NoopTracing, "no trace")
+			copyCtx := context.New(httpprot.NewRequest(req), httpprot.NewResponse(w), tracing.NoopTracing, "no trace")
 			handler.Handle(copyCtx)
-			rsp := copyCtx.Response()
+			rsp := copyCtx.Response().(*httpprot.Response)
 
 			if rsp != nil && rsp.StatusCode() == http.StatusOK {
 				httpResps[i] = rsp
@@ -225,9 +228,7 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 		_resp := resp
 
 		if resp != nil {
-			if body, ok := _resp.Body().(io.ReadCloser); ok {
-				defer body.Close()
-			}
+			_resp.Payload().Close()
 		}
 	}
 
@@ -236,14 +237,14 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 	// Get all Pipeline response' body
 	for i, resp := range httpResps {
 		if resp == nil && !aa.spec.PartialSucceed {
-			ctx.Response().Std().Header().Set("X-EG-Aggregator", fmt.Sprintf("failed-in-%s",
+			httpresp.Header().Set("X-EG-Aggregator", fmt.Sprintf("failed-in-%s",
 				aa.spec.Pipelines[i].Name))
-			ctx.Response().SetStatusCode(http.StatusServiceUnavailable)
+			httpresp.SetStatusCode(http.StatusServiceUnavailable)
 			return resultFailed
 		}
 
-		if resp != nil && resp.Body() != nil {
-			if res := aa.copyHTTPBody2Map(resp.Body(), ctx, data, aa.spec.Pipelines[i].Name); len(res) != 0 {
+		if resp != nil && resp.Payload().NewReader() != nil {
+			if res := aa.copyHTTPBody2Map(resp.Payload().NewReader(), ctx, data, aa.spec.Pipelines[i].Name); len(res) != 0 {
 				return res
 			}
 		}
@@ -253,18 +254,20 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 }
 
 func (aa *APIAggregator) newHTTPReq(ctx context.Context, p *Pipeline, buff *bytes.Buffer) (*http.Request, error) {
-	var stdctx stdcontext.Context = ctx
+	httpreq := ctx.Request().(*httpprot.Request)
+
+	var stdctx stdcontext.Context = httpreq.Context()
 	if aa.spec.timeout != nil {
 		// NOTE: Cancel function could be omitted here.
 		stdctx, _ = stdcontext.WithTimeout(stdctx, *aa.spec.timeout)
 	}
 
-	method := ctx.Request().Method()
+	method := httpreq.Method()
 	if p.Method != "" {
 		method = p.Method
 	}
 
-	url := ctx.Request().Std().URL
+	url := httpreq.Std().URL
 	if p.pa != nil {
 		url.Path = p.pa.Adapt(url.Path)
 	}
@@ -278,17 +281,18 @@ func (aa *APIAggregator) newHTTPReq(ctx context.Context, p *Pipeline, buff *byte
 }
 
 func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.Context, data map[string][]byte, name string) string {
+	httpresp := ctx.Response().(*httpprot.Response)
 	respBody := bytes.NewBuffer(nil)
 
 	written, err := io.CopyN(respBody, body, aa.spec.MaxBodyBytes)
 	if written > aa.spec.MaxBodyBytes {
 		ctx.AddTag(fmt.Sprintf("apiAggregator: response body exceed %dB", aa.spec.MaxBodyBytes))
-		ctx.Response().SetStatusCode(http.StatusInsufficientStorage)
+		httpresp.SetStatusCode(http.StatusInsufficientStorage)
 		return resultFailed
 	}
 	if err != io.EOF {
 		ctx.AddTag(fmt.Sprintf("apiAggregator: read response body failed: %v", err))
-		ctx.Response().SetStatusCode(http.StatusInternalServerError)
+		httpresp.SetStatusCode(http.StatusInternalServerError)
 		return resultFailed
 	}
 
@@ -298,6 +302,7 @@ func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.Context, d
 }
 
 func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]byte) string {
+	httpresp := ctx.Response().(*httpprot.Response)
 	if aa.spec.MergeResponse {
 		result := map[string]interface{}{}
 		for _, resp := range data {
@@ -305,7 +310,7 @@ func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]b
 			if err != nil {
 				ctx.AddTag(fmt.Sprintf("apiAggregator: unmarshal %s to json object failed: %v",
 					resp, err))
-				ctx.Response().SetStatusCode(context.EGStatusBadResponse)
+				httpresp.SetStatusCode(context.EGStatusBadResponse)
 				return resultFailed
 			}
 		}
@@ -314,11 +319,11 @@ func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]b
 			ctx.AddTag(fmt.Sprintf("apiAggregator: marshal %#v to json failed: %v",
 				result, err))
 			logger.Errorf("apiAggregator: marshal %#v to json failed: %v", result, err)
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
+			httpresp.SetStatusCode(http.StatusInternalServerError)
 			return resultFailed
 		}
 
-		ctx.Response().SetBody(bytes.NewReader(buff))
+		httpresp.Payload().SetReader(bytes.NewReader(buff), true)
 	} else {
 		result := []map[string]interface{}{}
 		for _, resp := range data {
@@ -327,7 +332,7 @@ func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]b
 			if err != nil {
 				ctx.AddTag(fmt.Sprintf("apiAggregator: unmarshal %s to json object failed: %v",
 					resp, err))
-				ctx.Response().SetStatusCode(context.EGStatusBadResponse)
+				httpresp.SetStatusCode(context.EGStatusBadResponse)
 				return resultFailed
 			}
 			result = append(result, ele)
@@ -336,11 +341,11 @@ func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]b
 		if err != nil {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: marshal %#v to json failed: %v",
 				result, err))
-			ctx.Response().SetStatusCode(http.StatusInternalServerError)
+			httpresp.SetStatusCode(http.StatusInternalServerError)
 			return resultFailed
 		}
 
-		ctx.Response().SetBody(bytes.NewReader(buff))
+		httpresp.Payload().SetReader(bytes.NewReader(buff), true)
 	}
 
 	return ""

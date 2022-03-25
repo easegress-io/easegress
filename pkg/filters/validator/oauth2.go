@@ -28,7 +28,7 @@ import (
 
 	"github.com/golang-jwt/jwt"
 
-	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
@@ -138,7 +138,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 }
 
 // Validate validates the access token of a http request
-func (v *OAuth2Validator) Validate(req context.HTTPRequest) error {
+func (v *OAuth2Validator) Validate(req *httpprot.Request) error {
 	const prefix = "Bearer "
 
 	hdr := req.Header()

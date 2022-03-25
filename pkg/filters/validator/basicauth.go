@@ -33,10 +33,10 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	httpcontext "github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 type (
@@ -349,9 +349,8 @@ func parseBasicAuthorizationHeader(hdr *httpheader.HTTPHeader) (string, error) {
 }
 
 // Validate validates the Authorization header of a http request
-func (bav *BasicAuthValidator) Validate(req httpcontext.HTTPRequest) error {
-	hdr := req.Header()
-	base64credentials, err := parseBasicAuthorizationHeader(hdr)
+func (bav *BasicAuthValidator) Validate(req *httpprot.Request) error {
+	base64credentials, err := parseBasicAuthorizationHeader(httpheader.New(req.Std().Header))
 	if err != nil {
 		return err
 	}

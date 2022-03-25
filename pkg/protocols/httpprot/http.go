@@ -21,6 +21,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
 )
@@ -150,4 +151,10 @@ func (s *Server) SendRequest(req protocols.Request) (protocols.Response, error) 
 	req = req.Clone()
 
 	return nil, nil
+}
+
+func GetHTTPRequestAndResponse(ctx context.Context) (*Request, *Response) {
+	req := ctx.Request().(*Request)
+	resp := ctx.Response().(*Response)
+	return req, resp
 }

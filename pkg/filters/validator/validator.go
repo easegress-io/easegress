@@ -24,7 +24,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/signer"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -131,39 +132,39 @@ func (v *Validator) reload() {
 
 // Handle validates HTTPContext.
 func (v *Validator) Handle(ctx context.Context) string {
-	req := ctx.Request()
+	httpreq, httpresp := httpprot.GetHTTPRequestAndResponse(ctx)
 
 	prepareErrorResponse := func(status int, tagPrefix string, err error) {
-		ctx.Response().SetStatusCode(status)
+		httpresp.SetStatusCode(status)
 		ctx.AddTag(stringtool.Cat(tagPrefix, err.Error()))
 	}
 
 	if v.headers != nil {
-		if err := v.headers.Validate(req.Header()); err != nil {
+		if err := v.headers.Validate(httpheader.New(httpreq.Std().Header)); err != nil {
 			prepareErrorResponse(http.StatusBadRequest, "header validator: ", err)
 			return resultInvalid
 		}
 	}
 	if v.jwt != nil {
-		if err := v.jwt.Validate(req); err != nil {
+		if err := v.jwt.Validate(httpreq); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "JWT validator: ", err)
 			return resultInvalid
 		}
 	}
 	if v.signer != nil {
-		if err := v.signer.Verify(req.Std()); err != nil {
+		if err := v.signer.Verify(httpreq.Std()); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "signature validator: ", err)
 			return resultInvalid
 		}
 	}
 	if v.oauth2 != nil {
-		if err := v.oauth2.Validate(req); err != nil {
+		if err := v.oauth2.Validate(httpreq); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "oauth2 validator: ", err)
 			return resultInvalid
 		}
 	}
 	if v.basicAuth != nil {
-		if err := v.basicAuth.Validate(req); err != nil {
+		if err := v.basicAuth.Validate(httpreq); err != nil {
 			prepareErrorResponse(http.StatusUnauthorized, "http basic validator: ", err)
 			return resultInvalid
 		}

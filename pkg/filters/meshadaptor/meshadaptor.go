@@ -20,8 +20,9 @@ package meshadaptor
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/util/httpfilter"
-	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 )
 
@@ -104,14 +105,16 @@ func (ra *MeshAdaptor) reload() {
 
 // Handle adapts request.
 func (ra *MeshAdaptor) Handle(ctx context.Context) string {
+	httpreq := ctx.Request().(*httpprot.Request)
 	for _, serviceCanary := range ra.spec.ServiceCanaries {
-		if serviceCanary.filter.Filter(ctx) {
-			ctx.Request().Header().Adapt(serviceCanary.Header, ctx.Template())
+		if serviceCanary.filter.Filter(httpreq) {
+			// ctx.Request().Header().Adapt(serviceCanary.Header, ctx.Template())
+			// TODO: add context template here!
+			panic("")
 		}
 	}
 
-	result := ""
-	return ctx.CallNextHandler(result)
+	return ""
 }
 
 // Status returns status.

@@ -21,6 +21,7 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 // Rule is the A/B testing rule specified by user.
@@ -85,9 +86,10 @@ func (r *Rule) parse(p []byte) (err error) {
 // if true, add tag.
 // if false, do nothing.
 func (r *Rule) doMatch(ctx context.Context) {
+	httpreq := ctx.Request().(*httpprot.Request)
 	if r.isMatch(&sourceData{
-		req:      ctx.Request().Std(),
-		clientIP: ctx.Request().RealIP(),
+		req:      httpreq.Std(),
+		clientIP: httpreq.RealIP(),
 	}) {
 		ctx.Request().Header().Set(r.TagKey, r.TagValue)
 	}

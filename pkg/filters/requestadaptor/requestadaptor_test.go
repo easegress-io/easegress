@@ -315,3 +315,7 @@ func TestHandle(t *testing.T) {
 	path := ctx.Request().Path()
 	assert.Equal("/path", path)
 }
+
+func TestTemplate(t *testing.T) {
+	panic("update tempalte part in requestadaptor then update this test")
+}
