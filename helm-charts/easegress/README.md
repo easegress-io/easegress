@@ -25,7 +25,7 @@ helm install easegress -n easegress ./helm-charts/easegress
 # install with custom values
 helm install easegress -n easegress ./helm-charts/easegress \
   --set service.nodePort=4080 \
-  --set image.tag=v1.4.0 \
+  --set image.tag=v1.5.0 \
 
 # install cluster of 3 primary and 2 secondary Easegress instances
 helm install easegress -n easegress ./helm-charts/easegress \
@@ -65,7 +65,7 @@ The following table lists the configurable parameters of the MegaEase Easegress 
 | service.nodePort | int | `30780` | nodePort for easegress service. |
 | service.adminPort | int | `31255` | nodePort for egctl access. |
 | cluster.primaryReplicas | int | `1` | number of easegress service that persists cluster data to disk |
-| cluster.volumeType | string | `emptyDir` | `emptyDir`: use pods internal filesystem that is not persisted when pod crashes. `persistentVolume`, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
+| cluster.volumeType | string | `emptyDir` | `emptyDir`: use pods internal filesystem that is not persisted when pod crashes. Use `emptyDir` only when primaryReplicas is 1. | `persistentVolume`, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
 | cluster.nodeHostnames | list | `[]` | nodeHostnames are hostnames of VMs/Kubernetes nodes. Only used when `volumeType: persistentVolume`. Note that this require nodes to be static. |
 | secondaryReplicas | int | `0` | number of easegress service that not persists cluster data to disk. |
 
