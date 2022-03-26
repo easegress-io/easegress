@@ -31,19 +31,17 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/httpheader"
-	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-	"github.com/megaease/easegress/pkg/util/topn"
 )
 
 type (
 	mux struct {
 		httpStat *httpstat.HTTPStat
-		topN     *topn.TopN
+		topN     *httpstat.TopN
 
 		rules atomic.Value // *muxRules
 	}
@@ -266,8 +264,9 @@ func (mp *muxPath) hasHeaders() bool {
 }
 
 func (mp *muxPath) matchHeaders(ctx context.Context) bool {
+	req := ctx.Request().(*httpprot.Request)
 	for _, h := range mp.headers {
-		v := ctx.Request().Header().Get(h.Key)
+		v := req.HTTPHeader().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
 			return true
 		}
@@ -280,7 +279,7 @@ func (mp *muxPath) matchHeaders(ctx context.Context) bool {
 	return false
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper context.MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
@@ -480,17 +479,17 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *c
 }
 
 func (m *mux) appendXForwardedFor(r *httpprot.Request) {
-	v := r.Header().Get(httpheader.KeyXForwardedFor)
+	v := r.HTTPHeader().Get(httpprot.KeyXForwardedFor)
 	ip := r.RealIP()
 
 	if v == "" {
-		r.Header().Add(httpheader.KeyXForwardedFor, ip)
+		r.Header().Add(httpprot.KeyXForwardedFor, ip)
 		return
 	}
 
 	if !strings.Contains(v, ip) {
 		v = stringtool.Cat(v, ",", ip)
-		r.Header().Set(httpheader.KeyXForwardedFor, v)
+		r.Header().Set(httpprot.KeyXForwardedFor, v)
 	}
 }
 

@@ -57,5 +57,5 @@ func (f *Fallback) Fallback(w *httpprot.Response) {
 	for key, value := range f.spec.MockHeaders {
 		w.Header().Set(key, value)
 	}
-	w.Payload().SetReader(bytes.NewReader(f.mockBody), true)
+	w.SetPayload(bytes.NewReader(f.mockBody))
 }

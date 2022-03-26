@@ -25,6 +25,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 type (
@@ -41,8 +42,8 @@ type (
 		code        int
 		bodyWritten uint64
 
-		header         *header
-		payload        *payload
+		header         *Header
+		payload        io.ReaderAt
 		bodyFlushFuncs []BodyFlushFunc
 	}
 
@@ -55,10 +56,11 @@ var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 // NewResponse creates a new response from a standard response writer.
 func NewResponse(w http.ResponseWriter) *Response {
 	return &Response{
-		std:            w,
-		code:           http.StatusOK,
-		header:         newHeader(w.Header()),
-		payload:        newPayload(nil),
+		std:    w,
+		code:   http.StatusOK,
+		header: newHeader(w.Header()),
+		// TODO
+		// payload:        newPayload(nil),
 		bodyFlushFuncs: []BodyFlushFunc{},
 	}
 }
@@ -79,8 +81,16 @@ func (resp *Response) SetCookie(cookie *http.Cookie) {
 	http.SetCookie(resp.std, cookie)
 }
 
-func (resp *Response) Payload() protocols.Payload {
-	return resp.payload
+func (resp *Response) SetPayload(reader io.Reader) {
+	resp.payload = readers.NewReaderAt(reader)
+}
+
+func (resp *Response) GetPayloadReader() io.Reader {
+	return readers.NewReaderAtReader(resp.payload, 0)
+}
+
+func (resp *Response) HTTPHeader() http.Header {
+	return resp.header.Header
 }
 
 func (resp *Response) Header() protocols.Header {
@@ -93,11 +103,11 @@ func (resp *Response) FlushedBodyBytes() uint64 {
 
 func (resp *Response) Finish() {
 	resp.std.WriteHeader(resp.StatusCode())
-	reader := resp.payload.NewReader()
+	reader := resp.GetPayloadReader()
 	if reader == nil {
 		return
 	}
-	defer resp.Payload().Close()
+	// defer resp.Payload().Close()
 
 	copyToClient := func(src io.Reader) (succeed bool) {
 		written, err := io.Copy(resp.std, src)

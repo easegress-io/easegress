@@ -113,7 +113,7 @@ func (hf *HTTPFilter) Filter(req *httpprot.Request) bool {
 }
 
 func (hf *HTTPFilter) filterHeader(req *httpprot.Request) bool {
-	h := req.Header()
+	h := req.HTTPHeader()
 	headerMatchNum := 0
 	for key, matchRule := range hf.spec.Headers {
 		// NOTE: Quickly break for performance.
@@ -169,7 +169,7 @@ func (hf *HTTPFilter) filterProbability(req *httpprot.Request) bool {
 	case policyIPHash:
 		result = hashtool.Hash32(req.RealIP())
 	case policyHeaderHash:
-		result = hashtool.Hash32(req.Header().Get(prob.HeaderHashKey))
+		result = hashtool.Hash32(req.HTTPHeader().Get(prob.HeaderHashKey))
 	case policyRandom:
 		result = uint32(rand.Int31n(1000))
 	default:

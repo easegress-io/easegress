@@ -97,7 +97,7 @@ func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded b
 		return false
 	}
 
-	for _, value := range r.Header().Values(httpprot.KeyCacheControl) {
+	for _, value := range r.HTTPHeader().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-cache") {
 			return false
 		}
@@ -107,12 +107,13 @@ func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded b
 	if ok {
 		entry := v.(*cacheEntry)
 		w.SetStatusCode(entry.statusCode)
-		entry.header.Iter(func(key string, values []string) {
-			for _, v := range values {
+		entry.header.Walk(func(key string, value interface{}) bool {
+			for _, v := range value.([]string) {
 				w.Header().Add(key, v)
 			}
+			return true
 		})
-		w.Payload().SetReader(bytes.NewReader(entry.body), true)
+		w.SetPayload(bytes.NewReader(entry.body))
 	}
 
 	return ok
@@ -143,13 +144,13 @@ func (mc *MemoryCache) Store(r *httpprot.Request, w *httpprot.Response) {
 		return
 	}
 
-	for _, value := range r.Header().Values(httpprot.KeyCacheControl) {
+	for _, value := range r.HTTPHeader().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") {
 			return
 		}
 	}
-	for _, value := range w.Header().Values(httpprot.KeyCacheControl) {
+	for _, value := range w.HTTPHeader().Values(httpprot.KeyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") ||
 			strings.Contains(value, "must-revalidate") {

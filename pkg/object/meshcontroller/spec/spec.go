@@ -34,9 +34,9 @@ import (
 	"github.com/megaease/easegress/pkg/filters/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/httpfilter"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 

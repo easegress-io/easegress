@@ -32,11 +32,10 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/filterwriter"
-	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
-	"github.com/megaease/easegress/pkg/util/topn"
 )
 
 const (
@@ -85,7 +84,7 @@ type (
 		err   atomic.Value // error
 
 		httpStat      *httpstat.HTTPStat
-		topN          *topn.TopN
+		topN          *httpstat.TopN
 		limitListener *limitlistener.LimitListener
 	}
 
@@ -97,7 +96,7 @@ type (
 		Error string    `yaml:"error,omitempty"`
 
 		*httpstat.Status
-		TopN *topn.Status `yaml:"topN"`
+		TopN []*httpstat.Item `yaml:"topN"`
 	}
 )
 
@@ -106,7 +105,7 @@ func newRuntime(superSpec *supervisor.Spec, muxMapper context.MuxMapper) *runtim
 		superSpec: superSpec,
 		eventChan: make(chan interface{}, 10),
 		httpStat:  httpstat.New(),
-		topN:      topn.New(topNum),
+		topN:      httpstat.NewTopN(topNum),
 	}
 
 	r.mux = newMux(r.httpStat, r.topN, muxMapper)

@@ -18,64 +18,59 @@
 package httpprot
 
 import (
-	"io"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 func init() {
 	protocols.Register("http", &Protocol{})
 }
 
-type (
-	header struct {
-		header http.Header
-	}
-
-	payload struct {
-		readerAt *readers.ReaderAt
-	}
-)
-
-var _ protocols.Header = (*header)(nil)
-
-func newHeader(h http.Header) *header {
-	return &header{header: h}
+// Header wraps the http header.
+type Header struct {
+	http.Header
 }
 
-func (h *header) Add(key, value string) {
-	h.header.Add(key, value)
+func newHeader(h http.Header) *Header {
+	return &Header{Header: h}
 }
 
-func (h *header) Set(key, value string) {
-	h.header.Set(key, value)
+// Add adds the key value pair to the header.
+func (h *Header) Add(key string, value interface{}) {
+	h.Header.Add(key, value.(string))
 }
 
-func (h *header) Get(key string) string {
-	return h.header.Get(key)
+// Set sets the header entries associated with key to value.
+func (h *Header) Set(key string, value interface{}) {
+	h.Header.Set(key, value.(string))
 }
 
-func (h *header) Values(key string) []string {
-	return h.header.Values(key)
+// Get gets the first value associated with the given key.
+func (h *Header) Get(key string) interface{} {
+	return h.Header.Get(key)
 }
 
-func (h *header) Del(key string) {
-	h.header.Del(key)
+// Del deletes the values associated with key.
+func (h *Header) Del(key string) {
+	h.Header.Del(key)
 }
 
-func (h *header) Clone() protocols.Header {
-	return &header{header: h.header.Clone()}
+// Clone returns a copy of h.
+func (h *Header) Clone() protocols.Header {
+	return &Header{Header: h.Header.Clone()}
 }
 
-func (h *header) Iter(f func(key string, values []string)) {
-	for k, vs := range h.header {
-		f(k, vs)
+// Walk calls fn for each key value pair of the header.
+func (h *Header) Walk(fn func(key string, value interface{}) bool) {
+	for k, vs := range h.Header {
+		if !fn(k, vs) {
+			break
+		}
 	}
 }
 
+/*
 var _ protocols.Payload = (*payload)(nil)
 
 func newPayload(r io.Reader) *payload {
@@ -108,7 +103,7 @@ func (p *payload) Close() {
 		p.readerAt.Close()
 	}
 }
-
+*/
 type Protocol struct {
 }
 
@@ -151,10 +146,4 @@ func (s *Server) SendRequest(req protocols.Request) (protocols.Response, error) 
 	req = req.Clone()
 
 	return nil, nil
-}
-
-func GetHTTPRequestAndResponse(ctx context.Context) (*Request, *Response) {
-	req := ctx.Request().(*Request)
-	resp := ctx.Response().(*Response)
-	return req, resp
 }

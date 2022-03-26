@@ -18,7 +18,6 @@
 package protocols
 
 import (
-	"context"
 	"io"
 )
 
@@ -36,13 +35,8 @@ func Get(name string) Protocol {
 // Request is the protocol independent interface of a request.
 type Request interface {
 	Header() Header
-	Payload() Payload
-
-	// is context design in this way ok?
-	// how we deal with context relationship between multiple requests
-	Context() context.Context
-	WithContext(ctx context.Context)
-
+	SetPayload(r io.Reader)
+	GetPayloadReader() io.Reader
 	Finish()
 	Clone() Request
 }
@@ -50,25 +44,20 @@ type Request interface {
 // Response is the protocol independent interface of a response.
 type Response interface {
 	Header() Header
-	Payload() Payload
-
+	SetPayload(r io.Reader)
+	GetPayloadReader() io.Reader
 	Finish()
 }
 
+// Header is the headers of a request or response.
 type Header interface {
-	Add(key, value string)
-	Set(key, value string)
-	Get(key string) string
-	Values(key string) []string
+	Add(key string, value interface{})
+	Set(key string, value interface{})
+	Get(key string) interface{}
 	Del(key string)
+	// Walk walks all header items, and stops if fn returns false.
+	Walk(fn func(key string, value interface{}) bool)
 	Clone() Header
-	Iter(func(key string, values []string))
-}
-
-type Payload interface {
-	NewReader() io.Reader
-	SetReader(reader io.Reader, closePreviousReader bool)
-	Close()
 }
 
 type Server interface {

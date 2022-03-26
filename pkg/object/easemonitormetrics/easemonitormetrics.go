@@ -33,8 +33,8 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/httpstat"
 )
 
 const (
@@ -390,7 +390,7 @@ func (emm *EaseMonitorMetrics) httpServer2Metrics(
 		codeMetrics = append(codeMetrics, codes...)
 	}
 
-	for _, item := range *serverStatus.TopN {
+	for _, item := range serverStatus.TopN {
 		baseFieldsServerTopN := *baseFields
 		baseFieldsServerTopN.Resource = "SERVER_TOPN"
 		baseFieldsServerTopN.URL = item.Path

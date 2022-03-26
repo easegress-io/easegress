@@ -24,6 +24,7 @@ import (
 	"net/url"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/tomasen/realip"
 )
 
@@ -48,8 +49,8 @@ type (
 		std    *http.Request
 		realIP string
 
-		header  *header
-		payload *payload
+		header  *Header
+		payload io.ReaderAt
 	}
 )
 
@@ -62,8 +63,8 @@ func NewRequest(r *http.Request) *Request {
 	req.realIP = realip.FromRequest(r)
 	req.header = newHeader(r.Header)
 
-	req.payload = newPayload(r.Body)
-	req.std.Body = io.NopCloser(req.payload.NewReader())
+	req.payload = readers.NewReaderAt(r.Body)
+	req.std.Body = io.NopCloser(readers.NewReaderAtReader(req.payload, 0))
 	return req
 }
 
@@ -99,12 +100,21 @@ func (r *Request) AddCookie(cookie *http.Cookie) {
 	r.std.AddCookie(cookie)
 }
 
+func (r *Request) HTTPHeader() http.Header {
+	return r.std.Header
+}
+
 func (r *Request) Header() protocols.Header {
 	return r.header
 }
 
-func (r *Request) Payload() protocols.Payload {
-	return r.payload
+func (r *Request) SetPayload(reader io.Reader) {
+	r.payload = readers.NewReaderAt(reader)
+	r.std.Body = io.NopCloser(readers.NewReaderAtReader(r.payload, 0))
+}
+
+func (r *Request) GetPayloadReader() io.Reader {
+	return readers.NewReaderAtReader(r.payload, 0)
 }
 
 func (r *Request) Context() context.Context {
@@ -116,7 +126,7 @@ func (r *Request) WithContext(ctx context.Context) {
 }
 
 func (r *Request) Finish() {
-	r.payload.Close()
+	// r.payload.Close()
 }
 
 func (r *Request) SetMethod(method string) {
@@ -133,7 +143,8 @@ func (r *Request) SetHost(host string) {
 
 func (r *Request) Clone() protocols.Request {
 	req := r.std.Clone(context.Background())
-	req.Body = io.NopCloser(r.payload.NewReader())
+	// TODO: CLONE
+	// req.Body = io.NopCloser(r.payload.NewReader())
 	return NewRequest(req)
 }
 

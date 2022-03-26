@@ -63,7 +63,7 @@ func TestRequest(t *testing.T) {
 	assert.Equal(req.Header.Get("Cookie"), request.Header().Get("Cookie"))
 
 	// Payload reader and http.Request reader should both work
-	reader := request.Payload().NewReader()
+	reader := request.GetPayloadReader()
 	data, err := io.ReadAll(reader)
 	assert.Nil(err)
 	assert.Equal("body string", string(data))
