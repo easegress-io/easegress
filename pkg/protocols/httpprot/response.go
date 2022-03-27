@@ -85,7 +85,7 @@ func (resp *Response) SetPayload(reader io.Reader) {
 	resp.payload = readers.NewReaderAt(reader)
 }
 
-func (resp *Response) GetPayloadReader() io.Reader {
+func (resp *Response) GetPayload() io.Reader {
 	return readers.NewReaderAtReader(resp.payload, 0)
 }
 
@@ -103,7 +103,7 @@ func (resp *Response) FlushedBodyBytes() uint64 {
 
 func (resp *Response) Finish() {
 	resp.std.WriteHeader(resp.StatusCode())
-	reader := resp.GetPayloadReader()
+	reader := resp.GetPayload()
 	if reader == nil {
 		return
 	}

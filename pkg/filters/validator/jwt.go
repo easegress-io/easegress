@@ -65,7 +65,7 @@ func (v *JWTValidator) Validate(req *httpprot.Request) error {
 
 	if token == "" {
 		const prefix = "Bearer "
-		authHdr := req.Header().Get("Authorization")
+		authHdr := req.HTTPHeader().Get("Authorization")
 		if !strings.HasPrefix(authHdr, prefix) {
 			return fmt.Errorf("unexpected authorization header: %s", authHdr)
 		}

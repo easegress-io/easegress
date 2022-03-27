@@ -214,10 +214,10 @@ func (rf *RemoteFilter) handle(ctx context.Context) (result string) {
 	}()
 
 	errPrefix = "read request body"
-	reqBody := rf.limitRead(r.Payload().NewReader(), maxBodyBytes)
+	reqBody := rf.limitRead(r.GetPayload(), maxBodyBytes)
 
 	errPrefix = "read response body"
-	respBody := rf.limitRead(w.Payload().NewReader(), maxBodyBytes)
+	respBody := rf.limitRead(w.GetPayload(), maxBodyBytes)
 
 	errPrefix = "marshal context"
 	ctxBuff := rf.marshalHTTPContext(ctx, reqBody, respBody)
@@ -317,15 +317,16 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.Context) {
 	r.SetMethod(re.Method)
 	r.SetPath(re.Path)
 	r.URL().RawQuery = re.Query
-	r.Header().Iter(func(key string, values []string) {
+	r.Header().Walk(func(key string, values interface{}) bool {
 		r.Header().Del(key)
+		return true
 	})
 	for k, vs := range re.Header {
 		for _, v := range vs {
 			r.Header().Add(k, v)
 		}
 	}
-	r.Payload().SetReader(bytes.NewReader(re.Body), true)
+	r.SetPayload(re.Body)
 
 	if we == nil {
 		return

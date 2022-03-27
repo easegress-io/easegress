@@ -150,7 +150,7 @@ func (ctx *context) GetRequest(id string) protocols.Request {
 func (ctx *context) SetRequest(id string, req protocols.Request) {
 	prev := ctx.requests[id]
 	if prev != nil && prev != req {
-		prev.Finish()
+		prev.Close()
 	}
 	ctx.requests[id] = req
 }
@@ -158,7 +158,7 @@ func (ctx *context) SetRequest(id string, req protocols.Request) {
 func (ctx *context) DeleteRequest(id string) {
 	req := ctx.requests[id]
 	if req != nil {
-		req.Finish()
+		req.Close()
 		delete(ctx.requests, id)
 	}
 }
@@ -206,7 +206,7 @@ func (ctx *context) OnFinish(fn func()) {
 func (ctx *context) Finish() {
 	// TODO: add tags here
 	for _, req := range ctx.requests {
-		req.Finish()
+		req.Close()
 	}
 	for _, resp := range ctx.responses {
 		resp.Finish()

@@ -141,7 +141,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 func (v *OAuth2Validator) Validate(req *httpprot.Request) error {
 	const prefix = "Bearer "
 
-	hdr := req.Header()
+	hdr := req.HTTPHeader()
 	tokenStr := hdr.Get("Authorization")
 	if !strings.HasPrefix(tokenStr, prefix) {
 		return fmt.Errorf("unexpected authorization header: %s", tokenStr)

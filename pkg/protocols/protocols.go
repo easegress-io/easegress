@@ -23,6 +23,7 @@ import (
 
 var registry = map[string]Protocol{}
 
+// Register registers a new protocol with name.
 func Register(name string, p Protocol) {
 	registry[name] = p
 }
@@ -35,17 +36,17 @@ func Get(name string) Protocol {
 // Request is the protocol independent interface of a request.
 type Request interface {
 	Header() Header
-	SetPayload(r io.Reader)
-	GetPayloadReader() io.Reader
-	Finish()
+	SetPayload(payload []byte)
+	GetPayload() io.Reader
 	Clone() Request
+	Close()
 }
 
 // Response is the protocol independent interface of a response.
 type Response interface {
 	Header() Header
-	SetPayload(r io.Reader)
-	GetPayloadReader() io.Reader
+	SetPayload(payload io.Reader)
+	GetPayload() io.Reader
 	Finish()
 }
 

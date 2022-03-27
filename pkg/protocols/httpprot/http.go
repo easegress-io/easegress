@@ -63,74 +63,47 @@ func (h *Header) Clone() protocols.Header {
 
 // Walk calls fn for each key value pair of the header.
 func (h *Header) Walk(fn func(key string, value interface{}) bool) {
-	for k, vs := range h.Header {
-		if !fn(k, vs) {
+	for k, v := range h.Header {
+		if !fn(k, v) {
 			break
 		}
 	}
 }
 
-/*
-var _ protocols.Payload = (*payload)(nil)
-
-func newPayload(r io.Reader) *payload {
-	if r != nil {
-		return &payload{
-			readerAt: readers.NewReaderAt(r),
-		}
-	}
-	return &payload{}
-}
-
-func (p *payload) NewReader() io.Reader {
-	if p.readerAt != nil {
-		return readers.NewReaderAtReader(p.readerAt, 0)
-	}
-	return nil
-}
-
-func (p *payload) SetReader(reader io.Reader, closePreviousReader bool) {
-	if closePreviousReader {
-		if p.readerAt != nil {
-			p.readerAt.Close()
-		}
-	}
-	p.readerAt = readers.NewReaderAt(reader)
-}
-
-func (p *payload) Close() {
-	if p.readerAt != nil {
-		p.readerAt.Close()
-	}
-}
-*/
+// Protocol implements protocols.Protocol for HTTP.
 type Protocol struct {
 }
 
 var _ protocols.Protocol = (*Protocol)(nil)
 
+// CreateRequest creates a request.
 func (p *Protocol) CreateRequest(req interface{}) protocols.Request {
 	r := req.(*http.Request)
 	return NewRequest(r)
 }
 
+// CreateResponse creates a response.
 func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
 	w := resp.(http.ResponseWriter)
 	return NewResponse(w)
 }
 
+// CreateLoadBalancer creates a load balancer.
 func (p *Protocol) CreateLoadBalancer(lb string, servers []protocols.Server) (protocols.LoadBalancer, error) {
 	return nil, nil
 }
 
+// CreateServer creates a server.
 func (p *Protocol) CreateServer(uri string) (protocols.Server, error) {
 	return nil, nil
 }
 
+// CreateTrafficMatcher creates a traffic matcher.
 func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
 	return nil, nil
 }
 
+// Server implements protocols.Server for HTTP.
 type Server struct {
 	URL            string   `yaml:"url" jsonschema:"required,format=url"`
 	Tags           []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
@@ -138,10 +111,12 @@ type Server struct {
 	addrIsHostName bool
 }
 
+// Weight returns weight of the server.
 func (s *Server) Weight() int {
 	return s.W
 }
 
+// SendRequest sends request to the server and returns the response.
 func (s *Server) SendRequest(req protocols.Request) (protocols.Response, error) {
 	req = req.Clone()
 

@@ -262,7 +262,7 @@ func (hl *HeaderLookup) Handle(ctx context.Context) string {
 }
 
 func (hl *HeaderLookup) handle(ctx context.Context) string {
-	header := ctx.Request().Header()
+	header := ctx.Request().(*httpprot.Request).HTTPHeader()
 	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)

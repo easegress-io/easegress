@@ -18,6 +18,7 @@
 package httpprot
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -28,143 +29,166 @@ import (
 	"github.com/tomasen/realip"
 )
 
-type (
-	// Request provide following methods
-	// 	protocols.Request
-	// 	Std() *http.Request
-	// 	URL() *url.URL
-	// 	Path() string
-	// 	SetPath(path string)
-	// 	Scheme() string
-	// 	RealIP() string
-	// 	Proto() string
-	// 	Method() string
-	// 	SetMethod(method string)
-	// 	Host() string
-	// 	SetHost(host string)
-	// 	Cookie(name string) (*http.Cookie, error)
-	// 	Cookies() []*http.Cookie
-	// 	AddCookie(cookie *http.Cookie)
-	Request struct {
-		std    *http.Request
-		realIP string
-
-		header  *Header
-		payload io.ReaderAt
-	}
-)
+// Request wraps http.Request.
+type Request struct {
+	*http.Request
+	realIP string
+}
 
 var _ protocols.Request = (*Request)(nil)
 
-// NewRequest creates a new request from a standard request.
+// NewRequest creates a new request from a standard request, the input
+// request must be request from the Go HTTP package or nil.
 func NewRequest(r *http.Request) *Request {
-	req := &Request{}
-	req.std = r
-	req.realIP = realip.FromRequest(r)
-	req.header = newHeader(r.Header)
+	if r == nil {
+		r = &http.Request{Body: http.NoBody}
+		r.GetBody = func() (io.ReadCloser, error) {
+			return http.NoBody, nil
+		}
+		return &Request{Request: r}
+	}
 
-	req.payload = readers.NewReaderAt(r.Body)
-	req.std.Body = io.NopCloser(readers.NewReaderAtReader(req.payload, 0))
+	// The body of http.Request can only be read once, but we need our
+	// payload to support repeatable read, and the Clone of our request
+	// will also duplicate the payload. But we cannot do it directly by
+	// changing the body of the input http.Request, because it is an
+	// io.Closer, if we changes it, we don't know when to Close it.
+	//
+	// we create a new request with a new body to avoid using the input
+	// request, so that the Go HTTP package could close the body.
+	//
+	// use Clone instead of WithContext??
+	r = r.WithContext(context.Background())
+	req := &Request{Request: r}
+	ra := readers.NewReaderAt(r.Body)
+	r.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(readers.NewReaderAtReader(ra, 0)), nil
+	}
+	r.Body = io.NopCloser(req.GetPayload())
+	req.realIP = realip.FromRequest(r)
+
 	return req
 }
 
-func (r *Request) Std() *http.Request {
-	return r.std
+// SetPayload sets the payload of the request to payload.
+func (r *Request) SetPayload(payload []byte) {
+	r.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(payload)), nil
+	}
+	r.Body = io.NopCloser(r.GetPayload())
 }
 
-func (r *Request) URL() *url.URL {
-	return r.std.URL
+// GetPayload returns a new payload reader.
+func (r *Request) GetPayload() io.Reader {
+	p, _ := r.GetBody()
+	return p
 }
 
+// Clone clones the request and returns the new one.
+func (r *Request) Clone() protocols.Request {
+	stdr := r.Request.Clone(context.Background())
+
+	req := &Request{Request: stdr}
+	req.realIP = r.realIP
+	req.Body = io.NopCloser(req.GetPayload())
+
+	return req
+}
+
+// Close closes the request.
+func (r *Request) Close() {
+}
+
+// HTTPHeader returns the header of the request in type http.Header.
+func (r *Request) HTTPHeader() http.Header {
+	return r.Std().Header
+}
+
+// Header returns the header of the request in type protocols.Header.
+func (r *Request) Header() protocols.Header {
+	return newHeader(r.HTTPHeader())
+}
+
+// Scheme returns the scheme of the request.
+func (r *Request) Scheme() string {
+	if s := r.Std().URL.Scheme; s != "" {
+		return s
+	}
+	if s := r.HTTPHeader().Get("X-Forwarded-Proto"); s != "" {
+		return s
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+// RealIP returns the real IP of the request.
 func (r *Request) RealIP() string {
 	return r.realIP
 }
 
+// Std returns the underlying http.Request.
+func (r *Request) Std() *http.Request {
+	return r.Request
+}
+
+// URL returns url of the request.
+func (r *Request) URL() *url.URL {
+	return r.Std().URL
+}
+
+// Proto returns proto of the request.
 func (r *Request) Proto() string {
-	return r.std.Proto
+	return r.Std().Proto
 }
 
+// Method returns method of the request.
 func (r *Request) Method() string {
-	return r.std.Method
+	return r.Std().Method
 }
 
+// Cookie returns the named cookie.
 func (r *Request) Cookie(name string) (*http.Cookie, error) {
-	return r.std.Cookie(name)
+	return r.Std().Cookie(name)
 }
 
+// Cookies returns all cookies.
 func (r *Request) Cookies() []*http.Cookie {
-	return r.std.Cookies()
+	return r.Std().Cookies()
 }
 
+// AddCookie add a cookie to the request.
 func (r *Request) AddCookie(cookie *http.Cookie) {
-	r.std.AddCookie(cookie)
+	r.Std().AddCookie(cookie)
 }
 
-func (r *Request) HTTPHeader() http.Header {
-	return r.std.Header
-}
-
-func (r *Request) Header() protocols.Header {
-	return r.header
-}
-
-func (r *Request) SetPayload(reader io.Reader) {
-	r.payload = readers.NewReaderAt(reader)
-	r.std.Body = io.NopCloser(readers.NewReaderAtReader(r.payload, 0))
-}
-
-func (r *Request) GetPayloadReader() io.Reader {
-	return readers.NewReaderAtReader(r.payload, 0)
-}
-
+// Context returns the request context.
 func (r *Request) Context() context.Context {
-	return r.std.Context()
+	return r.Std().Context()
 }
 
-func (r *Request) WithContext(ctx context.Context) {
-	r.std = r.std.WithContext(ctx)
-}
-
-func (r *Request) Finish() {
-	// r.payload.Close()
-}
-
+// SetMethod sets the request method.
 func (r *Request) SetMethod(method string) {
-	r.std.Method = method
+	r.Std().Method = method
 }
 
+// Host returns host of the request.
 func (r *Request) Host() string {
-	return r.std.Host
+	return r.Std().Host
 }
 
+// SetHost sets host.
 func (r *Request) SetHost(host string) {
-	r.std.Host = host
+	r.Std().Host = host
 }
 
-func (r *Request) Clone() protocols.Request {
-	req := r.std.Clone(context.Background())
-	// TODO: CLONE
-	// req.Body = io.NopCloser(r.payload.NewReader())
-	return NewRequest(req)
-}
-
+// Path returns path.
 func (r *Request) Path() string {
-	return r.std.URL.Path
+	return r.Std().URL.Path
 }
 
+// SetPath sets path of the request.
 func (r *Request) SetPath(path string) {
-	r.std.URL.Path = path
-}
-
-func (r *Request) Scheme() string {
-	if s := r.std.URL.Scheme; s != "" {
-		return s
-	}
-	if s := r.std.Header.Get("X-Forwarded-Proto"); s != "" {
-		return s
-	}
-	if r.std.TLS != nil {
-		return "https"
-	}
-	return "http"
+	r.Std().URL.Path = path
 }

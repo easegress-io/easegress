@@ -18,7 +18,6 @@
 package headertojson
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -192,7 +191,7 @@ func (h *HeaderToJSON) handle(ctx context.Context) string {
 		return ""
 	}
 
-	reqBody, err := io.ReadAll(ctx.Request().Payload().NewReader())
+	reqBody, err := io.ReadAll(ctx.Request().GetPayload())
 	if err != nil {
 		return resultBodyReadErr
 	}
@@ -211,6 +210,6 @@ func (h *HeaderToJSON) handle(ctx context.Context) string {
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	ctx.Request().Payload().SetReader(bytes.NewReader(bodyBytes), true)
+	ctx.Request().SetPayload(bodyBytes)
 	return ""
 }
