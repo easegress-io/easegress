@@ -48,6 +48,7 @@ policies:
   slidingWindowType: COUNT_BASED
   slidingWindowSize: 10
   minimumNumberOfCalls: 5
+  slowCallDurationThreshold: 5s
   failureStatusCodes: [500, 503]
 defaultPolicyRef: default
 urls:
@@ -158,4 +159,110 @@ func TestBuildPolicy(t *testing.T) {
 	if p.WaitDurationInOpen != time.Minute {
 		t.Error("wait duration in open is not 1m")
 	}
+}
+
+func TestValidate(t *testing.T) {
+	t.Run("invalidFailureCode", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  failureRateThreshold: 50
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err == nil {
+			t.Errorf("set failure threshold and not set failure code, that did not fail")
+		}
+	})
+
+	t.Run("invalidFailureThreshold", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  failureStatusCodes: [500]
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err == nil {
+			t.Errorf("set failure code and not set failure rate, that did not fail")
+		}
+	})
+
+	t.Run("invalidSlowDuration", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+  slowCallRateThreshold: 1
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err == nil {
+			t.Errorf("set slow call threshold and not set slow call duration, that did not fail")
+		}
+	})
+
+	t.Run("invalidSlowCallThreshold", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+  slowCallDurationThreshold: 1m
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err == nil {
+			t.Errorf("set slow call duration and not set slow call threshold, that did not fail")
+		}
+	})
 }
