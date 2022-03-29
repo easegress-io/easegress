@@ -19,7 +19,6 @@ package httpprot
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,11 +27,7 @@ import (
 func TestResponse(t *testing.T) {
 	assert := assert.New(t)
 
-	w := httptest.NewRecorder()
-	resp := NewResponse(w)
-	assert.Equal(w, resp.Std())
-
+	resp := NewResponse(nil)
 	resp.SetStatusCode(http.StatusCreated)
 	assert.Equal(http.StatusCreated, resp.StatusCode())
-
 }

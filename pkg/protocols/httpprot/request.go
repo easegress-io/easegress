@@ -32,67 +32,66 @@ import (
 // Request wraps http.Request.
 type Request struct {
 	*http.Request
+	getPayload func() io.Reader
+
 	realIP string
 }
 
 var _ protocols.Request = (*Request)(nil)
 
-// NewRequest creates a new request from a standard request, the input
-// request must be request from the Go HTTP package or nil.
-func NewRequest(r *http.Request) *Request {
-	if r == nil {
-		r = &http.Request{Body: http.NoBody}
-		r.GetBody = func() (io.ReadCloser, error) {
-			return http.NoBody, nil
+// NewRequest creates a new request from a standard request. The input
+// request could be nil, in which case, an empty request is created.
+// The caller need to close the body of the input request, if it need
+// to be closed.
+func NewRequest(req *http.Request) *Request {
+	if req == nil {
+		req = &http.Request{Body: http.NoBody}
+		r := &Request{Request: req}
+		r.getPayload = func() io.Reader {
+			return http.NoBody
 		}
-		return &Request{Request: r}
 	}
 
-	// The body of http.Request can only be read once, but we need our
-	// payload to support repeatable read, and the Clone of our request
-	// will also duplicate the payload. But we cannot do it directly by
-	// changing the body of the input http.Request, because it is an
-	// io.Closer, if we changes it, we don't know when to Close it.
-	//
-	// we create a new request with a new body to avoid using the input
-	// request, so that the Go HTTP package could close the body.
-	//
-	// use Clone instead of WithContext??
-	r = r.WithContext(context.Background())
-	req := &Request{Request: r}
-	ra := readers.NewReaderAt(r.Body)
-	r.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(readers.NewReaderAtReader(ra, 0)), nil
+	body := req.Body
+	r := &Request{Request: req}
+	ra := readers.NewReaderAt(body)
+	r.getPayload = func() io.Reader {
+		return readers.NewReaderAtReader(ra, 0)
 	}
-	r.Body = io.NopCloser(req.GetPayload())
-	req.realIP = realip.FromRequest(r)
+	r.Body = io.NopCloser(r.GetPayload())
+	r.realIP = realip.FromRequest(req)
 
-	return req
+	return r
 }
 
 // SetPayload sets the payload of the request to payload.
 func (r *Request) SetPayload(payload []byte) {
-	r.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(payload)), nil
+	r.getPayload = func() io.Reader {
+		return bytes.NewReader(payload)
 	}
 	r.Body = io.NopCloser(r.GetPayload())
 }
 
 // GetPayload returns a new payload reader.
+// NOTE: Request could be sent more than one time, this is different from
+// http.Request, so after a request was sent, the request body should be
+// reset for next sent, like below:
+//
+//    r.Body = io.NopCloser(r.GetPayload())
 func (r *Request) GetPayload() io.Reader {
-	p, _ := r.GetBody()
-	return p
+	return r.getPayload()
 }
 
 // Clone clones the request and returns the new one.
 func (r *Request) Clone() protocols.Request {
 	stdr := r.Request.Clone(context.Background())
 
-	req := &Request{Request: stdr}
-	req.realIP = r.realIP
-	req.Body = io.NopCloser(req.GetPayload())
+	r2 := &Request{Request: stdr}
+	r2.realIP = r.realIP
+	r2.getPayload = r.getPayload
+	r2.Body = io.NopCloser(r2.GetPayload())
 
-	return req
+	return r2
 }
 
 // Close closes the request.
@@ -124,6 +123,7 @@ func (r *Request) Scheme() string {
 }
 
 // RealIP returns the real IP of the request.
+// TODO: if a request is cloned and modified, RealIP maybe wrong.
 func (r *Request) RealIP() string {
 	return r.realIP
 }

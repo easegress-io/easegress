@@ -76,16 +76,28 @@ type Protocol struct {
 
 var _ protocols.Protocol = (*Protocol)(nil)
 
-// CreateRequest creates a request.
+// CreateRequest creates a new request. The input argument should be a
+// *http.Request or nil.
+//
+// The caller need to handle the close of the body of the input request,
+// if it need to be closed. Particularly, the body of the input request
+// may be replaced, so the caller must save a reference of the original
+// body and close it when it is no longer needed.
 func (p *Protocol) CreateRequest(req interface{}) protocols.Request {
-	r := req.(*http.Request)
+	r, _ := req.(*http.Request)
 	return NewRequest(r)
 }
 
-// CreateResponse creates a response.
+// CreateResponse creates a new response. The input argument should be a
+// *http.Response or nil.
+//
+// The caller need to handle the close of the body of the input response,
+// if it need to be closed. Particularly, the body of the input response
+// may be replaced, so the caller must save a reference of the original
+// body and close it when it is no longer needed.
 func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
-	w := resp.(http.ResponseWriter)
-	return NewResponse(w)
+	r, _ := resp.(*http.Response)
+	return NewResponse(r)
 }
 
 // CreateLoadBalancer creates a load balancer.

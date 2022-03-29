@@ -263,10 +263,9 @@ func (mp *muxPath) hasHeaders() bool {
 	return len(mp.headers) > 0
 }
 
-func (mp *muxPath) matchHeaders(ctx context.Context) bool {
-	req := ctx.Request().(*httpprot.Request)
+func (mp *muxPath) matchHeaders(r *httpprot.Request) bool {
 	for _, h := range mp.headers {
-		v := req.HTTPHeader().Get(h.Key)
+		v := r.HTTPHeader().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
 			return true
 		}
@@ -358,11 +357,16 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	rules := m.rules.Load().(*muxRules)
 
+	originalBody := stdr.Body
+
 	req := httpprot.NewRequest(stdr)
-	resp := httpprot.NewResponse(stdw)
+	resp := httpprot.NewResponse(nil)
 	ctx := context.New(req, resp, rules.tracer, rules.superSpec.Name())
 	defer ctx.Finish()
 	ctx.OnFinish(func() {
+		// restore, so that the HTTP package can close it.
+		stdr.Body = originalBody
+
 		ctx.Span().Finish()
 		// TODO:
 		//	m.httpStat.Stat(ctx.StatMetric())
@@ -414,7 +418,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				return
 			}
 
-			if path.matchHeaders(ctx) {
+			if path.matchHeaders(req) {
 				// NOTE: No cache for the request matching headers.
 				ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
 				m.handleRequestWithCache(rules, ctx, ci)

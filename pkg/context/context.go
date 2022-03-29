@@ -178,7 +178,7 @@ func (ctx *context) GetResponse(id string) protocols.Response {
 func (ctx *context) SetResponse(id string, resp protocols.Response) {
 	prev := ctx.responses[id]
 	if prev != nil && prev != resp {
-		prev.Finish()
+		prev.Close()
 	}
 	ctx.responses[id] = resp
 }
@@ -186,7 +186,7 @@ func (ctx *context) SetResponse(id string, resp protocols.Response) {
 func (ctx *context) DeleteResponse(id string) {
 	resp := ctx.responses[id]
 	if resp != nil {
-		resp.Finish()
+		resp.Close()
 		delete(ctx.responses, id)
 	}
 }
@@ -209,7 +209,7 @@ func (ctx *context) Finish() {
 		req.Close()
 	}
 	for _, resp := range ctx.responses {
-		resp.Finish()
+		resp.Close()
 	}
 	for _, fn := range ctx.finishFuncs {
 		fn()

@@ -18,7 +18,6 @@
 package fallback
 
 import (
-	"bytes"
 	"strconv"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
@@ -51,11 +50,11 @@ func New(spec *Spec) *Fallback {
 }
 
 // Fallback fallbacks HTTPContext.
-func (f *Fallback) Fallback(w *httpprot.Response) {
-	w.SetStatusCode(f.spec.MockCode)
-	w.Header().Set(httpprot.KeyContentLength, f.bodyLength)
+func (f *Fallback) Fallback(r *httpprot.Response) {
+	r.SetStatusCode(f.spec.MockCode)
+	r.Header().Set(httpprot.KeyContentLength, f.bodyLength)
 	for key, value := range f.spec.MockHeaders {
-		w.Header().Set(key, value)
+		r.Header().Set(key, value)
 	}
-	w.SetPayload(bytes.NewReader(f.mockBody))
+	r.SetPayload(f.mockBody)
 }

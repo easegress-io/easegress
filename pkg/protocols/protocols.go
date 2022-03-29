@@ -45,9 +45,10 @@ type Request interface {
 // Response is the protocol independent interface of a response.
 type Response interface {
 	Header() Header
-	SetPayload(payload io.Reader)
+	SetPayload(payload []byte)
 	GetPayload() io.Reader
-	Finish()
+	Clone() Response
+	Close()
 }
 
 // Header is the headers of a request or response.

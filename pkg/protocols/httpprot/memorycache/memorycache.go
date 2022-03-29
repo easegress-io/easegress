@@ -18,7 +18,6 @@
 package memorycache
 
 import (
-	"bytes"
 	"strings"
 	"time"
 
@@ -113,7 +112,7 @@ func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded b
 			}
 			return true
 		})
-		w.SetPayload(bytes.NewReader(entry.body))
+		w.SetPayload(entry.body)
 	}
 
 	return ok

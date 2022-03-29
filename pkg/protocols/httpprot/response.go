@@ -21,138 +21,105 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"os"
 
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
 )
 
-type (
-	// Response provide following methods
-	// 	protocols.Response
-	// 	Std() http.ResponseWriter
-	// 	StatusCode() int
-	// 	SetStatusCode(code int)
-	// 	SetCookie(cookie *http.Cookie)
-	// 	FlushedBodyBytes() uint64
-	// 	OnFlushBody(fn BodyFlushFunc)
-	Response struct {
-		std         http.ResponseWriter
-		code        int
-		bodyWritten uint64
-
-		header         *Header
-		payload        io.ReaderAt
-		bodyFlushFuncs []BodyFlushFunc
-	}
-
-	BodyFlushFunc = func(body []byte, complete bool) (newBody []byte)
-)
+// Response wraps http.Response.
+type Response struct {
+	// TODO: we only need StatusCode, Header and Body, that's can avoid
+	// using the big http.Response object.
+	*http.Response
+	getPayload func() io.Reader
+}
 
 var _ protocols.Response = (*Response)(nil)
-var bodyFlushBuffSize = 8 * int64(os.Getpagesize())
 
-// NewResponse creates a new response from a standard response writer.
-func NewResponse(w http.ResponseWriter) *Response {
+// NewResponse creates a new response from a standard response. The input
+// response could be nil, in which case, an empty response is created.
+// The caller need to close the body of the input response, if it need
+// to be closed.
+func NewResponse(resp *http.Response) *Response {
+	if resp == nil {
+		return &Response{
+			Response: &http.Response{
+				Body:       http.NoBody,
+				StatusCode: http.StatusOK,
+			},
+			getPayload: func() io.Reader {
+				return http.NoBody
+			},
+		}
+	}
+
+	ra := readers.NewReaderAt(resp.Body)
+	r := &Response{Response: resp}
+	r.getPayload = func() io.Reader {
+		return readers.NewReaderAtReader(ra, 0)
+	}
+	r.Body = io.NopCloser(r.GetPayload())
+
+	return r
+}
+
+// Std returns the underlying http.Response.
+func (r *Response) Std() *http.Response {
+	return r.Response
+}
+
+// StatusCode returns the status code of the response.
+func (r *Response) StatusCode() int {
+	return r.Std().StatusCode
+}
+
+// SetStatusCode sets the status code of the response.
+func (r *Response) SetStatusCode(code int) {
+	r.Std().StatusCode = code
+}
+
+// SetCookie adds a Set-Cookie header to the response's headers.
+func (r *Response) SetCookie(cookie *http.Cookie) {
+	if v := cookie.String(); v != "" {
+		r.HTTPHeader().Add("Set-Cookie", v)
+	}
+}
+
+// SetPayload sets the payload of the response to payload.
+func (r *Response) SetPayload(payload []byte) {
+	r.getPayload = func() io.Reader {
+		return bytes.NewReader(payload)
+	}
+	r.Std().Body = io.NopCloser(r.GetPayload())
+}
+
+// GetPayload returns a new payload reader.
+func (r *Response) GetPayload() io.Reader {
+	return r.getPayload()
+}
+
+// HTTPHeader returns the header of the response in type http.Header.
+func (r *Response) HTTPHeader() http.Header {
+	return r.Std().Header
+}
+
+// Header returns the header of the response in type protocols.Header.
+func (r *Response) Header() protocols.Header {
+	return newHeader(r.HTTPHeader())
+}
+
+// Clone clones the response and returns the new one.
+func (r *Response) Clone() protocols.Response {
 	return &Response{
-		std:    w,
-		code:   http.StatusOK,
-		header: newHeader(w.Header()),
-		// TODO
-		// payload:        newPayload(nil),
-		bodyFlushFuncs: []BodyFlushFunc{},
+		Response: &http.Response{
+			StatusCode: r.StatusCode(),
+			Header:     r.HTTPHeader().Clone(),
+			Body:       io.NopCloser(r.GetPayload()),
+		},
+		getPayload: r.getPayload,
 	}
 }
 
-func (resp *Response) Std() http.ResponseWriter {
-	return resp.std
-}
-
-func (resp *Response) StatusCode() int {
-	return resp.code
-}
-
-func (resp *Response) SetStatusCode(code int) {
-	resp.code = code
-}
-
-func (resp *Response) SetCookie(cookie *http.Cookie) {
-	http.SetCookie(resp.std, cookie)
-}
-
-func (resp *Response) SetPayload(reader io.Reader) {
-	resp.payload = readers.NewReaderAt(reader)
-}
-
-func (resp *Response) GetPayload() io.Reader {
-	return readers.NewReaderAtReader(resp.payload, 0)
-}
-
-func (resp *Response) HTTPHeader() http.Header {
-	return resp.header.Header
-}
-
-func (resp *Response) Header() protocols.Header {
-	return resp.header
-}
-
-func (resp *Response) FlushedBodyBytes() uint64 {
-	return resp.bodyWritten
-}
-
-func (resp *Response) Finish() {
-	resp.std.WriteHeader(resp.StatusCode())
-	reader := resp.GetPayload()
-	if reader == nil {
-		return
-	}
-	// defer resp.Payload().Close()
-
-	copyToClient := func(src io.Reader) (succeed bool) {
-		written, err := io.Copy(resp.std, src)
-		if err != nil {
-			logger.Warnf("copy body failed: %v", err)
-			return false
-		}
-		resp.bodyWritten += uint64(written)
-		return true
-	}
-
-	if len(resp.bodyFlushFuncs) == 0 {
-		copyToClient(reader)
-		return
-	}
-
-	buff := bytes.NewBuffer(nil)
-	for {
-		buff.Reset()
-		_, err := io.CopyN(buff, reader, bodyFlushBuffSize)
-		body := buff.Bytes()
-
-		switch err {
-		case nil:
-			for _, fn := range resp.bodyFlushFuncs {
-				body = fn(body, false)
-			}
-			if !copyToClient(bytes.NewReader(body)) {
-				return
-			}
-		case io.EOF:
-			for _, fn := range resp.bodyFlushFuncs {
-				body = fn(body, true)
-			}
-
-			copyToClient(bytes.NewReader(body))
-			return
-		default:
-			resp.std.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	}
-
-}
-
-func (resp *Response) OnFlushBody(fn BodyFlushFunc) {
-	resp.bodyFlushFuncs = append(resp.bodyFlushFuncs, fn)
+// Close closes the response.
+func (r *Response) Close() {
 }
