@@ -261,6 +261,31 @@ func (mp *MuxPath) matchPath(ctx context.HTTPContext) bool {
 	return false
 }
 
+func (mp *MuxPath) handleRewrite(ctx context.HTTPContext) {
+	if mp.rewriteTarget == "" {
+		return
+	}
+
+	path := ctx.Request().Path()
+
+	if mp.path != "" {
+		ctx.Request().SetPath(mp.rewriteTarget)
+		return
+	}
+
+	if mp.pathPrefix != "" {
+		path = strings.Replace(path, mp.pathPrefix, mp.rewriteTarget, 1)
+		ctx.Request().SetPath(path)
+		return
+	}
+
+	if mp.pathRE != nil {
+		path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
+		ctx.Request().SetPath(path)
+		return
+	}
+}
+
 func (mp *MuxPath) matchMethod(ctx context.HTTPContext) bool {
 	if len(mp.methods) == 0 {
 		return true
@@ -506,11 +531,8 @@ func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.HTTPContext, c
 			m.appendXForwardedFor(ctx)
 		}
 
-		if ci.path.pathRE != nil && ci.path.rewriteTarget != "" {
-			path := ctx.Request().Path()
-			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
-			ctx.Request().SetPath(path)
-		}
+		ci.path.handleRewrite(ctx)
+
 		// global filter
 		globalFilter := m.getGlobalFilter(rules)
 		if globalFilter == nil {

@@ -19,7 +19,6 @@ package httpserver
 
 import (
 	"fmt"
-
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -125,7 +124,7 @@ func TestSearchPath(t *testing.T) {
 				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path:    "/route",
-						Headers: []*Header{&Header{Key: "content-type", Values: []string{"application/json"}}},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/json"}}},
 					}),
 				}),
 			}, FoundSkipCache,
@@ -135,7 +134,7 @@ func TestSearchPath(t *testing.T) {
 				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path:    "/route",
-						Headers: []*Header{&Header{Key: "content-type", Values: []string{"application/csv"}}},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/csv"}}},
 					}),
 				}),
 			}, MethodNotAllowed,
@@ -160,15 +159,15 @@ func TestSearchPath(t *testing.T) {
 				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path: "/multiheader", Methods: []string{http.MethodPut},
-						Headers: []*Header{&Header{Key: "content-type", Values: []string{"application/csv"}}},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/csv"}}},
 					}),
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path: "/multiheader", Methods: []string{http.MethodPut},
-						Headers: []*Header{&Header{Key: "content-type", Values: []string{"application/json"}}},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/json"}}},
 					}),
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path: "/multiheader", Methods: []string{http.MethodPut},
-						Headers: []*Header{&Header{Key: "content-type", Values: []string{"application/txt"}}},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/txt"}}},
 					}),
 				}),
 			}, FoundSkipCache,
@@ -193,12 +192,12 @@ func TestSearchPathHeadersAndIPs(t *testing.T) {
 	path1 := newMuxPath(&ipfilter.IPFilters{}, &Path{
 		IPFilter: ipfilter1,
 		Path:     "/pipeline", Methods: []string{http.MethodPost},
-		Headers: []*Header{&Header{Key: "X-version", Values: []string{"v1"}}},
+		Headers: []*Header{{Key: "X-version", Values: []string{"v1"}}},
 	})
 	path2 := newMuxPath(&ipfilter.IPFilters{}, &Path{
 		IPFilter: ipfilter2,
 		Path:     "/pipeline", Methods: []string{http.MethodPost},
-		Headers: []*Header{&Header{Key: "X-version", Values: []string{"v2"}}},
+		Headers: []*Header{{Key: "X-version", Values: []string{"v2"}}},
 	})
 	muxRules := []*muxRule{newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{path1, path2})}
 
@@ -347,4 +346,106 @@ rules:
 	ts.Close()
 
 	httpServer.Close()
+}
+
+func TestHandleRewrite(t *testing.T) {
+	assert := assert.New(t)
+
+	exceptRewritePath := "/api/activity/ex/claim"
+
+	originPath := "/tianji/exchange/activity/claim"
+
+	type MuxPathTestCase struct {
+		path           string
+		pathPrefix     string
+		pathRegexp     string
+		rewriteTarget  string
+		expectedResult string
+	}
+
+	toCtx := func(tc *MuxPathTestCase) *contexttest.MockedHTTPContext {
+		ctx := &contexttest.MockedHTTPContext{}
+		header := http.Header{}
+		setFlag := false
+		var setPath string
+		ctx.MockedRequest.MockedPath = func() string {
+			if setFlag {
+				return setPath
+			}
+			return originPath
+		}
+		ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+			return httpheader.New(header)
+		}
+		ctx.MockedRequest.MockedSetPath = func(path string) {
+			setFlag = true
+			setPath = path
+		}
+		return ctx
+	}
+
+	tests := []MuxPathTestCase{
+		// rewriteTarget is empty
+		{
+			path:           originPath,
+			pathPrefix:     "",
+			pathRegexp:     "",
+			rewriteTarget:  "",
+			expectedResult: originPath,
+		},
+
+		// path and prefix and regexp are empty
+		{
+			path:           "",
+			pathPrefix:     "",
+			pathRegexp:     "",
+			rewriteTarget:  "/api/activity/ex/claim",
+			expectedResult: originPath,
+		},
+
+		// path is not empty
+		{
+			path:           originPath,
+			pathPrefix:     "",
+			pathRegexp:     "",
+			rewriteTarget:  "/api/activity/ex/claim",
+			expectedResult: exceptRewritePath,
+		},
+		// prefix is not empty
+		{
+			path:           "",
+			pathPrefix:     "/tianji/exchange/activity",
+			pathRegexp:     "",
+			rewriteTarget:  "/api/activity/ex",
+			expectedResult: exceptRewritePath,
+		},
+
+		// regexp is not empty
+		{
+			path:           "",
+			pathPrefix:     "",
+			pathRegexp:     "^/tianji/exchange/activity/(.*)$",
+			rewriteTarget:  "/api/activity/ex/$1",
+			expectedResult: exceptRewritePath,
+		},
+	}
+
+	for i := 0; i < len(tests); i++ {
+		t.Run("test case "+fmt.Sprint(i), func(t *testing.T) {
+			testcase := tests[i]
+
+			mp := newMuxPath(&ipfilter.IPFilters{}, &Path{
+				Path:          testcase.path,
+				PathPrefix:    testcase.pathPrefix,
+				PathRegexp:    testcase.pathRegexp,
+				RewriteTarget: testcase.rewriteTarget,
+				Headers:       []*Header{{Key: "content-type", Values: []string{"application/csv"}}},
+			})
+
+			ctx := toCtx(&testcase)
+			mp.handleRewrite(ctx)
+
+			assert.Equal(ctx.Request().Path(), testcase.expectedResult)
+		})
+	}
 }
