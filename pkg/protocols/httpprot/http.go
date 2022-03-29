@@ -112,7 +112,7 @@ func (p *Protocol) CreateServer(uri string) (protocols.Server, error) {
 
 // CreateTrafficMatcher creates a traffic matcher.
 func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
-	return nil, nil
+	return NewMatcher(spec)
 }
 
 // Server implements protocols.Server for HTTP.
