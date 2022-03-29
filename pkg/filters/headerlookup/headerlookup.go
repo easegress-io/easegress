@@ -169,7 +169,7 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 		return nil, err
 	}
 	if etcdVal == nil {
-		return nil, fmt.Errorf("no data found")
+		return nil, fmt.Errorf("no data for key %s found", hl.etcdPrefix+headerVal)
 	}
 	result := make(map[string]string, len(hl.spec.HeaderSetters))
 	etcdValues := make(map[string]string)

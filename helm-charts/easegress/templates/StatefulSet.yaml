@@ -1,3 +1,8 @@
+{{- if eq .Values.cluster.volumeType "emptyDir" }}
+  {{- if ne (int .Values.cluster.primaryReplicas) 1 }}
+    {{- fail "When .Values.cluster.volumeType is 'emptyDir', .Values.cluster.primaryReplicas should be 1" }}
+  {{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:

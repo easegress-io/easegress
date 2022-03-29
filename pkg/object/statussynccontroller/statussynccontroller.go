@@ -26,6 +26,9 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/timetool"
+
+	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
+	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 )
 
 const (
@@ -50,6 +53,9 @@ type (
 		// sorted by timestamp in ascending order
 		statusesRecords      []*StatusesRecord
 		StatusesRecordsMutex sync.RWMutex
+
+		// statusUpdateMaxBatchSize is maximum statuses to update in one cluster transaction
+		statusUpdateMaxBatchSize int
 
 		done chan struct{}
 	}
@@ -125,6 +131,13 @@ func (ssc *StatusSyncController) reload() {
 	ssc.timer = timetool.NewDistributedTimer(nextSyncStatusDuration)
 	ssc.done = make(chan struct{})
 
+	opts := ssc.superSpec.Super().Options()
+	ssc.statusUpdateMaxBatchSize = opts.StatusUpdateMaxBatchSize
+	if ssc.statusUpdateMaxBatchSize < 1 {
+		ssc.statusUpdateMaxBatchSize = 20
+	}
+	logger.Infof("StatusUpdateMaxBatchSize is %d", ssc.statusUpdateMaxBatchSize)
+
 	go ssc.run()
 }
 
@@ -152,6 +165,34 @@ func (ssc *StatusSyncController) Close() {
 	ssc.timer.Close()
 }
 
+func safeMarshal(value *supervisor.Status) (string, bool) {
+	buff, err := marshalStatus(value)
+	if err != nil {
+		logger.Errorf("BUG: marshal %#v to yaml failed: %v",
+			value, err)
+		return "", false
+	}
+	return string(buff), true
+}
+
+func (ssc *StatusSyncController) splitRawconfigTrafficControllerStatus(
+	kind string,
+	status *trafficcontroller.StatusInSameNamespace,
+	statuses map[string]string,
+	statusesRecord *StatusesRecord) bool {
+	for key, value := range status.ToSyncStatus() {
+		name := ssc.superSpec.Super().Cluster().Layout().StatusObjectName(kind, key)
+		statusesRecord.Statuses[name] = value
+
+		marshalledValue, ok := safeMarshal(value)
+		if !ok {
+			return false
+		}
+		statuses[name] = marshalledValue
+	}
+	return true
+}
+
 func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 	statuses := make(map[string]string)
 	statusesRecord := &StatusesRecord{
@@ -172,16 +213,24 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		status := entity.Instance().Status()
 		status.Timestamp = unixTimestamp
 
-		statusesRecord.Statuses[name] = status
-
-		buff, err := marshalStatus(status)
-		if err != nil {
-			logger.Errorf("BUG: marshal %#v to yaml failed: %v",
-				status, err)
-			return false
+		if trafficStatus, ok := status.ObjectStatus.(*trafficcontroller.Status); ok {
+			statusInNamespaces := trafficStatus.Specs
+			for _, statInNS := range statusInNamespaces {
+				if !ssc.splitRawconfigTrafficControllerStatus(name, statInNS, statuses, statusesRecord) {
+					return false
+				}
+			}
+			return true
+		} else if rawTrafficStatus, ok := status.ObjectStatus.(*rawconfigtrafficcontroller.Status); ok {
+			return ssc.splitRawconfigTrafficControllerStatus(name, rawTrafficStatus, statuses, statusesRecord)
+		} else {
+			statusesRecord.Statuses[name] = status
+			marshalledValue, ok := safeMarshal(status)
+			if !ok {
+				return false
+			}
+			statuses[name] = marshalledValue
 		}
-		statuses[name] = string(buff)
-
 		return true
 	}
 
@@ -192,29 +241,43 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 }
 
 func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string) {
-	kvs := make(map[string]*string)
-
 	// Delete statuses which disappeared in current status.
 	if ssc.lastSyncStatuses != nil {
+		kvs := make(map[string]*string)
 		for k := range ssc.lastSyncStatuses {
 			if _, exists := statuses[k]; !exists {
 				k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
 				kvs[k] = nil
 			}
 		}
+		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+		if err != nil {
+			logger.Errorf("sync status failed. If the message size is too large, "+
+				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		}
 	}
 
 	ssc.lastSyncStatuses = statuses
 
-	for k, v := range statuses {
-		k = ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		kvs[k] = &v
+	kvs := make(map[string]*string)
+	for k, value := range statuses {
+		key := ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
+		kvs[key] = &value
+		if len(kvs) >= ssc.statusUpdateMaxBatchSize {
+			err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+			if err != nil {
+				logger.Errorf("sync status failed. If the message size is too large, "+
+					"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+			}
+			kvs = make(map[string]*string)
+		}
 	}
-
-	err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
-	if err != nil {
-		logger.Errorf("sync status failed. If the message size is too large, "+
-			"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+	if len(kvs) > 0 {
+		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
+		if err != nil {
+			logger.Errorf("sync status failed. If the message size is too large, "+
+				"please increase the value of cluster.MaxCallSendMsgSize in configuration: %v", err)
+		}
 	}
 }
 

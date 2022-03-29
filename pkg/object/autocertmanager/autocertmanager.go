@@ -253,16 +253,9 @@ func (acm *AutoCertManager) Close() {
 	acm.cancel()
 	// TODO: remove this after converting AutoCertManager to system controller.
 	//
-	// globalACM equals acm means the AutoCertManager is being deleted, so we
+	// globalACM equals nil means the AutoCertManager is being deleted, so we
 	// need to set the globalACM to nil.
-	//
-	// But note here's a race condition, the value of globalACM may no longer be
-	// 'acm' when we call globalACM.Store. Fixing the issue requires
-	// atomic.Value.CompareAndSwap, please refer the comment for Domain.UpdateCert
-	// for details.
-	if globalACM.Load() == acm {
-		globalACM.Store((*AutoCertManager)(nil))
-	}
+	globalACM.CompareAndSwap(acm, (*AutoCertManager)(nil))
 }
 
 func (acm *AutoCertManager) renew() bool {

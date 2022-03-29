@@ -143,6 +143,16 @@ failureCodes: [503, 504]
 		t.Error("proxy.Handle should fail")
 	}
 
+	// test fallback
+	ctx.MockedResponse.MockedStatusCode = func() int {
+		return http.StatusServiceUnavailable
+	}
+
+	result = proxy.Handle(ctx)
+	if result != "fallback" {
+		t.Error("proxy.Handle should fallback")
+	}
+
 	time.Sleep(10 * time.Millisecond)
 	proxy.Close()
 	time.Sleep(10 * time.Millisecond)

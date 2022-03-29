@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/version"
 )
 
-// ClusterOptions is the start-up options.
+// ClusterOptions defines the cluster members.
 type ClusterOptions struct {
 	// Primary members define following URLs to form a cluster.
 	ListenPeerURLs           []string          `yaml:"listen-peer-urls"`
@@ -94,6 +94,9 @@ type Options struct {
 	// Profile.
 	CPUProfileFile    string `yaml:"cpu-profile-file"`
 	MemoryProfileFile string `yaml:"memory-profile-file"`
+
+	// Status
+	StatusUpdateMaxBatchSize int `yaml:"status-update-max-batch-size"`
 
 	// Prepare the items below in advance.
 	AbsHomeDir   string `yaml:"-"`
@@ -160,6 +163,8 @@ func New() *Options {
 
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
 	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
+
+	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
 
 	opt.viper.BindPFlags(opt.flags)
 

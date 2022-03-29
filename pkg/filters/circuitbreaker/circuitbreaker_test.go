@@ -158,3 +158,84 @@ func TestBuildPolicy(t *testing.T) {
 		t.Error("wait duration in open is not 1m")
 	}
 }
+
+func TestValidate(t *testing.T) {
+	t.Run("invalidFailureCode", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  failureRateThreshold: 50
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err == nil {
+			t.Errorf("set failure threshold and not set failure code, that did not fail")
+		}
+	})
+	t.Run("validFailureLegalityByCountingNetworkError", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  failureRateThreshold: 50
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+  countingNetworkError: true
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err != nil {
+			t.Errorf("set failure threshold and countingNetworkError is true, not set failure code, that is fail")
+		}
+	})
+
+	t.Run("validFailureLegalityByFailureStatusCodes", func(t *testing.T) {
+		const yamlSpec = `
+kind: CircuitBreaker
+name: circuitbreaker
+policies:
+- name: default
+  failureRateThreshold: 50
+  slidingWindowType: COUNT_BASED
+  slidingWindowSize: 10
+  failureStatusCodes: [500]
+defaultPolicyRef: default
+urls:
+- methods: []
+  url:
+    exact: /circuitbreak
+    prefix:
+    regex:
+`
+		rawSpec := make(map[string]interface{})
+		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+
+		_, err := httppipeline.NewFilterSpec(rawSpec, nil)
+		if err != nil {
+			t.Errorf("set failure threshold and countingNetworkError is true, not set failure code, that is fail")
+		}
+	})
+}

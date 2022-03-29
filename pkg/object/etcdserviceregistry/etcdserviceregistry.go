@@ -18,6 +18,7 @@
 package eserviceregistry
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"sync"
@@ -26,7 +27,6 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/contexttool"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"gopkg.in/yaml.v2"
@@ -303,12 +303,10 @@ func (e *EtcdServiceRegistry) ApplyServiceInstances(instances map[string]*servic
 		ops = append(ops, clientv3.OpPut(key, string(buff)))
 	}
 
-	_, err = client.Txn(contexttool.TimeoutContext(requestTimeout)).Then(ops...).Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+	_, err = client.Txn(ctx).Then(ops...).Commit()
+	return err
 }
 
 // DeleteServiceInstances applies service instances to the registry.
@@ -325,23 +323,15 @@ func (e *EtcdServiceRegistry) DeleteServiceInstances(instances map[string]*servi
 		ops = append(ops, clientv3.OpDelete(key))
 	}
 
-	_, err = client.Txn(contexttool.TimeoutContext(requestTimeout)).Then(ops...).Commit()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+	_, err = client.Txn(ctx).Then(ops...).Commit()
+	return err
 }
 
 // GetServiceInstance get service instance from the registry.
 func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string) (*serviceregistry.ServiceInstanceSpec, error) {
-	client, err := e.getClient()
-	if err != nil {
-		return nil, fmt.Errorf("%s get etcd client failed: %v",
-			e.superSpec.Name(), err)
-	}
-
-	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.serviceInstanceEtcdKeyFromRaw(serviceName, instanceID))
+	resp, err := e.getWithTimeout(requestTimeout, e.serviceInstanceEtcdKeyFromRaw(serviceName, instanceID))
 	if err != nil {
 		return nil, err
 	}
@@ -364,15 +354,22 @@ func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string)
 	return instance, nil
 }
 
-// ListServiceInstances list service instances of one service from the registry.
-func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+func (e *EtcdServiceRegistry) getWithTimeout(timeout time.Duration, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	client, err := e.getClient()
 	if err != nil {
 		return nil, fmt.Errorf("%s get etcd client failed: %v",
 			e.superSpec.Name(), err)
 	}
 
-	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.serviceEtcdPrefix(serviceName), clientv3.WithPrefix())
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	return client.Get(ctx, key, opts...)
+}
+
+// ListServiceInstances list service instances of one service from the registry.
+func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[string]*serviceregistry.ServiceInstanceSpec, error) {
+	resp, err := e.getWithTimeout(requestTimeout, e.serviceEtcdPrefix(serviceName), clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -398,13 +395,7 @@ func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[stri
 
 // ListAllServiceInstances list all service instances from the registry.
 func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregistry.ServiceInstanceSpec, error) {
-	client, err := e.getClient()
-	if err != nil {
-		return nil, fmt.Errorf("%s get etcd client failed: %v",
-			e.superSpec.Name(), err)
-	}
-
-	resp, err := client.Get(contexttool.TimeoutContext(requestTimeout), e.spec.Prefix, clientv3.WithPrefix())
+	resp, err := e.getWithTimeout(requestTimeout, e.spec.Prefix, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

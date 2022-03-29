@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+env:
+  GO_VERSION: 1.17
+
 permissions:
   contents: write
 
@@ -19,7 +22,7 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
         uses: actions/checkout@v2
@@ -36,7 +39,7 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
         uses: actions/checkout@v2
@@ -55,7 +58,7 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
         uses: actions/checkout@v2
@@ -72,7 +75,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v2
         with:
-          go-version: 1.16
+          go-version: ${{ env.GO_VERSION }}
       - uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}

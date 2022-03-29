@@ -42,10 +42,7 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 			s.Shutdown(context.Background())
 		})
 		if !notFoundFlag {
-			m.HandleFunc(serviceConfigURL, func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
-			})
-			m.HandleFunc(globalTransmissionConfigURL, func(w http.ResponseWriter, r *http.Request) {
+			m.HandleFunc(agentConfigURL, func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 			})
 		}
@@ -56,7 +53,7 @@ func createHTTPServer(finished chan bool, notFoundFlag bool) error {
 		finished <- true
 	}()
 
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	for i := 0; ; i++ {
 		resp, err := client.Get("http://127.0.0.1:8181/hello")
 		if err == nil {
@@ -103,23 +100,15 @@ func TestAgentClientSuccess(t *testing.T) {
 	fmt.Printf("%+v\n", agent)
 
 	service := getTestService()
-	// UpdateService check
-	err = agent.UpdateService(&service, 1)
+	err = agent.UpdateAgentConfig(&AgentConfig{
+		Service: service,
+	})
 	if err != nil {
 		t.Errorf("agent update service failed: %v\n", err)
 	}
 
-	// UpdateGlobalTransmission
-	transmission := &spec.GlobalTransmission{
-		Headers: []string{},
-	}
-	err = agent.UpdateGlobalTransmission(transmission)
-	if err != nil {
-		t.Errorf("agent update canary failed: %v\n", err)
-	}
-
 	// shutdown
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	client.Get("http://127.0.0.1:8181/shutdown")
 	<-finished
 }
@@ -129,15 +118,7 @@ func TestAgentClientFail(t *testing.T) {
 	agent := NewAgentClient("127.0.0.1", "8181")
 	service := getTestService()
 
-	// test without available service
-	err := agent.UpdateService(&service, 1)
-	if err == nil {
-		t.Errorf("agent should fail\n")
-	}
-	transmission := &spec.GlobalTransmission{
-		Headers: []string{},
-	}
-	err = agent.UpdateGlobalTransmission(transmission)
+	err := agent.UpdateAgentConfig(&AgentConfig{Service: service})
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}
@@ -150,17 +131,13 @@ func TestAgentClientFail(t *testing.T) {
 		return
 	}
 
-	err = agent.UpdateService(&service, 1)
-	if err == nil {
-		t.Errorf("agent should fail\n")
-	}
-	err = agent.UpdateGlobalTransmission(transmission)
+	err = agent.UpdateAgentConfig(&AgentConfig{Service: service})
 	if err == nil {
 		t.Errorf("agent should fail\n")
 	}
 
 	// shutdown
-	var client = &http.Client{Timeout: time.Second}
+	client := &http.Client{Timeout: time.Second}
 	client.Get("http://127.0.0.1:8181/shutdown")
 	<-finished
 }
