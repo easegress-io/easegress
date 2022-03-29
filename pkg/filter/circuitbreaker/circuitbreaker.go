@@ -110,20 +110,8 @@ URLLoop:
 
 func (spec Spec) validatePoliciesSpec() error {
 	for _, p := range spec.Policies {
-		//group of failure
-		if p.FailureRateThreshold == 0 && len(p.FailureStatusCodes) != 0 {
-			return fmt.Errorf("policy '%s' has setted failure status code, but not set failure threshold ", p.Name)
-		}
-		if p.FailureRateThreshold != 0 && len(p.FailureStatusCodes) == 0 {
-			return fmt.Errorf("policy '%s' has setted failure threshold, but not set failure status code ", p.Name)
-		}
-
-		//group of slow
-		if p.SlowCallRateThreshold != 0 && (p.SlowCallDurationThreshold == "" || strings.TrimSpace(p.SlowCallDurationThreshold) == "") {
-			return fmt.Errorf("policy '%s' has setted slow call threshold, but not set slow call duration ", p.Name)
-		}
-		if p.SlowCallRateThreshold == 0 && (p.SlowCallDurationThreshold != "" || strings.TrimSpace(p.SlowCallDurationThreshold) != "") {
-			return fmt.Errorf("policy '%s' has setted slow call duration, but not set slow call threshold ", p.Name)
+		if p.FailureRateThreshold != 0 && len(p.FailureStatusCodes) == 0 && !p.CountingNetworkError {
+			return fmt.Errorf("policy '%s' has setted failure threshold and countingNetworkError is false, but not set failure status code", p.Name)
 		}
 	}
 	return nil
