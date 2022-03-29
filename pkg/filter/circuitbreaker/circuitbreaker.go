@@ -111,7 +111,7 @@ URLLoop:
 func (spec Spec) validatePoliciesSpec() error {
 	for _, p := range spec.Policies {
 		if p.FailureRateThreshold != 0 && len(p.FailureStatusCodes) == 0 && !p.CountingNetworkError {
-			return fmt.Errorf("policy '%s' has setted failure threshold and countingNetworkError is false, but not set failure status code", p.Name)
+			return fmt.Errorf("policy '%s' has set failure threshold and countingNetworkError is false, but not set failure status code", p.Name)
 		}
 	}
 	return nil
