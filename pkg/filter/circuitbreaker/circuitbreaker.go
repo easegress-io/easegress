@@ -49,8 +49,8 @@ type (
 	Policy struct {
 		Name                             string `yaml:"name" jsonschema:"required"`
 		SlidingWindowType                string `yaml:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
-		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,maximum=100"`
+		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,maximum=100"`
 		CountingNetworkError             bool   `yaml:"countingNetworkError" jsonschema:"omitempty"`
 		SlidingWindowSize                uint32 `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
 		PermittedNumberOfCallsInHalfOpen uint32 `yaml:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
@@ -87,8 +87,8 @@ type (
 	}
 )
 
-// Validate implements custom validation for Spec
-func (spec Spec) Validate() error {
+// check policy of url usage whether defined
+func (spec Spec) validateURLPoliciesUsage() error {
 URLLoop:
 	for _, u := range spec.URLs {
 		name := u.PolicyRef
@@ -105,6 +105,28 @@ URLLoop:
 		return fmt.Errorf("policy '%s' is not defined", name)
 	}
 
+	return nil
+}
+
+func (spec Spec) validatePoliciesSpec() error {
+	for _, p := range spec.Policies {
+		if p.FailureRateThreshold != 0 && len(p.FailureStatusCodes) == 0 && !p.CountingNetworkError {
+			return fmt.Errorf("policy '%s' has set failure threshold and countingNetworkError is false, but not set failure status code", p.Name)
+		}
+	}
+	return nil
+}
+
+// Validate implements custom validation for Spec
+func (spec Spec) Validate() error {
+	err := spec.validateURLPoliciesUsage()
+	if err != nil {
+		return err
+	}
+	err = spec.validatePoliciesSpec()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
