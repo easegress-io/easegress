@@ -18,6 +18,7 @@
 package httpserver
 
 import (
+	"io"
 	"net"
 	"net/http"
 	"reflect"
@@ -351,31 +352,51 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 }
 
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
-	// HTTP-01 challenges requires HTTP server to listen on port 80, but we don't
-	// know which HTTP server listen on this port (consider there's an nginx sitting
-	// in front of Easegress), so all HTTP servers need to handle HTTP-01 challenges.
+	// HTTP-01 challenges requires HTTP server to listen on port 80, but we
+	// don't know which HTTP server listen on this port (consider there's an
+	// nginx sitting in front of Easegress), so all HTTP servers need to
+	// handle HTTP-01 challenges.
 	if strings.HasPrefix(stdr.URL.Path, "/.well-known/acme-challenge/") {
 		autocertmanager.HandleHTTP01Challenge(stdw, stdr)
 		return
 	}
 
-	rules := m.rules.Load().(*muxRules)
-
+	// The body of the original request maybe changed by handlers, we
+	// need to restore it before the return of this funtion to make
+	// sure it can be correctly closed by the standard Go HTTP package.
 	originalBody := stdr.Body
 
+	// Get the mux rules to use.
+	rules := m.rules.Load().(*muxRules)
+
+	// Create the context.
 	req := httpprot.NewRequest(stdr)
 	resp := httpprot.NewResponse(nil)
 	ctx := context.New(req, resp, rules.tracer, rules.superSpec.Name())
-	defer ctx.Finish()
-	ctx.OnFinish(func() {
-		// restore, so that the HTTP package can close it.
-		stdr.Body = originalBody
 
+	defer func() {
+		// flush the response, note ctx.Response may return a different
+		// response from the one we used to create the context.
+		resp = ctx.Response().(*httpprot.Response)
+		header := stdw.Header()
+		for k, v := range resp.HTTPHeader() {
+			header[k] = v
+		}
+		stdw.WriteHeader(resp.StatusCode())
+		io.Copy(stdw, resp.GetPayload())
+
+		ctx.Finish()
+
+		// TODO: should be called in ctx.Finish()
 		ctx.Span().Finish()
+
 		// TODO:
 		//	m.httpStat.Stat(ctx.StatMetric())
 		m.topN.Stat(ctx)
-	})
+
+		// restore the body of the origin request.
+		stdr.Body = originalBody
+	}()
 
 	ci := rules.getCacheItem(req)
 	if ci != nil {
