@@ -78,29 +78,18 @@ type (
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path            string
-		pathPrefix      string
-		pathRegexp      string
-		pathRE          *regexp.Regexp
-		methods         []string
-		rewriteTarget   string
-		backend         string
-		headers         []*Header
-		matchedPathType PathType
+		path          string
+		pathPrefix    string
+		pathRegexp    string
+		pathRE        *regexp.Regexp
+		methods       []string
+		rewriteTarget string
+		backend       string
+		headers       []*Header
 	}
 
 	// SearchResult is returned by SearchPath
 	SearchResult string
-
-	// PathType is the type of path
-	PathType string
-)
-
-// kinds of path
-const (
-	PATH   PathType = "path"
-	PREFIX PathType = "prefix"
-	REGEXP PathType = "regexp"
 )
 
 // newIPFilterChain returns nil if the number of final filters is zero.
@@ -260,15 +249,14 @@ func (mp *MuxPath) matchPath(ctx context.HTTPContext) bool {
 	}
 
 	if mp.path != "" && mp.path == r.Path() {
-		mp.matchedPathType = PATH
 		return true
 	}
+
 	if mp.pathPrefix != "" && strings.HasPrefix(r.Path(), mp.pathPrefix) {
-		mp.matchedPathType = PREFIX
 		return true
 	}
+
 	if mp.pathRE != nil && mp.pathRE.MatchString(r.Path()) {
-		mp.matchedPathType = REGEXP
 		return true
 	}
 
@@ -282,15 +270,19 @@ func (mp *MuxPath) handleRewrite(ctx context.HTTPContext) {
 
 	path := ctx.Request().Path()
 
-	switch mp.matchedPathType {
-	case PATH:
-		path = mp.rewriteTarget
-	case PREFIX:
-		path = strings.Replace(path, mp.pathPrefix, mp.rewriteTarget, 1)
-	case REGEXP:
-		path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
+	if mp.path != "" && mp.path == path {
+		ctx.Request().SetPath(mp.rewriteTarget)
+		return
 	}
 
+	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
+		path = mp.rewriteTarget + path[len(mp.pathPrefix):]
+		ctx.Request().SetPath(path)
+		return
+	}
+
+	// sure (mp.pathRE != nil && mp.pathRE.MatchString(path)) is true
+	path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
 	ctx.Request().SetPath(path)
 }
 

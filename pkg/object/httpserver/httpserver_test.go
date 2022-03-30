@@ -354,11 +354,10 @@ func TestMatchPath(t *testing.T) {
 	originPath := "/tianji/exchange/activity/claim"
 
 	type MuxPathTestCase struct {
-		path                    string
-		pathPrefix              string
-		pathRegexp              string
-		expectedMatchedPathType PathType
-		expectedResult          bool
+		path           string
+		pathPrefix     string
+		pathRegexp     string
+		expectedResult bool
 	}
 
 	toCtx := func(tc *MuxPathTestCase) *contexttest.MockedHTTPContext {
@@ -376,58 +375,51 @@ func TestMatchPath(t *testing.T) {
 	tests := []MuxPathTestCase{
 		// matched, but path and prefix and regexp are empty
 		{
-			expectedMatchedPathType: "",
-			expectedResult:          true,
+			expectedResult: true,
 		},
 
 		// path
 		{
-			path:                    originPath + "/a",
-			pathPrefix:              "",
-			pathRegexp:              "",
-			expectedMatchedPathType: "",
-			expectedResult:          false,
+			path:           originPath + "/a",
+			pathPrefix:     "",
+			pathRegexp:     "",
+			expectedResult: false,
 		},
 
 		{
-			path:                    originPath,
-			pathPrefix:              "",
-			pathRegexp:              "",
-			expectedMatchedPathType: PATH,
-			expectedResult:          true,
+			path:           originPath,
+			pathPrefix:     "",
+			pathRegexp:     "",
+			expectedResult: true,
 		},
 
 		// prefix
 		{
-			path:                    "",
-			pathPrefix:              "/1tianji/exchange/activity",
-			pathRegexp:              "",
-			expectedMatchedPathType: "",
-			expectedResult:          false,
+			path:           "",
+			pathPrefix:     "/1tianji/exchange/activity",
+			pathRegexp:     "",
+			expectedResult: false,
 		},
 		{
-			path:                    "",
-			pathPrefix:              "/tianji/exchange/activity",
-			pathRegexp:              "",
-			expectedMatchedPathType: PREFIX,
-			expectedResult:          true,
+			path:           "",
+			pathPrefix:     "/tianji/exchange/activity",
+			pathRegexp:     "",
+			expectedResult: true,
 		},
 
 		// regexp
 		{
-			path:                    "",
-			pathPrefix:              "",
-			pathRegexp:              "^/1tianji/exchange/activity/(.*)$",
-			expectedMatchedPathType: REGEXP,
-			expectedResult:          false,
+			path:           "",
+			pathPrefix:     "",
+			pathRegexp:     "^/1tianji/exchange/activity/(.*)$",
+			expectedResult: false,
 		},
 
 		{
-			path:                    "",
-			pathPrefix:              "",
-			pathRegexp:              "^/tianji/exchange/activity/(.*)$",
-			expectedMatchedPathType: REGEXP,
-			expectedResult:          true,
+			path:           "",
+			pathPrefix:     "",
+			pathRegexp:     "^/tianji/exchange/activity/(.*)$",
+			expectedResult: true,
 		},
 	}
 
@@ -446,7 +438,6 @@ func TestMatchPath(t *testing.T) {
 			r := mp.matchPath(ctx)
 
 			assert.Equal(testcase.expectedResult, r)
-			assert.Equal(testcase.expectedMatchedPathType, mp.matchedPathType)
 		})
 	}
 }
@@ -459,12 +450,11 @@ func TestHandleRewrite(t *testing.T) {
 	originPath := "/tianji/exchange/activity/claim"
 
 	type MuxPathTestCase struct {
-		path            string
-		pathPrefix      string
-		pathRegexp      string
-		matchedPathType PathType
-		rewriteTarget   string
-		expectedResult  string
+		path           string
+		pathPrefix     string
+		pathRegexp     string
+		rewriteTarget  string
+		expectedResult string
 	}
 
 	toCtx := func(tc *MuxPathTestCase) *contexttest.MockedHTTPContext {
@@ -495,39 +485,30 @@ func TestHandleRewrite(t *testing.T) {
 			expectedResult: originPath,
 		},
 
-		// matched, but path and prefix and regexp are empty, ignore rewriteTarget
-		{
-			rewriteTarget:  "ingore",
-			expectedResult: originPath,
-		},
-
 		// path is not empty
 		{
-			path:            originPath,
-			pathPrefix:      "",
-			pathRegexp:      "",
-			matchedPathType: PATH,
-			rewriteTarget:   "/api/activity/ex/claim",
-			expectedResult:  exceptRewritePath,
+			path:           originPath,
+			pathPrefix:     "",
+			pathRegexp:     "",
+			rewriteTarget:  "/api/activity/ex/claim",
+			expectedResult: exceptRewritePath,
 		},
 		// prefix is not empty
 		{
-			path:            "",
-			pathPrefix:      "/tianji/exchange/activity",
-			pathRegexp:      "",
-			matchedPathType: PREFIX,
-			rewriteTarget:   "/api/activity/ex",
-			expectedResult:  exceptRewritePath,
+			path:           "",
+			pathPrefix:     "/tianji/exchange/activity",
+			pathRegexp:     "",
+			rewriteTarget:  "/api/activity/ex",
+			expectedResult: exceptRewritePath,
 		},
 
 		// regexp is not empty
 		{
-			path:            "",
-			pathPrefix:      "",
-			pathRegexp:      "^/tianji/exchange/activity/(.*)$",
-			matchedPathType: REGEXP,
-			rewriteTarget:   "/api/activity/ex/$1",
-			expectedResult:  exceptRewritePath,
+			path:           "",
+			pathPrefix:     "",
+			pathRegexp:     "^/tianji/exchange/activity/(.*)$",
+			rewriteTarget:  "/api/activity/ex/$1",
+			expectedResult: exceptRewritePath,
 		},
 	}
 
@@ -542,8 +523,6 @@ func TestHandleRewrite(t *testing.T) {
 				RewriteTarget: testcase.rewriteTarget,
 				Headers:       []*Header{{Key: "content-type", Values: []string{"application/csv"}}},
 			})
-
-			mp.matchedPathType = testcase.matchedPathType
 
 			ctx := toCtx(&testcase)
 			mp.handleRewrite(ctx)
