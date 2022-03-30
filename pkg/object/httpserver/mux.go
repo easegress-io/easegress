@@ -78,18 +78,28 @@ type (
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path          string
-		pathPrefix    string
-		pathRegexp    string
-		pathRE        *regexp.Regexp
-		methods       []string
-		rewriteTarget string
-		backend       string
-		headers       []*Header
+		path            string
+		pathPrefix      string
+		pathRegexp      string
+		pathRE          *regexp.Regexp
+		methods         []string
+		rewriteTarget   string
+		backend         string
+		headers         []*Header
+		matchedPathType PathType
 	}
 
 	// SearchResult is returned by SearchPath
 	SearchResult string
+
+	// PathType is the type of path
+	PathType string
+)
+
+const (
+	PATH   PathType = "path"
+	PREFIX PathType = "prefix"
+	REGEXP PathType = "regexp"
 )
 
 // newIPFilterChain returns nil if the number of final filters is zero.
@@ -249,13 +259,16 @@ func (mp *MuxPath) matchPath(ctx context.HTTPContext) bool {
 	}
 
 	if mp.path != "" && mp.path == r.Path() {
+		mp.matchedPathType = PATH
 		return true
 	}
 	if mp.pathPrefix != "" && strings.HasPrefix(r.Path(), mp.pathPrefix) {
+		mp.matchedPathType = PREFIX
 		return true
 	}
-	if mp.pathRE != nil {
-		return mp.pathRE.MatchString(r.Path())
+	if mp.pathRE != nil && mp.pathRE.MatchString(r.Path()) {
+		mp.matchedPathType = REGEXP
+		return true
 	}
 
 	return false
@@ -268,22 +281,16 @@ func (mp *MuxPath) handleRewrite(ctx context.HTTPContext) {
 
 	path := ctx.Request().Path()
 
-	if mp.path != "" {
-		ctx.Request().SetPath(mp.rewriteTarget)
-		return
-	}
-
-	if mp.pathPrefix != "" {
+	switch mp.matchedPathType {
+	case PATH:
+		path = mp.rewriteTarget
+	case PREFIX:
 		path = strings.Replace(path, mp.pathPrefix, mp.rewriteTarget, 1)
-		ctx.Request().SetPath(path)
-		return
+	case REGEXP:
+		path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
 	}
 
-	if mp.pathRE != nil {
-		path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
-		ctx.Request().SetPath(path)
-		return
-	}
+	ctx.Request().SetPath(path)
 }
 
 func (mp *MuxPath) matchMethod(ctx context.HTTPContext) bool {
