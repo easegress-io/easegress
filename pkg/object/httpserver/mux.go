@@ -96,6 +96,7 @@ type (
 	PathType string
 )
 
+// kinds of path
 const (
 	PATH   PathType = "path"
 	PREFIX PathType = "prefix"

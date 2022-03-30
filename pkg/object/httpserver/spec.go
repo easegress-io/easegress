@@ -201,7 +201,6 @@ func (h *Header) Validate() error {
 }
 
 // Validate validates Path.
-
 func (p *Path) Validate() error {
 	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
 		return fmt.Errorf("rewriteTarget is specified but path is empty")
