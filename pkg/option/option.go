@@ -176,9 +176,9 @@ func (opt *Options) YAML() string {
 	return opt.yamlStr
 }
 
-// UseInitialCluster returns true if the cluster.initial-cluster is defined. If it is, the ClusterJoinUrls is ignored.
+// UseInitialCluster returns true if the cluster.initial-cluster is defined or cluster-join-urls is empty.
 func (opt *Options) UseInitialCluster() bool {
-	return len(opt.Cluster.InitialCluster) > 0
+	return len(opt.Cluster.InitialCluster) > 0 || len(opt.ClusterJoinURLs) == 0
 }
 
 // renameLegacyClusterRoles renames legacy writer/reader --> primary/secondary and raises warning.
