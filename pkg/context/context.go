@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	// DefaultRequestID is the ID of the default request.
-	DefaultRequestID = "default"
-	// DefaultResponseID is the ID of the default response.
-	DefaultResponseID = "default"
+	// InitialRequestID is the ID of the initial request.
+	InitialRequestID = "initial"
+	// DefaultResponseID is the ID of the initial response.
+	InitialResponseID = "initial"
 )
 
 type (
@@ -49,21 +49,43 @@ type (
 		// StatMetric() *httpstat.Metric
 
 		AddTag(tag string)
-		AddLazyTag(LazyTagFunc)
+		AddLazyTag(func() string)
 
-		// questions
-		// 1. setrequest, setresponse should only be used by pipeline
-		//    filters like request builder and response builder should use method SetRequestByID and SetResponseByID
-		// 2. how about gc when replace old request and response by new request and response
-		//    only happen in function SetRequestByID and SetResponseByID, propose to add close option in function signature
-		//    propose to change SetRequest(req Request) and SetResponse(resp Response) to UseRequest(id string) and UseResponse(id string)
-		//    this can help avoid potential memory leak.
-		UseRequest(id string)
+		// UseRequest set the requests to use.
+		//
+		// dflt set the default request, the next call to Request returns
+		// this request, if this parameter is empty, InitialRequestID will be
+		// used.
+		//
+		// base & target are for request producers, the request producer
+		// creates a new request based on the base request, update its content
+		// and then save it as the target request.
+		//
+		// If parameter base is empty, a new request is created with default
+		// content; if paramter target is empty, InitialRequestID will be used;
+		// if base equals to target, the request will be updated in place.
+		UseRequest(dflt, base, target string)
+		BaseRequestID() string
+		TargetRequestID() string
+
 		Request() protocols.Request
 		Requests() map[string]protocols.Request
 		GetRequest(id string) protocols.Request
 		SetRequest(id string, req protocols.Request)
 		DeleteRequest(id string)
+
+		// UseResponse set the reponses to use.
+		//
+		// base & target are for response producers, the response producer
+		// creates a new response based on the base response, update its content
+		// and then save it as the target response.
+		//
+		// If parameter base is empty, a new response is created with default
+		// content; if paramter target is empty, InitialResponseID will be used;
+		// if base equals to target, the response will be updated in place.
+		UseResponse(base, target string)
+		BaseResponseID() string
+		TargetResponseID() string
 
 		Response() protocols.Response
 		Responses() map[string]protocols.Response
@@ -79,18 +101,21 @@ type (
 		Finish()
 	}
 
-	LazyTagFunc func() string
-
 	// context manage requests and responses
 	// there are no HTTPContext and MQTTContext, but only HTTPRequest, HTTPResponse,
 	// MQTTRequest and MQTTResponse
 	context struct {
-		lazyTags []LazyTagFunc
+		lazyTags []func() string
 
-		request   protocols.Request
-		requests  map[string]protocols.Request
-		response  protocols.Response
-		responses map[string]protocols.Response
+		baseRequestID   string
+		targetRequestID string
+		request         protocols.Request
+		requests        map[string]protocols.Request
+
+		baseResponseID   string
+		targetResponseID string
+		response         protocols.Response
+		responses        map[string]protocols.Response
 
 		kv          map[interface{}]interface{}
 		finishFuncs []func()
@@ -104,11 +129,11 @@ func New(req protocols.Request, resp protocols.Response, tracer *tracing.Tracing
 	ctx := &context{
 		request: req,
 		requests: map[string]protocols.Request{
-			DefaultRequestID: req,
+			InitialRequestID: req,
 		},
 		response: resp,
 		responses: map[string]protocols.Response{
-			DefaultResponseID: resp,
+			InitialResponseID: resp,
 		},
 		kv: map[interface{}]interface{}{},
 	}
@@ -123,7 +148,7 @@ func (ctx *context) AddTag(tag string) {
 // how to access statistics data from every requests?
 // add new method when finish?
 // add tag to every single request or add tag to context
-func (ctx *context) AddLazyTag(lazyTagFunc LazyTagFunc) {
+func (ctx *context) AddLazyTag(lazyTagFunc func() string) {
 	ctx.lazyTags = append(ctx.lazyTags, lazyTagFunc)
 }
 
@@ -131,12 +156,35 @@ func (ctx *context) Request() protocols.Request {
 	return ctx.request
 }
 
-func (ctx *context) UseRequest(id string) {
-	req := ctx.requests[id]
-	if req == nil {
-		panic(fmt.Errorf("request %s does not exist", id))
+func (ctx *context) UseRequest(dflt, base, target string) {
+	if dflt == "" {
+		dflt = InitialRequestID
 	}
-	ctx.request = req
+
+	if base != "" && ctx.requests[base] == nil {
+		panic(fmt.Errorf("request %s does not exist", base))
+	}
+
+	if target == "" {
+		target = InitialRequestID
+	}
+
+	if req := ctx.requests[dflt]; req == nil {
+		panic(fmt.Errorf("request %s does not exist", dflt))
+	} else {
+		ctx.request = req
+	}
+
+	ctx.baseRequestID = base
+	ctx.targetRequestID = target
+}
+
+func (ctx *context) BaseRequestID() string {
+	return ctx.baseRequestID
+}
+
+func (ctx *context) TargetRequestID() string {
+	return ctx.targetRequestID
 }
 
 func (ctx *context) Requests() map[string]protocols.Request {
@@ -161,6 +209,27 @@ func (ctx *context) DeleteRequest(id string) {
 		req.Close()
 		delete(ctx.requests, id)
 	}
+}
+
+func (ctx *context) UseResponse(base, target string) {
+	if base != "" && ctx.responses[base] == nil {
+		panic(fmt.Errorf("response %s does not exist", base))
+	}
+
+	if target == "" {
+		target = InitialResponseID
+	}
+
+	ctx.baseRequestID = base
+	ctx.targetResponseID = target
+}
+
+func (ctx *context) BaseResponseID() string {
+	return ctx.baseResponseID
+}
+
+func (ctx *context) TargetResponseID() string {
+	return ctx.targetResponseID
 }
 
 func (ctx *context) Response() protocols.Response {

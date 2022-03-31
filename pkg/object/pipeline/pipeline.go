@@ -122,7 +122,7 @@ func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
 func (s *Spec) ValidateRequest() {
 	const errFmt = "filter %s: desired request %s not found"
 
-	validIDs := map[string]bool{context.DefaultRequestID: true}
+	validIDs := map[string]bool{context.InitialRequestID: true}
 
 	for i := 0; i < len(s.Flow); i++ {
 		node := &s.Flow[i]
@@ -144,7 +144,7 @@ func (s *Spec) ValidateRequest() {
 func (s *Spec) ValidateResponse() {
 	const errFmt = "filter %s: desired response %s not found"
 
-	validIDs := map[string]bool{context.DefaultResponseID: true}
+	validIDs := map[string]bool{context.InitialResponseID: true}
 
 	for i := 0; i < len(s.Flow); i++ {
 		node := &s.Flow[i]
@@ -329,16 +329,8 @@ func (p *Pipeline) Handle(ctx context.Context) string {
 		}
 
 		start := fasttime.Now()
-		if node.UseRequest == "" {
-			ctx.UseRequest(context.DefaultRequestID)
-		} else {
-			ctx.UseRequest(node.UseRequest)
-		}
-
-		ctx.SetKV("baseRequest", node.BaseRequestID)
-		ctx.SetKV("targetRequest", node.TargetRequestID)
-		ctx.SetKV("baseResponse", node.BaseResponseID)
-		ctx.SetKV("targetResponse", node.TargetResponseID)
+		ctx.UseRequest(node.UseRequest, node.BaseRequestID, node.TargetRequestID)
+		ctx.UseResponse(node.BaseResponseID, node.TargetResponseID)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{
