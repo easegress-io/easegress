@@ -10,7 +10,7 @@
   - [Reference](#reference)
 
 * A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed Etcd already.
-* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install `Knative`[1]'s serving component in K8s. It's better to have Easegress run in the same VM instances with K8s for saving communication costs.
+* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/) to install `Knative`[1]'s serving component in K8s. It's better to have Easegress run in the same VM instances with K8s for saving communication costs.
 
 
 ## Prerequisites
@@ -163,7 +163,7 @@ The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}
 1. Creating the FaasController in Easegress
 
 ```bash
-$ cd ./easegress/example/writer-001 && ./start.sh
+$ cd ./easegress/example/primary-001 && ./start.sh
 
 $ ./egctl.sh object create -f ./faascontroller.yaml
 
@@ -244,6 +244,6 @@ The function's API is serving in `/tomcat/job/api` path and its logic is display
 
 ## Reference
 1. knative website http://knative.dev
-2. Install knative serving via YAML https://knative.dev/docs/install/install-serving-with-yaml
+2. Install knative serving via YAML https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/
 3. resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
 4. AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/

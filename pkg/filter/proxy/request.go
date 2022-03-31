@@ -76,9 +76,11 @@ func (p *pool) newRequest(
 
 	stdr.Header = r.Header().Std()
 	// only set host when server address is not host name.
-	if !server.addrIsHostName {
-		stdr.Host = r.Host()
-	}
+	//if !server.addrIsHostName {
+	stdr.Host = r.Host()
+	//} else {
+	//	fmt.Println("NOT SETTING Host")
+	//}
 
 	req.std = stdr
 
