@@ -392,13 +392,9 @@ rules:
 	httpServer2 := HTTPServer{}
 	httpServer2.Init(superSpec2, mux2)
 
-	res, err := http.Get("http://127.0.0.1:10080/api")
-	assert.Nil(err)
-	assert.Equal("200 OK", res.Status)
-
 	httpServer1.Close()
 
-	res, err = http.Get("http://127.0.0.1:10080/api")
+	res, err := http.Get("http://127.0.0.1:10080/api")
 	assert.NotNil(err)
 	assert.Nil(res)
 
