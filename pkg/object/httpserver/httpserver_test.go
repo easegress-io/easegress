@@ -385,22 +385,23 @@ rules:
 	superSpec2, err := supervisor.NewSpec(superSpecYaml)
 	assert.Nil(err)
 	assert.NotNil(superSpec2.ObjectSpec())
-	mux := &muxMapperMock{&handlerMock{}}
+	mux1 := &muxMapperMock{&handlerMock{}}
+	mux2 := &muxMapperMock{&handlerMock{}}
 	httpServer1 := HTTPServer{}
-	httpServer1.Init(superSpec1, mux)
+	httpServer1.Init(superSpec1, mux1)
 	httpServer2 := HTTPServer{}
-	httpServer2.Init(superSpec2, mux)
-	assert.Equal("", httpServer1.runtime.getError().Error())
-	tryCount := 5
-	for i := 0; i <= tryCount; i++ {
-		time.Sleep(200 * time.Millisecond)
-		if "listen tcp :10080: bind: address already in use" == httpServer2.runtime.getError().Error() {
-			break // successfully updated
-		} else if i == tryCount {
-			t.Errorf("error not propagated")
-		}
-	}
+	httpServer2.Init(superSpec2, mux2)
+
+	res, err := http.Get("http://127.0.0.1:10080/api")
+	assert.Nil(err)
+	assert.Equal("200 OK", res.Status)
+
 	httpServer1.Close()
+
+	res, err = http.Get("http://127.0.0.1:10080/api")
+	assert.NotNil(err)
+	assert.Nil(res)
+
 	httpServer2.Close()
 }
 
@@ -424,10 +425,6 @@ rules:
 	httpServer.Init(superSpec, mux)
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cacheKey := stringtool.Cat(r.Host, r.Method, r.URL.Path)
-		cacheItem := httpServer.runtime.mux.rules.Load().(*muxRules).cache.get(cacheKey)
-		assert.Nil(cacheItem)
-
 		httpServer.runtime.mux.ServeHTTP(w, r)
 	}))
 
