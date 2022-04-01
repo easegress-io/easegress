@@ -62,6 +62,19 @@ rules:
 	superSpec, err = supervisor.NewSpec(superSpecYaml)
 	assert.True(strings.Contains(err.Error(), "rewriteTarget is specified but path is empty"))
 	assert.Nil(superSpec)
+
+	superSpecYaml = `
+name: http-server-test
+kind: HTTPServer
+port: 10080
+keepAliveTimeout: not-really-a-duration
+cacheSize: 200
+rules:
+  - paths:
+    - pathPrefix: /api`
+	superSpec, err = supervisor.NewSpec(superSpecYaml)
+	assert.True(strings.Contains(err.Error(), "keepAliveTimeout: invalid duration"))
+	assert.Nil(superSpec)
 }
 
 func TestTlsConfig(t *testing.T) {

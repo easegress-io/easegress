@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -297,13 +298,15 @@ func (mmm *muxMapperMock) GetHandler(name string) (protocol.HTTPHandler, bool) {
 
 func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
+
 	superSpecYaml := `
 name: http-server-test
 kind: HTTPServer
 port: 10080
 cacheSize: 200
 rules:
-  - paths:
+  - hostRegexp: 127.0.[0|1].1
+    paths:
     - pathPrefix: /api
 `
 
@@ -348,9 +351,108 @@ rules:
 	status := httpServer.runtime.Status()
 	assert.Equal(status.Error, "")
 
+	superSpecYaml = `
+name: http-server-test2
+kind: HTTPServer
+port: 10081
+cacheSize: 201
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+
+	superSpec, err = supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
 	newServer := HTTPServer{}
 	newServer.Inherit(superSpec, &httpServer, mux)
 	httpServer.Close()
+}
+
+func TestStartTwoServerInSamePort(t *testing.T) {
+	assert := assert.New(t)
+	superSpecYaml := `
+name: http-server-test
+kind: HTTPServer
+port: 10080
+cacheSize: 200
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+	superSpec1, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec1.ObjectSpec())
+	superSpec2, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec2.ObjectSpec())
+	mux := &muxMapperMock{&handlerMock{}}
+	httpServer1 := HTTPServer{}
+	httpServer1.Init(superSpec1, mux)
+	httpServer2 := HTTPServer{}
+	httpServer2.Init(superSpec2, mux)
+	assert.Equal("", httpServer1.runtime.getError().Error())
+	tryCount := 5
+	for i := 0; i <= tryCount; i++ {
+		time.Sleep(200 * time.Millisecond)
+		if "listen tcp :10080: bind: address already in use" == httpServer2.runtime.getError().Error() {
+			break // successfully updated
+		} else if i == tryCount {
+			t.Errorf("error not propagated")
+		}
+	}
+	httpServer1.Close()
+	httpServer2.Close()
+}
+
+func TestServerFailed(t *testing.T) {
+	assert := assert.New(t)
+	superSpecYaml := `
+name: http-server-test
+kind: HTTPServer
+port: 10080
+cacheSize: 200
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec.ObjectSpec())
+	mux := &muxMapperMock{&handlerMock{}}
+	httpServer := HTTPServer{}
+	httpServer.Init(superSpec, mux)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cacheKey := stringtool.Cat(r.Host, r.Method, r.URL.Path)
+		cacheItem := httpServer.runtime.mux.rules.Load().(*muxRules).cache.get(cacheKey)
+		assert.Nil(cacheItem)
+
+		httpServer.runtime.mux.ServeHTTP(w, r)
+	}))
+
+	go httpServer.runtime.checkFailed(50 * time.Millisecond)
+	httpServer.runtime.setState(stateFailed)
+	status := httpServer.runtime.Status()
+	assert.NotNil(status.Error)
+
+	testChan := make(chan interface{}, 10)
+	go func() {
+		httpServer.runtime.fsm(testChan)
+	}()
+	testChan <- &eventServeFailed{
+		err:      fmt.Errorf("test error"),
+		startNum: 77,
+	}
+	testChan <- &eventServeFailed{
+		err:      fmt.Errorf("test error 2"),
+		startNum: 76,
+	}
+	assert.Equal(stateFailed, httpServer.runtime.getState())
+
+	ts.Close()
+	httpServer.Close()
+	close(testChan)
 }
 
 func TestMatchPath(t *testing.T) {
