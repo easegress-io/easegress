@@ -1,3 +1,4 @@
+# Deprecated: use ./cluster-1.yaml instead.
 name: primary-1
 cluster-name: cluster-test
 cluster-role: primary
