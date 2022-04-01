@@ -101,36 +101,16 @@ func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
 }
 
 // CreateLoadBalancer creates a load balancer.
-func (p *Protocol) CreateLoadBalancer(lb string, servers []protocols.Server) (protocols.LoadBalancer, error) {
-	return nil, nil
+func (p *Protocol) CreateLoadBalancer(spec interface{}, servers []protocols.Server) (protocols.LoadBalancer, error) {
+	return NewLoadBalancer(spec, servers)
 }
 
 // CreateServer creates a server.
-func (p *Protocol) CreateServer(uri string) (protocols.Server, error) {
-	return nil, nil
+func (p *Protocol) CreateServer(spec interface{}) (protocols.Server, error) {
+	return NewServer(spec)
 }
 
 // CreateTrafficMatcher creates a traffic matcher.
 func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
 	return NewMatcher(spec)
-}
-
-// Server implements protocols.Server for HTTP.
-type Server struct {
-	URL            string   `yaml:"url" jsonschema:"required,format=url"`
-	Tags           []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
-	W              int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
-	addrIsHostName bool
-}
-
-// Weight returns weight of the server.
-func (s *Server) Weight() int {
-	return s.W
-}
-
-// SendRequest sends request to the server and returns the response.
-func (s *Server) SendRequest(req protocols.Request) (protocols.Response, error) {
-	req = req.Clone()
-
-	return nil, nil
 }

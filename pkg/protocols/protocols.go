@@ -64,6 +64,8 @@ type Header interface {
 
 type Server interface {
 	SendRequest(req Request) (Response, error)
+	Weight() int
+	Close() error
 }
 
 // LoadBalancer is the protocol independent interface of a load balancer.
@@ -80,7 +82,7 @@ type TrafficMatcher interface {
 type Protocol interface {
 	CreateRequest(req interface{}) Request
 	CreateResponse(resp interface{}) Response
-	CreateLoadBalancer(lb string, servers []Server) (LoadBalancer, error)
-	CreateServer(uri string) (Server, error)
+	CreateLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error)
+	CreateServer(spec interface{}) (Server, error)
 	CreateTrafficMatcher(spec interface{}) (TrafficMatcher, error)
 }
