@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -399,53 +398,6 @@ rules:
 	assert.Nil(res)
 
 	httpServer2.Close()
-}
-
-func TestServerFailed(t *testing.T) {
-	assert := assert.New(t)
-	superSpecYaml := `
-name: http-server-test
-kind: HTTPServer
-port: 10080
-cacheSize: 200
-rules:
-  - paths:
-    - pathPrefix: /api
-`
-
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
-	assert.Nil(err)
-	assert.NotNil(superSpec.ObjectSpec())
-	mux := &muxMapperMock{&handlerMock{}}
-	httpServer := HTTPServer{}
-	httpServer.Init(superSpec, mux)
-
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httpServer.runtime.mux.ServeHTTP(w, r)
-	}))
-
-	go httpServer.runtime.checkFailed(50 * time.Millisecond)
-	httpServer.runtime.setState(stateFailed)
-	status := httpServer.runtime.Status()
-	assert.NotNil(status.Error)
-
-	testChan := make(chan interface{}, 10)
-	go func() {
-		httpServer.runtime.fsm(testChan)
-	}()
-	testChan <- &eventServeFailed{
-		err:      fmt.Errorf("test error"),
-		startNum: 77,
-	}
-	testChan <- &eventServeFailed{
-		err:      fmt.Errorf("test error 2"),
-		startNum: 76,
-	}
-	assert.Equal(stateFailed, httpServer.runtime.getState())
-
-	ts.Close()
-	httpServer.Close()
-	close(testChan)
 }
 
 func TestMatchPath(t *testing.T) {

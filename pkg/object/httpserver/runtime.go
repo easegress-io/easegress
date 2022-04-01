@@ -113,7 +113,7 @@ func newRuntime(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) *runti
 	r.setState(stateNil)
 	r.setError(errNil)
 
-	go r.fsm(r.eventChan)
+	go r.fsm()
 	go r.checkFailed(checkFailedTimeout)
 
 	return r
@@ -140,8 +140,8 @@ func (r *runtime) Status() *Status {
 }
 
 // FSM is the finite-state-machine for the runtime.
-func (r *runtime) fsm(eventChan <-chan interface{}) {
-	for e := range eventChan {
+func (r *runtime) fsm() {
+	for e := range r.eventChan {
 		switch e := e.(type) {
 		case *eventCheckFailed:
 			r.handleEventCheckFailed(e)
