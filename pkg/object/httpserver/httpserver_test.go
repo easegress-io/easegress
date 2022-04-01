@@ -391,13 +391,12 @@ rules:
 	httpServer2 := HTTPServer{}
 	httpServer2.Init(superSpec2, mux2)
 
+	_, err1 := http.Get("http://127.0.0.1:10080/api")
 	httpServer1.Close()
-
-	res, err := http.Get("http://127.0.0.1:10080/api")
-	assert.NotNil(err)
-	assert.Nil(res)
-
 	httpServer2.Close()
+	_, err2 := http.Get("http://127.0.0.1:10080/api")
+	assert.Nil(err1)
+	assert.NotNil(err2)
 }
 
 func TestMatchPath(t *testing.T) {
