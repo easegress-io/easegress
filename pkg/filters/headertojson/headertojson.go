@@ -49,8 +49,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &HeaderToJSON{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &HeaderToJSON{spec: spec.(*Spec)}
 	},
 }
 
@@ -91,15 +91,14 @@ func (h *HeaderToJSON) init() {
 }
 
 // Init init HeaderToJSON
-func (h *HeaderToJSON) Init(spec filters.Spec) {
-	h.spec = spec.(*Spec)
+func (h *HeaderToJSON) Init() {
 	h.init()
 }
 
 // Inherit init HeaderToJSON based on previous generation
-func (h *HeaderToJSON) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (h *HeaderToJSON) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	h.Init(spec)
+	h.Init()
 }
 
 // Close close HeaderToJSON

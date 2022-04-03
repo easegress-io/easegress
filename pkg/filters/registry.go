@@ -77,10 +77,10 @@ func GetKind(name string) *Kind {
 }
 
 // Create creates a filter instance of kind.
-func Create(kind string) Filter {
-	k := kinds[kind]
+func Create(spec Spec) Filter {
+	k := kinds[spec.Kind()]
 	if k == nil {
 		return nil
 	}
-	return k.CreateInstance()
+	return k.CreateInstance(spec)
 }

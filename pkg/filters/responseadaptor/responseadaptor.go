@@ -35,8 +35,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &ResponseAdaptor{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &ResponseAdaptor{spec: spec.(*Spec)}
 	},
 }
 
@@ -75,15 +75,14 @@ func (ra *ResponseAdaptor) Spec() filters.Spec {
 }
 
 // Init initializes ResponseAdaptor.
-func (ra *ResponseAdaptor) Init(spec filters.Spec) {
-	ra.spec = spec.(*Spec)
+func (ra *ResponseAdaptor) Init() {
 	ra.reload()
 }
 
 // Inherit inherits previous generation of ResponseAdaptor.
-func (ra *ResponseAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (ra *ResponseAdaptor) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(spec)
+	ra.reload()
 }
 
 func (ra *ResponseAdaptor) reload() {

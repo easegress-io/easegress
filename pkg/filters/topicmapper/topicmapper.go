@@ -38,8 +38,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &TopicMapper{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &TopicMapper{spec: spec.(*Spec)}
 	},
 }
 
@@ -74,11 +74,11 @@ func (k *TopicMapper) Spec() filters.Spec {
 }
 
 // Init init TopicMapper
-func (k *TopicMapper) Init(spec filters.Spec) {
+func (k *TopicMapper) Init() {
+	spec := k.spec
 	if spec.Protocol() != context.MQTT {
 		panic("filter TopicMapper only support MQTT protocol for now")
 	}
-	k.spec = spec.(*Spec)
 	k.mapFn = getTopicMapFunc(k.spec)
 	if k.mapFn == nil {
 		panic("invalid spec for TopicMapper")
@@ -86,9 +86,9 @@ func (k *TopicMapper) Init(spec filters.Spec) {
 }
 
 // Inherit init TopicMapper based on previous generation
-func (k *TopicMapper) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (k *TopicMapper) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	k.Init(spec)
+	k.Init()
 }
 
 // Close close TopicMapper

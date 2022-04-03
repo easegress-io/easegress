@@ -43,8 +43,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &RateLimiter{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &RateLimiter{spec: spec.(*Spec)}
 	},
 }
 
@@ -231,14 +231,12 @@ OuterLoop:
 }
 
 // Init initializes RateLimiter.
-func (rl *RateLimiter) Init(spec filters.Spec) {
-	rl.spec = spec.(*Spec)
+func (rl *RateLimiter) Init() {
 	rl.reload(nil)
 }
 
 // Inherit inherits previous generation of RateLimiter.
-func (rl *RateLimiter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
-	rl.spec = spec.(*Spec)
+func (rl *RateLimiter) Inherit(previousGeneration filters.Filter) {
 	rl.reload(previousGeneration.(*RateLimiter))
 }
 

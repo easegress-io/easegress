@@ -42,8 +42,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Kafka{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Kafka{spec: spec.(*Spec)}
 	},
 }
 
@@ -88,8 +88,8 @@ func (k *Kafka) setHeader(spec *Spec) {
 }
 
 // Init init Kafka
-func (k *Kafka) Init(spec filters.Spec) {
-	k.spec = spec.(*Spec)
+func (k *Kafka) Init() {
+	spec := k.spec
 	k.done = make(chan struct{})
 	k.setHeader(k.spec)
 
@@ -124,9 +124,9 @@ func (k *Kafka) checkProduceError() {
 }
 
 // Inherit init Kafka based on previous generation
-func (k *Kafka) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (k *Kafka) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	k.Init(spec)
+	k.Init()
 }
 
 // Close close Kafka

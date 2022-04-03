@@ -42,8 +42,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Mock{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Mock{spec: spec.(*Spec)}
 	},
 }
 
@@ -100,15 +100,14 @@ func (m *Mock) Spec() filters.Spec {
 }
 
 // Init initializes Mock.
-func (m *Mock) Init(spec filters.Spec) {
-	m.spec = spec.(*Spec)
+func (m *Mock) Init() {
 	m.reload()
 }
 
 // Inherit inherits previous generation of Mock.
-func (m *Mock) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (m *Mock) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	m.Init(spec)
+	m.Init()
 }
 
 func (m *Mock) reload() {

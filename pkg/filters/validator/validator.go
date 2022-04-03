@@ -44,8 +44,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Validator{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Validator{spec: spec.(*Spec)}
 	},
 }
 
@@ -101,15 +101,14 @@ func (v *Validator) Spec() filters.Spec {
 }
 
 // Init initializes Validator.
-func (v *Validator) Init(spec filters.Spec) {
-	v.spec = spec.(*Spec)
+func (v *Validator) Init() {
 	v.reload()
 }
 
 // Inherit inherits previous generation of Validator.
-func (v *Validator) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (v *Validator) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	v.Init(spec)
+	v.reload()
 }
 
 func (v *Validator) reload() {

@@ -51,8 +51,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &HeaderLookup{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &HeaderLookup{spec: spec.(*Spec)}
 	},
 }
 
@@ -140,8 +140,8 @@ func (hl *HeaderLookup) Spec() filters.Spec {
 }
 
 // Init initializes HeaderLookup.
-func (hl *HeaderLookup) Init(spec filters.Spec) {
-	hl.spec = spec.(*Spec)
+func (hl *HeaderLookup) Init() {
+	spec := hl.spec
 	if spec.Super() != nil && spec.Super().Cluster() != nil {
 		hl.cluster = spec.Super().Cluster()
 	}
@@ -154,9 +154,9 @@ func (hl *HeaderLookup) Init(spec filters.Spec) {
 }
 
 // Inherit inherits previous generation of HeaderLookup.
-func (hl *HeaderLookup) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (hl *HeaderLookup) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	hl.Init(spec)
+	hl.Init()
 }
 
 func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {

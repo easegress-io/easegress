@@ -58,8 +58,8 @@ var kind = &filters.Kind{
 			MaxIdleConnsPerHost: 1024,
 		}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Proxy{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Proxy{spec: spec.(*Spec)}
 	},
 }
 
@@ -176,15 +176,14 @@ func (b *Proxy) Spec() filters.Spec {
 }
 
 // Init initializes Proxy.
-func (b *Proxy) Init(spec filters.Spec) {
-	b.spec = spec.(*Spec)
+func (b *Proxy) Init() {
 	b.reload()
 }
 
 // Inherit inherits previous generation of Proxy.
-func (b *Proxy) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (b *Proxy) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	b.Init(spec)
+	b.Init()
 }
 
 func (b *Proxy) needmTLS() bool {

@@ -55,8 +55,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &RemoteFilter{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &RemoteFilter{spec: spec.(*Spec)}
 	},
 }
 
@@ -154,15 +154,14 @@ type (
 )
 
 // Init initializes RemoteFilter.
-func (rf *RemoteFilter) Init(spec filters.Spec) {
-	rf.spec = spec.(*Spec)
+func (rf *RemoteFilter) Init() {
 	rf.reload()
 }
 
 // Inherit inherits previous generation of RemoteFilter.
-func (rf *RemoteFilter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (rf *RemoteFilter) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	rf.Init(spec)
+	rf.Init()
 }
 
 func (rf *RemoteFilter) reload() {

@@ -34,8 +34,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &HTTPRequestBuilder{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &HTTPRequestBuilder{spec: spec.(*Spec)}
 	},
 }
 
@@ -74,15 +74,14 @@ func (rb *HTTPRequestBuilder) Spec() filters.Spec {
 }
 
 // Init initializes HTTPRequestBuilder.
-func (rb *HTTPRequestBuilder) Init(spec filters.Spec) {
-	rb.spec = spec.(*Spec)
+func (rb *HTTPRequestBuilder) Init() {
 	rb.reload()
 }
 
 // Inherit inherits previous generation of HTTPRequestBuilder.
-func (rb *HTTPRequestBuilder) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	rb.Init(spec)
+	rb.Init()
 }
 
 func (rb *HTTPRequestBuilder) reload() {

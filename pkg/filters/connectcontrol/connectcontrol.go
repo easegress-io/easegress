@@ -41,8 +41,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &ConnectControl{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &ConnectControl{spec: spec.(*Spec)}
 	},
 }
 
@@ -102,11 +102,11 @@ func (cc *ConnectControl) Spec() filters.Spec {
 }
 
 // Init init ConnectControl with pipeline filter spec
-func (cc *ConnectControl) Init(spec filters.Spec) {
+func (cc *ConnectControl) Init() {
+	spec := cc.spec
 	if spec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
-	cc.spec = spec.(*Spec)
 	cc.bannedClients = make(map[string]struct{})
 	cc.bannedTopics = make(map[string]struct{})
 	cc.reload()
@@ -146,9 +146,9 @@ func (cc *ConnectControl) reload() {
 }
 
 // Inherit init ConnectControl with previous generation
-func (cc *ConnectControl) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (cc *ConnectControl) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	cc.Init(spec)
+	cc.Init()
 }
 
 // Status return status of ConnectControl

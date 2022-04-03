@@ -38,8 +38,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &CertExtractor{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &CertExtractor{spec: spec.(*Spec)}
 	},
 }
 
@@ -85,9 +85,7 @@ func (ce *CertExtractor) Spec() filters.Spec {
 }
 
 // Init initializes CertExtractor.
-func (ce *CertExtractor) Init(spec filters.Spec) {
-	ce.spec = spec.(*Spec)
-
+func (ce *CertExtractor) Init() {
 	ce.headerKey = fmt.Sprintf("tls-%s-%s", ce.spec.Target, ce.spec.Field)
 	if ce.spec.HeaderKey != "" {
 		ce.headerKey = ce.spec.HeaderKey
@@ -95,9 +93,9 @@ func (ce *CertExtractor) Init(spec filters.Spec) {
 }
 
 // Inherit inherits previous generation of CertExtractor.
-func (ce *CertExtractor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (ce *CertExtractor) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ce.Init(spec)
+	ce.Init()
 }
 
 // Close closes CertExtractor.

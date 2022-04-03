@@ -41,8 +41,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Kafka{}
+	CreateInstance: func(spec filter.Spec) filters.Filter {
+		return &Kafka{spec: spec.(*Spec)}
 	},
 }
 
@@ -124,20 +124,20 @@ func (k *Kafka) setProducer() {
 }
 
 // Init init Kafka
-func (k *Kafka) Init(spec filters.Spec) {
+func (k *Kafka) Init() {
+	spec := k.spec
 	if spec.Protocol() != context.MQTT {
 		panic("filter Kafka only support MQTT protocol for now")
 	}
-	k.spec = spec.(*Spec)
 	k.done = make(chan struct{})
 	k.setKV()
 	k.setProducer()
 }
 
 // Inherit init Kafka based on previous generation
-func (k *Kafka) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (k *Kafka) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	k.Init(spec)
+	k.Init()
 }
 
 // Close close Kafka

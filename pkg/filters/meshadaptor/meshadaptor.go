@@ -38,8 +38,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &MeshAdaptor{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &MeshAdaptor{spec: spec.(*Spec)}
 	},
 }
 
@@ -86,15 +86,14 @@ func (ra *MeshAdaptor) Spec() filters.Spec {
 }
 
 // Init initializes MeshAdaptor.
-func (ra *MeshAdaptor) Init(spec filters.Spec) {
-	ra.spec = spec.(*Spec)
+func (ra *MeshAdaptor) Init() {
 	ra.reload()
 }
 
 // Inherit inherits previous generation of MeshAdaptor.
-func (ra *MeshAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (ra *MeshAdaptor) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(spec)
+	ra.Init()
 }
 
 func (ra *MeshAdaptor) reload() {

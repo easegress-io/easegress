@@ -45,8 +45,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &CircuitBreaker{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &CircuitBreaker{spec: spec.(*Spec)}
 	},
 }
 
@@ -304,14 +304,12 @@ OuterLoop:
 }
 
 // Init initializes CircuitBreaker.
-func (cb *CircuitBreaker) Init(spec filters.Spec) {
-	cb.spec = spec.(*Spec)
+func (cb *CircuitBreaker) Init() {
 	cb.reload(nil)
 }
 
 // Inherit inherits previous generation of CircuitBreaker.
-func (cb *CircuitBreaker) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
-	cb.spec = spec.(*Spec)
+func (cb *CircuitBreaker) Inherit(previousGeneration filters.Filter) {
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 

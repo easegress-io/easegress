@@ -58,8 +58,8 @@ urls:
 		t.Errorf("unexpected error: %v", e)
 	}
 
-	tl := &TimeLimiter{}
-	tl.Init(spec)
+	tl := &TimeLimiter{spec: spec.(*Spec)}
+	tl.Init()
 
 	if tl.spec.defaultTimeout != 456*time.Millisecond {
 		t.Error("default timeout duration is not the value in spec")
@@ -113,9 +113,9 @@ urls:
 		t.Error("behavior changed, please update this case")
 	}
 
-	newTl := &TimeLimiter{}
 	spec, _ = filters.NewSpec(nil, "", rawSpec)
-	newTl.Inherit(spec, tl)
+	newTl := &TimeLimiter{spec: spec.(*Spec)}
+	newTl.Inherit(tl)
 	tl.Close()
 	result = newTl.Handle(ctx)
 	if result == resultTimeout {

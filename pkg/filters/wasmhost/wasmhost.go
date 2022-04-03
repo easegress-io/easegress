@@ -58,11 +58,28 @@ func wasmResultToFilterResult(r int32) string {
 	return fmt.Sprintf("wasmResult%d", r)
 }
 
+var kind = &filters.Kind{
+	Name:        Kind,
+	Description: "WasmHost implements a host environment for WebAssembly",
+	Results:     results,
+	DefaultSpec: func() filters.Spec {
+		return &Spec{
+			MaxConcurrency: 10,
+			Timeout:        "100ms",
+		}
+	},
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &WasmHost{spec: spec.(*Spec)}
+	},
+}
+
 func init() {
 	for i := int32(1); i <= maxWasmResult; i++ {
 		results = append(results, wasmResultToFilterResult(i))
 	}
-	filters.Register(&WasmHost{})
+
+	kind.Results = results
+	filters.Register(kind)
 }
 
 type (
@@ -112,24 +129,6 @@ func (wh *WasmHost) Kind() *filters.Kind {
 // Spec returns the spec used by the WasmHost
 func (wh *WasmHost) Spec() filters.Spec {
 	return wh.spec
-}
-
-// DefaultSpec returns the default spec of WasmHost.
-func (wh *WasmHost) DefaultSpec() filters.Spec {
-	return &Spec{
-		MaxConcurrency: 10,
-		Timeout:        "100ms",
-	}
-}
-
-// Description returns the description of WasmHost
-func (wh *WasmHost) Description() string {
-	return "WasmHost implements a host environment for WebAssembly"
-}
-
-// Results returns the results of WasmHost.
-func (wh *WasmHost) Results() []string {
-	return results
 }
 
 // Cluster returns the cluster

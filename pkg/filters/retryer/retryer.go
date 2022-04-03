@@ -43,8 +43,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Retryer{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Retryer{spec: spec.(*Spec)}
 	},
 }
 
@@ -166,16 +166,15 @@ func (r *Retryer) initURL(u *URLRule) {
 }
 
 // Init initializes Retryer.
-func (r *Retryer) Init(spec filters.Spec) {
-	r.spec = spec.(*Spec)
+func (r *Retryer) Init() {
 	for _, url := range r.spec.URLs {
 		r.initURL(url)
 	}
 }
 
 // Inherit inherits previous generation of Retryer.
-func (r *Retryer) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
-	r.Init(spec)
+func (r *Retryer) Inherit(previousGeneration filters.Filter) {
+	r.Init()
 }
 
 func (r *Retryer) handle(ctx context.Context, u *URLRule) string {

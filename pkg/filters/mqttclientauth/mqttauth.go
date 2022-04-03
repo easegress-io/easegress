@@ -42,8 +42,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &MQTTClientAuth{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &MQTTClientAuth{spec: spec.(*Spec)}
 	},
 }
 
@@ -95,11 +95,11 @@ func (a *MQTTClientAuth) Spec() filters.Spec {
 }
 
 // Init init MQTTClientAuth
-func (a *MQTTClientAuth) Init(spec filters.Spec) {
+func (a *MQTTClientAuth) Init() {
+	spec := a.spec
 	if spec.Protocol() != context.MQTT {
 		panic("filter ConnectControl only support MQTT protocol for now")
 	}
-	a.spec = spec.(*Spec)
 	a.salt = a.spec.Salt
 	a.authMap = make(map[string]string)
 
@@ -113,9 +113,9 @@ func (a *MQTTClientAuth) Init(spec filters.Spec) {
 }
 
 // Inherit init MQTTClientAuth based on previous generation
-func (a *MQTTClientAuth) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (a *MQTTClientAuth) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	a.Init(spec)
+	a.Init()
 }
 
 // Close close MQTTClientAuth

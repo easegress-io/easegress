@@ -53,8 +53,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Bridge{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Bridge{spec: spec.(*Spec)}
 	},
 }
 
@@ -95,15 +95,14 @@ func (b *Bridge) Spec() filters.Spec {
 }
 
 // Init initializes Bridge.
-func (b *Bridge) Init(spec filters.Spec) {
-	b.spec = spec.(*Spec)
+func (b *Bridge) Init() {
 	b.reload()
 }
 
 // Inherit inherits previous generation of Bridge.
-func (b *Bridge) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (b *Bridge) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	b.Init(spec)
+	b.Init()
 }
 
 func (b *Bridge) reload() {

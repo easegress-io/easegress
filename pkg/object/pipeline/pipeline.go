@@ -274,7 +274,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 		}
 
 		// create filter instance.
-		filter := filters.Create(spec.Kind())
+		filter := filters.Create(spec)
 		if filter == nil {
 			panic(fmt.Errorf("kind %s not found", spec.Kind()))
 		}
@@ -285,9 +285,9 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 			prev = previousGeneration.getFilter(spec.Name())
 		}
 		if prev == nil {
-			filter.Init(spec)
+			filter.Init()
 		} else {
-			filter.Inherit(spec, prev)
+			filter.Inherit(prev)
 		}
 
 		// add the filter to pipeline, and if the pipeline does not define a

@@ -51,11 +51,11 @@ func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Su
 	if err != nil {
 		panic(err.Error())
 	}
-	v := &Validator{}
+	v := &Validator{spec: spec.(*Spec)}
 	if prev == nil {
-		v.Init(spec)
+		v.Init()
 	} else {
-		v.Inherit(spec, prev)
+		v.Inherit(prev)
 	}
 	return v
 }

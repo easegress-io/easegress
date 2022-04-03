@@ -41,8 +41,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &CORSAdaptor{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &CORSAdaptor{spec: spec.(*Spec)}
 	},
 }
 
@@ -89,15 +89,14 @@ func (a *CORSAdaptor) Spec() filters.Spec {
 }
 
 // Init initializes CORSAdaptor.
-func (a *CORSAdaptor) Init(spec filters.Spec) {
-	a.spec = spec.(*Spec)
+func (a *CORSAdaptor) Init() {
 	a.reload()
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (a *CORSAdaptor) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	a.Init(spec)
+	a.Init()
 }
 
 func (a *CORSAdaptor) reload() {

@@ -40,7 +40,7 @@ type (
 		Results []string
 
 		// CreateInstance creates a new filter instance of the kind.
-		CreateInstance func() Filter
+		CreateInstance func(spec Spec) Filter
 
 		// DefaultSpec returns a spec for the filter, with default values. The
 		// function should always return a new spec copy, because the caller
@@ -61,12 +61,12 @@ type (
 		Spec() Spec
 
 		// Init initializes the Filter.
-		Init(spec Spec)
+		Init()
 
 		// Inherit also initializes the Filter, the difference from Init is it
 		// inherit something from the previousGeneration, but Inherit does NOT
 		// handle the lifecycle of previousGeneration.
-		Inherit(spec Spec, previousGeneration Filter)
+		Inherit(previousGeneration Filter)
 
 		// Handle handles one HTTP request, all possible results
 		// need be registered in Results.

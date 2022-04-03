@@ -56,8 +56,8 @@ var kind = &filters.Kind{
 			MaxBodyBytes: 10240,
 		}
 	},
-	CreateInstance: func() filters.Filter {
-		return &APIAggregator{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &APIAggregator{spec: spec.(*Spec)}
 	},
 }
 
@@ -134,8 +134,8 @@ func (aa *APIAggregator) Spec() filters.Spec {
 }
 
 // Init initializes APIAggregator.
-func (aa *APIAggregator) Init(spec filters.Spec) {
-	aa.spec = spec.(*Spec)
+func (aa *APIAggregator) Init() {
+	spec := aa.spec
 	entity, exists := spec.Super().GetSystemController(rawconfigtrafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: raw config traffic controller not found"))
@@ -150,9 +150,9 @@ func (aa *APIAggregator) Init(spec filters.Spec) {
 }
 
 // Inherit inherits previous generation of APIAggregator.
-func (aa *APIAggregator) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (aa *APIAggregator) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	aa.Init(spec)
+	aa.Init()
 }
 
 func (aa *APIAggregator) reload() {

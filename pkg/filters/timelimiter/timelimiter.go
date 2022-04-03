@@ -41,8 +41,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &TimeLimiter{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &TimeLimiter{spec: spec.(*Spec)}
 	},
 }
 
@@ -91,9 +91,7 @@ func (tl *TimeLimiter) Spec() filters.Spec {
 }
 
 // Init initializes TimeLimiter.
-func (tl *TimeLimiter) Init(spec filters.Spec) {
-	tl.spec = spec.(*Spec)
-
+func (tl *TimeLimiter) Init() {
 	if d := tl.spec.DefaultTimeoutDuration; d != "" {
 		tl.spec.defaultTimeout, _ = time.ParseDuration(d)
 	} else {
@@ -111,8 +109,8 @@ func (tl *TimeLimiter) Init(spec filters.Spec) {
 }
 
 // Inherit inherits previous generation of TimeLimiter.
-func (tl *TimeLimiter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
-	tl.Init(spec)
+func (tl *TimeLimiter) Inherit(previousGeneration filters.Filter) {
+	tl.Init()
 }
 
 func (tl *TimeLimiter) handle(ctx context.Context, u *URLRule) string {

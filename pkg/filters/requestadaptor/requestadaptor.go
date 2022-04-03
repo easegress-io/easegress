@@ -46,8 +46,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &RequestAdaptor{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &RequestAdaptor{spec: spec.(*Spec)}
 	},
 }
 
@@ -93,8 +93,7 @@ func (ra *RequestAdaptor) Spec() filters.Spec {
 }
 
 // Init initializes RequestAdaptor.
-func (ra *RequestAdaptor) Init(spec filters.Spec) {
-	ra.spec = spec.(*Spec)
+func (ra *RequestAdaptor) Init() {
 	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
 		panic("RequestAdaptor only support decompress type of gzip")
 	}
@@ -111,9 +110,9 @@ func (ra *RequestAdaptor) Init(spec filters.Spec) {
 }
 
 // Inherit inherits previous generation of RequestAdaptor.
-func (ra *RequestAdaptor) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (ra *RequestAdaptor) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	ra.Init(spec)
+	ra.Init()
 }
 
 func (ra *RequestAdaptor) reload() {

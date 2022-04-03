@@ -38,8 +38,8 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func() filters.Filter {
-		return &Fallback{}
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &Fallback{spec: spec.(*Spec)}
 	},
 }
 
@@ -78,15 +78,14 @@ func (f *Fallback) Spec() filters.Spec {
 }
 
 // Init initializes Fallback.
-func (f *Fallback) Init(spec filters.Spec) {
-	f.spec = spec.(*Spec)
+func (f *Fallback) Init() {
 	f.reload()
 }
 
 // Inherit inherits previous generation of Fallback.
-func (f *Fallback) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (f *Fallback) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	f.Init(spec)
+	f.Init()
 }
 
 func (f *Fallback) reload() {
