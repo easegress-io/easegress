@@ -24,13 +24,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/fallback"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
 )
 
 const (
@@ -78,9 +78,9 @@ type (
 
 		fallback *fallback.Fallback
 
-		mainPool       *pool
-		candidatePools []*pool
-		mirrorPool     *pool
+		mainPool       *ServerPool
+		candidatePools []*ServerPool
+		mirrorPool     *ServerPool
 
 		client *http.Client
 
@@ -91,15 +91,14 @@ type (
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		Fallback            *FallbackSpec    `yaml:"fallback,omitempty" jsonschema:"omitempty"`
-		MainPool            *PoolSpec        `yaml:"mainPool" jsonschema:"required"`
-		CandidatePools      []*PoolSpec      `yaml:"candidatePools,omitempty" jsonschema:"omitempty"`
-		MirrorPool          *PoolSpec        `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes        []int            `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
-		Compression         *CompressionSpec `yaml:"compression,omitempty" jsonschema:"omitempty"`
-		MTLS                *MTLS            `yaml:"mtls,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int              `yaml:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int              `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		Fallback            *FallbackSpec     `yaml:"fallback,omitempty" jsonschema:"omitempty"`
+		Pools               []*ServerPoolSpec `yaml:"pools" jsonschema:"required"`
+		MirrorPool          *ServerPoolSpec   `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		FailureCodes        []int             `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
+		Compression         *CompressionSpec  `yaml:"compression,omitempty" jsonschema:"omitempty"`
+		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
+		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int               `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
 	}
 
 	// FallbackSpec describes the fallback policy.
@@ -110,9 +109,9 @@ type (
 
 	// Status is the status of Proxy.
 	Status struct {
-		MainPool       *PoolStatus   `yaml:"mainPool"`
-		CandidatePools []*PoolStatus `yaml:"candidatePools,omitempty"`
-		MirrorPool     *PoolStatus   `yaml:"mirrorPool,omitempty"`
+		MainPool       *ServerPoolStatus   `yaml:"mainPool"`
+		CandidatePools []*ServerPoolStatus `yaml:"candidatePools,omitempty"`
+		MirrorPool     *ServerPoolStatus   `yaml:"mirrorPool,omitempty"`
 	}
 
 	// MTLS is the configuration for client side mTLS.
@@ -124,22 +123,21 @@ type (
 )
 
 // Validate validates Spec.
-func (s Spec) Validate() error {
-	// NOTE: The tag of v parent may be behind mainPool.
-	if s.MainPool == nil {
-		return fmt.Errorf("mainPool is required")
-	}
-
-	if s.MainPool.Filter != nil {
-		return fmt.Errorf("filter must be empty in mainPool")
-	}
-
-	if len(s.CandidatePools) > 0 {
-		for _, v := range s.CandidatePools {
-			if v.Filter == nil {
-				return fmt.Errorf("filter of candidatePool is required")
-			}
+func (s *Spec) Validate() error {
+	numMainPool := 0
+	for _, pool := range s.Pools {
+		if pool.Filter == nil {
+			numMainPool++
 		}
+		/*
+			if err := pool.Validate(p); err != nil {
+				return fmt.Errorf("pool %d: %v", i, err)
+			}
+		*/
+	}
+
+	if numMainPool != 1 {
+		return fmt.Errorf("one and only one mainPool is required")
 	}
 
 	if s.MirrorPool != nil {
@@ -161,91 +159,88 @@ func (s Spec) Validate() error {
 }
 
 // Name returns the name of the Proxy filter instance.
-func (b *Proxy) Name() string {
-	return b.spec.Name()
+func (p *Proxy) Name() string {
+	return p.spec.Name()
 }
 
 // Kind returns the kind of Proxy.
-func (b *Proxy) Kind() *filters.Kind {
+func (p *Proxy) Kind() *filters.Kind {
 	return kind
 }
 
 // Spec returns the spec used by the Proxy
-func (b *Proxy) Spec() filters.Spec {
-	return b.spec
+func (p *Proxy) Spec() filters.Spec {
+	return p.spec
 }
 
 // Init initializes Proxy.
-func (b *Proxy) Init() {
-	b.reload()
+func (p *Proxy) Init() {
+	p.reload()
 }
 
 // Inherit inherits previous generation of Proxy.
-func (b *Proxy) Inherit(previousGeneration filters.Filter) {
+func (p *Proxy) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	b.Init()
+	p.reload()
 }
 
-func (b *Proxy) needmTLS() bool {
-	return b.spec.MTLS != nil
-}
+func (p *Proxy) tlsConfig() *tls.Config {
+	mtls := p.spec.MTLS
 
-func (b *Proxy) tlsConfig() *tls.Config {
-	if !b.needmTLS() {
-		return &tls.Config{
-			InsecureSkipVerify: true,
-		}
+	if mtls == nil {
+		return &tls.Config{InsecureSkipVerify: true}
 	}
-	rootCertPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.RootCertBase64)
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(rootCertPem)
 
-	var certificates []tls.Certificate
-	certPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.CertBase64)
-	keyPem, _ := base64.StdEncoding.DecodeString(b.spec.MTLS.KeyBase64)
+	certPem, _ := base64.StdEncoding.DecodeString(mtls.CertBase64)
+	keyPem, _ := base64.StdEncoding.DecodeString(mtls.KeyBase64)
 	cert, err := tls.X509KeyPair(certPem, keyPem)
 	if err != nil {
 		logger.Errorf("proxy generates x509 key pair failed: %v", err)
-		return &tls.Config{
-			InsecureSkipVerify: true,
-		}
+		return &tls.Config{InsecureSkipVerify: true}
 	}
-	certificates = append(certificates, cert)
+
+	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(rootCertPem)
+
 	return &tls.Config{
-		Certificates: certificates,
+		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
 	}
 }
 
-func (b *Proxy) reload() {
-	super := b.spec.Super()
+func (p *Proxy) reload() {
+	super := p.spec.Super()
 
-	b.mainPool = newPool(super, b.spec.MainPool, "proxy#main",
-		true /*writeResponse*/, b.spec.FailureCodes)
-
-	if b.spec.Fallback != nil {
-		b.fallback = fallback.New(&b.spec.Fallback.Spec)
-	}
-
-	if len(b.spec.CandidatePools) > 0 {
-		var candidatePools []*pool
-		for k := range b.spec.CandidatePools {
-			candidatePools = append(candidatePools,
-				newPool(super, b.spec.CandidatePools[k], fmt.Sprintf("proxy#candidate#%d", k),
-					true, b.spec.FailureCodes))
+	for _, spec := range p.spec.Pools {
+		name := ""
+		if spec.Filter == nil {
+			name = fmt.Sprintf("proxy#%s#main", p.Name())
+		} else {
+			id := len(p.candidatePools)
+			name = fmt.Sprintf("proxy#%s#candidate#%d", p.Name(), id)
 		}
-		b.candidatePools = candidatePools
-	}
-	if b.spec.MirrorPool != nil {
-		b.mirrorPool = newPool(super, b.spec.MirrorPool, "proxy#mirror",
-			false /*writeResponse*/, b.spec.FailureCodes)
+
+		pool := newPool(super, spec, name, true /*write response*/, p.spec.FailureCodes)
+
+		if spec.Filter == nil {
+			p.mainPool = pool
+		} else {
+			p.candidatePools = append(p.candidatePools, pool)
+		}
 	}
 
-	if b.spec.Compression != nil {
-		b.compression = newCompression(b.spec.Compression)
+	if p.spec.MirrorPool != nil {
+		name := fmt.Sprintf("proxy#%s#mirror", p.Name())
+		p.mirrorPool = newPool(super, p.spec.MirrorPool, name,
+			false /*writeResponse*/, p.spec.FailureCodes)
 	}
 
-	b.client = &http.Client{
+	if p.spec.Compression != nil {
+		p.compression = newCompression(p.spec.Compression)
+	}
+
+	p.client = &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
 		Transport: &http.Transport{
@@ -255,12 +250,12 @@ func (b *Proxy) reload() {
 				KeepAlive: 60 * time.Second,
 				DualStack: true,
 			}).DialContext,
-			TLSClientConfig:    b.tlsConfig(),
+			TLSClientConfig:    p.tlsConfig(),
 			DisableCompression: false,
 			// NOTE: The large number of Idle Connections can
 			// reduce overhead of building connections.
-			MaxIdleConns:          b.spec.MaxIdleConns,
-			MaxIdleConnsPerHost:   b.spec.MaxIdleConnsPerHost,
+			MaxIdleConns:          p.spec.MaxIdleConns,
+			MaxIdleConnsPerHost:   p.spec.MaxIdleConnsPerHost,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
@@ -272,41 +267,41 @@ func (b *Proxy) reload() {
 }
 
 // Status returns Proxy status.
-func (b *Proxy) Status() interface{} {
+func (p *Proxy) Status() interface{} {
 	s := &Status{
-		MainPool: b.mainPool.status(),
+		MainPool: p.mainPool.status(),
 	}
-	if b.candidatePools != nil {
-		for k := range b.candidatePools {
-			s.CandidatePools = append(s.CandidatePools, b.candidatePools[k].status())
-		}
+
+	for _, pool := range p.candidatePools {
+		s.CandidatePools = append(s.CandidatePools, pool.status())
 	}
-	if b.mirrorPool != nil {
-		s.MirrorPool = b.mirrorPool.status()
+
+	if p.mirrorPool != nil {
+		s.MirrorPool = p.mirrorPool.status()
 	}
+
 	return s
 }
 
 // Close closes Proxy.
-func (b *Proxy) Close() {
-	b.mainPool.close()
+func (p *Proxy) Close() {
+	p.mainPool.close()
 
-	if b.candidatePools != nil {
-		for _, v := range b.candidatePools {
-			v.close()
-		}
+	for _, v := range p.candidatePools {
+		v.close()
 	}
 
-	if b.mirrorPool != nil {
-		b.mirrorPool.close()
+	if p.mirrorPool != nil {
+		p.mirrorPool.close()
 	}
 }
 
-func (b *Proxy) fallbackForCodes(ctx context.Context) bool {
-	if b.fallback != nil && b.spec.Fallback.ForCodes {
-		for _, code := range b.spec.FailureCodes {
-			if ctx.Response().StatusCode() == code {
-				b.fallback.Fallback(ctx)
+func (p *Proxy) fallbackForCodes(ctx context.Context) bool {
+	if p.fallback != nil && p.spec.Fallback.ForCodes {
+		resp := ctx.Response().(*httpprot.Response)
+		for _, code := range p.spec.FailureCodes {
+			if resp.StatusCode() == code {
+				p.fallback.Fallback(resp)
 				return true
 			}
 		}
@@ -315,14 +310,29 @@ func (b *Proxy) fallbackForCodes(ctx context.Context) bool {
 }
 
 // Handle handles HTTPContext.
-func (b *Proxy) Handle(ctx context.Context) (result string) {
-	result = b.handle(ctx)
-	return ctx.CallNextHandler(result)
+func (p *Proxy) Handle(ctx context.Context) (result string) {
+	req := ctx.Request()
+
+	if p.mirrorPool != nil && p.mirrorPool.filter.Match(req) {
+		p.mirrorPool.handle(ctx, true)
+	}
+
+	sp := p.mainPool
+	for _, v := range p.candidatePools {
+		if v.filter.Match(req) {
+			sp = v
+			break
+		}
+	}
+
+	// TODO: resilience and etc.
+	return sp.handle(ctx, false)
 }
 
-func (b *Proxy) handle(ctx context.Context) (result string) {
-	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
-		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
+/*
+
+	if p.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
+		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().(*httpprot.Request).GetPayload())
 		ctx.Request().SetBody(primaryBody, false)
 
 		wg := &sync.WaitGroup{}
@@ -331,31 +341,29 @@ func (b *Proxy) handle(ctx context.Context) (result string) {
 
 		go func() {
 			defer wg.Done()
-			b.mirrorPool.handle(ctx, secondaryBody, b.client)
+			p.mirrorPool.handle(ctx, secondaryBody, p.client)
 		}()
 	}
 
-	var p *pool
-	if len(b.candidatePools) > 0 {
-		for k, v := range b.candidatePools {
-			if v.filter.Filter(ctx) {
-				p = b.candidatePools[k]
-				break
-			}
+	var pool *pool
+	for k, v := range p.candidatePools {
+		if v.filter.Filter(ctx) {
+			pool = p.candidatePools[k]
+			break
 		}
 	}
 
-	if p == nil {
-		p = b.mainPool
+	if pool == nil {
+		pool = p.mainPool
 	}
 
-	if p.memoryCache != nil && p.memoryCache.Load(ctx) {
+	if pool.memoryCache != nil && pool.memoryCache.Load(ctx) {
 		return ""
 	}
 
-	result = p.handle(ctx, ctx.Request().Body(), b.client)
+	result = pool.handle(ctx, ctx.Request().(*httpprot.Request).GetPayload(), b.client)
 	if result != "" {
-		if b.fallbackForCodes(ctx) {
+		if p.fallbackForCodes(ctx) {
 			return resultFallback
 		}
 		return result
@@ -363,13 +371,14 @@ func (b *Proxy) handle(ctx context.Context) (result string) {
 
 	// compression and memoryCache only work for
 	// normal traffic from real proxy servers.
-	if b.compression != nil {
-		b.compression.compress(ctx)
+	if pool.compression != nil {
+		pool.compression.compress(ctx)
 	}
 
-	if p.memoryCache != nil {
-		p.memoryCache.Store(ctx)
+	if pool.memoryCache != nil {
+		pool.memoryCache.Store(ctx)
 	}
 
 	return ""
 }
+*/

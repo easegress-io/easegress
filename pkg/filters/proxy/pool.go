@@ -29,67 +29,67 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/memorycache"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/callbackreader"
-	"github.com/megaease/easegress/pkg/util/httpfilter"
-	"github.com/megaease/easegress/pkg/util/httpheader"
-	"github.com/megaease/easegress/pkg/util/httpstat"
-	"github.com/megaease/easegress/pkg/util/memorycache"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
-type (
-	pool struct {
-		spec *PoolSpec
+// ServerPool defines a server pool.
+type ServerPool struct {
+	spec *ServerPoolSpec
 
-		tagPrefix     string
-		writeResponse bool
+	name          string
+	writeResponse bool
 
-		filter *httpfilter.HTTPFilter
+	filter protocols.TrafficMatcher
 
-		servers     *servers
-		httpStat    *httpstat.HTTPStat
-		memoryCache *memorycache.MemoryCache
-	}
+	servers     *servers
+	httpStat    *httpstat.HTTPStat
+	memoryCache *memorycache.MemoryCache
+}
 
-	// PoolSpec describes a pool of servers.
-	PoolSpec struct {
-		SpanName        string            `yaml:"spanName" jsonschema:"omitempty"`
-		Filter          *httpfilter.Spec  `yaml:"filter" jsonschema:"omitempty"`
-		ServersTags     []string          `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-		Servers         []*Server         `yaml:"servers" jsonschema:"omitempty"`
-		ServiceRegistry string            `yaml:"serviceRegistry" jsonschema:"omitempty"`
-		ServiceName     string            `yaml:"serviceName" jsonschema:"omitempty"`
-		LoadBalance     *LoadBalance      `yaml:"loadBalance" jsonschema:"required"`
-		MemoryCache     *memorycache.Spec `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
-	}
+// ServerPoolSpec is the spec for a server pool.
+type ServerPoolSpec struct {
+	SpanName        string                       `yaml:"spanName" jsonschema:"omitempty"`
+	Filter          *httpprot.TrafficMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
+	ServersTags     []string                     `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+	Servers         []*Server                    `yaml:"servers" jsonschema:"omitempty"`
+	ServiceRegistry string                       `yaml:"serviceRegistry" jsonschema:"omitempty"`
+	ServiceName     string                       `yaml:"serviceName" jsonschema:"omitempty"`
+	LoadBalance     *LoadBalance                 `yaml:"loadBalance" jsonschema:"required"`
+	MemoryCache     *memorycache.Spec            `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+}
 
-	// PoolStatus is the status of Pool.
-	PoolStatus struct {
-		Stat *httpstat.Status `yaml:"stat"`
-	}
-)
+// ServerPoolStatus is the status of Pool.
+type ServerPoolStatus struct {
+	Stat *httpstat.Status `yaml:"stat"`
+}
 
-// Validate validates poolSpec.
-func (s PoolSpec) Validate() error {
-	if s.ServiceName == "" && len(s.Servers) == 0 {
+// Validate validates ServerPoolSpec.
+func (sps *ServerPoolSpec) Validate() error {
+	if sps.ServiceName == "" && len(sps.Servers) == 0 {
 		return fmt.Errorf("both serviceName and servers are empty")
 	}
 
 	serversGotWeight := 0
-	for _, server := range s.Servers {
+	for _, server := range sps.Servers {
 		if server.Weight > 0 {
 			serversGotWeight++
 		}
 	}
-	if serversGotWeight > 0 && serversGotWeight < len(s.Servers) {
-		return fmt.Errorf("not all servers have weight(%d/%d)",
-			serversGotWeight, len(s.Servers))
+	if serversGotWeight > 0 && serversGotWeight < len(sps.Servers) {
+		msgFmt := "not all servers have weight(%d/%d)"
+		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
 	}
 
-	if s.ServiceName == "" {
-		servers := newStaticServers(s.Servers, s.ServersTags, s.LoadBalance)
+	if sps.ServiceName == "" {
+		servers := newStaticServers(sps.Servers, sps.ServersTags, sps.LoadBalance)
 		if servers.len() == 0 {
 			return fmt.Errorf("serversTags picks none of servers")
 		}
@@ -98,12 +98,12 @@ func (s PoolSpec) Validate() error {
 	return nil
 }
 
-func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string,
-	writeResponse bool, failureCodes []int) *pool {
+func newPool(super *supervisor.Supervisor, spec *ServerPoolSpec, name string,
+	writeResponse bool, failureCodes []int) *ServerPool {
 
-	var filter *httpfilter.HTTPFilter
+	var filter protocols.TrafficMatcher
 	if spec.Filter != nil {
-		filter = httpfilter.New(spec.Filter)
+		filter, _ = httpprot.NewTrafficMatcher(spec.Filter)
 	}
 
 	var memoryCache *memorycache.MemoryCache
@@ -111,10 +111,10 @@ func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string,
 		memoryCache = memorycache.New(spec.MemoryCache)
 	}
 
-	return &pool{
+	return &ServerPool{
 		spec: spec,
 
-		tagPrefix:     tagPrefix,
+		name:          name,
 		writeResponse: writeResponse,
 
 		filter:      filter,
@@ -124,8 +124,8 @@ func newPool(super *supervisor.Supervisor, spec *PoolSpec, tagPrefix string,
 	}
 }
 
-func (p *pool) status() *PoolStatus {
-	s := &PoolStatus{Stat: p.httpStat.Status()}
+func (sp *ServerPool) status() *ServerPoolStatus {
+	s := &ServerPoolStatus{Stat: sp.httpStat.Status()}
 	return s
 }
 
@@ -141,21 +141,19 @@ var httpstatResultPool = sync.Pool{
 	},
 }
 
-func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Client) string {
-	// intMsg is converted to string in AddLazyTag for better performance,
-	// as it is not run when access logs are disabled.
-	addLazyTag := func(subPrefix, msg string, intMsg int) {
-		ctx.Lock()
-		if intMsg > -1 {
-			ctx.AddLazyTag(func() string {
-				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", strconv.Itoa(intMsg))
-			})
-		} else {
-			ctx.AddLazyTag(func() string {
-				return stringtool.Cat(p.tagPrefix, "#", subPrefix, ": ", msg)
-			})
-		}
-		ctx.Unlock()
+func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
+	req := ctx.Request()
+
+	svr := sp.loadBalancer.ChooseServer(req)
+
+	if isMirror {
+		req = req.Clone()
+		go func() {
+			if resp, _ := svr.SendRequest(req); resp != nil {
+				resp.Close()
+			}
+		}()
+		return ""
 	}
 
 	setStatusCode := func(code int) {
@@ -164,7 +162,7 @@ func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Clien
 		ctx.Unlock()
 	}
 
-	server, err := p.servers.next(ctx)
+	server, err := sp.servers.next(ctx)
 	if err != nil {
 		addLazyTag("serverErr", err.Error(), -1)
 		setStatusCode(http.StatusServiceUnavailable)
@@ -181,7 +179,7 @@ func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Clien
 		return resultInternalError
 	}
 
-	resp, span, err := p.doRequest(ctx, req, client)
+	resp, span, err := sp.doRequest(ctx, req, client)
 	if err != nil {
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
@@ -204,9 +202,9 @@ func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Clien
 	defer ctx.Unlock()
 	// NOTE: The code below can't use addTag and setStatusCode in case of deadlock.
 
-	respBody := p.statRequestResponse(ctx, req, resp, span)
+	respBody := sp.statRequestResponse(ctx, req, resp, span)
 
-	if p.writeResponse {
+	if sp.writeResponse {
 		ctx.Response().SetStatusCode(resp.StatusCode)
 		ctx.Response().Header().AddFromStd(resp.Header)
 		ctx.Response().SetBody(respBody)
@@ -226,19 +224,19 @@ func (p *pool) handle(ctx context.Context, reqBody io.Reader, client *http.Clien
 	return ""
 }
 
-func (p *pool) prepareRequest(
+func (sp *ServerPool) prepareRequest(
 	ctx context.Context,
 	server *Server,
 	reqBody io.Reader,
 	requestPool sync.Pool,
 	httpstatResultPool sync.Pool) (req *request, err error) {
-	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
+	return sp.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
-func (p *pool) doRequest(ctx context.Context, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
+func (sp *ServerPool) doRequest(ctx context.Context, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
 	req.start()
 
-	spanName := p.spec.SpanName
+	spanName := sp.spec.SpanName
 	if spanName == "" {
 		spanName = req.server.URL
 	}
@@ -259,7 +257,7 @@ var httpstatMetricPool = sync.Pool{
 	},
 }
 
-func (p *pool) statRequestResponse(ctx context.Context,
+func (sp *ServerPool) statRequestResponse(ctx context.Context,
 	req *request, resp *http.Response, span tracing.Span) io.Reader {
 
 	var count int
@@ -276,13 +274,13 @@ func (p *pool) statRequestResponse(ctx context.Context,
 	})
 
 	ctx.OnFinish(func() {
-		if !p.writeResponse {
+		if !sp.writeResponse {
 			req.finish()
 			span.Finish()
 		}
 		duration := req.total()
 		ctx.AddLazyTag(func() string {
-			return stringtool.Cat(p.tagPrefix, "#duration: ", duration.String())
+			return stringtool.Cat(sp.name, "#duration: ", duration.String())
 		})
 		// use recycled object
 		metric := httpstatMetricPool.Get().(*httpstat.Metric)
@@ -291,7 +289,7 @@ func (p *pool) statRequestResponse(ctx context.Context,
 		metric.ReqSize = ctx.Request().Size()
 		metric.RespSize = uint64(responseMetaSize(resp) + count)
 
-		if !p.writeResponse {
+		if !sp.writeResponse {
 			metric.RespSize = 0
 		}
 		p.httpStat.Stat(metric)
@@ -330,6 +328,6 @@ func responseMetaSize(resp *http.Response) int {
 	return size
 }
 
-func (p *pool) close() {
-	p.servers.close()
+func (sp *ServerPool) close() {
+	sp.servers.close()
 }
