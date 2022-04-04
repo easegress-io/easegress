@@ -112,5 +112,5 @@ func (p *Protocol) CreateServer(spec interface{}) (protocols.Server, error) {
 
 // CreateTrafficMatcher creates a traffic matcher.
 func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
-	return NewMatcher(spec)
+	return NewTrafficMatcher(spec)
 }

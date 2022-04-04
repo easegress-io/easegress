@@ -19,15 +19,14 @@ package httpprot
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
-	"net/http"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/hashtool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 
 	yaml "gopkg.in/yaml.v2"
@@ -43,21 +42,23 @@ const (
 	policyRandom     = "random"
 )
 
-// Matcher is HTTP implementation for protocols.TrafficMatcher
-type Matcher struct {
-	spec *MatcherSpec
-	http.Request
+// TrafficMatcherSpec describe TrafficMatcher
+type TrafficMatcherSpec struct {
+	MatchAllHeaders bool                      `yaml:"matchAllHeaders" jsonschema:"omitempty"`
+	Headers         map[string]*StringMatcher `yaml:"headers" jsonschema:"omitempty"`
+	URLs            []*MethodAndURLMatcher    `yaml:"urls" jsonschema:"omitempty"`
+	Probability     *ProbabilitySpec          `yaml:"probability,omitempty" jsonschema:"omitempty"`
 }
 
-// MatcherSpec describe Matcher
-type MatcherSpec struct {
-	MatchAllHeaders bool                           `yaml:"matchAllHeaders" jsonschema:"omitempty"`
-	Headers         map[string]*MatcherStringMatch `yaml:"headers" jsonschema:"omitempty"`
-	URLs            []*MatcherURLRule              `yaml:"urls" jsonschema:"omitempty"`
-	Probability     *MatcherProbability            `yaml:"probability,omitempty" jsonschema:"omitempty"`
+// ProbabilitySpec defines rule to match traffic by probability.
+type ProbabilitySpec struct {
+	PerMill       uint32 `yaml:"perMill" jsonschema:"required,minimum=1,maximum=1000"`
+	Policy        string `yaml:"policy" jsonschema:"required,enum=ipHash,enum=headerHash,enum=random"`
+	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 
-func (s *MatcherSpec) validate() error {
+// Validate validtes the TrafficMatcherSpec.
+func (s *TrafficMatcherSpec) Validate() error {
 	if len(s.Headers) == 0 && s.Probability == nil {
 		return fmt.Errorf("none of headers and probability is specified")
 	}
@@ -67,191 +68,245 @@ func (s *MatcherSpec) validate() error {
 	}
 
 	for _, v := range s.Headers {
-		if err := v.validate(); err != nil {
+		if err := v.Validate(); err != nil {
 			return err
 		}
 	}
 
 	for _, r := range s.URLs {
-		if err := r.validate(); err != nil {
+		if err := r.Validate(); err != nil {
 			return err
 		}
 	}
 
-	if err := s.Probability.validate(); err != nil {
-		return err
+	if s.Probability != nil {
+		return s.Probability.Validate()
 	}
+
 	return nil
 }
 
-var _ protocols.TrafficMatcher = (*Matcher)(nil)
-
-func NewMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
-	data, err := yaml.Marshal(spec)
-	if err != nil {
-		return nil, err
-	}
-	matcherSpec := &MatcherSpec{}
-	err = yaml.Unmarshal(data, matcherSpec)
-	if err != nil {
-		return nil, err
-	}
-
-	err = matcherSpec.validate()
-	if err != nil {
-		return nil, err
-	}
-
-	matcher := &Matcher{spec: matcherSpec}
-	for _, stringMatcher := range matcherSpec.Headers {
-		stringMatcher.init()
-	}
-
-	for _, url := range matcherSpec.URLs {
-		url.init()
-	}
-	return matcher, nil
-}
-
-func (m *Matcher) Match(r protocols.Request) bool {
-	req := r.(*Request)
-	return m.match(req)
-}
-
-func (m *Matcher) match(req *Request) bool {
-	if len(m.spec.Headers) > 0 {
-		matchHeader := m.filterHeader(req)
-		if matchHeader && len(m.spec.URLs) > 0 {
-			return m.filterURL(req)
-		}
-		return matchHeader
-	}
-	return m.filterProbability(req)
-}
-
-func (m *Matcher) filterHeader(req *Request) bool {
-	h := req.HTTPHeader()
-	headerMatchNum := 0
-	for key, matchRule := range m.spec.Headers {
-		// NOTE: Quickly break for performance.
-		if headerMatchNum >= 1 && !m.spec.MatchAllHeaders {
-			break
-		}
-
-		values := h.Values(key)
-
-		if len(values) == 0 && matchRule.Empty {
-			headerMatchNum++
-			continue
-		}
-
-		// NOTE: So even matchRule.RegEx match empty string,
-		// it won't reach here when len(values) == 0.
-		for _, value := range values {
-			if matchRule.match(value) {
-				headerMatchNum++
-				break
-			}
-		}
-	}
-
-	needHeaderMatchNum := 1
-	if m.spec.MatchAllHeaders {
-		needHeaderMatchNum = len(m.spec.Headers)
-	}
-
-	if headerMatchNum >= needHeaderMatchNum {
-		return true
-	}
-
-	return false
-}
-
-func (m *Matcher) filterURL(req *Request) bool {
-	urlMatch := false
-	for _, url := range m.spec.URLs {
-		if url.match(req) {
-			urlMatch = true
-			break
-		}
-	}
-	return urlMatch
-}
-
-func (m *Matcher) filterProbability(req *Request) bool {
-	prob := m.spec.Probability
-
-	var result uint32
-	switch prob.Policy {
-	case policyIPHash:
-		result = hashtool.Hash32(req.RealIP())
-	case policyHeaderHash:
-		result = hashtool.Hash32(req.HTTPHeader().Get(prob.HeaderHashKey))
-	case policyRandom:
-		result = uint32(rand.Int31n(1000))
-	default:
-		logger.Errorf("BUG: unsupported probability policy: %s", prob.Policy)
-		result = hashtool.Hash32(req.RealIP())
-	}
-
-	return result%1000 < prob.PerMill
-}
-
-// MatcherProbability filters HTTP traffic by probability.
-type MatcherProbability struct {
-	PerMill       uint32 `yaml:"perMill" jsonschema:"required,minimum=1,maximum=1000"`
-	Policy        string `yaml:"policy" jsonschema:"required,enum=ipHash,enum=headerHash,enum=random"`
-	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
-}
-
-func (p *MatcherProbability) validate() error {
-	if p.Policy == policyHeaderHash && p.HeaderHashKey == "" {
+// Validate validates the ProbabilitySpec.
+func (ps *ProbabilitySpec) Validate() error {
+	if ps.Policy == policyHeaderHash && ps.HeaderHashKey == "" {
 		return fmt.Errorf("headerHash needs to speficy headerHashKey")
 	}
 
 	return nil
 }
 
-// MatcherURLRule defines the match rule of a http request
-type MatcherURLRule struct {
-	id        string
-	Methods   []string            `yaml:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-	URL       *MatcherStringMatch `yaml:"url" jsonschema:"required"`
-	PolicyRef string              `yaml:"policyRef" jsonschema:"omitempty"`
+// NewTrafficMatcher creates a new traffic matcher according to spec.
+func NewTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
+	tms, ok := spec.(*TrafficMatcherSpec)
+	if !ok {
+		data, err := yaml.Marshal(spec)
+		if err != nil {
+			return nil, err
+		}
+		tms := &TrafficMatcherSpec{}
+		if err = yaml.Unmarshal(data, tms); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := tms.Validate(); err != nil {
+		return nil, err
+	}
+
+	if len(tms.Headers) > 0 {
+		matcher := &generalMatcher{
+			matchAllHeaders: tms.MatchAllHeaders,
+			headers:         tms.Headers,
+			urls:            tms.URLs,
+		}
+		matcher.init()
+		return matcher, nil
+	}
+
+	switch tms.Probability.Policy {
+	case policyIPHash:
+		return &ipHashMatcher{permill: tms.Probability.PerMill}, nil
+	case policyHeaderHash:
+		return &headerHashMatcher{
+			permill:       tms.Probability.PerMill,
+			headerHashKey: tms.Probability.HeaderHashKey,
+		}, nil
+	case policyRandom:
+		return &randomMatcher{permill: tms.Probability.PerMill}, nil
+	}
+
+	logger.Errorf("BUG: unsupported probability policy: %s", tms.Probability.Policy)
+	return &ipHashMatcher{permill: tms.Probability.PerMill}, nil
 }
 
-func (r *MatcherURLRule) validate() error {
+// randomMatcher implements random request matcher.
+// TODO: move to package protocols??
+type randomMatcher struct {
+	permill uint32
+}
+
+// Match implements protocols.Matcher.
+func (rm randomMatcher) Match(req protocols.Request) bool {
+	return rand.Uint32()%1000 < rm.permill
+}
+
+// headerHashMatcher implements header hash request matcher.
+type headerHashMatcher struct {
+	permill       uint32
+	headerHashKey string
+}
+
+// Match implements protocols.Matcher.
+func (hhm headerHashMatcher) Match(req protocols.Request) bool {
+	v := req.(*Request).HTTPHeader().Get(hhm.headerHashKey)
+	hash := fnv.New32()
+	hash.Write([]byte(v))
+	return hash.Sum32()%1000 < hhm.permill
+}
+
+// ipHashMatcher implements IP address hash matcher.
+type ipHashMatcher struct {
+	permill uint32
+}
+
+// Match implements protocols.Matcher.
+func (iphm ipHashMatcher) Match(req protocols.Request) bool {
+	ip := req.(*Request).RealIP()
+	hash := fnv.New32()
+	hash.Write([]byte(ip))
+	return hash.Sum32()%1000 < iphm.permill
+}
+
+// generalMatcher implements general HTTP matcher.
+type generalMatcher struct {
+	matchAllHeaders bool
+	headers         map[string]*StringMatcher
+	urls            []*MethodAndURLMatcher
+}
+
+func (gm *generalMatcher) init() {
+	for _, h := range gm.headers {
+		h.init()
+	}
+
+	for _, url := range gm.urls {
+		url.init()
+	}
+}
+
+// Match implements protocols.Matcher.
+func (gm *generalMatcher) Match(r protocols.Request) bool {
+	req := r.(*Request)
+
+	matched := false
+	if gm.matchAllHeaders {
+		matched = gm.matchOneHeader(req)
+	} else {
+		matched = gm.matchAllHeader(req)
+	}
+
+	if matched && len(gm.urls) > 0 {
+		matched = gm.matchURL(req)
+	}
+
+	return matched
+}
+
+func (gm *generalMatcher) matchOneHeader(req *Request) bool {
+	h := req.HTTPHeader()
+
+	for key, rule := range gm.headers {
+		values := h.Values(key)
+
+		if len(values) == 0 {
+			if rule.Match("") {
+				return true
+			}
+			continue
+		}
+
+		for _, v := range values {
+			if rule.Match(v) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (gm *generalMatcher) matchAllHeader(req *Request) bool {
+	h := req.HTTPHeader()
+
+OUTER_LOOP:
+	for key, rule := range gm.headers {
+		values := h.Values(key)
+
+		if len(values) == 0 {
+			if rule.Match("") {
+				continue
+			}
+			return false
+		}
+
+		for _, v := range values {
+			if rule.Match(v) {
+				continue OUTER_LOOP
+			}
+		}
+
+		return false
+	}
+
+	return true
+}
+
+func (gm *generalMatcher) matchURL(req *Request) bool {
+	for _, url := range gm.urls {
+		if url.match(req) {
+			return true
+		}
+	}
+	return false
+}
+
+// MethodAndURLMatcher defines the match rule of a http request
+type MethodAndURLMatcher struct {
+	Methods []string       `yaml:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+	URL     *StringMatcher `yaml:"url" jsonschema:"required"`
+}
+
+// Validate validates the MethodAndURLMatcher.
+func (r *MethodAndURLMatcher) Validate() error {
 	if r.URL != nil {
-		return r.URL.validate()
+		return r.URL.Validate()
 	}
 	return nil
 }
 
-func (r *MatcherURLRule) init() {
-	if r.URL.Exact != "" {
-		r.id = r.URL.Exact
-	} else if r.URL.Prefix != "" {
-		r.id = r.URL.Prefix
-	} else {
-		r.id = r.URL.RegEx
-	}
-	if r.URL.RegEx != "" {
-		r.URL.re = regexp.MustCompile(r.URL.RegEx)
+func (r *MethodAndURLMatcher) init() {
+	if r.URL != nil {
+		r.URL.init()
 	}
 }
 
-func (r *MatcherURLRule) match(req *Request) bool {
+// Match matches a request.
+func (r *MethodAndURLMatcher) Match(req protocols.Request) bool {
+	return r.match(req.(*Request))
+}
+
+func (r *MethodAndURLMatcher) match(req *Request) bool {
 	if len(r.Methods) > 0 {
 		if !stringtool.StrInSlice(req.Method(), r.Methods) {
 			return false
 		}
 	}
 
-	return r.URL.match(req.URL().Path)
+	return r.URL.Match(req.URL().Path)
 }
 
-// MatcherStringMatch defines the match rule of a string
-type MatcherStringMatch struct {
+// StringMatcher defines the match rule of a string
+type StringMatcher struct {
 	Exact  string `yaml:"exact" jsonschema:"omitempty"`
 	Prefix string `yaml:"prefix" jsonschema:"omitempty"`
 	RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
@@ -259,7 +314,8 @@ type MatcherStringMatch struct {
 	re     *regexp.Regexp
 }
 
-func (sm *MatcherStringMatch) validate() error {
+// Validate validates the StringMatcher.
+func (sm *StringMatcher) Validate() error {
 	if sm.Empty {
 		if sm.Exact != "" || sm.Prefix != "" || sm.RegEx != "" {
 			return fmt.Errorf("empty is conflict with other patterns")
@@ -279,16 +335,17 @@ func (sm *MatcherStringMatch) validate() error {
 		return nil
 	}
 
-	return fmt.Errorf("all patterns is empty")
+	return fmt.Errorf("all patterns are empty")
 }
 
-func (sm *MatcherStringMatch) init() {
+func (sm *StringMatcher) init() {
 	if sm.RegEx != "" {
 		sm.re = regexp.MustCompile(sm.RegEx)
 	}
 }
 
-func (sm *MatcherStringMatch) match(value string) bool {
+// Match matches a string.
+func (sm *StringMatcher) Match(value string) bool {
 	if sm.Empty && value == "" {
 		return true
 	}
