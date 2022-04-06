@@ -297,13 +297,15 @@ func (mmm *muxMapperMock) GetHandler(name string) (protocol.HTTPHandler, bool) {
 
 func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
+
 	superSpecYaml := `
 name: http-server-test
 kind: HTTPServer
 port: 10080
 cacheSize: 200
 rules:
-  - paths:
+  - hostRegexp: 127.0.[0|1].1
+    paths:
     - pathPrefix: /api
 `
 
@@ -345,7 +347,56 @@ rules:
 	assert.Equal("200 OK", res.Status)
 	ts.Close()
 
+	status := httpServer.runtime.Status()
+	assert.Equal(status.Error, "")
+
+	superSpecYaml = `
+name: http-server-test2
+kind: HTTPServer
+port: 10081
+cacheSize: 201
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+
+	superSpec, err = supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	newServer := HTTPServer{}
+	newServer.Inherit(superSpec, &httpServer, mux)
 	httpServer.Close()
+}
+
+func TestStartTwoServerInSamePort(t *testing.T) {
+	assert := assert.New(t)
+	superSpecYaml := `
+name: http-server-test
+kind: HTTPServer
+port: 10080
+cacheSize: 200
+rules:
+  - paths:
+    - pathPrefix: /api
+`
+	superSpec1, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec1.ObjectSpec())
+	superSpec2, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+	assert.NotNil(superSpec2.ObjectSpec())
+	mux1 := &muxMapperMock{&handlerMock{}}
+	mux2 := &muxMapperMock{&handlerMock{}}
+	httpServer1 := HTTPServer{}
+	httpServer1.Init(superSpec1, mux1)
+	httpServer2 := HTTPServer{}
+	httpServer2.Init(superSpec2, mux2)
+
+	_, err1 := http.Get("http://127.0.0.1:10080/api")
+	httpServer1.Close()
+	httpServer2.Close()
+	_, err2 := http.Get("http://127.0.0.1:10080/api")
+	assert.Nil(err1)
+	assert.NotNil(err2)
 }
 
 func TestMatchPath(t *testing.T) {
@@ -423,7 +474,7 @@ func TestMatchPath(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(tests); i++ {
 		t.Run("test case "+fmt.Sprint(i), func(t *testing.T) {
 			testcase := tests[i]
 
@@ -512,7 +563,7 @@ func TestHandleRewrite(t *testing.T) {
 		},
 	}
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < len(tests); i++ {
 		t.Run("test case "+fmt.Sprint(i), func(t *testing.T) {
 			testcase := tests[i]
 
