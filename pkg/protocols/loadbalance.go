@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sync/atomic"
-
-	"github.com/megaease/easegress/pkg/logger"
 )
 
 const (
@@ -34,70 +32,75 @@ const (
 	PolicyWeightedRandom = "weightedRandom"
 )
 
-type GeneralLoadBalancer struct {
-	spec       *GeneralLoadBalancerSpec
+type LoadBalancerSpec struct {
+	Policy string `yaml:"policy" jsonschema:"required"`
+}
+
+var _ LoadBalancer = (*RandomLoadBalancer)(nil)
+var _ LoadBalancer = (*RoundRobinLoadBalancer)(nil)
+var _ LoadBalancer = (*WeightedRandomLoadBalancer)(nil)
+
+func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
+	sepc := spec.(*LoadBalancerSpec)
+	switch sepc.Policy {
+	case PolicyRoundRobin:
+		return newRoundRobinLoadBalancer(servers), nil
+	case PolicyRandom:
+		return newRandomLoadBalancer(servers), nil
+	case PolicyWeightedRandom:
+		return newWeightedRandomLoadBalancer(servers), nil
+	default:
+		return nil, fmt.Errorf("unsupported load balancing policy: %s", sepc.Policy)
+	}
+}
+
+type RandomLoadBalancer struct {
+	servers []Server
+}
+
+func newRandomLoadBalancer(servers []Server) *RandomLoadBalancer {
+	return &RandomLoadBalancer{servers: servers}
+}
+
+func (rlb *RandomLoadBalancer) ChooseServer(req Request) Server {
+	return rlb.servers[rand.Intn(len(rlb.servers))]
+}
+
+type RoundRobinLoadBalancer struct {
+	servers []Server
+	count   uint64
+}
+
+func newRoundRobinLoadBalancer(servers []Server) *RoundRobinLoadBalancer {
+	return &RoundRobinLoadBalancer{servers: servers}
+}
+
+func (rrlb *RoundRobinLoadBalancer) ChooseServer(req Request) Server {
+	count := atomic.AddUint64(&rrlb.count, 1)
+	count--
+	return rrlb.servers[int(count)%len(rrlb.servers)]
+}
+
+type WeightedRandomLoadBalancer struct {
 	servers    []Server
-	count      int32
 	weightsSum int
 }
 
-type GeneralLoadBalancerSpec struct {
-	Policy string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom"`
-}
-
-var _ LoadBalancer = (*GeneralLoadBalancer)(nil)
-
-func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
-	lb := &GeneralLoadBalancer{}
-	lb.spec = spec.(*GeneralLoadBalancerSpec)
-	lb.servers = servers
-
-	p := lb.spec.Policy
-	if p != PolicyRoundRobin && p != PolicyRandom && p != PolicyWeightedRandom {
-		return nil, fmt.Errorf("unsupported load balancing policy: %s", p)
+func newWeightedRandomLoadBalancer(servers []Server) *WeightedRandomLoadBalancer {
+	wrlb := &WeightedRandomLoadBalancer{servers: servers}
+	for _, server := range servers {
+		wrlb.weightsSum += server.Weight()
 	}
-
-	for _, s := range servers {
-		lb.weightsSum += s.Weight()
-	}
-	return lb, nil
-
+	return wrlb
 }
 
-func (lb *GeneralLoadBalancer) ChooseServer(req Request) Server {
-	switch lb.spec.Policy {
-	case PolicyRoundRobin:
-		return lb.chooseRoundRobin()
-	case PolicyRandom:
-		return lb.chooseRandom()
-	case PolicyWeightedRandom:
-		return lb.chooseWeightedRandom()
-	default:
-		logger.Errorf("unsupported load balancing policy: %s", lb.spec.Policy)
-		return lb.chooseRoundRobin()
-	}
-}
-
-func (lb *GeneralLoadBalancer) chooseRoundRobin() Server {
-	count := atomic.AddInt32(&lb.count, 1)
-	count--
-	return lb.servers[count%int32(len(lb.servers))]
-}
-
-func (lb *GeneralLoadBalancer) chooseRandom() Server {
-	return lb.servers[rand.Intn(len(lb.servers))]
-}
-
-func (lb *GeneralLoadBalancer) chooseWeightedRandom() Server {
-	randomWeight := rand.Intn(lb.weightsSum)
-	for _, server := range lb.servers {
+func (wrlb *WeightedRandomLoadBalancer) ChooseServer(req Request) Server {
+	randomWeight := rand.Intn(wrlb.weightsSum)
+	for _, server := range wrlb.servers {
 		randomWeight -= server.Weight()
 		if randomWeight < 0 {
 			return server
 		}
 	}
-
-	logger.Errorf("BUG: weighted random can't pick a server: sum(%d) servers(%+v)",
-		lb.weightsSum, lb.servers)
-	return lb.chooseRandom()
+	return wrlb.servers[rand.Intn(len(wrlb.servers))]
 }

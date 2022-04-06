@@ -19,9 +19,7 @@ package httpprot
 
 import (
 	"fmt"
-	"math/rand"
 
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/hashtool"
 )
@@ -33,71 +31,51 @@ const (
 	PolicyHeaderHash = "headerHash"
 )
 
-type LoadBalancer struct {
-	general protocols.LoadBalancer
-
-	spec    *LoadBalancerSpec
-	servers []protocols.Server
-}
-
 type LoadBalancerSpec struct {
-	Policy        string `yaml:"policy" jsonschema:"required,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	protocols.LoadBalancerSpec
 	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 
-func (s LoadBalancerSpec) validate() error {
-	if s.Policy == PolicyHeaderHash && len(s.HeaderHashKey) == 0 {
-		return fmt.Errorf("headerHash needs to specify headerHashKey")
-	}
-
-	return nil
-}
-
-var _ protocols.LoadBalancer = (*LoadBalancer)(nil)
-
 func NewLoadBalancer(spec interface{}, servers []protocols.Server) (protocols.LoadBalancer, error) {
 	s := spec.(*LoadBalancerSpec)
-	if err := s.validate(); err != nil {
-		return nil, err
-	}
-	lb := &LoadBalancer{
-		spec:    s,
-		servers: servers,
-	}
-	p := s.Policy
-	if p == protocols.PolicyRandom || p == protocols.PolicyWeightedRandom || p == protocols.PolicyRoundRobin {
-		glb, err := protocols.NewLoadBalancer(spec, servers)
-		if err != nil {
-			return nil, err
-		}
-		lb.general = glb
-		return lb, nil
-	}
-	return lb, nil
-}
-
-func (lb *LoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
-	r := req.(*Request)
-	switch lb.spec.Policy {
+	switch s.Policy {
 	case protocols.PolicyRoundRobin, protocols.PolicyRandom, protocols.PolicyWeightedRandom:
-		return lb.general.ChooseServer(req)
+		return protocols.NewLoadBalancer(spec, servers)
 	case PolicyIPHash:
-		return lb.chooseIPHash(r)
+		return newIPHashLoadBalancer(servers), nil
 	case PolicyHeaderHash:
-		return lb.chooseHeaderHash(r)
+		return newHeaderHashLoadBalancer(servers, s.HeaderHashKey), nil
 	default:
-		logger.Errorf("unsupported load balancing policy: %s", lb.spec.Policy)
-		return lb.servers[rand.Intn(len(lb.servers))]
+		return nil, fmt.Errorf("unsupported load balancing policy: %s", s.Policy)
 	}
 }
 
-func (lb *LoadBalancer) chooseIPHash(req *Request) protocols.Server {
-	sum32 := int(hashtool.Hash32(req.RealIP()))
+type IPHashLoadBalancer struct {
+	servers []protocols.Server
+}
+
+func newIPHashLoadBalancer(servers []protocols.Server) *IPHashLoadBalancer {
+	return &IPHashLoadBalancer{servers: servers}
+}
+
+func (lb *IPHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
+	r := req.(*Request)
+	sum32 := int(hashtool.Hash32(r.RealIP()))
 	return lb.servers[sum32%len(lb.servers)]
 }
 
-func (lb *LoadBalancer) chooseHeaderHash(req *Request) protocols.Server {
-	value := req.HTTPHeader().Get(lb.spec.HeaderHashKey)
+type HeaderHashLoadBalancer struct {
+	servers []protocols.Server
+	key     string
+}
+
+func newHeaderHashLoadBalancer(servers []protocols.Server, key string) *HeaderHashLoadBalancer {
+	return &HeaderHashLoadBalancer{servers: servers, key: key}
+}
+
+func (lb *HeaderHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
+	r := req.(*Request)
+	value := r.HTTPHeader().Get(lb.key)
 	sum32 := int(hashtool.Hash32(value))
 	return lb.servers[sum32%len(lb.servers)]
 }
