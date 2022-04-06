@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
+	"github.com/megaease/easegress/pkg/supervisor"
 )
 
 const (
@@ -59,7 +60,10 @@ var kind = &filters.Kind{
 		}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &Proxy{spec: spec.(*Spec)}
+		return &Proxy{
+			super: spec.Super(),
+			spec:  spec.(*Spec),
+		}
 	},
 }
 
@@ -74,7 +78,8 @@ var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, 
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
-		spec *Spec
+		super *supervisor.Supervisor
+		spec  *Spec
 
 		fallback *fallback.Fallback
 
@@ -210,8 +215,6 @@ func (p *Proxy) tlsConfig() *tls.Config {
 }
 
 func (p *Proxy) reload() {
-	super := p.spec.Super()
-
 	for _, spec := range p.spec.Pools {
 		name := ""
 		if spec.Filter == nil {
@@ -221,7 +224,7 @@ func (p *Proxy) reload() {
 			name = fmt.Sprintf("proxy#%s#candidate#%d", p.Name(), id)
 		}
 
-		pool := newPool(super, spec, name, true /*write response*/, p.spec.FailureCodes)
+		pool := newPool(p, spec, name, true /*write response*/, p.spec.FailureCodes)
 
 		if spec.Filter == nil {
 			p.mainPool = pool
@@ -232,7 +235,7 @@ func (p *Proxy) reload() {
 
 	if p.spec.MirrorPool != nil {
 		name := fmt.Sprintf("proxy#%s#mirror", p.Name())
-		p.mirrorPool = newPool(super, p.spec.MirrorPool, name,
+		p.mirrorPool = newPool(p, p.spec.MirrorPool, name,
 			false /*writeResponse*/, p.spec.FailureCodes)
 	}
 

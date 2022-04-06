@@ -58,7 +58,7 @@ func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
 	}
 
 	switch lbs.Policy {
-	case PolicyRoundRobin:
+	case PolicyRoundRobin, "":
 		return newRoundRobinLoadBalancer(servers), nil
 	case PolicyRandom:
 		return newRandomLoadBalancer(servers), nil
