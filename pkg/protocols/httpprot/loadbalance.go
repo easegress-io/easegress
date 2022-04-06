@@ -18,10 +18,10 @@
 package httpprot
 
 import (
-	"fmt"
+	"hash/fnv"
 
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/hashtool"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -31,25 +31,37 @@ const (
 	PolicyHeaderHash = "headerHash"
 )
 
+// LoadBalancerSpec is the spec of an HTTP load balancer.
 type LoadBalancerSpec struct {
-	protocols.LoadBalancerSpec
-	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
+	protocols.LoadBalancerSpec `yaml:",inline"`
+	HeaderHashKey              string `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 
+// NewLoadBalancer creates a new load balancer for servers from spec.
 func NewLoadBalancer(spec interface{}, servers []protocols.Server) (protocols.LoadBalancer, error) {
-	s := spec.(*LoadBalancerSpec)
-	switch s.Policy {
-	case protocols.PolicyRoundRobin, protocols.PolicyRandom, protocols.PolicyWeightedRandom:
-		return protocols.NewLoadBalancer(spec, servers)
+	lbs, ok := spec.(*LoadBalancerSpec)
+	if !ok {
+		data, err := yaml.Marshal(spec)
+		if err != nil {
+			return nil, err
+		}
+		lbs = &LoadBalancerSpec{}
+		if err = yaml.Unmarshal(data, lbs); err != nil {
+			return nil, err
+		}
+	}
+
+	switch lbs.Policy {
 	case PolicyIPHash:
 		return newIPHashLoadBalancer(servers), nil
 	case PolicyHeaderHash:
-		return newHeaderHashLoadBalancer(servers, s.HeaderHashKey), nil
+		return newHeaderHashLoadBalancer(servers, lbs.HeaderHashKey), nil
 	default:
-		return nil, fmt.Errorf("unsupported load balancing policy: %s", s.Policy)
+		return protocols.NewLoadBalancer(lbs.LoadBalancerSpec, servers)
 	}
 }
 
+// IPHashLoadBalancer does load balancing based on IP hash.
 type IPHashLoadBalancer struct {
 	servers []protocols.Server
 }
@@ -58,12 +70,15 @@ func newIPHashLoadBalancer(servers []protocols.Server) *IPHashLoadBalancer {
 	return &IPHashLoadBalancer{servers: servers}
 }
 
+// ChooseServer implements the LoadBalancer interface.
 func (lb *IPHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
-	r := req.(*Request)
-	sum32 := int(hashtool.Hash32(r.RealIP()))
-	return lb.servers[sum32%len(lb.servers)]
+	ip := req.(*Request).RealIP()
+	hash := fnv.New32()
+	hash.Write([]byte(ip))
+	return lb.servers[hash.Sum32()%uint32(len(lb.servers))]
 }
 
+// HeaderHashLoadBalancer does load balancing based on header hash.
 type HeaderHashLoadBalancer struct {
 	servers []protocols.Server
 	key     string
@@ -73,9 +88,10 @@ func newHeaderHashLoadBalancer(servers []protocols.Server, key string) *HeaderHa
 	return &HeaderHashLoadBalancer{servers: servers, key: key}
 }
 
+// ChooseServer implements the LoadBalancer interface.
 func (lb *HeaderHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
-	r := req.(*Request)
-	value := r.HTTPHeader().Get(lb.key)
-	sum32 := int(hashtool.Hash32(value))
-	return lb.servers[sum32%len(lb.servers)]
+	v := req.(*Request).HTTPHeader().Get(lb.key)
+	hash := fnv.New32()
+	hash.Write([]byte(v))
+	return lb.servers[hash.Sum32()%uint32(len(lb.servers))]
 }

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"math/rand"
 	"sync/atomic"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -32,6 +34,7 @@ const (
 	PolicyWeightedRandom = "weightedRandom"
 )
 
+// LoadBalancerSpec is the spec of a load balancer.
 type LoadBalancerSpec struct {
 	Policy string `yaml:"policy" jsonschema:"required"`
 }
@@ -40,9 +43,21 @@ var _ LoadBalancer = (*RandomLoadBalancer)(nil)
 var _ LoadBalancer = (*RoundRobinLoadBalancer)(nil)
 var _ LoadBalancer = (*WeightedRandomLoadBalancer)(nil)
 
+// NewLoadBalancer creates a new load balancer for servers from spec.
 func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
-	sepc := spec.(*LoadBalancerSpec)
-	switch sepc.Policy {
+	lbs, ok := spec.(*LoadBalancerSpec)
+	if !ok {
+		data, err := yaml.Marshal(spec)
+		if err != nil {
+			return nil, err
+		}
+		lbs := &LoadBalancerSpec{}
+		if err = yaml.Unmarshal(data, lbs); err != nil {
+			return nil, err
+		}
+	}
+
+	switch lbs.Policy {
 	case PolicyRoundRobin:
 		return newRoundRobinLoadBalancer(servers), nil
 	case PolicyRandom:
@@ -50,10 +65,11 @@ func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
 	case PolicyWeightedRandom:
 		return newWeightedRandomLoadBalancer(servers), nil
 	default:
-		return nil, fmt.Errorf("unsupported load balancing policy: %s", sepc.Policy)
+		return nil, fmt.Errorf("unsupported load balancing policy: %s", lbs.Policy)
 	}
 }
 
+// RandomLoadBalancer does load balancing in a random manner.
 type RandomLoadBalancer struct {
 	servers []Server
 }
@@ -62,10 +78,12 @@ func newRandomLoadBalancer(servers []Server) *RandomLoadBalancer {
 	return &RandomLoadBalancer{servers: servers}
 }
 
-func (rlb *RandomLoadBalancer) ChooseServer(req Request) Server {
-	return rlb.servers[rand.Intn(len(rlb.servers))]
+// ChooseServer implements the LoadBalancer interface.
+func (lb *RandomLoadBalancer) ChooseServer(req Request) Server {
+	return lb.servers[rand.Intn(len(lb.servers))]
 }
 
+// RoundRobinLoadBalancer does load balancing in a round robin manner.
 type RoundRobinLoadBalancer struct {
 	servers []Server
 	count   uint64
@@ -75,32 +93,34 @@ func newRoundRobinLoadBalancer(servers []Server) *RoundRobinLoadBalancer {
 	return &RoundRobinLoadBalancer{servers: servers}
 }
 
-func (rrlb *RoundRobinLoadBalancer) ChooseServer(req Request) Server {
-	count := atomic.AddUint64(&rrlb.count, 1)
-	count--
-	return rrlb.servers[int(count)%len(rrlb.servers)]
+// ChooseServer implements the LoadBalancer interface.
+func (lb *RoundRobinLoadBalancer) ChooseServer(req Request) Server {
+	count := atomic.AddUint64(&lb.count, 1) - 1
+	return lb.servers[int(count)%len(lb.servers)]
 }
 
+// WeightedRandomLoadBalancer does load balancing in a weighted random manner.
 type WeightedRandomLoadBalancer struct {
-	servers    []Server
-	weightsSum int
+	servers     []Server
+	totalWeight int
 }
 
 func newWeightedRandomLoadBalancer(servers []Server) *WeightedRandomLoadBalancer {
-	wrlb := &WeightedRandomLoadBalancer{servers: servers}
+	lb := &WeightedRandomLoadBalancer{servers: servers}
 	for _, server := range servers {
-		wrlb.weightsSum += server.Weight()
+		lb.totalWeight += server.Weight()
 	}
-	return wrlb
+	return lb
 }
 
-func (wrlb *WeightedRandomLoadBalancer) ChooseServer(req Request) Server {
-	randomWeight := rand.Intn(wrlb.weightsSum)
-	for _, server := range wrlb.servers {
+// ChooseServer implements the LoadBalancer interface.
+func (lb *WeightedRandomLoadBalancer) ChooseServer(req Request) Server {
+	randomWeight := rand.Intn(lb.totalWeight)
+	for _, server := range lb.servers {
 		randomWeight -= server.Weight()
 		if randomWeight < 0 {
 			return server
 		}
 	}
-	return wrlb.servers[rand.Intn(len(wrlb.servers))]
+	panic(fmt.Errorf("BUG: should not run to here, total weight=%d", lb.totalWeight))
 }

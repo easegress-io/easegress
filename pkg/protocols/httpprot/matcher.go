@@ -103,7 +103,7 @@ func NewTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
 		if err != nil {
 			return nil, err
 		}
-		tms := &TrafficMatcherSpec{}
+		tms = &TrafficMatcherSpec{}
 		if err = yaml.Unmarshal(data, tms); err != nil {
 			return nil, err
 		}
