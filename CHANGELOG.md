@@ -10,11 +10,8 @@
 
 **Implemented enhancements:**
 
-- Change way StatusSyncController stores statuses [\#542](https://github.com/megaease/easegress/pull/542)
-- Support mesh monitor mTLS [\#528](https://github.com/megaease/easegress/pull/528)
+- Change the way StatusSyncController stores statuses to reduce memory usage [\#542](https://github.com/megaease/easegress/pull/542)
 - Support custom image name [\#545](https://github.com/megaease/easegress/pull/545)
-- Remove package contexttool [\#547](https://github.com/megaease/easegress/pull/547)
-- Update go version to 1.17 [\#546](https://github.com/megaease/easegress/pull/546)
 - HTTPServer prefix and fullpath support rewrite_target [\#553](https://github.com/megaease/easegress/pull/553)
 - Refactor the Docker entrypoint.sh [\#569](https://github.com/megaease/easegress/pull/569)
 
