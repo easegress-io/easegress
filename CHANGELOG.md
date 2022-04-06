@@ -1,5 +1,28 @@
 # Changelog
 
+## [v1.5.1](https://github.com/megaease/easegress/tree/v1.5.1) (2022-04-06)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.0...v1.5.1)
+
+**Significant changes:**
+
+- Turn profiling on/off runtime [\#543](https://github.com/megaease/easegress/pull/543)
+
+**Implemented enhancements:**
+
+- Change the way StatusSyncController stores statuses to reduce memory usage [\#542](https://github.com/megaease/easegress/pull/542)
+- Support custom image name [\#545](https://github.com/megaease/easegress/pull/545)
+- HTTPServer prefix and fullpath support rewrite_target [\#553](https://github.com/megaease/easegress/pull/553)
+- Refactor the Docker entrypoint.sh [\#569](https://github.com/megaease/easegress/pull/569)
+
+**Fixed bugs:**
+
+- Fix proxy fallback [\#537](https://github.com/megaease/easegress/pull/537)
+- Resolve inconsistent path selection [\#536](https://github.com/megaease/easegress/pull/536)
+- Validate CircuitBreaker filter [\#551](https://github.com/megaease/easegress/pull/551)
+
+
+
 ## [v1.5.0](https://github.com/megaease/easegress/tree/v1.5.0) (2022-03-03)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.4.1...v1.5.0)
