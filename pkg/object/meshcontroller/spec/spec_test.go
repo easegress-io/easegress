@@ -33,7 +33,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (

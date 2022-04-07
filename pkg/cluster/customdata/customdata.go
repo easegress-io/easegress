@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/dynamicobject"
 	"github.com/xeipuuv/gojsonschema"
 	"go.etcd.io/etcd/client/v3/concurrency"
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Data represents a custom data

@@ -30,7 +30,7 @@ import (
 	"github.com/tg123/go-htpasswd"
 	"golang.org/x/crypto/bcrypt"
 
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"

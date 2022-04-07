@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (

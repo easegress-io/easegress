@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 const (

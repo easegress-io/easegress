@@ -26,7 +26,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	yaml "gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v3"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	httpcontext "github.com/megaease/easegress/pkg/context"

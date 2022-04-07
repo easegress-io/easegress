@@ -20,7 +20,7 @@ package dynamicobject
 import (
 	"testing"
 
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDynamicObject(t *testing.T) {
