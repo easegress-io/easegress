@@ -24,3 +24,6 @@ cluster:
   # - hostname-3
 
   secondaryReplicas: 0
+
+log:
+  path: /opt/easegress/log

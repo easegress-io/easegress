@@ -19,3 +19,6 @@ controller:
 
 # number of Easegress IngressController replicas
 replicas: 1
+
+log:
+  path: /opt/easegress/log
