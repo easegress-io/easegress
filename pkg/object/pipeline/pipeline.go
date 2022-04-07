@@ -84,6 +84,9 @@ func (p *Pipeline) Status() *supervisor.Status {
 
 // Close close pipeline
 func (p *Pipeline) Close() {
+	for _, runningFilter := range p.runningFilters {
+		runningFilter.filter.Close()
+	}
 	deletePipeline(p.spec.Name, p.spec.Protocol)
 }
 

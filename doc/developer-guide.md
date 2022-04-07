@@ -2,30 +2,33 @@
 
 - [Developer Guide](#developer-guide)
 	- [Architecture](#architecture)
-	- [Layout](#layout)
-	- [Develop Object](#develop-object)
+	- [Project Layout](#project-layout)
+	- [Building and testing](#building-and-testing)
+- [Extending Easegress](#extending-easegress)
+	- [Developing an Object](#developing-an-object)
 		- [Main Business Logic](#main-business-logic)
-		- [Register Itself to Supervisor](#register-itself-to-supervisor)
-	- [Develop Filter](#develop-filter)
+		- [Register Object to Supervisor](#register-object-to-supervisor)
+	- [Developing a Filter](#developing-a-filter)
 		- [Main Business Logic](#main-business-logic-1)
-		- [Register Itself to Pipeline](#register-itself-to-pipeline)
+		- [Register Filter to Pipeline](#register-filter-to-pipeline)
 		- [JumpIf Mechanism in Pipeline](#jumpif-mechanism-in-pipeline)
 
 ## Architecture
 
-As the diagram described, the cluster does data synchronization of all nodes, and the supervisor manages the lifecycle of all kinds of objects:
+The following diagram describes the high-level architecture of Easegress. The Cluster component is responsible for synchronizing data among different nodes or after restarts. The Supervisor manages the lifecycle of all kinds of objects.
 
 ![architecture](./imgs/architecture.png)
 
-1. System Controller: Every instance of EG has one and only one kind of it.
-2. Business Controller: The component does its own task which does not directly handle the traffic.
-3. Traffic Gate: It receives traffic of different protocols, and dispatches them to pipelines.
-4. Pipeline: It is a filter chain that handles traffic from the traffic gate.
+Easegress has four different *kind* of objects:
+1. **System Controllers** operate essential system-level activities. Every instance of Easegress launches exactly one instance of each kind of System Controllers after the very start.
+2. **Business Controllers** can be created and deleted using admin operations. Business Controllers operate mainly on other tasks than handling directly the traffic.
+3. **Traffic Gate** receives traffic of different protocols, and dispatches them to pipelines.
+4. **Pipeline** is a filter chain that handles traffic from the traffic gate.
 
 
-## Layout
+## Project Layout
 
-We try to follow the [go project layout standard](https://github.com/golang-standards/project-layout), and the important directories are described below:
+Easegress code structure follows the [go project layout standard](https://github.com/golang-standards/project-layout), and the important directories are described below:
 
 ```
 .
@@ -38,10 +41,10 @@ We try to follow the [go project layout standard](https://github.com/golang-stan
 │   ├── common				// some common utilies
 │   ├── context				// context for traffic gate and pipeline
 │   ├── env				// preparation for running environment
-│   ├── filter				// filters bucket
+│   ├── filter				// filters
 │   ├── graceupdate			// graceful update
 │   ├── logger				// logger utilities
-│   ├── object				// controllers bucket
+│   ├── object				// controllers
 │   ├── option				// startup arguments utilities
 │   ├── pidfile				// handle file to record pid
 │   ├── profile				// dedicated pprof
@@ -56,9 +59,21 @@ We try to follow the [go project layout standard](https://github.com/golang-stan
 ├── test				// scripts of integration testing
 ```
 
-## Develop Object
+## Building and testing
 
-The first job is to choose which category the object is. The architecture part has described them well enough. In most cases, create a new business controller is the best choice to extend the ability of EG at the object level. So we will develop a lightweight business controller to show the detail. For example, we want to develop a controller to dump the status of all objects to a local file. Let's name the kind of controller `StatusInLocalController`, so the config of the controller:
+If you are new to Easegress, please go through the  [Getting Started](../README.md#getting-started) tutorial,  if you have not already. Also try out different [Cookbook](./README.md) tutorials.
+
+To build `easegress-server` and `egctl`, run `make` and they will appear to `bin` directory.
+
+After modifying the code, run `make fmt` to format the code and `make test` to run unit tests.
+
+# Extending Easegress
+
+Let's suppose that you have a requirement or a feature enhancement in your mind. The most common way to extend Easegress is to develop a new Object or Filter.
+
+## Developing an Object
+
+The first thing is to choose which one of the four Object types is the most suitable for a given feature. In most cases, creating a new Business Controller is the best choice to extend the ability of Easegress at the object level. So let's develop a lightweight business controller to show the details. For example, let's say you want to develop a controller called `StatusInLocalController` that dumps the status of all objects to a local file. Here's the config of the controller:
 
 ```yaml
 kind: StatusInLocalController
@@ -68,9 +83,9 @@ path: ./running_status.yaml
 
 ### Main Business Logic
 
-We put the controller package in `pkg/object/statusinlocalcontroller`. We could implement the main logic in `pkg/object/statusinlocalcontroller/statusinlocalcontroller.go`:
+Put the controller package in `pkg/object/statusinlocalcontroller` and implement the main logic in `pkg/object/statusinlocalcontroller/statusinlocalcontroller.go`:
 
-The supervisor has all references of running objects, so we need invoke supervisor to get status of running objects, and the main business code would be:
+The supervisor has all references of running objects, so you need invoke supervisor to get status of running objects, and the main business code would be:
 
 ```go
 type (
@@ -129,7 +144,7 @@ func (c *StatusInLocalController) syncStatus() {
 }
 ```
 
-### Register Itself to Supervisor
+### Register Object to Supervisor
 
 All objects must satisfy the interface `Object` in [`pkg/object/supervisor/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/supervisor/registry.go).
 
@@ -280,9 +295,9 @@ import (
 
 ```
 
-## Develop Filter
+## Developing a Filter
 
-In most scenarios of handling traffic, do the second development of filters is the right choice, since its scheduling is covered by the flexible pipeline. The filter only does its own business, for example, we want to develop a filter to count the number of requests which have the specified header. Let's name the kind of filter `headerCounter`, so the config of the filter in pipeline spec would be:
+In most scenarios of handling traffic, creating a new Filter is the right choice, since its scheduling is covered by the flexible Pipeline. Filters are executed in a Pipeline sequentially, each one being responsible for one step of the traffic handling. For example, let's develop a filter to count the number of requests which have the specified header. Let's name the kind of filter `headerCounter`, so the config of the filter in pipeline spec would be:
 
 ```yaml
 filters:
@@ -293,7 +308,7 @@ filters:
 
 ### Main Business Logic
 
-We put the filter package in `pkg/filter/headercounter`. We could implement the main logic counting the header in `pkg/filter/headercounter/headercounter.go`:
+Put the filter package in `pkg/filter/headercounter`. You could implement the main logic counting the header in `pkg/filter/headercounter/headercounter.go`:
 
 ```go
 
@@ -325,14 +340,15 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 	// NOTE: The filter must call the next handler to satisfy the Chain of Responsibility Pattern.
 	return ctx.CallNextHandler("")
 }
-
 ```
 
-### Register Itself to Pipeline
+`HeaderCounter` struct contains compulsory fields of type `*httppipeline.FilterSpec` and `*Spec`, mainly for configuring the filter. Fields `countMutex` and `count` are specific to this filter; the `Handle` function uses them to count the headers. Last but not least it's worth mentioning that `ctx.CallNextHandler` in the end of `Handle` is obligatory, even if the filter is designed to be the last filter of the Pipeline (chain of Filters), as it ensures that filters result is handled correctly.
+
+### Register Filter to Pipeline
 
 Our core logic is very simple, now let's add some non-business code to make our new filter conform with the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/httppipeline/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/object/httppipeline/registry.go).
 
-All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`, it will be called when the pipeline is updated but the filter with the same name and kind has still existed. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
+All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`. It is called when the pipeline is updated, without modifying the filter's identity (*name* and *kind*). In practice, this happens when the underlying machine reboots and restarts Easegress. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
 
 ```go
 // init registers itself to pipeline registry.
@@ -392,7 +408,7 @@ import (
 
 ### JumpIf Mechanism in Pipeline
 
-As we described in the [get started](../README.md#get-started), the pipeline below uses the result of `validator`:
+The [Getting Started](../README.md#getting-started) part of the README uses briefly the `jumpIf` mechanism of the `HTTPPipeline`. Let's describe the concept of `jumpIf` using the example below:
 
 ```yaml
 name: pipeline-demo
@@ -404,7 +420,9 @@ flow:
 - filter: proxy
 ```
 
-That `jumpIf` means the request will jump into the end without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. So the method `Results` is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
+That `jumpIf` means the request will jump into the end of the `HTTPPipeline` without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. On the other hand, when `validator` returns empty string `""` the request proceeds to next filter as usual.
+
+So the purpose of the method `Results` in `Filter` interface is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. In order to use `jumpIf` to skip proceeding filters, `Results` function has to define output code for invalid execution. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
 
 ```go
 const resultInvalidHeader = "invalidHeader"
@@ -428,10 +446,10 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 	}
 
 	if !counted { // New code
-		return resultInvalidHeader // New code
-
+		// No headers counted; let's skip the rest of the pipeline
+		return ctx.CallNextHandler(resultInvalidHeader) // New code
 	} // New code
 
-	return ""
+	return ctx.CallNextHandler("")
 }
 ```

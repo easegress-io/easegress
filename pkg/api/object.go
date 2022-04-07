@@ -201,7 +201,6 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	// No need to lock.
-
 	specs := specList(s._listObjects())
 	// NOTE: Keep it consistent.
 	sort.Sort(specs)

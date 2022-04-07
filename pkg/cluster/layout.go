@@ -27,13 +27,16 @@ const (
 	statusMemberPrefix       = "/status/members/"
 	statusMemberFormat       = "/status/members/%s" // +memberName
 	statusObjectPrefix       = "/status/objects/"
+	statusObjectNameFormat   = "%s-%s"
 	statusObjectPrefixFormat = "/status/objects/%s/"   // +objectName
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
 	configObjectFormat       = "/config/objects/%s" // +objectName
 	configVersion            = "/config/version"
 	wasmCodeEvent            = "/wasm/code"
-	wasmDataPrefixFormat     = "/wasm/data/%s/%s/"
+	wasmDataPrefixFormat     = "/wasm/data/%s/%s/" // + pipelineName + filterName
+	customDataKindPrefix     = "/custom-data-kinds/"
+	customDataPrefix         = "/custom-data/"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
@@ -99,6 +102,11 @@ func (l *Layout) StatusObjectPrefix(name string) string {
 	return fmt.Sprintf(statusObjectPrefixFormat, name)
 }
 
+// StatusObjectName returns the name of the status object.
+func (l *Layout) StatusObjectName(kind string, specName string) string {
+	return fmt.Sprintf(statusObjectNameFormat, kind, specName)
+}
+
 // StatusObjectKey returns the key of object status.
 func (l *Layout) StatusObjectKey(name string) string {
 	return fmt.Sprintf(statusObjectFormat, name, l.memberName)
@@ -127,4 +135,14 @@ func (l *Layout) WasmCodeEvent() string {
 // WasmDataPrefix returns the prefix of wasm data
 func (l *Layout) WasmDataPrefix(pipeline string, name string) string {
 	return fmt.Sprintf(wasmDataPrefixFormat, pipeline, name)
+}
+
+// CustomDataPrefix returns the prefix of all custom data
+func (l *Layout) CustomDataPrefix() string {
+	return customDataPrefix
+}
+
+// CustomDataKindPrefix returns the prefix of all custom data kind
+func (l *Layout) CustomDataKindPrefix() string {
+	return customDataKindPrefix
 }

@@ -24,6 +24,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filter/meshadaptor"
 	"github.com/megaease/easegress/pkg/filter/mock"
@@ -125,6 +126,34 @@ type (
 		CleanExternalRegistry bool `yaml:"cleanExternalRegistry"`
 
 		Security *Security `yaml:"security" jsonschema:"omitempty"`
+
+		// Sidecar injection relevant config.
+		ImageRegistryURL          string `yaml:"imageRegistryURL" jsonschema:"omitempty"`
+		ImagePullPolicy           string `yaml:"imagePullPolicy" jsonschema:"omitempty"`
+		SidecarImageName          string `yaml:"sidecarImageName" jsonschema:"omitempty"`
+		AgentInitializerImageName string `yaml:"agentInitializerImageName" jsonschema:"omitempty"`
+		Log4jConfigName           string `yaml:"log4jConfigName" jsonschema:"omitempty"`
+
+		MonitorMTLS *MonitorMTLS `yaml:"monitorMTLS" jsonschema:"omitempty"`
+	}
+
+	// MonitorMTLS is the spec of mTLS specification of monitor.
+	MonitorMTLS struct {
+		Enabled  bool   `yaml:"enabled" jsonschema:"required"`
+		URL      string `yaml:"url" jsonschema:"required"`
+		Username string `yaml:"username" jsonschema:"required"`
+		Password string `yaml:"password" jsonschema:"required"`
+
+		ReporterAppendType string         `yaml:"reporterAppendType"`
+		CaCertBase64       string         `yaml:"caCertBase64" jsonschema:"required,format=base64"`
+		Certs              []*MonitorCert `yaml:"certs" jsonschema:"required"`
+	}
+
+	// MonitorCert is the spec for single pack of mTLS.
+	MonitorCert struct {
+		CertBase64 string   `yaml:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64  string   `yaml:"keyBase64" jsonschema:"required,format=base64"`
+		Services   []string `yaml:"services" jsonschema:"required"`
 	}
 
 	// Security is the spec for mesh-wide security.
@@ -132,8 +161,8 @@ type (
 		MTLSMode     string `yaml:"mtlsMode" jsonschema:"required"`
 		CertProvider string `yaml:"certProvider" jsonschema:"required"`
 
-		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required, format=duration"`
-		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required, format=duration"`
+		RootCertTTL string `yaml:"rootCertTTL" jsonschema:"required,format=duration"`
+		AppCertTTL  string `yaml:"appCertTTL" jsonschema:"required,format=duration"`
 	}
 
 	// Service contains the information of service.
@@ -202,10 +231,19 @@ type (
 		ServiceHeaders map[string][]string `yaml:"serviceHeaders" jsonschema:"omitempty"`
 	}
 
-	// GlobalTransmission is the spec of global transmission data.
-	// All endpoints of mesh should pass them.
+	// GlobalTransmission is the spec of global transmission data for Agent.
 	GlobalTransmission struct {
+		// Headers are the canary headers, all endpoints of mesh should transmit them.
 		Headers []string `yaml:"headers" jsonschema:"omitempty"`
+
+		MomitorMTLS *MTLSTransmission `yaml:"monitorMTLS"`
+	}
+
+	// MTLSTransmission is the mTLS config for Agent.
+	MTLSTransmission struct {
+		CaCertBase64 string `yaml:"caCertBase64" jsonschema:"required,format=base64"`
+		CertBase64   string `yaml:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64    string `yaml:"keyBase64" jsonschema:"required,format=base64"`
 	}
 
 	// LoadBalance is the spec of service load balance.
@@ -360,19 +398,11 @@ type (
 		httppipeline.Spec `yaml:",inline"`
 	}
 
-	// DynamicObject defines a dynamic object which is a map of string to interface{}.
-	// The value of this map could also be a dynamic object, but in this case, its type
-	// must be `map[string]interface{}`, and should not be `map[interface{}]interface{}`.
-	DynamicObject map[string]interface{}
-
 	// CustomResourceKind defines the spec of a custom resource kind
-	CustomResourceKind struct {
-		Name       string        `yaml:"name" jsonschema:"required"`
-		JSONSchema DynamicObject `yaml:"jsonSchema" jsonschema:"omitempty"`
-	}
+	CustomResourceKind = customdata.Kind
 
 	// CustomResource defines the spec of a custom resource
-	CustomResource DynamicObject
+	CustomResource = customdata.Data
 
 	// HTTPMatch defines an individual route for HTTP traffic
 	HTTPMatch struct {
@@ -464,64 +494,6 @@ func (tr *TrafficRules) Clone() *TrafficRules {
 	}
 }
 
-// UnmarshalYAML implements yaml.Unmarshaler
-// the type of a DynamicObject field could be `map[interface{}]interface{}` if it is
-// unmarshaled from yaml, but some packages, like the standard json package could not
-// handle this type, so it must be converted to `map[string]interface{}`.
-func (do *DynamicObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	m := map[string]interface{}{}
-	if err := unmarshal(&m); err != nil {
-		return err
-	}
-
-	var convert func(interface{}) interface{}
-	convert = func(src interface{}) interface{} {
-		switch x := src.(type) {
-		case map[interface{}]interface{}:
-			x2 := map[string]interface{}{}
-			for k, v := range x {
-				x2[k.(string)] = convert(v)
-			}
-			return x2
-		case []interface{}:
-			x2 := make([]interface{}, len(x))
-			for i, v := range x {
-				x2[i] = convert(v)
-			}
-			return x2
-		}
-		return src
-	}
-
-	for k, v := range m {
-		m[k] = convert(v)
-	}
-	*do = m
-
-	return nil
-}
-
-// Name returns the 'name' field of the custom resource
-func (cr CustomResource) Name() string {
-	if v, ok := cr["name"].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// Kind returns the 'kind' field of the custom resource
-func (cr CustomResource) Kind() string {
-	if v, ok := cr["kind"].(string); ok {
-		return v
-	}
-	return ""
-}
-
-// UnmarshalYAML implements yaml.Unmarshaler
-func (cr *CustomResource) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	return (*DynamicObject)(cr).UnmarshalYAML(unmarshal)
-}
-
 // Validate validates Spec.
 func (a Admin) Validate() error {
 	switch a.RegistryType {
@@ -557,6 +529,19 @@ func (a Admin) Validate() error {
 		if appCertTTL >= rootCertTTL {
 			err = fmt.Errorf("appCertTTL: %s is larger than rootCertTTL: %s", appCertTTL.String(), rootCertTTL.String())
 			return err
+		}
+	}
+
+	if a.MonitorMTLS != nil {
+		serviceMap := map[string]struct{}{}
+		for _, cert := range a.MonitorMTLS.Certs {
+			for _, service := range cert.Services {
+				_, exists := serviceMap[service]
+				if exists {
+					return fmt.Errorf("service %s in monitotMTLS.certs occurred multiple times", service)
+				}
+				serviceMap[service] = struct{}{}
+			}
 		}
 	}
 
@@ -1028,15 +1013,6 @@ https: false
 	return superSpec, nil
 }
 
-// Runnable indicates this service is runnable inside mesh or not.
-//   e.g., If this is a mock service, there is not need to be deployed and run.
-func (s *Service) Runnable() bool {
-	if s.Mock != nil && s.Mock.Enabled {
-		return false
-	}
-	return true
-}
-
 // SidecarIngressPipelineSpec returns a spec for sidecar ingress pipeline
 func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*supervisor.Spec, error) {
 	mainServers := []*proxy.Server{
@@ -1075,7 +1051,7 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 
 	pipelineSpecBuilder.appendMeshAdaptor(canaries)
 
-	if !s.Runnable() {
+	if s.Mock != nil && s.Mock.Enabled {
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
 	}
 

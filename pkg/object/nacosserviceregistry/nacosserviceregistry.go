@@ -20,6 +20,7 @@ package nacosserviceregistry
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -187,9 +188,10 @@ func (n *NacosServiceRegistry) buildClient() (naming_client.INamingClient, error
 		NotLoadCacheAtStart: true,
 		LogDir:              logDir,
 		CacheDir:            cacheDir,
-		RotateTime:          "1h",
-		MaxAge:              3,
 		LogLevel:            "info",
+		LogRollingConfig: &constant.ClientLogRollingConfig{
+			MaxAge: 3,
+		},
 	}
 
 	serverConfigs := []constant.ServerConfig{}
@@ -441,6 +443,7 @@ func (n *NacosServiceRegistry) ListAllServiceInstances() (map[string]*servicereg
 		}
 
 		serviceNames = append(serviceNames, services.Doms...)
+		pageNo++
 	}
 
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
@@ -501,9 +504,10 @@ func (n *NacosServiceRegistry) nacosInstanceToServiceInstance(nacosInstance *mod
 		registryName = n.Name()
 	}
 
+	grpSvcName := strings.Split(nacosInstance.ServiceName, "@@")
 	instance := &serviceregistry.ServiceInstanceSpec{
 		RegistryName: registryName,
-		ServiceName:  nacosInstance.ServiceName,
+		ServiceName:  grpSvcName[len(grpSvcName)-1],
 		InstanceID:   instanceID,
 		Address:      nacosInstance.Ip,
 		Port:         uint16(nacosInstance.Port),

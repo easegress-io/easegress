@@ -21,6 +21,9 @@ on:
       - "go.sum"
       - ".github/workflows/test.yml"
 
+env:
+  GO_VERSION: 1.17
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -32,10 +35,10 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         shell: bash
@@ -54,10 +57,10 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         run: |
@@ -65,7 +68,7 @@ jobs:
           go mod download
           go test -v ./...
   integration-test-ubuntu:
-    needs: test
+    needs: [test, test-win]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -73,10 +76,10 @@ jobs:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.16.5
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         run: |

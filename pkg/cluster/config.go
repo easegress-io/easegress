@@ -40,6 +40,10 @@ const (
 
 	maxTxnOps       = 10240
 	maxRequestBytes = 10 * 1024 * 1024 // 10MB
+
+	// Threshold for number of changes etcd stores in memory before creating a new snapshot.
+	// Reference: https://etcd.io/docs/v3.5/tuning/#snapshot-tuning
+	snapshotCount = 5000
 )
 
 var (
@@ -90,6 +94,7 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec.QuotaBackendBytes = quotaBackendBytes
 	ec.MaxTxnOps = maxTxnOps
 	ec.MaxRequestBytes = maxRequestBytes
+	ec.SnapshotCount = snapshotCount
 	ec.Logger = "zap"
 	ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
 
@@ -99,13 +104,14 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	}
 	ec.InitialCluster = opt.InitialClusterToString()
 
-	logger.Infof("etcd config: init-cluster:%s cluster-state:%s force-new-cluster:%v",
+	logger.Infof("etcd config: advertise-client-urls: %+v advertise-peer-urls: %+v init-cluster: %s cluster-state: %s force-new-cluster: %v",
+		ec.ACUrls, ec.APUrls,
 		ec.InitialCluster, ec.ClusterState, ec.ForceNewCluster)
 
 	return ec, nil
 }
 
-// CreateEtcdConfig creates an embedded etcd config that starts the cluster by adding member by member.
+// CreateEtcdConfig creates an embedded etcd config that starts the cluster by adding one member at a time. Deprecated: Use CreateStaticClusterEtcdConfig instead.
 func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, error) {
 	ec := embed.NewConfig()
 
@@ -147,6 +153,7 @@ func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, err
 	ec.QuotaBackendBytes = quotaBackendBytes
 	ec.MaxTxnOps = maxTxnOps
 	ec.MaxRequestBytes = maxRequestBytes
+	ec.SnapshotCount = snapshotCount
 	ec.Logger = "zap"
 	ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
 
@@ -169,7 +176,8 @@ func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, err
 		ec.InitialCluster = members.initCluster()
 	}
 
-	logger.Infof("etcd config: init-cluster:%s cluster-state:%s force-new-cluster:%v",
+	logger.Infof("etcd config: advertise-client-urls: %+v advertise-peer-urls: %+v init-cluster: %s cluster-state: %s force-new-cluster: %v",
+		ec.ACUrls, ec.APUrls,
 		ec.InitialCluster, ec.ClusterState, ec.ForceNewCluster)
 
 	return ec, nil

@@ -61,10 +61,12 @@ func createObjectCmd() *cobra.Command {
 		Use:   "create",
 		Short: "Create an object from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
-			visitor.Visit(func(s *spec) {
+			visitor := buildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *spec) error {
 				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(s.doc), cmd)
+				return nil
 			})
+			visitor.Close()
 		},
 	}
 
@@ -79,10 +81,12 @@ func updateObjectCmd() *cobra.Command {
 		Use:   "update",
 		Short: "Update an object from a yaml file or stdin",
 		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildVisitorFromFileOrStdin(specFile, cmd)
-			visitor.Visit(func(s *spec) {
+			visitor := buildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *spec) error {
 				handleRequest(http.MethodPut, makeURL(objectURL, s.Name), []byte(s.doc), cmd)
+				return nil
 			})
+			visitor.Close()
 		},
 	}
 

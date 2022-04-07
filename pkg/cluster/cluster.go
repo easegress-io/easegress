@@ -33,7 +33,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/contexttool"
 )
 
 const (
@@ -180,14 +179,14 @@ func (c *cluster) IsLeader() bool {
 
 // requestContext returns context with request timeout,
 // please use it immediately in case of incorrect timeout.
-func (c *cluster) requestContext() context.Context {
-	return contexttool.TimeoutContext(c.requestTimeout)
+func (c *cluster) requestContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), c.requestTimeout)
 }
 
 // longRequestContext takes 3 times longer than requestContext.
-func (c *cluster) longRequestContext() context.Context {
+func (c *cluster) longRequestContext() (context.Context, context.CancelFunc) {
 	requestTimeout := 3 * c.requestTimeout
-	return contexttool.TimeoutContext(requestTimeout)
+	return context.WithTimeout(context.Background(), requestTimeout)
 }
 
 func (c *cluster) run() {
@@ -290,7 +289,11 @@ func (c *cluster) addSelfToCluster() error {
 		return err
 	}
 
-	respList, err := client.MemberList(c.requestContext())
+	respList, err := func() (*clientv3.MemberListResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.MemberList(ctx)
+	}()
 	if err != nil {
 		return err
 	}
@@ -301,7 +304,11 @@ func (c *cluster) addSelfToCluster() error {
 	for _, member := range respList.Members {
 		// Reference: https://github.com/etcd-io/etcd/blob/b7bf33bf5d1cbb1092b542fc4f3cdc911ccc3eaa/etcdctl/ctlv3/command/printer.go#L164-L167
 		if len(member.Name) == 0 {
-			_, err := client.MemberRemove(c.requestContext(), member.ID)
+			_, err := func() (*clientv3.MemberRemoveResponse, error) {
+				ctx, cancel := c.requestContext()
+				defer cancel()
+				return client.MemberRemove(ctx, member.ID)
+			}()
 			if err != nil {
 				err = fmt.Errorf("remove unhealthy etcd member %x failed: %v",
 					member.ID, err)
@@ -336,7 +343,11 @@ func (c *cluster) addSelfToCluster() error {
 			return err
 		}
 
-		respAdd, err := client.MemberAdd(c.requestContext(), c.opt.ClusterInitialAdvertisePeerURLs)
+		respAdd, err := func() (*clientv3.MemberAddResponse, error) {
+			ctx, cancel := c.requestContext()
+			defer cancel()
+			return client.MemberAdd(ctx, c.opt.ClusterInitialAdvertisePeerURLs)
+		}()
 		if err != nil {
 			return fmt.Errorf("add member failed: %v", err)
 		}
@@ -471,7 +482,11 @@ func (c *cluster) keepAliveLease() {
 				continue
 			}
 
-			_, err = client.Lease.KeepAliveOnce(c.requestContext(), leaseID)
+			_, err = func() (*clientv3.LeaseKeepAliveResponse, error) {
+				ctx, cancel := c.requestContext()
+				defer cancel()
+				return client.Lease.KeepAliveOnce(ctx, leaseID)
+			}()
 			if err != nil {
 				logger.Errorf("keep alive for lease %x failed: %v", leaseID, err)
 				handleFailed()
@@ -502,7 +517,11 @@ func (c *cluster) initLease() error {
 	}
 
 	if leaseID != nil {
-		resp, err := client.Lease.TimeToLive(c.requestContext(), *leaseID)
+		resp, err := func() (*clientv3.LeaseTimeToLiveResponse, error) {
+			ctx, cancel := c.requestContext()
+			defer cancel()
+			return client.Lease.TimeToLive(ctx, *leaseID)
+		}()
 		if err != nil || resp.TTL < minTTL {
 			return c.grantNewLease()
 		}
@@ -525,18 +544,30 @@ func (c *cluster) grantNewLease() error {
 	c.leaseMutex.Lock()
 	defer c.leaseMutex.Unlock()
 
-	respGrant, err := client.Lease.Grant(c.requestContext(), leaseTTL)
+	respGrant, err := func() (*clientv3.LeaseGrantResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.Lease.Grant(ctx, leaseTTL)
+	}()
 	if err != nil {
 		return err
 	}
 
 	// NOTE: c.PutUnderLease will cause deadlock cause it used lease lock internally.
-	_, err = client.Put(c.requestContext(), c.layout.Lease(), fmt.Sprintf("%x", respGrant.ID),
-		clientv3.WithLease(respGrant.ID))
+	_, err = func() (*clientv3.PutResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.Put(ctx, c.layout.Lease(), fmt.Sprintf("%x", respGrant.ID),
+			clientv3.WithLease(respGrant.ID))
+	}()
 
 	if err != nil {
 		// NOTE: Ignore the return error is fine.
-		client.Lease.Revoke(c.requestContext(), respGrant.ID)
+		func() (*clientv3.LeaseRevokeResponse, error) {
+			ctx, cancel := c.requestContext()
+			defer cancel()
+			return client.Lease.Revoke(ctx, respGrant.ID)
+		}()
 
 		return fmt.Errorf("put lease to %s failed: %v", c.Layout().Lease(), err)
 	}
@@ -740,32 +771,38 @@ func (c *cluster) heartbeat() {
 	}
 }
 
+func (c *cluster) runDefrag() time.Duration {
+	client, err := c.getClient()
+	if err != nil {
+		logger.Errorf("defrag failed: get client failed: %v", err)
+		return defragFailedInterval
+	}
+	defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
+	if err != nil {
+		logger.Errorf("defrag failed: %v", err)
+		return defragNormalInterval // url is wrong
+	}
+	// NOTICE: It needs longer time than normal ones.
+	_, err = func() (*clientv3.DefragmentResponse, error) {
+		ctx, cancel := c.longRequestContext()
+		defer cancel()
+		return client.Defragment(ctx, defragmentURL)
+	}()
+	if err != nil {
+		logger.Errorf("defrag failed: %v", err)
+		return defragFailedInterval
+	}
+
+	logger.Infof("defrag successfully")
+	return defragNormalInterval
+}
+
 func (c *cluster) defrag() {
 	defragInterval := defragNormalInterval
 	for {
 		select {
 		case <-time.After(defragInterval):
-			client, err := c.getClient()
-			if err != nil {
-				defragInterval = defragFailedInterval
-				logger.Errorf("defrag failed: get client failed: %v", err)
-			}
-
-			defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
-			if err != nil {
-				logger.Errorf("defrag failed: %v", err)
-				return
-			}
-			// NOTICE: It needs longer time than normal ones.
-			_, err = client.Defragment(c.longRequestContext(), defragmentURL)
-			if err != nil {
-				defragInterval = defragFailedInterval
-				logger.Errorf("defrag failed: %v", err)
-				continue
-			}
-
-			logger.Infof("defrag successfully")
-			defragInterval = defragNormalInterval
+			defragInterval = c.runDefrag()
 		case <-c.done:
 			return
 		}
@@ -811,7 +848,11 @@ func (c *cluster) updateMembers() error {
 		return err
 	}
 
-	resp, err := client.MemberList(c.requestContext())
+	resp, err := func() (*clientv3.MemberListResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.MemberList(ctx)
+	}()
 	if err != nil {
 		return err
 	}
@@ -829,7 +870,11 @@ func (c *cluster) PurgeMember(memberName string) error {
 	}
 
 	// remove etcd member if there is it.
-	respList, err := client.MemberList(c.requestContext())
+	respList, err := func() (*clientv3.MemberListResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.MemberList(ctx)
+	}()
 	if err != nil {
 		return err
 	}
@@ -840,7 +885,11 @@ func (c *cluster) PurgeMember(memberName string) error {
 		}
 	}
 	if id != nil {
-		_, err = client.MemberRemove(c.requestContext(), *id)
+		_, err = func() (*clientv3.MemberRemoveResponse, error) {
+			ctx, cancel := c.requestContext()
+			defer cancel()
+			return client.MemberRemove(ctx, *id)
+		}()
 		if err != nil {
 			return err
 		}
@@ -860,7 +909,11 @@ func (c *cluster) PurgeMember(memberName string) error {
 		return err
 	}
 
-	_, err = client.Lease.Revoke(c.requestContext(), *leaseID)
+	_, err = func() (*clientv3.LeaseRevokeResponse, error) {
+		ctx, cancel := c.requestContext()
+		defer cancel()
+		return client.Lease.Revoke(ctx, *leaseID)
+	}()
 	if err != nil {
 		return err
 	}

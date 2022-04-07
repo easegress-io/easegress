@@ -52,27 +52,3 @@ func (m *MockMQTTClient) Store(key interface{}, value interface{}) {
 func (m *MockMQTTClient) Delete(key interface{}) {
 	m.MockKVMap.Delete(key)
 }
-
-// MockMQTTMsg is message send to MockMQTTBackend
-type MockMQTTMsg struct {
-	Target  string
-	Data    []byte
-	Headers map[string]string
-}
-
-// MockMQTTBackend is mocked MQTT backend
-type MockMQTTBackend struct {
-	Messages map[string]MockMQTTMsg
-}
-
-var _ MQTTBackend = (*MockMQTTBackend)(nil)
-
-// Publish publish msg to MockMQTTBackend
-func (m *MockMQTTBackend) Publish(target string, data []byte, headers map[string]string) error {
-	m.Messages[target] = MockMQTTMsg{
-		Target:  target,
-		Data:    data,
-		Headers: headers,
-	}
-	return nil
-}

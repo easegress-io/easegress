@@ -20,15 +20,15 @@ package mqttproxy
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -48,17 +48,17 @@ func (m *mockCluster) GetRaw(key string) (*mvccpb.KeyValue, error) { return nil,
 func (m *mockCluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, error) {
 	return nil, nil
 }
-func (m *mockCluster) PutUnderLease(key, value string) error                      { return nil }
-func (m *mockCluster) PutAndDelete(map[string]*string) error                      { return nil }
-func (m *mockCluster) PutAndDeleteUnderLease(map[string]*string) error            { return nil }
-func (m *mockCluster) DeletePrefix(prefix string) error                           { return nil }
-func (m *mockCluster) STM(apply func(concurrency.STM) error) error                { return nil }
-func (m *mockCluster) Syncer(pullInterval time.Duration) (*cluster.Syncer, error) { return nil, nil }
-func (m *mockCluster) Mutex(name string) (cluster.Mutex, error)                   { return nil, nil }
-func (m *mockCluster) CloseServer(wg *sync.WaitGroup)                             {}
-func (m *mockCluster) StartServer() (chan struct{}, chan struct{}, error)         { return nil, nil, nil }
-func (m *mockCluster) Close(wg *sync.WaitGroup)                                   {}
-func (m *mockCluster) PurgeMember(member string) error                            { return nil }
+func (m *mockCluster) PutUnderLease(key, value string) error                     { return nil }
+func (m *mockCluster) PutAndDelete(map[string]*string) error                     { return nil }
+func (m *mockCluster) PutAndDeleteUnderLease(map[string]*string) error           { return nil }
+func (m *mockCluster) DeletePrefix(prefix string) error                          { return nil }
+func (m *mockCluster) STM(apply func(concurrency.STM) error) error               { return nil }
+func (m *mockCluster) Syncer(pullInterval time.Duration) (cluster.Syncer, error) { return nil, nil }
+func (m *mockCluster) Mutex(name string) (cluster.Mutex, error)                  { return nil, nil }
+func (m *mockCluster) CloseServer(wg *sync.WaitGroup)                            {}
+func (m *mockCluster) StartServer() (chan struct{}, chan struct{}, error)        { return nil, nil, nil }
+func (m *mockCluster) Close(wg *sync.WaitGroup)                                  {}
+func (m *mockCluster) PurgeMember(member string) error                           { return nil }
 
 func (m *mockCluster) Watcher() (cluster.Watcher, error) {
 	m.Lock()
@@ -195,80 +195,35 @@ func TestMockStorage(t *testing.T) {
 	}
 }
 
-type mockAsyncProducer struct {
-	ch chan *sarama.ProducerMessage
+type MockKafka struct {
+	ch chan *packets.PublishPacket
 }
 
-func (m *mockAsyncProducer) AsyncClose()                               {}
-func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
-func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return nil }
+type MockKafkaSpec struct{}
 
-func (m *mockAsyncProducer) Input() chan<- *sarama.ProducerMessage {
-	return m.ch
-}
-func (m *mockAsyncProducer) Close() error {
-	return fmt.Errorf("mock producer close failed")
-}
+var _ pipeline.MQTTFilter = (*MockKafka)(nil)
 
-var _ sarama.AsyncProducer = (*mockAsyncProducer)(nil)
+func (k *MockKafka) Kind() string                                                      { return "MockKafka" }
+func (k *MockKafka) DefaultSpec() interface{}                                          { return &MockKafkaSpec{} }
+func (k *MockKafka) Status() interface{}                                               { return nil }
+func (k *MockKafka) Description() string                                               { return "mock kafka" }
+func (k *MockKafka) Inherit(filterSpec *pipeline.FilterSpec, previous pipeline.Filter) {}
+func (k *MockKafka) Close()                                                            {}
+func (k *MockKafka) Results() []string                                                 { return nil }
 
-func newMockAsyncProducer() sarama.AsyncProducer {
-	return &mockAsyncProducer{
-		ch: make(chan *sarama.ProducerMessage, 100),
-	}
+func (k *MockKafka) Init(filterSpec *pipeline.FilterSpec) {
+	k.ch = make(chan *packets.PublishPacket, 100)
 }
 
-func TestKafka(t *testing.T) {
-	k := newBackendMQ(&Spec{
-		BackendType: kafkaType,
-		Kafka: &KafkaSpec{
-			Backend: []string{"localhost:1234"},
-		},
-	})
-	if k != nil {
-		t.Errorf("should return nil for invalid broker address, %v", k)
+func (k *MockKafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
+	if ctx.PacketType() != context.MQTTPublish {
+		panic(fmt.Errorf("mock kafka for test should only receive publish packet, but received %v", ctx.PacketType()))
 	}
-	k = newBackendMQ(&Spec{
-		BackendType: "FakeType",
-	})
-	if k != nil {
-		t.Errorf("should return nil for invalid wrong type")
-	}
+	k.ch <- ctx.PublishPacket()
+	return &context.MQTTResult{}
+}
 
-	mapFunc := func(mqttTopic string) (string, map[string]string, error) {
-		levels := strings.Split(mqttTopic, "/")
-		m := make(map[string]string)
-		for i, l := range levels {
-			m[strconv.Itoa(i)] = l
-		}
-		return mqttTopic, m, nil
-	}
-	kafka := KafkaMQ{
-		producer: newMockAsyncProducer(),
-		mapFunc:  mapFunc,
-		done:     make(chan struct{}),
-	}
-	p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-	p.TopicName = "a/b/c"
-	p.Payload = []byte("abc")
-
-	kafka.publish(p)
-	msg := <-kafka.producer.(*mockAsyncProducer).ch
-	if msg.Topic != p.TopicName || len(msg.Headers) != 3 {
-		t.Errorf("kafka producer produce wrong msg")
-	}
-
-	kafka.mapFunc = nil
-	kafka.publish(p)
-	msg = <-kafka.producer.(*mockAsyncProducer).ch
-	if msg.Topic != p.TopicName || len(msg.Headers) != 0 {
-		t.Errorf("kafka producer publish wrong msg")
-	}
-	kafka.Publish("a/b/c/d", []byte("abcd"), map[string]string{"key": "value"})
-	msg = <-kafka.producer.(*mockAsyncProducer).ch
-	if msg.Topic != "a/b/c/d" || len(msg.Headers) != 1 {
-		t.Errorf("kafka producer Publish wrong msg")
-
-	}
-	kafka.close()
+func (k *MockKafka) get() *packets.PublishPacket {
+	p := <-k.ch
+	return p
 }

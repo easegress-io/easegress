@@ -24,8 +24,10 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	pprof "github.com/megaease/easegress/pkg/profile"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -37,6 +39,8 @@ type (
 		router  *dynamicMux
 		cluster cluster.Cluster
 		super   *supervisor.Supervisor
+		cds     *customdata.Store
+		profile pprof.Profile
 
 		mutex      cluster.Mutex
 		mutexMutex sync.Mutex
@@ -57,11 +61,12 @@ type (
 )
 
 // MustNewServer creates an api server.
-func MustNewServer(opt *option.Options, cluster cluster.Cluster, super *supervisor.Supervisor) *Server {
+func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.Supervisor, profile pprof.Profile) *Server {
 	s := &Server{
 		opt:     opt,
-		cluster: cluster,
+		cluster: cls,
 		super:   super,
+		profile: profile,
 	}
 	s.router = newDynamicMux(s)
 	s.server = http.Server{Addr: opt.APIAddr, Handler: s.router}
@@ -70,6 +75,10 @@ func MustNewServer(opt *option.Options, cluster cluster.Cluster, super *supervis
 	if err != nil {
 		logger.Errorf("get cluster mutex %s failed: %v", lockKey, err)
 	}
+
+	kindPrefix := cls.Layout().CustomDataKindPrefix()
+	dataPrefix := cls.Layout().CustomDataPrefix()
+	s.cds = customdata.NewStore(cls, kindPrefix, dataPrefix)
 
 	s.initMetadata()
 	s.registerAPIs()

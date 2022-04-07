@@ -40,34 +40,36 @@ func (f *mockFilter) Init(filterSpec *FilterSpec)                               
 func (f *mockFilter) Inherit(filterSpec *FilterSpec, previousGeneration Filter) {}
 func (f *mockFilter) Status() interface{}                                       { return nil }
 func (f *mockFilter) Close()                                                    {}
-func (f *mockFilter) APIs() []*APIEntry                                         { return nil }
 
 // MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
 type MockMQTTFilter struct {
 	mockFilter
 	mu sync.Mutex
 
-	spec       *MockMQTTSpec
-	clients    map[string]int
-	disconnect map[string]struct{}
+	spec        *MockMQTTSpec
+	clients     map[string]int
+	disconnect  map[string]struct{}
+	subscribe   map[string][]string
+	unsubscribe map[string][]string
 }
 
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
-	UserName               string   `yaml:"userName" jsonschema:"required"`
-	Password               string   `yaml:"password" jsonschema:"required"`
-	Port                   uint16   `yaml:"port" jsonschema:"required"`
-	BackendType            string   `yaml:"backendType" jsonschema:"required"`
-	EarlyStop              bool     `yaml:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore            []string `yaml:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey             string   `yaml:"connectKey" jsonschema:"omitempty"`
-	PublishBackendClientID bool     `yaml:"publishBackendClientID" jsonschema:"omitempty"`
+	UserName    string   `yaml:"userName" jsonschema:"required"`
+	Password    string   `yaml:"password" jsonschema:"required"`
+	Port        uint16   `yaml:"port" jsonschema:"required"`
+	BackendType string   `yaml:"backendType" jsonschema:"required"`
+	EarlyStop   bool     `yaml:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore []string `yaml:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey  string   `yaml:"connectKey" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter
 type MockMQTTStatus struct {
 	ClientCount      map[string]int
 	ClientDisconnect map[string]struct{}
+	Subscribe        map[string][]string
+	Unsubscribe      map[string][]string
 }
 
 var _ MQTTFilter = (*MockMQTTFilter)(nil)
@@ -87,60 +89,66 @@ func (m *MockMQTTFilter) Init(filterSpec *FilterSpec) {
 	m.spec = filterSpec.FilterSpec().(*MockMQTTSpec)
 	m.clients = make(map[string]int)
 	m.disconnect = make(map[string]struct{})
+	m.subscribe = make(map[string][]string)
+	m.unsubscribe = make(map[string][]string)
 }
 
 // HandleMQTT handle MQTTContext
 func (m *MockMQTTFilter) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-
 	m.clients[ctx.Client().ClientID()]++
-	if ctx.PacketType() == context.MQTTConnect {
+
+	switch ctx.PacketType() {
+	case context.MQTTConnect:
+		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
 		if ctx.ConnectPacket().Username != m.spec.UserName || string(ctx.ConnectPacket().Password) != m.spec.Password {
 			ctx.SetDisconnect()
 		}
-	}
-	if ctx.PacketType() == context.MQTTDisconnect {
+	case context.MQTTDisconnect:
 		m.disconnect[ctx.Client().ClientID()] = struct{}{}
+	case context.MQTTSubscribe:
+		m.subscribe[ctx.Client().ClientID()] = ctx.SubscribePacket().Topics
+	case context.MQTTUnsubscribe:
+		m.unsubscribe[ctx.Client().ClientID()] = ctx.UnsubscribePacket().Topics
 	}
+
 	for _, k := range m.spec.KeysToStore {
 		ctx.Client().Store(k, struct{}{})
-	}
-	if ctx.PacketType() == context.MQTTConnect {
-		ctx.Client().Store(m.spec.ConnectKey, struct{}{})
-	}
-	if m.spec.PublishBackendClientID {
-		backend := ctx.Backend()
-		backend.Publish(ctx.Client().ClientID(), nil, nil)
 	}
 	return nil
 }
 
-func (m *MockMQTTFilter) clientCount() map[string]int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	ans := make(map[string]int)
-	for k, v := range m.clients {
-		ans[k] = v
-	}
-	return ans
-}
-
-func (m *MockMQTTFilter) clientDisconnect() map[string]struct{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	ans := make(map[string]struct{})
-	for k, v := range m.disconnect {
-		ans[k] = v
-	}
-	return ans
-}
-
 // Status return status of MockMQTTFilter
 func (m *MockMQTTFilter) Status() interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clientCount := make(map[string]int)
+	for k, v := range m.clients {
+		clientCount[k] = v
+	}
+	disconnect := make(map[string]struct{})
+	for k := range m.disconnect {
+		disconnect[k] = struct{}{}
+	}
+	subscribe := make(map[string][]string)
+	for k, v := range m.subscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		subscribe[k] = v
+	}
+	unsubscribe := make(map[string][]string)
+	for k, v := range m.unsubscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		unsubscribe[k] = vv
+	}
 	return MockMQTTStatus{
-		ClientCount:      m.clientCount(),
-		ClientDisconnect: m.clientDisconnect(),
+		ClientCount:      clientCount,
+		ClientDisconnect: disconnect,
+		Subscribe:        subscribe,
+		Unsubscribe:      unsubscribe,
 	}
 }
 
@@ -184,4 +192,14 @@ func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}
 		meta:       meta,
 		filterSpec: filterSpec,
 	}
+}
+
+// MockGetFilter is used to get running filter from pipeline
+func MockGetFilter(p *Pipeline, name string) Filter {
+	for _, f := range p.runningFilters {
+		if f.spec.Name() == name {
+			return f.filter
+		}
+	}
+	return nil
 }

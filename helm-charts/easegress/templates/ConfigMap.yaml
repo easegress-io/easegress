@@ -19,7 +19,7 @@ data:
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/easegress/log
+    log-dir: {{ .Values.log.path }}
     debug: false
   eg-secondary.yaml: |
     cluster-name: easegress
@@ -32,7 +32,7 @@ data:
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
-    log-dir: /opt/easegress/log
+    log-dir: {{ .Values.log.path }}
     debug: false
 kind: ConfigMap
 metadata:

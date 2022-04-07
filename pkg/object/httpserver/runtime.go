@@ -18,8 +18,11 @@
 package httpserver
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"reflect"
 	"sync/atomic"
 	"time"
@@ -30,6 +33,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocol"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/filterwriter"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"github.com/megaease/easegress/pkg/util/topn"
@@ -110,7 +114,7 @@ func newRuntime(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) *runti
 	r.setError(errNil)
 
 	go r.fsm()
-	go r.checkFailed()
+	go r.checkFailed(checkFailedTimeout)
 
 	return r
 }
@@ -236,19 +240,18 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 func (r *runtime) startServer() {
 	keepAliveTimeout := defaultKeepAliveTimeout
 	if r.spec.KeepAliveTimeout != "" {
-		t, err := time.ParseDuration(r.spec.KeepAliveTimeout)
-		if err != nil {
-			logger.Errorf("BUG: parse duration %s failed: %v",
-				r.spec.KeepAliveTimeout, err)
-		} else {
-			keepAliveTimeout = t
-		}
+		t, _ := time.ParseDuration(r.spec.KeepAliveTimeout)
+		keepAliveTimeout = t
 	}
 
+	fw := filterwriter.New(os.Stderr, func(p []byte) bool {
+		return !bytes.Contains(p, []byte("TLS handshake error"))
+	})
 	srv := &http.Server{
 		Addr:        fmt.Sprintf(":%d", r.spec.Port),
 		Handler:     r.mux,
 		IdleTimeout: keepAliveTimeout,
+		ErrorLog:    log.New(fw, "", log.LstdFlags),
 	}
 	srv.SetKeepAlivesEnabled(r.spec.KeepAlive)
 
@@ -311,8 +314,7 @@ func (r *runtime) closeServer() {
 	if r.server3 != nil {
 		err := r.server3.Close()
 		if err != nil {
-			logger.Warnf("shutdown http3 server %s failed: %v",
-				r.superSpec.Name(), err)
+			logger.Warnf("shutdown http3 server %s failed: %v", r.superSpec.Name(), err)
 		}
 		return
 	}
@@ -329,8 +331,8 @@ func (r *runtime) closeServer() {
 	}
 }
 
-func (r *runtime) checkFailed() {
-	ticker := time.NewTicker(checkFailedTimeout)
+func (r *runtime) checkFailed(timeout time.Duration) {
+	ticker := time.NewTicker(timeout)
 	for range ticker.C {
 		state := r.getState()
 		if state == stateFailed {

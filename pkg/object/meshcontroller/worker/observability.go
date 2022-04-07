@@ -18,16 +18,11 @@
 package worker
 
 import (
-	"fmt"
-
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/util/jmxtool"
 )
 
 const (
 	easeAgentConfigManager = "com.megaease.easeagent:type=ConfigManager"
-	updateServiceOperation = "updateService"
-	updateCanaryOperation  = "updateCanary"
 )
 
 type (
@@ -45,23 +40,4 @@ func NewObservabilityServer(serviceName string) *ObservabilityManager {
 		serviceName: serviceName,
 		agentClient: client,
 	}
-}
-
-// UpdateService updates service.
-func (server *ObservabilityManager) UpdateService(newService *spec.Service, version int64) error {
-	err := server.agentClient.UpdateService(newService, version)
-	if err != nil {
-		return fmt.Errorf("Update Service Spec failed: %v ", err)
-	}
-
-	return nil
-}
-
-// UpdateGlobalTransmission updates global transmission.
-func (server *ObservabilityManager) UpdateGlobalTransmission(transmission *spec.GlobalTransmission) error {
-	err := server.agentClient.UpdateGlobalTransmission(transmission)
-	if err != nil {
-		return fmt.Errorf("Update Canary Spec: %v ", err)
-	}
-	return nil
 }

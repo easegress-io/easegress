@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/version"
 )
 
-// ClusterOptions is the start-up options.
+// ClusterOptions defines the cluster members.
 type ClusterOptions struct {
 	// Primary members define following URLs to form a cluster.
 	ListenPeerURLs           []string          `yaml:"listen-peer-urls"`
@@ -74,15 +74,16 @@ type Options struct {
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
 
 	// cluster options
-	ClusterName                     string         `yaml:"cluster-name"`
-	ClusterRole                     string         `yaml:"cluster-role"`
-	ClusterRequestTimeout           string         `yaml:"cluster-request-timeout"`
-	ClusterListenClientURLs         []string       `yaml:"cluster-listen-client-urls"`
-	ClusterListenPeerURLs           []string       `yaml:"cluster-listen-peer-urls"`
-	ClusterAdvertiseClientURLs      []string       `yaml:"cluster-advertise-client-urls"`
-	ClusterInitialAdvertisePeerURLs []string       `yaml:"cluster-initial-advertise-peer-urls"`
-	ClusterJoinURLs                 []string       `yaml:"cluster-join-urls"`
-	Cluster                         ClusterOptions `yaml:"cluster"`
+	ClusterName           string         `yaml:"cluster-name"`
+	ClusterRole           string         `yaml:"cluster-role"`
+	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
+	Cluster               ClusterOptions `yaml:"cluster"`
+	// Deprecated. Use ClusterOptions instead.
+	ClusterListenClientURLs         []string `yaml:"cluster-listen-client-urls"`
+	ClusterListenPeerURLs           []string `yaml:"cluster-listen-peer-urls"`
+	ClusterAdvertiseClientURLs      []string `yaml:"cluster-advertise-client-urls"`
+	ClusterInitialAdvertisePeerURLs []string `yaml:"cluster-initial-advertise-peer-urls"`
+	ClusterJoinURLs                 []string `yaml:"cluster-join-urls"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -94,6 +95,9 @@ type Options struct {
 	// Profile.
 	CPUProfileFile    string `yaml:"cpu-profile-file"`
 	MemoryProfileFile string `yaml:"memory-profile-file"`
+
+	// Status
+	StatusUpdateMaxBatchSize int `yaml:"status-update-max-batch-size"`
 
 	// Prepare the items below in advance.
 	AbsHomeDir   string `yaml:"-"`
@@ -109,21 +113,20 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary", "Cluster role for this member (primary, secondary).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
 
-	// Cluster connection configuration style 1
-	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
-	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
-	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil,
-		"List of URLs to join, when the first url is the same with any one of cluster-initial-advertise-peer-urls, it means to join itself, and this config will be treated empty. When used, leave initial-cluster empty.")
+	// Deprecated: Use 'Cluster connection configuration' instead.
+	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.listen-client-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.listen-peer-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.advertise-client-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.initial-advertise-peer-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "Deprecated. Use cluster.initial-cluster instead.")
 
-	// Cluster connection configuration style 2
+	// Cluster connection configuration
 	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
 	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
 	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
 	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
-		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380. When used, leave cluster-join-urls empty.")
+		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
 	opt.flags.StringSliceVar(&opt.Cluster.PrimaryListenPeerURLs,
 		"primary-listen-peer-urls",
@@ -161,6 +164,8 @@ func New() *Options {
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
 	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
 
+	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
+
 	opt.viper.BindPFlags(opt.flags)
 
 	return opt
@@ -180,7 +185,7 @@ func (opt *Options) UseInitialCluster() bool {
 func (opt *Options) renameLegacyClusterRoles() {
 	warning := "Cluster roles writer/reader are deprecated. \n" +
 		"Renamed cluster role '%s' to '%s'. Please use primary/secondary instead. \n"
-	fmtLogger := fmt.Printf // Importing logger here is a import cycle, so use fmt instead.
+	fmtLogger := fmt.Printf // Importing logger here is an import cycle, so use fmt instead.
 	if opt.ClusterRole == "writer" {
 		opt.ClusterRole = "primary"
 		fmtLogger(warning, "writer", "primary")

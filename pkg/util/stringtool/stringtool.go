@@ -61,3 +61,33 @@ func DeleteStrInSlice(slice []string, str string) []string {
 
 	return result
 }
+
+// IsAllEmpty returns whether all strings are empty.
+func IsAllEmpty(strs ...string) bool {
+	if len(strs) == 0 {
+		return true
+	}
+
+	for _, s := range strs {
+		if s != "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+// IsAnyEmpty returns whether any string is empty.
+func IsAnyEmpty(strs ...string) bool {
+	if len(strs) == 0 {
+		return false
+	}
+
+	for _, s := range strs {
+		if s == "" {
+			return true
+		}
+	}
+
+	return false
+}

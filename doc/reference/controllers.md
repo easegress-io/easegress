@@ -31,6 +31,9 @@
     - [easemonitormetrics.Kafka](#easemonitormetricskafka)
     - [nacos.ServerSpec](#nacosserverspec)
     - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
+    - [mesh.Security](#meshsecurity)
+    - [mesh.MonitorMTLS](#meshmonitormtls)
+    - [mesh.MonitorCert](#meshmonitorcert)
 
 As the [architecture diagram](../imgs/architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -151,7 +154,7 @@ kafka:
 
 ### FaaSController
 
-A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. 
+A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`.
 
 For the full reference document please check - [FaaS Controller](./faascontroller.md)
 
@@ -198,13 +201,21 @@ serviceName: service-001
 externalServiceRegistry: consul-service-registry-example
 ```
 
-| Name                    | Type   | Description                                                               | Required              |
-| ----------------------- | ------ | ------------------------------------------------------------------------- | --------------------- |
-| heartbeatInterval       | string | Interval for one service instance reporting its heartbeat                 | Yes (default: 5s)     |
-| registryType            | string | Protocol the registry center accepts, support `eureka`, `consul`, `nacos` | Yes (default: eureka) |
-| apiPort                 | int    | Port listening on for worker's API server                                 | Yes (default: 13009)  |
-| ingressPort             | int    | Port listening on for for ingress traffic                                 | Yes (default: 13010)  |
-| externalServiceRegistry | string | External service registry name                                            | No                    |
+| Name                      | Type                                | Description                                                                      | Required              |
+|---------------------------|-------------------------------------|----------------------------------------------------------------------------------|-----------------------|
+| heartbeatInterval         | string                              | Interval for one service instance reporting its heartbeat                        | Yes (default: 5s)     |
+| registryType              | string                              | Protocol the registry center accepts, support `eureka`, `consul`, `nacos`        | Yes (default: eureka) |
+| apiPort                   | int                                 | Port listening on for worker's API server                                        | Yes (default: 13009)  |
+| ingressPort               | int                                 | Port listening on for for ingress traffic                                        | Yes (default: 13010)  |
+| externalServiceRegistry   | string                              | External service registry name                                                   | No                    |
+| cleanExternalRegistry     | bool                                | Clean external registry services while externalServiceRegistry changing to empty | No                    |
+| security                  | [mesh.Security](#meshSecurity)       | Security config for Mesh                                                         | No                    |
+| imageRegistryURL          | string                              | Image registry URL to inject                                                     | No                    |
+| imagePullPolicy           | string                              | Image pull policy to inject                                                      | No                    |
+| sidecarImageName          | string                              | Sidecar image name to inject                                                     | No                    |
+| agentInitializerImageName | string                              | Agent initializer image name to inject                                           | No                    |
+| log4jConfigName           | string                              | Log4j config name to inject                                                      | No                    |
+| monitorMTLS               | [mesh.MonitorMTLS](#meshMonitorMTLS) | Monitor mTLS config for Mesh                                                     | No                    |
 
 ### ConsulServiceRegistry
 
@@ -380,7 +391,7 @@ domains:
 | path          | string                                   | Exact path to match                                                                                                                    | No       |
 | pathPrefix    | string                                   | Prefix of the path to match                                                                                                            | No       |
 | pathRegexp    | string                                   | Path in regular expression to match                                                                                                    | No       |
-| rewriteTarget | string                                   | Use pathRegexp.[ReplaceAllString](https://golang.org/pkg/regexp/#Regexp.ReplaceAllString)(path, rewriteTarget) to rewrite request path | No       |
+| rewriteTarget | string                                   | Use pathRegexp.[ReplaceAllString](https://golang.org/pkg/regexp/#Regexp.ReplaceAllString)(path, rewriteTarget) or pathPrefix [strings.Replace](https://pkg.go.dev/strings#Replace) to rewrite request path | No       |
 | methods       | []string                                 | Methods to match, empty means to allow all methods                                                                                     | No       |
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |
@@ -437,7 +448,7 @@ The self-defining specification of each filter references to [filters](./filters
 | dnsProvider | map[string]string | DNS provider information  | No (Yes if `name` is a wildcard one) |
 
 The fields in `dnsProvider` vary from DNS providers, but `name` and `zone` are required for all DNS providers.
-Below table list other required fields for each supported DNS provider:
+Below table list other required fields for each supported DNS provider (Note: `google` is temporarily disabled due to dependency conflict):
 
 | DNS Provider Name | Required Fields                                                     |
 | ----------------- | ------------------------------------------------------------------- |
@@ -451,3 +462,32 @@ Below table list other required fields for each supported DNS provider:
 | hetzner           | authApiToken                                                        |
 | route53           | accessKeyId, secretAccessKey, awsProfile                            |
 | vultr             | apiToken                                                            |
+
+### mesh.Security
+
+| Name         | Type   | Description                                       | Required |
+|--------------|--------|---------------------------------------------------|----------|
+| mtlsMode     | string | mTLS mode (support permissive, strict)            | Yes      |
+| certProvider | string | certificate provider (only support selfSign)      | Yes      |
+| rootCertTTL  | string | TTL of root certificate (format: duration)        | Yes      |
+| appCertTTL   | string | TTL of application certificate (format: duration) | Yes      |
+
+
+### mesh.MonitorMTLS
+
+| Name         | Type                                 | Description                                     | Required |
+|--------------|--------------------------------------|-------------------------------------------------|----------|
+| enabled      | bool                                 | Enable monitor mTLS                             | Yes      |
+| url          | string                               | URL of monitor gateway to report metrics        | Yes      |
+| username     | string                               | Username for monitor gateway endpoint           | Yes      |
+| password     | string                               | Password for monitor gateway endpoint           | Yes      |
+| caCertBase64 | string                               | CA of PEM encoded data in base64 encoded format | Yes      |
+| certs        | [mesh.MonitorCert](#meshMonitorCert) | Certificate pairs of services                   | Yes      |
+
+### mesh.MonitorCert
+
+| Name       | Type     | Description                                              | Required |
+|------------|----------|----------------------------------------------------------|----------|
+| certBase64 | string   | Public key of PEM encoded data in base64 encoded format  | Yes      |
+| keyBase64  | string   | Private key of PEM encoded data in base64 encoded format | Yes      |
+| services   | []string | Services that use the certificate pair                   | Yes      |

@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package contexttool
+package httppipeline
 
-import (
-	"context"
-	"time"
-)
+import "github.com/megaease/easegress/pkg/supervisor"
 
-// TimeoutContext wraps standard timeout context by calling cancel function automatically.
-func TimeoutContext(timeout time.Duration) context.Context {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	go func() {
-		time.Sleep(timeout)
-		cancel()
-	}()
-	return ctx
+// MockFilterSpec help to create FilterSpec for test
+func MockFilterSpec(super *supervisor.Supervisor, rawSpec map[string]interface{}, yamlConfig string,
+	meta *FilterMetaSpec, filterSpec interface{}) *FilterSpec {
+	return &FilterSpec{
+		super:      super,
+		rawSpec:    rawSpec,
+		yamlConfig: yamlConfig,
+		meta:       meta,
+		filterSpec: filterSpec,
+	}
 }

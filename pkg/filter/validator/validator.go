@@ -20,6 +20,8 @@ package validator
 import (
 	"net/http"
 
+	"fmt"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -46,10 +48,11 @@ type (
 		filterSpec *httppipeline.FilterSpec
 		spec       *Spec
 
-		headers *httpheader.Validator
-		jwt     *JWTValidator
-		signer  *signer.Signer
-		oauth2  *OAuth2Validator
+		headers   *httpheader.Validator
+		jwt       *JWTValidator
+		signer    *signer.Signer
+		oauth2    *OAuth2Validator
+		basicAuth *BasicAuthValidator
 	}
 
 	// Spec describes the Validator.
@@ -58,8 +61,17 @@ type (
 		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
 		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
 		OAuth2    *OAuth2ValidatorSpec      `yaml:"oauth2,omitempty" jsonschema:"omitempty"`
+		BasicAuth *BasicAuthValidatorSpec   `yaml:"basicAuth,omitempty" jsonschema:"omitempty"`
 	}
 )
+
+// Validate verifies that at least one of the validations is defined.
+func (spec Spec) Validate() error {
+	if spec == (Spec{}) {
+		return fmt.Errorf("none of the validations are defined")
+	}
+	return nil
+}
 
 // Kind returns the kind of Validator.
 func (v *Validator) Kind() string {
@@ -97,17 +109,17 @@ func (v *Validator) reload() {
 	if v.spec.Headers != nil {
 		v.headers = httpheader.NewValidator(v.spec.Headers)
 	}
-
 	if v.spec.JWT != nil {
 		v.jwt = NewJWTValidator(v.spec.JWT)
 	}
-
 	if v.spec.Signature != nil {
 		v.signer = signer.CreateFromSpec(v.spec.Signature)
 	}
-
 	if v.spec.OAuth2 != nil {
 		v.oauth2 = NewOAuth2Validator(v.spec.OAuth2)
+	}
+	if v.spec.BasicAuth != nil {
+		v.basicAuth = NewBasicAuthValidator(v.spec.BasicAuth, v.filterSpec.Super())
 	}
 }
 
@@ -120,38 +132,38 @@ func (v *Validator) Handle(ctx context.HTTPContext) string {
 func (v *Validator) handle(ctx context.HTTPContext) string {
 	req := ctx.Request()
 
+	prepareErrorResponse := func(status int, tagPrefix string, err error) {
+		ctx.Response().SetStatusCode(status)
+		ctx.AddTag(stringtool.Cat(tagPrefix, err.Error()))
+	}
+
 	if v.headers != nil {
-		err := v.headers.Validate(req.Header())
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusBadRequest)
-			ctx.AddTag(stringtool.Cat("header validator: ", err.Error()))
+		if err := v.headers.Validate(req.Header()); err != nil {
+			prepareErrorResponse(http.StatusBadRequest, "header validator: ", err)
 			return resultInvalid
 		}
 	}
-
 	if v.jwt != nil {
-		err := v.jwt.Validate(req)
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("JWT validator: ", err.Error()))
+		if err := v.jwt.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "JWT validator: ", err)
 			return resultInvalid
 		}
 	}
-
 	if v.signer != nil {
-		err := v.signer.Verify(req.Std())
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("signature validator: ", err.Error()))
+		if err := v.signer.Verify(req.Std()); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "signature validator: ", err)
 			return resultInvalid
 		}
 	}
-
 	if v.oauth2 != nil {
-		err := v.oauth2.Validate(req)
-		if err != nil {
-			ctx.Response().SetStatusCode(http.StatusUnauthorized)
-			ctx.AddTag(stringtool.Cat("oauth2 validator: ", err.Error()))
+		if err := v.oauth2.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "oauth2 validator: ", err)
+			return resultInvalid
+		}
+	}
+	if v.basicAuth != nil {
+		if err := v.basicAuth.Validate(req); err != nil {
+			prepareErrorResponse(http.StatusUnauthorized, "http basic validator: ", err)
 			return resultInvalid
 		}
 	}
@@ -162,5 +174,9 @@ func (v *Validator) handle(ctx context.HTTPContext) string {
 // Status returns status.
 func (v *Validator) Status() interface{} { return nil }
 
-// Close closes Validator.
-func (v *Validator) Close() {}
+// Close closes validations.
+func (v *Validator) Close() {
+	if v.basicAuth != nil {
+		v.basicAuth.Close()
+	}
+}

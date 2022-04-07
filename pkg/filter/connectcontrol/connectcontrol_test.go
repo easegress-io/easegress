@@ -34,15 +34,12 @@ func init() {
 }
 
 func newContext(cid string, topic string) context.MQTTContext {
-	backend := &context.MockMQTTBackend{
-		Messages: make(map[string]context.MockMQTTMsg),
-	}
 	client := &context.MockMQTTClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
-	return context.NewMQTTContext(stdcontext.Background(), backend, client, packet)
+	return context.NewMQTTContext(stdcontext.Background(), client, packet)
 }
 
 func defaultFilterSpec(spec *Spec) *pipeline.FilterSpec {
@@ -99,7 +96,7 @@ func TestConnectControl(t *testing.T) {
 type testCase struct {
 	cid        string
 	topic      string
-	err        error
+	errString  string
 	disconnect bool
 	earlyStop  bool
 }
@@ -113,7 +110,7 @@ func doTest(t *testing.T, spec *Spec, testCases []testCase) {
 	for _, test := range testCases {
 		ctx := newContext(test.cid, test.topic)
 		res := cc.HandleMQTT(ctx)
-		assert.Equal(res.Err, test.err)
+		assert.Equal(res.ErrString, test.errString)
 		assert.Equal(ctx.Disconnect(), test.disconnect)
 		assert.Equal(ctx.EarlyStop(), test.earlyStop)
 	}
@@ -131,11 +128,11 @@ func TestHandleMQTT(t *testing.T) {
 		EarlyStop:     true,
 	}
 	testCases := []testCase{
-		{cid: "ban1", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "ban2", topic: "unban", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban1", topic: "ban/sport/ball", err: nil, disconnect: false, earlyStop: false},
-		{cid: "unban2", topic: "ban/sport/run", err: nil, disconnect: false, earlyStop: false},
-		{cid: "unban", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+		{cid: "ban1", topic: "unban", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "ban2", topic: "unban", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "unban1", topic: "ban/sport/ball", errString: "", disconnect: false, earlyStop: false},
+		{cid: "unban2", topic: "ban/sport/run", errString: "", disconnect: false, earlyStop: false},
+		{cid: "unban", topic: "unban", errString: "", disconnect: false, earlyStop: false},
 	}
 	doTest(t, spec, testCases)
 
@@ -145,10 +142,10 @@ func TestHandleMQTT(t *testing.T) {
 		EarlyStop:    true,
 	}
 	testCases = []testCase{
-		{cid: "unban1", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban2", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "unban3", topic: "unban/sport", err: nil, disconnect: false, earlyStop: false},
-		{cid: "unban4", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+		{cid: "unban1", topic: "ban/sport/ball", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "unban2", topic: "ban/sport/run", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "unban3", topic: "unban/sport", errString: "", disconnect: false, earlyStop: false},
+		{cid: "unban4", topic: "unban", errString: "", disconnect: false, earlyStop: false},
 	}
 	doTest(t, spec, testCases)
 
@@ -158,10 +155,10 @@ func TestHandleMQTT(t *testing.T) {
 		EarlyStop:      true,
 	}
 	testCases = []testCase{
-		{cid: "phone123", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "phone256", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "tv", topic: "unban/sport", err: nil, disconnect: false, earlyStop: false},
-		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+		{cid: "phone123", topic: "ban/sport/ball", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "phone256", topic: "ban/sport/run", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "tv", topic: "unban/sport", errString: "", disconnect: false, earlyStop: false},
+		{cid: "tv", topic: "unban", errString: "", disconnect: false, earlyStop: false},
 	}
 	doTest(t, spec, testCases)
 
@@ -171,10 +168,10 @@ func TestHandleMQTT(t *testing.T) {
 		EarlyStop:     true,
 	}
 	testCases = []testCase{
-		{cid: "phone123", topic: "ban/sport/ball", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "phone256", topic: "ban/sport/run", err: errors.New(resultBannedClientOrTopic), disconnect: true, earlyStop: true},
-		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
-		{cid: "tv", topic: "unban", err: nil, disconnect: false, earlyStop: false},
+		{cid: "phone123", topic: "ban/sport/ball", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "phone256", topic: "ban/sport/run", errString: resultBannedClientOrTopic, disconnect: true, earlyStop: true},
+		{cid: "tv", topic: "unban", errString: "", disconnect: false, earlyStop: false},
+		{cid: "tv", topic: "unban", errString: "", disconnect: false, earlyStop: false},
 	}
 	doTest(t, spec, testCases)
 

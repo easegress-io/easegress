@@ -20,6 +20,7 @@ package ingresscontroller
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -321,7 +322,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			continue
 		}
 
-		r := httpserver.Rule{}
+		r := &httpserver.Rule{}
 		for _, path := range rule.HTTP.Paths {
 			pipeline, err := st.serviceToPipeline(ingress.Namespace, path.Backend.Service)
 			if err != nil {
@@ -341,14 +342,31 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			continue
 		}
 
+		var existingRule *httpserver.Rule
 		if len(rule.Host) > 0 && rule.Host[0] == '*' {
 			host := strings.ReplaceAll(rule.Host[1:], ".", "\\.")
 			r.HostRegexp = fmt.Sprintf("^[^.]+%s$", host)
+			for _, r1 := range b.Rules {
+				if strings.EqualFold(r.HostRegexp, r1.HostRegexp) {
+					existingRule = r1
+					break
+				}
+			}
 		} else {
 			r.Host = rule.Host
+			for _, r1 := range b.Rules {
+				if strings.EqualFold(r.Host, r1.Host) {
+					existingRule = r1
+					break
+				}
+			}
 		}
 
-		b.Rules = append(b.Rules, &r)
+		if existingRule == nil {
+			b.Rules = append(b.Rules, r)
+		} else {
+			existingRule.Paths = append(existingRule.Paths, r.Paths...)
+		}
 	}
 }
 
@@ -376,6 +394,25 @@ func (st *specTranslator) translate() error {
 					PathPrefix: "/",
 				},
 			},
+		})
+	}
+
+	// sort path:
+	// * precise path first
+	// * longer prefix first
+	for _, r := range b.Rules {
+		sort.Slice(r.Paths, func(i, j int) bool {
+			p1, p2 := r.Paths[i], r.Paths[j]
+			switch {
+			case p1.Path != "" && p2.Path != "":
+				return p1.Path < p2.Path
+			case p1.Path != "" && p2.Path == "":
+				return false
+			case p1.Path == "" && p2.Path != "":
+				return true
+			default: // p1.Path == "" && p2.Path == "":
+				return len(p1.PathPrefix) > len(p2.PathPrefix)
+			}
 		})
 	}
 

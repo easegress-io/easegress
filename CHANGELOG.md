@@ -1,5 +1,89 @@
 # Changelog
 
+## [v1.5.1](https://github.com/megaease/easegress/tree/v1.5.1) (2022-04-06)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.0...v1.5.1)
+
+**Significant changes:**
+
+- Turn profiling on/off runtime [\#543](https://github.com/megaease/easegress/pull/543)
+
+**Implemented enhancements:**
+
+- Change the way StatusSyncController stores statuses to reduce memory usage [\#542](https://github.com/megaease/easegress/pull/542)
+- Support custom image name [\#545](https://github.com/megaease/easegress/pull/545)
+- HTTPServer prefix and fullpath support rewrite_target [\#553](https://github.com/megaease/easegress/pull/553)
+- Refactor the Docker entrypoint.sh [\#569](https://github.com/megaease/easegress/pull/569)
+
+**Fixed bugs:**
+
+- Fix proxy fallback [\#537](https://github.com/megaease/easegress/pull/537)
+- Resolve inconsistent path selection [\#536](https://github.com/megaease/easegress/pull/536)
+- Validate CircuitBreaker filter [\#551](https://github.com/megaease/easegress/pull/551)
+
+
+
+## [v1.5.0](https://github.com/megaease/easegress/tree/v1.5.0) (2022-03-03)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.4.1...v1.5.0)
+
+**Significant changes:**
+
+- HTTP basic auth filter [\#454](https://github.com/megaease/easegress/pull/454)
+- HeaderLookup filter [\#454](https://github.com/megaease/easegress/pull/454)
+- HeaderToJSON filter [\#458](https://github.com/megaease/easegress/pull/458)
+- CertExtractor filter [\#474](https://github.com/megaease/easegress/pull/474)
+- Custom data management [\#456](https://github.com/megaease/easegress/pull/456), [\#500](https://github.com/megaease/easegress/pull/500)
+
+  **NOTE:** The dynamic cluster management feature (e.g. adding a new primary node without stopping the cluster) is deprecated and will be removed in the next release, please switch to static cluster management. You can refer to this cookbook [chapter](https://github.com/megaease/easegress/blob/main/doc/cookbook/multi-node-cluster.md) or follow [Helm example](https://github.com/megaease/easegress/tree/main/helm-charts/easegress) for more info on how to define a static cluster.
+
+**Implemented enhancements:**
+
+- Add pipeline route for mqttproxy [\#453](https://github.com/megaease/easegress/pull/453)
+- Install script to install the systemd service [\#461](https://github.com/megaease/easegress/pull/461), [\#463](https://github.com/megaease/easegress/pull/463)
+- RequestAdaptor support compress/decompress request body [\#497](https://github.com/megaease/easegress/pull/497)
+- CorsAdaptor support origin [\#498](https://github.com/megaease/easegress/pull/498)
+- Filter out 'TLS handshake error' [\#533](https://github.com/megaease/easegress/pull/533)
+- Test [\#469](https://github.com/megaease/easegress/pull/469), [\#507](https://github.com/megaease/easegress/pull/507)
+- Documentation [\#464](https://github.com/megaease/easegress/pull/464), [\#465](https://github.com/megaease/easegress/pull/465), [\#475](https://github.com/megaease/easegress/pull/475), [\#499](https://github.com/megaease/easegress/pull/499)
+
+**Fixed bugs:**
+
+- Fix empty http request body read panic [\#457](https://github.com/megaease/easegress/pull/457)
+- Fix paging in query nacos service registry [\#478](https://github.com/megaease/easegress/pull/478)
+- Fix duplicate response header [\#482](https://github.com/megaease/easegress/pull/482)
+- Add close option to httpRequest.SetBody [\#502](https://github.com/megaease/easegress/pull/502)
+- Fix wrong service name in nacos service registry [\#504](https://github.com/megaease/easegress/pull/504)
+- Remove method & path from httpRequest [\#524](https://github.com/megaease/easegress/pull/524)
+- Make cluster.Mutex to be goroutine same [\#527](https://github.com/megaease/easegress/pull/527)
+- Fix empty request scheme [\#529](https://github.com/megaease/easegress/pull/529)
+- Fix typo [\#471](https://github.com/megaease/easegress/pull/471), [\#479](https://github.com/megaease/easegress/pull/479), 
+
+
+## [v1.4.1](https://github.com/megaease/easegress/tree/v1.4.1) (2022-01-07)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.4.0...v1.4.1)
+
+**Implemented enhancements:**
+
+- Improve performance of Proxy filter [\#414](https://github.com/megaease/easegress/pull/414)
+- Ingress Controller tutorial and Helm Charts to support multi nodes [\#395](https://github.com/megaease/easegress/pull/395)
+
+**Fixed bugs:**
+
+- Reduce etcd server memory usage [\#439](https://github.com/megaease/easegress/pull/439)
+- Support PEM in both base64 and plain text [\#425](https://github.com/megaease/easegress/pull/425)
+- Only set host when server addr is IP (close #447) [\#451](https://github.com/megaease/easegress/pull/451)
+- Copy backend http response header to httpresponse [\#449](https://github.com/megaease/easegress/pull/449)
+- Fix httpserver httppipeline status not show error [\#441](https://github.com/megaease/easegress/pull/441)
+- Mock filter to support header match [\#409](https://github.com/megaease/easegress/pull/409)
+- Fix wrong content-type [\#430](https://github.com/megaease/easegress/pull/430)
+- Fix easegress-server yaml validation [\#432](https://github.com/megaease/easegress/pull/432)
+- Change status code 403 to 401 when jwt signer and oauth2 validation fail [\#426](https://github.com/megaease/easegress/pull/426)
+- Fix typos [\#423](https://github.com/megaease/easegress/pull/423) [\#417](https://github.com/megaease/easegress/pull/417) [\#416](https://github.com/megaease/easegress/pull/416) [\#410](https://github.com/megaease/easegress/pull/410)
+- Expose max-sync-message-size in options [\#419](https://github.com/megaease/easegress/pull/419)
+- Enable calling mirrorPool reader Read after EOF [\#411](https://github.com/megaease/easegress/pull/411)
+- Use ClusterJoinURLs for secondary members [\#403](https://github.com/megaease/easegress/pull/403)
 
 ## [v1.4.0](https://github.com/megaease/easegress/tree/v1.4.0) (2021-12-07)
 

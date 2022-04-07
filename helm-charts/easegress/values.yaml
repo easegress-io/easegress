@@ -11,7 +11,7 @@ image:
 
 # Easegress cluster configurations.
 # When volumeType is
-# - emptyDir: use pods internal filesystem that is not persisted when pod crashes.
+# - emptyDir: use pods internal filesystem that is not persisted when pod crashes. Use `emptyDir` only when primaryReplicas is 1.
 # - persistentVolume, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
 cluster:
   primaryReplicas: 1 # or 3,5,7
@@ -24,3 +24,7 @@ cluster:
   # - hostname-3
 
   secondaryReplicas: 0
+
+# log path inside container
+log:
+  path: /opt/easegress/log

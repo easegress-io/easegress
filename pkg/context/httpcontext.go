@@ -100,7 +100,7 @@ type (
 		AddCookie(cookie *http.Cookie)
 
 		Body() io.Reader
-		SetBody(io.Reader)
+		SetBody(io.Reader, bool)
 
 		Std() *http.Request
 

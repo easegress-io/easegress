@@ -53,10 +53,10 @@ const (
 	trafficTargetPrefix  = "/mesh/traffic-targets/"
 
 	customResourceKindPrefix = "/mesh/custom-resource-kinds/"
-	customResourceKind       = "/mesh/custom-resource-kinds/%s/" // +kind
+	customResourceKind       = "/mesh/custom-resource-kinds/%s" // +kind
 	allCustomResourcePrefix  = "/mesh/custom-resources/"
-	customResourcePrefix     = "/mesh/custom-resources/%s/"    // +kind
-	customResource           = "/mesh/custom-resources/%s/%s/" // +kind +name
+	customResourcePrefix     = "/mesh/custom-resources/%s/"   // +kind
+	customResource           = "/mesh/custom-resources/%s/%s" // +kind +name
 
 	globalCanaryHeaders = "/mesh/canary-headers"
 

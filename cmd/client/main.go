@@ -110,6 +110,9 @@ func main() {
 		command.ObjectCmd(),
 		command.MemberCmd(),
 		command.WasmCmd(),
+		command.CustomDataKindCmd(),
+		command.CustomDataCmd(),
+		command.ProfileCmd(),
 		completionCmd,
 	)
 

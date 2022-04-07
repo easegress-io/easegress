@@ -19,6 +19,8 @@ package requestadaptor
 
 import (
 	"bytes"
+	"compress/gzip"
+	"io"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -31,9 +33,12 @@ import (
 const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
+
+	resultDecompressFail = "decompressFail"
+	resultCompressFail   = "compressFail"
 )
 
-var results = []string{}
+var results = []string{resultDecompressFail, resultCompressFail}
 
 func init() {
 	httppipeline.Register(&RequestAdaptor{})
@@ -50,11 +55,13 @@ type (
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		Host   string                `yaml:"host" jsonschema:"omitempty"`
-		Method string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path   *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
-		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
-		Body   string                `yaml:"body" jsonschema:"omitempty"`
+		Host       string                `yaml:"host" jsonschema:"omitempty"`
+		Method     string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path       *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
+		Header     *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
+		Body       string                `yaml:"body" jsonschema:"omitempty"`
+		Compress   string                `yaml:"compress" jsonschema:"omitempty"`
+		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
 	}
 )
 
@@ -81,6 +88,18 @@ func (ra *RequestAdaptor) Results() []string {
 // Init initializes RequestAdaptor.
 func (ra *RequestAdaptor) Init(filterSpec *httppipeline.FilterSpec) {
 	ra.filterSpec, ra.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
+		panic("RequestAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Compress != "gzip" {
+		panic("RequestAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Decompress != "" {
+		panic("RequestAdaptor can only do compress or decompress for given request body, not both")
+	}
+	if ra.spec.Body != "" && ra.spec.Decompress != "" {
+		panic("No need to decompress when body is specified in RequestAdaptor spec")
+	}
 	ra.reload()
 }
 
@@ -132,11 +151,12 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 				logger.Errorf("BUG request render body failed, template %s, err %v",
 					ra.spec.Body, err)
 			} else {
-				ctx.Request().SetBody(bytes.NewReader([]byte(body)))
+				ctx.Request().SetBody(bytes.NewReader([]byte(body)), true)
 			}
 		} else {
-			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
+			ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)), true)
 		}
+		ctx.Request().Header().Del("Content-Encoding")
 	}
 
 	if len(ra.spec.Host) != 0 {
@@ -150,6 +170,58 @@ func (ra *RequestAdaptor) handle(ctx context.HTTPContext) string {
 		} else {
 			ctx.Request().SetHost(ra.spec.Host)
 		}
+	}
+
+	if ra.spec.Compress != "" {
+		res := ra.processCompress(ctx)
+		if res != "" {
+			return res
+		}
+	}
+
+	if ra.spec.Decompress != "" {
+		res := ra.processDecompress(ctx)
+		if res != "" {
+			return res
+		}
+	}
+	return ""
+}
+
+func (ra *RequestAdaptor) processCompress(ctx context.HTTPContext) string {
+	encoding := ctx.Request().Header().Get("Content-Encoding")
+	if encoding != "" {
+		return ""
+	}
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+
+	_, err := io.Copy(gw, ctx.Request().Body())
+	if err != nil {
+		logger.Errorf("compress request body failed, %v", err)
+		return resultCompressFail
+	}
+	gw.Close()
+
+	ctx.Request().SetBody(&buf, true)
+	ctx.Request().Header().Set("Content-Encoding", "gzip")
+	return ""
+}
+
+func (ra *RequestAdaptor) processDecompress(ctx context.HTTPContext) string {
+	encoding := ctx.Request().Header().Get("Content-Encoding")
+	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
+		reader, err := gzip.NewReader(ctx.Request().Body())
+		if err != nil {
+			return resultDecompressFail
+		}
+		defer reader.Close()
+		data, err := io.ReadAll(reader)
+		if err != nil {
+			return resultDecompressFail
+		}
+		ctx.Request().SetBody(bytes.NewReader(data), true)
+		ctx.Request().Header().Del("Content-Encoding")
 	}
 	return ""
 }

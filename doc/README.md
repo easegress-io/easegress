@@ -9,6 +9,7 @@
 			- [4.1.1 System Controllers](#411-system-controllers)
 			- [4.1.2 Business Controllers](#412-business-controllers)
 		- [4.2 Filters](#42-filters)
+		- [4.3 Custom Data](#43-custom-data)
 
 ## 1. Cookbook / How-To Guide
 
@@ -90,4 +91,6 @@ It could be created, updated, deleted by admin operation. They control various r
 - [Validator](./reference/filters.md#Validator) - The Validator filter validates requests, forwards valid ones, and rejects invalid ones. 
 - [WasmHost](./reference/filters.md#WasmHost) - The WasmHost filter implements a host environment for user-developed WebAssembly code. 
 
+### 4.3 Custom Data
 
+- [Custom Data Management](./reference/customdata.md) - Create/Read/Update/Delete custom data kinds and custom data items.

@@ -6,7 +6,7 @@ data:
     cluster-role: primary
     api-addr: 0.0.0.0:2381
     data-dir: /opt/easegress/data
-    log-dir: /opt/easegress/log
+    log-dir: {{ .Values.log.path }}
     debug: false
   controller.yaml: |
     kind: IngressController

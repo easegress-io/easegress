@@ -19,12 +19,19 @@ package cluster
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/phayes/freeport"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3/concurrency"
+
+	"github.com/megaease/easegress/pkg/env"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/stretchr/testify/assert"
 )
 
 func mockClusters(count int) []*cluster {
@@ -130,6 +137,28 @@ func closeClusters(clusters []*cluster) {
 	}
 }
 
+func createSecondaryNode(clusterName string, primaryListenPeerURLs []string) *cluster {
+	ports, err := freeport.GetFreePorts(1)
+	check(err)
+	name := fmt.Sprintf("secondary-member-x")
+	opt := option.New()
+	opt.Name = name
+	opt.ClusterName = clusterName
+	opt.ClusterRole = "secondary"
+	opt.ClusterRequestTimeout = "10s"
+	opt.Cluster.PrimaryListenPeerURLs = primaryListenPeerURLs
+	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[0])
+
+	_, err = opt.Parse()
+	check(err)
+
+	env.InitServerDir(opt)
+
+	clusterInstance, err := New(opt)
+	check(err)
+	return clusterInstance.(*cluster)
+}
+
 func TestCluster(t *testing.T) {
 	t.Run("start cluster dynamically", func(t *testing.T) {
 		clusters := mockClusters(3)
@@ -139,7 +168,11 @@ func TestCluster(t *testing.T) {
 	})
 	t.Run("start static sized cluster", func(t *testing.T) {
 		clusterNodes := mockStaticCluster(3)
+		primaryName := clusterNodes[0].opt.ClusterName
+		primaryAddress := clusterNodes[0].opt.Cluster.InitialAdvertisePeerURLs
+		secondaryNode := createSecondaryNode(primaryName, primaryAddress)
 		defer closeClusters(clusterNodes)
+		defer closeClusters([]*cluster{secondaryNode})
 	})
 }
 
@@ -500,4 +533,72 @@ func TestUtilEqual(t *testing.T) {
 	if !equal {
 		t.Error("isKeyValueEqual invalid, should equal")
 	}
+}
+
+func TestIsLeader(t *testing.T) {
+	etcdDirName, err := ioutil.TempDir("", "cluster-test")
+	check(err)
+	defer os.RemoveAll(etcdDirName)
+
+	clusterInstance := CreateClusterForTest(etcdDirName)
+	if !clusterInstance.IsLeader() {
+		t.Error("single node cluster should be leader")
+	}
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	clusterInstance.CloseServer(wg)
+	wg.Wait()
+}
+
+func TestInvalidConfig(t *testing.T) {
+	assert := assert.New(t)
+	opt := option.New()
+	opt.ClusterRequestTimeout = "10ssss"
+	_, err := New(opt)
+	assert.NotNil(err)
+}
+
+func TestRunDefrag(t *testing.T) {
+	assert := assert.New(t)
+	etcdDirName, err := ioutil.TempDir("", "cluster-test")
+	check(err)
+	defer os.RemoveAll(etcdDirName)
+
+	opt := CreateOptionsForTest(etcdDirName)
+
+	cluster := &cluster{
+		opt:            opt,
+		requestTimeout: 1 * time.Second,
+		done:           make(chan struct{}),
+	}
+	cluster.initLayout()
+	cluster.run()
+
+	assert.Equal(cluster.runDefrag(), defragNormalInterval)
+	cluster.opt.Cluster.AdvertiseClientURLs[0] = "wrong-urlll"
+	assert.Equal(cluster.runDefrag(), defragFailedInterval)
+	cluster.opt.Cluster.AdvertiseClientURLs = []string{} // make GetFirstAdvertiseClientURL fail
+	assert.Equal(cluster.runDefrag(), defragNormalInterval)
+
+	// test session
+	cluster.session = nil
+	_, err = cluster.getSession()
+	assert.Nil(err)
+	_, err = cluster.getSession()
+	assert.Nil(err)
+
+	// test checkClusterName
+	originalName := cluster.opt.ClusterName
+	cluster.opt.ClusterName = "totally different"
+	assert.Panics(func() { cluster.checkClusterName() })
+	cluster.opt.ClusterName = originalName
+	cluster.Delete(cluster.Layout().ClusterNameKey())
+	assert.NotNil(cluster.checkClusterName())
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	cluster.CloseServer(wg)
+	wg.Wait()
+
+	assert.NotNil(cluster.checkClusterName())
 }

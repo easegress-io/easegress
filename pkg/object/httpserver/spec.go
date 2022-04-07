@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
@@ -194,6 +195,15 @@ func (h *Header) initHeaderRoute() {
 func (h *Header) Validate() error {
 	if len(h.Values) == 0 && h.Regexp == "" {
 		return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
+	}
+
+	return nil
+}
+
+// Validate validates Path.
+func (p *Path) Validate() error {
+	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
+		return fmt.Errorf("rewriteTarget is specified but path is empty")
 	}
 
 	return nil

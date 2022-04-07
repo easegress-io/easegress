@@ -128,17 +128,13 @@ filters:
 	p := getPipeline(yamlStr, t)
 	defer p.Close()
 
-	backend := &context.MockMQTTBackend{
-		Messages: make(map[string]context.MockMQTTMsg),
-	}
-
 	var wg sync.WaitGroup
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
 		go func(i int) {
 			c := &mockMQTTClient{cid: strconv.Itoa(i), userName: strconv.Itoa(i + 1)}
 			publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-			ctx := context.NewMQTTContext(stdcontext.Background(), backend, c, publish)
+			ctx := context.NewMQTTContext(stdcontext.Background(), c, publish)
 			assert.Equal(ctx.Client().UserName(), strconv.Itoa(i+1))
 			p.HandleMQTT(ctx)
 			_, ok := ctx.Client().Load("mock")
@@ -147,14 +143,26 @@ filters:
 			assert.Equal(true, ok)
 			_, ok = ctx.Client().Load("filter")
 			assert.Equal(true, ok)
+
+			subscribe := packets.NewControlPacket(packets.Subscribe).(*packets.SubscribePacket)
+			subscribe.Topics = []string{strconv.Itoa(i)}
+			ctx = context.NewMQTTContext(stdcontext.Background(), c, subscribe)
+			p.HandleMQTT(ctx)
+
+			unsubscribe := packets.NewControlPacket(packets.Unsubscribe).(*packets.UnsubscribePacket)
+			subscribe.Topics = []string{strconv.Itoa(i)}
+			ctx = context.NewMQTTContext(stdcontext.Background(), c, unsubscribe)
+			p.HandleMQTT(ctx)
+
 			wg.Done()
 		}(i)
 	}
 	wg.Wait()
 	f := p.getRunningFilter("mqtt-filter").filter.(*MockMQTTFilter)
-	assert.Equal(len(f.Status().(MockMQTTStatus).ClientCount), 1000, "wrong client count")
-
-	assert.Equal(1000, len(backend.Messages))
+	status := f.Status().(MockMQTTStatus)
+	assert.Equal(len(status.ClientCount), 1000, "wrong client count")
+	assert.Equal(1000, len(status.Subscribe))
+	assert.Equal(1000, len(status.Unsubscribe))
 
 	newP := &Pipeline{}
 	newP.spec = &Spec{Protocol: context.HTTP}

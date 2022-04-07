@@ -18,7 +18,6 @@
 package connectcontrol
 
 import (
-	"errors"
 	"regexp"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -34,7 +33,6 @@ const (
 )
 
 // ErrBannedClientOrTopic is error for banned client or topic
-var ErrBannedClientOrTopic = errors.New(resultBannedClientOrTopic)
 
 func init() {
 	pipeline.Register(&ConnectControl{})
@@ -183,7 +181,7 @@ func (cc *ConnectControl) HandleMQTT(ctx context.MQTTContext) *context.MQTTResul
 		if cc.spec.EarlyStop {
 			ctx.SetEarlyStop()
 		}
-		return &context.MQTTResult{Err: ErrBannedClientOrTopic}
+		return &context.MQTTResult{ErrString: resultBannedClientOrTopic}
 	}
 	return &context.MQTTResult{}
 }

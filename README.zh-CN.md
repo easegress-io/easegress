@@ -30,7 +30,7 @@
 - **高性能：** 基础功能采用轻量级方法实现，性能优异。
 - **可观察性：** 周期性报告多种统计数据，系统状态尽在掌握。
 - **可扩展性：** 良好的 API 设计，不必知道底层细节，也能自己开发过滤器和控制器。
-- **集成性：** 接口简单，易于与其他系统集成，如 Kubernetes 入口控制器、[EaseMesh](https://github.com/megaease/easemesh) 边车、工作流等。
+- **集成性：** 接口简单，易于与其他系统集成，如: Kubernetes Ingress Controller、[EaseMesh](https://github.com/megaease/easemesh) 边车、工作流等。
 
 下面是其架构图：
 
@@ -128,7 +128,10 @@ Easegress 的基本用法是做为后端服务器的代理。下面分步说明�
 
 ### 安装 Easegress
 
-我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。下面的 Shell 命令会下载并解压最新版的 Easegress 到 `./easegress` 目录下：
+我们可以从[发布页](https://github.com/megaease/easegress/releases)下载 Easegress 的最新或历史版本。下面的 Shell 命令会做如下的事：
+
+- 下载并解压最新版的 Easegress 到 `./easegress` 目录下
+- 安装 Systemd 服务，并启动 easegress
 
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/megaease/easegress/main/scripts/install.sh)"
@@ -143,8 +146,8 @@ make
 
 > **注意事项**：
 >
-> - 我们需要 Go 1.16 以上版本的编译器
-> - 如果需要支持 WebAssembbly 的版本，你需要运行 `make wasm`
+> - 我们需要 Go 1.17 以上版本的编译器
+> - 如果需要支持 WebAssembly 的版本，你需要运行 `make wasm`
 
 然后把二进制所在目录添加到 `PATH` 中，并启动服务：
 
@@ -185,7 +188,7 @@ $ egctl member list | grep "id"
     id: 689e371e88f78b6a
 ```
 
-成功启动后，我们可以用上述命令检查单节点集群的状态，它展示示了系统的静态选项，以及心跳和etcd的动态状态。
+成功启动后，我们可以用上述命令检查单节点集群的状态，它展示示了系统的静态选项，以及心跳和 etcd 的动态状态。
 
 ### 创建 HTTPServer 和 Pipeline
 

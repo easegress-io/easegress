@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
@@ -63,6 +62,15 @@ const (
 
 	wasmCodeURL = apiURL + "/wasm/code"
 	wasmDataURL = apiURL + "/wasm/data/%s/%s"
+
+	customDataKindURL     = apiURL + "/customdatakinds"
+	customDataKindItemURL = apiURL + "/customdatakinds/%s"
+	customDataURL         = apiURL + "/customdata/%s"
+	customDataItemURL     = apiURL + "/customdata/%s/%s"
+
+	profileURL      = apiURL + "/profile"
+	profileStartURL = apiURL + "/profile/start/%s"
+	profileStopURL  = apiURL + "/profile/stop"
 
 	// MeshTenantsURL is the mesh tenant prefix.
 	MeshTenantsURL = apiURL + "/mesh/tenants"
@@ -161,21 +169,4 @@ func printBody(body []byte) {
 	}
 
 	fmt.Printf("%s", output)
-}
-
-func buildVisitorFromFileOrStdin(specFile string, cmd *cobra.Command) SpecVisitor {
-	var buff []byte
-	var err error
-	if specFile != "" {
-		buff, err = os.ReadFile(specFile)
-		if err != nil {
-			ExitWithErrorf("%s failed: %v", cmd.Short, err)
-		}
-	} else {
-		buff, err = io.ReadAll(os.Stdin)
-		if err != nil {
-			ExitWithErrorf("%s failed: %v", cmd.Short, err)
-		}
-	}
-	return NewSpecVisitor(string(buff))
 }

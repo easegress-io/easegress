@@ -1,0 +1,37 @@
+name: ❓ Questions
+description: Any other question that is not bug or feature request
+title: ""
+labels: []
+body:
+- type: checkboxes
+  attributes:
+    label: This is not Bug report or Feature request
+    description: Please use the Bug report and Feature request issues if more relevant.
+    options:
+    - label: I confirm that this is not bug report or feature request.
+      required: true
+- type: checkboxes
+  attributes:
+    label: Is this question answered in [the documentation](https://github.com/megaease/easegress/blob/main/doc/README.md)? 
+    description: Please search to see if the question has already been answered in documentation.
+    options:
+    - label: I have searched the documentation
+      required: true
+- type: checkboxes
+  attributes:
+    label: Is there an existing issue for this?
+    description: Please search to see if an issue already exists for the bug you encountered.
+    options:
+    - label: I have searched the existing issues
+      required: true
+- type: textarea
+  attributes:
+    label: Your question
+    description: A concise and clear question about Easegress.
+  validations:
+    required: true
+
+- type: markdown
+  attributes:
+    value: >
+      Thanks for contributing 🎉!

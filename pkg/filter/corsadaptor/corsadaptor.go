@@ -48,13 +48,17 @@ type (
 		cors *cors.Cors
 	}
 
-	// Spec is describes of CORSAdaptor.
+	// Spec describes of CORSAdaptor.
 	Spec struct {
 		AllowedOrigins   []string `yaml:"allowedOrigins" jsonschema:"omitempty"`
 		AllowedMethods   []string `yaml:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
 		AllowCredentials bool     `yaml:"allowCredentials" jsonschema:"omitempty"`
 		ExposedHeaders   []string `yaml:"exposedHeaders" jsonschema:"omitempty"`
+		MaxAge           int      `yaml:"maxAge" jsonschema:"omitempty"`
+		// If true, handle requests with 'Origin' header. https://fetch.spec.whatwg.org/#http-requests
+		// By default, only CORS-preflight requests are handled.
+		SupportCORSRequest bool `yaml:"supportCORSRequest" jsonschema:"omitempty"`
 	}
 )
 
@@ -98,11 +102,16 @@ func (a *CORSAdaptor) reload() {
 		AllowedHeaders:   a.spec.AllowedHeaders,
 		AllowCredentials: a.spec.AllowCredentials,
 		ExposedHeaders:   a.spec.ExposedHeaders,
+		MaxAge:           a.spec.MaxAge,
 	})
 }
 
 // Handle handles simple cross-origin requests or directs.
 func (a *CORSAdaptor) Handle(ctx context.HTTPContext) string {
+	if a.spec.SupportCORSRequest {
+		result := a.handleCORS(ctx)
+		return ctx.CallNextHandler(result)
+	}
 	result := a.handle(ctx)
 	return ctx.CallNextHandler(result)
 }
@@ -117,6 +126,23 @@ func (a *CORSAdaptor) handle(ctx context.HTTPContext) string {
 		return resultPreflighted
 	}
 	return ""
+}
+
+func (a *CORSAdaptor) handleCORS(ctx context.HTTPContext) string {
+	r := ctx.Request()
+	w := ctx.Response()
+	method := r.Method()
+	isCorsRequest := r.Header().Get("Origin") != ""
+	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
+	// set CORS headers to response
+	a.cors.HandlerFunc(w.Std(), r.Std())
+	if !isCorsRequest {
+		return "" // next filter
+	}
+	if isPreflight {
+		return resultPreflighted // pipeline jumpIf skips following filters
+	}
+	return "" // next filter
 }
 
 // Status return status.

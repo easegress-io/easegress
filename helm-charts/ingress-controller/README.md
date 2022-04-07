@@ -39,5 +39,7 @@ The following table lists the configurable parameters of the Ingress Controller 
 |-----|------|---------|-------------|
 | service.nodePort | int | `30080` | nodePort for Easegress Ingress Controller. |
 | replicas | int | `1` | number of Easegress Ingress Controllers |
+| log.path | string | `/opt/easegress/log` | log path inside container |
+
 
 > By default, k8s use range 30000-32767 for NodePort. Make sure you choose right port number.

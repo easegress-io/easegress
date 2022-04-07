@@ -43,6 +43,14 @@
   - [WasmHost](#wasmhost)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
+  - [Kafka](#kafka)
+    - [Configuration](#configuration-14)
+    - [Results](#results-14)
+  - [HeaderToJSON](#headertojson)
+    - [Configuration](#configuration-15)
+    - [Results](#results-15)
+  - [CertExtractor](#certextractor)
+    - [Configuration](#configuration-16))
   - [Common Types](#common-types)
     - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -73,6 +81,8 @@
     - [validator.OAuth2ValidatorSpec](#validatoroauth2validatorspec)
     - [validator.OAuth2TokenIntrospect](#validatoroauth2tokenintrospect)
     - [validator.OAuth2JWT](#validatoroauth2jwt)
+    - [kafka.Topic](#kafkatopic)
+    - [headertojson.HeaderMap](#headertojsonheadermap)
 
 A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter need to take extra action.
 
@@ -212,6 +222,8 @@ allowedMethods: [GET]
 | allowedHeaders   | []string | An array of non-simple headers the client is allowed to use with cross-domain requests. If the special `*` value is present in the list, all headers will be allowed. The default value is [] but "Origin" is always appended to the list                                                                                                                               | No       |
 | allowCredentials | bool     | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates                                                                                                                                                                                                                                           | No       |
 | exposedHeaders   | []string | Indicates which headers are safe to expose to the API of a CORS API specification                                                                                                                                                                                                                                                                                       | No       |
+| maxAge   | int | Indicates how long (in seconds) the results of a preflight request can be cached. The default is 0 stands for no max age                                                                                                                                                                                                                                                                                       | No       |
+| supportCORSRequest   | bool | When true, support CORS request and CORS preflight requests. By default, support only preflight requests.                                                                                                                                                                                                                                                                                       | No       |
 
 ### Results
 
@@ -308,7 +320,7 @@ timeout: 500ms
 
 The RequestAdaptor modifies the original request according to configuration.
 
-The below example configuration adds prefix `/v3` to the request path.
+The example configuration below adds prefix `/v3` to the request path.
 
 ```yaml
 kind: RequestAdaptor
@@ -318,7 +330,7 @@ path:
 ```
 
 
-The below example configuration removes header `X-Version` from all `GET` requests.
+The example configuration below removes header `X-Version` from all `GET` requests.
 
 ```yaml
 kind: RequestAdaptor
@@ -328,19 +340,35 @@ header:
   del: ["X-Version"]
 ```
 
+The example configuration below modifies request path using regular expressions.
+
+```yaml
+kind: RequestAdaptor
+name: request-adaptor-example
+path:
+  regexpReplace:
+    regexp: "^/([a-z]+)/([a-z]+)" # groups /$1/$2 for lowercase alphabet
+    replace: "/$2/$1" # changes the order of groups
+```
+
 ### Configuration
 
-| Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
-| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| method | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
-| path   | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body   | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
-| host   | string                                       | If provided the host of the original request is replaced by the value of this option. Note: the host can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| Name       | Type                                         | Description                                                                                                                                                                                                         | Required |
+| -----------| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
+| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
+| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option. Note: the host can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                                                                          | No       |
+| compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                                                              | No       |
 
 ### Results
 
-The RequestAdaptor always returns an empty result.
+| Value          | Description                              |
+| -------------- | ---------------------------------------- |
+| decompressFail | the request body can not be decompressed |
+| compressFail   | the request body can not be compressed   |
 
 ## CircuitBreaker
 
@@ -515,7 +543,7 @@ The filter always returns an empty result.
 
 ## Validator
 
-The Validator filter validates requests, forwards valid ones, and rejects invalid ones. Four validation methods (`headers`, `jwt`, `signature`, and `oauth2`) are supported up to now, and these methods can either be used together or alone. When two or more methods are used together, a request needs to pass all of them to be forwarded.
+The Validator filter validates requests, forwards valid ones, and rejects invalid ones. Four validation methods (`headers`, `jwt`, `signature`, `oauth2` and `basicAuth`) are supported up to now, and these methods can either be used together or alone. When two or more methods are used together, a request needs to pass all of them to be forwarded.
 
 Below is an example configuration for the `headers` validation method. Requests which has a header named `Is-Valid` with value `abc` or `goodplan` or matches regular expression `^ok-.+$` are considered to be valid.
 
@@ -562,6 +590,15 @@ oauth2:
     insecureTls: false
 ```
 
+Here's an example for `basicAuth` validation method which uses [Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html) formatted encrypted password file for validation.
+```yaml
+kind: Validator
+name: basicAuth-validator-example
+basicAuth:
+  mode: "FILE"
+  userFile: /etc/apache2/.htpasswd
+```
+
 ### Configuration
 
 | Name      | Type                                                              | Description                                                                                                                                                                                                   | Required |
@@ -570,6 +607,7 @@ oauth2:
 | jwt       | [validator.JWTValidatorSpec](#validatorJWTValidatorSpec)          | JWT validation rule, validates JWT token string from the `Authorization` header or cookies                                                                                                                    | No       |
 | signature | [signer.Spec](#signerSpec)                                        | Signature validation rule, implements an [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) compatible signature validation validator, with customizable literal strings | No       |
 | oauth2    | [validator.OAuth2ValidatorSpec](#validatorOAuth2ValidatorSpec)    | The `OAuth/2` method support `Token Introspection` mode and `Self-Encoded Access Tokens` mode, only one mode can be configured at a time                                                                      | No       |
+| basicAuth    | [basicauth.BasicAuthValidatorSpec](#basicauthBasicAuthValidatorSpec)    | The `BasicAuth` method support `FILE` mode and `ETCD` mode, only one mode can be configured at a time.                                                                  | No       |
 
 ### Results
 
@@ -623,6 +661,92 @@ $ make wasm
 | ...                                                                         |
 | wasmResult9                                                                 |
 
+
+
+## Kafka
+
+The Kafka filter converts HTTP Requests to Kafka messages and sends them to the Kafka backend. The topic of the Kafka message comes from the HTTP header, if not found, then the default topic will be used. The payload of the Kafka message comes from the body of the HTTP Request.
+
+Below is an example configuration. 
+
+```yaml
+kind: Kafka
+name: kafka-example
+backend: [":9093"] 
+topic:
+  default: kafka-topic
+  dynamic:
+    header: X-Kafka-Topic
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| backend | []string | Addresses of Kafka backend | Yes      |
+| topic | [Kafka.Topic](#kafkatopic) | the topic is Spec used to get Kafka topic used to send message to the backend | Yes      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| parseErr     | Failed to get Kafka message from the HTTP request |
+
+## HeaderToJSON
+
+The HeaderToJSON converts HTTP headers to JSON and combines it with the HTTP request body. To use this filter, make sure your HTTP Request body is empty or JSON schema.
+
+Below is an example configuration. 
+
+```yaml
+kind: HeaderToJSON
+name: headertojson-example
+headerMap:
+  - header: X-User-Name
+    json: username
+  - header: X-Type
+    json: type
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| headerMap | [][HeaderToJSON.HeaderMap](#headertojsonheadermap) | headerMap defines a map between HTTP header name and corresponding JSON field name | Yes      |
+
+
+### Results
+
+| Value                   | Description                          |
+| ----------------------- | ------------------------------------ |
+| jsonEncodeDecodeErr     | Failed to convert HTTP headers to JSON. |
+
+## CertExtractor
+
+CertExtractor extracts a value from requests TLS certificates Subject or Issuer metadata (https://pkg.go.dev/crypto/x509/pkix#Name) and adds the value to headers. Request can contain zero or multiple certificates so the position (first, second, last, etc) of the certificate in the chain is required.
+
+Here's an example configuration, that adds a new header `tls-cert-postalcode`, based on the PostalCode of the last TLS certificate's Subject:
+
+```yaml
+kind: "CertExtractor"
+name: "postalcode-extractor"
+certIndex: -1 # take last certificate in chain
+target: "subject"
+field: "PostalCode"
+headerKey: "tls-cert-postalcode"
+```
+
+### Configuration
+
+| Name         | Type     | Description                      | Required |
+| ------------ | -------- | -------------------------------- | -------- |
+| certIndex | int16 | The index of the certificate in the chain. Negative indexes from the end of the chain (-1 is the last index, -2 second last etc.) | Yes      |
+| target | string | Either `subject` or `issuer` of the [x509.Certificate](https://pkg.go.dev/crypto/x509#Certificate) | Yes      |
+| field | string | One of the string or string slice fields from https://pkg.go.dev/crypto/x509/pkix#Name  | Yes      |
+| headerKey | string | Extracted value is added to this request header key. | Yes      |
+
+
 ## Common Types
 
 ### apiaggregator.Pipeline
@@ -642,7 +766,7 @@ $ make wasm
 | replace      | string                                                 | Replaces request path with the value of this option when specified          | No       |
 | addPrefix    | string                                                 | Prepend the value of this option to request path when specified             | No       |
 | trimPrefix   | string                                                 | Trims the value of this option if request path start with it when specified | No       |
-| regexReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression                                 | No       |
+| regexpReplace | [pathadaptor.RegexpReplace](#pathadaptorRegexpReplace) | Revise request path with regular expression                                 | No       |
 
 ### pathadaptor.RegexpReplace
 
@@ -687,7 +811,7 @@ Rules to revise request header. Note that both header name and value can be a te
 
 | Name   | Type     | Description                                                                                                  | Required |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | -------- |
-| url    | string   | Address of the server                                                                                        | Yes      |
+| url    | string   | Address of the server. The address should start with `http://` or `https://`, followed by the hostname or IP address of the server, and then optionally followed by `:{port number}`, for example: `https://www.megaease.com`, `http://10.10.10.10:8080`. When host name is used, the `Host` of a request sent to this server is always the hostname of the server, and therefore using a [RequestAdaptor](#requestadaptor) in the pipeline to modify it will not be possible; when IP address is used, the `Host` is the same as the original request, that can be modified by a [RequestAdaptor](#requestadaptor).        | Yes      |
 | tags   | []string | Tags of this server, refer `serverTags` in [proxy.PoolSpec](#proxyPoolSpec)                                  | No       |
 | weight | int      | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No       |
 
@@ -895,3 +1019,17 @@ The relationship between `methods` and `url` is `AND`.
 | --------- | ------ | ------------------------------------------------------------------------ | -------- |
 | algorithm | string | The algorithm for validation, `HS256`, `HS384` and `HS512` are supported | Yes      |
 | secret    | string | The secret for validation, in hex encoding                               | Yes      |
+
+### kafka.Topic
+
+| Name      | Type   | Description                                                              | Required |
+| --------- | ------ | ------------------------------------------------------------------------ | -------- |
+| default | string | Default topic for Kafka backend | Yes      |
+| dynamic.header | string | The HTTP header that contains Kafka topic | Yes      |
+
+### headertojson.HeaderMap
+
+| Name      | Type   | Description                                                              | Required |
+| --------- | ------ | ------------------------------------------------------------------------ | -------- |
+| header | string | The HTTP header that contains JSON value   | Yes      |
+| json    | string | The field name to put JSON value into HTTP body | Yes      |
