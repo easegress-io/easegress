@@ -7,9 +7,6 @@
   - [Proxy](#proxy)
     - [Configuration](#configuration-1)
     - [Results](#results-1)
-  - [Bridge](#bridge)
-    - [Configuration](#configuration-2)
-    - [Results](#results-2)
   - [CORSAdaptor](#corsadaptor)
     - [Configuration](#configuration-3)
     - [Results](#results-3)
@@ -192,33 +189,6 @@ mainPool:
 | internalError | Encounters an internal error         |
 | clientError   | Client-side(Easegress) network error |
 | serverError   | Server-side network error            |
-
-## Bridge
-
-The Bridge filter route requests from one pipeline to other pipelines or HTTP proxies under an HTTP server.
-
-The upstream filter set the target pipeline/proxy in request header `X-Easegress-Bridge-Dest`. Bridge extracts the header value and tries to match it in the configuration. It sends the request if a destination matched and aborts the process if no match. It selects the first destination from the filter configuration if there's no header named `X-Easegress-Bridge-Dest`.
-
-Below is an example configuration with two destinations.
-
-```yaml
-kind: Bridge
-name: bridge-example
-destinations: ["pipeline1", "pipeline2"]
-```
-
-### Configuration
-
-| Name         | Type     | Description                      | Required |
-| ------------ | -------- | -------------------------------- | -------- |
-| destinations | []string | Destination pipeline/proxy names | Yes      |
-
-### Results
-
-| Value                   | Description                          |
-| ----------------------- | ------------------------------------ |
-| destinationNotFound     | The desired destination is not found |
-| invokeDestinationFailed | Failed to invoke the destination     |
 
 ## CORSAdaptor
 
