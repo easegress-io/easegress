@@ -64,7 +64,7 @@ type ServerPoolSpec struct {
 	Servers         []*Server                    `yaml:"servers" jsonschema:"omitempty"`
 	ServiceRegistry string                       `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName     string                       `yaml:"serviceName" jsonschema:"omitempty"`
-	LoadBalance     *httpprot.LoadBalancerSpec   `yaml:"loadBalance" jsonschema:"required"`
+	LoadBalance     *LoadBalanceSpec             `yaml:"loadBalance" jsonschema:"required"`
 	MemoryCache     *memorycache.Spec            `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 }
 
@@ -81,7 +81,7 @@ func (sps *ServerPoolSpec) Validate() error {
 
 	serversGotWeight := 0
 	for _, server := range sps.Servers {
-		if server.W > 0 {
+		if server.Weight > 0 {
 			serversGotWeight++
 		}
 	}
@@ -121,22 +121,22 @@ func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int
 	// httpStat:    httpstat.New(),
 }
 
+func (sp *ServerPool) LoadBalancer() LoadBalancer {
+	return sp.loadBalancer.Load().(LoadBalancer)
+}
+
 func (sp *ServerPool) createLoadBalancer(servers []*Server) {
-	svrs := make([]protocols.Server, len(servers))
 	for _, server := range servers {
 		server.checkAddrPattern()
-		svrs = append(svrs, server)
 	}
 
 	spec := sp.spec.LoadBalance
 	if spec == nil {
-		spec = &httpprot.LoadBalancerSpec{}
+		spec = &LoadBalanceSpec{}
 	}
 
-	lb, _ := httpprot.NewLoadBalancer(spec, svrs)
-	if old := sp.loadBalancer.Swap(lb); old != nil {
-		old.(protocols.LoadBalancer).Close()
-	}
+	lb, _ := NewLoadBalancer(spec, servers)
+	sp.loadBalancer.Store(lb)
 }
 
 func (sp *ServerPool) watchServers() {
@@ -211,9 +211,9 @@ var httpstatResultPool = sync.Pool{
 }
 
 func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
-	req := ctx.Request()
+	req := ctx.Request().(*httpprot.Request)
 
-	svr := sp.loadBalancer.Load().(protocols.LoadBalancer).ChooseServer(req)
+	svr := sp.LoadBalancer().ChooseServer(req)
 	if svr == nil {
 		if isMirror {
 			return ""
@@ -386,8 +386,4 @@ func responseMetaSize(resp *http.Response) int {
 func (sp *ServerPool) close() {
 	close(sp.done)
 	sp.wg.Wait()
-
-	if lb := sp.loadBalancer.Load(); lb != nil {
-		lb.(protocols.LoadBalancer).Close()
-	}
 }

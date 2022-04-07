@@ -62,18 +62,6 @@ type Header interface {
 	Clone() Header
 }
 
-type Server interface {
-	SendRequest(req Request) (Response, error)
-	Weight() int
-	Close() error
-}
-
-// LoadBalancer is the protocol independent interface of a load balancer.
-type LoadBalancer interface {
-	ChooseServer(req Request) Server
-	Close() error
-}
-
 // TrafficMatcher is the protocol independent interface to match traffics.
 type TrafficMatcher interface {
 	Match(req Request) bool
@@ -83,7 +71,5 @@ type TrafficMatcher interface {
 type Protocol interface {
 	CreateRequest(req interface{}) Request
 	CreateResponse(resp interface{}) Response
-	CreateLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error)
-	CreateServer(spec interface{}) (Server, error)
 	CreateTrafficMatcher(spec interface{}) (TrafficMatcher, error)
 }

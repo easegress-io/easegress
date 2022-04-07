@@ -61,3 +61,43 @@ func (s *Server) checkAddrPattern() {
 
 	s.addrIsHostName = net.ParseIP(host) == nil
 }
+
+/*
+func (s *Server) SendRequest(req *httpprot.Request) (*httpprot.Response, error) {
+	stdr := req.Std()
+	statResult := &httpstat.Result{}
+
+	url := s.URL + req.Path()
+	if stdr.URL.RawQuery != "" {
+		url += "?" + stdr.URL.RawQuery
+	}
+
+	ctx := httpstat.WithHTTPStat(stdr.Context(), statResult)
+	stdr, err := http.NewRequestWithContext(ctx, req.Method(), url, req.GetPayload())
+	if err != nil {
+	}
+
+	stdr.Header = req.HTTPHeader()
+	if !s.addrIsHostName {
+		stdr.Host = req.Host()
+	}
+
+	start := fasttime.Now()
+	spanName := sp.Spec.SpanName
+	if spanName == "" {
+		spanName = s.URL
+	}
+
+	span := ctx.Span().NewChildWithStart(spanName, start)
+	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(stdr.Header))
+
+	resp, err := fnSendRequest(stdr, client)
+	if err != nil {
+		return nil, nil, err
+	}
+	return resp, span, nil
+
+	return nil, nil
+}
+
+*/
