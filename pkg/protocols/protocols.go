@@ -71,6 +71,7 @@ type Server interface {
 // LoadBalancer is the protocol independent interface of a load balancer.
 type LoadBalancer interface {
 	ChooseServer(req Request) Server
+	Close() error
 }
 
 // TrafficMatcher is the protocol independent interface to match traffics.

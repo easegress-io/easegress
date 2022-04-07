@@ -69,44 +69,75 @@ func NewLoadBalancer(spec interface{}, servers []Server) (LoadBalancer, error) {
 	}
 }
 
+// BaseLoadBalancer implement the common part of a load balancer.
+type BaseLoadBalancer struct {
+	Servers []Server
+}
+
+// Close closes the load balancer.
+func (lb *BaseLoadBalancer) Close() error {
+	for _, svr := range lb.Servers {
+		svr.Close()
+	}
+	return nil
+}
+
 // RandomLoadBalancer does load balancing in a random manner.
 type RandomLoadBalancer struct {
-	servers []Server
+	BaseLoadBalancer
 }
 
 func newRandomLoadBalancer(servers []Server) *RandomLoadBalancer {
-	return &RandomLoadBalancer{servers: servers}
+	return &RandomLoadBalancer{
+		BaseLoadBalancer: BaseLoadBalancer{
+			Servers: servers,
+		},
+	}
 }
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *RandomLoadBalancer) ChooseServer(req Request) Server {
-	return lb.servers[rand.Intn(len(lb.servers))]
+	if len(lb.Servers) == 0 {
+		return nil
+	}
+	return lb.Servers[rand.Intn(len(lb.Servers))]
 }
 
 // RoundRobinLoadBalancer does load balancing in a round robin manner.
 type RoundRobinLoadBalancer struct {
-	servers []Server
-	count   uint64
+	BaseLoadBalancer
+	count uint64
 }
 
 func newRoundRobinLoadBalancer(servers []Server) *RoundRobinLoadBalancer {
-	return &RoundRobinLoadBalancer{servers: servers}
+	return &RoundRobinLoadBalancer{
+		BaseLoadBalancer: BaseLoadBalancer{
+			Servers: servers,
+		},
+	}
 }
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *RoundRobinLoadBalancer) ChooseServer(req Request) Server {
+	if len(lb.Servers) == 0 {
+		return nil
+	}
 	count := atomic.AddUint64(&lb.count, 1) - 1
-	return lb.servers[int(count)%len(lb.servers)]
+	return lb.Servers[int(count)%len(lb.Servers)]
 }
 
 // WeightedRandomLoadBalancer does load balancing in a weighted random manner.
 type WeightedRandomLoadBalancer struct {
-	servers     []Server
+	BaseLoadBalancer
 	totalWeight int
 }
 
 func newWeightedRandomLoadBalancer(servers []Server) *WeightedRandomLoadBalancer {
-	lb := &WeightedRandomLoadBalancer{servers: servers}
+	lb := &WeightedRandomLoadBalancer{
+		BaseLoadBalancer: BaseLoadBalancer{
+			Servers: servers,
+		},
+	}
 	for _, server := range servers {
 		lb.totalWeight += server.Weight()
 	}
@@ -115,12 +146,17 @@ func newWeightedRandomLoadBalancer(servers []Server) *WeightedRandomLoadBalancer
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *WeightedRandomLoadBalancer) ChooseServer(req Request) Server {
+	if len(lb.Servers) == 0 {
+		return nil
+	}
+
 	randomWeight := rand.Intn(lb.totalWeight)
-	for _, server := range lb.servers {
+	for _, server := range lb.Servers {
 		randomWeight -= server.Weight()
 		if randomWeight < 0 {
 			return server
 		}
 	}
+
 	panic(fmt.Errorf("BUG: should not run to here, total weight=%d", lb.totalWeight))
 }

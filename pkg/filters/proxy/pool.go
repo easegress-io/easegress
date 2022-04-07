@@ -49,8 +49,6 @@ type ServerPool struct {
 	wg    sync.WaitGroup
 	name  string
 
-	writeResponse bool
-
 	filter       protocols.TrafficMatcher
 	loadBalancer atomic.Value
 
@@ -83,7 +81,7 @@ func (sps *ServerPoolSpec) Validate() error {
 
 	serversGotWeight := 0
 	for _, server := range sps.Servers {
-		if server.Weight > 0 {
+		if server.W > 0 {
 			serversGotWeight++
 		}
 	}
@@ -95,9 +93,7 @@ func (sps *ServerPoolSpec) Validate() error {
 	return nil
 }
 
-func newPool(proxy *Proxy, spec *ServerPoolSpec, name string,
-	writeResponse bool, failureCodes []int) *ServerPool {
-
+func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int) *ServerPool {
 	sp := &ServerPool{
 		proxy: proxy,
 		spec:  spec,
@@ -126,20 +122,21 @@ func newPool(proxy *Proxy, spec *ServerPoolSpec, name string,
 }
 
 func (sp *ServerPool) createLoadBalancer(servers []*Server) {
-	if servers == nil {
-		servers = make([]*Server, 0)
-	}
-
+	svrs := make([]protocols.Server, len(servers))
 	for _, server := range servers {
 		server.checkAddrPattern()
+		svrs = append(svrs, server)
 	}
 
 	spec := sp.spec.LoadBalance
 	if spec == nil {
 		spec = &httpprot.LoadBalancerSpec{}
 	}
-	lb, _ := httpprot.NewLoadBalancer(spec, servers)
-	sp.loadBalancer.Store(lb)
+
+	lb, _ := httpprot.NewLoadBalancer(spec, svrs)
+	if old := sp.loadBalancer.Swap(lb); old != nil {
+		old.(protocols.LoadBalancer).Close()
+	}
 }
 
 func (sp *ServerPool) watchServers() {
@@ -178,9 +175,9 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 		for _, tag := range sp.spec.ServersTags {
 			if stringtool.StrInSlice(tag, instance.Tags) {
 				servers = append(servers, &Server{
-					URL:    instance.URL(),
-					Tags:   instance.Tags,
-					Weight: instance.Weight,
+					URL:  instance.URL(),
+					Tags: instance.Tags,
+					W:    instance.Weight,
 				})
 				break
 			}
@@ -217,32 +214,40 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 	req := ctx.Request()
 
 	svr := sp.loadBalancer.Load().(protocols.LoadBalancer).ChooseServer(req)
+	if svr == nil {
+		if isMirror {
+			return ""
+		}
+
+		ctx.AddLazyTag(func() string {
+			return "no available server"
+		})
+		resp := httpprot.NewResponse(nil)
+		resp.SetStatusCode(http.StatusServiceUnavailable)
+		ctx.SetResponse(ctx.TargetResponseID(), resp)
+		return resultInternalError
+	}
 
 	if isMirror {
 		req = req.Clone()
 		go func() {
 			if resp, _ := svr.SendRequest(req); resp != nil {
 				resp.Close()
+				/*
+					// NOTE: Need to be read to completion and closed.
+					// Reference: https://golang.org/pkg/net/http/#Response
+					// And we do NOT do statistics of duration and respSize
+					// for it, because we can't wait for it to finish.
+					defer resp.Body.Close()
+					io.Copy(io.Discard, resp.Body)
+				*/
 			}
 		}()
+
 		return ""
 	}
 
-	setStatusCode := func(code int) {
-		ctx.Lock()
-		ctx.Response().SetStatusCode(code)
-		ctx.Unlock()
-	}
-
-	server, err := sp.servers.next(ctx)
-	if err != nil {
-		addLazyTag("serverErr", err.Error(), -1)
-		setStatusCode(http.StatusServiceUnavailable)
-		return resultInternalError
-	}
-	addLazyTag("addr", server.URL, -1)
-
-	req, err := p.prepareRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
+	req, err := sp.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 	if err != nil {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
@@ -276,33 +281,11 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 
 	respBody := sp.statRequestResponse(ctx, req, resp, span)
 
-	if sp.writeResponse {
-		ctx.Response().SetStatusCode(resp.StatusCode)
-		ctx.Response().Header().AddFromStd(resp.Header)
-		ctx.Response().SetBody(respBody)
-
-		return ""
-	}
-
-	go func() {
-		// NOTE: Need to be read to completion and closed.
-		// Reference: https://golang.org/pkg/net/http/#Response
-		// And we do NOT do statistics of duration and respSize
-		// for it, because we can't wait for it to finish.
-		defer resp.Body.Close()
-		io.Copy(io.Discard, resp.Body)
-	}()
+	ctx.Response().SetStatusCode(resp.StatusCode)
+	ctx.Response().Header().AddFromStd(resp.Header)
+	ctx.Response().SetBody(respBody)
 
 	return ""
-}
-
-func (sp *ServerPool) prepareRequest(
-	ctx context.Context,
-	server *Server,
-	reqBody io.Reader,
-	requestPool sync.Pool,
-	httpstatResultPool sync.Pool) (req *request, err error) {
-	return sp.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
 func (sp *ServerPool) doRequest(ctx context.Context, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
@@ -364,7 +347,7 @@ func (sp *ServerPool) statRequestResponse(ctx context.Context,
 		if !sp.writeResponse {
 			metric.RespSize = 0
 		}
-		p.httpStat.Stat(metric)
+		sp.httpStat.Stat(metric)
 		// recycle struct instances
 		httpstatMetricPool.Put(metric)
 		httpstatResultPool.Put(req.statResult)
@@ -403,4 +386,8 @@ func responseMetaSize(resp *http.Response) int {
 func (sp *ServerPool) close() {
 	close(sp.done)
 	sp.wg.Wait()
+
+	if lb := sp.loadBalancer.Load(); lb != nil {
+		lb.(protocols.LoadBalancer).Close()
+	}
 }

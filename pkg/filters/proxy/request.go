@@ -47,7 +47,7 @@ type (
 	}
 )
 
-func (p *pool) newRequest(
+func (sp *ServerPool) newRequest(
 	ctx context.Context,
 	server *Server,
 	reqBody io.Reader,

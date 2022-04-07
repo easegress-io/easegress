@@ -63,35 +63,50 @@ func NewLoadBalancer(spec interface{}, servers []protocols.Server) (protocols.Lo
 
 // IPHashLoadBalancer does load balancing based on IP hash.
 type IPHashLoadBalancer struct {
-	servers []protocols.Server
+	protocols.BaseLoadBalancer
 }
 
 func newIPHashLoadBalancer(servers []protocols.Server) *IPHashLoadBalancer {
-	return &IPHashLoadBalancer{servers: servers}
+	return &IPHashLoadBalancer{
+		BaseLoadBalancer: protocols.BaseLoadBalancer{
+			Servers: servers,
+		},
+	}
 }
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *IPHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
+	if len(lb.Servers) == 0 {
+		return nil
+	}
 	ip := req.(*Request).RealIP()
 	hash := fnv.New32()
 	hash.Write([]byte(ip))
-	return lb.servers[hash.Sum32()%uint32(len(lb.servers))]
+	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
 
 // HeaderHashLoadBalancer does load balancing based on header hash.
 type HeaderHashLoadBalancer struct {
-	servers []protocols.Server
-	key     string
+	protocols.BaseLoadBalancer
+	key string
 }
 
 func newHeaderHashLoadBalancer(servers []protocols.Server, key string) *HeaderHashLoadBalancer {
-	return &HeaderHashLoadBalancer{servers: servers, key: key}
+	return &HeaderHashLoadBalancer{
+		BaseLoadBalancer: protocols.BaseLoadBalancer{
+			Servers: servers,
+		},
+		key: key,
+	}
 }
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *HeaderHashLoadBalancer) ChooseServer(req protocols.Request) protocols.Server {
+	if len(lb.Servers) == 0 {
+		return nil
+	}
 	v := req.(*Request).HTTPHeader().Get(lb.key)
 	hash := fnv.New32()
 	hash.Write([]byte(v))
-	return lb.servers[hash.Sum32()%uint32(len(lb.servers))]
+	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
