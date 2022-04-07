@@ -313,7 +313,7 @@ func (p *Proxy) fallbackForCodes(ctx context.Context) bool {
 
 // Handle handles HTTPContext.
 func (p *Proxy) Handle(ctx context.Context) (result string) {
-	req := ctx.Request()
+	req := ctx.Request().(*httpprot.Request)
 
 	if p.mirrorPool != nil && p.mirrorPool.filter.Match(req) {
 		p.mirrorPool.handle(ctx, true)

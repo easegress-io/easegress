@@ -62,14 +62,8 @@ type Header interface {
 	Clone() Header
 }
 
-// TrafficMatcher is the protocol independent interface to match traffics.
-type TrafficMatcher interface {
-	Match(req Request) bool
-}
-
 // Protocol is the interface of a protocol.
 type Protocol interface {
 	CreateRequest(req interface{}) Request
 	CreateResponse(resp interface{}) Response
-	CreateTrafficMatcher(spec interface{}) (TrafficMatcher, error)
 }

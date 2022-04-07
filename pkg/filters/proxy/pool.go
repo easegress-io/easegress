@@ -31,7 +31,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
@@ -49,7 +48,7 @@ type ServerPool struct {
 	wg    sync.WaitGroup
 	name  string
 
-	filter       protocols.TrafficMatcher
+	filter       RequestMatcher
 	loadBalancer atomic.Value
 
 	httpStat    *httpstat.HTTPStat
@@ -58,14 +57,14 @@ type ServerPool struct {
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
-	SpanName        string                       `yaml:"spanName" jsonschema:"omitempty"`
-	Filter          *httpprot.TrafficMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
-	ServersTags     []string                     `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers         []*Server                    `yaml:"servers" jsonschema:"omitempty"`
-	ServiceRegistry string                       `yaml:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName     string                       `yaml:"serviceName" jsonschema:"omitempty"`
-	LoadBalance     *LoadBalanceSpec             `yaml:"loadBalance" jsonschema:"required"`
-	MemoryCache     *memorycache.Spec            `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+	SpanName        string              `yaml:"spanName" jsonschema:"omitempty"`
+	Filter          *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
+	ServersTags     []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+	Servers         []*Server           `yaml:"servers" jsonschema:"omitempty"`
+	ServiceRegistry string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
+	ServiceName     string              `yaml:"serviceName" jsonschema:"omitempty"`
+	LoadBalance     *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"required"`
+	MemoryCache     *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -102,7 +101,7 @@ func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int
 	}
 
 	if spec.Filter != nil {
-		sp.filter, _ = httpprot.NewTrafficMatcher(spec.Filter)
+		sp.filter, _ = NewRequestMatcher(spec.Filter)
 	}
 
 	if spec.MemoryCache != nil {
@@ -121,6 +120,7 @@ func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int
 	// httpStat:    httpstat.New(),
 }
 
+// LoadBalancer returns the load balancer of the server pool.
 func (sp *ServerPool) LoadBalancer() LoadBalancer {
 	return sp.loadBalancer.Load().(LoadBalancer)
 }
@@ -175,9 +175,9 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 		for _, tag := range sp.spec.ServersTags {
 			if stringtool.StrInSlice(tag, instance.Tags) {
 				servers = append(servers, &Server{
-					URL:  instance.URL(),
-					Tags: instance.Tags,
-					W:    instance.Weight,
+					URL:    instance.URL(),
+					Tags:   instance.Tags,
+					Weight: instance.Weight,
 				})
 				break
 			}
