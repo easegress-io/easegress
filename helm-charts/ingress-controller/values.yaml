@@ -20,5 +20,6 @@ controller:
 # number of Easegress IngressController replicas
 replicas: 1
 
+# log path inside container
 log:
   path: /opt/easegress/log

@@ -25,5 +25,6 @@ cluster:
 
   secondaryReplicas: 0
 
+# log path inside container
 log:
   path: /opt/easegress/log
