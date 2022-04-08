@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"

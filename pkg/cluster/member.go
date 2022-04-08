@@ -27,7 +27,7 @@ import (
 	"sync"
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"

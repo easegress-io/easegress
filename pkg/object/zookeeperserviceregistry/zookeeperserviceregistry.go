@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 
 	zookeeper "github.com/go-zookeeper/zk"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 const (

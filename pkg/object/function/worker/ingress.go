@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"sync"
 
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/filter/proxy"
 	"github.com/megaease/easegress/pkg/filter/requestadaptor"

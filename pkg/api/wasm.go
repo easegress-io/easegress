@@ -29,7 +29,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/filter/wasmhost"
 	"go.etcd.io/etcd/client/v3/concurrency"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 func (s *Server) isFilterExist(pipeline, filter, kind string) bool {

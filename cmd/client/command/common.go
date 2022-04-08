@@ -25,7 +25,7 @@ import (
 
 	yamljsontool "github.com/ghodss/yaml"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 type (

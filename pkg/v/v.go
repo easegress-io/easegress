@@ -26,7 +26,7 @@ import (
 	genjs "github.com/alecthomas/jsonschema"
 	yamljsontool "github.com/ghodss/yaml"
 	loadjs "github.com/xeipuuv/gojsonschema"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/jsontool"

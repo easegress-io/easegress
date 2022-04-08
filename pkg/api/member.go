@@ -23,7 +23,7 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
 )

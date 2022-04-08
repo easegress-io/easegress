@@ -22,7 +22,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 func init() {

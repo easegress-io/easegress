@@ -18,7 +18,7 @@
 package canary
 
 import (
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/context"
 )

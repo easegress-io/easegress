@@ -29,7 +29,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	yaml "gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/version"
