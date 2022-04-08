@@ -7,53 +7,50 @@
   - [Proxy](#proxy)
     - [Configuration](#configuration-1)
     - [Results](#results-1)
-  - [Bridge](#bridge)
+  - [CORSAdaptor](#corsadaptor)
     - [Configuration](#configuration-2)
     - [Results](#results-2)
-  - [CORSAdaptor](#corsadaptor)
+  - [Fallback](#fallback)
     - [Configuration](#configuration-3)
     - [Results](#results-3)
-  - [Fallback](#fallback)
+  - [Mock](#mock)
     - [Configuration](#configuration-4)
     - [Results](#results-4)
-  - [Mock](#mock)
+  - [RemoteFilter](#remotefilter)
     - [Configuration](#configuration-5)
     - [Results](#results-5)
-  - [RemoteFilter](#remotefilter)
+  - [RequestAdaptor](#requestadaptor)
     - [Configuration](#configuration-6)
     - [Results](#results-6)
-  - [RequestAdaptor](#requestadaptor)
+  - [CircuitBreaker](#circuitbreaker)
     - [Configuration](#configuration-7)
     - [Results](#results-7)
-  - [CircuitBreaker](#circuitbreaker)
+  - [RateLimiter](#ratelimiter)
     - [Configuration](#configuration-8)
     - [Results](#results-8)
-  - [RateLimiter](#ratelimiter)
+  - [TimeLimiter](#timelimiter)
     - [Configuration](#configuration-9)
     - [Results](#results-9)
-  - [TimeLimiter](#timelimiter)
+  - [Retryer](#retryer)
     - [Configuration](#configuration-10)
     - [Results](#results-10)
-  - [Retryer](#retryer)
+  - [ResponseAdaptor](#responseadaptor)
     - [Configuration](#configuration-11)
     - [Results](#results-11)
-  - [ResponseAdaptor](#responseadaptor)
+  - [Validator](#validator)
     - [Configuration](#configuration-12)
     - [Results](#results-12)
-  - [Validator](#validator)
+  - [WasmHost](#wasmhost)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
-  - [WasmHost](#wasmhost)
+  - [Kafka](#kafka)
     - [Configuration](#configuration-14)
     - [Results](#results-14)
-  - [Kafka](#kafka)
+  - [HeaderToJSON](#headertojson)
     - [Configuration](#configuration-15)
     - [Results](#results-15)
-  - [HeaderToJSON](#headertojson)
-    - [Configuration](#configuration-16)
-    - [Results](#results-16)
   - [CertExtractor](#certextractor)
-    - [Configuration](#configuration-17)
+    - [Configuration](#configuration-16))
   - [Common Types](#common-types)
     - [apiaggregator.Pipeline](#apiaggregatorpipeline)
     - [pathadaptor.Spec](#pathadaptorspec)
@@ -202,33 +199,6 @@ mainPool:
 | internalError | Encounters an internal error         |
 | clientError   | Client-side(Easegress) network error |
 | serverError   | Server-side network error            |
-
-## Bridge
-
-The Bridge filter route requests from one pipeline to other pipelines or HTTP proxies under an HTTP server.
-
-The upstream filter set the target pipeline/proxy in request header `X-Easegress-Bridge-Dest`. Bridge extracts the header value and tries to match it in the configuration. It sends the request if a destination matched and aborts the process if no match. It selects the first destination from the filter configuration if there's no header named `X-Easegress-Bridge-Dest`.
-
-Below is an example configuration with two destinations.
-
-```yaml
-kind: Bridge
-name: bridge-example
-destinations: ["pipeline1", "pipeline2"]
-```
-
-### Configuration
-
-| Name         | Type     | Description                      | Required |
-| ------------ | -------- | -------------------------------- | -------- |
-| destinations | []string | Destination pipeline/proxy names | Yes      |
-
-### Results
-
-| Value                   | Description                          |
-| ----------------------- | ------------------------------------ |
-| destinationNotFound     | The desired destination is not found |
-| invokeDestinationFailed | Failed to invoke the destination     |
 
 ## CORSAdaptor
 
