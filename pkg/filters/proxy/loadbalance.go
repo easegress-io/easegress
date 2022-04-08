@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package proxy
 
 import (
@@ -22,6 +23,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
@@ -37,20 +39,21 @@ type LoadBalanceSpec struct {
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
-func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) (LoadBalancer, error) {
+func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	switch spec.Policy {
 	case "roundRobin", "":
-		return newRoundRobinLoadBalancer(servers), nil
+		return newRoundRobinLoadBalancer(servers)
 	case "random":
-		return newRandomLoadBalancer(servers), nil
+		return newRandomLoadBalancer(servers)
 	case "weightedRandom":
-		return newWeightedRandomLoadBalancer(servers), nil
+		return newWeightedRandomLoadBalancer(servers)
 	case "ipHash":
-		return newIPHashLoadBalancer(servers), nil
+		return newIPHashLoadBalancer(servers)
 	case "headerHash":
-		return newHeaderHashLoadBalancer(servers, spec.HeaderHashKey), nil
+		return newHeaderHashLoadBalancer(servers, spec.HeaderHashKey)
 	default:
-		return nil, fmt.Errorf("unsupported load balancing policy: %s", spec.Policy)
+		logger.Errorf("unsupported load balancing policy: %s", spec.Policy)
+		return newRoundRobinLoadBalancer(servers)
 	}
 }
 

@@ -98,6 +98,38 @@ func (r *Request) Clone() protocols.Request {
 func (r *Request) Close() {
 }
 
+// MetaSize returns the meta data size of the request.
+func (r *Request) MetaSize() int {
+	// Reference: https://tools.ietf.org/html/rfc2616#section-5
+	//
+	// meta length is the length of:
+	// w.stdr.Method + " "
+	// + stdr.URL.RequestURI() + " "
+	// + stdr.Proto + "\r\n",
+	// + w.Header().Dump() + "\r\n\r\n"
+	//
+	// but to improve performance, we won't build this string
+
+	size := len(r.Method()) + 1
+	size += len(r.Std().URL.RequestURI()) + 1
+	size += len(r.Proto()) + 2
+
+	lines := 0
+	for key, values := range r.HTTPHeader() {
+		for _, value := range values {
+			lines++
+			size += len(key) + len(value)
+		}
+	}
+
+	size += lines * 2 // ": "
+	if lines > 1 {
+		size += (lines - 1) * 2 // "\r\n"
+	}
+
+	return size + 4
+}
+
 // HTTPHeader returns the header of the request in type http.Header.
 func (r *Request) HTTPHeader() http.Header {
 	return r.Std().Header

@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
@@ -66,6 +67,46 @@ func NewResponse(resp *http.Response) *Response {
 // Std returns the underlying http.Response.
 func (r *Response) Std() *http.Response {
 	return r.Response
+}
+
+// MetaSize returns the meta data size of the response.
+func (r *Response) MetaSize() int {
+	stdr := r.Std()
+	text := http.StatusText(stdr.StatusCode)
+	if text == "" {
+		text = "status code " + strconv.Itoa(stdr.StatusCode)
+	}
+
+	// meta length is the length of:
+	// resp.Proto + " "
+	// + strconv.Itoa(resp.StatusCode) + " "
+	// + text + "\r\n",
+	// + resp.Header().Dump() + "\r\n\r\n"
+	//
+	// but to improve performance, we won't build this string
+
+	size := len(stdr.Proto) + 1
+	if stdr.StatusCode >= 100 && stdr.StatusCode < 1000 {
+		size += 3 + 1
+	} else {
+		size += len(strconv.Itoa(stdr.StatusCode)) + 1
+	}
+	size += len(text) + 2
+
+	lines := 0
+	for key, values := range stdr.Header {
+		for _, value := range values {
+			lines++
+			size += len(key) + len(value)
+		}
+	}
+
+	size += lines * 2 // ": "
+	if lines > 1 {
+		size += (lines - 1) * 2 // "\r\n"
+	}
+
+	return size
 }
 
 // StatusCode returns the status code of the response.

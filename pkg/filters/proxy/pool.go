@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/opentracing/opentracing-go"
 	gohttpstat "github.com/tcnksm/go-httpstat"
@@ -32,11 +32,11 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/memorycache"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/callbackreader"
+	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -92,16 +92,18 @@ func (sps *ServerPoolSpec) Validate() error {
 	return nil
 }
 
-func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int) *ServerPool {
+// NewServerPool creates a new server pool according to spec.
+func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool {
 	sp := &ServerPool{
-		proxy: proxy,
-		spec:  spec,
-		done:  make(chan struct{}),
-		name:  name,
+		proxy:    proxy,
+		spec:     spec,
+		done:     make(chan struct{}),
+		name:     name,
+		httpStat: httpstat.New(),
 	}
 
 	if spec.Filter != nil {
-		sp.filter, _ = NewRequestMatcher(spec.Filter)
+		sp.filter = NewRequestMatcher(spec.Filter)
 	}
 
 	if spec.MemoryCache != nil {
@@ -115,9 +117,6 @@ func newPool(proxy *Proxy, spec *ServerPoolSpec, name string, failureCodes []int
 	}
 
 	return sp
-
-	// writeResponse: writeResponse,
-	// httpStat:    httpstat.New(),
 }
 
 // LoadBalancer returns the load balancer of the server pool.
@@ -135,7 +134,7 @@ func (sp *ServerPool) createLoadBalancer(servers []*Server) {
 		spec = &LoadBalanceSpec{}
 	}
 
-	lb, _ := NewLoadBalancer(spec, servers)
+	lb := NewLoadBalancer(spec, servers)
 	sp.loadBalancer.Store(lb)
 }
 
@@ -198,23 +197,99 @@ func (sp *ServerPool) status() *ServerPoolStatus {
 	return s
 }
 
-var requestPool = sync.Pool{
-	New: func() interface{} {
-		return &request{}
-	},
+type serverPoolContext struct {
+	context.Context
+	isMirror    bool
+	svr         *Server
+	req         *httpprot.Request
+	reqBodySize int
+	stdReq      *http.Request
+	stdResp     *http.Response
+	statResult  *gohttpstat.Result
+	span        tracing.Span
+	startTime   time.Time
+	endTime     time.Time
 }
 
-var httpstatResultPool = sync.Pool{
-	New: func() interface{} {
-		return &gohttpstat.Result{}
-	},
+func (spCtx *serverPoolContext) prepareRequest() error {
+	stdr := spCtx.req.Std()
+
+	url := spCtx.svr.URL + spCtx.req.Path()
+	if stdr.URL.RawQuery != "" {
+		url += "?" + stdr.URL.RawQuery
+	}
+
+	var ctx = stdr.Context()
+	if !spCtx.isMirror {
+		spCtx.statResult = &gohttpstat.Result{}
+		ctx = gohttpstat.WithHTTPStat(ctx, spCtx.statResult)
+	}
+
+	payload := readers.NewCallbackReader(spCtx.req.GetPayload())
+	payload.OnAfter(func(num int, p []byte, err error) {
+		spCtx.reqBodySize += len(p)
+	})
+
+	stdr, err := http.NewRequestWithContext(ctx, stdr.Method, url, payload)
+	if err != nil {
+		return err
+	}
+	spCtx.stdReq = stdr
+
+	stdr.Header = spCtx.req.HTTPHeader()
+	if !spCtx.svr.addrIsHostName {
+		stdr.Host = spCtx.req.Host()
+	}
+
+	return nil
+}
+
+func (spCtx *serverPoolContext) start(spanName string) {
+	if spCtx.isMirror {
+		return
+	}
+	spCtx.startTime = fasttime.Now()
+	if spanName == "" {
+		spanName = spCtx.svr.URL
+	}
+
+	span := spCtx.Span().NewChildWithStart(spanName, spCtx.startTime)
+	carrier := opentracing.HTTPHeadersCarrier(spCtx.stdReq.Header)
+	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
+	spCtx.span = span
+}
+
+func (spCtx *serverPoolContext) finish() {
+	if spCtx.endTime.IsZero() {
+		now := fasttime.Now()
+		spCtx.endTime = now
+		spCtx.statResult.End(now)
+		spCtx.span.Finish()
+	}
+}
+
+func (spCtx *serverPoolContext) duration() time.Duration {
+	return spCtx.endTime.Sub(spCtx.startTime)
 }
 
 func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
-	req := ctx.Request().(*httpprot.Request)
+	setFailureResponse := func(statusCode int) {
+		resp := httpprot.NewResponse(nil)
+		resp.SetStatusCode(statusCode)
+		ctx.SetResponse(ctx.TargetResponseID(), resp)
+	}
 
-	svr := sp.LoadBalancer().ChooseServer(req)
-	if svr == nil {
+	spCtx := &serverPoolContext{
+		Context:  ctx,
+		isMirror: isMirror,
+		req:      ctx.Request().(*httpprot.Request),
+	}
+	spCtx.svr = sp.LoadBalancer().ChooseServer(spCtx.req)
+
+	// if there's no available server.
+	if spCtx.svr == nil {
+		// ctx.AddTag is not goroutine safe, so we don't call it for
+		// mirror servers.
 		if isMirror {
 			return ""
 		}
@@ -222,165 +297,92 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 		ctx.AddLazyTag(func() string {
 			return "no available server"
 		})
-		resp := httpprot.NewResponse(nil)
-		resp.SetStatusCode(http.StatusServiceUnavailable)
-		ctx.SetResponse(ctx.TargetResponseID(), resp)
+
+		setFailureResponse(http.StatusServiceUnavailable)
 		return resultInternalError
 	}
 
-	if isMirror {
-		req = req.Clone()
-		go func() {
-			if resp, _ := svr.SendRequest(req); resp != nil {
-				resp.Close()
-				/*
-					// NOTE: Need to be read to completion and closed.
-					// Reference: https://golang.org/pkg/net/http/#Response
-					// And we do NOT do statistics of duration and respSize
-					// for it, because we can't wait for it to finish.
-					defer resp.Body.Close()
-					io.Copy(io.Discard, resp.Body)
-				*/
-			}
-		}()
-
-		return ""
-	}
-
-	req, err := sp.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
+	// prepare the request to send.
+	err := spCtx.prepareRequest()
 	if err != nil {
-		msg := stringtool.Cat("prepare request failed: ", err.Error())
-		logger.Errorf("BUG: %s", msg)
-		addLazyTag("bug", msg, -1)
-		setStatusCode(http.StatusInternalServerError)
+		msg := "prepare request failed: " + err.Error()
+		logger.Errorf(msg)
+		if isMirror {
+			return ""
+		}
+
+		ctx.AddLazyTag(func() string { return msg })
+		setFailureResponse(http.StatusServiceUnavailable)
 		return resultInternalError
 	}
 
-	resp, span, err := sp.doRequest(ctx, req, client)
+	spCtx.start(sp.spec.SpanName)
+	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
+		if isMirror {
+			return ""
+		}
+
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
 
-		addLazyTag("doRequestErr", fmt.Sprintf("%v", err), -1)
-		addLazyTag("trace", req.detail(), -1)
-		if ctx.ClientDisconnected() {
-			// NOTE: The HTTPContext will set 499 by itself if client is Disconnected.
-			// w.SetStatusCode((499)
+		ctx.AddLazyTag(func() string {
+			return fmt.Sprintf("send request error: %v", err)
+		})
+		ctx.AddLazyTag(func() string {
+			return fmt.Sprintf("trace %v", spCtx.statResult)
+		})
+		if spCtx.stdReq.Context().Err() != nil {
+			// NOTE: The HTTPContext will set 499 by itself if client is
+			// Disconnected. TODO: define a constant for 499
+			setFailureResponse(499)
 			return resultClientError
 		}
 
-		setStatusCode(http.StatusServiceUnavailable)
+		setFailureResponse(http.StatusServiceUnavailable)
 		return resultServerError
 	}
 
-	addLazyTag("code", "", resp.StatusCode)
-
-	ctx.Lock()
-	defer ctx.Unlock()
-	// NOTE: The code below can't use addTag and setStatusCode in case of deadlock.
-
-	respBody := sp.statRequestResponse(ctx, req, resp, span)
-
-	ctx.Response().SetStatusCode(resp.StatusCode)
-	ctx.Response().Header().AddFromStd(resp.Header)
-	ctx.Response().SetBody(respBody)
-
-	return ""
-}
-
-func (sp *ServerPool) doRequest(ctx context.Context, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
-	req.start()
-
-	spanName := sp.spec.SpanName
-	if spanName == "" {
-		spanName = req.server.URL
+	if isMirror {
+		defer resp.Body.Close()
+		io.Copy(io.Discard, resp.Body)
+		return ""
 	}
 
-	span := ctx.Span().NewChildWithStart(spanName, req.startTime())
-	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
-
-	resp, err := fnSendRequest(req.std, client)
-	if err != nil {
-		return nil, nil, err
-	}
-	return resp, span, nil
-}
-
-var httpstatMetricPool = sync.Pool{
-	New: func() interface{} {
-		return &httpstat.Metric{}
-	},
-}
-
-func (sp *ServerPool) statRequestResponse(ctx context.Context,
-	req *request, resp *http.Response, span tracing.Span) io.Reader {
-
-	var count int
-
-	callbackBody := callbackreader.New(resp.Body)
-	callbackBody.OnAfter(func(num int, p []byte, n int, err error) ([]byte, int, error) {
-		count += n
-		if err == io.EOF {
-			req.finish()
-			span.Finish()
-		}
-
-		return p, n, err
+	ctx.AddLazyTag(func() string {
+		return fmt.Sprintf("code: %d", resp.StatusCode)
 	})
 
-	ctx.OnFinish(func() {
-		if !sp.writeResponse {
-			req.finish()
-			span.Finish()
+	var respBodySize int
+
+	callbackBody := readers.NewCallbackReader(resp.Body)
+	callbackBody.OnAfter(func(num int, p []byte, err error) {
+		respBodySize += len(p)
+		if err == io.EOF {
+			spCtx.finish()
 		}
-		duration := req.total()
+	})
+	resp.Body = callbackBody
+
+	fresp := httpprot.NewResponse(resp)
+	ctx.OnFinish(func() {
+		spCtx.finish()
+		duration := spCtx.duration()
 		ctx.AddLazyTag(func() string {
 			return stringtool.Cat(sp.name, "#duration: ", duration.String())
 		})
 		// use recycled object
-		metric := httpstatMetricPool.Get().(*httpstat.Metric)
+		metric := &httpstat.Metric{}
 		metric.StatusCode = resp.StatusCode
 		metric.Duration = duration
-		metric.ReqSize = ctx.Request().Size()
-		metric.RespSize = uint64(responseMetaSize(resp) + count)
-
-		if !sp.writeResponse {
-			metric.RespSize = 0
-		}
+		metric.ReqSize = uint64(spCtx.req.MetaSize() + spCtx.reqBodySize)
+		metric.RespSize = uint64(fresp.MetaSize() + respBodySize)
 		sp.httpStat.Stat(metric)
-		// recycle struct instances
-		httpstatMetricPool.Put(metric)
-		httpstatResultPool.Put(req.statResult)
-		requestPool.Put(req)
+		callbackBody.Close()
 	})
 
-	return callbackBody
-}
-
-func responseMetaSize(resp *http.Response) int {
-	text := http.StatusText(resp.StatusCode)
-	if text == "" {
-		text = "status code " + strconv.Itoa(resp.StatusCode)
-	}
-
-	// meta length is the length of:
-	// resp.Proto + " "
-	// + strconv.Itoa(resp.StatusCode) + " "
-	// + text + "\r\n",
-	// + resp.Header().Dump() + "\r\n\r\n"
-	//
-	// but to improve performance, we won't build this string
-
-	size := len(resp.Proto) + 1
-	if resp.StatusCode >= 100 && resp.StatusCode < 1000 {
-		size += 3 + 1
-	} else {
-		size += len(strconv.Itoa(resp.StatusCode)) + 1
-	}
-	size += len(text) + 2
-	size += httpheader.New(resp.Header).Length() + 4
-
-	return size
+	ctx.SetResponse(ctx.TargetResponseID(), httpprot.NewResponse(resp))
+	return ""
 }
 
 func (sp *ServerPool) close() {

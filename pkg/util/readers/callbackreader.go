@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package callbackreader
+package readers
 
 import (
 	"io"
@@ -33,15 +33,15 @@ type (
 
 	// BeforeFunc runs before each Read.
 	// num means the number of calling Read, starts from 1.
-	BeforeFunc func(num int, p []byte) []byte
+	BeforeFunc func(num int)
 
 	// AfterFunc runs after each read.
 	// num means the number of calling Read, starts from 1.
-	AfterFunc func(num int, p []byte, n int, err error) ([]byte, int, error)
+	AfterFunc func(num int, p []byte, err error)
 )
 
-// New creates CallbackReader.
-func New(r io.Reader) *CallbackReader {
+// NewCallbackReader creates CallbackReader.
+func NewCallbackReader(r io.Reader) *CallbackReader {
 	return &CallbackReader{
 		// pre-allocate slices for performance
 		beforeFuncs: make([]BeforeFunc, 0, 1),
@@ -54,7 +54,7 @@ func (cr *CallbackReader) Read(p []byte) (int, error) {
 	cr.num++
 
 	for _, fn := range cr.beforeFuncs {
-		p = fn(cr.num, p)
+		fn(cr.num)
 	}
 
 	n, err := 0, io.EOF
@@ -63,7 +63,7 @@ func (cr *CallbackReader) Read(p []byte) (int, error) {
 	}
 
 	for _, fn := range cr.afterFuncs {
-		p, n, err = fn(cr.num, p, n, err)
+		fn(cr.num, p[:n], err)
 	}
 
 	return n, err
@@ -87,16 +87,4 @@ func (cr *CallbackReader) Close() error {
 	}
 
 	return nil
-}
-
-// SetReader replace previous reader with new reader. If closePreviousReader set to true, it will close
-// previous reader.
-func (cr *CallbackReader) SetReader(reader io.Reader, closePreviousReader bool) {
-	if closePreviousReader {
-		closer, ok := cr.reader.(io.Closer)
-		if ok {
-			closer.Close()
-		}
-	}
-	cr.reader = reader
 }

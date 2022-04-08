@@ -74,7 +74,7 @@ func (s *RequestMatcherSpec) Validate() error {
 }
 
 // NewRequestMatcher creates a new traffic matcher according to spec.
-func NewRequestMatcher(spec *RequestMatcherSpec) (RequestMatcher, error) {
+func NewRequestMatcher(spec *RequestMatcherSpec) RequestMatcher {
 	switch spec.Policy {
 	case "", "general":
 		matcher := &generalMatcher{
@@ -83,24 +83,23 @@ func NewRequestMatcher(spec *RequestMatcherSpec) (RequestMatcher, error) {
 			urls:            spec.URLs,
 		}
 		matcher.init()
-		return matcher, nil
+		return matcher
 	case "ipHash":
-		return &ipHashMatcher{permill: spec.Permil}, nil
+		return &ipHashMatcher{permill: spec.Permil}
 	case "headerHash":
 		return &headerHashMatcher{
 			permill:       spec.Permil,
 			headerHashKey: spec.HeaderHashKey,
-		}, nil
+		}
 	case "random":
-		return &randomMatcher{permill: spec.Permil}, nil
+		return &randomMatcher{permill: spec.Permil}
 	}
 
 	logger.Errorf("BUG: unsupported probability policy: %s", spec.Policy)
-	return &ipHashMatcher{permill: spec.Permil}, nil
+	return &ipHashMatcher{permill: spec.Permil}
 }
 
 // randomMatcher implements random request matcher.
-// TODO: move to package protocols??
 type randomMatcher struct {
 	permill uint32
 }

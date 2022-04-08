@@ -224,7 +224,7 @@ func (p *Proxy) reload() {
 			name = fmt.Sprintf("proxy#%s#candidate#%d", p.Name(), id)
 		}
 
-		pool := newPool(p, spec, name, p.spec.FailureCodes)
+		pool := NewServerPool(p, spec, name)
 
 		if spec.Filter == nil {
 			p.mainPool = pool
@@ -235,7 +235,7 @@ func (p *Proxy) reload() {
 
 	if p.spec.MirrorPool != nil {
 		name := fmt.Sprintf("proxy#%s#mirror", p.Name())
-		p.mirrorPool = newPool(p, p.spec.MirrorPool, name, p.spec.FailureCodes)
+		p.mirrorPool = NewServerPool(p, p.spec.MirrorPool, name)
 	}
 
 	if p.spec.Compression != nil {
@@ -316,7 +316,7 @@ func (p *Proxy) Handle(ctx context.Context) (result string) {
 	req := ctx.Request().(*httpprot.Request)
 
 	if p.mirrorPool != nil && p.mirrorPool.filter.Match(req) {
-		p.mirrorPool.handle(ctx, true)
+		go p.mirrorPool.handle(ctx, true)
 	}
 
 	sp := p.mainPool
