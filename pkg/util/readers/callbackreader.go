@@ -78,13 +78,3 @@ func (cr *CallbackReader) OnBefore(fn BeforeFunc) {
 func (cr *CallbackReader) OnAfter(fn AfterFunc) {
 	cr.afterFuncs = append(cr.afterFuncs, fn)
 }
-
-// Close wraps Close if existed
-func (cr *CallbackReader) Close() error {
-	closer, ok := cr.reader.(io.Closer)
-	if ok {
-		return closer.Close()
-	}
-
-	return nil
-}

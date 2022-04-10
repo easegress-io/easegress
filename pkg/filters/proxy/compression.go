@@ -20,13 +20,13 @@ package proxy
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/klauspost/compress/gzip"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
@@ -60,35 +60,30 @@ func newCompression(spec *CompressionSpec) *compression {
 	}
 }
 
-func (c *compression) compress(ctx context.Context) {
-	req := ctx.Request().(*httpprot.Request)
-	resp := ctx.Response().(*httpprot.Response)
-
+func (c *compression) compress(req *http.Request, resp *http.Response) bool {
 	if !c.acceptGzip(req) {
-		return
+		return false
 	}
 
 	if c.alreadyGziped(resp) {
-		return
+		return false
 	}
 
 	cl := c.parseContentLength(resp)
 	if cl != -1 && cl < int(c.spec.MinLength) {
-		return
+		return false
 	}
 
-	resp.HTTPHeader().Del(httpprot.KeyContentLength)
-	resp.HTTPHeader().Set(httpprot.KeyContentEncoding, "gzip")
-	resp.HTTPHeader().Add(httpprot.KeyVary, httpprot.KeyContentEncoding)
+	resp.Header.Del(httpprot.KeyContentLength)
+	resp.Header.Set(httpprot.KeyContentEncoding, "gzip")
+	resp.Header.Add(httpprot.KeyVary, httpprot.KeyContentEncoding)
 
-	ctx.AddTag("gzip")
-
-	// TODO: which response to use??
-	resp.SetPayload(newGzipBody(w.Body()))
+	resp.Body = io.NopCloser(newGzipBody(resp.Body))
+	return true
 }
 
-func (c *compression) alreadyGziped(resp *httpprot.Response) bool {
-	for _, ce := range resp.HTTPHeader().Values(httpprot.KeyContentEncoding) {
+func (c *compression) alreadyGziped(resp *http.Response) bool {
+	for _, ce := range resp.Header.Values(httpprot.KeyContentEncoding) {
 		if strings.Contains(ce, "gzip") {
 			return true
 		}
@@ -97,8 +92,8 @@ func (c *compression) alreadyGziped(resp *httpprot.Response) bool {
 	return false
 }
 
-func (c *compression) acceptGzip(req *httpprot.Request) bool {
-	acceptEncodings := req.HTTPHeader().Values(httpprot.KeyAcceptEncoding)
+func (c *compression) acceptGzip(req *http.Request) bool {
+	acceptEncodings := req.Header.Values(httpprot.KeyAcceptEncoding)
 
 	// NOTE: Easegress does not support parsing qvalue for performance.
 	// Reference: https://tools.ietf.org/html/rfc2616#section-14.3
@@ -115,8 +110,8 @@ func (c *compression) acceptGzip(req *httpprot.Request) bool {
 	return true
 }
 
-func (c *compression) parseContentLength(resp *httpprot.Response) int {
-	contentLength := resp.HTTPHeader().Get(httpprot.KeyContentLength)
+func (c *compression) parseContentLength(resp *http.Response) int {
+	contentLength := resp.Header.Get(httpprot.KeyContentLength)
 	if contentLength == "" {
 		return -1
 	}

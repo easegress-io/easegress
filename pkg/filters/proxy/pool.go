@@ -273,6 +273,11 @@ func (spCtx *serverPoolContext) duration() time.Duration {
 }
 
 func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
+	/*
+		if sp.memoryCache != nil && sp.memoryCache.Load(ctx) {
+		}
+	*/
+
 	setFailureResponse := func(statusCode int) {
 		resp := httpprot.NewResponse(nil)
 		resp.SetStatusCode(statusCode)
@@ -353,8 +358,12 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 		return fmt.Sprintf("code: %d", resp.StatusCode)
 	})
 
-	var respBodySize int
+	respBody := resp.Body
+	if sp.proxy.compression.compress(spCtx.stdReq, resp) {
+		ctx.AddTag("gzip")
+	}
 
+	var respBodySize int
 	callbackBody := readers.NewCallbackReader(resp.Body)
 	callbackBody.OnAfter(func(num int, p []byte, err error) {
 		respBodySize += len(p)
@@ -362,7 +371,7 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 			spCtx.finish()
 		}
 	})
-	resp.Body = callbackBody
+	resp.Body = io.NopCloser(callbackBody)
 
 	fresp := httpprot.NewResponse(resp)
 	ctx.OnFinish(func() {
@@ -378,7 +387,7 @@ func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
 		metric.ReqSize = uint64(spCtx.req.MetaSize() + spCtx.reqBodySize)
 		metric.RespSize = uint64(fresp.MetaSize() + respBodySize)
 		sp.httpStat.Stat(metric)
-		callbackBody.Close()
+		respBody.Close()
 	})
 
 	ctx.SetResponse(ctx.TargetResponseID(), httpprot.NewResponse(resp))
