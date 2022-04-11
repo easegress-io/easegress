@@ -18,19 +18,24 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/memorycache"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestProxy(t *testing.T) {
@@ -122,7 +127,7 @@ failureCodes: [503, 504]
 		t.Error("fallback for 500 should be false")
 	}
 
-	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
 		return &http.Response{
 			Body: io.NopCloser(strings.NewReader("this is the body")),
 		}, nil
@@ -134,7 +139,7 @@ failureCodes: [503, 504]
 	}
 	ctx.Finish()
 
-	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
 		return nil, fmt.Errorf("mocked error")
 	}
 
@@ -246,4 +251,47 @@ func TestPoolSpecValidate(t *testing.T) {
 	if spec.Validate() != nil {
 		t.Error("validate should succeed")
 	}
+}
+
+func TestProxyClient(t *testing.T) {
+	spec := `
+serviceName: testService
+tags:
+  MyTagKey: X-value
+  SecondTag: 382
+zipkin:
+  hostport: 0.0.0.0:10087
+  serverURL: http://localhost:9411/api/v2/spans
+  sampleRate: 1
+  sameSpan: true
+  id128Bit: false
+`
+	assert := assert.New(t)
+
+	client := &http.Client{}
+	pc := Client{client: client}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wg.Done()
+	}))
+	ctx := context.Background()
+	stdr, err := http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
+	assert.Nil(err)
+	pc.Do(stdr)
+
+	// with tracing
+	rawSpec := tracing.Spec{}
+	yamltool.Unmarshal([]byte(spec), &rawSpec)
+	tracer, err := tracing.New(&rawSpec)
+	assert.Nil(err)
+	pc.UpdateTracing(tracer)
+	stdr, err = http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
+	assert.Nil(err)
+	pc.Do(stdr)
+
+	wg.Wait()
+
+	ts.Close()
 }

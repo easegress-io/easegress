@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
@@ -33,7 +32,6 @@ type MockedHTTPContext struct {
 	finishFuncs              []func()
 	MockedLock               func()
 	MockedUnlock             func()
-	MockedSpan               func() tracing.Span
 	MockedRequest            MockedHTTPRequest
 	MockedResponse           MockedHTTPResponse
 	MockedDeadline           func() (time.Time, bool)
@@ -73,14 +71,6 @@ func (c *MockedHTTPContext) Unlock() {
 	if c.MockedUnlock != nil {
 		c.MockedUnlock()
 	}
-}
-
-// Span mocks the Span function of HTTPContext
-func (c *MockedHTTPContext) Span() tracing.Span {
-	if c.MockedSpan != nil {
-		return c.MockedSpan()
-	}
-	return tracing.NewSpan(tracing.NoopTracing, "mocked")
 }
 
 // Request mocks the Request function of HTTPContext

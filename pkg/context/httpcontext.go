@@ -34,6 +34,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
+	zipkingo "github.com/openzipkin/zipkin-go"
 )
 
 type (
@@ -47,8 +48,6 @@ type (
 		Context
 		Lock()
 		Unlock()
-
-		Span() tracing.Span
 
 		Request() HTTPRequest
 		Response() HTTPResponse
@@ -167,19 +166,17 @@ type (
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
 func New(stdw http.ResponseWriter, stdr *http.Request,
-	tracer *tracing.Tracing, spanName string) HTTPContext {
+	tracing *tracing.Tracing, spanName string) HTTPContext {
 	originalReqCtx := stdr.Context()
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
 	startTime := fasttime.Now()
-	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
-	if !span.IsNoopSpan() {
-		span.SetTag("http.method", stdr.Method)
-		span.SetTag("http.path", stdr.URL.Path)
+	if !tracing.IsNoopTracer() {
+		span := tracing.Tracer.StartSpan(spanName, zipkingo.StartTime(startTime))
+		stdctx = zipkingo.NewContext(stdctx, span)
 	}
 	ctx := &httpContext{
 		startTime:      startTime,
-		span:           span,
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
@@ -214,10 +211,6 @@ func (ctx *httpContext) Lock() {
 
 func (ctx *httpContext) Unlock() {
 	ctx.mutex.Unlock()
-}
-
-func (ctx *httpContext) Span() tracing.Span {
-	return ctx.span
 }
 
 // Add new Tag.

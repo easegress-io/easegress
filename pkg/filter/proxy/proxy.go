@@ -30,7 +30,9 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fallback"
+	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 )
 
 const (
@@ -54,7 +56,7 @@ func init() {
 	httppipeline.Register(&Proxy{})
 }
 
-var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+var fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
 	return client.Do(r)
 }
 
@@ -70,9 +72,15 @@ type (
 		candidatePools []*pool
 		mirrorPool     *pool
 
-		client *http.Client
+		client *Client
 
 		compression *compression
+	}
+
+	// Client is wrapper around http.Client.
+	Client struct {
+		client       *http.Client
+		zipkinClient *zipkinhttp.Client
 	}
 
 	// Spec describes the Proxy.
@@ -108,6 +116,27 @@ type (
 		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
 )
+
+// IsTracingInitialized returns true if tracing is initialized
+func (c *Client) IsTracingInitialized() bool {
+	return c.zipkinClient != nil
+}
+
+// Do calls the correct http client
+func (c *Client) Do(r *http.Request) (*http.Response, error) {
+	if c.IsTracingInitialized() {
+		return c.zipkinClient.DoWithAppSpan(r, r.URL.Path)
+	}
+	return c.client.Do(r)
+}
+
+// UpdateTracing updates tracing client
+func (c *Client) UpdateTracing(tracing *tracing.Tracing) {
+	tracer := tracing.Tracer
+	zClient, _ := zipkinhttp.NewClient(
+		tracer, zipkinhttp.WithClient(c.client))
+	c.zipkinClient = zClient
+}
 
 // Validate validates Spec.
 func (s Spec) Validate() error {
@@ -240,7 +269,7 @@ func (b *Proxy) reload() {
 		b.compression = newCompression(b.spec.Compression)
 	}
 
-	b.client = &http.Client{
+	client := &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
 		Transport: &http.Transport{
@@ -264,6 +293,8 @@ func (b *Proxy) reload() {
 			return http.ErrUseLastResponse
 		},
 	}
+
+	b.client = &Client{client: client}
 }
 
 // Status returns Proxy status.
@@ -346,6 +377,17 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 	if p.memoryCache != nil && p.memoryCache.Load(ctx) {
 		return ""
+	}
+
+	super := b.filterSpec.Super()
+	if super != nil {
+		tracing := super.Tracing()
+		if !tracing.IsNoopTracer() && !b.client.IsTracingInitialized() {
+			b.client.UpdateTracing(tracing)
+		} else if tracing.IsNoopTracer() && b.client.IsTracingInitialized() {
+			// if HTTPServer is updated and there is no longer tracing configured
+			b.reload()
+		}
 	}
 
 	result = p.handle(ctx, ctx.Request().Body(), b.client)

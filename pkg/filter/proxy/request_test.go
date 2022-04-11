@@ -29,9 +29,11 @@ import (
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRequest(t *testing.T) {
+	assert := assert.New(t)
 	ctx := &contexttest.MockedHTTPContext{}
 	ctx.MockedRequest.MockedPath = func() string {
 		return "/abc"
@@ -63,9 +65,7 @@ func TestRequest(t *testing.T) {
 
 	time.Sleep(time.Millisecond)
 	req.start()
-	if tm != req.startTime() {
-		t.Error("start time should not change")
-	}
+	assert.Equal(tm, req.startTime())
 
 	req.total()
 
@@ -75,14 +75,17 @@ func TestRequest(t *testing.T) {
 	time.Sleep(time.Millisecond)
 	req.finish()
 
-	if tm != req.endTime() {
-		t.Error("end time should not change")
-	}
+	assert.Equal(tm, req.endTime())
 
 	req.total()
-	if req.detail() == "" {
-		t.Error("detail should not be empty")
+	assert.NotEqual("", req.detail())
+
+	ctx.MockedRequest.MockedMethod = func() string {
+		return "ééé" // not tokenable, should fail
 	}
+	req, err := p.newRequest(ctx, &server, nil, requestPool, httpstatResultPool)
+	assert.Nil(req)
+	assert.NotNil(err)
 }
 
 func TestResultState(t *testing.T) {
@@ -128,4 +131,35 @@ func TestRequestStatus(t *testing.T) {
 
 	httpstatResultPool.Put(req.statResult)
 	requestPool.Put(req)
+}
+
+func TestAddB3PropagationHeaders(t *testing.T) {
+	assert := assert.New(t)
+	ctx := &contexttest.MockedHTTPContext{}
+	traceID := "463ac35c9f6413ad48485a3953bb6124"
+	spanID := "a2fb4a1d1a96d312"
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		return httpheader.New(http.Header{
+			"X-B3-TraceId":      []string{traceID},
+			"X-B3-ParentSpanId": []string{"parentspanid"},
+			"X-B3-SpanId":       []string{spanID},
+			"X-B3-Sampled":      []string{"sampled"},
+		})
+	}
+
+	server := Server{
+		URL: "http://192.168.1.2",
+	}
+
+	p := pool{}
+	sr := strings.NewReader("this is the raw body")
+	req, _ := p.newRequest(ctx, &server, sr, requestPool, httpstatResultPool)
+	defer requestPool.Put(req) // recycle request
+
+	header := req.std.Header
+	// fmt.Println(header)
+	assert.Equal(1, len(header["X-B3-TraceId"]))
+	assert.Equal(traceID, header["X-B3-TraceId"][0])
+	assert.Equal(1, len(header["X-B3-Sampled"]))
+	assert.Equal("sampled", header["X-B3-Sampled"][0])
 }

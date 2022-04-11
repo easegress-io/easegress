@@ -20,8 +20,6 @@ package zipkin
 import (
 	"io"
 
-	opentracing "github.com/opentracing/opentracing-go"
-	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	zipkingo "github.com/openzipkin/zipkin-go"
 	zipkingomodel "github.com/openzipkin/zipkin-go/model"
 	zipkingoreporter "github.com/openzipkin/zipkin-go/reporter"
@@ -46,6 +44,12 @@ type (
 	}
 )
 
+// CreateNoopTracer creates no-op tracer
+func CreateNoopTracer() *zipkingo.Tracer {
+	tracer, _ := zipkingo.NewTracer(nil)
+	return tracer
+}
+
 func (cp *cancellableReporter) Send(sm zipkingomodel.SpanModel) {
 	_, cancelled := sm.Tags[base.CancelTagKey]
 	if cancelled {
@@ -69,7 +73,7 @@ func (spec Spec) Validate() error {
 }
 
 // New creates zipkin tracer.
-func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) {
+func New(serviceName string, spec *Spec, tags map[string]string) (*zipkingo.Tracer, io.Closer, error) {
 	endpoint, err := zipkingo.NewEndpoint(serviceName, spec.Hostport)
 	if err != nil {
 		return nil, nil, err
@@ -88,10 +92,11 @@ func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) 
 		zipkingo.WithSharedSpans(spec.SameSpan),
 		zipkingo.WithTraceID128Bit(spec.ID128Bit),
 		zipkingo.WithSampler(sampler),
+		zipkingo.WithTags(tags),
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return zipkinot.Wrap(nativeTracer), reporter, nil
+	return nativeTracer, reporter, nil
 }
