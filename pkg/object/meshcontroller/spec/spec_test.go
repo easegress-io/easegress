@@ -243,7 +243,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*urlrule.StringMatch{
+				Headers: map[string]*proxy.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -276,7 +276,7 @@ func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "lv1",
 						},
@@ -418,7 +418,7 @@ func TestSidecarEgressPipelneNotLoadBalancer(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "lv1",
 						},
@@ -439,7 +439,7 @@ func TestSidecarEgressPipelneNotLoadBalancer(t *testing.T) {
 					},
 				},
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "ams",
 						},
@@ -516,7 +516,7 @@ func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "lv1",
 						},
@@ -537,7 +537,7 @@ func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 					},
 				},
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "ams",
 						},
@@ -611,7 +611,7 @@ func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "aaa",
 						},
@@ -685,7 +685,7 @@ func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "lv1",
 						},
@@ -1130,7 +1130,7 @@ func TestUniqueCanaryHeaders(t *testing.T) {
 		Canary: &Canary{
 			CanaryRules: []*CanaryRule{
 				{
-					Headers: map[string]*urlrule.StringMatch{
+					Headers: map[string]*proxy.StringMatcher{
 						"X-canary": {
 							Exact: "lv1",
 						},
@@ -1261,7 +1261,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*urlrule.StringMatch{
+				Headers: map[string]*proxy.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -1288,7 +1288,7 @@ func TestAppendMeshAdaptor(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*urlrule.StringMatch{
+				Headers: map[string]*proxy.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},

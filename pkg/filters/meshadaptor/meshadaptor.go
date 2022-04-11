@@ -20,8 +20,8 @@ package meshadaptor
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
 )
@@ -63,10 +63,10 @@ type (
 
 	// ServiceCanaryAdaptor is the service canary adaptor.
 	ServiceCanaryAdaptor struct {
-		Header *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"required"`
-		Filter *httpfilter.Spec      `yaml:"filter" jsonschema:"required"`
+		Header *httpheader.AdaptSpec     `yaml:"header,omitempty" jsonschema:"required"`
+		Filter *proxy.RequestMatcherSpec `yaml:"filter" jsonschema:"required"`
 
-		filter *httpfilter.HTTPFilter
+		filter proxy.RequestMatcher
 	}
 )
 
@@ -98,15 +98,15 @@ func (ra *MeshAdaptor) Inherit(previousGeneration filters.Filter) {
 
 func (ra *MeshAdaptor) reload() {
 	for _, serviceCanary := range ra.spec.ServiceCanaries {
-		serviceCanary.filter = httpfilter.New(serviceCanary.Filter)
+		serviceCanary.filter = proxy.NewRequestMatcher(serviceCanary.Filter)
 	}
 }
 
 // Handle adapts request.
-func (ra *MeshAdaptor) Handle(ctx context.Context) string {
+func (ra *MeshAdaptor) Handle(ctx *context.Context) string {
 	httpreq := ctx.Request().(*httpprot.Request)
 	for _, serviceCanary := range ra.spec.ServiceCanaries {
-		if serviceCanary.filter.Filter(httpreq) {
+		if serviceCanary.filter.Match(httpreq) {
 			// ctx.Request().Header().Adapt(serviceCanary.Header, ctx.Template())
 			// TODO: add context template here!
 			panic("")

@@ -313,7 +313,7 @@ func (cb *CircuitBreaker) Inherit(previousGeneration filters.Filter) {
 	cb.reload(previousGeneration.(*CircuitBreaker))
 }
 
-func (cb *CircuitBreaker) handle(ctx context.Context, u *URLRule) string {
+func (cb *CircuitBreaker) handle(ctx *context.Context, u *URLRule) string {
 	permitted, stateID := u.cb.AcquirePermission()
 	if !permitted {
 		ctx.AddTag("circuitBreaker: circuit is broken")
@@ -350,7 +350,7 @@ func (cb *CircuitBreaker) handle(ctx context.Context, u *URLRule) string {
 }
 
 // Handle handles HTTP request
-func (cb *CircuitBreaker) Handle(ctx context.Context) string {
+func (cb *CircuitBreaker) Handle(ctx *context.Context) string {
 	for _, u := range cb.spec.URLs {
 		if u.Match(ctx.Request()) {
 			return cb.handle(ctx, u)

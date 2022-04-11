@@ -102,12 +102,7 @@ func (ce *CertExtractor) Inherit(previousGeneration filters.Filter) {
 func (ce *CertExtractor) Close() {}
 
 // Handle retrieves header values and sets request headers.
-func (ce *CertExtractor) Handle(ctx context.Context) string {
-	return ce.handle(ctx)
-}
-
-// CertExtractor extracts given field from TLS certificates and sets it to request headers.
-func (ce *CertExtractor) handle(ctx context.Context) string {
+func (ce *CertExtractor) Handle(ctx *context.Context) string {
 	r := ctx.Request().(*httpprot.Request)
 	connectionState := r.Std().TLS
 	if connectionState == nil {

@@ -130,7 +130,7 @@ func (v *Validator) reload() {
 }
 
 // Handle validates HTTPContext.
-func (v *Validator) Handle(ctx context.Context) string {
+func (v *Validator) Handle(ctx *context.Context) string {
 	req := ctx.Request().(*httpprot.Request)
 	resp := ctx.Response().(*httpprot.Response)
 

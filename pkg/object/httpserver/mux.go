@@ -499,14 +499,14 @@ func SearchPath(req *httpprot.Request, rulesToCheck []*muxRule) (SearchResult, *
 	return MethodNotAllowed, notAllowedPath
 }
 
-func (m *mux) handleIPNotAllow(ctx context.Context) {
+func (m *mux) handleIPNotAllow(ctx *context.Context) {
 	req := ctx.Request().(*httpprot.Request)
 	resp := ctx.Response().(*httpprot.Response)
 	ctx.AddTag(stringtool.Cat("ip ", req.RealIP(), " not allow"))
 	resp.SetStatusCode(http.StatusForbidden)
 }
 
-func (m *mux) handleRequestWithCache(rules *muxRules, ctx context.Context, ci *cacheItem) {
+func (m *mux) handleRequestWithCache(rules *muxRules, ctx *context.Context, ci *cacheItem) {
 	req := ctx.Request().(*httpprot.Request)
 	resp := ctx.Response().(*httpprot.Response)
 

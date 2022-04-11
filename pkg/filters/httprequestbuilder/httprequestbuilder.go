@@ -89,10 +89,9 @@ func (rb *HTTPRequestBuilder) reload() {
 }
 
 // Handle builds request.
-func (rb *HTTPRequestBuilder) Handle(ctx context.Context) string {
+func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) string {
 	// TODO: finish it later
 	panic("finish this when ready")
-	return ""
 }
 
 // Status returns status.

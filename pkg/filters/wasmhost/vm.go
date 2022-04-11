@@ -31,7 +31,7 @@ import (
 // WasmVM represents a wasm VM
 type WasmVM struct {
 	host    *WasmHost
-	ctx     context.Context
+	ctx     *context.Context
 	store   *wasmtime.Store
 	inst    *wasmtime.Instance
 	ih      *wasmtime.InterruptHandle

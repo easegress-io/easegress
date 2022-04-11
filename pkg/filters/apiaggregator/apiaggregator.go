@@ -174,12 +174,12 @@ func (aa *APIAggregator) reload() {
 }
 
 // Handle limits HTTPContext.
-func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
+func (aa *APIAggregator) Handle(ctx *context.Context) (result string) {
 	httpreq := ctx.Request().(*httpprot.Request)
 	httpresp := ctx.Response().(*httpprot.Response)
 	buff := bytes.NewBuffer(nil)
 	if aa.spec.MaxBodyBytes > 0 {
-		written, err := io.CopyN(buff, httpreq.Payload().NewReader(), aa.spec.MaxBodyBytes+1)
+		written, err := io.CopyN(buff, httpreq.GetPayload(), aa.spec.MaxBodyBytes+1)
 		if written > aa.spec.MaxBodyBytes {
 			ctx.AddTag(fmt.Sprintf("apiAggregator: request body exceed %dB", aa.spec.MaxBodyBytes))
 			httpresp.SetStatusCode(http.StatusRequestEntityTooLarge)
@@ -253,7 +253,7 @@ func (aa *APIAggregator) Handle(ctx context.Context) (result string) {
 	return aa.formatResponse(ctx, data)
 }
 
-func (aa *APIAggregator) newHTTPReq(ctx context.Context, p *Pipeline, buff *bytes.Buffer) (*http.Request, error) {
+func (aa *APIAggregator) newHTTPReq(ctx *context.Context, p *Pipeline, buff *bytes.Buffer) (*http.Request, error) {
 	httpreq := ctx.Request().(*httpprot.Request)
 
 	var stdctx stdcontext.Context = httpreq.Context()
@@ -280,7 +280,7 @@ func (aa *APIAggregator) newHTTPReq(ctx context.Context, p *Pipeline, buff *byte
 	return http.NewRequestWithContext(stdctx, method, url.String(), body)
 }
 
-func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.Context, data map[string][]byte, name string) string {
+func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx *context.Context, data map[string][]byte, name string) string {
 	httpresp := ctx.Response().(*httpprot.Response)
 	respBody := bytes.NewBuffer(nil)
 
@@ -301,7 +301,7 @@ func (aa *APIAggregator) copyHTTPBody2Map(body io.Reader, ctx context.Context, d
 	return ""
 }
 
-func (aa *APIAggregator) formatResponse(ctx context.Context, data map[string][]byte) string {
+func (aa *APIAggregator) formatResponse(ctx *context.Context, data map[string][]byte) string {
 	httpresp := ctx.Response().(*httpprot.Response)
 	if aa.spec.MergeResponse {
 		result := map[string]interface{}{}

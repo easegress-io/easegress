@@ -90,11 +90,7 @@ func (ra *ResponseAdaptor) reload() {
 }
 
 // Handle adapts response.
-func (ra *ResponseAdaptor) Handle(ctx context.Context) string {
-	return ra.handle(ctx)
-}
-
-func (ra *ResponseAdaptor) handle(ctx context.Context) string {
+func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	// TODO: update this part when add template to context
 	// hte := ctx.Template()
 	// ctx.Response().Header().Adapt(ra.spec.Header, hte)

@@ -34,7 +34,6 @@ import (
 	"github.com/megaease/easegress/pkg/filters/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/urlrule"
@@ -206,7 +205,7 @@ type (
 	// CanaryRule is one matching rule for canary.
 	CanaryRule struct {
 		ServiceInstanceLabels map[string]string               `yaml:"serviceInstanceLabels" jsonschema:"required"`
-		Headers               map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
+		Headers               map[string]*proxy.StringMatcher `yaml:"headers" jsonschema:"required"`
 		URLs                  []*urlrule.URLRule              `yaml:"urls" jsonschema:"required"`
 	}
 
@@ -223,7 +222,7 @@ type (
 
 	// TrafficRules is the rules of traffic.
 	TrafficRules struct {
-		Headers map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
+		Headers map[string]*proxy.StringMatcher `yaml:"headers" jsonschema:"required"`
 	}
 
 	// GlobalCanaryHeaders is the spec of global service
@@ -247,7 +246,7 @@ type (
 	}
 
 	// LoadBalance is the spec of service load balance.
-	LoadBalance = proxy.LoadBalance
+	LoadBalance = proxy.LoadBalanceSpec
 
 	// Sidecar is the spec of service sidecar.
 	Sidecar struct {
@@ -483,7 +482,7 @@ func (sc ServiceCanary) Validate() error {
 
 // Clone clones TrafficRules.
 func (tr *TrafficRules) Clone() *TrafficRules {
-	headers := map[string]*urlrule.StringMatch{}
+	headers := map[string]*proxy.StringMatcher{}
 	for k, v := range tr.Headers {
 		stringMatch := *v
 		headers[k] = &stringMatch
@@ -665,13 +664,11 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 }
 
 func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec,
-	canaries []*ServiceCanary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
+	canaries []*ServiceCanary, lb *proxy.LoadBalanceSpec, cert, rootCert *Certificate) *pipelineSpecBuilder {
 
 	filterName := "backend"
 	if lb == nil {
-		lb = &proxy.LoadBalance{
-			Policy: proxy.PolicyRoundRobin,
-		}
+		lb = &proxy.LoadBalanceSpec{}
 	}
 
 	needMTLS := false
@@ -679,10 +676,10 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		needMTLS = true
 	}
 
-	mainPool := &proxy.PoolSpec{
+	mainPool := &proxy.ServerPoolSpec{
 		LoadBalance: lb,
 	}
-	candidatePools := make([]*proxy.PoolSpec, len(canaries))
+	candidatePools := make([]*proxy.ServerPoolSpec, len(canaries))
 
 	filter := map[string]interface{}{
 		"kind":     proxy.Kind,
@@ -725,11 +722,11 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 
 			if candidatePools[i] == nil {
 				headers := canary.TrafficRules.Clone().Headers
-				headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+				headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
 					Exact: canary.Name,
 				}
-				candidatePools[i] = &proxy.PoolSpec{
-					Filter: &httpfilter.Spec{
+				candidatePools[i] = &proxy.ServerPoolSpec{
+					Filter: &proxy.RequestMatcherSpec{
 						MatchAllHeaders: true,
 						Headers:         headers,
 					},
@@ -747,7 +744,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
-	candidates := []*proxy.PoolSpec{}
+	candidates := []*proxy.ServerPoolSpec{}
 	for _, candidate := range candidatePools {
 		if candidate == nil || len(candidate.Servers) == 0 {
 			continue
@@ -782,11 +779,11 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
 		// if `X-Mesh-Service-Canary` does not exist and other headers are matching.
 		headers := canary.TrafficRules.Clone().Headers
-		headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+		headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
 			Empty: true,
 		}
 		adaptors[i] = &meshadaptor.ServiceCanaryAdaptor{
-			Filter: &httpfilter.Spec{
+			Filter: &proxy.RequestMatcherSpec{
 				MatchAllHeaders: true,
 				Headers:         headers,
 			},
@@ -806,20 +803,18 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalanceSpec) *pipelineSpecBuilder {
 	backendName := "backend"
 
 	if lb == nil {
-		lb = &proxy.LoadBalance{
-			Policy: proxy.PolicyRoundRobin,
-		}
+		lb = &proxy.LoadBalanceSpec{}
 	}
 
 	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
+		"mainPool": &proxy.ServerPoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},

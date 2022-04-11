@@ -257,11 +257,7 @@ func (hl *HeaderLookup) Close() {
 }
 
 // Handle retrieves header values and sets request headers.
-func (hl *HeaderLookup) Handle(ctx context.Context) string {
-	return hl.handle(ctx)
-}
-
-func (hl *HeaderLookup) handle(ctx context.Context) string {
+func (hl *HeaderLookup) Handle(ctx *context.Context) string {
 	header := ctx.Request().(*httpprot.Request).HTTPHeader()
 	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {

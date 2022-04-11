@@ -111,8 +111,39 @@ func (h *HeaderToJSON) Status() interface{} {
 }
 
 // Handle handle HTTPContext
-func (h *HeaderToJSON) Handle(ctx context.Context) string {
-	return h.handle(ctx)
+func (h *HeaderToJSON) Handle(ctx *context.Context) string {
+	headerMap := make(map[string]interface{})
+	for header, json := range h.headerMap {
+		value := ctx.Request().Header().Get(header)
+		if value != "" {
+			headerMap[json] = value
+		}
+	}
+	if len(headerMap) == 0 {
+		return ""
+	}
+
+	reqBody, err := io.ReadAll(ctx.Request().GetPayload())
+	if err != nil {
+		return resultBodyReadErr
+	}
+
+	var body interface{}
+	if len(reqBody) == 0 {
+		body = headerMap
+	} else {
+		body, err = getNewBody(reqBody, headerMap)
+		if err != nil {
+			return resultJSONEncodeDecodeErr
+		}
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return resultJSONEncodeDecodeErr
+	}
+	ctx.Request().SetPayload(bodyBytes)
+	return ""
 }
 
 func decodeMapJSON(body []byte) (map[string]interface{}, error) {
@@ -176,39 +207,4 @@ func getNewBody(reqBody []byte, headerMap map[string]interface{}) (interface{}, 
 		return mergeMapToArrayMap(bodyArray, headerMap), nil
 	}
 	return nil, errJSONEncodeDecode
-}
-
-func (h *HeaderToJSON) handle(ctx context.Context) string {
-	headerMap := make(map[string]interface{})
-	for header, json := range h.headerMap {
-		value := ctx.Request().Header().Get(header)
-		if value != "" {
-			headerMap[json] = value
-		}
-	}
-	if len(headerMap) == 0 {
-		return ""
-	}
-
-	reqBody, err := io.ReadAll(ctx.Request().GetPayload())
-	if err != nil {
-		return resultBodyReadErr
-	}
-
-	var body interface{}
-	if len(reqBody) == 0 {
-		body = headerMap
-	} else {
-		body, err = getNewBody(reqBody, headerMap)
-		if err != nil {
-			return resultJSONEncodeDecodeErr
-		}
-	}
-
-	bodyBytes, err := json.Marshal(body)
-	if err != nil {
-		return resultJSONEncodeDecodeErr
-	}
-	ctx.Request().SetPayload(bodyBytes)
-	return ""
 }

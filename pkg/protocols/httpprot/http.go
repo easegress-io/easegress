@@ -99,18 +99,3 @@ func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
 	r, _ := resp.(*http.Response)
 	return NewResponse(r)
 }
-
-// CreateLoadBalancer creates a load balancer.
-func (p *Protocol) CreateLoadBalancer(spec interface{}, servers []protocols.Server) (protocols.LoadBalancer, error) {
-	return NewLoadBalancer(spec, servers)
-}
-
-// CreateServer creates a server.
-func (p *Protocol) CreateServer(spec interface{}) (protocols.Server, error) {
-	return NewServer(spec)
-}
-
-// CreateTrafficMatcher creates a traffic matcher.
-func (p *Protocol) CreateTrafficMatcher(spec interface{}) (protocols.TrafficMatcher, error) {
-	return NewTrafficMatcher(spec)
-}

@@ -156,7 +156,7 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 }
 
 // Handle `beforePipeline` and `afterPipeline` before and after the httpHandler is executed.
-func (gf *GlobalFilter) Handle(ctx context.Context, httpHandle context.Handler) {
+func (gf *GlobalFilter) Handle(ctx *context.Context, httpHandle context.Handler) {
 	result := gf.beforeHandle(ctx)
 	if result == pipeline.BuiltInFilterEnd {
 		return
@@ -170,7 +170,7 @@ func (gf *GlobalFilter) Handle(ctx context.Context, httpHandle context.Handler) 
 }
 
 // BeforeHandle before handler logic for beforePipeline spec.
-func (gf *GlobalFilter) beforeHandle(ctx context.Context) string {
+func (gf *GlobalFilter) beforeHandle(ctx *context.Context) string {
 	value := gf.beforePipeline.Load()
 	if value == nil {
 		return ""
@@ -183,7 +183,7 @@ func (gf *GlobalFilter) beforeHandle(ctx context.Context) string {
 }
 
 // AfterHandle after handler logic for afterPipeline spec.
-func (gf *GlobalFilter) afterHandle(ctx context.Context) string {
+func (gf *GlobalFilter) afterHandle(ctx *context.Context) string {
 	value := gf.afterPipeline.Load()
 	if value == nil {
 		return ""

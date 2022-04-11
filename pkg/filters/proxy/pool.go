@@ -198,7 +198,7 @@ func (sp *ServerPool) status() *ServerPoolStatus {
 }
 
 type serverPoolContext struct {
-	context.Context
+	*context.Context
 	isMirror    bool
 	svr         *Server
 	req         *httpprot.Request
@@ -272,7 +272,7 @@ func (spCtx *serverPoolContext) duration() time.Duration {
 	return spCtx.endTime.Sub(spCtx.startTime)
 }
 
-func (sp *ServerPool) handle(ctx context.Context, isMirror bool) string {
+func (sp *ServerPool) handle(ctx *context.Context, isMirror bool) string {
 	/*
 		if sp.memoryCache != nil && sp.memoryCache.Load(ctx) {
 		}

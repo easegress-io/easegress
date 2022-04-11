@@ -67,11 +67,9 @@ type (
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
 		Filter           string            `yaml:"filter" jsonschema:"required,format=urlname"`
-		BaseRequestID    string            `yaml:"baseRequestID" jsonschema:"baseRequestID,omitempty"`
+		DefaultRequestID string            `yaml:"defaultRequestID" jsonschema:"defaultRequestID,omitempty"`
 		TargetRequestID  string            `yaml:"targetRequestID" jsonschema:"targetRequestID,omitempty"`
-		BaseResponseID   string            `yaml:"baseResponseID" jsonschema:"baseResponseID,omitempty"`
 		TargetResponseID string            `yaml:"targetResponseID" jsonschema:"targetResponseID,omitempty"`
-		UseRequest       string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
 		JumpIf           map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 		filter           filters.Filter
 	}
@@ -126,35 +124,12 @@ func (s *Spec) ValidateRequest() {
 
 	for i := 0; i < len(s.Flow); i++ {
 		node := &s.Flow[i]
-		if node.UseRequest != "" && !validIDs[node.UseRequest] {
-			panic(fmt.Errorf(errFmt, node.Filter, node.UseRequest))
-		}
-
-		if node.BaseRequestID != "" && !validIDs[node.BaseRequestID] {
-			panic(fmt.Errorf(errFmt, node.Filter, node.BaseRequestID))
+		if node.DefaultRequestID != "" && !validIDs[node.DefaultRequestID] {
+			panic(fmt.Errorf(errFmt, node.Filter, node.DefaultRequestID))
 		}
 
 		if node.TargetRequestID != "" {
 			validIDs[node.TargetRequestID] = true
-		}
-	}
-}
-
-// ValidateResponse validates responses.
-func (s *Spec) ValidateResponse() {
-	const errFmt = "filter %s: desired response %s not found"
-
-	validIDs := map[string]bool{context.InitialResponseID: true}
-
-	for i := 0; i < len(s.Flow); i++ {
-		node := &s.Flow[i]
-
-		if node.BaseResponseID != "" && !validIDs[node.BaseResponseID] {
-			panic(fmt.Errorf(errFmt, node.Filter, node.BaseResponseID))
-		}
-
-		if node.TargetResponseID != "" {
-			validIDs[node.TargetResponseID] = true
 		}
 	}
 }
@@ -194,9 +169,6 @@ func (s *Spec) Validate() (err error) {
 
 	// 2.2: validate requests
 	s.ValidateRequest()
-
-	// 2.3: validate responses
-	s.ValidateResponse()
 
 	return nil
 }
@@ -314,7 +286,7 @@ func (p *Pipeline) getFilter(name string) filters.Filter {
 }
 
 // Handle is the handler to deal with the request.
-func (p *Pipeline) Handle(ctx context.Context) string {
+func (p *Pipeline) Handle(ctx *context.Context) string {
 	result, next := "", ""
 	stats := make([]FilterStat, 0, len(p.flow))
 
@@ -329,8 +301,8 @@ func (p *Pipeline) Handle(ctx context.Context) string {
 		}
 
 		start := fasttime.Now()
-		ctx.UseRequest(node.UseRequest, node.BaseRequestID, node.TargetRequestID)
-		ctx.UseResponse(node.BaseResponseID, node.TargetResponseID)
+		ctx.UseRequest(node.DefaultRequestID, node.TargetRequestID)
+		ctx.UseResponse(node.TargetResponseID)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{

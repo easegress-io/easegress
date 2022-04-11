@@ -299,12 +299,7 @@ func (wh *WasmHost) Inherit(spec filters.Spec, previousGeneration filters.Filter
 }
 
 // Handle handles HTTP request
-func (wh *WasmHost) Handle(ctx context.Context) string {
-	result := wh.handle(ctx)
-	return ctx.CallNextHandler(result)
-}
-
-func (wh *WasmHost) handle(ctx context.Context) (result string) {
+func (wh *WasmHost) Handle(ctx *context.Context) string {
 	// we must save the pool to a local variable for later use as it will be
 	// replaced when updating the wasm code
 	var pool *WasmVMPool

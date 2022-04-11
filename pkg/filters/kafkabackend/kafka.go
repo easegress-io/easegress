@@ -139,7 +139,7 @@ func (k *Kafka) Status() interface{} {
 	return nil
 }
 
-func (k *Kafka) getTopic(ctx context.Context) string {
+func (k *Kafka) getTopic(ctx *context.Context) string {
 	if k.header == "" {
 		return k.spec.Topic.Default
 	}
@@ -150,10 +150,10 @@ func (k *Kafka) getTopic(ctx context.Context) string {
 	return topic
 }
 
-func (k *Kafka) handle(ctx context.Context) (result string) {
+func (k *Kafka) Handle(ctx *context.Context) (result string) {
 	topic := k.getTopic(ctx)
 
-	body, err := ioutil.ReadAll(ctx.Request().Payload().NewReader())
+	body, err := ioutil.ReadAll(ctx.Request().GetPayload())
 	if err != nil {
 		return resultParseErr
 	}
@@ -164,9 +164,4 @@ func (k *Kafka) handle(ctx context.Context) (result string) {
 	}
 	k.producer.Input() <- msg
 	return ""
-}
-
-// Handle handles HTTPContext.
-func (k *Kafka) Handle(ctx context.Context) (result string) {
-	return k.handle(ctx)
 }

@@ -117,7 +117,7 @@ func (b *Bridge) InjectMuxMapper(mapper context.MuxMapper) {
 }
 
 // Handle builds a bridge for pipeline.
-func (b *Bridge) Handle(ctx context.Context) (result string) {
+func (b *Bridge) Handle(ctx *context.Context) (result string) {
 	httpresp := ctx.Response().(*httpprot.Response)
 	if len(b.spec.Destinations) <= 0 {
 		panic("not any destination defined")

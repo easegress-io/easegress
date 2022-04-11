@@ -193,11 +193,7 @@ func (rf *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 }
 
 // Handle handles HTTPContext by calling remote service.
-func (rf *RemoteFilter) Handle(ctx context.Context) (result string) {
-	return rf.handle(ctx)
-}
-
-func (rf *RemoteFilter) handle(ctx context.Context) (result string) {
+func (rf *RemoteFilter) Handle(ctx *context.Context) (result string) {
 	r := ctx.Request().(*httpprot.Request)
 	w := ctx.Response().(*httpprot.Response)
 
@@ -270,7 +266,7 @@ func (rf *RemoteFilter) Status() interface{} { return nil }
 // Close closes RemoteFilter.
 func (rf *RemoteFilter) Close() {}
 
-func (rf *RemoteFilter) marshalHTTPContext(ctx context.Context, reqBody, respBody []byte) []byte {
+func (rf *RemoteFilter) marshalHTTPContext(ctx *context.Context, reqBody, respBody []byte) []byte {
 	r := ctx.Request().(*httpprot.Request)
 	w := ctx.Response().(*httpprot.Response)
 	ctxEntity := contextEntity{
@@ -301,7 +297,7 @@ func (rf *RemoteFilter) marshalHTTPContext(ctx context.Context, reqBody, respBod
 	return buff
 }
 
-func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx context.Context) {
+func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx *context.Context) {
 	ctxEntity := &contextEntity{}
 
 	err := json.Unmarshal(buff, ctxEntity)

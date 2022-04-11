@@ -159,15 +159,13 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 
 	backendName := "faasBackend"
 
-	lb := &proxy.LoadBalance{
-		Policy: proxy.PolicyRoundRobin,
-	}
+	lb := &proxy.LoadBalanceSpec{}
 
 	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
+		"mainPool": &proxy.ServerPoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
