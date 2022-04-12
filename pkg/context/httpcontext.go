@@ -34,7 +34,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
-	zipkingo "github.com/openzipkin/zipkin-go"
 )
 
 type (
@@ -166,14 +165,14 @@ type (
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
 func New(stdw http.ResponseWriter, stdr *http.Request,
-	tracing *tracing.Tracing, spanName string) HTTPContext {
+	tracingInstance *tracing.Tracing, spanName string) HTTPContext {
 	originalReqCtx := stdr.Context()
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
 	startTime := fasttime.Now()
-	if !tracing.IsNoopTracer() {
-		span := tracing.Tracer.StartSpan(spanName, zipkingo.StartTime(startTime))
-		stdctx = zipkingo.NewContext(stdctx, span)
+	if !tracingInstance.IsNoopTracer() {
+		// add span to context
+		stdctx = tracing.CreateSpanWithContext(tracingInstance, spanName, startTime, stdctx)
 	}
 	ctx := &httpContext{
 		startTime:      startTime,

@@ -24,20 +24,17 @@ import (
 	"strconv"
 	"sync"
 
-	//"github.com/opentracing/opentracing-go"
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	//"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/callbackreader"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/memorycache"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-	//zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 )
 
 type (

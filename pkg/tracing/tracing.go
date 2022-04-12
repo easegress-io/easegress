@@ -18,7 +18,9 @@
 package tracing
 
 import (
+	"context"
 	"io"
+	"time"
 
 	"github.com/megaease/easegress/pkg/tracing/zipkin"
 	zipkingo "github.com/openzipkin/zipkin-go"
@@ -77,4 +79,9 @@ func (t *Tracing) Close() error {
 	}
 
 	return nil
+}
+
+func CreateSpanWithContext(tracing *Tracing, spanName string, startTime time.Time, ctx context.Context) context.Context {
+	span := tracing.Tracer.StartSpan(spanName, zipkingo.StartTime(startTime))
+	return zipkingo.NewContext(ctx, span)
 }
