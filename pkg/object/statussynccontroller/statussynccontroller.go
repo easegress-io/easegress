@@ -262,7 +262,8 @@ func (ssc *StatusSyncController) syncStatusToCluster(statuses map[string]string)
 	kvs := make(map[string]*string)
 	for k, value := range statuses {
 		key := ssc.superSpec.Super().Cluster().Layout().StatusObjectKey(k)
-		kvs[key] = &value
+		v := value
+		kvs[key] = &v
 		if len(kvs) >= ssc.statusUpdateMaxBatchSize {
 			err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
 			if err != nil {
