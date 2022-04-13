@@ -13,6 +13,7 @@ COPY build/package/entrypoint.sh /
 COPY build/bin/egctl build/bin/easegress-server /opt/easegress/bin/
 
 RUN apk --no-cache add tini tzdata && \
+    ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
         chmod +x /entrypoint.sh /opt/easegress/bin/*
 
 ENV PATH /opt/easegress/bin:$PATH
