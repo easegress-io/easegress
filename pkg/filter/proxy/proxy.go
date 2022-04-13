@@ -72,12 +72,13 @@ type (
 		candidatePools []*pool
 		mirrorPool     *pool
 
-		client *Client
+		client      *Client
+		clientMutex sync.RWMutex
 
 		compression *compression
 	}
 
-	// Client is wrapper around http.Client.
+	// Client is a wrapper around http.Client.
 	Client struct {
 		client       *http.Client
 		zipkinClient *zipkinhttp.Client
@@ -117,6 +118,16 @@ type (
 	}
 )
 
+// NewClient creates a wrapper around http.Client
+func NewClient(cl *http.Client, tr *tracing.Tracing) *Client {
+	var zClient *zipkinhttp.Client
+	if tr != nil {
+		tracer := tr.Tracer
+		zClient, _ = zipkinhttp.NewClient(tracer, zipkinhttp.WithClient(cl))
+	}
+	return &Client{client: cl, zipkinClient: zClient}
+}
+
 // IsTracingInitialized returns true if tracing is initialized
 func (c *Client) IsTracingInitialized() bool {
 	return c.zipkinClient != nil
@@ -128,14 +139,6 @@ func (c *Client) Do(r *http.Request) (*http.Response, error) {
 		return c.zipkinClient.DoWithAppSpan(r, r.URL.Path)
 	}
 	return c.client.Do(r)
-}
-
-// UpdateTracing updates tracing client
-func (c *Client) UpdateTracing(tracing *tracing.Tracing) {
-	tracer := tracing.Tracer
-	zClient, _ := zipkinhttp.NewClient(
-		tracer, zipkinhttp.WithClient(c.client))
-	c.zipkinClient = zClient
 }
 
 // Validate validates Spec.
@@ -269,7 +272,11 @@ func (b *Proxy) reload() {
 		b.compression = newCompression(b.spec.Compression)
 	}
 
-	client := &http.Client{
+	b.client = NewClient(b.createHTTPClient() /*tracing=*/, nil)
+}
+
+func (b *Proxy) createHTTPClient() *http.Client {
+	return &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
 		Transport: &http.Transport{
@@ -293,8 +300,6 @@ func (b *Proxy) reload() {
 			return http.ErrUseLastResponse
 		},
 	}
-
-	b.client = &Client{client: client}
 }
 
 // Status returns Proxy status.
@@ -346,6 +351,35 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	return ctx.CallNextHandler(result)
 }
 
+func (b *Proxy) updateAndGetClient() *Client {
+	super := b.filterSpec.Super()
+	if super == nil {
+		return b.client
+	}
+	tracing := super.Tracing()
+	// Read lock is enough in most of the cases as tracing is not initialized or updated often
+	b.clientMutex.RLock()
+	alreadyInit := !tracing.IsNoopTracer() && b.client.IsTracingInitialized()
+	noUpdate := tracing.IsNoopTracer() && !b.client.IsTracingInitialized()
+	b.clientMutex.RUnlock()
+
+	if alreadyInit || noUpdate {
+		return b.client
+	}
+	// Write lock to block readers while updating b.client
+	b.clientMutex.Lock()
+	defer b.clientMutex.Unlock()
+
+	if !tracing.IsNoopTracer() && !b.client.IsTracingInitialized() {
+		// tracing not ready yet
+		b.client = NewClient(b.client.client, tracing)
+	} else if tracing.IsNoopTracer() && b.client.IsTracingInitialized() {
+		// if HTTPServer is updated and there is no longer tracing configured
+		b.client = NewClient(b.createHTTPClient(), nil)
+	}
+	return b.client
+}
+
 func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
@@ -357,7 +391,8 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		go func() {
 			defer wg.Done()
-			b.mirrorPool.handle(ctx, secondaryBody, b.client)
+			client := b.updateAndGetClient()
+			b.mirrorPool.handle(ctx, secondaryBody, client)
 		}()
 	}
 
@@ -379,18 +414,8 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	super := b.filterSpec.Super()
-	if super != nil {
-		tracing := super.Tracing()
-		if !tracing.IsNoopTracer() && !b.client.IsTracingInitialized() {
-			b.client.UpdateTracing(tracing)
-		} else if tracing.IsNoopTracer() && b.client.IsTracingInitialized() {
-			// if HTTPServer is updated and there is no longer tracing configured
-			b.reload()
-		}
-	}
-
-	result = p.handle(ctx, ctx.Request().Body(), b.client)
+	client := b.updateAndGetClient()
+	result = p.handle(ctx, ctx.Request().Body(), client)
 	if result != "" {
 		if b.fallbackForCodes(ctx) {
 			return resultFallback

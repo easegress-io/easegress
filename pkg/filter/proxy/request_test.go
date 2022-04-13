@@ -157,7 +157,6 @@ func TestAddB3PropagationHeaders(t *testing.T) {
 	defer requestPool.Put(req) // recycle request
 
 	header := req.std.Header
-	// fmt.Println(header)
 	assert.Equal(1, len(header["X-B3-TraceId"]))
 	assert.Equal(traceID, header["X-B3-TraceId"][0])
 	assert.Equal(1, len(header["X-B3-Sampled"]))

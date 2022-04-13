@@ -22,6 +22,7 @@ import (
 	"os"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
@@ -36,7 +37,7 @@ type (
 	Supervisor struct {
 		options *option.Options
 		cls     cluster.Cluster
-		tracing *tracing.Tracing
+		tracing atomic.Value //*tracing.Tracing
 
 		// The scenario here satisfies the first common case:
 		// When the entry for a given key is only ever written once but read many times.
@@ -118,15 +119,16 @@ func (s *Supervisor) Cluster() cluster.Cluster {
 
 // Tracing return the tracing instance.
 func (s *Supervisor) Tracing() *tracing.Tracing {
-	if s.tracing == nil {
+	tr := s.tracing.Load()
+	if tr == nil {
 		return tracing.NoopTracing
 	}
-	return s.tracing
+	return tr.(*tracing.Tracing)
 }
 
 // SetTracing sets the global tracing instance.
 func (s *Supervisor) SetTracing(tracing *tracing.Tracing) {
-	s.tracing = tracing
+	s.tracing.Store(tracing)
 }
 
 func (s *Supervisor) initSystemControllers() {

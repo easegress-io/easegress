@@ -28,8 +28,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/megaease/easegress/pkg/cluster/clustertest"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -253,23 +256,35 @@ func TestPoolSpecValidate(t *testing.T) {
 	}
 }
 
-func TestProxyClient(t *testing.T) {
+func createTracing(assert *assert.Assertions, url string) *tracing.Tracing {
+	if url == "" {
+		url = "http://localhost:9411"
+	}
 	spec := `
 serviceName: testService
 tags:
-  MyTagKey: X-value
-  SecondTag: 382
+    MyTagKey: X-value
+    SecondTag: 382
 zipkin:
-  hostport: 0.0.0.0:10087
-  serverURL: http://localhost:9411/api/v2/spans
-  sampleRate: 1
-  sameSpan: true
-  id128Bit: false
+    hostport: 0.0.0.0:10087
+    serverURL: <URL>/api/v2/spans
+    sampleRate: 1
+    sameSpan: true
+    id128Bit: false
 `
+	spec = strings.Replace(spec, "<URL>", url, 1)
+	rawSpec := tracing.Spec{}
+	yamltool.Unmarshal([]byte(spec), &rawSpec)
+	tracer, err := tracing.New(&rawSpec)
+	assert.Nil(err)
+	return tracer
+}
+
+func TestProxyClient(t *testing.T) {
 	assert := assert.New(t)
 
 	client := &http.Client{}
-	pc := Client{client: client}
+	pc := NewClient(client, nil)
 
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
@@ -282,16 +297,61 @@ zipkin:
 	pc.Do(stdr)
 
 	// with tracing
-	rawSpec := tracing.Spec{}
-	yamltool.Unmarshal([]byte(spec), &rawSpec)
-	tracer, err := tracing.New(&rawSpec)
-	assert.Nil(err)
-	pc.UpdateTracing(tracer)
+	tracer := createTracing(assert, "")
+	tracer.Tracer.SetNoop(true) // skip sending spans
+	pc = NewClient(client, tracer)
 	stdr, err = http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
 	assert.Nil(err)
 	pc.Do(stdr)
-
 	wg.Wait()
-
+	tracer.Close()
 	ts.Close()
+}
+
+func TestHandleWithTracing(t *testing.T) {
+	logger.InitNop()
+	assert := assert.New(t)
+
+	//httppipeline.Register(&Proxy{})
+
+	const proxySpec = `
+name: proxy
+kind: Proxy
+mainPool:
+  servers:
+  - url: http://127.0.0.1:9095
+  loadBalance:
+    policy: roundRobin`
+
+	var mockMap sync.Map
+	clsMock := clustertest.NewMockedCluster()
+	superMock := supervisor.NewMock(nil, clsMock, mockMap, mockMap, nil, nil, false, nil, nil)
+
+	rawSpec := make(map[string]interface{})
+	yamltool.Unmarshal([]byte(proxySpec), &rawSpec)
+	spec, err := httppipeline.NewFilterSpec(rawSpec, superMock)
+	assert.Nil(err)
+	proxy := &Proxy{}
+	proxy.Init(spec)
+
+	ctx := &contexttest.MockedHTTPContext{}
+	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
+		header := http.Header{}
+		return httpheader.New(header)
+	}
+	proxy.handle(ctx)
+	assert.Nil(proxy.client.zipkinClient)
+
+	// HTTPServer updates tracing
+	tracer := createTracing(assert, "")
+	superMock.SetTracing(tracer)
+	proxy.handle(ctx)
+	assert.NotNil(proxy.client.zipkinClient)
+
+	// HTTPServer removes tracing
+	superMock.SetTracing(tracing.NoopTracing)
+	proxy.handle(ctx)
+	assert.Nil(proxy.client.zipkinClient)
+
+	tracer.Close() // normally HTTPServer closes this
 }

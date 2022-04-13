@@ -172,7 +172,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 	startTime := fasttime.Now()
 	if !tracingInstance.IsNoopTracer() {
 		// add span to context
-		stdctx = tracing.CreateSpanWithContext(tracingInstance, spanName, startTime, stdctx)
+		stdctx = tracing.CreateSpanWithContext(stdctx, tracingInstance, spanName, startTime)
 	}
 	ctx := &httpContext{
 		startTime:      startTime,

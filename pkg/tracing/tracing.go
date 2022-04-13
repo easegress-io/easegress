@@ -81,7 +81,8 @@ func (t *Tracing) Close() error {
 	return nil
 }
 
-func CreateSpanWithContext(tracing *Tracing, spanName string, startTime time.Time, ctx context.Context) context.Context {
+// CreateSpanWithContext creates new span with given name and starttime and adds it to the context.
+func CreateSpanWithContext(ctx context.Context, tracing *Tracing, spanName string, startTime time.Time) context.Context {
 	span := tracing.Tracer.StartSpan(spanName, zipkingo.StartTime(startTime))
 	return zipkingo.NewContext(ctx, span)
 }
