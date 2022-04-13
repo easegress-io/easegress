@@ -15,59 +15,57 @@
  * limitations under the License.
  */
 
-package memorycache
+package proxy
 
 import (
+	"net/http"
 	"strings"
 	"time"
 
 	cache "github.com/patrickmn/go-cache"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
-const (
-	cleanupIntervalFactor = 2
-	cleanupIntervalMin    = 1 * time.Minute
-)
+const minCleanupInterval = time.Minute
 
 type (
 	// MemoryCache is an utility MemoryCache.
 	MemoryCache struct {
-		spec *Spec
+		spec *MemoryCacheSpec
 
 		cache *cache.Cache
 	}
 
-	// Spec describes the MemoryCache.
-	Spec struct {
+	// MemoryCacheSpec describes the MemoryCache.
+	MemoryCacheSpec struct {
 		Expiration    string   `yaml:"expiration" jsonschema:"required,format=duration"`
 		MaxEntryBytes uint32   `yaml:"maxEntryBytes" jsonschema:"required,minimum=1"`
 		Codes         []int    `yaml:"codes" jsonschema:"required,minItems=1,uniqueItems=true,format=httpcode-array"`
 		Methods       []string `yaml:"methods" jsonschema:"required,minItems=1,uniqueItems=true,format=httpmethod-array"`
 	}
 
-	cacheEntry struct {
-		statusCode int
-		header     protocols.Header
-		body       []byte
+	// CacheEntry is an item of the memory cache.
+	CacheEntry struct {
+		StatusCode int
+		Header     http.Header
+		Body       []byte
 	}
 )
 
-// New creates a MemoryCache.
-func New(spec *Spec) *MemoryCache {
+// NewMemoryCache creates a MemoryCache.
+func NewMemoryCache(spec *MemoryCacheSpec) *MemoryCache {
 	expiration, err := time.ParseDuration(spec.Expiration)
 	if err != nil {
 		logger.Errorf("BUG: parse duration %s failed: %v", spec.Expiration, err)
 		expiration = 10 * time.Second
 	}
 
-	cleanupInterval := expiration * cleanupIntervalFactor
-	if cleanupInterval < cleanupIntervalMin {
-		cleanupInterval = cleanupIntervalMin
+	cleanupInterval := expiration * 2
+	if cleanupInterval < minCleanupInterval {
+		cleanupInterval = minCleanupInterval
 	}
 	cache := cache.New(expiration, cleanupInterval)
 
@@ -77,92 +75,88 @@ func New(spec *Spec) *MemoryCache {
 	}
 }
 
-func (mc *MemoryCache) key(r *httpprot.Request) string {
-	return stringtool.Cat(r.Scheme(), r.Host(), r.Path(), r.Method())
+func (mc *MemoryCache) key(req *http.Request) string {
+	return stringtool.Cat(httpprot.RequestScheme(req), req.Host, req.URL.Path, req.Method)
 }
 
 // Load tries to load cache for HTTPContext.
-func (mc *MemoryCache) Load(r *httpprot.Request, w *httpprot.Response) (loaded bool) {
+func (mc *MemoryCache) Load(req *http.Request) *CacheEntry {
 	// Reference: https://tools.ietf.org/html/rfc7234#section-5.2
 
-	matchMethod := false
+	matched := false
+
 	for _, method := range mc.spec.Methods {
-		if r.Method() == method {
-			matchMethod = true
+		if req.Method == method {
+			matched = true
 			break
 		}
 	}
-	if !matchMethod {
+	if !matched {
+		return nil
+	}
+
+	for _, value := range req.Header.Values(httpprot.KeyCacheControl) {
+		if strings.Contains(value, "no-cache") {
+			return nil
+		}
+	}
+
+	if v, ok := mc.cache.Get(mc.key(req)); ok {
+		return v.(*CacheEntry)
+	}
+
+	return nil
+}
+
+// NeedStore returns whether the response need to be stored.
+func (mc *MemoryCache) NeedStore(req *http.Request, resp *http.Response) bool {
+	matched := false
+	for _, method := range mc.spec.Methods {
+		if req.Method == method {
+			matched = true
+			break
+		}
+	}
+	if !matched {
 		return false
 	}
 
-	for _, value := range r.HTTPHeader().Values(httpprot.KeyCacheControl) {
-		if strings.Contains(value, "no-cache") {
+	matched = false
+	for _, code := range mc.spec.Codes {
+		if resp.StatusCode == code {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return false
+	}
+
+	for _, value := range req.Header.Values(httpprot.KeyCacheControl) {
+		if strings.Contains(value, "no-store") ||
+			strings.Contains(value, "no-cache") {
+			return false
+		}
+	}
+	for _, value := range resp.Header.Values(httpprot.KeyCacheControl) {
+		if strings.Contains(value, "no-store") ||
+			strings.Contains(value, "no-cache") ||
+			strings.Contains(value, "must-revalidate") {
 			return false
 		}
 	}
 
-	v, ok := mc.cache.Get(mc.key(r))
-	if ok {
-		entry := v.(*cacheEntry)
-		w.SetStatusCode(entry.statusCode)
-		entry.header.Walk(func(key string, value interface{}) bool {
-			for _, v := range value.([]string) {
-				w.Header().Add(key, v)
-			}
-			return true
-		})
-		w.SetPayload(entry.body)
-	}
-
-	return ok
+	return true
 }
 
-// Store tries to store cache for HTTPContext.
-func (mc *MemoryCache) Store(r *httpprot.Request, w *httpprot.Response) {
-
-	matchMethod := false
-	for _, method := range mc.spec.Methods {
-		if r.Method() == method {
-			matchMethod = true
-			break
-		}
-	}
-	if !matchMethod {
-		return
-	}
-
-	matchCode := false
-	for _, code := range mc.spec.Codes {
-		if w.StatusCode() == code {
-			matchCode = true
-			break
-		}
-	}
-	if !matchCode {
-		return
-	}
-
-	for _, value := range r.HTTPHeader().Values(httpprot.KeyCacheControl) {
-		if strings.Contains(value, "no-store") ||
-			strings.Contains(value, "no-cache") {
-			return
-		}
-	}
-	for _, value := range w.HTTPHeader().Values(httpprot.KeyCacheControl) {
-		if strings.Contains(value, "no-store") ||
-			strings.Contains(value, "no-cache") ||
-			strings.Contains(value, "must-revalidate") {
-			return
-		}
-	}
-
+/*
 	key := mc.key(r)
-	entry := &cacheEntry{
-		statusCode: w.StatusCode(),
-		header:     w.Header().Clone(),
+	entry := &CacheEntry{
+		StatusCode: w.StatusCode(),
+		Header:     w.HTTPHeader().Clone(),
 	}
 	bodyLength := 0
+
 	w.OnFlushBody(func(body []byte, complete bool) []byte {
 		bodyLength += len(body)
 		if bodyLength > int(mc.spec.MaxEntryBytes) {
@@ -177,3 +171,4 @@ func (mc *MemoryCache) Store(r *httpprot.Request, w *httpprot.Response) {
 		return body
 	})
 }
+*/

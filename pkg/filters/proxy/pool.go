@@ -34,7 +34,6 @@ import (
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/memorycache"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/readers"
@@ -54,7 +53,7 @@ type ServerPool struct {
 	resilience   *Resilience
 
 	httpStat    *httpstat.HTTPStat
-	memoryCache *memorycache.MemoryCache
+	memoryCache *MemoryCache
 }
 
 // ServerPoolSpec is the spec for a server pool.
@@ -66,8 +65,8 @@ type ServerPoolSpec struct {
 	ServiceRegistry string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName     string              `yaml:"serviceName" jsonschema:"omitempty"`
 	LoadBalance     *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"required"`
-	MemoryCache     *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 	Resilience      *ResilienceSpec     `yaml:"resilience,omitempty" jsonschema:"omitempty"`
+	MemoryCache     *MemoryCacheSpec    `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -110,7 +109,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	}
 
 	if spec.MemoryCache != nil {
-		sp.memoryCache = memorycache.New(spec.MemoryCache)
+		sp.memoryCache = NewMemoryCache(spec.MemoryCache)
 	}
 
 	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
@@ -310,17 +309,29 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, 
 		}
 	*/
 
+	spCtx := &serverPoolContext{
+		Context:  ctx,
+		isMirror: isMirror,
+		req:      ctx.Request().(*httpprot.Request),
+	}
+
+	if sp.memoryCache != nil {
+		if ce := sp.memoryCache.Load(spCtx.req.Std()); ce != nil {
+			resp := httpprot.NewResponse(nil)
+			resp.SetStatusCode(ce.StatusCode)
+			resp.Std().Header = ce.Header.Clone()
+			resp.SetPayload(ce.Body)
+			ctx.SetResponse(ctx.TargetResponseID(), resp)
+			return ""
+		}
+	}
+
 	setFailureResponse := func(statusCode int) {
 		resp := httpprot.NewResponse(nil)
 		resp.SetStatusCode(statusCode)
 		ctx.SetResponse(ctx.TargetResponseID(), resp)
 	}
 
-	spCtx := &serverPoolContext{
-		Context:  ctx,
-		isMirror: isMirror,
-		req:      ctx.Request().(*httpprot.Request),
-	}
 	spCtx.svr = sp.LoadBalancer().ChooseServer(spCtx.req)
 
 	// if there's no available server.
@@ -394,6 +405,9 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, 
 	if sp.proxy.compression.compress(spCtx.stdReq, resp) {
 		ctx.AddTag("gzip")
 	}
+
+	// TODO:
+	//	needCache := sp.memoryCache.NeedStore(spCtx.req.Std(), spCtx.stdResp)
 
 	var respBodySize int
 	callbackBody := readers.NewCallbackReader(resp.Body)

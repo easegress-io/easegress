@@ -140,18 +140,23 @@ func (r *Request) Header() protocols.Header {
 	return newHeader(r.HTTPHeader())
 }
 
-// Scheme returns the scheme of the request.
-func (r *Request) Scheme() string {
-	if s := r.Std().URL.Scheme; s != "" {
+// RequestScheme returns the scheme of the request.
+func RequestScheme(r *http.Request) string {
+	if s := r.URL.Scheme; s != "" {
 		return s
 	}
-	if s := r.HTTPHeader().Get("X-Forwarded-Proto"); s != "" {
+	if s := r.Header.Get("X-Forwarded-Proto"); s != "" {
 		return s
 	}
 	if r.TLS != nil {
 		return "https"
 	}
 	return "http"
+}
+
+// Scheme returns the scheme of the request.
+func (r *Request) Scheme() string {
+	return RequestScheme(r.Std())
 }
 
 // RealIP returns the real IP of the request.

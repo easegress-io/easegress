@@ -198,14 +198,14 @@ func (ra *RequestAdaptor) processCompress(ctx *context.Context) string {
 	var buf bytes.Buffer
 	gw := gzip.NewWriter(&buf)
 
-	_, err := io.Copy(gw, ctx.Request().Payload().NewReader())
+	_, err := io.Copy(gw, ctx.Request().GetPayload())
 	if err != nil {
 		logger.Errorf("compress request body failed, %v", err)
 		return resultCompressFail
 	}
 	gw.Close()
 
-	ctx.Request().Payload().SetReader(&buf, true)
+	ctx.Request().SetPayload(buf.Bytes())
 	ctx.Request().Header().Set("Content-Encoding", "gzip")
 	return ""
 }
@@ -222,7 +222,7 @@ func (ra *RequestAdaptor) processDecompress(ctx *context.Context) string {
 		if err != nil {
 			return resultDecompressFail
 		}
-		ctx.Request().Payload().SetReader(bytes.NewReader(data), true)
+		ctx.Request().SetPayload(data)
 		ctx.Request().Header().Del("Content-Encoding")
 	}
 	return ""

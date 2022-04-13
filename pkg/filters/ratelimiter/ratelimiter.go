@@ -19,7 +19,6 @@ package ratelimiter
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 	"time"
 
@@ -242,38 +241,45 @@ func (rl *RateLimiter) Inherit(previousGeneration filters.Filter) {
 
 // Handle handles HTTP request
 func (rl *RateLimiter) Handle(ctx *context.Context) string {
-	result := rl.handle(ctx)
-	return ctx.CallNextHandler(result)
+	// TODO
+	/*
+		result := rl.handle(ctx)
+		return ctx.CallNextHandler(result)
+	*/
+	return ""
 }
 
 func (rl *RateLimiter) handle(ctx *context.Context) string {
-	for _, u := range rl.spec.URLs {
-		if !u.Match(ctx.Request()) {
-			continue
-		}
+	// TODO
+	/*
+		for _, u := range rl.spec.URLs {
+			if !u.Match(ctx.Request()) {
+				continue
+			}
 
-		permitted, d := u.rl.AcquirePermission()
-		if !permitted {
-			ctx.AddTag("rateLimiter: too many requests")
-			ctx.Response().SetStatusCode(http.StatusTooManyRequests)
-			ctx.Response().Std().Header().Set("X-EG-Rate-Limiter", "too-many-requests")
-			return resultRateLimited
-		}
+			permitted, d := u.rl.AcquirePermission()
+			if !permitted {
+				ctx.AddTag("rateLimiter: too many requests")
+				ctx.Response().SetStatusCode(http.StatusTooManyRequests)
+				ctx.Response().Std().Header().Set("X-EG-Rate-Limiter", "too-many-requests")
+				return resultRateLimited
+			}
 
-		if d <= 0 {
-			break
-		}
+			if d <= 0 {
+				break
+			}
 
-		timer := time.NewTimer(d)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ""
-		case <-timer.C:
-			ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
-			return ""
+			timer := time.NewTimer(d)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ""
+			case <-timer.C:
+				ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
+				return ""
+			}
 		}
-	}
+	*/
 	return ""
 }
 

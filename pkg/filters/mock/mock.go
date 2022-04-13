@@ -120,7 +120,7 @@ func (m *Mock) reload() {
 }
 
 // Handle mocks HTTPContext.
-func (m *Mock) Handle(ctx context.Context) string {
+func (m *Mock) Handle(ctx *context.Context) string {
 	result := ""
 	if rule := m.match(ctx); rule != nil {
 		m.mock(ctx, rule)
@@ -129,9 +129,10 @@ func (m *Mock) Handle(ctx context.Context) string {
 	return result
 }
 
-func (m *Mock) match(ctx context.Context) *Rule {
-	path := ctx.Request().(*httpprot.Request).Path()
-	header := ctx.Request().Header()
+func (m *Mock) match(ctx *context.Context) *Rule {
+	req := ctx.Request().(*httpprot.Request)
+	path := req.Path()
+	header := req.HTTPHeader()
 
 	matchPath := func(rule *Rule) bool {
 		if rule.Match.Path == "" && rule.Match.PathPrefix == "" {
@@ -196,14 +197,14 @@ func (m *Mock) match(ctx context.Context) *Rule {
 	return nil
 }
 
-func (m *Mock) mock(ctx context.Context, rule *Rule) {
+func (m *Mock) mock(ctx *context.Context, rule *Rule) {
 	httpreq := ctx.Request().(*httpprot.Request)
 	w := ctx.Response().(*httpprot.Response)
 	w.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {
 		w.Header().Set(key, value)
 	}
-	w.Payload().SetReader(strings.NewReader(rule.Body), true)
+	w.SetPayload([]byte(rule.Body))
 
 	if rule.delay <= 0 {
 		return
