@@ -24,6 +24,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -54,14 +55,16 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		filters map[string]filters.Filter
-		flow    []FlowNode
+		filters    map[string]filters.Filter
+		flow       []FlowNode
+		resilience map[string]resilience.Policy
 	}
 
 	// Spec describes the Pipeline.
 	Spec struct {
-		Flow    []FlowNode               `yaml:"flow" jsonschema:"omitempty"`
-		Filters []map[string]interface{} `yaml:"filters" jsonschema:"required"`
+		Flow       []FlowNode               `yaml:"flow" jsonschema:"omitempty"`
+		Filters    []map[string]interface{} `yaml:"filters" jsonschema:"required"`
+		Resilience []map[string]interface{} `yaml:"resilience" jsonschema:"omitempty"`
 	}
 
 	// FlowNode describes one node of the pipeline flow.
@@ -70,6 +73,7 @@ type (
 		DefaultRequestID string            `yaml:"defaultRequestID" jsonschema:"defaultRequestID,omitempty"`
 		TargetRequestID  string            `yaml:"targetRequestID" jsonschema:"targetRequestID,omitempty"`
 		TargetResponseID string            `yaml:"targetResponseID" jsonschema:"targetResponseID,omitempty"`
+		UseRequest       string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
 		JumpIf           map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 		filter           filters.Filter
 	}
@@ -170,6 +174,14 @@ func (s *Spec) Validate() (err error) {
 	// 2.2: validate requests
 	s.ValidateRequest()
 
+	// 3: validate resilience
+	for _, r := range s.Resilience {
+		_, err := resilience.NewPolicy("", r)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return nil
 }
 
@@ -224,6 +236,9 @@ func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper)
 // Inherit inherits previous generation of Pipeline.
 func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	p.filters = make(map[string]filters.Filter)
+	p.resilience = make(map[string]resilience.Policy)
+
 	p.reload(previousGeneration.(*Pipeline))
 	previousGeneration.Close()
 }
@@ -231,6 +246,15 @@ func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration superv
 func (p *Pipeline) reload(previousGeneration *Pipeline) {
 	super := p.superSpec.Super()
 	pipelineName := p.superSpec.Name()
+
+	// create resilience
+	for _, r := range p.spec.Resilience {
+		policy, err := resilience.NewPolicy(pipelineName, r)
+		if err != nil {
+			panic(err)
+		}
+		p.resilience[policy.Name()] = policy
+	}
 
 	// create a flow in case the pipeline spec does not define one.
 	flow := p.spec.Flow
@@ -255,6 +279,9 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 		var prev filters.Filter
 		if previousGeneration != nil {
 			prev = previousGeneration.getFilter(spec.Name())
+		}
+		if backend, ok := filter.(filters.Backend); ok {
+			backend.SetResilienceBeforeInit(p.resilience)
 		}
 		if prev == nil {
 			filter.Init()

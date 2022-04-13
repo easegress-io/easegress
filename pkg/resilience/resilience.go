@@ -15,82 +15,30 @@
  * limitations under the License.
  */
 
-package filters
+package resilience
 
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/v"
 	"gopkg.in/yaml.v2"
 )
 
 type (
-	// Kind contains the meta data and functions of a filter kind.
+	// Kind contains the meta data and functions of a resilience kind.
 	Kind struct {
-		// Name is the name of the filter kind.
+		// Name is the name of the resilience kind.
 		Name string
 
-		// Description is the description of the filter.
-		Description string
-
-		// Results list all possible results of the filter, except the normal
-		// result (i.e. empty string).
-		Results []string
-
-		// CreateInstance creates a new filter instance of the kind.
-		CreateInstance func(spec Spec) Filter
-
-		// DefaultSpec returns a spec for the filter, with default values. The
+		// DefaultPolicy returns a spec for the resilience, with default values. The
 		// function should always return a new spec copy, because the caller
 		// may modify the returned spec.
-		DefaultSpec func() Spec
+		DefaultPolicy func() Policy
 	}
 
-	// Filter is the interface of filters handling traffic of various protocols.
-	Filter interface {
-		// Name returns the name of the filter.
-		Name() string
-
-		// Kind returns the kind of the filter, caller should never modify the
-		// return value.
-		Kind() *Kind
-
-		// Spec returns the Spec of the filter instance.
-		Spec() Spec
-
-		// Init initializes the Filter.
-		Init()
-
-		// Inherit also initializes the Filter, the difference from Init is it
-		// inherit something from the previousGeneration, but Inherit does NOT
-		// handle the lifecycle of previousGeneration.
-		Inherit(previousGeneration Filter)
-
-		// Handle handles one HTTP request, all possible results
-		// need be registered in Results.
-		Handle(*context.Context) (result string)
-
-		// Status returns its runtime status.
-		// It could return nil.
-		Status() interface{}
-
-		// Close closes itself.
-		Close()
-	}
-
-	// Backend is the interface of filters that accept resilience policies.
-	Backend interface {
-		SetResilienceBeforeInit(policies map[string]resilience.Policy)
-	}
-
-	// Spec is the common interface of filter specs
-	Spec interface {
-		// Super returns supervisor
-		Super() *supervisor.Supervisor
-
+	// Policy is the common interface of resilience policies
+	Policy interface {
 		// Name returns name.
 		Name() string
 
@@ -111,17 +59,16 @@ type (
 	// BaseSpec is the universal spec for all filters.
 	BaseSpec struct {
 		supervisor.MetaSpec `yaml:",inline"`
-		super               *supervisor.Supervisor
 		pipeline            string
 		yamlConfig          string
 	}
 )
 
-// NewSpec creates a filter spec and validates it.
-func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{}) (spec Spec, err error) {
+// NewPolicy creates a resilience policy and validates it.
+func NewPolicy(pipeline string, rawSpec interface{}) (policy Policy, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			spec = nil
+			policy = nil
 			err = fmt.Errorf("%v", r)
 		}
 	}()
@@ -140,40 +87,28 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("%v", vr)
 	}
 
-	// Filter self part.
+	// Resilience self part.
 	kind := GetKind(meta.Kind)
 	if kind == nil {
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
-	spec = kind.DefaultSpec()
-	if err = yaml.Unmarshal(yamlBuff, spec); err != nil {
+	policy = kind.DefaultPolicy()
+	if err = yaml.Unmarshal(yamlBuff, policy); err != nil {
 		return nil, err
 	}
-	// TODO: Make the invalid part more accurate. e,g:
-	// filters: jsonschemaErrs:
-	// - 'policies.0: name is required'
-	// to
-	// filters: jsonschemaErrs:
-	// - 'rateLimiter.policies.0: name is required'
-	if vr := v.Validate(spec); !vr.Valid() {
+	if vr := v.Validate(policy); !vr.Valid() {
 		return nil, fmt.Errorf("%v", vr)
 	}
 
-	yamlBuff, err = yaml.Marshal(spec)
+	yamlBuff, err = yaml.Marshal(policy)
 	if err != nil {
 		return nil, err
 	}
 
-	baseSpec := spec.baseSpec()
-	baseSpec.super = super
+	baseSpec := policy.baseSpec()
 	baseSpec.pipeline = pipeline
 	baseSpec.yamlConfig = string(yamlBuff)
 	return
-}
-
-// Super returns super.
-func (s *BaseSpec) Super() *supervisor.Supervisor {
-	return s.super
 }
 
 // Name returns name.

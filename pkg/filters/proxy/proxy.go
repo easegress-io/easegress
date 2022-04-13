@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
+	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -42,6 +43,10 @@ const (
 	resultInternalError = "internalError"
 	resultClientError   = "clientError"
 	resultServerError   = "serverError"
+
+	// result for resilience
+	resultTimeout        = "timeout"
+	resultShortCircuited = "shortCircuited"
 )
 
 var kind = &filters.Kind{
@@ -52,6 +57,8 @@ var kind = &filters.Kind{
 		resultInternalError,
 		resultClientError,
 		resultServerError,
+		resultTimeout,
+		resultShortCircuited,
 	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{
@@ -67,6 +74,9 @@ var kind = &filters.Kind{
 	},
 }
 
+var _ filters.Filter = (*Proxy)(nil)
+var _ filters.Backend = (*Proxy)(nil)
+
 func init() {
 	filters.Register(kind)
 }
@@ -78,8 +88,9 @@ var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, 
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
-		super *supervisor.Supervisor
-		spec  *Spec
+		super      *supervisor.Supervisor
+		spec       *Spec
+		resilience map[string]resilience.Policy
 
 		fallback *fallback.Fallback
 
@@ -329,6 +340,10 @@ func (p *Proxy) Handle(ctx *context.Context) (result string) {
 
 	// TODO: resilience and etc.
 	return sp.handle(ctx, false)
+}
+
+func (p *Proxy) SetResilienceBeforeInit(policies map[string]resilience.Policy) {
+	p.resilience = policies
 }
 
 /*

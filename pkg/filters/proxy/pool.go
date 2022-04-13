@@ -18,6 +18,7 @@
 package proxy
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,6 +51,7 @@ type ServerPool struct {
 
 	filter       RequestMatcher
 	loadBalancer atomic.Value
+	resilience   *Resilience
 
 	httpStat    *httpstat.HTTPStat
 	memoryCache *memorycache.MemoryCache
@@ -65,6 +67,7 @@ type ServerPoolSpec struct {
 	ServiceName     string              `yaml:"serviceName" jsonschema:"omitempty"`
 	LoadBalance     *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"required"`
 	MemoryCache     *memorycache.Spec   `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+	Resilience      *ResilienceSpec     `yaml:"resilience,omitempty" jsonschema:"omitempty"`
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -114,6 +117,14 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 		sp.createLoadBalancer(sp.spec.Servers)
 	} else {
 		sp.watchServers()
+	}
+
+	var err error
+	if spec.Resilience != nil {
+		sp.resilience, err = newResilience(spec.Resilience, proxy.resilience)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return sp
@@ -211,7 +222,7 @@ type serverPoolContext struct {
 	endTime     time.Time
 }
 
-func (spCtx *serverPoolContext) prepareRequest() error {
+func (spCtx *serverPoolContext) prepareRequest(stdctx stdcontext.Context) error {
 	stdr := spCtx.req.Std()
 
 	url := spCtx.svr.URL + spCtx.req.Path()
@@ -219,7 +230,7 @@ func (spCtx *serverPoolContext) prepareRequest() error {
 		url += "?" + stdr.URL.RawQuery
 	}
 
-	var ctx = stdr.Context()
+	ctx := stdctx
 	if !spCtx.isMirror {
 		spCtx.statResult = &gohttpstat.Result{}
 		ctx = gohttpstat.WithHTTPStat(ctx, spCtx.statResult)
@@ -273,6 +284,27 @@ func (spCtx *serverPoolContext) duration() time.Duration {
 }
 
 func (sp *ServerPool) handle(ctx *context.Context, isMirror bool) string {
+	stdctx := ctx.Request().(*httpprot.Request).Std().Context()
+	var handler Handler
+	handler = func(stdctx stdcontext.Context, ctx *context.Context) string {
+		return sp.doHandle(stdctx, ctx, isMirror)
+	}
+
+	if sp.resilience != nil {
+		if sp.resilience.circuitbreak != nil {
+			handler = sp.resilience.circuitbreak.wrap(handler)
+		}
+		if sp.resilience.timeLimit != nil {
+			handler = sp.resilience.timeLimit.wrap(handler)
+		}
+		if sp.resilience.retry != nil {
+			handler = sp.resilience.retry.wrap(handler)
+		}
+	}
+	return handler(stdctx, ctx)
+}
+
+func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, isMirror bool) string {
 	/*
 		if sp.memoryCache != nil && sp.memoryCache.Load(ctx) {
 		}
@@ -308,7 +340,7 @@ func (sp *ServerPool) handle(ctx *context.Context, isMirror bool) string {
 	}
 
 	// prepare the request to send.
-	err := spCtx.prepareRequest()
+	err := spCtx.prepareRequest(stdctx)
 	if err != nil {
 		msg := "prepare request failed: " + err.Error()
 		logger.Errorf(msg)
