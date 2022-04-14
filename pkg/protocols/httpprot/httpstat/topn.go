@@ -21,8 +21,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/urlclusteranalyzer"
 )
 
@@ -51,8 +49,8 @@ func NewTopN(n int) *TopN {
 }
 
 // Stat stats the ctx.
-func (t *TopN) Stat(ctx *context.Context) {
-	pattern := t.uca.GetPattern(ctx.Request().(*httpprot.Request).Path())
+func (t *TopN) Stat(path string) *HTTPStat {
+	pattern := t.uca.GetPattern(path)
 
 	var httpStat *HTTPStat
 	if v, loaded := t.m.Load(pattern); loaded {
@@ -65,8 +63,7 @@ func (t *TopN) Stat(ctx *context.Context) {
 		}
 	}
 
-	// TODO
-	// httpStat.Stat(ctx.StatMetric())
+	return httpStat
 }
 
 // Status returns TopN Status, and resets all metrics.

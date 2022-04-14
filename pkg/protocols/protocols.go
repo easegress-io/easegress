@@ -38,7 +38,6 @@ type Request interface {
 	Header() Header
 	SetPayload(payload []byte)
 	GetPayload() io.Reader
-	Clone() Request
 	Close()
 }
 
@@ -47,7 +46,6 @@ type Response interface {
 	Header() Header
 	SetPayload(payload []byte)
 	GetPayload() io.Reader
-	Clone() Response
 	Close()
 }
 

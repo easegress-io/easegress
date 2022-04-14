@@ -28,7 +28,6 @@ import (
 	"github.com/klauspost/compress/gzip"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 // TODO: Expose more options: compression level, mime types.
@@ -54,6 +53,13 @@ type (
 	}
 )
 
+const (
+	keyAcceptEncoding  = "Accept-Encoding"
+	keyContentEncoding = "Content-Encoding"
+	keyContentLength   = "Content-Length"
+	keyVary            = "Vary"
+)
+
 func newCompression(spec *CompressionSpec) *compression {
 	return &compression{
 		spec: spec,
@@ -74,16 +80,16 @@ func (c *compression) compress(req *http.Request, resp *http.Response) bool {
 		return false
 	}
 
-	resp.Header.Del(httpprot.KeyContentLength)
-	resp.Header.Set(httpprot.KeyContentEncoding, "gzip")
-	resp.Header.Add(httpprot.KeyVary, httpprot.KeyContentEncoding)
+	resp.Header.Del(keyContentLength)
+	resp.Header.Set(keyContentEncoding, "gzip")
+	resp.Header.Add(keyVary, keyContentEncoding)
 
 	resp.Body = io.NopCloser(newGzipBody(resp.Body))
 	return true
 }
 
 func (c *compression) alreadyGziped(resp *http.Response) bool {
-	for _, ce := range resp.Header.Values(httpprot.KeyContentEncoding) {
+	for _, ce := range resp.Header.Values(keyContentEncoding) {
 		if strings.Contains(ce, "gzip") {
 			return true
 		}
@@ -93,7 +99,7 @@ func (c *compression) alreadyGziped(resp *http.Response) bool {
 }
 
 func (c *compression) acceptGzip(req *http.Request) bool {
-	acceptEncodings := req.Header.Values(httpprot.KeyAcceptEncoding)
+	acceptEncodings := req.Header.Values(keyAcceptEncoding)
 
 	// NOTE: Easegress does not support parsing qvalue for performance.
 	// Reference: https://tools.ietf.org/html/rfc2616#section-14.3
@@ -111,7 +117,7 @@ func (c *compression) acceptGzip(req *http.Request) bool {
 }
 
 func (c *compression) parseContentLength(resp *http.Response) int {
-	contentLength := resp.Header.Get(httpprot.KeyContentLength)
+	contentLength := resp.Header.Get(keyContentLength)
 	if contentLength == "" {
 		return -1
 	}

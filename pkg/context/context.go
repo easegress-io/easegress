@@ -22,7 +22,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 const (
@@ -62,21 +61,12 @@ type Context struct {
 }
 
 // New creates a new Context.
-func New(req protocols.Request, resp protocols.Response, tracer *tracing.Tracing, spanName string) *Context {
-	now := fasttime.Now()
-	span := tracing.NewSpanWithStart(tracer, spanName, now)
-
+func New(span tracing.Span) *Context {
 	ctx := &Context{
-		span:    span,
-		request: req,
-		requests: map[string]protocols.Request{
-			InitialRequestID: req,
-		},
-		response: resp,
-		responses: map[string]protocols.Response{
-			InitialResponseID: resp,
-		},
-		kv: map[interface{}]interface{}{},
+		span:      span,
+		requests:  map[string]protocols.Request{},
+		responses: map[string]protocols.Response{},
+		kv:        map[interface{}]interface{}{},
 	}
 	return ctx
 }

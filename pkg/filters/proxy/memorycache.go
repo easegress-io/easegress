@@ -29,7 +29,10 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
-const minCleanupInterval = time.Minute
+const (
+	minCleanupInterval = time.Minute
+	keyCacheControl    = "Cache-Control"
+)
 
 type (
 	// MemoryCache is an utility MemoryCache.
@@ -95,7 +98,7 @@ func (mc *MemoryCache) Load(req *http.Request) *CacheEntry {
 		return nil
 	}
 
-	for _, value := range req.Header.Values(httpprot.KeyCacheControl) {
+	for _, value := range req.Header.Values(keyCacheControl) {
 		if strings.Contains(value, "no-cache") {
 			return nil
 		}
@@ -132,13 +135,13 @@ func (mc *MemoryCache) NeedStore(req *http.Request, resp *http.Response) bool {
 		return false
 	}
 
-	for _, value := range req.Header.Values(httpprot.KeyCacheControl) {
+	for _, value := range req.Header.Values(keyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") {
 			return false
 		}
 	}
-	for _, value := range resp.Header.Values(httpprot.KeyCacheControl) {
+	for _, value := range resp.Header.Values(keyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") ||
 			strings.Contains(value, "must-revalidate") {

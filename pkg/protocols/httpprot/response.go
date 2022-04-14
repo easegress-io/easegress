@@ -24,7 +24,6 @@ import (
 	"strconv"
 
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 // Response wraps http.Response.
@@ -32,7 +31,7 @@ type Response struct {
 	// TODO: we only need StatusCode, Header and Body, that's can avoid
 	// using the big http.Response object.
 	*http.Response
-	getPayload func() io.Reader
+	payload []byte
 }
 
 var _ protocols.Response = (*Response)(nil)
@@ -48,18 +47,11 @@ func NewResponse(resp *http.Response) *Response {
 				Body:       http.NoBody,
 				StatusCode: http.StatusOK,
 			},
-			getPayload: func() io.Reader {
-				return http.NoBody
-			},
 		}
 	}
 
-	ra := readers.NewReaderAt(resp.Body)
+	// TODO: Set payload
 	r := &Response{Response: resp}
-	r.getPayload = func() io.Reader {
-		return readers.NewReaderAtReader(ra, 0)
-	}
-	r.Body = io.NopCloser(r.GetPayload())
 
 	return r
 }
@@ -128,15 +120,17 @@ func (r *Response) SetCookie(cookie *http.Cookie) {
 
 // SetPayload sets the payload of the response to payload.
 func (r *Response) SetPayload(payload []byte) {
-	r.getPayload = func() io.Reader {
-		return bytes.NewReader(payload)
-	}
-	r.Std().Body = io.NopCloser(r.GetPayload())
+	r.payload = payload
+	r.Body = io.NopCloser(r.GetPayload())
 }
 
 // GetPayload returns a new payload reader.
 func (r *Response) GetPayload() io.Reader {
-	return r.getPayload()
+	if len(r.payload) == 0 {
+		return http.NoBody
+	} else {
+		return bytes.NewReader(r.payload)
+	}
 }
 
 // HTTPHeader returns the header of the response in type http.Header.
@@ -147,18 +141,6 @@ func (r *Response) HTTPHeader() http.Header {
 // Header returns the header of the response in type protocols.Header.
 func (r *Response) Header() protocols.Header {
 	return newHeader(r.HTTPHeader())
-}
-
-// Clone clones the response and returns the new one.
-func (r *Response) Clone() protocols.Response {
-	return &Response{
-		Response: &http.Response{
-			StatusCode: r.StatusCode(),
-			Header:     r.HTTPHeader().Clone(),
-			Body:       io.NopCloser(r.GetPayload()),
-		},
-		getPayload: r.getPayload,
-	}
 }
 
 // Close closes the response.

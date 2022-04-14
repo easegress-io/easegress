@@ -18,6 +18,7 @@
 package httpserver
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -26,8 +27,10 @@ import (
 	"strings"
 	"sync/atomic"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/pkg/object/globalfilter"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/tomasen/realip"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -35,6 +38,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -44,16 +48,18 @@ type (
 		httpStat *httpstat.HTTPStat
 		topN     *httpstat.TopN
 
-		rules atomic.Value // *muxRules
+		inst atomic.Value // *muxInstance
 	}
 
-	muxRules struct {
+	muxInstance struct {
 		superSpec *supervisor.Spec
 		spec      *Spec
+		httpStat  *httpstat.HTTPStat
+		topN      *httpstat.TopN
 
 		muxMapper context.MuxMapper
 
-		cache *cache
+		cache *lru.ARCCache
 
 		tracer       *tracing.Tracing
 		ipFilter     *ipfilter.IPFilter
@@ -87,8 +93,17 @@ type (
 		headers       []*Header
 	}
 
-	// SearchResult is returned by SearchPath
-	SearchResult string
+	route struct {
+		code int
+		path *MuxPath
+	}
+)
+
+var (
+	notFound         = &route{code: http.StatusNotFound}
+	forbidden        = &route{code: http.StatusForbidden}
+	methodNotAllowed = &route{code: http.StatusMethodNotAllowed}
+	badRequest       = &route{code: http.StatusBadRequest}
 )
 
 // newIPFilterChain returns nil if the number of final filters is zero.
@@ -119,32 +134,29 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	return ipfilter.New(spec)
 }
 
-func (mr *muxRules) pass(r *httpprot.Request) bool {
-	if mr.ipFilter == nil {
+func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
+	if ipFilter == nil {
 		return true
 	}
 
-	return mr.ipFilter.Allow(r.RealIP())
+	return ipFilter.Allow(ip)
 }
 
-func (mr *muxRules) getCacheItem(r *httpprot.Request) *cacheItem {
-	if mr.cache == nil {
-		return nil
+func (mi *muxInstance) getCacheRoute(req *http.Request) *route {
+	if mi.cache != nil {
+		key := stringtool.Cat(req.Host, req.Method, req.URL.Path)
+		if value, ok := mi.cache.Get(key); ok {
+			return value.(*route)
+		}
 	}
-
-	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
-	return mr.cache.get(key)
+	return nil
 }
 
-func (mr *muxRules) putCacheItem(r *httpprot.Request, ci *cacheItem) {
-	if mr.cache == nil || ci.cached {
-		return
+func (mi *muxInstance) putRouteToCache(req *http.Request, r *route) {
+	if mi.cache != nil {
+		key := stringtool.Cat(req.Host, req.Method, req.URL.Path)
+		mi.cache.Add(key, r)
 	}
-
-	ci.cached = true
-	key := stringtool.Cat(r.Host(), r.Method(), r.Path())
-	// NOTE: It's fine to cover the existed item because of concurrently updating cache.
-	mr.cache.put(key, ci)
 }
 
 func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPath) *muxRule {
@@ -171,20 +183,12 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 }
 
-func (mr *muxRule) pass(r *httpprot.Request) bool {
-	if mr.ipFilter == nil {
-		return true
-	}
-
-	return mr.ipFilter.Allow(r.RealIP())
-}
-
-func (mr *muxRule) match(r *httpprot.Request) bool {
+func (mr *muxRule) match(r *http.Request) bool {
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
 
-	host := r.Host()
+	host := r.Host
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
@@ -230,47 +234,36 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 	}
 }
 
-func (mp *MuxPath) pass(r *httpprot.Request) bool {
-	if mp.ipFilter == nil {
-		return true
-	}
-
-	return mp.ipFilter.Allow(r.RealIP())
-}
-
-func (mp *MuxPath) matchPath(r *httpprot.Request) bool {
+func (mp *MuxPath) matchPath(r *http.Request) bool {
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
 
-	if mp.path != "" && mp.path == r.Path() {
+	path := r.URL.Path
+	if mp.path != "" && mp.path == path {
 		return true
 	}
-	if mp.pathPrefix != "" && strings.HasPrefix(r.Path(), mp.pathPrefix) {
+	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
 		return true
 	}
 	if mp.pathRE != nil {
-		return mp.pathRE.MatchString(r.Path())
+		return mp.pathRE.MatchString(path)
 	}
 
 	return false
 }
 
-func (mp *MuxPath) matchMethod(r *httpprot.Request) bool {
+func (mp *MuxPath) matchMethod(r *http.Request) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
 
-	return stringtool.StrInSlice(r.Method(), mp.methods)
+	return stringtool.StrInSlice(r.Method, mp.methods)
 }
 
-func (mp *MuxPath) hasHeaders() bool {
-	return len(mp.headers) > 0
-}
-
-func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
+func (mp *MuxPath) matchHeaders(r *http.Request) bool {
 	for _, h := range mp.headers {
-		v := r.HTTPHeader().Get(h.Key)
+		v := r.Header.Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
 			return true
 		}
@@ -289,23 +282,25 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.Mux
 		topN:     topN,
 	}
 
-	m.rules.Store(&muxRules{
+	m.inst.Store(&muxInstance{
 		spec:      &Spec{},
 		tracer:    tracing.NoopTracing,
 		muxMapper: mapper,
+		httpStat:  httpStat,
+		topN:      topN,
 	})
 
 	return m
 }
 
-func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
+func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracing
-	oldRules := m.rules.Load().(*muxRules)
-	if !reflect.DeepEqual(oldRules.spec.Tracing, spec.Tracing) {
+	oldInst := m.inst.Load().(*muxInstance)
+	if !reflect.DeepEqual(oldInst.spec.Tracing, spec.Tracing) {
 		defer func() {
-			err := oldRules.tracer.Close()
+			err := oldInst.tracer.Close()
 			if err != nil {
 				logger.Errorf("close tracing failed: %v", err)
 			}
@@ -316,14 +311,16 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 		} else {
 			tracer = tracer0
 		}
-	} else if oldRules.tracer != nil {
-		tracer = oldRules.tracer
+	} else if oldInst.tracer != nil {
+		tracer = oldInst.tracer
 	}
 
-	rules := &muxRules{
+	inst := &muxInstance{
 		superSpec:    superSpec,
 		spec:         spec,
 		muxMapper:    muxMapper,
+		httpStat:     m.httpStat,
+		topN:         m.topN,
 		ipFilter:     newIPFilter(spec.IPFilter),
 		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
 		rules:        make([]*muxRule, len(spec.Rules)),
@@ -331,13 +328,17 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 	}
 
 	if spec.CacheSize > 0 {
-		rules.cache = newCache(spec.CacheSize)
+		arc, err := lru.NewARC(int(spec.CacheSize))
+		if err != nil {
+			logger.Errorf("BUG: new arc cache failed: %v", err)
+		}
+		inst.cache = arc
 	}
 
-	for i := 0; i < len(rules.rules); i++ {
+	for i := 0; i < len(inst.rules); i++ {
 		specRule := spec.Rules[i]
 
-		ruleIPFilterChain := newIPFilterChain(rules.ipFilterChan, specRule.IPFilter)
+		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
 
 		paths := make([]*MuxPath, len(specRule.Paths))
 		for j := 0; j < len(paths); j++ {
@@ -345,10 +346,10 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 		}
 
 		// NOTE: Given the parent ipFilters not its own.
-		rules.rules[i] = newMuxRule(rules.ipFilterChan, specRule, paths)
+		inst.rules[i] = newMuxRule(inst.ipFilterChan, specRule, paths)
 	}
 
-	m.rules.Store(rules)
+	m.inst.Store(inst)
 }
 
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
@@ -361,106 +362,152 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		return
 	}
 
+	// Forward to the current muxInstance to handle the request.
+	m.inst.Load().(*muxInstance).serveHTTP(stdw, stdr)
+}
+
+// wrapRequest wraps a http.Request to httpprox.Request.
+//
+// The body of http.Request can only be read once, but the pipeline
+// may require it to be read more times, so we need to read the full
+// body out here. This consumes a lot of memory, but seems no way to
+// avoid it.
+func (mi *muxInstance) wrapRequest(stdr *http.Request) (*httpprot.Request, error) {
+	var body []byte
+	var err error
+	if stdr.ContentLength > 0 {
+		body = make([]byte, stdr.ContentLength)
+		_, err = io.ReadFull(stdr.Body, body)
+	} else if stdr.ContentLength == -1 {
+		body, err = io.ReadAll(stdr.Body)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	req := httpprot.NewRequest(stdr)
+	req.SetPayload(body)
+
+	if mi.spec.XForwardedFor {
+		mi.appendXForwardedFor(req)
+	}
+
+	return req, nil
+}
+
+func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// The body of the original request maybe changed by handlers, we
 	// need to restore it before the return of this funtion to make
 	// sure it can be correctly closed by the standard Go HTTP package.
 	originalBody := stdr.Body
 
-	// Get the mux rules to use.
-	rules := m.rules.Load().(*muxRules)
+	now := fasttime.Now()
+	span := tracing.NewSpanWithStart(mi.tracer, mi.superSpec.Name(), now)
+	ctx := context.New(span)
 
-	// Create the context.
-	req := httpprot.NewRequest(stdr)
-	resp := httpprot.NewResponse(nil)
-	ctx := context.New(req, resp, rules.tracer, rules.superSpec.Name())
+	// get topN here, as the path could be modified later.
+	topNStat := mi.topN.Stat(stdr.URL.Path)
 
 	defer func() {
-		// flush the response, note ctx.Response may return a different
-		// response from the one we used to create the context.
-		resp = ctx.Response().(*httpprot.Response)
+		span.Finish()
+		ctx.Finish()
+		// TODO
+		// topNStat.Stat(ctx.StatMetric())
+		_ = topNStat
+		// TODO:
+		//	mi.httpStat.Stat(ctx.StatMetric())
+		// restore the body of the origin request.
+		stdr.Body = originalBody
+	}()
+
+	route := mi.search(stdr)
+	if route.code != http.StatusOK {
+		ctx.AddTag(fmt.Sprintf("status code: %d", route.code))
+		stdw.WriteHeader(route.code)
+		return
+	}
+
+	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
+	if !ok {
+		ctx.AddTag(stringtool.Cat("backend ", route.path.backend, " not found"))
+		stdw.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
+	if route.path.pathRE != nil && route.path.rewriteTarget != "" {
+		path := stdr.URL.Path
+		path = route.path.pathRE.ReplaceAllString(path, route.path.rewriteTarget)
+		stdr.URL.Path = path
+	}
+
+	req, err := mi.wrapRequest(stdr)
+	if err != nil {
+		ctx.AddTag(fmt.Sprintf("failed to wrap request: %v", err))
+		stdw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ctx.SetRequest(context.InitialRequestID, req)
+
+	defer func() {
+		var resp *httpprot.Response
+		if v := ctx.Response(); v != nil {
+			resp = v.(*httpprot.Response)
+		}
+		if resp == nil {
+			stdw.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		header := stdw.Header()
 		for k, v := range resp.HTTPHeader() {
 			header[k] = v
 		}
 		stdw.WriteHeader(resp.StatusCode())
 		io.Copy(stdw, resp.GetPayload())
-
-		ctx.Finish()
-
-		// TODO: should be called in ctx.Finish()
-		ctx.Span().Finish()
-
-		// TODO:
-		//	m.httpStat.Stat(ctx.StatMetric())
-		m.topN.Stat(ctx)
-
-		// restore the body of the origin request.
-		stdr.Body = originalBody
 	}()
 
-	ci := rules.getCacheItem(req)
-	if ci != nil {
-		m.handleRequestWithCache(rules, ctx, ci)
-		return
-	}
-
-	if !rules.pass(req) {
-		m.handleIPNotAllow(ctx)
-		return
-	}
-
-	handleNotFound := func() {
-		ci = &cacheItem{ipFilterChan: rules.ipFilterChan, notFound: true}
-		rules.putCacheItem(req, ci)
-		m.handleRequestWithCache(rules, ctx, ci)
-	}
-
-	result, path := SearchPath(req, rules.rules)
-	switch result {
-	case Found:
-		ci = &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
-		rules.putCacheItem(req, ci)
-		m.handleRequestWithCache(rules, ctx, ci)
-	case FoundSkipCache:
-		ci := &cacheItem{ipFilterChan: path.ipFilterChain, path: path}
-		m.handleRequestWithCache(rules, ctx, ci)
-	case MethodNotAllowed:
-		ci := &cacheItem{ipFilterChan: path.ipFilterChain, methodNotAllowed: true}
-		rules.putCacheItem(req, ci)
-		m.handleRequestWithCache(rules, ctx, ci)
-	case IPNotAllowed:
-		m.handleIPNotAllow(ctx)
-	case NotFound:
-		handleNotFound()
-	default:
-		handleNotFound()
+	// global filter
+	globalFilter := mi.getGlobalFilter()
+	if globalFilter == nil {
+		handler.Handle(ctx)
+	} else {
+		globalFilter.Handle(ctx, handler)
 	}
 }
 
-const (
-	// NotFound means no path found
-	NotFound SearchResult = "not-found"
-	// IPNotAllowed means context IP is not allowd
-	IPNotAllowed SearchResult = "ip-not-allowed"
-	// MethodNotAllowed means context method is not allowd
-	MethodNotAllowed SearchResult = "method-not-allowed"
-	// Found path
-	Found SearchResult = "found"
-	// FoundSkipCache means found path but skip caching result
-	FoundSkipCache SearchResult = "found-skip-cache"
-)
+func (mi *muxInstance) search(req *http.Request) *route {
+	headerMismatch, methodMismatch := false, false
 
-// SearchPath searches path among list of mux rules
-func SearchPath(req *httpprot.Request, rulesToCheck []*muxRule) (SearchResult, *MuxPath) {
-	pathFound := false
-	var notAllowedPath *MuxPath
-	for _, host := range rulesToCheck {
+	ip := realip.FromRequest(req)
+
+	// The key of the cache is req.Host + req.Method + req.URL.Path,
+	// and if a path is cached, we are sure it does not contain any
+	// headers.
+	r := mi.getCacheRoute(req)
+	if r != nil {
+		if r.code != http.StatusOK {
+			return r
+		}
+		if r.path.ipFilterChain == nil {
+			return r
+		}
+		if r.path.ipFilter.Allow(ip) {
+			return r
+		}
+		return forbidden
+	}
+
+	if !allowIP(mi.ipFilter, ip) {
+		return forbidden
+	}
+
+	for _, host := range mi.rules {
 		if !host.match(req) {
 			continue
 		}
 
-		if !host.pass(req) {
-			return IPNotAllowed, nil
+		if !host.ipFilter.Allow(ip) {
+			return forbidden
 		}
 
 		for _, path := range host.paths {
@@ -468,107 +515,65 @@ func SearchPath(req *httpprot.Request, rulesToCheck []*muxRule) (SearchResult, *
 				continue
 			}
 
-			// at least one path matches
-			pathFound = true
-			notAllowedPath = path
 			if !path.matchMethod(req) {
+				methodMismatch = true
 				continue
 			}
 
-			var searchResult SearchResult
-
-			if path.hasHeaders() {
-				if !path.matchHeaders(req) {
-					continue
-				}
-				searchResult = FoundSkipCache
-			} else {
-				searchResult = Found
+			// The path can be put into the cache if it has no headers.
+			if len(path.headers) == 0 {
+				r = &route{code: http.StatusOK, path: path}
+				mi.putRouteToCache(req, r)
 			}
 
-			if !path.pass(req) {
-				return IPNotAllowed, path
+			if !path.matchHeaders(req) {
+				headerMismatch = true
+				continue
 			}
 
-			return searchResult, path
+			if !allowIP(path.ipFilter, ip) {
+				return forbidden
+			}
+
+			return r
 		}
 	}
-	if !pathFound {
-		return NotFound, nil
+
+	if headerMismatch {
+		return badRequest
 	}
-	return MethodNotAllowed, notAllowedPath
+
+	if methodMismatch {
+		mi.putRouteToCache(req, methodNotAllowed)
+		return methodNotAllowed
+	}
+
+	mi.putRouteToCache(req, notFound)
+	return notFound
 }
 
-func (m *mux) handleIPNotAllow(ctx *context.Context) {
-	req := ctx.Request().(*httpprot.Request)
-	resp := ctx.Response().(*httpprot.Response)
-	ctx.AddTag(stringtool.Cat("ip ", req.RealIP(), " not allow"))
-	resp.SetStatusCode(http.StatusForbidden)
-}
+func (mi *muxInstance) appendXForwardedFor(r *httpprot.Request) {
+	const xForwardedFor = "X-Forwarded-For"
 
-func (m *mux) handleRequestWithCache(rules *muxRules, ctx *context.Context, ci *cacheItem) {
-	req := ctx.Request().(*httpprot.Request)
-	resp := ctx.Response().(*httpprot.Response)
-
-	if ci.ipFilterChan != nil {
-		if !ci.ipFilterChan.Allow(req.RealIP()) {
-			m.handleIPNotAllow(ctx)
-			return
-		}
-	}
-
-	switch {
-	case ci.notFound:
-		resp.SetStatusCode(http.StatusNotFound)
-	case ci.methodNotAllowed:
-		resp.SetStatusCode(http.StatusMethodNotAllowed)
-	case ci.path != nil:
-		handler, exists := rules.muxMapper.GetHandler(ci.path.backend)
-		if !exists {
-			ctx.AddTag(stringtool.Cat("backend ", ci.path.backend, " not found"))
-			resp.SetStatusCode(http.StatusServiceUnavailable)
-			return
-		}
-
-		if rules.spec.XForwardedFor {
-			m.appendXForwardedFor(req)
-		}
-
-		if ci.path.pathRE != nil && ci.path.rewriteTarget != "" {
-			path := req.Path()
-			path = ci.path.pathRE.ReplaceAllString(path, ci.path.rewriteTarget)
-			req.SetPath(path)
-		}
-		// global filter
-		globalFilter := m.getGlobalFilter(rules)
-		if globalFilter == nil {
-			handler.Handle(ctx)
-			return
-		}
-		globalFilter.Handle(ctx, handler)
-	}
-}
-
-func (m *mux) appendXForwardedFor(r *httpprot.Request) {
-	v := r.HTTPHeader().Get(httpprot.KeyXForwardedFor)
+	v := r.HTTPHeader().Get(xForwardedFor)
 	ip := r.RealIP()
 
 	if v == "" {
-		r.Header().Add(httpprot.KeyXForwardedFor, ip)
+		r.Header().Add(xForwardedFor, ip)
 		return
 	}
 
 	if !strings.Contains(v, ip) {
 		v = stringtool.Cat(v, ",", ip)
-		r.Header().Set(httpprot.KeyXForwardedFor, v)
+		r.Header().Set(xForwardedFor, v)
 	}
 }
 
-func (m *mux) getGlobalFilter(rules *muxRules) *globalfilter.GlobalFilter {
-	if rules.spec.GlobalFilter == "" {
+func (mi *muxInstance) getGlobalFilter() *globalfilter.GlobalFilter {
+	if mi.spec.GlobalFilter == "" {
 		return nil
 	}
-	globalFilter, ok := rules.superSpec.Super().GetBusinessController(rules.spec.GlobalFilter)
+	globalFilter, ok := mi.superSpec.Super().GetBusinessController(mi.spec.GlobalFilter)
 	if globalFilter == nil || !ok {
 		return nil
 	}
@@ -579,11 +584,12 @@ func (m *mux) getGlobalFilter(rules *muxRules) *globalfilter.GlobalFilter {
 	return globalFilterInstance
 }
 
-func (m *mux) close() {
-	rules := m.rules.Load().(*muxRules)
-	err := rules.tracer.Close()
-	if err != nil {
-		logger.Errorf("%s close tracer failed: %v",
-			rules.superSpec.Name(), err)
+func (mi *muxInstance) close() {
+	if err := mi.tracer.Close(); err != nil {
+		logger.Errorf("%s close tracer failed: %v", mi.superSpec.Name(), err)
 	}
+}
+
+func (m *mux) close() {
+	m.inst.Load().(*muxInstance).close()
 }

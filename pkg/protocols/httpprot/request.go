@@ -25,73 +25,47 @@ import (
 	"net/url"
 
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/tomasen/realip"
 )
 
 // Request wraps http.Request.
 type Request struct {
 	*http.Request
-	getPayload func() io.Reader
-
-	realIP string
+	payload []byte
+	realIP  string
 }
 
 var _ protocols.Request = (*Request)(nil)
 
-// NewRequest creates a new request from a standard request. The input
-// request could be nil, in which case, an empty request is created.
-// The caller need to close the body of the input request, if it need
-// to be closed.
+// NewRequest creates a new request from a standard request.
 func NewRequest(req *http.Request) *Request {
+	var r *Request
+
 	if req == nil {
 		req = &http.Request{Body: http.NoBody}
-		r := &Request{Request: req}
-		r.getPayload = func() io.Reader {
-			return http.NoBody
-		}
+		r = &Request{Request: req}
+	} else {
+		r = &Request{Request: req}
+		r.realIP = realip.FromRequest(req)
 	}
 
-	body := req.Body
-	r := &Request{Request: req}
-	ra := readers.NewReaderAt(body)
-	r.getPayload = func() io.Reader {
-		return readers.NewReaderAtReader(ra, 0)
-	}
-	r.Body = io.NopCloser(r.GetPayload())
-	r.realIP = realip.FromRequest(req)
-
+	// TODO: set payload
 	return r
 }
 
 // SetPayload sets the payload of the request to payload.
 func (r *Request) SetPayload(payload []byte) {
-	r.getPayload = func() io.Reader {
-		return bytes.NewReader(payload)
-	}
+	r.payload = payload
 	r.Body = io.NopCloser(r.GetPayload())
 }
 
 // GetPayload returns a new payload reader.
-// NOTE: Request could be sent more than one time, this is different from
-// http.Request, so after a request was sent, the request body should be
-// reset for next sent, like below:
-//
-//    r.Body = io.NopCloser(r.GetPayload())
 func (r *Request) GetPayload() io.Reader {
-	return r.getPayload()
-}
-
-// Clone clones the request and returns the new one.
-func (r *Request) Clone() protocols.Request {
-	stdr := r.Request.Clone(context.Background())
-
-	r2 := &Request{Request: stdr}
-	r2.realIP = r.realIP
-	r2.getPayload = r.getPayload
-	r2.Body = io.NopCloser(r2.GetPayload())
-
-	return r2
+	if len(r.payload) == 0 {
+		return http.NoBody
+	} else {
+		return bytes.NewReader(r.payload)
+	}
 }
 
 // Close closes the request.

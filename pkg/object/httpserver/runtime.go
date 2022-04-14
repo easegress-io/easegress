@@ -162,7 +162,7 @@ func (r *runtime) fsm() {
 
 func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	r.superSpec = nextSuperSpec
-	r.mux.reloadRules(nextSuperSpec, muxMapper)
+	r.mux.reload(nextSuperSpec, muxMapper)
 
 	nextSpec := nextSuperSpec.ObjectSpec().(*Spec)
 

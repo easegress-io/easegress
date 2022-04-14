@@ -48,18 +48,18 @@ func TestAcceptGzip(t *testing.T) {
 		t.Error("accept gzip should be true")
 	}
 
-	header.Add(httpheader.KeyAcceptEncoding, "text/text")
+	header.Add(keyAcceptEncoding, "text/text")
 	if c.acceptGzip(ctx) {
 		t.Error("accept gzip should be false")
 	}
 
-	header.Add(httpheader.KeyAcceptEncoding, "*/*")
+	header.Add(keyAcceptEncoding, "*/*")
 	if !c.acceptGzip(ctx) {
 		t.Error("accept gzip should be true")
 	}
 
-	header.Del(httpheader.KeyAcceptEncoding)
-	header.Add(httpheader.KeyAcceptEncoding, "gzip")
+	header.Del(keyAcceptEncoding)
+	header.Add(keyAcceptEncoding, "gzip")
 	if !c.acceptGzip(ctx) {
 		t.Error("accept gzip should be true")
 	}
@@ -78,12 +78,12 @@ func TestAlreadyGziped(t *testing.T) {
 		t.Error("already gziped should be false")
 	}
 
-	header.Add(httpheader.KeyContentEncoding, "text")
+	header.Add(keyContentEncoding, "text")
 	if c.alreadyGziped(ctx) {
 		t.Error("already gziped should be false")
 	}
 
-	header.Add(httpheader.KeyContentEncoding, "gzip")
+	header.Add(keyContentEncoding, "gzip")
 	if !c.alreadyGziped(ctx) {
 		t.Error("already gziped should be true")
 	}
@@ -102,12 +102,12 @@ func TestParseContentLength(t *testing.T) {
 		t.Error("content length should be -1")
 	}
 
-	header.Set(httpheader.KeyContentLength, "abc")
+	header.Set(keyContentLength, "abc")
 	if c.parseContentLength(ctx) != -1 {
 		t.Error("content length should be -1")
 	}
 
-	header.Set(httpheader.KeyContentLength, "100")
+	header.Set(keyContentLength, "100")
 	if c.parseContentLength(ctx) != 100 {
 		t.Error("content length should be 100")
 	}
@@ -124,7 +124,7 @@ func TestCompress(t *testing.T) {
 	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
 		return httpheader.New(header)
 	}
-	header.Set(httpheader.KeyContentLength, "20")
+	header.Set(keyContentLength, "20")
 
 	rawBody := strings.Repeat("this is the raw body. ", 100)
 	sr := strings.NewReader(rawBody)
@@ -133,7 +133,7 @@ func TestCompress(t *testing.T) {
 	}
 
 	c.compress(ctx)
-	if header.Get(httpheader.KeyContentEncoding) == "gzip" {
+	if header.Get(keyContentEncoding) == "gzip" {
 		t.Error("body should not be gziped")
 	}
 
@@ -141,9 +141,9 @@ func TestCompress(t *testing.T) {
 		io.ReadAll(body)
 	}
 
-	header.Set(httpheader.KeyContentLength, "120")
+	header.Set(keyContentLength, "120")
 	c.compress(ctx)
-	if header.Get(httpheader.KeyContentEncoding) != "gzip" {
+	if header.Get(keyContentEncoding) != "gzip" {
 		t.Error("body should be gziped")
 	}
 
