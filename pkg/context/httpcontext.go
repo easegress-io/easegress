@@ -70,6 +70,8 @@ type (
 
 		CallNextHandler(lastResult string) string
 		SetHandlerCaller(caller HandlerCaller)
+
+		Tracing() *tracing.Tracing
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -151,13 +153,13 @@ type (
 		w *httpResponse
 
 		ht             *HTTPTemplate
-		span           tracing.Span
 		originalReqCtx stdcontext.Context
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
 		err            error
 
-		metric httpstat.Metric
+		metric  httpstat.Metric
+		tracing *tracing.Tracing
 	}
 )
 
@@ -183,6 +185,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		lazyTags:       make([]LazyTagFunc, 0, 5),
 		finishFuncs:    make([]FinishFunc, 0, 1),
+		tracing:        tracingInstance,
 	}
 	return ctx
 }
@@ -353,4 +356,9 @@ func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
 // SaveRspToTemplate stores http response related info into HTTP template engine
 func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
 	return ctx.ht.SaveResponse(filterName, ctx)
+}
+
+// Tracing returns tracing object
+func (ctx *httpContext) Tracing() *tracing.Tracing {
+	return ctx.tracing
 }

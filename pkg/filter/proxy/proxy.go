@@ -82,6 +82,7 @@ type (
 	Client struct {
 		client       *http.Client
 		zipkinClient *zipkinhttp.Client
+		tracing      *tracing.Tracing
 	}
 
 	// Spec describes the Proxy.
@@ -121,21 +122,21 @@ type (
 // NewClient creates a wrapper around http.Client
 func NewClient(cl *http.Client, tr *tracing.Tracing) *Client {
 	var zClient *zipkinhttp.Client
-	if tr != nil {
+	if tr != nil && tr != tracing.NoopTracing {
 		tracer := tr.Tracer
 		zClient, _ = zipkinhttp.NewClient(tracer, zipkinhttp.WithClient(cl))
 	}
 	return &Client{client: cl, zipkinClient: zClient}
 }
 
-// IsTracingInitialized returns true if tracing is initialized
-func (c *Client) IsTracingInitialized() bool {
-	return c.zipkinClient != nil
+// IsTracingUpdated returns true if tracing is updated
+func (c *Client) IsTracingUpdated(newTracing *tracing.Tracing) bool {
+	return c.tracing != newTracing
 }
 
 // Do calls the correct http client
 func (c *Client) Do(r *http.Request) (*http.Response, error) {
-	if c.IsTracingInitialized() {
+	if c.zipkinClient != nil {
 		return c.zipkinClient.DoWithAppSpan(r, r.URL.Path)
 	}
 	return c.client.Do(r)
@@ -204,6 +205,7 @@ func (b *Proxy) Results() []string {
 // Init initializes Proxy.
 func (b *Proxy) Init(filterSpec *httppipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+
 	b.reload()
 }
 
@@ -351,32 +353,17 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	return ctx.CallNextHandler(result)
 }
 
-func (b *Proxy) updateAndGetClient() *Client {
-	super := b.filterSpec.Super()
-	if super == nil {
-		return b.client
-	}
-	tracing := super.Tracing()
-	// Read lock is enough in most of the cases as tracing is not initialized or updated often
+func (b *Proxy) updateAndGetClient(tracingInstance *tracing.Tracing) *Client {
 	b.clientMutex.RLock()
-	alreadyInit := !tracing.IsNoopTracer() && b.client.IsTracingInitialized()
-	noUpdate := tracing.IsNoopTracer() && !b.client.IsTracingInitialized()
+	needsUpdate := b.client.IsTracingUpdated(tracingInstance)
 	b.clientMutex.RUnlock()
-
-	if alreadyInit || noUpdate {
+	if !needsUpdate {
 		return b.client
 	}
-	// Write lock to block readers while updating b.client
+
 	b.clientMutex.Lock()
 	defer b.clientMutex.Unlock()
-
-	if !tracing.IsNoopTracer() && !b.client.IsTracingInitialized() {
-		// tracing not ready yet
-		b.client = NewClient(b.client.client, tracing)
-	} else if tracing.IsNoopTracer() && b.client.IsTracingInitialized() {
-		// if HTTPServer is updated and there is no longer tracing configured
-		b.client = NewClient(b.createHTTPClient(), nil)
-	}
+	b.client = NewClient(b.createHTTPClient(), tracingInstance)
 	return b.client
 }
 
@@ -391,7 +378,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		go func() {
 			defer wg.Done()
-			client := b.updateAndGetClient()
+			client := b.updateAndGetClient(ctx.Tracing())
 			b.mirrorPool.handle(ctx, secondaryBody, client)
 		}()
 	}
@@ -414,7 +401,7 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	client := b.updateAndGetClient()
+	client := b.updateAndGetClient(ctx.Tracing())
 	result = p.handle(ctx, ctx.Request().Body(), client)
 	if result != "" {
 		if b.fallbackForCodes(ctx) {

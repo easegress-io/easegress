@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
@@ -52,6 +53,7 @@ type MockedHTTPContext struct {
 	MockedSaveRspToTemplate  func(filterName string) error
 	MockedCallNextHandler    func(lastResult string) string
 	MockedSetHandlerCaller   func(caller context.HandlerCaller)
+	MockedTracing            func() *tracing.Tracing
 }
 
 // Protocol return protocol of MockedHTTPContext
@@ -232,6 +234,14 @@ func (c *MockedHTTPContext) CallNextHandler(lastResult string) string {
 // SetHandlerCaller mocks the SetHandlerCaller function of HTTPContext
 func (c *MockedHTTPContext) SetHandlerCaller(caller context.HandlerCaller) {
 	if c.MockedSetHandlerCaller != nil {
-		c.SetHandlerCaller(caller)
+		c.MockedSetHandlerCaller(caller)
 	}
+}
+
+// SetHandlerCaller mocks the SetHandlerCaller function of HTTPContext
+func (c *MockedHTTPContext) Tracing() *tracing.Tracing {
+	if c.MockedTracing != nil {
+		return c.MockedTracing()
+	}
+	return tracing.NoopTracing
 }

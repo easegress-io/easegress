@@ -339,17 +339,26 @@ mainPool:
 		header := http.Header{}
 		return httpheader.New(header)
 	}
+	ctx.MockedTracing = func() *tracing.Tracing {
+		return tracing.NoopTracing
+	}
 	proxy.handle(ctx)
 	assert.Nil(proxy.client.zipkinClient)
 
 	// HTTPServer updates tracing
 	tracer := createTracing(assert, "")
-	superMock.SetTracing(tracer)
+
+	ctx.MockedTracing = func() *tracing.Tracing {
+		return tracer
+	}
+
 	proxy.handle(ctx)
 	assert.NotNil(proxy.client.zipkinClient)
 
 	// HTTPServer removes tracing
-	superMock.SetTracing(tracing.NoopTracing)
+	ctx.MockedTracing = func() *tracing.Tracing {
+		return tracing.NoopTracing
+	}
 	proxy.handle(ctx)
 	assert.Nil(proxy.client.zipkinClient)
 

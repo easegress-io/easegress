@@ -349,10 +349,6 @@ func (m *mux) reloadRules(superSpec *supervisor.Spec, muxMapper protocol.MuxMapp
 	} else if oldRules.tracer != nil {
 		tracer = oldRules.tracer
 	}
-	super := superSpec.Super()
-	if super != nil {
-		super.SetTracing(tracer) // share tracing object with proxy filters
-	}
 
 	rules := &muxRules{
 		superSpec:    superSpec,
