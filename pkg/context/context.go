@@ -27,8 +27,8 @@ import (
 const (
 	// InitialRequestID is the ID of the initial request.
 	InitialRequestID = "initial"
-	// InitialResponseID is the ID of the initial response.
-	InitialResponseID = "initial"
+	// DefaultResponseID is the ID of the default response.
+	DefaultResponseID = "default"
 )
 
 // Handler is the common interface for all traffic handlers,
@@ -53,7 +53,6 @@ type Context struct {
 	requests        map[string]protocols.Request
 
 	targetResponseID string
-	response         protocols.Response
 	responses        map[string]protocols.Response
 
 	kv          map[interface{}]interface{}
@@ -81,12 +80,8 @@ func (ctx *Context) AddTag(tag string) {
 	ctx.lazyTags = append(ctx.lazyTags, func() string { return tag })
 }
 
-// AddLazyTag add a lazy tag to the Context.
-// questions about tags
-// how to access statistics data from every requests?
-// add new method when finish?
-// add tag to every single request or add tag to Context
-func (ctx *Context) AddLazyTag(lazyTagFunc func() string) {
+// LazyAddTag add a tag to the Context in a lazy fashion.
+func (ctx *Context) LazyAddTag(lazyTagFunc func() string) {
 	ctx.lazyTags = append(ctx.lazyTags, lazyTagFunc)
 }
 
@@ -135,7 +130,8 @@ func (ctx *Context) Requests() map[string]protocols.Request {
 	return ctx.requests
 }
 
-// GetRequest returns the request for id.
+// GetRequest returns the request for id, the function returns nil if
+// there's no such request.
 func (ctx *Context) GetRequest(id string) protocols.Request {
 	return ctx.requests[id]
 }
@@ -165,10 +161,10 @@ func (ctx *Context) DeleteRequest(id string) {
 // response producer creates a new response and save it as the target
 // response.
 //
-// If target is an empty string, InitialResponseID will be used;
+// If target is an empty string, DefaultResponseID will be used;
 func (ctx *Context) UseResponse(target string) {
 	if target == "" {
-		target = InitialResponseID
+		target = DefaultResponseID
 	}
 
 	ctx.targetResponseID = target
@@ -179,9 +175,10 @@ func (ctx *Context) TargetResponseID() string {
 	return ctx.targetResponseID
 }
 
-// Response returns the default response.
+// Response returns the default response, and the return value could
+// be nil.
 func (ctx *Context) Response() protocols.Response {
-	return ctx.response
+	return ctx.GetRequest(DefaultResponseID)
 }
 
 // Responses returns all responses.
@@ -189,7 +186,8 @@ func (ctx *Context) Responses() map[string]protocols.Response {
 	return ctx.responses
 }
 
-// GetResponse returns the response for id.
+// GetResponse returns the response for id, the function returns nil if
+// there's no such response.
 func (ctx *Context) GetResponse(id string) protocols.Response {
 	return ctx.responses[id]
 }
@@ -229,7 +227,6 @@ func (ctx *Context) OnFinish(fn func()) {
 
 // Finish calls all finish functions.
 func (ctx *Context) Finish() {
-	// TODO: add tags here
 	for _, req := range ctx.requests {
 		req.Close()
 	}
@@ -237,6 +234,10 @@ func (ctx *Context) Finish() {
 		resp.Close()
 	}
 	for _, fn := range ctx.finishFuncs {
+		fn()
+	}
+	for _, fn := range ctx.lazyTags {
+		// TODO: add tags here
 		fn()
 	}
 }

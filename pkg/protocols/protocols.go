@@ -35,17 +35,39 @@ func Get(name string) Protocol {
 
 // Request is the protocol independent interface of a request.
 type Request interface {
+	// Header returns the header of the request.
 	Header() Header
+
+	// SetPayload set the payload of the request to payload.
 	SetPayload(payload []byte)
+
+	// GetPayload returns a new payload reader.
 	GetPayload() io.Reader
+
+	// RawPayload returns the payload in []byte, the caller should
+	// not modify its content.
+	RawPayload() []byte
+
+	// Close closes the request.
 	Close()
 }
 
 // Response is the protocol independent interface of a response.
 type Response interface {
+	// Header returns the header of the response.
 	Header() Header
+
+	// SetPayload set the payload of the response to payload.
 	SetPayload(payload []byte)
+
+	// GetPayload returns a new payload reader.
 	GetPayload() io.Reader
+
+	// RawPayload returns the payload in []byte, the caller should
+	// not modify its content.
+	RawPayload() []byte
+
+	// Close closes the response.
 	Close()
 }
 
@@ -62,6 +84,6 @@ type Header interface {
 
 // Protocol is the interface of a protocol.
 type Protocol interface {
-	CreateRequest(req interface{}) Request
-	CreateResponse(resp interface{}) Response
+	CreateRequest(req interface{}) (Request, error)
+	CreateResponse(resp interface{}) (Response, error)
 }

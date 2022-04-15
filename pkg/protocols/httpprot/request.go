@@ -38,19 +38,34 @@ type Request struct {
 var _ protocols.Request = (*Request)(nil)
 
 // NewRequest creates a new request from a standard request.
-func NewRequest(req *http.Request) *Request {
-	var r *Request
-
-	if req == nil {
-		req = &http.Request{Body: http.NoBody}
-		r = &Request{Request: req}
-	} else {
-		r = &Request{Request: req}
-		r.realIP = realip.FromRequest(req)
+//
+// The body of http.Request can only be read once, but the Request need
+// to support being read more times, so we read the full body out here.
+// This consumes a lot of memory, but seems no way to avoid it.
+func NewRequest(stdr *http.Request) (*Request, error) {
+	if stdr == nil {
+		stdr = &http.Request{Body: http.NoBody}
+		return &Request{Request: stdr}, nil
 	}
 
-	// TODO: set payload
-	return r
+	var body []byte
+	var err error
+	if stdr.ContentLength > 0 {
+		body = make([]byte, stdr.ContentLength)
+		_, err = io.ReadFull(stdr.Body, body)
+	} else if stdr.ContentLength == -1 {
+		body, err = io.ReadAll(stdr.Body)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	r := &Request{Request: stdr}
+	r.realIP = realip.FromRequest(stdr)
+	r.SetPayload(body)
+
+	return r, nil
 }
 
 // SetPayload sets the payload of the request to payload.
@@ -66,6 +81,12 @@ func (r *Request) GetPayload() io.Reader {
 	} else {
 		return bytes.NewReader(r.payload)
 	}
+}
+
+// RawPayload returns the payload in []byte, the caller should
+// not modify its content.
+func (r *Request) RawPayload() []byte {
+	return r.payload
 }
 
 // Close closes the request.

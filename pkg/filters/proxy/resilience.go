@@ -157,7 +157,7 @@ func (r *ResilienceRetry) wrap(handler Handler) Handler {
 		for attempt := 0; attempt < r.spec.MaxAttempts; attempt++ {
 			result = handler(stdctx, ctx)
 			if !r.fail(ctx, result) {
-				ctx.AddLazyTag(func() string {
+				ctx.LazyAddTag(func() string {
 					return fmt.Sprintf("retryer: succeeded after %d attempts", attempt)
 				})
 				return result
@@ -175,7 +175,8 @@ func (r *ResilienceRetry) wrap(handler Handler) Handler {
 				base *= 1.5
 			}
 		}
-		ctx.AddLazyTag(func() string { return fmt.Sprintf("retryer: failed after %d attempts", r.spec.MaxAttempts) })
+		// BUGBUG: set response
+		ctx.LazyAddTag(func() string { return fmt.Sprintf("retryer: failed after %d attempts", r.spec.MaxAttempts) })
 		return result
 	}
 }
@@ -203,15 +204,13 @@ func (t *ResilienceTimeLimit) init() {
 
 func (t *ResilienceTimeLimit) wrap(handler Handler) Handler {
 	return func(stdctx stdcontext.Context, ctx *context.Context) (result string) {
-		timeoutCtx, cancel := stdcontext.WithTimeout(stdctx, t.timeout)
-		timer := time.AfterFunc(t.timeout, func() {
-			cancel()
-		})
+		stdctx, cancel := stdcontext.WithTimeout(stdctx, t.timeout)
+		defer cancel()
 
-		result = handler(timeoutCtx, ctx)
-
-		if !timer.Stop() {
-			ctx.AddLazyTag(func() string { return "timelimit: timeout" })
+		result = handler(stdctx, ctx)
+		if stdctx.Err() == stdcontext.DeadlineExceeded {
+			ctx.LazyAddTag(func() string { return "timelimit: timeout" })
+			// BUGBUG
 			ctx.Response().(*httpprot.Response).SetStatusCode(http.StatusRequestTimeout)
 			result = resultTimeout
 		}
@@ -293,6 +292,7 @@ func (c *ResilienceCircuitBreak) wrap(handler Handler) Handler {
 		permitted, stateID := c.cb.AcquirePermission()
 		if !permitted {
 			ctx.AddTag("circuitBreaker: circuit is broken")
+			// BUGBUG
 			ctx.Response().(*httpprot.Response).SetStatusCode(http.StatusServiceUnavailable)
 			return resultShortCircuited
 		}

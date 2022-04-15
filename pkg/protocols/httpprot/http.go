@@ -83,7 +83,7 @@ var _ protocols.Protocol = (*Protocol)(nil)
 // if it need to be closed. Particularly, the body of the input request
 // may be replaced, so the caller must save a reference of the original
 // body and close it when it is no longer needed.
-func (p *Protocol) CreateRequest(req interface{}) protocols.Request {
+func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
 	r, _ := req.(*http.Request)
 	return NewRequest(r)
 }
@@ -95,7 +95,7 @@ func (p *Protocol) CreateRequest(req interface{}) protocols.Request {
 // if it need to be closed. Particularly, the body of the input response
 // may be replaced, so the caller must save a reference of the original
 // body and close it when it is no longer needed.
-func (p *Protocol) CreateResponse(resp interface{}) protocols.Response {
+func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
 	r, _ := resp.(*http.Response)
 	return NewResponse(r)
 }

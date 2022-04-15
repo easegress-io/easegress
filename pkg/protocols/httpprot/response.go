@@ -36,24 +36,33 @@ type Response struct {
 
 var _ protocols.Response = (*Response)(nil)
 
-// NewResponse creates a new response from a standard response. The input
-// response could be nil, in which case, an empty response is created.
-// The caller need to close the body of the input response, if it need
-// to be closed.
-func NewResponse(resp *http.Response) *Response {
-	if resp == nil {
-		return &Response{
-			Response: &http.Response{
-				Body:       http.NoBody,
-				StatusCode: http.StatusOK,
-			},
-		}
+// NewResponse creates a new response from a standard response.
+//
+// The body of http.Response can only be read once, but the Response need
+// to support being read more times, so we read the full body out here.
+// This consumes a lot of memory, but seems no way to avoid it.
+func NewResponse(stdr *http.Response) (*Response, error) {
+	if stdr == nil {
+		stdr := &http.Response{Body: http.NoBody, StatusCode: http.StatusOK}
+		return &Response{Response: stdr}, nil
 	}
 
-	// TODO: Set payload
-	r := &Response{Response: resp}
+	var body []byte
+	var err error
+	if stdr.ContentLength > 0 {
+		body = make([]byte, stdr.ContentLength)
+		_, err = io.ReadFull(stdr.Body, body)
+	} else if stdr.ContentLength == -1 {
+		body, err = io.ReadAll(stdr.Body)
+	}
 
-	return r
+	if err != nil {
+		return nil, err
+	}
+	r := &Response{Response: stdr}
+	r.SetPayload(body)
+
+	return r, nil
 }
 
 // Std returns the underlying http.Response.
@@ -131,6 +140,12 @@ func (r *Response) GetPayload() io.Reader {
 	} else {
 		return bytes.NewReader(r.payload)
 	}
+}
+
+// RawPayload returns the payload in []byte, the caller should
+// not modify its content.
+func (r *Response) RawPayload() []byte {
+	return r.payload
 }
 
 // HTTPHeader returns the header of the response in type http.Header.

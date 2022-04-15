@@ -165,8 +165,8 @@ func (c *MockedHTTPContext) AddTag(tag string) {
 	}
 }
 
-// AddLazyTag mocks the AddLazyTag function of HTTPContext
-func (c *MockedHTTPContext) AddLazyTag(lazyTag func() string) {
+// LazyAddTag mocks the LazyAddTag function of HTTPContext
+func (c *MockedHTTPContext) LazyAddTag(lazyTag func() string) {
 	if c.MockedAddLazyTag != nil {
 		c.MockedAddLazyTag(lazyTag)
 	}

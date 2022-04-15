@@ -36,7 +36,6 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
-	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -209,19 +208,20 @@ func (sp *ServerPool) status() *ServerPoolStatus {
 
 type serverPoolContext struct {
 	*context.Context
-	isMirror    bool
-	svr         *Server
-	req         *httpprot.Request
-	reqBodySize int
-	stdReq      *http.Request
-	stdResp     *http.Response
-	statResult  *gohttpstat.Result
-	span        tracing.Span
-	startTime   time.Time
-	endTime     time.Time
+	isMirror   bool
+	span       tracing.Span
+	statResult *gohttpstat.Result
+	startTime  time.Time
+	endTime    time.Time
+	svr        *Server
+
+	req     *httpprot.Request
+	stdReq  *http.Request
+	resp    *httpprot.Response
+	stdResp *http.Response
 }
 
-func (spCtx *serverPoolContext) prepareRequest(stdctx stdcontext.Context) error {
+func (spCtx *serverPoolContext) prepareRequest(ctx stdcontext.Context) error {
 	stdr := spCtx.req.Std()
 
 	url := spCtx.svr.URL + spCtx.req.Path()
@@ -229,35 +229,27 @@ func (spCtx *serverPoolContext) prepareRequest(stdctx stdcontext.Context) error 
 		url += "?" + stdr.URL.RawQuery
 	}
 
-	ctx := stdctx
 	if !spCtx.isMirror {
 		spCtx.statResult = &gohttpstat.Result{}
 		ctx = gohttpstat.WithHTTPStat(ctx, spCtx.statResult)
 	}
 
-	payload := readers.NewCallbackReader(spCtx.req.GetPayload())
-	payload.OnAfter(func(num int, p []byte, err error) {
-		spCtx.reqBodySize += len(p)
-	})
-
+	payload := spCtx.req.GetPayload()
 	stdr, err := http.NewRequestWithContext(ctx, stdr.Method, url, payload)
 	if err != nil {
 		return err
 	}
-	spCtx.stdReq = stdr
 
 	stdr.Header = spCtx.req.HTTPHeader()
 	if !spCtx.svr.addrIsHostName {
 		stdr.Host = spCtx.req.Host()
 	}
 
+	spCtx.stdReq = stdr
 	return nil
 }
 
 func (spCtx *serverPoolContext) start(spanName string) {
-	if spCtx.isMirror {
-		return
-	}
 	spCtx.startTime = fasttime.Now()
 	if spanName == "" {
 		spanName = spCtx.svr.URL
@@ -286,7 +278,12 @@ func (sp *ServerPool) handle(ctx *context.Context, isMirror bool) string {
 	stdctx := ctx.Request().(*httpprot.Request).Std().Context()
 	var handler Handler
 	handler = func(stdctx stdcontext.Context, ctx *context.Context) string {
-		return sp.doHandle(stdctx, ctx, isMirror)
+		spCtx := &serverPoolContext{
+			Context:  ctx,
+			isMirror: isMirror,
+			req:      ctx.Request().(*httpprot.Request),
+		}
+		return sp.doHandle(stdctx, spCtx)
 	}
 
 	if sp.resilience != nil {
@@ -303,33 +300,28 @@ func (sp *ServerPool) handle(ctx *context.Context, isMirror bool) string {
 	return handler(stdctx, ctx)
 }
 
-func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, isMirror bool) string {
-	/*
-		if sp.memoryCache != nil && sp.memoryCache.Load(ctx) {
-		}
-	*/
+func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolContext) string {
+	// only collect metrics on non-mirror pools.
+	if !spCtx.isMirror {
+		spCtx.start(sp.spec.SpanName)
 
-	spCtx := &serverPoolContext{
-		Context:  ctx,
-		isMirror: isMirror,
-		req:      ctx.Request().(*httpprot.Request),
+		defer func() {
+			spCtx.finish()
+			duration := spCtx.duration()
+			spCtx.LazyAddTag(func() string {
+				return stringtool.Cat(sp.name, "#duration: ", duration.String())
+			})
+			metric := &httpstat.Metric{}
+			metric.StatusCode = spCtx.resp.StatusCode()
+			metric.Duration = duration
+			metric.ReqSize = uint64(spCtx.req.MetaSize() + len(spCtx.req.RawPayload()))
+			metric.RespSize = uint64(spCtx.resp.MetaSize() + len(spCtx.resp.RawPayload()))
+			sp.httpStat.Stat(metric)
+		}()
 	}
 
-	if sp.memoryCache != nil {
-		if ce := sp.memoryCache.Load(spCtx.req.Std()); ce != nil {
-			resp := httpprot.NewResponse(nil)
-			resp.SetStatusCode(ce.StatusCode)
-			resp.Std().Header = ce.Header.Clone()
-			resp.SetPayload(ce.Body)
-			ctx.SetResponse(ctx.TargetResponseID(), resp)
-			return ""
-		}
-	}
-
-	setFailureResponse := func(statusCode int) {
-		resp := httpprot.NewResponse(nil)
-		resp.SetStatusCode(statusCode)
-		ctx.SetResponse(ctx.TargetResponseID(), resp)
+	if sp.buildResponseFromCache(spCtx) {
+		return ""
 	}
 
 	spCtx.svr = sp.LoadBalancer().ChooseServer(spCtx.req)
@@ -338,15 +330,15 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, 
 	if spCtx.svr == nil {
 		// ctx.AddTag is not goroutine safe, so we don't call it for
 		// mirror servers.
-		if isMirror {
+		if spCtx.isMirror {
 			return ""
 		}
 
-		ctx.AddLazyTag(func() string {
+		spCtx.LazyAddTag(func() string {
 			return "no available server"
 		})
 
-		setFailureResponse(http.StatusServiceUnavailable)
+		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultInternalError
 	}
 
@@ -355,89 +347,105 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, ctx *context.Context, 
 	if err != nil {
 		msg := "prepare request failed: " + err.Error()
 		logger.Errorf(msg)
-		if isMirror {
+		if spCtx.isMirror {
 			return ""
 		}
 
-		ctx.AddLazyTag(func() string { return msg })
-		setFailureResponse(http.StatusServiceUnavailable)
+		spCtx.LazyAddTag(func() string { return msg })
+		sp.buildFailureResponse(spCtx, http.StatusInternalServerError)
 		return resultInternalError
 	}
 
-	spCtx.start(sp.spec.SpanName)
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		if isMirror {
+		if spCtx.isMirror {
 			return ""
 		}
 
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
 
-		ctx.AddLazyTag(func() string {
+		spCtx.LazyAddTag(func() string {
 			return fmt.Sprintf("send request error: %v", err)
 		})
-		ctx.AddLazyTag(func() string {
+		spCtx.LazyAddTag(func() string {
 			return fmt.Sprintf("trace %v", spCtx.statResult)
 		})
 		if spCtx.stdReq.Context().Err() != nil {
 			// NOTE: The HTTPContext will set 499 by itself if client is
 			// Disconnected. TODO: define a constant for 499
-			setFailureResponse(499)
+			sp.buildFailureResponse(spCtx, 499)
 			return resultClientError
 		}
 
-		setFailureResponse(http.StatusServiceUnavailable)
+		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultServerError
 	}
 
-	if isMirror {
+	if spCtx.isMirror {
 		defer resp.Body.Close()
 		io.Copy(io.Discard, resp.Body)
 		return ""
 	}
 
-	ctx.AddLazyTag(func() string {
+	spCtx.stdResp = resp
+	if err = sp.buildResponse(spCtx); err != nil {
+		sp.buildFailureResponse(spCtx, http.StatusInternalServerError)
+		return resultServerError
+	}
+
+	spCtx.LazyAddTag(func() string {
 		return fmt.Sprintf("code: %d", resp.StatusCode)
 	})
 
-	respBody := resp.Body
-	if sp.proxy.compression.compress(spCtx.stdReq, resp) {
-		ctx.AddTag("gzip")
+	sp.memoryCache.Store(spCtx.req, spCtx.resp)
+	return ""
+}
+
+func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) error {
+	body := spCtx.stdResp.Body
+	defer body.Close()
+
+	if sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
+		spCtx.Context.AddTag("gzip")
 	}
 
-	// TODO:
-	//	needCache := sp.memoryCache.NeedStore(spCtx.req.Std(), spCtx.stdResp)
+	resp, err := httpprot.NewResponse(spCtx.stdResp)
+	if err != nil {
+		return err
+	}
 
-	var respBodySize int
-	callbackBody := readers.NewCallbackReader(resp.Body)
-	callbackBody.OnAfter(func(num int, p []byte, err error) {
-		respBodySize += len(p)
-		if err == io.EOF {
-			spCtx.finish()
-		}
-	})
-	resp.Body = io.NopCloser(callbackBody)
+	spCtx.resp = resp
+	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
+	return nil
+}
 
-	fresp := httpprot.NewResponse(resp)
-	ctx.OnFinish(func() {
-		spCtx.finish()
-		duration := spCtx.duration()
-		ctx.AddLazyTag(func() string {
-			return stringtool.Cat(sp.name, "#duration: ", duration.String())
-		})
-		// use recycled object
-		metric := &httpstat.Metric{}
-		metric.StatusCode = resp.StatusCode
-		metric.Duration = duration
-		metric.ReqSize = uint64(spCtx.req.MetaSize() + spCtx.reqBodySize)
-		metric.RespSize = uint64(fresp.MetaSize() + respBodySize)
-		sp.httpStat.Stat(metric)
-		respBody.Close()
-	})
+func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
+	if sp.memoryCache == nil {
+		return false
+	}
 
-	ctx.SetResponse(ctx.TargetResponseID(), httpprot.NewResponse(resp))
-	return ""
+	ce := sp.memoryCache.Load(spCtx.req)
+	if ce == nil {
+		return false
+	}
+
+	resp, _ := httpprot.NewResponse(nil)
+	resp.SetStatusCode(ce.StatusCode)
+	resp.Std().Header = ce.Header.Clone()
+	resp.SetPayload(ce.Body)
+
+	spCtx.resp = resp
+	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
+	return true
+}
+
+func (sp *ServerPool) buildFailureResponse(spCtx *serverPoolContext, statusCode int) {
+	resp, _ := httpprot.NewResponse(nil)
+	resp.SetStatusCode(statusCode)
+
+	spCtx.resp = resp
+	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
 }
 
 func (sp *ServerPool) close() {

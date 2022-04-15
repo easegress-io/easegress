@@ -366,36 +366,6 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	m.inst.Load().(*muxInstance).serveHTTP(stdw, stdr)
 }
 
-// wrapRequest wraps a http.Request to httpprox.Request.
-//
-// The body of http.Request can only be read once, but the pipeline
-// may require it to be read more times, so we need to read the full
-// body out here. This consumes a lot of memory, but seems no way to
-// avoid it.
-func (mi *muxInstance) wrapRequest(stdr *http.Request) (*httpprot.Request, error) {
-	var body []byte
-	var err error
-	if stdr.ContentLength > 0 {
-		body = make([]byte, stdr.ContentLength)
-		_, err = io.ReadFull(stdr.Body, body)
-	} else if stdr.ContentLength == -1 {
-		body, err = io.ReadAll(stdr.Body)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	req := httpprot.NewRequest(stdr)
-	req.SetPayload(body)
-
-	if mi.spec.XForwardedFor {
-		mi.appendXForwardedFor(req)
-	}
-
-	return req, nil
-}
-
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// The body of the original request maybe changed by handlers, we
 	// need to restore it before the return of this funtion to make
@@ -441,11 +411,14 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		stdr.URL.Path = path
 	}
 
-	req, err := mi.wrapRequest(stdr)
+	req, err := httpprot.NewRequest(stdr)
 	if err != nil {
 		ctx.AddTag(fmt.Sprintf("failed to wrap request: %v", err))
 		stdw.WriteHeader(http.StatusBadRequest)
 		return
+	}
+	if mi.spec.XForwardedFor {
+		mi.appendXForwardedFor(req)
 	}
 	ctx.SetRequest(context.InitialRequestID, req)
 

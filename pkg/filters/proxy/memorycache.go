@@ -78,18 +78,18 @@ func NewMemoryCache(spec *MemoryCacheSpec) *MemoryCache {
 	}
 }
 
-func (mc *MemoryCache) key(req *http.Request) string {
-	return stringtool.Cat(httpprot.RequestScheme(req), req.Host, req.URL.Path, req.Method)
+func (mc *MemoryCache) key(req *httpprot.Request) string {
+	return stringtool.Cat(req.Scheme(), req.Host(), req.Path(), req.Method())
 }
 
 // Load tries to load cache for HTTPContext.
-func (mc *MemoryCache) Load(req *http.Request) *CacheEntry {
+func (mc *MemoryCache) Load(req *httpprot.Request) *CacheEntry {
 	// Reference: https://tools.ietf.org/html/rfc7234#section-5.2
 
 	matched := false
 
 	for _, method := range mc.spec.Methods {
-		if req.Method == method {
+		if req.Method() == method {
 			matched = true
 			break
 		}
@@ -98,7 +98,7 @@ func (mc *MemoryCache) Load(req *http.Request) *CacheEntry {
 		return nil
 	}
 
-	for _, value := range req.Header.Values(keyCacheControl) {
+	for _, value := range req.HTTPHeader().Values(keyCacheControl) {
 		if strings.Contains(value, "no-cache") {
 			return nil
 		}
@@ -111,67 +111,53 @@ func (mc *MemoryCache) Load(req *http.Request) *CacheEntry {
 	return nil
 }
 
-// NeedStore returns whether the response need to be stored.
-func (mc *MemoryCache) NeedStore(req *http.Request, resp *http.Response) bool {
+// Store tries to cache the response.
+func (mc *MemoryCache) Store(req *httpprot.Request, resp *httpprot.Response) {
+	if len(resp.RawPayload()) > int(mc.spec.MaxEntryBytes) {
+		return
+	}
+
 	matched := false
 	for _, method := range mc.spec.Methods {
-		if req.Method == method {
+		if req.Method() == method {
 			matched = true
 			break
 		}
 	}
 	if !matched {
-		return false
+		return
 	}
 
 	matched = false
 	for _, code := range mc.spec.Codes {
-		if resp.StatusCode == code {
+		if resp.StatusCode() == code {
 			matched = true
 			break
 		}
 	}
 	if !matched {
-		return false
+		return
 	}
 
-	for _, value := range req.Header.Values(keyCacheControl) {
+	for _, value := range req.HTTPHeader().Values(keyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") {
-			return false
+			return
 		}
 	}
-	for _, value := range resp.Header.Values(keyCacheControl) {
+	for _, value := range resp.HTTPHeader().Values(keyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") ||
 			strings.Contains(value, "must-revalidate") {
-			return false
+			return
 		}
 	}
 
-	return true
-}
-
-/*
-	key := mc.key(r)
+	key := mc.key(req)
 	entry := &CacheEntry{
-		StatusCode: w.StatusCode(),
-		Header:     w.HTTPHeader().Clone(),
+		StatusCode: resp.StatusCode(),
+		Header:     resp.HTTPHeader().Clone(),
+		Body:       resp.RawPayload(),
 	}
-	bodyLength := 0
-
-	w.OnFlushBody(func(body []byte, complete bool) []byte {
-		bodyLength += len(body)
-		if bodyLength > int(mc.spec.MaxEntryBytes) {
-			return body
-		}
-
-		entry.body = append(entry.body, body...)
-		if complete {
-			mc.cache.SetDefault(key, entry)
-		}
-
-		return body
-	})
+	mc.cache.SetDefault(key, entry)
 }
-*/
