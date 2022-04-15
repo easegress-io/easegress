@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -72,8 +73,7 @@ type (
 		candidatePools []*pool
 		mirrorPool     *pool
 
-		client      *Client
-		clientMutex sync.RWMutex
+		client atomic.Value //*Client
 
 		compression *compression
 	}
@@ -126,12 +126,7 @@ func NewClient(cl *http.Client, tr *tracing.Tracing) *Client {
 		tracer := tr.Tracer
 		zClient, _ = zipkinhttp.NewClient(tracer, zipkinhttp.WithClient(cl))
 	}
-	return &Client{client: cl, zipkinClient: zClient}
-}
-
-// IsTracingUpdated returns true if tracing is updated
-func (c *Client) IsTracingUpdated(newTracing *tracing.Tracing) bool {
-	return c.tracing != newTracing
+	return &Client{client: cl, zipkinClient: zClient, tracing: tr}
 }
 
 // Do calls the correct http client
@@ -274,7 +269,7 @@ func (b *Proxy) reload() {
 		b.compression = newCompression(b.spec.Compression)
 	}
 
-	b.client = NewClient(b.createHTTPClient() /*tracing=*/, nil)
+	b.client.Store(NewClient(b.createHTTPClient() /*tracing=*/, nil))
 }
 
 func (b *Proxy) createHTTPClient() *http.Client {
@@ -354,17 +349,14 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 }
 
 func (b *Proxy) updateAndGetClient(tracingInstance *tracing.Tracing) *Client {
-	b.clientMutex.RLock()
-	needsUpdate := b.client.IsTracingUpdated(tracingInstance)
-	b.clientMutex.RUnlock()
-	if !needsUpdate {
-		return b.client
+	client := b.client.Load().(*Client)
+	if client.tracing == tracingInstance {
+		return client
 	}
 
-	b.clientMutex.Lock()
-	defer b.clientMutex.Unlock()
-	b.client = NewClient(b.createHTTPClient(), tracingInstance)
-	return b.client
+	newClient := NewClient(b.createHTTPClient(), tracingInstance)
+	b.client.Store(newClient)
+	return newClient
 }
 
 func (b *Proxy) handle(ctx context.HTTPContext) (result string) {

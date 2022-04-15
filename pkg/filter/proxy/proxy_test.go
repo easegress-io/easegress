@@ -343,7 +343,7 @@ mainPool:
 		return tracing.NoopTracing
 	}
 	proxy.handle(ctx)
-	assert.Nil(proxy.client.zipkinClient)
+	assert.Nil(proxy.client.Load().(*Client).zipkinClient)
 
 	// HTTPServer updates tracing
 	tracer := createTracing(assert, "")
@@ -353,14 +353,14 @@ mainPool:
 	}
 
 	proxy.handle(ctx)
-	assert.NotNil(proxy.client.zipkinClient)
+	assert.NotNil(proxy.client.Load().(*Client).zipkinClient)
 
 	// HTTPServer removes tracing
 	ctx.MockedTracing = func() *tracing.Tracing {
 		return tracing.NoopTracing
 	}
 	proxy.handle(ctx)
-	assert.Nil(proxy.client.zipkinClient)
+	assert.Nil(proxy.client.Load().(*Client).zipkinClient)
 
 	tracer.Close() // normally HTTPServer closes this
 }
