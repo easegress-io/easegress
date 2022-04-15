@@ -353,7 +353,7 @@ func (b *Proxy) updateAndGetClient(tracingInstance *tracing.Tracing) *Client {
 	if client.tracing == tracingInstance {
 		return client
 	}
-
+	// tracingInstance is updated so recreate http.Client
 	newClient := NewClient(b.createHTTPClient(), tracingInstance)
 	b.client.Store(newClient)
 	return newClient

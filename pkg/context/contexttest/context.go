@@ -238,7 +238,7 @@ func (c *MockedHTTPContext) SetHandlerCaller(caller context.HandlerCaller) {
 	}
 }
 
-// SetHandlerCaller mocks the SetHandlerCaller function of HTTPContext
+// Tracing mocks the Tracing function of HTTPContext
 func (c *MockedHTTPContext) Tracing() *tracing.Tracing {
 	if c.MockedTracing != nil {
 		return c.MockedTracing()
