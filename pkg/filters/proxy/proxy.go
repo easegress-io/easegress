@@ -43,6 +43,7 @@ const (
 	resultInternalError = "internalError"
 	resultClientError   = "clientError"
 	resultServerError   = "serverError"
+	resultFailureCode   = "failureCode"
 
 	// result for resilience
 	resultTimeout        = "timeout"
@@ -57,6 +58,7 @@ var kind = &filters.Kind{
 		resultInternalError,
 		resultClientError,
 		resultServerError,
+		resultFailureCode,
 		resultTimeout,
 		resultShortCircuited,
 	},
@@ -75,7 +77,7 @@ var kind = &filters.Kind{
 }
 
 var _ filters.Filter = (*Proxy)(nil)
-var _ filters.Backend = (*Proxy)(nil)
+var _ filters.Resiliencer = (*Proxy)(nil)
 
 func init() {
 	filters.Register(kind)
@@ -88,9 +90,8 @@ var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, 
 type (
 	// Proxy is the filter Proxy.
 	Proxy struct {
-		super      *supervisor.Supervisor
-		spec       *Spec
-		resilience map[string]resilience.Policy
+		super *supervisor.Supervisor
+		spec  *Spec
 
 		fallback *fallback.Fallback
 
@@ -338,64 +339,15 @@ func (p *Proxy) Handle(ctx *context.Context) (result string) {
 		}
 	}
 
-	// TODO: resilience and etc.
+	// TODO: fallback
 	return sp.handle(ctx, false)
 }
 
-func (p *Proxy) SetResilienceBeforeInit(policies map[string]resilience.Policy) {
-	p.resilience = policies
+// InjectResiliencePolicy injects resilience policies to the proxy.
+func (p *Proxy) InjectResiliencePolicy(policies map[string]resilience.Policy) {
+	p.mainPool.InjectResiliencePolicy(policies)
+
+	for _, sp := range p.candidatePools {
+		sp.InjectResiliencePolicy(policies)
+	}
 }
-
-/*
-
-	if p.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
-		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().(*httpprot.Request).GetPayload())
-		ctx.Request().SetBody(primaryBody, false)
-
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		defer wg.Wait()
-
-		go func() {
-			defer wg.Done()
-			p.mirrorPool.handle(ctx, secondaryBody, p.client)
-		}()
-	}
-
-	var pool *pool
-	for k, v := range p.candidatePools {
-		if v.filter.Filter(ctx) {
-			pool = p.candidatePools[k]
-			break
-		}
-	}
-
-	if pool == nil {
-		pool = p.mainPool
-	}
-
-	if pool.memoryCache != nil && pool.memoryCache.Load(ctx) {
-		return ""
-	}
-
-	result = pool.handle(ctx, ctx.Request().(*httpprot.Request).GetPayload(), b.client)
-	if result != "" {
-		if p.fallbackForCodes(ctx) {
-			return resultFallback
-		}
-		return result
-	}
-
-	// compression and memoryCache only work for
-	// normal traffic from real proxy servers.
-	if pool.compression != nil {
-		pool.compression.compress(ctx)
-	}
-
-	if pool.memoryCache != nil {
-		pool.memoryCache.Store(ctx)
-	}
-
-	return ""
-}
-*/

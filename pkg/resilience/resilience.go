@@ -18,6 +18,7 @@
 package resilience
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -31,10 +32,19 @@ type (
 		// Name is the name of the resilience kind.
 		Name string
 
-		// DefaultPolicy returns a spec for the resilience, with default values. The
-		// function should always return a new spec copy, because the caller
+		// DefaultPolicy returns a spec for the resilience, with default values.
+		// The function should always return a new spec copy, because the caller
 		// may modify the returned spec.
 		DefaultPolicy func() Policy
+	}
+
+	// HandlerFunc is the handler function to be wrapped by resilience policies.
+	HandlerFunc func(ctx context.Context) error
+
+	// Wrapper is the wrapper to wrap a handler function.
+	Wrapper interface {
+		// Wrap wraps the handler function with the policy.
+		Wrap(HandlerFunc) HandlerFunc
 	}
 
 	// Policy is the common interface of resilience policies
@@ -45,27 +55,18 @@ type (
 		// Kind returns kind.
 		Kind() string
 
-		// Pipeline returns the name of the pipeline this filter belongs to.
-		Pipeline() string
-
-		// YAMLConfig returns the config in yaml format.
-		YAMLConfig() string
-
-		// baseSpec returns the pointer to the BaseSpec of the spec instance,
-		// it is an internal function.
-		baseSpec() *BaseSpec
+		// CreateWrapper creates a Wrapper.
+		CreateWrapper() Wrapper
 	}
 
-	// BaseSpec is the universal spec for all filters.
+	// BaseSpec is the universal spec for all resilience policies.
 	BaseSpec struct {
 		supervisor.MetaSpec `yaml:",inline"`
-		pipeline            string
-		yamlConfig          string
 	}
 )
 
 // NewPolicy creates a resilience policy and validates it.
-func NewPolicy(pipeline string, rawSpec interface{}) (policy Policy, err error) {
+func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			policy = nil
@@ -100,14 +101,6 @@ func NewPolicy(pipeline string, rawSpec interface{}) (policy Policy, err error) 
 		return nil, fmt.Errorf("%v", vr)
 	}
 
-	yamlBuff, err = yaml.Marshal(policy)
-	if err != nil {
-		return nil, err
-	}
-
-	baseSpec := policy.baseSpec()
-	baseSpec.pipeline = pipeline
-	baseSpec.yamlConfig = string(yamlBuff)
 	return
 }
 
@@ -119,21 +112,4 @@ func (s *BaseSpec) Name() string {
 // Kind returns kind.
 func (s *BaseSpec) Kind() string {
 	return s.MetaSpec.Kind
-}
-
-// Pipeline returns the name of the pipeline this filter belongs to.
-func (s *BaseSpec) Pipeline() string {
-	return s.pipeline
-}
-
-// YAMLConfig returns the config in yaml format.
-func (s *BaseSpec) YAMLConfig() string {
-	return s.yamlConfig
-}
-
-// baseSpec returns the pointer to the BaseSpec of the spec instance, it is an
-// internal function. baseSpec returns the receiver directly, it is existed for
-// getting the corresponding BaseSpec from a Spec interface.
-func (s *BaseSpec) baseSpec() *BaseSpec {
-	return s
 }

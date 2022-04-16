@@ -20,9 +20,7 @@ package resilience
 // kinds is the resilience kind registry.
 var kinds = map[string]*Kind{
 	circuitBreakKind.Name: circuitBreakKind,
-	rateLimitKind.Name:    rateLimitKind,
 	retryKind.Name:        retryKind,
-	timeLimitKind.Name:    timeLimitKind,
 }
 
 // WalkKind walks the registry, calling fn for each filter kind, and stops

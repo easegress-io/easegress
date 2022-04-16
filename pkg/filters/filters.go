@@ -81,9 +81,9 @@ type (
 		Close()
 	}
 
-	// Backend is the interface of filters that accept resilience policies.
-	Backend interface {
-		SetResilienceBeforeInit(policies map[string]resilience.Policy)
+	// Resiliencer is the interface of objects that accept resilience policies.
+	Resiliencer interface {
+		InjectResiliencePolicy(policies map[string]resilience.Policy)
 	}
 
 	// Spec is the common interface of filter specs

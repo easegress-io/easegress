@@ -176,7 +176,7 @@ func (s *Spec) Validate() (err error) {
 
 	// 3: validate resilience
 	for _, r := range s.Resilience {
-		_, err := resilience.NewPolicy("", r)
+		_, err := resilience.NewPolicy(r)
 		if err != nil {
 			panic(err)
 		}
@@ -236,20 +236,20 @@ func (p *Pipeline) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper)
 // Inherit inherits previous generation of Pipeline.
 func (p *Pipeline) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	p.superSpec, p.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-	p.filters = make(map[string]filters.Filter)
-	p.resilience = make(map[string]resilience.Policy)
-
 	p.reload(previousGeneration.(*Pipeline))
 	previousGeneration.Close()
 }
 
 func (p *Pipeline) reload(previousGeneration *Pipeline) {
+	p.filters = make(map[string]filters.Filter)
+	p.resilience = make(map[string]resilience.Policy)
+
 	super := p.superSpec.Super()
 	pipelineName := p.superSpec.Name()
 
 	// create resilience
 	for _, r := range p.spec.Resilience {
-		policy, err := resilience.NewPolicy(pipelineName, r)
+		policy, err := resilience.NewPolicy(r)
 		if err != nil {
 			panic(err)
 		}
@@ -280,13 +280,13 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 		if previousGeneration != nil {
 			prev = previousGeneration.getFilter(spec.Name())
 		}
-		if backend, ok := filter.(filters.Backend); ok {
-			backend.SetResilienceBeforeInit(p.resilience)
-		}
 		if prev == nil {
 			filter.Init()
 		} else {
 			filter.Inherit(prev)
+		}
+		if r, ok := filter.(filters.Resiliencer); ok {
+			r.InjectResiliencePolicy(p.resilience)
 		}
 
 		// add the filter to pipeline, and if the pipeline does not define a
