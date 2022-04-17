@@ -464,7 +464,7 @@ func (mi *muxInstance) search(req *http.Request) *route {
 		if r.path.ipFilterChain == nil {
 			return r
 		}
-		if r.path.ipFilter.Allow(ip) {
+		if r.path.ipFilterChain.Allow(ip) {
 			return r
 		}
 		return forbidden
@@ -479,7 +479,7 @@ func (mi *muxInstance) search(req *http.Request) *route {
 			continue
 		}
 
-		if !host.ipFilter.Allow(ip) {
+		if !allowIP(host.ipFilter, ip) {
 			return forbidden
 		}
 
@@ -497,9 +497,7 @@ func (mi *muxInstance) search(req *http.Request) *route {
 			if len(path.headers) == 0 {
 				r = &route{code: http.StatusOK, path: path}
 				mi.putRouteToCache(req, r)
-			}
-
-			if !path.matchHeaders(req) {
+			} else if !path.matchHeaders(req) {
 				headerMismatch = true
 				continue
 			}

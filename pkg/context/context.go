@@ -178,7 +178,7 @@ func (ctx *Context) TargetResponseID() string {
 // Response returns the default response, and the return value could
 // be nil.
 func (ctx *Context) Response() protocols.Response {
-	return ctx.GetRequest(DefaultResponseID)
+	return ctx.GetResponse(DefaultResponseID)
 }
 
 // Responses returns all responses.

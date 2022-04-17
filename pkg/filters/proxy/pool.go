@@ -276,12 +276,8 @@ func (spCtx *serverPoolContext) prepareRequest(ctx stdcontext.Context) error {
 
 func (spCtx *serverPoolContext) start(spanName string) {
 	spCtx.startTime = fasttime.Now()
-	if spanName == "" {
-		spanName = spCtx.svr.URL
-	}
-
 	span := spCtx.Span().NewChildWithStart(spanName, spCtx.startTime)
-	carrier := opentracing.HTTPHeadersCarrier(spCtx.stdReq.Header)
+	carrier := opentracing.HTTPHeadersCarrier(spCtx.req.HTTPHeader())
 	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
 	spCtx.span = span
 }
@@ -489,7 +485,10 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 		return serverPoolError{resp.StatusCode, resultFailureCode}
 	}
 
-	sp.memoryCache.Store(spCtx.req, spCtx.resp)
+	if sp.memoryCache != nil {
+		sp.memoryCache.Store(spCtx.req, spCtx.resp)
+	}
+
 	return nil
 }
 
