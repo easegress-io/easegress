@@ -18,11 +18,12 @@
 package tracing
 
 import (
+	"context"
 	"io"
-
-	opentracing "github.com/opentracing/opentracing-go"
+	"time"
 
 	"github.com/megaease/easegress/pkg/tracing/zipkin"
+	zipkingo "github.com/openzipkin/zipkin-go"
 )
 
 type (
@@ -35,7 +36,7 @@ type (
 
 	// Tracing is the tracing.
 	Tracing struct {
-		opentracing.Tracer
+		Tracer *zipkingo.Tracer
 		tags   map[string]string
 		closer io.Closer
 	}
@@ -45,7 +46,7 @@ type (
 
 // NoopTracing is the tracing doing nothing.
 var NoopTracing = &Tracing{
-	Tracer: opentracing.NoopTracer{},
+	Tracer: zipkin.CreateNoopTracer(),
 	closer: nil,
 }
 
@@ -55,14 +56,13 @@ func New(spec *Spec) (*Tracing, error) {
 		return NoopTracing, nil
 	}
 
-	tracer, closer, err := zipkin.New(spec.ServiceName, spec.Zipkin)
+	tracer, closer, err := zipkin.New(spec.ServiceName, spec.Zipkin, spec.Tags)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Tracing{
 		Tracer: tracer,
-		tags:   spec.Tags,
 		closer: closer,
 	}, nil
 }
@@ -79,4 +79,10 @@ func (t *Tracing) Close() error {
 	}
 
 	return nil
+}
+
+// CreateSpanWithContext creates new span with given name and starttime and adds it to the context.
+func CreateSpanWithContext(ctx context.Context, tracing *Tracing, spanName string, startTime time.Time) context.Context {
+	span := tracing.Tracer.StartSpan(spanName, zipkingo.StartTime(startTime))
+	return zipkingo.NewContext(ctx, span)
 }

@@ -25,12 +25,15 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fallback"
+	zipkinhttp "github.com/openzipkin/zipkin-go/middleware/http"
 )
 
 const (
@@ -54,7 +57,7 @@ func init() {
 	httppipeline.Register(&Proxy{})
 }
 
-var fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+var fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
 	return client.Do(r)
 }
 
@@ -70,9 +73,16 @@ type (
 		candidatePools []*pool
 		mirrorPool     *pool
 
-		client *http.Client
+		client atomic.Value //*Client
 
 		compression *compression
+	}
+
+	// Client is a wrapper around http.Client.
+	Client struct {
+		client       *http.Client
+		zipkinClient *zipkinhttp.Client
+		tracing      *tracing.Tracing
 	}
 
 	// Spec describes the Proxy.
@@ -108,6 +118,24 @@ type (
 		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
 )
+
+// NewClient creates a wrapper around http.Client
+func NewClient(cl *http.Client, tr *tracing.Tracing) *Client {
+	var zClient *zipkinhttp.Client
+	if tr != nil && tr != tracing.NoopTracing {
+		tracer := tr.Tracer
+		zClient, _ = zipkinhttp.NewClient(tracer, zipkinhttp.WithClient(cl))
+	}
+	return &Client{client: cl, zipkinClient: zClient, tracing: tr}
+}
+
+// Do calls the correct http client
+func (c *Client) Do(r *http.Request) (*http.Response, error) {
+	if c.zipkinClient != nil {
+		return c.zipkinClient.DoWithAppSpan(r, r.URL.Path)
+	}
+	return c.client.Do(r)
+}
 
 // Validate validates Spec.
 func (s Spec) Validate() error {
@@ -172,6 +200,7 @@ func (b *Proxy) Results() []string {
 // Init initializes Proxy.
 func (b *Proxy) Init(filterSpec *httppipeline.FilterSpec) {
 	b.filterSpec, b.spec = filterSpec, filterSpec.FilterSpec().(*Spec)
+
 	b.reload()
 }
 
@@ -240,7 +269,11 @@ func (b *Proxy) reload() {
 		b.compression = newCompression(b.spec.Compression)
 	}
 
-	b.client = &http.Client{
+	b.client.Store(NewClient(b.createHTTPClient() /*tracing=*/, nil))
+}
+
+func (b *Proxy) createHTTPClient() *http.Client {
+	return &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
 		Transport: &http.Transport{
@@ -315,6 +348,17 @@ func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	return ctx.CallNextHandler(result)
 }
 
+func (b *Proxy) updateAndGetClient(tracingInstance *tracing.Tracing) *Client {
+	client := b.client.Load().(*Client)
+	if client.tracing == tracingInstance {
+		return client
+	}
+	// tracingInstance is updated so recreate http.Client
+	newClient := NewClient(b.createHTTPClient(), tracingInstance)
+	b.client.Store(newClient)
+	return newClient
+}
+
 func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 	if b.mirrorPool != nil && b.mirrorPool.filter.Filter(ctx) {
 		primaryBody, secondaryBody := newPrimarySecondaryReader(ctx.Request().Body())
@@ -326,7 +370,8 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 
 		go func() {
 			defer wg.Done()
-			b.mirrorPool.handle(ctx, secondaryBody, b.client)
+			client := b.updateAndGetClient(ctx.Tracing())
+			b.mirrorPool.handle(ctx, secondaryBody, client)
 		}()
 	}
 
@@ -348,7 +393,8 @@ func (b *Proxy) handle(ctx context.HTTPContext) (result string) {
 		return ""
 	}
 
-	result = p.handle(ctx, ctx.Request().Body(), b.client)
+	client := b.updateAndGetClient(ctx.Tracing())
+	result = p.handle(ctx, ctx.Request().Body(), client)
 	if result != "" {
 		if b.fallbackForCodes(ctx) {
 			return resultFallback

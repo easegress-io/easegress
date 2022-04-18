@@ -391,11 +391,9 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 
 	rules := m.rules.Load().(*muxRules)
-
 	ctx := context.New(stdw, stdr, rules.tracer, rules.superSpec.Name())
 	defer ctx.Finish()
 	ctx.OnFinish(func() {
-		ctx.Span().Finish()
 		m.httpStat.Stat(ctx.StatMetric())
 		m.topN.Stat(ctx)
 	})

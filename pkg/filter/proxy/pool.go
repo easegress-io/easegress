@@ -24,13 +24,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/opentracing/opentracing-go"
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/callbackreader"
 	"github.com/megaease/easegress/pkg/util/httpfilter"
 	"github.com/megaease/easegress/pkg/util/httpheader"
@@ -141,7 +139,7 @@ var httpstatResultPool = sync.Pool{
 	},
 }
 
-func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.Client) string {
+func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *Client) string {
 	// intMsg is converted to string in AddLazyTag for better performance,
 	// as it is not run when access logs are disabled.
 	addLazyTag := func(subPrefix, msg string, intMsg int) {
@@ -181,7 +179,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 		return resultInternalError
 	}
 
-	resp, span, err := p.doRequest(ctx, req, client)
+	resp, err := p.doRequest(ctx, req, client)
 	if err != nil {
 		// NOTE: May add option to cancel the tracing if failed here.
 		// ctx.Span().Cancel()
@@ -204,13 +202,11 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *http.C
 	defer ctx.Unlock()
 	// NOTE: The code below can't use addTag and setStatusCode in case of deadlock.
 
-	respBody := p.statRequestResponse(ctx, req, resp, span)
-
+	respBody := p.statRequestResponse(ctx, req, resp)
 	if p.writeResponse {
 		ctx.Response().SetStatusCode(resp.StatusCode)
 		ctx.Response().Header().AddFromStd(resp.Header)
 		ctx.Response().SetBody(respBody)
-
 		return ""
 	}
 
@@ -235,7 +231,7 @@ func (p *pool) prepareRequest(
 	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
 }
 
-func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Client) (*http.Response, tracing.Span, error) {
+func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *Client) (*http.Response, error) {
 	req.start()
 
 	spanName := p.spec.SpanName
@@ -243,14 +239,11 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *http.Cli
 		spanName = req.server.URL
 	}
 
-	span := ctx.Span().NewChildWithStart(spanName, req.startTime())
-	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.std.Header))
-
 	resp, err := fnSendRequest(req.std, client)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return resp, span, nil
+	return resp, nil
 }
 
 var httpstatMetricPool = sync.Pool{
@@ -260,7 +253,7 @@ var httpstatMetricPool = sync.Pool{
 }
 
 func (p *pool) statRequestResponse(ctx context.HTTPContext,
-	req *request, resp *http.Response, span tracing.Span) io.Reader {
+	req *request, resp *http.Response) io.Reader {
 
 	var count int
 
@@ -269,7 +262,6 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 		count += n
 		if err == io.EOF {
 			req.finish()
-			span.Finish()
 		}
 
 		return p, n, err
@@ -278,7 +270,6 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 	ctx.OnFinish(func() {
 		if !p.writeResponse {
 			req.finish()
-			span.Finish()
 		}
 		duration := req.total()
 		ctx.AddLazyTag(func() string {

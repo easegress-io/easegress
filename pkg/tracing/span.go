@@ -21,20 +21,20 @@ import (
 	"sync"
 	"time"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	zipkingo "github.com/openzipkin/zipkin-go"
+	zipkinmodel "github.com/openzipkin/zipkin-go/model"
 
 	"github.com/megaease/easegress/pkg/tracing/base"
-	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
 	// Span is the span of the Tracing.
 	Span interface {
 		// Tracer returns the Tracer that created this Span.
-		Tracer() opentracing.Tracer
+		Tracer() zipkingo.Tracer
 
 		// Context yields the SpanContext for this Span
-		Context() opentracing.SpanContext
+		Context() zipkinmodel.SpanContext
 
 		// Finish finishes the span.
 		Finish()
@@ -72,53 +72,16 @@ type (
 	span struct {
 		mutex    sync.Mutex
 		tracer   *Tracing
-		span     opentracing.Span
+		span     zipkingo.Span
 		children []*span
 	}
 )
 
-// NoopSpan does nothing.
-var NoopSpan = &span{
-	tracer: NoopTracing,
-	span:   NoopTracing.StartSpan(""), // will return opentracing.defaultNoopSpan
+func (s *span) Tracer() *zipkingo.Tracer {
+	return s.tracer.Tracer
 }
 
-// NewSpan creates a span.
-func NewSpan(tracer *Tracing, name string) Span {
-	if tracer.IsNoopTracer() {
-		return NoopSpan
-	}
-	return newSpanWithStart(tracer, name, fasttime.Now())
-}
-
-// NewSpanWithStart creates a span with specify start time.
-func NewSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
-	if tracer.IsNoopTracer() {
-		return NoopSpan
-	}
-	return newSpanWithStart(tracer, name, startAt)
-}
-
-func newSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
-	newSpan := tracer.StartSpan(name, opentracing.StartTime(startAt))
-	for tagKey, tagValue := range tracer.tags {
-		newSpan.SetTag(tagKey, tagValue)
-	}
-	return &span{
-		tracer: tracer,
-		span:   newSpan,
-	}
-}
-
-func (s *span) IsNoopSpan() bool {
-	return s == NoopSpan
-}
-
-func (s *span) Tracer() opentracing.Tracer {
-	return s.tracer
-}
-
-func (s *span) Context() opentracing.SpanContext {
+func (s *span) Context() zipkinmodel.SpanContext {
 	return s.span.Context()
 }
 
@@ -127,50 +90,8 @@ func (s *span) Finish() {
 }
 
 func (s *span) Cancel() {
-	s.span.SetTag(base.CancelTagKey, "yes")
+	s.span.Tag(base.CancelTagKey, "yes")
 	for _, child := range s.children {
 		child.Cancel()
 	}
-}
-
-func (s *span) NewChild(name string) Span {
-	if s.IsNoopSpan() {
-		return s
-	}
-	return s.newChildWithStart(name, fasttime.Now())
-}
-
-func (s *span) NewChildWithStart(name string, startAt time.Time) Span {
-	if s.IsNoopSpan() {
-		return s
-	}
-	return s.newChildWithStart(name, startAt)
-}
-
-func (s *span) newChildWithStart(name string, startAt time.Time) Span {
-	childSpan := s.tracer.StartSpan(name,
-		opentracing.ChildOf(s.span.Context()),
-		opentracing.StartTime(startAt))
-	child := &span{
-		tracer: s.tracer,
-		span:   childSpan,
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.children = append(s.children, child)
-
-	return child
-}
-
-func (s *span) SetName(name string) {
-	s.span.SetOperationName(name)
-}
-
-func (s *span) LogKV(kv ...interface{}) {
-	s.span.LogKV(kv...)
-}
-
-func (s *span) SetTag(key string, value string) {
-	s.span.SetTag(key, value)
 }

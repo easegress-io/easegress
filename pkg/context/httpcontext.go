@@ -48,8 +48,6 @@ type (
 		Lock()
 		Unlock()
 
-		Span() tracing.Span
-
 		Request() HTTPRequest
 		Response() HTTPResponse
 
@@ -72,6 +70,8 @@ type (
 
 		CallNextHandler(lastResult string) string
 		SetHandlerCaller(caller HandlerCaller)
+
+		Tracing() *tracing.Tracing
 	}
 
 	// HTTPRequest is all operations for HTTP request.
@@ -153,13 +153,13 @@ type (
 		w *httpResponse
 
 		ht             *HTTPTemplate
-		span           tracing.Span
 		originalReqCtx stdcontext.Context
 		stdctx         stdcontext.Context
 		cancelFunc     stdcontext.CancelFunc
 		err            error
 
-		metric httpstat.Metric
+		metric  httpstat.Metric
+		tracing *tracing.Tracing
 	}
 )
 
@@ -167,19 +167,17 @@ type (
 // NOTE: We can't use sync.Pool to recycle context.
 // Reference: https://github.com/gin-gonic/gin/issues/1731
 func New(stdw http.ResponseWriter, stdr *http.Request,
-	tracer *tracing.Tracing, spanName string) HTTPContext {
+	tracingInstance *tracing.Tracing, spanName string) HTTPContext {
 	originalReqCtx := stdr.Context()
 	stdctx, cancelFunc := stdcontext.WithCancel(originalReqCtx)
 	stdr = stdr.WithContext(stdctx)
 	startTime := fasttime.Now()
-	span := tracing.NewSpanWithStart(tracer, spanName, startTime)
-	if !span.IsNoopSpan() {
-		span.SetTag("http.method", stdr.Method)
-		span.SetTag("http.path", stdr.URL.Path)
+	if !tracingInstance.IsNoopTracer() {
+		// add span to context
+		stdctx = tracing.CreateSpanWithContext(stdctx, tracingInstance, spanName, startTime)
 	}
 	ctx := &httpContext{
 		startTime:      startTime,
-		span:           span,
 		originalReqCtx: originalReqCtx,
 		stdctx:         stdctx,
 		cancelFunc:     cancelFunc,
@@ -187,6 +185,7 @@ func New(stdw http.ResponseWriter, stdr *http.Request,
 		w:              newHTTPResponse(stdw, stdr),
 		lazyTags:       make([]LazyTagFunc, 0, 5),
 		finishFuncs:    make([]FinishFunc, 0, 1),
+		tracing:        tracingInstance,
 	}
 	return ctx
 }
@@ -214,10 +213,6 @@ func (ctx *httpContext) Lock() {
 
 func (ctx *httpContext) Unlock() {
 	ctx.mutex.Unlock()
-}
-
-func (ctx *httpContext) Span() tracing.Span {
-	return ctx.span
 }
 
 // Add new Tag.
@@ -361,4 +356,9 @@ func (ctx *httpContext) SaveReqToTemplate(filterName string) error {
 // SaveRspToTemplate stores http response related info into HTTP template engine
 func (ctx *httpContext) SaveRspToTemplate(filterName string) error {
 	return ctx.ht.SaveResponse(filterName, ctx)
+}
+
+// Tracing returns tracing object
+func (ctx *httpContext) Tracing() *tracing.Tracing {
+	return ctx.tracing
 }

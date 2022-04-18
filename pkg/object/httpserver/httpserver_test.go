@@ -372,7 +372,7 @@ func TestStartTwoServerInSamePort(t *testing.T) {
 	superSpecYaml := `
 name: http-server-test
 kind: HTTPServer
-port: 10080
+port: 10082
 cacheSize: 200
 rules:
   - paths:
@@ -391,12 +391,10 @@ rules:
 	httpServer2 := HTTPServer{}
 	httpServer2.Init(superSpec2, mux2)
 
-	_, err1 := http.Get("http://127.0.0.1:10080/api")
 	httpServer1.Close()
 	httpServer2.Close()
-	_, err2 := http.Get("http://127.0.0.1:10080/api")
-	assert.Nil(err1)
-	assert.NotNil(err2)
+	_, err = http.Get("http://127.0.0.1:10082/api")
+	assert.NotNil(err)
 }
 
 func TestMatchPath(t *testing.T) {
