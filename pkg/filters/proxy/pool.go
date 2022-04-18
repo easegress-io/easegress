@@ -40,21 +40,84 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+// serverPoolError is the error returned by handler function of
+// a server pool.
 type serverPoolError struct {
 	code   int
 	result string
 }
 
+// Error implements error.
 func (spe serverPoolError) Error() string {
 	return fmt.Sprintf("server pool error, status code=%d, result=%s", spe.code, spe.result)
 }
 
+// Code returns the status code.
 func (spe serverPoolError) Code() int {
 	return spe.code
 }
 
+// Result returns the result string.
 func (spe serverPoolError) Result() string {
 	return spe.result
+}
+
+// serverPoolContext records the context information in calling the
+// handler function.
+type serverPoolContext struct {
+	*context.Context
+	span      tracing.Span
+	startTime time.Time
+	endTime   time.Time
+
+	req     *httpprot.Request
+	stdReq  *http.Request
+	resp    *httpprot.Response
+	stdResp *http.Response
+}
+
+func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context) error {
+	stdr := spCtx.req.Std()
+
+	url := svr.URL + spCtx.req.Path()
+	if stdr.URL.RawQuery != "" {
+		url += "?" + stdr.URL.RawQuery
+	}
+
+	payload := spCtx.req.GetPayload()
+	stdr, err := http.NewRequestWithContext(ctx, stdr.Method, url, payload)
+	if err != nil {
+		logger.Errorf("prepare request failed: %v", err)
+		return err
+	}
+
+	stdr.Header = spCtx.req.HTTPHeader()
+	if !svr.addrIsHostName {
+		stdr.Host = spCtx.req.Host()
+	}
+
+	spCtx.stdReq = stdr
+	return nil
+}
+
+func (spCtx *serverPoolContext) start(spanName string) {
+	spCtx.startTime = fasttime.Now()
+	span := spCtx.Span().NewChildWithStart(spanName, spCtx.startTime)
+	carrier := opentracing.HTTPHeadersCarrier(spCtx.req.HTTPHeader())
+	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
+	spCtx.span = span
+}
+
+func (spCtx *serverPoolContext) finish() {
+	if spCtx.endTime.IsZero() {
+		now := fasttime.Now()
+		spCtx.endTime = now
+		spCtx.span.Finish()
+	}
+}
+
+func (spCtx *serverPoolContext) duration() time.Duration {
+	return spCtx.endTime.Sub(spCtx.startTime)
 }
 
 // ServerPool defines a server pool.
@@ -231,70 +294,6 @@ func (sp *ServerPool) status() *ServerPoolStatus {
 	return s
 }
 
-type serverPoolContext struct {
-	*context.Context
-	mirror     bool
-	span       tracing.Span
-	statResult *gohttpstat.Result
-	startTime  time.Time
-	endTime    time.Time
-	svr        *Server
-
-	req     *httpprot.Request
-	stdReq  *http.Request
-	resp    *httpprot.Response
-	stdResp *http.Response
-}
-
-func (spCtx *serverPoolContext) prepareRequest(ctx stdcontext.Context) error {
-	stdr := spCtx.req.Std()
-
-	url := spCtx.svr.URL + spCtx.req.Path()
-	if stdr.URL.RawQuery != "" {
-		url += "?" + stdr.URL.RawQuery
-	}
-
-	if !spCtx.mirror {
-		spCtx.statResult = &gohttpstat.Result{}
-		ctx = gohttpstat.WithHTTPStat(ctx, spCtx.statResult)
-	}
-
-	payload := spCtx.req.GetPayload()
-	stdr, err := http.NewRequestWithContext(ctx, stdr.Method, url, payload)
-	if err != nil {
-		return err
-	}
-
-	stdr.Header = spCtx.req.HTTPHeader()
-	if !spCtx.svr.addrIsHostName {
-		stdr.Host = spCtx.req.Host()
-	}
-
-	spCtx.stdReq = stdr
-	return nil
-}
-
-func (spCtx *serverPoolContext) start(spanName string) {
-	spCtx.startTime = fasttime.Now()
-	span := spCtx.Span().NewChildWithStart(spanName, spCtx.startTime)
-	carrier := opentracing.HTTPHeadersCarrier(spCtx.req.HTTPHeader())
-	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
-	spCtx.span = span
-}
-
-func (spCtx *serverPoolContext) finish() {
-	if spCtx.endTime.IsZero() {
-		now := fasttime.Now()
-		spCtx.endTime = now
-		spCtx.statResult.End(now)
-		spCtx.span.Finish()
-	}
-}
-
-func (spCtx *serverPoolContext) duration() time.Duration {
-	return spCtx.endTime.Sub(spCtx.startTime)
-}
-
 // InjectResiliencePolicy injects resilience policies to the server pool.
 func (sp *ServerPool) InjectResiliencePolicy(policies map[string]resilience.Policy) {
 	name := sp.spec.RetryPolicy
@@ -345,52 +344,93 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 	sp.httpStat.Stat(metric)
 }
 
+func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
+	svr := sp.LoadBalancer().ChooseServer(spCtx.req)
+	if svr == nil {
+		return
+	}
+
+	err := spCtx.prepareRequest(svr, spCtx.req.Context())
+	if err != nil {
+		return
+	}
+
+	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
+	if err != nil {
+		return
+	}
+
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+}
+
 func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	spCtx := &serverPoolContext{
 		Context: ctx,
-		mirror:  mirror,
 		req:     ctx.Request().(*httpprot.Request),
 	}
 
-	// only collect metrics on non-mirror pools.
-	if !mirror {
-		spCtx.start(sp.spec.SpanName)
-		defer sp.collectMetrics(spCtx)
+	if mirror {
+		sp.handleMirror(spCtx)
+		return ""
 	}
+
+	spCtx.start(sp.spec.SpanName)
+	defer sp.collectMetrics(spCtx)
 
 	if sp.buildResponseFromCache(spCtx) {
 		return ""
 	}
 
+	// wrap the handler function to meet the requirement of resilience
+	// wrappers.
 	handler := func(stdctx stdcontext.Context) error {
 		if sp.timeout > 0 {
 			var cancel stdcontext.CancelFunc
 			stdctx, cancel = stdcontext.WithTimeout(stdctx, sp.timeout)
 			defer cancel()
 		}
+
+		// this function could be called more than once, and these
+		// fields need to be reset before each call.
+		spCtx.stdReq = nil
+		spCtx.resp = nil
+		spCtx.stdResp = nil
+
 		return sp.doHandle(stdctx, spCtx)
 	}
 
-	// only enable resilience on non-mirror pools
-	if !mirror {
-		if sp.retryWrapper != nil {
-			handler = sp.retryWrapper.Wrap(handler)
-		}
-		if sp.circuitbreakWrapper != nil {
-			handler = sp.circuitbreakWrapper.Wrap(handler)
-		}
+	// resilience wrappers.
+	if sp.retryWrapper != nil {
+		handler = sp.retryWrapper.Wrap(handler)
+	}
+	if sp.circuitbreakWrapper != nil {
+		handler = sp.circuitbreakWrapper.Wrap(handler)
 	}
 
-	stdctx := ctx.Request().(*httpprot.Request).Std().Context()
-	err := handler(stdctx)
+	// call the handler.
+	err := handler(spCtx.req.Context())
 	if err == nil {
 		return ""
 	}
+
+	// Circuit breaker is the most outside resiliencer, if the error
+	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
+		spCtx.LazyAddTag(func() string {
+			return "short circuited"
+		})
+		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultShortCircuited
 	}
 
+	// The error must be a serverPoolError now, we need to build a
+	// response in most cases, but for failure status codes, the
+	// response is already there.
 	if spe, ok := err.(serverPoolError); ok {
+		if spCtx.resp == nil {
+			sp.buildFailureResponse(spCtx, spe.code)
+		}
 		return spe.Result()
 	}
 
@@ -398,77 +438,53 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 }
 
 func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolContext) error {
-	spCtx.svr = sp.LoadBalancer().ChooseServer(spCtx.req)
+	svr := sp.LoadBalancer().ChooseServer(spCtx.req)
 
 	// if there's no available server.
-	if spCtx.svr == nil {
-		// ctx.AddTag is not goroutine safe, so we don't call it for
-		// mirror servers.
-		if spCtx.mirror {
-			return nil
-		}
-
+	if svr == nil {
 		spCtx.LazyAddTag(func() string {
 			return "no available server"
 		})
-
-		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return serverPoolError{http.StatusServiceUnavailable, resultInternalError}
 	}
 
 	// prepare the request to send.
-	err := spCtx.prepareRequest(stdctx)
-	if err != nil {
-		msg := "prepare request failed: " + err.Error()
-		logger.Errorf(msg)
-		if spCtx.mirror {
-			return nil
-		}
-
-		spCtx.LazyAddTag(func() string { return msg })
-		sp.buildFailureResponse(spCtx, http.StatusInternalServerError)
+	statResult := &gohttpstat.Result{}
+	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
+	if err := spCtx.prepareRequest(svr, stdctx); err != nil {
+		spCtx.LazyAddTag(func() string {
+			return "prepare request failed: " + err.Error()
+		})
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		if spCtx.mirror {
-			return nil
-		}
-
 		// NOTE: May add option to cancel the tracing if failed here.
-		// ctx.Span().Cancel()
+		// spCtx.Span().Cancel()
 
 		spCtx.LazyAddTag(func() string {
 			return fmt.Sprintf("send request error: %v", err)
 		})
+
+		statResult.End(fasttime.Now())
 		spCtx.LazyAddTag(func() string {
-			return fmt.Sprintf("trace %v", spCtx.statResult)
+			return fmt.Sprintf("trace %v", statResult)
 		})
-		if err := spCtx.stdReq.Context().Err(); err != nil {
-			if err == stdcontext.DeadlineExceeded {
-				sp.buildFailureResponse(spCtx, http.StatusRequestTimeout)
-				return serverPoolError{http.StatusRequestTimeout, resultTimeout}
-			}
-			// NOTE: The HTTPContext will set 499 by itself if client is
-			// Disconnected. TODO: define a constant for 499
-			sp.buildFailureResponse(spCtx, 499)
-			return serverPoolError{499, resultClientError}
+
+		if err := spCtx.stdReq.Context().Err(); err == nil {
+			return serverPoolError{http.StatusServiceUnavailable, resultServerError}
+		} else if err == stdcontext.DeadlineExceeded {
+			return serverPoolError{http.StatusRequestTimeout, resultTimeout}
 		}
 
-		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
-		return serverPoolError{http.StatusServiceUnavailable, resultServerError}
-	}
-
-	if spCtx.mirror {
-		defer resp.Body.Close()
-		io.Copy(io.Discard, resp.Body)
-		return nil
+		// NOTE: The HTTPContext will set 499 by itself if client is
+		// Disconnected. TODO: define a constant for 499
+		return serverPoolError{499, resultClientError}
 	}
 
 	spCtx.stdResp = resp
 	if err = sp.buildResponse(spCtx); err != nil {
-		sp.buildFailureResponse(spCtx, http.StatusInternalServerError)
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
@@ -533,7 +549,6 @@ func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
 func (sp *ServerPool) buildFailureResponse(spCtx *serverPoolContext, statusCode int) {
 	resp, _ := httpprot.NewResponse(nil)
 	resp.SetStatusCode(statusCode)
-
 	spCtx.resp = resp
 	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
 }
