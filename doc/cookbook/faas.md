@@ -30,7 +30,7 @@
 
 ### Scenario 1: Run a FaaS function beside Easegress
 
-* After implementing your business logic
+* After implementing your business logic and having Knative installed to your Kubernetes cluster. You can refer to [FaaSController](../reference/faascontroller.md) for more info
 
 1. Create a FaaSController[2]
 
@@ -56,45 +56,59 @@ knative:
 
 ``` yaml
 name:           "demo"
-image:          "${image_url}"
-port:           8089
+image:          "gcr.io/knative-samples/helloworld-go" # you can change this to any pullable image
+port:           8080 # image exposes port 8080
 autoScaleType:  "concurrency"
 autoScaleValue: "100"
+minReplica:     0
+maxReplica:     1
+limitCPU:       "1000m"         
+limitMemory:    "1000Mi"        
+requestCPU:     "80m"          
+requestMemory:  "20Mi"         
+requestAdaptor:                       
+  header:
+    set:
+      X-Func: demo
 ```
 
 * Save it into `/home/easegress/function.yaml`, using command to deploy it in Easegress:
-**Note** this command should be run in Easegress' instance environment and ${eg_apiport} should be replaced with the real working port, ${image_url} should be replaced with pullable image URL.
 
 ``` bash
-$ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller
+$ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v1/faas/faascontroller
 ```
+**Note** this command should be run in Easegress' instance environment and 2381 is the default admin traffic port. If your Easegress instance uses different port, please change 2381 to the correct port.
 
-3. Get the function's status, make sure it is in `active` status
+
+1. Get the function's status, make sure it is in `active` status
 
 ``` bash
-$ curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo
+$ curl http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo
 spec:
   name: demo
-  image: dev.local/demo:1.0
-  port: 8089
-  autoScaleType: rps
-  autoScaleValue: "1000"
+  image: gcr.io/knative-samples/helloworld-go
+  port: 8080
+  autoScaleType: concurrency
+  autoScaleValue: "100"
   minReplica: 0
-  maxReplica: 0
-  limitCPU:
-  limitMemory:
-  requestCPU:
-  requestMemory:
+  maxReplica: 1
+  limitCPU: 1000m
+  limitMemory: 1000Mi
+  requestCPU: 80m
+  requestMemory: 20Mi
   requestAdaptor:
     host: ""
     method: ""
     header:
-      del: {}
-      set: {}
+      del: []
+      set:
+        X-Func: demo
       add: {}
     body: ""
+    compress: ""
+    decompress: ""
 status:
-  name: demo10
+  name: demo
   state: active
   event: ready
   extData: {}
@@ -102,12 +116,11 @@ fsm: null
 ```
 
 4. Request the FaaS function by Easegress HTTP traffic gate with `X-FaaS-Func-Name: demo` in the HTTP header.
-**Note**: this example HTTP backend's API works on `/tomcat/job/api` path and its business logic is echoing back your request body and with `V3 Body is ` content.
+**Note**: this example's container image `gcr.io/knative-samples/helloworld-go` serves on path `/`. For different function images, the path might differ.
 
 ``` bash
-$ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo" -X POST -d ‘{"megaease":"Hello Easegress+Knative"}’
-V3 Body is
-‘{megaease:Hello Easegress+Knative}’%
+$ curl http://127.0.0.1:10083 -H "X-FaaS-Func-Name: demo"
+Hello World!
 ```
 
 ### Scenario 2: Limit FaaS function resources using
@@ -133,7 +146,7 @@ maxReplica: 50
 1. Stop the function execution by using command
 
 ``` bash
-$ curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo/stop -X PUT
+$ curl http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo/stop -X PUT
 ```
 
 * The function will become `inactive` then we can update the resource limitation safely.
@@ -141,7 +154,7 @@ $ curl http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo/stop -X P
 2. Update the function's spec
 
 ``` bash
-$ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:${eg_apiport}/apis/v1/faas/faascontroller/demo
+$ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo
 ```
 
 3. Verify the update
