@@ -48,6 +48,9 @@ type Request interface {
 	// not modify its content.
 	RawPayload() []byte
 
+	// PayloadLength returns the length of the payload.
+	PayloadLength() int
+
 	// Close closes the request.
 	Close()
 }
@@ -66,6 +69,9 @@ type Response interface {
 	// RawPayload returns the payload in []byte, the caller should
 	// not modify its content.
 	RawPayload() []byte
+
+	// PayloadLength returns the length of the payload.
+	PayloadLength() int
 
 	// Close closes the response.
 	Close()

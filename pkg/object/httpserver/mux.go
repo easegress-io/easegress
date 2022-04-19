@@ -30,7 +30,6 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/pkg/object/globalfilter"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/tomasen/realip"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -142,9 +141,9 @@ func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
 	return ipFilter.Allow(ip)
 }
 
-func (mi *muxInstance) getCacheRoute(req *http.Request) *route {
+func (mi *muxInstance) getCacheRoute(req *httpprot.Request) *route {
 	if mi.cache != nil {
-		key := stringtool.Cat(req.Host, req.Method, req.URL.Path)
+		key := stringtool.Cat(req.Host(), req.Method(), req.Path())
 		if value, ok := mi.cache.Get(key); ok {
 			return value.(*route)
 		}
@@ -152,9 +151,9 @@ func (mi *muxInstance) getCacheRoute(req *http.Request) *route {
 	return nil
 }
 
-func (mi *muxInstance) putRouteToCache(req *http.Request, r *route) {
+func (mi *muxInstance) putRouteToCache(req *httpprot.Request, r *route) {
 	if mi.cache != nil {
-		key := stringtool.Cat(req.Host, req.Method, req.URL.Path)
+		key := stringtool.Cat(req.Host(), req.Method(), req.Path())
 		mi.cache.Add(key, r)
 	}
 }
@@ -183,12 +182,12 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 }
 
-func (mr *muxRule) match(r *http.Request) bool {
+func (mr *muxRule) match(r *httpprot.Request) bool {
 	if mr.host == "" && mr.hostRE == nil {
 		return true
 	}
 
-	host := r.Host
+	host := r.Host()
 	if h, _, err := net.SplitHostPort(host); err == nil {
 		host = h
 	}
@@ -234,12 +233,12 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 	}
 }
 
-func (mp *MuxPath) matchPath(r *http.Request) bool {
+func (mp *MuxPath) matchPath(r *httpprot.Request) bool {
 	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
 
-	path := r.URL.Path
+	path := r.Path()
 	if mp.path != "" && mp.path == path {
 		return true
 	}
@@ -253,17 +252,17 @@ func (mp *MuxPath) matchPath(r *http.Request) bool {
 	return false
 }
 
-func (mp *MuxPath) matchMethod(r *http.Request) bool {
+func (mp *MuxPath) matchMethod(r *httpprot.Request) bool {
 	if len(mp.methods) == 0 {
 		return true
 	}
 
-	return stringtool.StrInSlice(r.Method, mp.methods)
+	return stringtool.StrInSlice(r.Method(), mp.methods)
 }
 
-func (mp *MuxPath) matchHeaders(r *http.Request) bool {
+func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 	for _, h := range mp.headers {
-		v := r.Header.Get(h.Key)
+		v := r.HTTPHeader().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
 			return true
 		}
@@ -366,42 +365,97 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	m.inst.Load().(*muxInstance).serveHTTP(stdw, stdr)
 }
 
+func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Response {
+	resp, _ := httpprot.NewResponse(nil)
+	resp.SetStatusCode(statusCode)
+	ctx.SetResponse(context.DefaultResponseID, resp)
+	return resp
+}
+
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// The body of the original request maybe changed by handlers, we
 	// need to restore it before the return of this funtion to make
 	// sure it can be correctly closed by the standard Go HTTP package.
 	originalBody := stdr.Body
+	bodySize := -1
 
-	now := fasttime.Now()
-	span := tracing.NewSpanWithStart(mi.tracer, mi.superSpec.Name(), now)
+	startAt := fasttime.Now()
+	span := tracing.NewSpanWithStart(mi.tracer, mi.superSpec.Name(), startAt)
 	ctx := context.New(span)
 
+	// httpprot.NewRequest never returns an error.
+	req, _ := httpprot.NewRequest(stdr)
+	ctx.SetRequest(context.InitialRequestID, req)
+
 	// get topN here, as the path could be modified later.
-	topNStat := mi.topN.Stat(stdr.URL.Path)
+	topN := mi.topN.Stat(req.Path())
 
 	defer func() {
-		span.Finish()
+		// If FetchPayload is not called yet.
+		if bodySize == -1 {
+			written, _ := io.Copy(io.Discard, originalBody)
+			bodySize = int(written)
+		}
+
+		var resp *httpprot.Response
+		if v := ctx.Response(); v != nil {
+			resp = v.(*httpprot.Response)
+		} else {
+			resp = buildFailureResponse(ctx, http.StatusInternalServerError)
+		}
+
+		// Send the response.
+		header := stdw.Header()
+		for k, v := range resp.HTTPHeader() {
+			header[k] = v
+		}
+		stdw.WriteHeader(resp.StatusCode())
+		io.Copy(stdw, resp.GetPayload())
+
 		ctx.Finish()
-		// TODO
-		// topNStat.Stat(ctx.StatMetric())
-		_ = topNStat
-		// TODO:
-		//	mi.httpStat.Stat(ctx.StatMetric())
-		// restore the body of the origin request.
+
+		metric := httpstat.Metric{
+			StatusCode: resp.StatusCode(),
+			Duration:   fasttime.Since(startAt),
+			ReqSize:    uint64(bodySize + req.MetaSize()),
+			RespSize:   uint64(resp.MetaSize() + resp.PayloadLength()),
+		}
+		topN.Stat(&metric)
+		mi.httpStat.Stat(&metric)
+
+		span.Finish()
+
+		// Restore the body of the origin request.
 		stdr.Body = originalBody
+
+		// Write access log.
+		logger.LazyHTTPAccess(func() string {
+			// log format:
+			//
+			// [$startTime]
+			// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
+			// [$contextDuration $readBytes $writeBytes]
+			// [$tags]
+			const logFmt = "[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]"
+			return fmt.Sprintf(logFmt,
+				fasttime.Format(startAt, fasttime.RFC3339Milli),
+				stdr.RemoteAddr, req.RealIP(), stdr.Method, stdr.RequestURI,
+				stdr.Proto, resp.StatusCode(), metric.Duration, metric.ReqSize,
+				metric.RespSize, ctx.Tags())
+		})
 	}()
 
-	route := mi.search(stdr)
-	if route.code != http.StatusOK {
+	route := mi.search(req)
+	if route.code != 0 {
 		ctx.AddTag(fmt.Sprintf("status code: %d", route.code))
-		stdw.WriteHeader(route.code)
+		buildFailureResponse(ctx, route.code)
 		return
 	}
 
 	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
 	if !ok {
 		ctx.AddTag(stringtool.Cat("backend ", route.path.backend, " not found"))
-		stdw.WriteHeader(http.StatusServiceUnavailable)
+		buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		return
 	}
 
@@ -411,33 +465,16 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		stdr.URL.Path = path
 	}
 
-	req, err := httpprot.NewRequest(stdr)
-	if err != nil {
-		ctx.AddTag(fmt.Sprintf("failed to wrap request: %v", err))
-		stdw.WriteHeader(http.StatusBadRequest)
-		return
-	}
 	if mi.spec.XForwardedFor {
 		mi.appendXForwardedFor(req)
 	}
-	ctx.SetRequest(context.InitialRequestID, req)
 
-	defer func() {
-		var resp *httpprot.Response
-		if v := ctx.Response(); v != nil {
-			resp = v.(*httpprot.Response)
-		}
-		if resp == nil {
-			stdw.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		header := stdw.Header()
-		for k, v := range resp.HTTPHeader() {
-			header[k] = v
-		}
-		stdw.WriteHeader(resp.StatusCode())
-		io.Copy(stdw, resp.GetPayload())
-	}()
+	bodySize, err := req.FetchPayload()
+	if err != nil {
+		ctx.AddTag(fmt.Sprintf("failed to read request body: %v", err))
+		buildFailureResponse(ctx, http.StatusBadRequest)
+		return
+	}
 
 	// global filter
 	globalFilter := mi.getGlobalFilter()
@@ -448,17 +485,17 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 }
 
-func (mi *muxInstance) search(req *http.Request) *route {
+func (mi *muxInstance) search(req *httpprot.Request) *route {
 	headerMismatch, methodMismatch := false, false
 
-	ip := realip.FromRequest(req)
+	ip := req.RealIP()
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
 	// headers.
 	r := mi.getCacheRoute(req)
 	if r != nil {
-		if r.code != http.StatusOK {
+		if r.code != 0 {
 			return r
 		}
 		if r.path.ipFilterChain == nil {
@@ -495,7 +532,7 @@ func (mi *muxInstance) search(req *http.Request) *route {
 
 			// The path can be put into the cache if it has no headers.
 			if len(path.headers) == 0 {
-				r = &route{code: http.StatusOK, path: path}
+				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
 			} else if !path.matchHeaders(req) {
 				headerMismatch = true

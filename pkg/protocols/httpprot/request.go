@@ -39,39 +39,51 @@ var _ protocols.Request = (*Request)(nil)
 
 // NewRequest creates a new request from a standard request.
 //
-// The body of http.Request can only be read once, but the Request need
-// to support being read more times, so we read the full body out here.
-// This consumes a lot of memory, but seems no way to avoid it.
+// The body of http.Request can only be read once, but the httpprot.Request
+// need to support being read more times, to make this possible, FetchPayload
+// must be called before any read of the request body. This consumes a lot
+// of memory, but seems no way to avoid it.
 func NewRequest(stdr *http.Request) (*Request, error) {
 	if stdr == nil {
 		stdr = &http.Request{Body: http.NoBody}
 		return &Request{Request: stdr}, nil
 	}
 
-	var body []byte
-	var err error
-	if stdr.ContentLength > 0 {
-		body = make([]byte, stdr.ContentLength)
-		_, err = io.ReadFull(stdr.Body, body)
-	} else if stdr.ContentLength == -1 {
-		body, err = io.ReadAll(stdr.Body)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
 	r := &Request{Request: stdr}
 	r.realIP = realip.FromRequest(stdr)
-	r.SetPayload(body)
-
 	return r, nil
+}
+
+// FetchPayload reads the body of the underlying http.Request, initializes
+// payload, and bind a new body to the underlying http.Request.
+func (r *Request) FetchPayload() (int, error) {
+	var payload []byte
+	var err error
+
+	stdr := r.Request
+	if stdr.ContentLength > 0 {
+		payload = make([]byte, stdr.ContentLength)
+		_, err = io.ReadFull(stdr.Body, payload)
+	} else if stdr.ContentLength == -1 {
+		payload, err = io.ReadAll(stdr.Body)
+	}
+	r.SetPayload(payload)
+
+	if err == io.EOF {
+		err = nil
+	}
+	return len(payload), err
 }
 
 // SetPayload sets the payload of the request to payload.
 func (r *Request) SetPayload(payload []byte) {
 	r.payload = payload
-	r.Body = io.NopCloser(r.GetPayload())
+	reader := r.GetPayload()
+	if rc, ok := reader.(io.ReadCloser); ok {
+		r.Body = rc
+	} else {
+		r.Body = io.NopCloser(reader)
+	}
 }
 
 // GetPayload returns a new payload reader.
@@ -87,6 +99,11 @@ func (r *Request) GetPayload() io.Reader {
 // not modify its content.
 func (r *Request) RawPayload() []byte {
 	return r.payload
+}
+
+// PayloadLength returns the length of the payload.
+func (r *Request) PayloadLength() int {
+	return len(r.payload)
 }
 
 // Close closes the request.

@@ -336,10 +336,10 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 	metric.Duration = duration
 
 	metric.ReqSize = uint64(spCtx.req.MetaSize())
-	metric.ReqSize += uint64(len(spCtx.req.RawPayload()))
+	metric.ReqSize += uint64(spCtx.req.PayloadLength())
 
 	metric.RespSize = uint64(spCtx.resp.MetaSize())
-	metric.RespSize += uint64(len(spCtx.resp.RawPayload()))
+	metric.RespSize += uint64(spCtx.resp.PayloadLength())
 
 	sp.httpStat.Stat(metric)
 }
@@ -518,6 +518,10 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) error {
 
 	resp, err := httpprot.NewResponse(spCtx.stdResp)
 	if err != nil {
+		return err
+	}
+
+	if _, err = resp.FetchPayload(); err != nil {
 		return err
 	}
 
