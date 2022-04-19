@@ -18,8 +18,11 @@
 package context
 
 import (
+	"bytes"
 	"fmt"
+	"runtime/debug"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/tracing"
 )
@@ -220,6 +223,20 @@ func (ctx *Context) GetKV(key interface{}) interface{} {
 	return ctx.kv[key]
 }
 
+// Tags joins all tags into a string and returns it.
+func (ctx *Context) Tags() string {
+	buf := bytes.Buffer{}
+
+	for i, fn := range ctx.lazyTags {
+		if i > 0 {
+			buf.WriteString(" | ")
+		}
+		buf.WriteString(fn())
+	}
+
+	return buf.String()
+}
+
 // OnFinish registers a function to be called in Finish.
 func (ctx *Context) OnFinish(fn func()) {
 	ctx.finishFuncs = append(ctx.finishFuncs, fn)
@@ -227,17 +244,25 @@ func (ctx *Context) OnFinish(fn func()) {
 
 // Finish calls all finish functions.
 func (ctx *Context) Finish() {
+	const msgFmt = "failed to execute finish action: %v, stack trace: \n%s\n"
+
 	for _, req := range ctx.requests {
 		req.Close()
 	}
+
 	for _, resp := range ctx.responses {
 		resp.Close()
 	}
+
 	for _, fn := range ctx.finishFuncs {
-		fn()
-	}
-	for _, fn := range ctx.lazyTags {
-		// TODO: add tags here
-		fn()
+		func() {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Errorf(msgFmt, err, debug.Stack())
+				}
+			}()
+
+			fn()
+		}()
 	}
 }

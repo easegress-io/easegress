@@ -38,31 +38,70 @@ var _ protocols.Response = (*Response)(nil)
 
 // NewResponse creates a new response from a standard response.
 //
-// The body of http.Response can only be read once, but the Response need
-// to support being read more times, so we read the full body out here.
-// This consumes a lot of memory, but seems no way to avoid it.
+// The body of http.Response can only be read once, but the httpprot.Response
+// need to support being read more times, to make this possible, FetchPayload
+// must be called before any read of the request body. This consumes a lot
+// of memory, but seems no way to avoid it.
 func NewResponse(stdr *http.Response) (*Response, error) {
 	if stdr == nil {
 		stdr := &http.Response{Body: http.NoBody, StatusCode: http.StatusOK}
 		return &Response{Response: stdr}, nil
 	}
 
-	var body []byte
+	return &Response{Response: stdr}, nil
+}
+
+// FetchPayload reads the body of the underlying http.Response, initializes
+// payload, and bind a new body to the underlying http.Response.
+func (r *Response) FetchPayload() (int, error) {
+	var payload []byte
 	var err error
+
+	stdr := r.Response
 	if stdr.ContentLength > 0 {
-		body = make([]byte, stdr.ContentLength)
-		_, err = io.ReadFull(stdr.Body, body)
+		payload = make([]byte, stdr.ContentLength)
+		_, err = io.ReadFull(stdr.Body, payload)
 	} else if stdr.ContentLength == -1 {
-		body, err = io.ReadAll(stdr.Body)
+		payload, err = io.ReadAll(stdr.Body)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-	r := &Response{Response: stdr}
-	r.SetPayload(body)
+	r.SetPayload(payload)
 
-	return r, nil
+	if err == io.EOF {
+		err = nil
+	}
+	return len(payload), err
+}
+
+// SetPayload sets the payload of the response to payload.
+func (r *Response) SetPayload(payload []byte) {
+	r.payload = payload
+	reader := r.GetPayload()
+	if rc, ok := reader.(io.ReadCloser); ok {
+		r.Body = rc
+	} else {
+		r.Body = io.NopCloser(reader)
+	}
+}
+
+// GetPayload returns a new payload reader.
+func (r *Response) GetPayload() io.Reader {
+	if len(r.payload) == 0 {
+		return http.NoBody
+	} else {
+		return bytes.NewReader(r.payload)
+	}
+}
+
+// RawPayload returns the payload in []byte, the caller should
+// not modify its content.
+func (r *Response) RawPayload() []byte {
+	return r.payload
+}
+
+// PayloadLength returns the length of the payload.
+func (r *Response) PayloadLength() int {
+	return len(r.payload)
 }
 
 // Std returns the underlying http.Response.
@@ -125,27 +164,6 @@ func (r *Response) SetCookie(cookie *http.Cookie) {
 	if v := cookie.String(); v != "" {
 		r.HTTPHeader().Add("Set-Cookie", v)
 	}
-}
-
-// SetPayload sets the payload of the response to payload.
-func (r *Response) SetPayload(payload []byte) {
-	r.payload = payload
-	r.Body = io.NopCloser(r.GetPayload())
-}
-
-// GetPayload returns a new payload reader.
-func (r *Response) GetPayload() io.Reader {
-	if len(r.payload) == 0 {
-		return http.NoBody
-	} else {
-		return bytes.NewReader(r.payload)
-	}
-}
-
-// RawPayload returns the payload in []byte, the caller should
-// not modify its content.
-func (r *Response) RawPayload() []byte {
-	return r.payload
 }
 
 // HTTPHeader returns the header of the response in type http.Header.

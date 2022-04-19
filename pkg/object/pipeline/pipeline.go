@@ -350,7 +350,9 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 		}
 	}
 
-	ctx.AddTag(serializeStats(stats))
+	ctx.LazyAddTag(func() string {
+		return serializeStats(stats)
+	})
 	return result
 }
 
