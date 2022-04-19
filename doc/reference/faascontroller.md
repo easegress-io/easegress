@@ -22,7 +22,7 @@
 * One FaaSController will manage one shared HTTP traffic gate and multiple pipelines according to the functions it has.
 * The `httpserver` section in spec is the configuration for the shared HTTP traffic gate.
 * The `Knative` section is for `Knative` type of `FaaSProvider`. Depending your Kubernetes cluster, you can use either Magic DNS or Temporary DNS ([see](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#configure-dns)). Here's how you fill the `Knative` section for each one of them:
-  * **Temporary DNS**: The `${knative_kourier_clusterIP}` value can be set by using the command
+  * **Temporary DNS**: The value of `networkLayerURL` can be found using the following command
 
   ``` bash
   $ kubectl get svc -n kourier-system
@@ -30,17 +30,16 @@
   kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
   ```
 
-  The `CLUSTER-IP` valued with `10.109.159.129` is your kourier's K8s service's address.
-  * **Note:** Use the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
+  The `CLUSTER-IP` with value `10.109.159.129` is your kourier's K8s service's address. Use it as the value for `networkLayerURL` in the YAML below.
   * `hostSuffix`'s value should be `example.com` [2], like described in `Knative` serving's `Temporary DNS`.
-* **Magic DNS**: Use the `EXTERNAL-IP` of the loadbalancer:
+* **Magic DNS**: For `networkLayerURL`, use the `EXTERNAL-IP` of the loadbalancer:
 
   ```bash
    $ kubectl get svc -n kourier-system
   NAME               TYPE           CLUSTER-IP       EXTERNAL-IP                                                                    PORT(S)                      AGE
   kourier            LoadBalancer   1.2.3.4   some-external-ip-of-my-cloud-provider.com   80:31060/TCP,443:30384/TCP   12m
   ```
-  * For `hostSuffix`, use `kn service list` to see the suffix of your functions: For url `http://demo.default.4.5.6.7.sslip.io` the `hostSuffix` is `4.5.6.7.sslip.io` (`x.x.x.x.sslip.io`). **Note:** If you don't have yet any functions yet deployed, you first use any value for `hostSuffix` (for example `example.com`), then deploy a function and use `kn service list` to find out the value of `hostSuffix`. Update it to your configuration and re-create FaaSController.
+  * For `hostSuffix`, use `kn service list` to see the suffix of your functions: For url `http://demo.default.4.5.6.7.sslip.io` the `hostSuffix` is `4.5.6.7.sslip.io` (basically the IP `x.x.x.x` + `sslip.io`). **Note:** If you don't have yet any functions yet deployed, you first use any value for `hostSuffix` (for example `example.com`), then deploy a function and use `kn service list` to find out the value of `hostSuffix`. Update it to your configuration and re-create FaaSController.
 
 ```yaml
 name: faascontroller
@@ -60,7 +59,7 @@ httpServer:
     maxConnections: 10240      
 
 knative:
-   networkLayerURL: http://{knative_kourier_clusterIP}
+   networkLayerURL: http://{knative_kourier_clusterIP} # or http://{knative_kourier_externalIP}
    hostSuffix: example.com # or x.x.x.x.sslip.com for Magic DNS
 ```
 
