@@ -39,7 +39,7 @@
   NAME               TYPE           CLUSTER-IP       EXTERNAL-IP                                                                    PORT(S)                      AGE
   kourier            LoadBalancer   1.2.3.4   some-external-ip-of-my-cloud-provider.com   80:31060/TCP,443:30384/TCP   12m
   ```
-  * For `hostSuffix`, use `kn service list` to see the suffix of your functions: For url `http://demo.default.4.5.6.7.sslip.io` the `hostSuffix` is `4.5.6.7.sslip.io` (basically the IP `x.x.x.x` + `sslip.io`). **Note:** If you don't have yet any functions yet deployed, you first use any value for `hostSuffix` (for example `example.com`), then deploy a function and use `kn service list` to find out the value of `hostSuffix`. Update it to your configuration and re-create FaaSController.
+  * For `hostSuffix`, use `kn service list` to see the suffix of your functions: For url `http://demo.default.4.5.6.7.sslip.io` the `hostSuffix` is `4.5.6.7.sslip.io` (basically the IP `x.x.x.x` + `sslip.io`). **Note:** If you don't have any functions yet deployed, you first use any value for `hostSuffix` (for example `example.com`), then deploy a function and use `kn service list` to find out the value of `hostSuffix`. Update it to your configuration and re-create FaaSController.
 
 ```yaml
 name: faascontroller
