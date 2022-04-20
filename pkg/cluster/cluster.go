@@ -771,36 +771,38 @@ func (c *cluster) heartbeat() {
 	}
 }
 
+func (c *cluster) runDefrag() time.Duration {
+	client, err := c.getClient()
+	if err != nil {
+		logger.Errorf("defrag failed: get client failed: %v", err)
+		return defragFailedInterval
+	}
+	defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
+	if err != nil {
+		logger.Errorf("defrag failed: %v", err)
+		return defragNormalInterval // url is wrong
+	}
+	// NOTICE: It needs longer time than normal ones.
+	_, err = func() (*clientv3.DefragmentResponse, error) {
+		ctx, cancel := c.longRequestContext()
+		defer cancel()
+		return client.Defragment(ctx, defragmentURL)
+	}()
+	if err != nil {
+		logger.Errorf("defrag failed: %v", err)
+		return defragFailedInterval
+	}
+
+	logger.Infof("defrag successfully")
+	return defragNormalInterval
+}
+
 func (c *cluster) defrag() {
 	defragInterval := defragNormalInterval
 	for {
 		select {
 		case <-time.After(defragInterval):
-			client, err := c.getClient()
-			if err != nil {
-				defragInterval = defragFailedInterval
-				logger.Errorf("defrag failed: get client failed: %v", err)
-			}
-
-			defragmentURL, err := c.opt.GetFirstAdvertiseClientURL()
-			if err != nil {
-				logger.Errorf("defrag failed: %v", err)
-				return
-			}
-			// NOTICE: It needs longer time than normal ones.
-			_, err = func() (*clientv3.DefragmentResponse, error) {
-				ctx, cancel := c.longRequestContext()
-				defer cancel()
-				return client.Defragment(ctx, defragmentURL)
-			}()
-			if err != nil {
-				defragInterval = defragFailedInterval
-				logger.Errorf("defrag failed: %v", err)
-				continue
-			}
-
-			logger.Infof("defrag successfully")
-			defragInterval = defragNormalInterval
+			defragInterval = c.runDefrag()
 		case <-c.done:
 			return
 		}

@@ -32,8 +32,8 @@ func check(e error) {
 	}
 }
 
-// CreateClusterForTest creates a cluster for testing purposes.
-func CreateClusterForTest(tempDir string) Cluster {
+// CreateOptionsForTest creates a options for testing purposes.
+func CreateOptionsForTest(tempDir string) *option.Options {
 	ports, err := freeport.GetFreePorts(3)
 	check(err)
 	name := fmt.Sprintf("test-member-x")
@@ -57,6 +57,12 @@ func CreateClusterForTest(tempDir string) Cluster {
 	check(err)
 
 	env.InitServerDir(opt)
+	return opt
+}
+
+// CreateClusterForTest creates a cluster for testing purposes.
+func CreateClusterForTest(tempDir string) Cluster {
+	opt := CreateOptionsForTest(tempDir)
 
 	clusterInstance, err := New(opt)
 	check(err)

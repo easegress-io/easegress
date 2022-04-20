@@ -25,7 +25,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         shell: bash
@@ -42,7 +42,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         run: |
@@ -61,7 +61,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Test
         run: |
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: integration-test-ubuntu
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
       - uses: actions/setup-go@v2

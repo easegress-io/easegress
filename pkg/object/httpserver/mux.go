@@ -252,6 +252,29 @@ func (mp *MuxPath) matchPath(r *httpprot.Request) bool {
 	return false
 }
 
+func (mp *MuxPath) rewrite(r *httpprot.Request) {
+	if mp.rewriteTarget == "" {
+		return
+	}
+
+	path := r.Path()
+
+	if mp.path != "" && mp.path == path {
+		r.SetPath(mp.rewriteTarget)
+		return
+	}
+
+	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
+		path = mp.rewriteTarget + path[len(mp.pathPrefix):]
+		r.SetPath(path)
+		return
+	}
+
+	// sure (mp.pathRE != nil && mp.pathRE.MatchString(path)) is true
+	path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
+	r.SetPath(path)
+}
+
 func (mp *MuxPath) matchMethod(r *httpprot.Request) bool {
 	if len(mp.methods) == 0 {
 		return true
@@ -459,12 +482,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		return
 	}
 
-	if route.path.pathRE != nil && route.path.rewriteTarget != "" {
-		path := stdr.URL.Path
-		path = route.path.pathRE.ReplaceAllString(path, route.path.rewriteTarget)
-		stdr.URL.Path = path
-	}
-
+	route.path.rewrite(req)
 	if mi.spec.XForwardedFor {
 		mi.appendXForwardedFor(req)
 	}

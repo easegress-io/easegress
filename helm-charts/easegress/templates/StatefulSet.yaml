@@ -27,7 +27,7 @@ spec:
         - -c
         - |-
           echo name: $EG_NAME > /opt/eg-config/config.yaml &&
-          cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml && 
+          cat /opt/eg-config/eg-primary.yaml >> /opt/eg-config/config.yaml &&
           /opt/easegress/bin/easegress-server \
             -f /opt/eg-config/config.yaml \
             --advertise-client-urls http://$(EG_NAME).easegress-hs.{{ .Release.Namespace }}:2379 \
@@ -66,8 +66,8 @@ spec:
           subPath: eg-primary.yaml
         - mountPath: /opt/easegress/data
           name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
-        - mountPath: /opt/easegress/log
-          name: {{ if eq .Values.cluster.volumeType "persistentVolume" }}easegress-pv {{ else }} easegress-data-volume {{ end }}
+        - mountPath: {{ .Values.log.path }}
+          name: easegress-data-volume
       restartPolicy: Always
       volumes:
       - emptyDir: {}

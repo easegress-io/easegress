@@ -111,7 +111,7 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	return ec, nil
 }
 
-// CreateEtcdConfig creates an embedded etcd config that starts the cluster by adding member by member.
+// CreateEtcdConfig creates an embedded etcd config that starts the cluster by adding one member at a time. Deprecated: Use CreateStaticClusterEtcdConfig instead.
 func CreateEtcdConfig(opt *option.Options, members *members) (*embed.Config, error) {
 	ec := embed.NewConfig()
 

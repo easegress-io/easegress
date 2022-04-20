@@ -391,7 +391,7 @@ domains:
 | path          | string                                   | Exact path to match                                                                                                                    | No       |
 | pathPrefix    | string                                   | Prefix of the path to match                                                                                                            | No       |
 | pathRegexp    | string                                   | Path in regular expression to match                                                                                                    | No       |
-| rewriteTarget | string                                   | Use pathRegexp.[ReplaceAllString](https://golang.org/pkg/regexp/#Regexp.ReplaceAllString)(path, rewriteTarget) to rewrite request path | No       |
+| rewriteTarget | string                                   | Use pathRegexp.[ReplaceAllString](https://golang.org/pkg/regexp/#Regexp.ReplaceAllString)(path, rewriteTarget) or pathPrefix [strings.Replace](https://pkg.go.dev/strings#Replace) to rewrite request path | No       |
 | methods       | []string                                 | Methods to match, empty means to allow all methods                                                                                     | No       |
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |

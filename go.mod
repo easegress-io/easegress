@@ -13,14 +13,14 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-zookeeper/zk v1.0.2
-	github.com/goccy/go-json v0.9.4
+	github.com/goccy/go-json v0.9.6
 	github.com/golang-jwt/jwt v3.2.1+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/consul/api v1.12.0
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/json-iterator/go v1.1.12
-	github.com/klauspost/compress v1.14.4
+	github.com/klauspost/compress v1.15.1
 	github.com/libdns/alidns v1.0.2-x2
 	github.com/libdns/azure v0.2.0
 	github.com/libdns/cloudflare v0.1.0
@@ -43,7 +43,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.8.2
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.1
 	github.com/stretchr/testify v1.7.0
@@ -63,6 +63,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
@@ -242,7 +243,6 @@ require (
 	gopkg.in/ini.v1 v1.66.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 	k8s.io/apiextensions-apiserver v0.22.5 // indirect
 	k8s.io/cli-runtime v0.22.5 // indirect

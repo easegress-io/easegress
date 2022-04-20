@@ -293,19 +293,16 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		}
 
 		switch status := status.ObjectStatus.(type) {
-		case *trafficcontroller.StatusInSameNamespace:
-			for name, server := range status.HTTPServers {
-				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
-				reqs, codes := emm.httpServer2Metrics(baseFields, server.Status)
-				reqMetrics = append(reqMetrics, reqs...)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-			for name, pipeline := range status.HTTPPipelines {
-				baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, name)
-				reqs, codes := emm.httpPipeline2Metrics(baseFields, pipeline.Status)
-				reqMetrics = append(reqMetrics, reqs...)
-				codeMetrics = append(codeMetrics, codes...)
-			}
+		case *trafficcontroller.HTTPServerStatus:
+			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
+			reqs, codes := emm.httpServer2Metrics(baseFields, status.Status)
+			reqMetrics = append(reqMetrics, reqs...)
+			codeMetrics = append(codeMetrics, codes...)
+		case *trafficcontroller.HTTPPipelineStatus:
+			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
+			reqs, codes := emm.httpPipeline2Metrics(baseFields, status.Status)
+			reqMetrics = append(reqMetrics, reqs...)
+			codeMetrics = append(codeMetrics, codes...)
 		default:
 			continue
 		}
@@ -380,8 +377,8 @@ func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pi
 
 func (emm *EaseMonitorMetrics) httpServer2Metrics(
 	baseFields *GlobalFields, serverStatus *httpserver.Status) (
-	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
-
+	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics,
+) {
 	if serverStatus.Status != nil {
 		baseFieldsServer := *baseFields
 		baseFieldsServer.Resource = "SERVER"
@@ -403,8 +400,8 @@ func (emm *EaseMonitorMetrics) httpServer2Metrics(
 }
 
 func (emm *EaseMonitorMetrics) httpStat2Metrics(baseFields *GlobalFields, s *httpstat.Status) (
-	*RequestMetrics, []*StatusCodeMetrics) {
-
+	*RequestMetrics, []*StatusCodeMetrics,
+) {
 	baseFields.Type = "eg-http-request"
 	rm := &RequestMetrics{
 		GlobalFields: *baseFields,
