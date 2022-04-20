@@ -10,28 +10,36 @@
   - [Reference](#reference)
 
 * A FaaSController is a business controller for handling Easegress and FaaS products integration purposes.  It abstracts `FaasFunction`, `FaaSStore` and, `FaasProvider`. Currently, we only support `Knative` type `FaaSProvider`. The `FaaSFunction` describes the name, image URL, the resource, and autoscaling type of this FaaS function instance. The `FaaSStore` is covered by Easegress' embed Etcd already.
-* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/install-serving-with-yaml/) to install `Knative`[1]'s serving component in K8s. It's better to have Easegress run in the same VM instances with K8s for saving communication costs.
+* FaaSController works closely with local `FaaSProvider`. Please make sure they are running in a communicable environment. Follow this [knative doc](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/) to install `Knative`[1]'s serving component in K8s. It's better to have Easegress run in the same VM instances with K8s for saving communication costs.
 
 
 ## Prerequisites
-1. K8s cluster : **v1.18+**
-2. `Knative` Serving : **v0.23** (with kourier type of networklayer instead of Istio which is too complicated here)
+1. K8s cluster : **v1.23+**
+2. `Knative` Serving : **v1.3+** (with kourier type of network layer)
 
 ## Configuration
 ### Controller spec
 * One FaaSController will manage one shared HTTP traffic gate and multiple pipelines according to the functions it has.
 * The `httpserver` section in spec is the configuration for the shared HTTP traffic gate.
-* The `Knative` section inf spec is for `Knative` type `FaaSProvider`. The `${knative_kourier_clusterIP}` value can be set by using the command
+* The `Knative` section is for `Knative` type of `FaaSProvider`. Depending your Kubernetes cluster, you can use either Magic DNS or Temporary DNS ([see](https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/#configure-dns)). Here's how you fill the `Knative` section for each one of them:
+  * **Temporary DNS**: The value of `networkLayerURL` can be found using the following command
 
-``` bash
-$ kubectl get svc -n kourier-system
-NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
-kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
-```
+  ``` bash
+  $ kubectl get svc -n kourier-system
+  NAME               TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+  kourier            LoadBalancer   10.109.159.129   <pending>     80:31731/TCP,443:30571/TCP   250dk
+  ```
 
-The `CLUSTER-IP` valued with `10.109.159.129` is your kourier's K8s service's address.
-* **Note:** Using the `CLUSTER-IP` value above to replace the `{knative_kourier_clusterIP}` in the YAML below.
-* The `hostSuffix` filed should be filled with value `example.com`[2] according to `Knative` serving's `Temporary DNS`.
+  The `CLUSTER-IP` with value `10.109.159.129` is your kourier's K8s service's address. Use it as the value for `networkLayerURL` in the YAML below.
+  * `hostSuffix`'s value should be `example.com` [2], like described in `Knative` serving's `Temporary DNS`.
+* **Magic DNS**: For `networkLayerURL`, use the `EXTERNAL-IP` of the loadbalancer:
+
+  ```bash
+   $ kubectl get svc -n kourier-system
+  NAME               TYPE           CLUSTER-IP       EXTERNAL-IP                                                                    PORT(S)                      AGE
+  kourier            LoadBalancer   1.2.3.4   some-external-ip-of-my-cloud-provider.com   80:31060/TCP,443:30384/TCP   12m
+  ```
+  * For `hostSuffix`, use `kn service list` to see the suffix of your functions: For url `http://demo.default.4.5.6.7.sslip.io` the `hostSuffix` is `4.5.6.7.sslip.io` (basically the IP `x.x.x.x` + `sslip.io`). **Note:** If you don't have any functions yet deployed, you first use any value for `hostSuffix` (for example `example.com`), then deploy a function and use `kn service list` to find out the value of `hostSuffix`. Update it to your configuration and re-create FaaSController.
 
 ```yaml
 name: faascontroller
@@ -51,8 +59,8 @@ httpServer:
     maxConnections: 10240      
 
 knative:
-   networkLayerURL: http://{knative_kourier_clusterIP}
-   hostSuffix: example.com
+   networkLayerURL: http://{knative_kourier_clusterIP} # or http://{knative_kourier_externalIP}
+   hostSuffix: example.com # or x.x.x.x.sslip.com for Magic DNS
 ```
 
 ### FaaSFunction spec
@@ -163,7 +171,7 @@ The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}
 1. Creating the FaasController in Easegress
 
 ```bash
-$ cd ./easegress/example/writer-001 && ./start.sh
+$ cd ./easegress/example/primary-001 && ./start.sh
 
 $ ./egctl.sh object create -f ./faascontroller.yaml
 
@@ -244,6 +252,6 @@ The function's API is serving in `/tomcat/job/api` path and its logic is display
 
 ## Reference
 1. knative website http://knative.dev
-2. Install knative serving via YAML https://knative.dev/docs/install/install-serving-with-yaml
+2. Install knative serving via YAML https://knative.dev/docs/install/yaml-install/serving/install-serving-with-yaml/
 3. resource quota https://kubernetes.io/docs/concepts/policy/resource-quotas/
 4. AWS Lambda state https://aws.amazon.com/blogs/compute/tracking-the-state-of-lambda-functions/
