@@ -20,6 +20,7 @@ package headerlookup
 import (
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -74,6 +75,7 @@ func createClusterAndSyncer() (*clustertest.MockedCluster, chan map[string]strin
 }
 
 func TestValidate(t *testing.T) {
+	assert := assert.New(t)
 	clusterInstance, _ := createClusterAndSyncer()
 
 	var mockMap sync.Map
@@ -134,17 +136,17 @@ headerSetters:
 	}
 
 	for _, unvalidYaml := range unvalidYamls {
-		if _, err := createHeaderLookup(unvalidYaml, nil, supervisor); err == nil {
-			t.Errorf("validate should return error")
-		}
+		_, err := createHeaderLookup(unvalidYaml, nil, supervisor)
+		assert.NotNil(err)
 	}
 
-	if _, err := createHeaderLookup(validYaml, nil, supervisor); err != nil {
-		t.Errorf("validate should not return error: %s", err.Error())
-	}
+	_, err := createHeaderLookup(validYaml, nil, supervisor)
+	assert.Nil(err)
 }
 
 func TestFindKeysToDelete(t *testing.T) {
+	assert := assert.New(t)
+
 	cache, _ := lru.New(10)
 	kvs := make(map[string]string)
 	kvs["doge"] = "headerA: 3\nheaderB: 6"
@@ -156,9 +158,10 @@ func TestFindKeysToDelete(t *testing.T) {
 	cache.Add("foo", "headerA: 3\nheaderB: 232")  // new value
 	cache.Add("key4", "---")                      // new value
 	cache.Add("key6", "headerA: 11\nheaderB: 44") // new value
-	if res := findKeysToDelete(kvs, cache); res[0] == "foo" && res[1] == "key4" {
-		t.Errorf("findModifiedValues failed")
-	}
+	res := findKeysToDelete(kvs, cache)
+	sort.Strings(res)
+	assert.NotEqual("foo", res[0])
+	assert.NotEqual("key4", res[1])
 }
 
 func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
