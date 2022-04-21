@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package requestbuilder
+package httprequestbuilder
 
 import (
 	"bytes"

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package requestbuilder
+package httprequestbuilder
 
 import (
 	"fmt"
@@ -78,7 +78,7 @@ type (
 		headerBuilders []*headerBuilder
 	}
 
-	// Spec is HTTPAdaptor Spec.
+	// Spec is HTTPRequestBuilder Spec.
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
@@ -159,12 +159,12 @@ func (rb *HTTPRequestBuilder) reload() {
 
 // Handle builds request.
 func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		logger.Errorf("panic: %v", err)
-	// 		result = resultBuildErr
-	// 	}
-	// }()
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("panic: %v", err)
+			result = resultBuildErr
+		}
+	}()
 
 	templateCtx, err := getTemplateContext(rb.spec, ctx)
 	if err != nil {
