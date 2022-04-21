@@ -18,19 +18,44 @@
 package requestbuilder
 
 import (
+	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
 	// Kind is the kind of HTTPRequestBuilder.
 	Kind = "HTTPRequestBuilder"
+
+	resultBuildErr = "buildErr"
 )
+
+var methods = map[string]struct{}{
+	http.MethodGet:     {},
+	http.MethodHead:    {},
+	http.MethodPost:    {},
+	http.MethodPut:     {},
+	http.MethodPatch:   {},
+	http.MethodDelete:  {},
+	http.MethodConnect: {},
+	http.MethodOptions: {},
+	http.MethodTrace:   {},
+}
+
+func checkMethod(method string) bool {
+	_, ok := methods[method]
+	return ok
+}
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "HTTPRequestBuilder builds an HTTP request",
-	Results:     []string{},
+	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -46,15 +71,41 @@ func init() {
 type (
 	// HTTPRequestBuilder is filter HTTPRequestBuilder.
 	HTTPRequestBuilder struct {
-		spec *Spec
+		spec           *Spec
+		methodBuilder  *builder
+		urlBuilder     *builder
+		bodyBuilder    *builder
+		headerBuilders []*headerBuilder
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		// Body is the request body of the target request.
-		Body string `yaml:"body" jsonschema:"omitempty"`
+		ID      string    `yaml:"id" jsonschema:"required"`
+		Method  string    `yaml:"method" jsonschema:"required"`
+		URL     string    `yaml:"url" jsonschema:"required"`
+		Headers []Header  `yaml:"headers" jsonschema:"omitempty"`
+		Body    *BodySpec `yaml:"body" jsonschema:"omitempty"`
+	}
+
+	// BodySpec describes how to build the body of the request.
+	BodySpec struct {
+		Requests  []*ReqRespBody `yaml:"requests" jsonschema:"omitempty"`
+		Responses []*ReqRespBody `yaml:"responses" jsonschema:"omitempty"`
+		Body      string         `yaml:"body" jsonschema:"omitempty"`
+	}
+
+	// ReqRespBody describes the request body or response body used to create new request.
+	ReqRespBody struct {
+		ID     string `yaml:"id" jsonschema:"required"`
+		UseMap bool   `yaml:"useMap" jsonschema:"omitempty"`
+	}
+
+	// Header defines HTTP header template.
+	Header struct {
+		Key   string `yaml:"key"`
+		Value string `yaml:"value"`
 	}
 )
 
@@ -85,13 +136,96 @@ func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *HTTPRequestBuilder) reload() {
-	// Nothing to do.
+	rb.methodBuilder = getBuilder(rb.spec.Method)
+	if !rb.methodBuilder.useTempalte {
+		rb.methodBuilder.value = strings.ToUpper(rb.spec.Method)
+		if !checkMethod(rb.methodBuilder.value) {
+			panic(fmt.Errorf("invalid method for HTTPRequestBuilder %v", rb.spec.Method))
+		}
+	}
+
+	rb.urlBuilder = getBuilder(rb.spec.URL)
+
+	if rb.spec.Body != nil {
+		rb.bodyBuilder = getBuilder(rb.spec.Body.Body)
+	}
+
+	for _, header := range rb.spec.Headers {
+		keyBuilder := getBuilder(header.Key)
+		valueBuilder := getBuilder(header.Value)
+		rb.headerBuilders = append(rb.headerBuilders, &headerBuilder{keyBuilder, valueBuilder})
+	}
 }
 
 // Handle builds request.
-func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) string {
-	// TODO: finish it later
-	panic("finish this when ready")
+func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
+	// defer func() {
+	// 	if err := recover(); err != nil {
+	// 		logger.Errorf("panic: %v", err)
+	// 		result = resultBuildErr
+	// 	}
+	// }()
+
+	templateCtx, err := getTemplateContext(rb.spec, ctx)
+	if err != nil {
+		logger.Errorf("getTemplateContext failed: %v", err)
+		return resultBuildErr
+	}
+
+	// build method
+	method, err := rb.methodBuilder.build(templateCtx)
+	if err != nil {
+		logger.Errorf("build method failed: %v", err)
+		return resultBuildErr
+	}
+
+	// build url
+	url, err := rb.urlBuilder.build(templateCtx)
+	if err != nil {
+		logger.Errorf("build url failed: %v", err)
+		return resultBuildErr
+	}
+
+	// build body
+	var body string
+	if rb.bodyBuilder != nil {
+		body, err = rb.bodyBuilder.build(templateCtx)
+		if err != nil {
+			logger.Errorf("build body failed: %v", err)
+			return resultBuildErr
+		}
+	}
+
+	// build request
+	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	if err != nil {
+		logger.Errorf("build request failed: %v", err)
+		return resultBuildErr
+	}
+
+	// build headers
+	for _, headerBuilder := range rb.headerBuilders {
+		key, err := headerBuilder.key.build(templateCtx)
+		if err != nil {
+			logger.Errorf("build header key failed: %v", err)
+			return resultBuildErr
+		}
+		value, err := headerBuilder.value.build(templateCtx)
+		if err != nil {
+			logger.Errorf("build header value failed: %v", err)
+			return resultBuildErr
+		}
+		req.Header.Add(key, value)
+	}
+
+	// build context
+	httpreq, err := httpprot.NewRequest(req)
+	if err != nil {
+		logger.Errorf("build context failed: %v", err)
+		return resultBuildErr
+	}
+	ctx.SetRequest(rb.spec.ID, httpreq)
+	return ""
 }
 
 // Status returns status.
