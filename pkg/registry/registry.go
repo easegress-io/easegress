@@ -41,6 +41,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filter/responseadaptor"
 	_ "github.com/megaease/easegress/pkg/filter/retryer"
 	_ "github.com/megaease/easegress/pkg/filter/timelimiter"
+	_ "github.com/megaease/easegress/pkg/filter/topicmapper"
 	_ "github.com/megaease/easegress/pkg/filter/validator"
 	_ "github.com/megaease/easegress/pkg/filter/wasmhost"
 
