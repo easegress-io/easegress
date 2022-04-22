@@ -90,7 +90,10 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 	}
 
 	stdr.Header = spCtx.req.HTTPHeader().Clone()
-	if !svr.addrIsHostName {
+
+	// only set host when server address is not host name OR
+	// server is explicitly told to keep the host of the request.
+	if !svr.addrIsHostName || svr.KeepHost {
 		stdr.Host = spCtx.req.Host()
 	}
 

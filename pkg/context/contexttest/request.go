@@ -21,7 +21,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 )
 
 // MockedHTTPRequest is the mocked HTTP request

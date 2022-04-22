@@ -26,8 +26,9 @@ import (
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/hashtool"
-	"github.com/megaease/easegress/pkg/util/httpheader"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPickservers(t *testing.T) {
@@ -409,42 +410,36 @@ func TestDynamicService(t *testing.T) {
 }
 
 func TestCheckAddrPattern(t *testing.T) {
+	assert := assert.New(t)
+
 	server := Server{}
 
 	// regard invalid url as IP:port
 	server.URL = "@@+=%^httpsidfssjflsdkjfsjf"
 	server.checkAddrPattern()
-	if server.addrIsHostName {
-		t.Error("address should be IP:port")
-	}
+	assert.False(server.addrIsHostName, "address should be IP:port")
 
 	server.URL = "http://127.0.0.1:1111"
 	server.checkAddrPattern()
-	if server.addrIsHostName {
-		t.Error("address should be IP:port")
-	}
+	assert.False(server.addrIsHostName, "address should be IP:port")
 
 	server.URL = "https://127.0.0.1:1111"
 	server.checkAddrPattern()
-	if server.addrIsHostName {
-		t.Error("address should be IP:port")
-	}
+	assert.False(server.addrIsHostName, "address should be IP:port")
 
 	server.URL = "https://[FE80:CD00:0000:0CDE:1257:0000:211E:729C]:1111"
 	server.checkAddrPattern()
-	if server.addrIsHostName {
-		t.Error("address should be IP:port")
-	}
+	assert.False(server.addrIsHostName, "address should be IP:port")
 
 	server.URL = "https://www.megaease.com:1111"
 	server.checkAddrPattern()
-	if !server.addrIsHostName {
-		t.Error("address should be host name")
-	}
+	assert.True(server.addrIsHostName, "address should be host name")
 
 	server.URL = "https://www.megaease.com"
 	server.checkAddrPattern()
-	if !server.addrIsHostName {
-		t.Error("address should be host name")
-	}
+	assert.True(server.addrIsHostName, "address should be host name")
+
+	server.URL = "faas-func-name.default.example.com"
+	server.checkAddrPattern()
+	assert.True(server.addrIsHostName, "address should not be IP:port")
 }

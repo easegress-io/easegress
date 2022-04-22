@@ -23,6 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	zipkingo "github.com/openzipkin/zipkin-go"
+	zipkingohttp "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
 type (
@@ -31,6 +32,15 @@ type (
 		ServiceName string            `yaml:"serviceName" jsonschema:"required"`
 		Tags        map[string]string `yaml:"tags" jsonschema:"omitempty"`
 		Zipkin      *ZipkinSpec       `yaml:"zipkin" jsonschema:"required"`
+	}
+
+	// ZipkinSpec describes Zipkin.
+	ZipkinSpec struct {
+		Hostport   string  `yaml:"hostport" jsonschema:"omitempty"`
+		ServerURL  string  `yaml:"serverURL" jsonschema:"required,format=url"`
+		SampleRate float64 `yaml:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
+		SameSpan   bool    `yaml:"sameSpan" jsonschema:"omitempty"`
+		ID128Bit   bool    `yaml:"id128Bit" jsonschema:"omitempty"`
 	}
 
 	// Tracer is the tracer.
@@ -42,6 +52,18 @@ type (
 
 	noopCloser struct{}
 )
+
+// Validate validates Spec.
+func (spec *ZipkinSpec) Validate() error {
+	if spec.Hostport != "" {
+		_, err := zipkingo.NewEndpoint("", spec.Hostport)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // NoopTracer is the tracer doing nothing.
 var NoopTracer *Tracer
@@ -57,15 +79,33 @@ func New(spec *Spec) (*Tracer, error) {
 		return NoopTracer, nil
 	}
 
-	tracer, closer, err := NewZipkinTracer(spec.ServiceName, spec.Zipkin)
+	endpoint, err := zipkingo.NewEndpoint(spec.ServiceName, spec.Zipkin.Hostport)
+	if err != nil {
+		return nil, err
+	}
+
+	sampler, err := zipkingo.NewBoundarySampler(spec.Zipkin.SampleRate, fasttime.Now().Unix())
+	if err != nil {
+		return nil, err
+	}
+
+	reporter := zipkingohttp.NewReporter(spec.Zipkin.ServerURL)
+
+	tracer, err := zipkingo.NewTracer(
+		reporter,
+		zipkingo.WithLocalEndpoint(endpoint),
+		zipkingo.WithSharedSpans(spec.Zipkin.SameSpan),
+		zipkingo.WithTraceID128Bit(spec.Zipkin.ID128Bit),
+		zipkingo.WithSampler(sampler),
+		zipkingo.WithTags(spec.Tags),
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Tracer{
 		tracer: tracer,
-		tags:   spec.Tags,
-		closer: closer,
+		closer: reporter,
 	}, nil
 }
 
@@ -101,8 +141,5 @@ func (t *Tracer) NewSpanWithStart(name string, startAt time.Time) Span {
 
 func (t *Tracer) newSpanWithStart(name string, startAt time.Time) Span {
 	s := t.tracer.StartSpan(name, zipkingo.StartTime(startAt))
-	for k, v := range t.tags {
-		s.Tag(k, v)
-	}
 	return &span{Span: s, tracer: t}
 }

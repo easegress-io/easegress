@@ -44,6 +44,7 @@ func main() {
 		fmt.Fprintln(tw, "Your Request")
 		fmt.Fprintln(tw, "==============")
 		fmt.Fprintln(tw, "Method:", req.Method)
+		fmt.Fprintln(tw, "Host:", req.Host)
 		fmt.Fprintln(tw, "URL   :", url)
 
 		fmt.Fprintln(tw, "Header:")

@@ -26,9 +26,8 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/stretchr/testify/assert"
@@ -372,7 +371,7 @@ func TestStartTwoServerInSamePort(t *testing.T) {
 	superSpecYaml := `
 name: http-server-test
 kind: HTTPServer
-port: 10080
+port: 10082
 cacheSize: 200
 rules:
   - paths:
@@ -391,12 +390,10 @@ rules:
 	httpServer2 := HTTPServer{}
 	httpServer2.Init(superSpec2, mux2)
 
-	_, err1 := http.Get("http://127.0.0.1:10080/api")
 	httpServer1.Close()
 	httpServer2.Close()
-	_, err2 := http.Get("http://127.0.0.1:10080/api")
-	assert.Nil(err1)
-	assert.NotNil(err2)
+	_, err = http.Get("http://127.0.0.1:10082/api")
+	assert.NotNil(err)
 }
 
 func TestMatchPath(t *testing.T) {

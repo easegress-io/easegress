@@ -153,7 +153,8 @@ func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespac
 func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineSpecBuilder {
 	mainServers := []*proxy.Server{
 		{
-			URL: faasNetworkLayerURL,
+			URL:      faasNetworkLayerURL,
+			KeepHost: true, // Keep the host of the requests as they route to functions.
 		},
 	}
 

@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/httpstat"
 	"github.com/megaease/easegress/pkg/util/texttemplate"
 )
 
@@ -33,7 +33,6 @@ type MockedHTTPContext struct {
 	finishFuncs              []func()
 	MockedLock               func()
 	MockedUnlock             func()
-	MockedSpan               func() tracing.Span
 	MockedRequest            MockedHTTPRequest
 	MockedResponse           MockedHTTPResponse
 	MockedDeadline           func() (time.Time, bool)
@@ -54,6 +53,7 @@ type MockedHTTPContext struct {
 	MockedSaveRspToTemplate  func(filterName string) error
 	MockedCallNextHandler    func(lastResult string) string
 	MockedSetHandlerCaller   func(caller context.HandlerCaller)
+	MockedTracing            func() *tracing.Tracing
 }
 
 // Protocol return protocol of MockedHTTPContext
@@ -73,14 +73,6 @@ func (c *MockedHTTPContext) Unlock() {
 	if c.MockedUnlock != nil {
 		c.MockedUnlock()
 	}
-}
-
-// Span mocks the Span function of HTTPContext
-func (c *MockedHTTPContext) Span() tracing.Span {
-	if c.MockedSpan != nil {
-		return c.MockedSpan()
-	}
-	return tracing.NewSpan(tracing.NoopTracing, "mocked")
 }
 
 // Request mocks the Request function of HTTPContext
@@ -242,6 +234,14 @@ func (c *MockedHTTPContext) CallNextHandler(lastResult string) string {
 // SetHandlerCaller mocks the SetHandlerCaller function of HTTPContext
 func (c *MockedHTTPContext) SetHandlerCaller(caller context.HandlerCaller) {
 	if c.MockedSetHandlerCaller != nil {
-		c.SetHandlerCaller(caller)
+		c.MockedSetHandlerCaller(caller)
 	}
+}
+
+// Tracing mocks the Tracing function of HTTPContext
+func (c *MockedHTTPContext) Tracing() *tracing.Tracing {
+	if c.MockedTracing != nil {
+		return c.MockedTracing()
+	}
+	return tracing.NoopTracing
 }
