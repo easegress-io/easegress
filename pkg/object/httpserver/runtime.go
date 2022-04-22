@@ -19,6 +19,7 @@ package httpserver
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"log"
 	"net/http"
@@ -320,8 +321,8 @@ func (r *runtime) closeServer() {
 
 	if r.server != nil {
 		// NOTE: It's safe to shutdown serve failed server.
-		ctx, cancelFunc := serverShutdownContext()
-		defer cancelFunc()
+		ctx, cancel := stdcontext.WithTimeout(stdcontext.Background(), 30*time.Second)
+		defer cancel()
 		err := r.server.Shutdown(ctx)
 		if err != nil {
 			logger.Warnf("shutdown http1/2 server %s failed: %v",

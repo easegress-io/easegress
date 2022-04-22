@@ -19,23 +19,23 @@ package tracing
 
 import (
 	"io"
+	"time"
 
-	opentracing "github.com/opentracing/opentracing-go"
-
-	"github.com/megaease/easegress/pkg/tracing/zipkin"
+	"github.com/megaease/easegress/pkg/util/fasttime"
+	zipkingo "github.com/openzipkin/zipkin-go"
 )
 
 type (
-	// Spec describes Tracing.
+	// Spec describes Tracer.
 	Spec struct {
 		ServiceName string            `yaml:"serviceName" jsonschema:"required"`
 		Tags        map[string]string `yaml:"tags" jsonschema:"omitempty"`
-		Zipkin      *zipkin.Spec      `yaml:"zipkin" jsonschema:"omitempty"`
+		Zipkin      *ZipkinSpec       `yaml:"zipkin" jsonschema:"required"`
 	}
 
-	// Tracing is the tracing.
-	Tracing struct {
-		opentracing.Tracer
+	// Tracer is the tracer.
+	Tracer struct {
+		tracer *zipkingo.Tracer
 		tags   map[string]string
 		closer io.Closer
 	}
@@ -43,40 +43,66 @@ type (
 	noopCloser struct{}
 )
 
-// NoopTracing is the tracing doing nothing.
-var NoopTracing = &Tracing{
-	Tracer: opentracing.NoopTracer{},
-	closer: nil,
+// NoopTracer is the tracer doing nothing.
+var NoopTracer *Tracer
+
+func init() {
+	tracer, _ := zipkingo.NewTracer(nil)
+	NoopTracer = &Tracer{tracer: tracer, closer: nil}
 }
 
 // New creates a Tracing.
-func New(spec *Spec) (*Tracing, error) {
+func New(spec *Spec) (*Tracer, error) {
 	if spec == nil {
-		return NoopTracing, nil
+		return NoopTracer, nil
 	}
 
-	tracer, closer, err := zipkin.New(spec.ServiceName, spec.Zipkin)
+	tracer, closer, err := NewZipkinTracer(spec.ServiceName, spec.Zipkin)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Tracing{
-		Tracer: tracer,
+	return &Tracer{
+		tracer: tracer,
 		tags:   spec.Tags,
 		closer: closer,
 	}, nil
 }
 
 // IsNoopTracer checks whether tracer is noop tracer.
-func (t *Tracing) IsNoopTracer() bool {
-	return t == NoopTracing
+func (t *Tracer) IsNoopTracer() bool {
+	return t == NoopTracer
 }
 
 // Close closes Tracing.
-func (t *Tracing) Close() error {
+func (t *Tracer) Close() error {
 	if t.closer != nil {
 		return t.closer.Close()
 	}
 
 	return nil
+}
+
+// NewSpan creates a span.
+func (t *Tracer) NewSpan(name string) Span {
+	if t.IsNoopTracer() {
+		return NoopSpan
+	}
+	return t.newSpanWithStart(name, fasttime.Now())
+}
+
+// NewSpanWithStart creates a span with specify start time.
+func (t *Tracer) NewSpanWithStart(name string, startAt time.Time) Span {
+	if t.IsNoopTracer() {
+		return NoopSpan
+	}
+	return t.newSpanWithStart(name, startAt)
+}
+
+func (t *Tracer) newSpanWithStart(name string, startAt time.Time) Span {
+	s := t.tracer.StartSpan(name, zipkingo.StartTime(startAt))
+	for k, v := range t.tags {
+		s.Tag(k, v)
+	}
+	return &span{Span: s, tracer: t}
 }

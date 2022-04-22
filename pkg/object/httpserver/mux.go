@@ -60,7 +60,7 @@ type (
 
 		cache *lru.ARCCache
 
-		tracer       *tracing.Tracing
+		tracer       *tracing.Tracer
 		ipFilter     *ipfilter.IPFilter
 		ipFilterChan *ipfilter.IPFilters
 
@@ -306,7 +306,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.Mux
 
 	m.inst.Store(&muxInstance{
 		spec:      &Spec{},
-		tracer:    tracing.NoopTracing,
+		tracer:    tracing.NoopTracer,
 		muxMapper: mapper,
 		httpStat:  httpStat,
 		topN:      topN,
@@ -318,7 +318,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.Mux
 func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 
-	tracer := tracing.NoopTracing
+	tracer := tracing.NoopTracer
 	oldInst := m.inst.Load().(*muxInstance)
 	if !reflect.DeepEqual(oldInst.spec.Tracing, spec.Tracing) {
 		defer func() {
@@ -403,7 +403,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	bodySize := -1
 
 	startAt := fasttime.Now()
-	span := tracing.NewSpanWithStart(mi.tracer, mi.superSpec.Name(), startAt)
+	span := mi.tracer.NewSpanWithStart(mi.superSpec.Name(), startAt)
 	ctx := context.New(span)
 
 	// httpprot.NewRequest never returns an error.

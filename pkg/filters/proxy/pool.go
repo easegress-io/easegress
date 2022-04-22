@@ -26,7 +26,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -68,7 +67,6 @@ type serverPoolContext struct {
 	*context.Context
 	span      tracing.Span
 	startTime time.Time
-	endTime   time.Time
 
 	req     *httpprot.Request
 	stdReq  *http.Request
@@ -91,33 +89,17 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 		return err
 	}
 
-	stdr.Header = spCtx.req.HTTPHeader()
+	stdr.Header = spCtx.req.HTTPHeader().Clone()
 	if !svr.addrIsHostName {
 		stdr.Host = spCtx.req.Host()
 	}
 
+	if spCtx.span != nil {
+		spCtx.span.InjectHTTP(stdr)
+	}
+
 	spCtx.stdReq = stdr
 	return nil
-}
-
-func (spCtx *serverPoolContext) start(spanName string) {
-	spCtx.startTime = fasttime.Now()
-	span := spCtx.Span().NewChildWithStart(spanName, spCtx.startTime)
-	carrier := opentracing.HTTPHeadersCarrier(spCtx.req.HTTPHeader())
-	span.Tracer().Inject(span.Context(), opentracing.HTTPHeaders, carrier)
-	spCtx.span = span
-}
-
-func (spCtx *serverPoolContext) finish() {
-	if spCtx.endTime.IsZero() {
-		now := fasttime.Now()
-		spCtx.endTime = now
-		spCtx.span.Finish()
-	}
-}
-
-func (spCtx *serverPoolContext) duration() time.Duration {
-	return spCtx.endTime.Sub(spCtx.startTime)
 }
 
 // ServerPool defines a server pool.
@@ -324,9 +306,8 @@ func (sp *ServerPool) InjectResiliencePolicy(policies map[string]resilience.Poli
 }
 
 func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
-	spCtx.finish()
+	duration := fasttime.Since(spCtx.startTime)
 
-	duration := spCtx.duration()
 	spCtx.LazyAddTag(func() string {
 		return stringtool.Cat(sp.name, "#duration: ", duration.String())
 	})
@@ -375,7 +356,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		return ""
 	}
 
-	spCtx.start(sp.spec.SpanName)
+	spCtx.startTime = fasttime.Now()
 	defer sp.collectMetrics(spCtx)
 
 	if sp.buildResponseFromCache(spCtx) {
@@ -396,6 +377,9 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		spCtx.stdReq = nil
 		spCtx.resp = nil
 		spCtx.stdResp = nil
+
+		spCtx.span = ctx.Span().NewChild(sp.spec.SpanName)
+		defer spCtx.span.Finish()
 
 		return sp.doHandle(stdctx, spCtx)
 	}
@@ -460,9 +444,6 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		// NOTE: May add option to cancel the tracing if failed here.
-		// spCtx.Span().Cancel()
-
 		spCtx.LazyAddTag(func() string {
 			return fmt.Sprintf("send request error: %v", err)
 		})

@@ -18,159 +18,81 @@
 package tracing
 
 import (
-	"sync"
+	"net/http"
 	"time"
 
-	opentracing "github.com/opentracing/opentracing-go"
+	zipkingo "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
 
-	"github.com/megaease/easegress/pkg/tracing/base"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
 	// Span is the span of the Tracing.
 	Span interface {
+		zipkingo.Span
+
 		// Tracer returns the Tracer that created this Span.
-		Tracer() opentracing.Tracer
-
-		// Context yields the SpanContext for this Span
-		Context() opentracing.SpanContext
-
-		// Finish finishes the span.
-		Finish()
-		// Cancel cancels the span, it should be called before Finish called.
-		// It will cancel all descendent spans.
-		Cancel()
+		Tracer() *Tracer
 
 		// NewChild creates a child span.
 		NewChild(name string) Span
+
 		// NewChildWithStart creates a child span with start time.
 		NewChildWithStart(name string, startAt time.Time) Span
 
-		// SetName changes the span name.
-		SetName(name string)
-
-		// LogKV logs key:value for the span.
-		//
-		// The keys must all be strings. The values may be strings, numeric types,
-		// bools, Go error instances, or arbitrary structs.
-		//
-		// Example:
-		//
-		//    span.LogKV(
-		//        "event", "soft error",
-		//        "type", "cache timeout",
-		//        "waited.millis", 1500)
-		LogKV(kvs ...interface{})
-
-		// SetTag sets tag key and value.
-		SetTag(key string, value string)
-		// IsNoopSpan returns true if span is NoopSpan.
-		IsNoopSpan() bool
+		// InjectHTTP injects span context into an HTTP request.
+		InjectHTTP(r *http.Request)
 	}
 
 	span struct {
-		mutex    sync.Mutex
-		tracer   *Tracing
-		span     opentracing.Span
-		children []*span
+		zipkingo.Span
+		tracer *Tracer
 	}
 )
 
 // NoopSpan does nothing.
-var NoopSpan = &span{
-	tracer: NoopTracing,
-	span:   NoopTracing.StartSpan(""), // will return opentracing.defaultNoopSpan
-}
+var NoopSpan = &span{tracer: NoopTracer, Span: NoopTracer.tracer.StartSpan("")}
 
-// NewSpan creates a span.
-func NewSpan(tracer *Tracing, name string) Span {
-	if tracer.IsNoopTracer() {
-		return NoopSpan
-	}
-	return newSpanWithStart(tracer, name, fasttime.Now())
-}
-
-// NewSpanWithStart creates a span with specify start time.
-func NewSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
-	if tracer.IsNoopTracer() {
-		return NoopSpan
-	}
-	return newSpanWithStart(tracer, name, startAt)
-}
-
-func newSpanWithStart(tracer *Tracing, name string, startAt time.Time) Span {
-	newSpan := tracer.StartSpan(name, opentracing.StartTime(startAt))
-	for tagKey, tagValue := range tracer.tags {
-		newSpan.SetTag(tagKey, tagValue)
-	}
-	return &span{
-		tracer: tracer,
-		span:   newSpan,
-	}
-}
-
-func (s *span) IsNoopSpan() bool {
+// IsNoop returns whether the span is a noop span.
+func (s *span) IsNoop() bool {
 	return s == NoopSpan
 }
 
-func (s *span) Tracer() opentracing.Tracer {
+// Tracer returns the tracer of the span.
+func (s *span) Tracer() *Tracer {
 	return s.tracer
 }
 
-func (s *span) Context() opentracing.SpanContext {
-	return s.span.Context()
-}
-
-func (s *span) Finish() {
-	s.span.Finish()
-}
-
-func (s *span) Cancel() {
-	s.span.SetTag(base.CancelTagKey, "yes")
-	for _, child := range s.children {
-		child.Cancel()
-	}
-}
-
+// NewChild creates a new child span.
 func (s *span) NewChild(name string) Span {
-	if s.IsNoopSpan() {
+	if s.IsNoop() {
 		return s
 	}
 	return s.newChildWithStart(name, fasttime.Now())
 }
 
+// NewChildWithStart creates a new child span with specified start time.
 func (s *span) NewChildWithStart(name string, startAt time.Time) Span {
-	if s.IsNoopSpan() {
+	if s.IsNoop() {
 		return s
 	}
 	return s.newChildWithStart(name, startAt)
 }
 
 func (s *span) newChildWithStart(name string, startAt time.Time) Span {
-	childSpan := s.tracer.StartSpan(name,
-		opentracing.ChildOf(s.span.Context()),
-		opentracing.StartTime(startAt))
-	child := &span{
+	child := s.tracer.tracer.StartSpan(name,
+		zipkingo.Parent(s.Context()),
+		zipkingo.StartTime(startAt))
+
+	return &span{
 		tracer: s.tracer,
-		span:   childSpan,
+		Span:   child,
 	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.children = append(s.children, child)
-
-	return child
 }
 
-func (s *span) SetName(name string) {
-	s.span.SetOperationName(name)
-}
-
-func (s *span) LogKV(kv ...interface{}) {
-	s.span.LogKV(kv...)
-}
-
-func (s *span) SetTag(key string, value string) {
-	s.span.SetTag(key, value)
+// InjectHTTP injects span context into an HTTP request.
+func (s *span) InjectHTTP(r *http.Request) {
+	inject := b3.InjectHTTP(r, b3.WithSingleHeaderOnly())
+	inject(s.Context())
 }

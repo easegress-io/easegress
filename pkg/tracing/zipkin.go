@@ -15,49 +15,30 @@
  * limitations under the License.
  */
 
-package zipkin
+package tracing
 
 import (
 	"io"
 
-	opentracing "github.com/opentracing/opentracing-go"
-	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	zipkingo "github.com/openzipkin/zipkin-go"
-	zipkingomodel "github.com/openzipkin/zipkin-go/model"
-	zipkingoreporter "github.com/openzipkin/zipkin-go/reporter"
 	zipkingohttp "github.com/openzipkin/zipkin-go/reporter/http"
 
-	"github.com/megaease/easegress/pkg/tracing/base"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
-	// Spec describes Zipkin.
-	Spec struct {
+	// ZipkinSpec describes Zipkin.
+	ZipkinSpec struct {
 		Hostport   string  `yaml:"hostport" jsonschema:"omitempty"`
 		ServerURL  string  `yaml:"serverURL" jsonschema:"required,format=url"`
 		SampleRate float64 `yaml:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
 		SameSpan   bool    `yaml:"sameSpan" jsonschema:"omitempty"`
 		ID128Bit   bool    `yaml:"id128Bit" jsonschema:"omitempty"`
 	}
-
-	cancellableReporter struct {
-		reporter zipkingoreporter.Reporter
-	}
 )
 
-func (cp *cancellableReporter) Send(sm zipkingomodel.SpanModel) {
-	_, cancelled := sm.Tags[base.CancelTagKey]
-	if cancelled {
-		return
-	}
-	cp.reporter.Send(sm)
-}
-
-func (cp *cancellableReporter) Close() error { return cp.reporter.Close() }
-
 // Validate validates Spec.
-func (spec Spec) Validate() error {
+func (spec *ZipkinSpec) Validate() error {
 	if spec.Hostport != "" {
 		_, err := zipkingo.NewEndpoint("", spec.Hostport)
 		if err != nil {
@@ -68,8 +49,8 @@ func (spec Spec) Validate() error {
 	return nil
 }
 
-// New creates zipkin tracer.
-func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) {
+// NewZipkinTracer creates zipkin tracer.
+func NewZipkinTracer(serviceName string, spec *ZipkinSpec) (*zipkingo.Tracer, io.Closer, error) {
 	endpoint, err := zipkingo.NewEndpoint(serviceName, spec.Hostport)
 	if err != nil {
 		return nil, nil, err
@@ -82,8 +63,8 @@ func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) 
 
 	reporter := zipkingohttp.NewReporter(spec.ServerURL)
 
-	nativeTracer, err := zipkingo.NewTracer(
-		&cancellableReporter{reporter: reporter},
+	tracer, err := zipkingo.NewTracer(
+		reporter,
 		zipkingo.WithLocalEndpoint(endpoint),
 		zipkingo.WithSharedSpans(spec.SameSpan),
 		zipkingo.WithTraceID128Bit(spec.ID128Bit),
@@ -93,5 +74,5 @@ func New(serviceName string, spec *Spec) (opentracing.Tracer, io.Closer, error) 
 		return nil, nil, err
 	}
 
-	return zipkinot.Wrap(nativeTracer), reporter, nil
+	return tracer, reporter, nil
 }
