@@ -19,12 +19,16 @@ package httpbuilder
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"text/template"
 	"text/template/parse"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -35,15 +39,18 @@ type (
 	// TemplateContext is template context used by golang lib text/template.
 	// Requests and Responses use golang http lib to make sure future update won't influence cutomer codes.
 	TemplateContext struct {
-		Requests   map[string]*http.Request
-		Responses  map[string]*http.Response
-		ReqBodies  map[string]*Body
-		RespBodies map[string]*Body
+		Requests       map[string]*http.Request
+		Responses      map[string]*http.Response
+		RequestBodies  map[string]*Body
+		ResponseBodies map[string]*Body
 	}
 
+	// Body is a struct used to store request and response body.
+	// Body method will panic if meet read error or json marshal error or yaml marshal error.
 	Body struct {
-		Body string
-		Map  map[string]interface{}
+		p    fetchGetPayloader
+		data []byte
+		m    map[string]interface{}
 	}
 
 	builder struct {
@@ -55,61 +62,85 @@ type (
 		key   *builder
 		value *builder
 	}
+
+	fetchGetPayloader interface {
+		FetchPayload() (int, error)
+		GetPayload() io.Reader
+	}
 )
+
+func newBody(p fetchGetPayloader) *Body {
+	return &Body{p: p}
+}
+
+// Byte return body bytes.
+func (body *Body) Byte() []byte {
+	if body.data == nil {
+		_, err := body.p.FetchPayload()
+		if err != nil {
+			panic(fmt.Errorf("fetch payload error: %s", err))
+		}
+		data, err := io.ReadAll(body.p.GetPayload())
+		if err != nil {
+			panic(fmt.Errorf("read body error: %s", err))
+		}
+		body.data = data
+	}
+	return body.data
+}
+
+// Byte return body bytes as string.
+func (body *Body) String() string {
+	if body.data == nil {
+		body.Byte()
+	}
+	return string(body.data)
+}
+
+// Byte return body bytes as json map.
+func (body *Body) JsonMap() map[string]interface{} {
+	if body.m == nil {
+		body.m = make(map[string]interface{})
+		err := json.Unmarshal(body.Byte(), &body.m)
+		if err != nil {
+			panic(fmt.Errorf("json unmarshal error: %s", err))
+		}
+	}
+	return body.m
+}
+
+// Byte return body bytes as yaml map.
+func (body *Body) YamlMap() map[string]interface{} {
+	if body.m == nil {
+		body.m = make(map[string]interface{})
+		err := yaml.Unmarshal(body.Byte(), &body.m)
+		if err != nil {
+			panic(fmt.Errorf("yaml unmarshal error: %s", err))
+		}
+	}
+	return body.m
+}
 
 func getTemplateContext(ctx *context.Context) (*TemplateContext, error) {
 	tc := &TemplateContext{
-		Requests:   make(map[string]*http.Request),
-		Responses:  make(map[string]*http.Response),
-		ReqBodies:  make(map[string]*Body),
-		RespBodies: make(map[string]*Body),
+		Requests:       make(map[string]*http.Request),
+		Responses:      make(map[string]*http.Response),
+		RequestBodies:  make(map[string]*Body),
+		ResponseBodies: make(map[string]*Body),
 	}
 	for k, v := range ctx.Requests() {
-		req := v.(*httpprot.Request).Std()
+		httpreq := v.(*httpprot.Request)
+		req := httpreq.Std()
 		tc.Requests[k] = req
+		tc.RequestBodies[k] = newBody(httpreq)
 	}
 	for k, v := range ctx.Responses() {
-		resp := v.(*httpprot.Response).Std()
+		httpresp := v.(*httpprot.Response)
+		resp := httpresp.Std()
 		tc.Responses[k] = resp
+		tc.ResponseBodies[k] = newBody(httpresp)
 	}
 
-	// // process body for request
-	// if spec.Body != nil {
-	// 	for _, r := range spec.Body.Requests {
-	// 		data, err := io.ReadAll(ctx.GetRequest(r.ID).GetPayload())
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 		if r.UseMap {
-	// 			m := make(map[string]interface{})
-	// 			err = json.Unmarshal(data, &m)
-	// 			if err != nil {
-	// 				return nil, err
-	// 			}
-	// 			tc.ReqBodies[r.ID] = &Body{string(data), m}
-	// 		} else {
-	// 			tc.ReqBodies[r.ID] = &Body{string(data), nil}
-	// 		}
-	// 	}
-
-	// 	// process body for response
-	// 	for _, r := range spec.Body.Responses {
-	// 		data, err := io.ReadAll(ctx.GetResponse(r.ID).GetPayload())
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-	// 		if r.UseMap {
-	// 			m := make(map[string]interface{})
-	// 			err = json.Unmarshal(data, &m)
-	// 			if err != nil {
-	// 				return nil, err
-	// 			}
-	// 			tc.RespBodies[r.ID] = &Body{string(data), m}
-	// 		} else {
-	// 			tc.RespBodies[r.ID] = &Body{string(data), nil}
-	// 		}
-	// 	}
-	// }
 	return tc, nil
 }
 

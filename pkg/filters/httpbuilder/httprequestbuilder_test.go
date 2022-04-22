@@ -18,7 +18,9 @@
 package httpbuilder
 
 import (
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -189,89 +191,105 @@ func TestRequestHeader(t *testing.T) {
 	}
 }
 
-// func TestRequestBody(t *testing.T) {
-// 	assert := assert.New(t)
+func TestRequestBody(t *testing.T) {
+	assert := assert.New(t)
 
-// 	// directly set body
-// 	{
-// 		spec := &Spec{
-// 			ID:     "test",
-// 			Method: "Delete",
-// 			URL:    "http://www.facebook.com",
-// 			Body: &BodySpec{
-// 				Body: "body",
-// 			},
-// 		}
-// 		rb := getRequestBuilder(spec)
-// 		defer rb.Close()
+	// directly set body
+	{
+		spec := &RequestSpec{
+			ID:     "test",
+			Method: "Delete",
+			URL:    "http://www.facebook.com",
+			Body:   "body",
+		}
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-// 		data, err := io.ReadAll(testReq.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body", string(data))
-// 	}
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
+		data, err := io.ReadAll(testReq.Body)
+		assert.Nil(err)
+		assert.Equal("body", string(data))
+	}
 
-// 	// set body by using other body
-// 	{
-// 		spec := &Spec{
-// 			ID:     "test",
-// 			Method: "Delete",
-// 			URL:    "http://www.facebook.com",
-// 			Body: &BodySpec{
-// 				Requests: []*ReqRespBody{
-// 					{"request1", false},
-// 				},
-// 				Body: "body {{ .ReqBodies.request1.Body}}",
-// 			},
-// 		}
-// 		rb := getRequestBuilder(spec)
-// 		defer rb.Close()
+	// set body by using other body
+	{
+		spec := &RequestSpec{
+			ID:     "test",
+			Method: "Delete",
+			URL:    "http://www.facebook.com",
+			Body:   "body {{ .RequestBodies.request1.String }}",
+		}
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
-// 		assert.Nil(err)
-// 		setRequest(t, ctx, "request1", req1)
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-// 		data, err := io.ReadAll(testReq.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body 123", string(data))
-// 	}
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
+		data, err := io.ReadAll(testReq.Body)
+		assert.Nil(err)
+		assert.Equal("body 123", string(data))
+	}
 
-// 	// set body by using other body map
-// 	{
-// 		spec := &Spec{
-// 			ID:     "test",
-// 			Method: "Delete",
-// 			URL:    "http://www.facebook.com",
-// 			Body: &BodySpec{
-// 				Requests: []*ReqRespBody{
-// 					{"request1", true},
-// 				},
-// 				Body: "body {{ .ReqBodies.request1.Map.field1 }} {{ .ReqBodies.request1.Map.field2 }}",
-// 			},
-// 		}
-// 		rb := getRequestBuilder(spec)
-// 		defer rb.Close()
+	// set body by using json map
+	{
+		spec := &RequestSpec{
+			ID:     "test",
+			Method: "Delete",
+			URL:    "http://www.facebook.com",
+			Body:   "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
+		}
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
-// 		assert.Nil(err)
-// 		setRequest(t, ctx, "request1", req1)
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-// 		data, err := io.ReadAll(testReq.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body value1 value2", string(data))
-// 	}
-// }
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
+		data, err := io.ReadAll(testReq.Body)
+		assert.Nil(err)
+		assert.Equal("body value1 value2", string(data))
+	}
+
+	// set body by using yaml map
+	{
+		spec := &RequestSpec{
+			ID:     "test",
+			Method: "Delete",
+			URL:    "http://www.facebook.com",
+			Body:   "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
+		}
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`
+field1: value1
+field2: value2
+`))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
+		data, err := io.ReadAll(testReq.Body)
+		assert.Nil(err)
+		assert.Equal("body value1 value2", string(data))
+	}
+}

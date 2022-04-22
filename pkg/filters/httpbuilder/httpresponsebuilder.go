@@ -18,6 +18,8 @@
 package httpbuilder
 
 import (
+	"runtime/debug"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
@@ -60,7 +62,7 @@ type (
 		ID         string      `yaml:"id" jsonschema:"required"`
 		StatusCode *StatusCode `yaml:"statusCode" jsonschema:"required"`
 		Headers    []Header    `yaml:"headers" jsonschema:"omitempty"`
-		Body       *BodySpec   `yaml:"body" jsonschema:"omitempty"`
+		Body       string      `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -91,9 +93,7 @@ func (rb *HTTPResponseBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *HTTPResponseBuilder) reload() {
-	if rb.spec.Body != nil {
-		rb.bodyBuilder = getBuilder(rb.spec.Body.Body)
-	}
+	rb.bodyBuilder = getBuilder(rb.spec.Body)
 
 	for _, header := range rb.spec.Headers {
 		keyBuilder := getBuilder(header.Key)
@@ -122,12 +122,12 @@ func (rb *HTTPResponseBuilder) setStatusCode(ctx *context.Context, resp *httppro
 
 // Handle builds request.
 func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
-	// defer func() {
-	// 	if err := recover(); err != nil {
-	// 		logger.Errorf("panic: %v", err)
-	// 		result = resultBuildErr
-	// 	}
-	// }()
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("panic: %s, stacktrace: %s\n", err, string(debug.Stack()))
+			result = resultBuildErr
+		}
+	}()
 
 	templateCtx, err := getTemplateContext(ctx)
 	if err != nil {

@@ -18,19 +18,6 @@
 package httpbuilder
 
 type (
-	// BodySpec describes how to build the body of the request.
-	BodySpec struct {
-		Requests  []*ReqRespBody `yaml:"requests" jsonschema:"omitempty"`
-		Responses []*ReqRespBody `yaml:"responses" jsonschema:"omitempty"`
-		Body      string         `yaml:"body" jsonschema:"omitempty"`
-	}
-
-	// ReqRespBody describes the request body or response body used to create new request.
-	ReqRespBody struct {
-		ID     string `yaml:"id" jsonschema:"required"`
-		UseMap bool   `yaml:"useMap" jsonschema:"omitempty"`
-	}
-
 	// Header defines HTTP header template.
 	Header struct {
 		Key   string `yaml:"key"`

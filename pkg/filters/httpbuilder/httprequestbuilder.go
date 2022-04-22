@@ -20,6 +20,7 @@ package httpbuilder
 import (
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -80,11 +81,11 @@ type (
 	RequestSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		ID      string    `yaml:"id" jsonschema:"required"`
-		Method  string    `yaml:"method" jsonschema:"required"`
-		URL     string    `yaml:"url" jsonschema:"required"`
-		Headers []Header  `yaml:"headers" jsonschema:"omitempty"`
-		Body    *BodySpec `yaml:"body" jsonschema:"omitempty"`
+		ID      string   `yaml:"id" jsonschema:"required"`
+		Method  string   `yaml:"method" jsonschema:"required"`
+		URL     string   `yaml:"url" jsonschema:"required"`
+		Headers []Header `yaml:"headers" jsonschema:"omitempty"`
+		Body    string   `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -124,10 +125,7 @@ func (rb *HTTPRequestBuilder) reload() {
 	}
 
 	rb.urlBuilder = getBuilder(rb.spec.URL)
-
-	if rb.spec.Body != nil {
-		rb.bodyBuilder = getBuilder(rb.spec.Body.Body)
-	}
+	rb.bodyBuilder = getBuilder(rb.spec.Body)
 
 	for _, header := range rb.spec.Headers {
 		keyBuilder := getBuilder(header.Key)
@@ -140,7 +138,7 @@ func (rb *HTTPRequestBuilder) reload() {
 func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("panic: %v", err)
+			logger.Errorf("panic: %s, stacktrace: %s\n", err, string(debug.Stack()))
 			result = resultBuildErr
 		}
 	}()

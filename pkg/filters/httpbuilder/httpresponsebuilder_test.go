@@ -18,7 +18,9 @@
 package httpbuilder
 
 import (
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -89,7 +91,7 @@ func TestStatusCode(t *testing.T) {
 	}
 }
 
-func TestHeader(t *testing.T) {
+func TestResponseHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	// get header from request and response
@@ -127,83 +129,97 @@ func TestHeader(t *testing.T) {
 	}
 }
 
-// func TestBody(t *testing.T) {
-// 	assert := assert.New(t)
+func TestResponseBody(t *testing.T) {
+	assert := assert.New(t)
 
-// 	// directly set body
-// 	{
-// 		spec := &Spec{
-// 			ID: "test",
-// 			Body: &BodySpec{
-// 				Body: "body",
-// 			},
-// 		}
-// 		rb := getResponseBuilder(spec)
-// 		defer rb.Close()
+	// directly set body
+	{
+		spec := &ResponseSpec{
+			ID:   "test",
+			Body: "body",
+		}
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
-// 		data, err := io.ReadAll(testReq.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body", string(data))
-// 	}
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
+		data, err := io.ReadAll(testReq.Body)
+		assert.Nil(err)
+		assert.Equal("body", string(data))
+	}
 
-// 	// set body by using other body
-// 	{
-// 		spec := &Spec{
-// 			ID: "test",
-// 			Body: &BodySpec{
-// 				Requests: []*ReqRespBody{
-// 					{"request1", false},
-// 				},
-// 				Body: "body {{ .ReqBodies.request1.Body}}",
-// 			},
-// 		}
-// 		rb := getResponseBuilder(spec)
-// 		defer rb.Close()
+	// set body by using other body
+	{
+		spec := &ResponseSpec{
+			ID:   "test",
+			Body: "body {{ .RequestBodies.request1.String }}",
+		}
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
-// 		assert.Nil(err)
-// 		setRequest(t, ctx, "request1", req1)
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
-// 		data, err := io.ReadAll(testResp.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body 123", string(data))
-// 	}
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
+		data, err := io.ReadAll(testResp.Body)
+		assert.Nil(err)
+		assert.Equal("body 123", string(data))
+	}
 
-// 	// set body by using other body map
-// 	{
-// 		spec := &Spec{
-// 			ID: "test",
-// 			Body: &BodySpec{
-// 				Requests: []*ReqRespBody{
-// 					{"request1", true},
-// 				},
-// 				Body: "body {{ .ReqBodies.request1.Map.field1 }} {{ .ReqBodies.request1.Map.field2 }}",
-// 			},
-// 		}
-// 		rb := getResponseBuilder(spec)
-// 		defer rb.Close()
+	// set body by using other body json map
+	{
+		spec := &ResponseSpec{
+			ID:   "test",
+			Body: "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
+		}
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
 
-// 		ctx := context.New(nil)
+		ctx := context.New(nil)
 
-// 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
-// 		assert.Nil(err)
-// 		setRequest(t, ctx, "request1", req1)
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
 
-// 		res := rb.Handle(ctx)
-// 		assert.Empty(res)
-// 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
-// 		data, err := io.ReadAll(testResp.Body)
-// 		assert.Nil(err)
-// 		assert.Equal("body value1 value2", string(data))
-// 	}
-// }
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
+		data, err := io.ReadAll(testResp.Body)
+		assert.Nil(err)
+		assert.Equal("body value1 value2", string(data))
+	}
+
+	// set body by using other body yaml map
+	{
+		spec := &ResponseSpec{
+			ID:   "test",
+			Body: "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
+		}
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`
+field1: value1
+field2: value2
+`))
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
+		data, err := io.ReadAll(testResp.Body)
+		assert.Nil(err)
+		assert.Equal("body value1 value2", string(data))
+	}
+}
