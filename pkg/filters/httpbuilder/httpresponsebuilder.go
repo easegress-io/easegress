@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpresponsebuilder
+package httpbuilder
 
 import (
 	"github.com/megaease/easegress/pkg/context"
@@ -25,69 +25,42 @@ import (
 )
 
 const (
-	// Kind is the kind of HTTPResponseBuilder.
-	Kind = "HTTPResponseBuilder"
-
-	resultBuildErr = "buildErr"
+	// HTTPResponseBuilderKind is the kind of HTTPResponseBuilder.
+	HTTPResponseBuilderKind = "HTTPResponseBuilder"
 )
 
-var kind = &filters.Kind{
-	Name:        Kind,
+var httpResponseBuilderKind = &filters.Kind{
+	Name:        HTTPResponseBuilderKind,
 	Description: "HTTPResponseBuilder builds an HTTP response",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{}
+		return &ResponseSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &HTTPResponseBuilder{spec: spec.(*Spec)}
+		return &HTTPResponseBuilder{spec: spec.(*ResponseSpec)}
 	},
 }
 
 func init() {
-	filters.Register(kind)
+	filters.Register(httpResponseBuilderKind)
 }
 
 type (
 	// HTTPResponseBuilder is filter HTTPResponseBuilder.
 	HTTPResponseBuilder struct {
-		spec           *Spec
+		spec           *ResponseSpec
 		bodyBuilder    *builder
 		headerBuilders []*headerBuilder
 	}
 
-	// Spec is HTTPResponseBuilder Spec.
-	Spec struct {
+	// ResponseSpec is HTTPResponseBuilder Spec.
+	ResponseSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 
 		ID         string      `yaml:"id" jsonschema:"required"`
 		StatusCode *StatusCode `yaml:"statusCode" jsonschema:"required"`
 		Headers    []Header    `yaml:"headers" jsonschema:"omitempty"`
 		Body       *BodySpec   `yaml:"body" jsonschema:"omitempty"`
-	}
-
-	// StatusCode is status code.
-	StatusCode struct {
-		CopyResponseID string `yaml:"copyResponseID" jsonschema:"omitempty"`
-		Code           int    `yaml:"code" jsonschema:"omitempty"`
-	}
-
-	// BodySpec describes how to build the body of the request.
-	BodySpec struct {
-		Requests  []*ReqRespBody `yaml:"requests" jsonschema:"omitempty"`
-		Responses []*ReqRespBody `yaml:"responses" jsonschema:"omitempty"`
-		Body      string         `yaml:"body" jsonschema:"omitempty"`
-	}
-
-	// ReqRespBody describes the request body or response body used to create new request.
-	ReqRespBody struct {
-		ID     string `yaml:"id" jsonschema:"required"`
-		UseMap bool   `yaml:"useMap" jsonschema:"omitempty"`
-	}
-
-	// Header defines HTTP header template.
-	Header struct {
-		Key   string `yaml:"key"`
-		Value string `yaml:"value"`
 	}
 )
 
@@ -98,7 +71,7 @@ func (rb *HTTPResponseBuilder) Name() string {
 
 // Kind returns the kind of HTTPResponseBuilder.
 func (rb *HTTPResponseBuilder) Kind() *filters.Kind {
-	return kind
+	return httpResponseBuilderKind
 }
 
 // Spec returns the spec used by the HTTPResponseBuilder
@@ -156,7 +129,7 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 	// 	}
 	// }()
 
-	templateCtx, err := getTemplateContext(rb.spec, ctx)
+	templateCtx, err := getTemplateContext(ctx)
 	if err != nil {
 		logger.Errorf("getTemplateContext failed: %v", err)
 		return resultBuildErr

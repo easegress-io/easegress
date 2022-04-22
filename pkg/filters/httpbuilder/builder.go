@@ -15,18 +15,20 @@
  * limitations under the License.
  */
 
-package httprequestbuilder
+package httpbuilder
 
 import (
 	"bytes"
-	"encoding/json"
-	"io"
 	"net/http"
 	"text/template"
 	"text/template/parse"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+)
+
+const (
+	resultBuildErr = "buildErr"
 )
 
 type (
@@ -45,9 +47,8 @@ type (
 	}
 
 	builder struct {
-		template    *template.Template
-		value       string
-		useTempalte bool
+		template *template.Template
+		value    string
 	}
 
 	headerBuilder struct {
@@ -56,7 +57,7 @@ type (
 	}
 )
 
-func getTemplateContext(spec *Spec, ctx *context.Context) (*TemplateContext, error) {
+func getTemplateContext(ctx *context.Context) (*TemplateContext, error) {
 	tc := &TemplateContext{
 		Requests:   make(map[string]*http.Request),
 		Responses:  make(map[string]*http.Response),
@@ -72,43 +73,43 @@ func getTemplateContext(spec *Spec, ctx *context.Context) (*TemplateContext, err
 		tc.Responses[k] = resp
 	}
 
-	// process body for request
-	if spec.Body != nil {
-		for _, r := range spec.Body.Requests {
-			data, err := io.ReadAll(ctx.GetRequest(r.ID).GetPayload())
-			if err != nil {
-				return nil, err
-			}
-			if r.UseMap {
-				m := make(map[string]interface{})
-				err = json.Unmarshal(data, &m)
-				if err != nil {
-					return nil, err
-				}
-				tc.ReqBodies[r.ID] = &Body{string(data), m}
-			} else {
-				tc.ReqBodies[r.ID] = &Body{string(data), nil}
-			}
-		}
+	// // process body for request
+	// if spec.Body != nil {
+	// 	for _, r := range spec.Body.Requests {
+	// 		data, err := io.ReadAll(ctx.GetRequest(r.ID).GetPayload())
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		if r.UseMap {
+	// 			m := make(map[string]interface{})
+	// 			err = json.Unmarshal(data, &m)
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			tc.ReqBodies[r.ID] = &Body{string(data), m}
+	// 		} else {
+	// 			tc.ReqBodies[r.ID] = &Body{string(data), nil}
+	// 		}
+	// 	}
 
-		// process body for response
-		for _, r := range spec.Body.Responses {
-			data, err := io.ReadAll(ctx.GetResponse(r.ID).GetPayload())
-			if err != nil {
-				return nil, err
-			}
-			if r.UseMap {
-				m := make(map[string]interface{})
-				err = json.Unmarshal(data, &m)
-				if err != nil {
-					return nil, err
-				}
-				tc.RespBodies[r.ID] = &Body{string(data), m}
-			} else {
-				tc.RespBodies[r.ID] = &Body{string(data), nil}
-			}
-		}
-	}
+	// 	// process body for response
+	// 	for _, r := range spec.Body.Responses {
+	// 		data, err := io.ReadAll(ctx.GetResponse(r.ID).GetPayload())
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		if r.UseMap {
+	// 			m := make(map[string]interface{})
+	// 			err = json.Unmarshal(data, &m)
+	// 			if err != nil {
+	// 				return nil, err
+	// 			}
+	// 			tc.RespBodies[r.ID] = &Body{string(data), m}
+	// 		} else {
+	// 			tc.RespBodies[r.ID] = &Body{string(data), nil}
+	// 		}
+	// 	}
+	// }
 	return tc, nil
 }
 
@@ -116,14 +117,14 @@ func getBuilder(templateStr string) *builder {
 	temp := template.Must(template.New(templateStr).Parse(templateStr))
 	for _, node := range temp.Root.Nodes {
 		if node.Type() == parse.NodeAction {
-			return &builder{temp, "", true}
+			return &builder{temp, ""}
 		}
 	}
-	return &builder{nil, templateStr, false}
+	return &builder{nil, templateStr}
 }
 
 func (b *builder) build(ctx interface{}) (string, error) {
-	if !b.useTempalte {
+	if b.template == nil {
 		return b.value, nil
 	}
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httprequestbuilder
+package httpbuilder
 
 import (
 	"fmt"
@@ -29,10 +29,8 @@ import (
 )
 
 const (
-	// Kind is the kind of HTTPRequestBuilder.
-	Kind = "HTTPRequestBuilder"
-
-	resultBuildErr = "buildErr"
+	// HTTPRequestBuilderKind is the kind of HTTPRequestBuilder.
+	HTTPRequestBuilderKind = "HTTPRequestBuilder"
 )
 
 var methods = map[string]struct{}{
@@ -52,34 +50,34 @@ func checkMethod(method string) bool {
 	return ok
 }
 
-var kind = &filters.Kind{
-	Name:        Kind,
+var httpRequestBuilderKind = &filters.Kind{
+	Name:        HTTPRequestBuilderKind,
 	Description: "HTTPRequestBuilder builds an HTTP request",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{}
+		return &RequestSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &HTTPRequestBuilder{spec: spec.(*Spec)}
+		return &HTTPRequestBuilder{spec: spec.(*RequestSpec)}
 	},
 }
 
 func init() {
-	filters.Register(kind)
+	filters.Register(httpRequestBuilderKind)
 }
 
 type (
 	// HTTPRequestBuilder is filter HTTPRequestBuilder.
 	HTTPRequestBuilder struct {
-		spec           *Spec
+		spec           *RequestSpec
 		methodBuilder  *builder
 		urlBuilder     *builder
 		bodyBuilder    *builder
 		headerBuilders []*headerBuilder
 	}
 
-	// Spec is HTTPRequestBuilder Spec.
-	Spec struct {
+	// RequestSpec is HTTPRequestBuilder Spec.
+	RequestSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 
 		ID      string    `yaml:"id" jsonschema:"required"`
@@ -87,25 +85,6 @@ type (
 		URL     string    `yaml:"url" jsonschema:"required"`
 		Headers []Header  `yaml:"headers" jsonschema:"omitempty"`
 		Body    *BodySpec `yaml:"body" jsonschema:"omitempty"`
-	}
-
-	// BodySpec describes how to build the body of the request.
-	BodySpec struct {
-		Requests  []*ReqRespBody `yaml:"requests" jsonschema:"omitempty"`
-		Responses []*ReqRespBody `yaml:"responses" jsonschema:"omitempty"`
-		Body      string         `yaml:"body" jsonschema:"omitempty"`
-	}
-
-	// ReqRespBody describes the request body or response body used to create new request.
-	ReqRespBody struct {
-		ID     string `yaml:"id" jsonschema:"required"`
-		UseMap bool   `yaml:"useMap" jsonschema:"omitempty"`
-	}
-
-	// Header defines HTTP header template.
-	Header struct {
-		Key   string `yaml:"key"`
-		Value string `yaml:"value"`
 	}
 )
 
@@ -116,7 +95,7 @@ func (rb *HTTPRequestBuilder) Name() string {
 
 // Kind returns the kind of HTTPRequestBuilder.
 func (rb *HTTPRequestBuilder) Kind() *filters.Kind {
-	return kind
+	return httpRequestBuilderKind
 }
 
 // Spec returns the spec used by the HTTPRequestBuilder
@@ -137,7 +116,7 @@ func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
 
 func (rb *HTTPRequestBuilder) reload() {
 	rb.methodBuilder = getBuilder(rb.spec.Method)
-	if !rb.methodBuilder.useTempalte {
+	if rb.methodBuilder.template == nil {
 		rb.methodBuilder.value = strings.ToUpper(rb.spec.Method)
 		if !checkMethod(rb.methodBuilder.value) {
 			panic(fmt.Errorf("invalid method for HTTPRequestBuilder %v", rb.spec.Method))
@@ -166,7 +145,7 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		}
 	}()
 
-	templateCtx, err := getTemplateContext(rb.spec, ctx)
+	templateCtx, err := getTemplateContext(ctx)
 	if err != nil {
 		logger.Errorf("getTemplateContext failed: %v", err)
 		return resultBuildErr
