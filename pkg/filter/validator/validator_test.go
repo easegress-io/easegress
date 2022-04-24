@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -30,12 +29,14 @@ import (
 	"time"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/clustertest"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -60,7 +61,22 @@ func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Su
 	return v
 }
 
+func createClusterAndSyncer() (*clustertest.MockedCluster, chan map[string]string) {
+	clusterInstance := clustertest.NewMockedCluster()
+	syncer := clustertest.NewMockedSyncer()
+	clusterInstance.MockedSyncer = func(t time.Duration) (cluster.Syncer, error) {
+		return syncer, nil
+	}
+	syncerChannel := make(chan map[string]string)
+	syncer.MockedSyncPrefix = func(prefix string) (<-chan map[string]string, error) {
+		return syncerChannel, nil
+	}
+	return clusterInstance, syncerChannel
+}
+
 func TestHeaders(t *testing.T) {
+	assert := assert.New(t)
+
 	const yamlSpec = `
 kind: Validator
 name: validator
@@ -79,27 +95,19 @@ headers:
 	}
 
 	result := v.Handle(ctx)
-	if result != resultInvalid {
-		t.Errorf("request has no header 'Is-Valid', should be invalid")
-	}
+	assert.Equal(resultInvalid, result, "request has no header 'Is-Valid'")
 
 	header.Add("Is-Valid", "Invalid")
 	result = v.Handle(ctx)
-	if result != resultInvalid {
-		t.Errorf("request has header 'Is-Valid', but value is incorrect, should be invalid")
-	}
+	assert.Equal(resultInvalid, result, "request has header 'Is-Valid', but value is incorrect")
 
 	header.Set("Is-Valid", "goodplan")
 	result = v.Handle(ctx)
-	if result == resultInvalid {
-		t.Errorf("request has header 'Is-Valid' and value is correct, should be valid")
-	}
+	assert.NotEqual(resultInvalid, result, "request has header 'Is-Valid' and value is correct")
 
 	header.Set("Is-Valid", "ok-1")
 	result = v.Handle(ctx)
-	if result == resultInvalid {
-		t.Errorf("request has header 'Is-Valid' and matches the regular expression, should be valid")
-	}
+	assert.NotEqual(resultInvalid, result, "request has header 'Is-Valid' and matches the regular expression")
 }
 
 func TestJWT(t *testing.T) {
@@ -383,9 +391,7 @@ basicAuth:
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0])) // missing : and pw
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
-			if result != resultInvalid {
-				t.Errorf("should be bad format")
-			}
+			assert.Equal(t, result, resultInvalid)
 		})
 
 		for i := 0; i < 3; i++ {
@@ -393,15 +399,7 @@ basicAuth:
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
-			if expectedValid[i] {
-				if result == resultInvalid {
-					t.Errorf("should be authorized")
-				}
-			} else {
-				if result != resultInvalid {
-					t.Errorf("should be unauthorized")
-				}
-			}
+			assert.Equal(t, expectedValid[i], result != resultInvalid)
 		}
 
 		cleanFile(userFile) // no more authorized users
@@ -434,25 +432,19 @@ basicAuth:
 		b, err := io.ReadAll(reader)
 		check(err)
 		s := string(b)
-		if s != "key3:pw" {
-			t.Errorf("parsing failed, %s", s)
-		}
+		assert.Equal(t, "key3:pw", s)
 	})
 
 	t.Run("dummy etcd", func(t *testing.T) {
 		userCache := &etcdUserCache{prefix: ""} // should now skip cluster ops
 		userCache.WatchChanges()
-		if userCache.Match("doge", "dogepw") {
-			t.Errorf("should not match")
-		}
+		assert.False(t, userCache.Match("doge", "dogepw"))
 		userCache.Close()
 	})
 
 	t.Run("credentials from etcd", func(t *testing.T) {
-		etcdDirName, err := ioutil.TempDir("", "etcd-validator-test")
-		check(err)
-		defer os.RemoveAll(etcdDirName)
-		clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+		assert := assert.New(t)
+		clusterInstance, syncerChannel := createClusterAndSyncer()
 
 		// Test newEtcdUserCache
 		if euc := newEtcdUserCache(clusterInstance, ""); euc.prefix != "/custom-data/credentials/" {
@@ -468,8 +460,12 @@ basicAuth:
 			}
 			return fmt.Sprintf("key: %s\npassword: %s", key, pw)
 		}
-		clusterInstance.Put("/custom-data/credentials/1", pwToYaml(userIds[0], "", encryptedPasswords[0]))
-		clusterInstance.Put("/custom-data/credentials/2", pwToYaml("", userIds[2], encryptedPasswords[2]))
+		kvs := make(map[string]string)
+		kvs["/custom-data/credentials/1"] = pwToYaml(userIds[0], "", encryptedPasswords[0])
+		kvs["/custom-data/credentials/2"] = pwToYaml("", userIds[2], encryptedPasswords[2])
+		clusterInstance.MockedGetPrefix = func(key string) (map[string]string, error) {
+			return kvs, nil
+		}
 
 		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
@@ -489,58 +485,35 @@ basicAuth:
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
 			header.Set("Authorization", "Basic "+b64creds)
 			result := v.Handle(ctx)
-			if expectedValid[i] {
-				if result == resultInvalid {
-					t.Errorf("should be authorized")
-				}
-			} else {
-				if result != resultInvalid {
-					t.Errorf("should be unauthorized")
-				}
-			}
+			assert.Equal(expectedValid[i], result != resultInvalid)
 		}
 
-		clusterInstance.Delete("/custom-data/credentials/1") // first user is not authorized anymore
-		clusterInstance.Put("/custom-data/credentials/doge",
-			`
+		// first user is not authorized anymore
+		kvs = make(map[string]string)
+		kvs["/custom-data/credentials/2"] = pwToYaml("", userIds[2], encryptedPasswords[2])
+		kvs["/custom-data/credentials/doge"] = `
 randomEntry1: 21
 nestedEntry:
   key1: val1
 password: doge
 key: doge
 lastEntry: "byebye"
-`)
-
-		tryCount := 5
-		for i := 0; i <= tryCount; i++ {
-			time.Sleep(200 * time.Millisecond) // wait that cache item gets deleted
-			ctx, header := prepareCtxAndHeader()
-			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
-			header.Set("Authorization", "Basic "+b64creds)
-			result := v.Handle(ctx)
-			if result == resultInvalid {
-				break // successfully unauthorized
-			}
-			if i == tryCount && result != resultInvalid {
-				t.Errorf("should be unauthorized")
-			}
-		}
+`
+		syncerChannel <- kvs
+		time.Sleep(time.Millisecond * 100)
 
 		ctx, header := prepareCtxAndHeader()
-		b64creds := base64.StdEncoding.EncodeToString([]byte("doge:doge"))
+		b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[0] + ":" + passwords[0]))
 		header.Set("Authorization", "Basic "+b64creds)
 		result := v.Handle(ctx)
-		if result == resultInvalid {
-			t.Errorf("should be authorized")
-		}
-		if header.Get("X-AUTH-USER") != "doge" {
-			t.Errorf("x-auth-user header not set")
-		}
+		assert.Equal(resultInvalid, result)
 
+		ctx, header = prepareCtxAndHeader()
+		b64creds = base64.StdEncoding.EncodeToString([]byte("doge:doge"))
+		header.Set("Authorization", "Basic "+b64creds)
+		result = v.Handle(ctx)
+		assert.NotEqual(resultInvalid, result)
+		assert.Equal("doge", header.Get("X-AUTH-USER"))
 		v.Close()
-		wg := &sync.WaitGroup{}
-		wg.Add(1)
-		clusterInstance.CloseServer(wg)
-		wg.Wait()
 	})
 }
