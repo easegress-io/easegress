@@ -18,23 +18,24 @@
 package headerlookup
 
 import (
-	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"testing"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/stretchr/testify/assert"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/cluster/clustertest"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -60,17 +61,23 @@ func createHeaderLookup(
 	return hl, nil
 }
 
-func check(e error) {
-	if e != nil {
-		panic(e)
+func createClusterAndSyncer() (*clustertest.MockedCluster, chan map[string]string) {
+	clusterInstance := clustertest.NewMockedCluster()
+	syncer := clustertest.NewMockedSyncer()
+	clusterInstance.MockedSyncer = func(t time.Duration) (cluster.Syncer, error) {
+		return syncer, nil
 	}
+	syncerChannel := make(chan map[string]string)
+	syncer.MockedSyncPrefix = func(prefix string) (<-chan map[string]string, error) {
+		return syncerChannel, nil
+	}
+	return clusterInstance, syncerChannel
 }
 
 func TestValidate(t *testing.T) {
-	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-test")
-	check(err)
-	defer os.RemoveAll(etcdDirName)
-	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+	assert := assert.New(t)
+	clusterInstance, _ := createClusterAndSyncer()
+
 	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
 		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
@@ -129,17 +136,17 @@ headerSetters:
 	}
 
 	for _, unvalidYaml := range unvalidYamls {
-		if _, err := createHeaderLookup(unvalidYaml, nil, supervisor); err == nil {
-			t.Errorf("validate should return error")
-		}
+		_, err := createHeaderLookup(unvalidYaml, nil, supervisor)
+		assert.NotNil(err)
 	}
 
-	if _, err := createHeaderLookup(validYaml, nil, supervisor); err != nil {
-		t.Errorf("validate should not return error: %s", err.Error())
-	}
+	_, err := createHeaderLookup(validYaml, nil, supervisor)
+	assert.Nil(err)
 }
 
 func TestFindKeysToDelete(t *testing.T) {
+	assert := assert.New(t)
+
 	cache, _ := lru.New(10)
 	kvs := make(map[string]string)
 	kvs["doge"] = "headerA: 3\nheaderB: 6"
@@ -151,9 +158,10 @@ func TestFindKeysToDelete(t *testing.T) {
 	cache.Add("foo", "headerA: 3\nheaderB: 232")  // new value
 	cache.Add("key4", "---")                      // new value
 	cache.Add("key6", "headerA: 11\nheaderB: 44") // new value
-	if res := findKeysToDelete(kvs, cache); res[0] == "foo" && res[1] == "key4" {
-		t.Errorf("findModifiedValues failed")
-	}
+	res := findKeysToDelete(kvs, cache)
+	sort.Strings(res)
+	assert.NotEqual("foo", res[0])
+	assert.NotEqual("key4", res[1])
 }
 
 func prepareCtxAndHeader(t *testing.T) (*context.Context, http.Header) {
@@ -168,9 +176,8 @@ func prepareCtxAndHeader(t *testing.T) (*context.Context, http.Header) {
 }
 
 func TestHandle(t *testing.T) {
-	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-test")
-	check(err)
-	defer os.RemoveAll(etcdDirName)
+	assert := assert.New(t)
+
 	const config = `
 name: headerLookup
 kind: HeaderLookup
@@ -180,37 +187,32 @@ headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
 `
-	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+
+	clusterInstance, syncerChannel := createClusterAndSyncer()
+
 	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
 		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 
 	// let's put data to 'foobar'
-	clusterInstance.Put("/custom-data/credentials/foobar",
-		`
+	foobar := `
 ext-id: 123456789
 extra-entry: "extra"
-`)
+`
+	clusterInstance.MockedGet = func(key string) (*string, error) {
+		return &foobar, nil
+	}
 	hl, err := createHeaderLookup(config, nil, supervisor)
-	check(err)
+	assert.Equal(nil, err)
 
 	// 'foobar' is the id
 	ctx, header := prepareCtxAndHeader(t)
 
 	hl.Handle(ctx) // does nothing as header missing
-
-	if header.Get("user-ext-id") != "" {
-		t.Errorf("header should not be set")
-	}
-
+	assert.Equal("", header.Get("user-ext-id"))
 	header.Set("X-AUTH-USER", "unknown-user")
-
 	hl.Handle(ctx) // does nothing as user is missing
-
-	if header.Get("user-ext-id") != "" {
-		t.Errorf("header should be set")
-	}
-
+	assert.NotEqual("", header.Get("user-ext-id"))
 	header.Set("X-AUTH-USER", "foobar")
 
 	hl.Handle(ctx) // now updates header
@@ -218,59 +220,48 @@ extra-entry: "extra"
 	hl.Handle(ctx) // get from cache
 	hdr2 := header.Get("user-ext-id")
 
-	if hdr1 != hdr2 || hdr1 != "123456789" {
-		t.Errorf("header should be set")
-	}
+	assert.Equal(hdr1, hdr2)
+	assert.Equal("123456789", hdr1)
 
-	// update key-value store
-	clusterInstance.Put("/custom-data/credentials/foobar", `
-ext-id: 77341
-extra-entry: "extra"
-`)
 	hl, err = createHeaderLookup(config, hl, supervisor)
 	ctx, header = prepareCtxAndHeader(t)
+
+	// update key-value store
+	foobar = `
+ext-id: 77341
+extra-entry: "extra"
+`
+	clusterInstance.MockedGet = func(key string) (*string, error) {
+		return &foobar, nil
+	}
+	kvs := make(map[string]string)
+	kvs["foobar"] = foobar
+	syncerChannel <- kvs
+
 	header.Set("X-AUTH-USER", "foobar")
 
-	tryCount := 5
-	for i := 0; i <= tryCount; i++ {
-		time.Sleep(200 * time.Millisecond) // wait that cache item gets updated
-		hl.Handle(ctx)                     // get updated value
-		if header.Get("user-ext-id") == "77341" {
-			break // successfully updated
-		} else if i == tryCount {
-			t.Errorf("header should be updated")
-		}
-	}
+	hl.Handle(ctx) // get updated value
+	assert.Equal("77341", header.Get("user-ext-id"))
+
 	hl, err = createHeaderLookup(config, hl, supervisor)
 	ctx, header = prepareCtxAndHeader(t)
 	header.Set("X-AUTH-USER", "foobar")
 	// delete foobar completely
-	clusterInstance.Delete("/custom-data/credentials/foobar")
-
-	for j := 0; j <= tryCount; j++ {
-		time.Sleep(200 * time.Millisecond) // wait that cache item get deleted
-		hl.Handle(ctx)                     // get updated value
-		if len(header.Get("user-ext-id")) == 0 {
-			break // successfully deleted
-		} else if j == tryCount {
-			t.Errorf("header should be deleted, got %s", header.Get("user-ext-id"))
-		}
+	clusterInstance.MockedGet = func(key string) (*string, error) {
+		return nil, nil
 	}
 
-	if hl.Status() != nil {
-		t.Errorf("status should be nil")
-	}
-	hl.Close()
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	clusterInstance.CloseServer(wg)
-	wg.Wait()
+	hl.Handle(ctx) // get updated value
+	assert.Equal(0, len(header.Get("user-ext-id")))
+
+	assert.Nil(hl.Status())
+	assert.NotEqual(0, len(hl.Kind().Description))
+	close(syncerChannel)
 }
 
 func TestHandleWithPath(t *testing.T) {
-	etcdDirName, err := ioutil.TempDir("", "etcd-headerlookup-path-test")
-	check(err)
-	defer os.RemoveAll(etcdDirName)
+	assert := assert.New(t)
+
 	const config = `
 name: headerLookup
 kind: HeaderLookup
@@ -281,46 +272,43 @@ headerSetters:
   - etcdKey: "ext-id"
     headerKey: "user-ext-id"
 `
-	clusterInstance := cluster.CreateClusterForTest(etcdDirName)
+	clusterInstance, _ := createClusterAndSyncer()
 	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
 		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
-
-	// let's put data to 'bob'
-	clusterInstance.Put("/custom-data/credentials/bob-bananas",
-		`
+	bobbanana := `
 ext-id: 333
 extra-entry: "extra"
-`)
-	clusterInstance.Put("/custom-data/credentials/bob-pearls",
-		`
+`
+	bobpearl := `
 ext-id: 4444
 extra-entry: "extra"
-`)
+`
+
+	clusterInstance.MockedGet = func(key string) (*string, error) {
+		if key == "/custom-data/credentials/bob-bananas" {
+			return &bobbanana, nil
+		}
+		if key == "/custom-data/credentials/bob-pearls" {
+			return &bobpearl, nil
+		}
+		return nil, nil
+	}
+
 	hl, err := createHeaderLookup(config, nil, supervisor)
-	check(err)
+	assert.Nil(err)
 
 	ctx, header := prepareCtxAndHeader(t)
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	header.Set("X-AUTH-USER", "bob")
 	hl.Handle(ctx) // path does not match
-	if header.Get("user-ext-id") != "" {
-		t.Errorf("failed")
-	}
+	assert.Equal("", header.Get("user-ext-id"))
 	req.SetPath("/api/bananas/9281")
 	hl.Handle(ctx)
-	if header.Get("user-ext-id") != "333" {
-		t.Errorf("failed")
-	}
+	assert.Equal("333", header.Get("user-ext-id"))
 	req.SetPath("/api/pearls/")
 	hl.Handle(ctx)
-	if header.Get("user-ext-id") != "4444" {
-		t.Errorf("failed")
-	}
+	assert.Equal("4444", header.Get("user-ext-id"))
 
 	hl.Close()
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	clusterInstance.CloseServer(wg)
-	wg.Wait()
 }
