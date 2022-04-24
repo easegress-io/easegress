@@ -51,7 +51,6 @@ func TestStatusCode(t *testing.T) {
 	// set status code directly
 	{
 		spec := &ResponseSpec{
-			ID: "test",
 			StatusCode: &StatusCode{
 				Code: http.StatusOK,
 			},
@@ -61,6 +60,7 @@ func TestStatusCode(t *testing.T) {
 
 		ctx := context.New(nil)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -70,7 +70,6 @@ func TestStatusCode(t *testing.T) {
 	// set status code from other response
 	{
 		spec := &ResponseSpec{
-			ID: "test",
 			StatusCode: &StatusCode{
 				CopyResponseID: "response1",
 			},
@@ -84,6 +83,7 @@ func TestStatusCode(t *testing.T) {
 		resp.SetStatusCode(http.StatusBadRequest)
 		ctx.SetResponse("response1", resp)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -97,7 +97,6 @@ func TestResponseHeader(t *testing.T) {
 	// get header from request and response
 	{
 		spec := &ResponseSpec{
-			ID: "test",
 			Headers: []Header{
 				{"X-Request", `{{index (index .Requests.request1.Header "X-Request") 0}}`},
 				{"X-Response", `{{index (index .Responses.response1.Header "X-Response") 0}}`},
@@ -120,6 +119,7 @@ func TestResponseHeader(t *testing.T) {
 		assert.Nil(err)
 		ctx.SetResponse("response1", httpresp1)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -135,7 +135,6 @@ func TestResponseBody(t *testing.T) {
 	// directly set body
 	{
 		spec := &ResponseSpec{
-			ID:   "test",
 			Body: "body",
 		}
 		rb := getResponseBuilder(spec)
@@ -143,6 +142,7 @@ func TestResponseBody(t *testing.T) {
 
 		ctx := context.New(nil)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -154,7 +154,6 @@ func TestResponseBody(t *testing.T) {
 	// set body by using other body
 	{
 		spec := &ResponseSpec{
-			ID:   "test",
 			Body: "body {{ .RequestBodies.request1.String }}",
 		}
 		rb := getResponseBuilder(spec)
@@ -166,6 +165,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -177,7 +177,6 @@ func TestResponseBody(t *testing.T) {
 	// set body by using other body json map
 	{
 		spec := &ResponseSpec{
-			ID:   "test",
 			Body: "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
 		}
 		rb := getResponseBuilder(spec)
@@ -189,6 +188,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -200,7 +200,6 @@ func TestResponseBody(t *testing.T) {
 	// set body by using other body yaml map
 	{
 		spec := &ResponseSpec{
-			ID:   "test",
 			Body: "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
 		}
 		rb := getResponseBuilder(spec)
@@ -215,6 +214,7 @@ field2: value2
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
+		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()

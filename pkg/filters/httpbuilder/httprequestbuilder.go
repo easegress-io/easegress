@@ -81,7 +81,6 @@ type (
 	RequestSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		ID      string   `yaml:"id" jsonschema:"required"`
 		Method  string   `yaml:"method" jsonschema:"required"`
 		URL     string   `yaml:"url" jsonschema:"required"`
 		Headers []Header `yaml:"headers" jsonschema:"omitempty"`
@@ -173,8 +172,8 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		}
 	}
 
-	// build request
-	req, err := http.NewRequest(method, url, strings.NewReader(body))
+	// build request, use SetPayload to set body
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		logger.Errorf("build request failed: %v", err)
 		return resultBuildErr
@@ -201,7 +200,8 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		logger.Errorf("build context failed: %v", err)
 		return resultBuildErr
 	}
-	ctx.SetRequest(rb.spec.ID, httpreq)
+	httpreq.SetPayload([]byte(body))
+	ctx.SetRequest(ctx.TargetRequestID(), httpreq)
 	return ""
 }
 

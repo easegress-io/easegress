@@ -59,7 +59,6 @@ type (
 	ResponseSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		ID         string      `yaml:"id" jsonschema:"required"`
 		StatusCode *StatusCode `yaml:"statusCode" jsonschema:"required"`
 		Headers    []Header    `yaml:"headers" jsonschema:"omitempty"`
 		Body       string      `yaml:"body" jsonschema:"omitempty"`
@@ -165,7 +164,7 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 		resp.Std().Header.Add(key, value)
 	}
 
-	ctx.SetResponse(rb.spec.ID, resp)
+	ctx.SetResponse(ctx.TargetResponseID(), resp)
 	return ""
 }
 

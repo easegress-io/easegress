@@ -45,7 +45,6 @@ func TestMethod(t *testing.T) {
 	// get method from request
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "{{ .Requests.request1.Method }}",
 		}
 		rb := getRequestBuilder(spec)
@@ -57,6 +56,7 @@ func TestMethod(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -67,7 +67,6 @@ func TestMethod(t *testing.T) {
 	// set method directly
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "get",
 		}
 		rb := getRequestBuilder(spec)
@@ -79,6 +78,7 @@ func TestMethod(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -89,7 +89,6 @@ func TestMethod(t *testing.T) {
 	// invalid method
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "what",
 		}
 		assert.Panics(func() {
@@ -104,7 +103,6 @@ func TestURL(t *testing.T) {
 	// get url from request
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com?field1={{index .Requests.request1.URL.Query.field2 0}}",
 		}
@@ -117,6 +115,7 @@ func TestURL(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -128,7 +127,6 @@ func TestURL(t *testing.T) {
 	// set url directly
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Put",
 			URL:    "http://www.facebook.com",
 		}
@@ -141,6 +139,7 @@ func TestURL(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -156,7 +155,6 @@ func TestRequestHeader(t *testing.T) {
 	// get header from request and response
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
 			Headers: []Header{
@@ -173,6 +171,7 @@ func TestRequestHeader(t *testing.T) {
 		assert.Nil(err)
 		req1.Header.Add("X-Request", "from-request1")
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		resp1 := &http.Response{}
 		resp1.Header = http.Header{}
@@ -197,7 +196,6 @@ func TestRequestBody(t *testing.T) {
 	// directly set body
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
 			Body:   "body",
@@ -206,6 +204,10 @@ func TestRequestBody(t *testing.T) {
 		defer rb.Close()
 
 		ctx := context.New(nil)
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", nil)
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -218,7 +220,6 @@ func TestRequestBody(t *testing.T) {
 	// set body by using other body
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
 			Body:   "body {{ .RequestBodies.request1.String }}",
@@ -231,6 +232,7 @@ func TestRequestBody(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -243,7 +245,6 @@ func TestRequestBody(t *testing.T) {
 	// set body by using json map
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
 			Body:   "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
@@ -256,6 +257,7 @@ func TestRequestBody(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -268,7 +270,6 @@ func TestRequestBody(t *testing.T) {
 	// set body by using yaml map
 	{
 		spec := &RequestSpec{
-			ID:     "test",
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
 			Body:   "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
@@ -284,6 +285,7 @@ field2: value2
 `))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
+		ctx.UseRequest("request1", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)

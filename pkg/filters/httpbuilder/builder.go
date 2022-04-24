@@ -89,15 +89,12 @@ func (body *Body) Byte() []byte {
 	return body.data
 }
 
-// Byte return body bytes as string.
+// String return body bytes as string.
 func (body *Body) String() string {
-	if body.data == nil {
-		body.Byte()
-	}
-	return string(body.data)
+	return string(body.Byte())
 }
 
-// Byte return body bytes as json map.
+// JsonMap return body bytes as json map.
 func (body *Body) JsonMap() map[string]interface{} {
 	if body.m == nil {
 		body.m = make(map[string]interface{})
@@ -109,7 +106,7 @@ func (body *Body) JsonMap() map[string]interface{} {
 	return body.m
 }
 
-// Byte return body bytes as yaml map.
+// YamlMap return body bytes as yaml map.
 func (body *Body) YamlMap() map[string]interface{} {
 	if body.m == nil {
 		body.m = make(map[string]interface{})
