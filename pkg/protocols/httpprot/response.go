@@ -44,7 +44,7 @@ var _ protocols.Response = (*Response)(nil)
 // of memory, but seems no way to avoid it.
 func NewResponse(stdr *http.Response) (*Response, error) {
 	if stdr == nil {
-		stdr := &http.Response{Body: http.NoBody, StatusCode: http.StatusOK}
+		stdr := &http.Response{Body: http.NoBody, StatusCode: http.StatusOK, Header: http.Header{}}
 		return &Response{Response: stdr}, nil
 	}
 

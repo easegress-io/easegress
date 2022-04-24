@@ -15,13 +15,18 @@
  * limitations under the License.
  */
 
-package requestbuilder
+package httpbuilder
 
-import "testing"
+type (
+	// Header defines HTTP header template.
+	Header struct {
+		Key   string `yaml:"key"`
+		Value string `yaml:"value"`
+	}
 
-func TestRequestBuilder(t *testing.T) {
-	// this test will panic 100% update it when ready
-	// don't forget TODO
-	rb := &HTTPRequestBuilder{}
-	rb.Handle(nil)
-}
+	// StatusCode is status code.
+	StatusCode struct {
+		CopyResponseID string `yaml:"copyResponseID" jsonschema:"omitempty"`
+		Code           int    `yaml:"code" jsonschema:"omitempty"`
+	}
+)
