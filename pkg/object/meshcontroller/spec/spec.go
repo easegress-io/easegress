@@ -25,13 +25,10 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/filters/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filters/meshadaptor"
 	"github.com/megaease/easegress/pkg/filters/mock"
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
-	"github.com/megaease/easegress/pkg/filters/retryer"
-	"github.com/megaease/easegress/pkg/filters/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
@@ -190,10 +187,12 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter    *ratelimiter.Spec    `yaml:"rateLimiter" jsonschema:"omitempty"`
+		RateLimiter *ratelimiter.Spec `yaml:"rateLimiter" jsonschema:"omitempty"`
+		/* TODO:
 		CircuitBreaker *circuitbreaker.Spec `yaml:"circuitBreaker" jsonschema:"omitempty"`
 		Retryer        *retryer.Spec        `yaml:"retryer" jsonschema:"omitempty"`
 		TimeLimiter    *timelimiter.Spec    `yaml:"timeLimiter" jsonschema:"omitempty"`
+		*/
 	}
 
 	// Canary is the spec of service canary.
@@ -594,6 +593,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineS
 	return b
 }
 
+/* TODO:
 func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pipelineSpecBuilder {
 	const name = "circuitBreaker"
 
@@ -630,22 +630,6 @@ func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilde
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
-	const name = "mock"
-	if len(m) == 0 {
-		return b
-	}
-
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":  mock.Kind,
-		"name":  name,
-		"rules": m,
-	})
-
-	return b
-}
-
 func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineSpecBuilder {
 	const name = "timeLimiter"
 
@@ -660,6 +644,23 @@ func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineS
 		"defaultTimeout": tl.DefaultTimeoutDuration,
 		"urls":           tl.URLs,
 	})
+	return b
+}
+*/
+
+func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
+	const name = "mock"
+	if len(m) == 0 {
+		return b
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":  mock.Kind,
+		"name":  name,
+		"rules": m,
+	})
+
 	return b
 }
 
@@ -1051,9 +1052,11 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 	}
 
 	if s.Resilience != nil {
+		/* TODO:
 		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
 		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
 		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
+		*/
 	}
 
 	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)
