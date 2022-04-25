@@ -74,6 +74,7 @@ type Options struct {
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
 
 	// cluster options
+	UseStandaloneEtcd     bool           `yaml:"use-standalone-etcd"`
 	ClusterName           string         `yaml:"cluster-name"`
 	ClusterRole           string         `yaml:"cluster-role"`
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
@@ -109,22 +110,42 @@ type Options struct {
 
 // addClusterVars introduces cluster arguments.
 func addClusterVars(opt *Options) {
-	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
-	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary", "Cluster role for this member (primary, secondary).")
-	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
+	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name",
+		"Human-readable name for the new cluster, ignored while joining an existed cluster.")
+	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary",
+		"Cluster role for this member (primary, secondary).")
+	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s",
+		"Timeout to handle request in the cluster.")
 
 	// Deprecated: Use 'Cluster connection configuration' instead.
-	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.listen-client-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.listen-peer-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.advertise-client-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.initial-advertise-peer-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "Deprecated. Use cluster.initial-cluster instead.")
+	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{
+		"http://localhost:2379",
+	}, "Deprecated. Use cluster.listen-client-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{
+		"http://localhost:2380",
+	}, "Deprecated. Use cluster.listen-peer-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{
+		"http://localhost:2379",
+	}, "Deprecated. Use cluster.advertise-client-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs,
+		"cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"},
+		"Deprecated. Use cluster.initial-advertise-peer-urls instead.")
+	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil,
+		"Deprecated. Use cluster.initial-cluster instead.")
 
 	// Cluster connection configuration
-	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
-	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
-	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
-	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{
+		"http://localhost:2379",
+	}, "List of URLs to listen on for cluster client traffic.")
+	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{
+		"http://localhost:2380",
+	}, "List of URLs to listen on for cluster peer traffic.")
+	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{
+		"http://localhost:2379",
+	}, "List of this member's client URLs to advertise to the rest of the cluster.")
+	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs,
+		"initial-advertise-peer-urls", []string{"http://localhost:2380"},
+		"List of this member's peer URLs to advertise to the rest of the cluster.")
 	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
 		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
@@ -132,7 +153,8 @@ func addClusterVars(opt *Options) {
 		"primary-listen-peer-urls",
 		[]string{"http://localhost:2380"},
 		"List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
-	opt.flags.IntVar(&opt.Cluster.MaxCallSendMsgSize, "max-call-send-msg-size", 10*1024*1024, "Maximum size in bytes for cluster synchronization messages.")
+	opt.flags.IntVar(&opt.Cluster.MaxCallSendMsgSize, "max-call-send-msg-size", 10*1024*1024,
+		"Maximum size in bytes for cluster synchronization messages.")
 }
 
 // New creates a default Options.
@@ -145,15 +167,23 @@ func New() *Options {
 	opt.flags.BoolVarP(&opt.ShowVersion, "version", "v", false, "Print the version and exit.")
 	opt.flags.BoolVarP(&opt.ShowHelp, "help", "h", false, "Print the helper message and exit.")
 	opt.flags.BoolVarP(&opt.ShowConfig, "print-config", "c", false, "Print the configuration.")
-	opt.flags.StringVarP(&opt.ConfigFile, "config-file", "f", "", "Load server configuration from a file(yaml format), other command line flags will be ignored if specified.")
-	opt.flags.BoolVar(&opt.ForceNewCluster, "force-new-cluster", false, "Force to create a new one-member cluster.")
-	opt.flags.BoolVar(&opt.SignalUpgrade, "signal-upgrade", false, "Send an upgrade signal to the server based on the local pid file, then exit. The original server will start a graceful upgrade after signal received.")
+	opt.flags.StringVarP(&opt.ConfigFile, "config-file", "f", "",
+		"Load server configuration from a file(yaml format), other command line flags will be ignored if specified.")
+	opt.flags.BoolVar(&opt.ForceNewCluster, "force-new-cluster", false,
+		"Force to create a new one-member cluster.")
+	opt.flags.BoolVar(&opt.SignalUpgrade, "signal-upgrade", false,
+		"Send an upgrade signal to the server based on the local pid file, then exit. The original server will start a graceful upgrade after signal received.")
 	opt.flags.StringVar(&opt.Name, "name", "eg-default-name", "Human-readable name for this member.")
-	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of Easegress.")
+	opt.flags.StringToStringVar(&opt.Labels, "labels", nil,
+		"The labels for the instance of Easegress.")
+	opt.flags.BoolVar(&opt.UseStandaloneEtcd, "use-standalone-etcd", false,
+		"Use standalone etcd instead of embedded .")
 	addClusterVars(opt)
-	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
+	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381",
+		"Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
-	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
+	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil,
+		"List of configuration files for initial objects, these objects will be created at startup if not already exist.")
 
 	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "Path to the home directory.")
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
@@ -164,7 +194,8 @@ func New() *Options {
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
 	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
 
-	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
+	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20,
+		"Number of object statuses to update at maximum in one transaction.")
 
 	opt.viper.BindPFlags(opt.flags)
 
@@ -245,6 +276,11 @@ func (opt *Options) Parse() (string, error) {
 	}
 
 	opt.renameLegacyClusterRoles()
+
+	if opt.UseStandaloneEtcd {
+		opt.ClusterRole = "secondary"
+	}
+
 	err = opt.validate()
 	if err != nil {
 		return "", err
