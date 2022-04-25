@@ -64,7 +64,6 @@ type (
 		EGName               string        `yaml:"-"`
 		Name                 string        `yaml:"-"`
 		Port                 uint16        `yaml:"port" jsonschema:"required"`
-		BackendType          string        `yaml:"backendType" jsonschema:"required"`
 		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
 		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
 		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`

@@ -486,7 +486,6 @@ func TestSession(t *testing.T) {
 func TestSpec(t *testing.T) {
 	yamlStr := `
     port: 1883
-    backendType: Kafka
     auth:
       - userName: test
         passBase64: dGVzdA==
@@ -508,9 +507,8 @@ func TestSpec(t *testing.T) {
 	}
 
 	want := Spec{
-		Port:        1883,
-		BackendType: "Kafka",
-		UseTLS:      true,
+		Port:   1883,
+		UseTLS: true,
 		Certificate: []Certificate{
 			{"cert1", "balabala", "keyForbalabala"},
 			{"cert2", "foo", "bar"},
