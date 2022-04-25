@@ -33,7 +33,7 @@ func init() {
 	logger.InitMock()
 }
 
-func getResponseBuilder(spec *ResponseSpec) *HTTPResponseBuilder {
+func getResponseBuilder(spec *HTTPResponseBuilderSpec) *HTTPResponseBuilder {
 	rb := &HTTPResponseBuilder{spec: spec}
 	rb.Init()
 	return rb
@@ -41,6 +41,7 @@ func getResponseBuilder(spec *ResponseSpec) *HTTPResponseBuilder {
 
 func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
 	r, err := httpprot.NewRequest(req)
+	r.FetchPayload()
 	assert.Nil(t, err)
 	ctx.SetRequest(id, r)
 }
@@ -50,10 +51,8 @@ func TestStatusCode(t *testing.T) {
 
 	// set status code directly
 	{
-		spec := &ResponseSpec{
-			StatusCode: &StatusCode{
-				Code: http.StatusOK,
-			},
+		spec := &HTTPResponseBuilderSpec{
+			StatusCode: "200",
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -69,10 +68,8 @@ func TestStatusCode(t *testing.T) {
 
 	// set status code from other response
 	{
-		spec := &ResponseSpec{
-			StatusCode: &StatusCode{
-				CopyResponseID: "response1",
-			},
+		spec := &HTTPResponseBuilderSpec{
+			StatusCode: "{{.Responses.response1.StatusCode}}",
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -96,10 +93,12 @@ func TestResponseHeader(t *testing.T) {
 
 	// get header from request and response
 	{
-		spec := &ResponseSpec{
-			Headers: []Header{
-				{"X-Request", `{{index (index .Requests.request1.Header "X-Request") 0}}`},
-				{"X-Response", `{{index (index .Responses.response1.Header "X-Response") 0}}`},
+		spec := &HTTPResponseBuilderSpec{
+			Spec: Spec{
+				Headers: map[string][]string{
+					"X-Request":  {`{{index (index .Requests.request1.Header "X-Request") 0}}`},
+					"X-Response": {`{{index (index .Responses.response1.Header "X-Response") 0}}`},
+				},
 			},
 		}
 		rb := getResponseBuilder(spec)
@@ -134,8 +133,10 @@ func TestResponseBody(t *testing.T) {
 
 	// directly set body
 	{
-		spec := &ResponseSpec{
-			Body: "body",
+		spec := &HTTPResponseBuilderSpec{
+			Spec: Spec{
+				Body: "body",
+			},
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -153,8 +154,10 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body
 	{
-		spec := &ResponseSpec{
-			Body: "body {{ .RequestBodies.request1.String }}",
+		spec := &HTTPResponseBuilderSpec{
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.Body }}",
+			},
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -176,8 +179,10 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body json map
 	{
-		spec := &ResponseSpec{
-			Body: "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
+		spec := &HTTPResponseBuilderSpec{
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}",
+			},
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -199,8 +204,10 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body yaml map
 	{
-		spec := &ResponseSpec{
-			Body: "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
+		spec := &HTTPResponseBuilderSpec{
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}",
+			},
 		}
 		rb := getResponseBuilder(spec)
 		defer rb.Close()

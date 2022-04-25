@@ -33,7 +33,7 @@ func init() {
 	logger.InitNop()
 }
 
-func getRequestBuilder(spec *RequestSpec) *HTTPRequestBuilder {
+func getRequestBuilder(spec *HTTPRequestBuilderSpec) *HTTPRequestBuilder {
 	rb := &HTTPRequestBuilder{spec: spec}
 	rb.Init()
 	return rb
@@ -44,7 +44,7 @@ func TestMethod(t *testing.T) {
 
 	// get method from request
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "{{ .Requests.request1.Method }}",
 		}
 		rb := getRequestBuilder(spec)
@@ -66,7 +66,7 @@ func TestMethod(t *testing.T) {
 
 	// set method directly
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "get",
 		}
 		rb := getRequestBuilder(spec)
@@ -88,7 +88,7 @@ func TestMethod(t *testing.T) {
 
 	// invalid method
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "what",
 		}
 		assert.Panics(func() {
@@ -102,7 +102,7 @@ func TestURL(t *testing.T) {
 
 	// get url from request
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com?field1={{index .Requests.request1.URL.Query.field2 0}}",
 		}
@@ -126,7 +126,7 @@ func TestURL(t *testing.T) {
 
 	// set url directly
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Put",
 			URL:    "http://www.facebook.com",
 		}
@@ -154,12 +154,14 @@ func TestRequestHeader(t *testing.T) {
 
 	// get header from request and response
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
-			Headers: []Header{
-				{"X-Request", `{{index (index .Requests.request1.Header "X-Request") 0}}`},
-				{"X-Response", `{{index (index .Responses.response1.Header "X-Response") 0}}`},
+			Spec: Spec{
+				Headers: map[string][]string{
+					"X-Request":  {`{{index (index .Requests.request1.Header "X-Request") 0}}`},
+					"X-Response": {`{{index (index .Responses.response1.Header "X-Response") 0}}`},
+				},
 			},
 		}
 		rb := getRequestBuilder(spec)
@@ -195,10 +197,12 @@ func TestRequestBody(t *testing.T) {
 
 	// directly set body
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
-			Body:   "body",
+			Spec: Spec{
+				Body: "body",
+			},
 		}
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -219,10 +223,12 @@ func TestRequestBody(t *testing.T) {
 
 	// set body by using other body
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
-			Body:   "body {{ .RequestBodies.request1.String }}",
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.Body }}",
+			},
 		}
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -244,10 +250,12 @@ func TestRequestBody(t *testing.T) {
 
 	// set body by using json map
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
-			Body:   "body {{ .RequestBodies.request1.JsonMap.field1 }} {{ .RequestBodies.request1.JsonMap.field2 }}",
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}",
+			},
 		}
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -269,10 +277,12 @@ func TestRequestBody(t *testing.T) {
 
 	// set body by using yaml map
 	{
-		spec := &RequestSpec{
+		spec := &HTTPRequestBuilderSpec{
 			Method: "Delete",
 			URL:    "http://www.facebook.com",
-			Body:   "body {{ .RequestBodies.request1.YamlMap.field1 }} {{ .RequestBodies.request1.YamlMap.field2 }}",
+			Spec: Spec{
+				Body: "body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}",
+			},
 		}
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
