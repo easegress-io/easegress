@@ -24,9 +24,16 @@ data:
   eg-secondary.yaml: |
     cluster-name: easegress
     cluster-role: secondary
+    useStandaloneEtcd: {{ .Values.cluster.useStandaloneEtcd }}
     cluster:
       primary-listen-peer-urls:
+      {{ if .Values.cluster.useStandaloneEtcd }}
+      {{- range $i, $endpoint := .Values.cluster.standaloneEtcdEndpoints }}
+      - {{ $endpoint }}
+      {{ end }}
+      {{ else }}
       - http://{{ .Release.Name }}-0.easegress-hs.{{ .Release.Namespace }}:2380
+      {{ end }}
     api-addr: 0.0.0.0:2381
     data-dir: /opt/easegress/data
     wal-dir: ""

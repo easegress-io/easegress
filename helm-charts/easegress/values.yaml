@@ -25,6 +25,10 @@ cluster:
 
   secondaryReplicas: 0
 
+  useStandaloneEtcd: false
+  standaloneEtcdEndpoints:
+  # - endpoint-1
+
 # log path inside container
 log:
   path: /opt/easegress/log

@@ -145,8 +145,7 @@ func (ssc *StatusSyncController) run() {
 	for {
 		select {
 		case t := <-ssc.timer.C:
-			// ssc.handleStatus(t.Unix())
-			logger.Infof("again %s", t.String())
+			ssc.handleStatus(t.Unix())
 		case <-ssc.done:
 			return
 		}
