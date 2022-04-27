@@ -278,7 +278,7 @@ func (opt *Options) Parse() (string, error) {
 	opt.renameLegacyClusterRoles()
 
 	if opt.UseStandaloneEtcd {
-		opt.ClusterRole = "secondary"
+		opt.ClusterRole = "secondary" // when using external standalone etcd, the cluster role cannot be "primary"
 	}
 
 	err = opt.validate()
