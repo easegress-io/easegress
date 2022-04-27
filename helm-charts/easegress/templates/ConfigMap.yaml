@@ -24,7 +24,7 @@ data:
   eg-secondary.yaml: |
     cluster-name: easegress
     cluster-role: secondary
-    useStandaloneEtcd: {{ .Values.cluster.useStandaloneEtcd }}
+    use-standalone-etcd: {{ .Values.cluster.useStandaloneEtcd }}
     cluster:
       primary-listen-peer-urls:
       {{ if .Values.cluster.useStandaloneEtcd }}
