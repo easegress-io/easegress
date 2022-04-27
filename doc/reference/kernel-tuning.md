@@ -45,7 +45,7 @@ The values need to be aligned with actual memory, CPU, and network.
     net.core.somaxconn = 65535
     ```
 
-7.  TCP memory tuning. Refer to [Linux Administration](http://www.linux-admins.net/2010/09/linux-tcp-tuning.html)
+7. TCP memory tuning. Refer to [Linux Administration](http://www.linux-admins.net/2010/09/linux-tcp-tuning.html)
 
     ```conf
     # Increase the default socket buffer read size (rmem_default) and write size (wmem_default)
@@ -70,7 +70,7 @@ The values need to be aligned with actual memory, CPU, and network.
     net.ipv4.tcp_rmem=4096 87380 16777216
     ```
 
-8.  Number of packets to keep in the backlog before the kernel starts dropping them
+8. Number of packets to keep in the backlog before the kernel starts dropping them
     ```conf
     net.ipv4.tcp_max_syn_backlog = 3240000
     ```
@@ -108,11 +108,12 @@ The values need to be aligned with actual memory, CPU, and network.
     net.ipv4.tcp_fin_timeout = 7
     ```
 
-14.  Refer to this [Github post](https://github.com/ton31337/tools/wiki/tcp_slow_start_after_idle---tcp_no_metrics_save-performance)
+14. Refer to this [Github post](https://github.com/ton31337/tools/wiki/tcp_slow_start_after_idle---tcp_no_metrics_save-performance)
+
     ```conf
     # Avoid falling back to slow start after a connection goes idle.
     net.ipv4.tcp_slow_start_after_idle = 0
-    
+
     # Disable caching of TCP congestion state
     net.ipv4.tcp_no_metrics_save = 1
     ```
