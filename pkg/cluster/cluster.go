@@ -375,16 +375,14 @@ func (c *cluster) checkClusterName() error {
 			logger.Errorf("%v", err)
 			panic(err)
 		}
-	} else {
-		if c.opt.UseStandaloneEtcd {
-			err := c.Put(c.Layout().ClusterNameKey(), c.opt.ClusterName)
-			if err != nil {
-				return fmt.Errorf("register cluster name %s failed: %v",
-					c.opt.ClusterName, err)
-			}
-		} else {
-			return fmt.Errorf("key %s not found", c.Layout().ClusterNameKey())
+	} else if c.opt.UseStandaloneEtcd {
+		err := c.Put(c.Layout().ClusterNameKey(), c.opt.ClusterName)
+		if err != nil {
+			return fmt.Errorf("register cluster name %s failed: %v",
+				c.opt.ClusterName, err)
 		}
+	} else {
+		return fmt.Errorf("key %s not found", c.Layout().ClusterNameKey())
 	}
 
 	return nil
