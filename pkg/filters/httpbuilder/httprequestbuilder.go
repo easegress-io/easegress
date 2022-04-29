@@ -18,7 +18,6 @@
 package httpbuilder
 
 import (
-	"fmt"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -65,9 +64,7 @@ func init() {
 type (
 	// HTTPRequestBuilder is filter HTTPRequestBuilder.
 	HTTPRequestBuilder struct {
-		spec          *HTTPRequestBuilderSpec
-		methodBuilder *builder
-		urlBuilder    *builder
+		spec *HTTPRequestBuilderSpec
 		HTTPBuilder
 	}
 
@@ -75,9 +72,14 @@ type (
 	HTTPRequestBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
+	}
 
-		Method string `yaml:"method" jsonschema:"required"`
-		URL    string `yaml:"url" jsonschema:"required"`
+	// RequestInfo stores the information of a request.
+	RequestInfo struct {
+		Method  string              `json:"method" jsonschema:"omitempty"`
+		URL     string              `json:"url" jsonschema:"required"`
+		Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
+		Body    string              `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -108,16 +110,6 @@ func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *HTTPRequestBuilder) reload() {
-	rb.methodBuilder = newBuilder(rb.spec.Method)
-	if rb.methodBuilder.template == nil {
-		rb.methodBuilder.value = strings.ToUpper(rb.spec.Method)
-		if _, ok := methods[rb.methodBuilder.value]; !ok {
-			msgFmt := "invalid method for HTTPRequestBuilder %v"
-			panic(fmt.Errorf(msgFmt, rb.spec.Method))
-		}
-	}
-
-	rb.urlBuilder = newBuilder(rb.spec.URL)
 	rb.HTTPBuilder.reload(&rb.spec.Spec)
 }
 
@@ -137,41 +129,40 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	// build method
-	method, err := rb.methodBuilder.buildString(data)
-	if err != nil {
-		logger.Warnf("build method failed: %v", err)
+	var ri RequestInfo
+	if err = rb.build(data, &ri); err != nil {
 		return resultBuildErr
 	}
 
-	// build url
-	url, err := rb.urlBuilder.buildString(data)
-	if err != nil {
-		logger.Warnf("build url failed: %v", err)
+	if ri.URL == "" {
+		logger.Warnf("URL cannot be empty")
 		return resultBuildErr
 	}
 
-	// build request, use SetPayload to set body
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		logger.Warnf("build request failed: %v", err)
-		return resultBuildErr
-	}
-
-	// build headers
-	if h, err := rb.buildHeader(data); err != nil {
-		return resultBuildErr
+	if ri.Method == "" {
+		ri.Method = http.MethodGet
 	} else {
-		req.Header = h
+		ri.Method = strings.ToUpper(ri.Method)
+	}
+	if _, ok := methods[ri.Method]; !ok {
+		logger.Warnf("invalid method: %s", ri.Method)
+		return resultBuildErr
 	}
 
-	// build body
+	req, err := http.NewRequest(ri.Method, ri.URL, nil)
+	if err != nil {
+		logger.Warnf("failed to create new request: %v", err)
+		return resultBuildErr
+	}
+
+	for k, vs := range ri.Headers {
+		for _, v := range vs {
+			req.Header.Add(k, v)
+		}
+	}
+
 	egreq, _ := httpprot.NewRequest(req)
-	if body, err := rb.buildBody(data); err != nil {
-		return resultBuildErr
-	} else {
-		egreq.SetPayload([]byte(body))
-	}
+	egreq.SetPayload([]byte(ri.Body))
 
 	ctx.SetRequest(ctx.TargetRequestID(), egreq)
 	return ""

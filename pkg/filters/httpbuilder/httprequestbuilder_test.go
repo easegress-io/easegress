@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -43,12 +44,15 @@ func TestMethod(t *testing.T) {
 	assert := assert.New(t)
 
 	// get method from request
+	// directly set body
+	yml := `template: |
+  method: {{ .Requests.request1.Method }}
+  url: /
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "{{ .Requests.request1.Method }}",
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
-		assert.NotNil(rb.methodBuilder.template)
 		defer rb.Close()
 
 		ctx := context.New(nil)
@@ -65,12 +69,14 @@ func TestMethod(t *testing.T) {
 	}
 
 	// set method directly
+	yml = `template: |
+  method: get
+  url: /
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "get",
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
-		assert.Nil(rb.methodBuilder.template)
 		defer rb.Close()
 
 		ctx := context.New(nil)
@@ -87,13 +93,20 @@ func TestMethod(t *testing.T) {
 	}
 
 	// invalid method
+	yml = `template: |
+  method: what
+  url: /
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "what",
-		}
-		assert.Panics(func() {
-			getRequestBuilder(spec)
-		})
+
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		res := rb.Handle(ctx)
+		assert.NotEmpty(res)
 	}
 }
 
@@ -101,13 +114,14 @@ func TestURL(t *testing.T) {
 	assert := assert.New(t)
 
 	// get url from request
+	yml := `template: |
+  method: Delete
+  url:  http://www.facebook.com?field1={{index .Requests.request1.URL.Query.field2 0}}
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com?field1={{index .Requests.request1.URL.Query.field2 0}}",
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
-		assert.NotNil(rb.urlBuilder.template)
 		defer rb.Close()
 
 		ctx := context.New(nil)
@@ -125,13 +139,14 @@ func TestURL(t *testing.T) {
 	}
 
 	// set url directly
+	yml = `template: |
+  method: Put
+  url:  http://www.facebook.com
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Put",
-			URL:    "http://www.facebook.com",
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
-		assert.Nil(rb.urlBuilder.template)
 		defer rb.Close()
 
 		ctx := context.New(nil)
@@ -153,17 +168,16 @@ func TestRequestHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	// get header from request and response
+	yml := `template: |
+  method: Delete
+  url:  http://www.facebook.com
+  headers:
+    "X-Request": [{{index (index .Requests.request1.Header "X-Request") 0}}]
+    "X-Response": [{{index (index .Responses.response1.Header "X-Response") 0}}]
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com",
-			Spec: Spec{
-				Headers: map[string][]string{
-					"X-Request":  {`{{index (index .Requests.request1.Header "X-Request") 0}}`},
-					"X-Response": {`{{index (index .Responses.response1.Header "X-Response") 0}}`},
-				},
-			},
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -196,14 +210,14 @@ func TestRequestBody(t *testing.T) {
 	assert := assert.New(t)
 
 	// directly set body
+	yml := `template: |
+  method: Delete
+  url:  http://www.facebook.com
+  body: body
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com",
-			Spec: Spec{
-				Body: "body",
-			},
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -222,14 +236,14 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using other body
+	yml = `template: |
+  method: Delete
+  url:  http://www.facebook.com
+  body: body {{ .Requests.request1.Body }}
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com",
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.Body }}",
-			},
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -249,14 +263,14 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using json map
+	yml = `template: |
+  method: Delete
+  url:  http://www.facebook.com
+  body: body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com",
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}",
-			},
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -276,14 +290,14 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using yaml map
+	yml = `template: |
+  method: Delete
+  url:  http://www.facebook.com
+  body: body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}
+`
 	{
-		spec := &HTTPRequestBuilderSpec{
-			Method: "Delete",
-			URL:    "http://www.facebook.com",
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}",
-			},
-		}
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 

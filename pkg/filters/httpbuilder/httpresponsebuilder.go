@@ -20,7 +20,6 @@ package httpbuilder
 import (
 	"net/http"
 	"runtime/debug"
-	"strconv"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -52,9 +51,7 @@ func init() {
 type (
 	// HTTPResponseBuilder is filter HTTPResponseBuilder.
 	HTTPResponseBuilder struct {
-		spec              *HTTPResponseBuilderSpec
-		statusCode        int
-		statusCodeBuilder *builder
+		spec *HTTPResponseBuilderSpec
 		HTTPBuilder
 	}
 
@@ -62,8 +59,13 @@ type (
 	HTTPResponseBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
+	}
 
-		StatusCode string `yaml:"statusCode" jsonschema:"omitempty"`
+	// ResponseInfo stores the information of a response.
+	ResponseInfo struct {
+		StatusCode int                 `yaml:"statusCode" jsonshema:"omitempty"`
+		Headers    map[string][]string `yaml:"headers" jsonschema:"omitempty"`
+		Body       string              `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -94,14 +96,6 @@ func (rb *HTTPResponseBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *HTTPResponseBuilder) reload() {
-	if rb.spec.StatusCode == "" {
-		rb.statusCode = http.StatusOK
-	} else if code, err := strconv.Atoi(rb.spec.StatusCode); err == nil {
-		rb.statusCode = code
-	} else {
-		rb.statusCodeBuilder = newBuilder(rb.spec.StatusCode)
-	}
-
 	rb.HTTPBuilder.reload(&rb.spec.Spec)
 }
 
@@ -121,34 +115,30 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	resp := &http.Response{}
-
-	if rb.statusCodeBuilder == nil {
-		resp.StatusCode = rb.statusCode
-	} else if s, err := rb.statusCodeBuilder.buildString(data); err != nil {
-		logger.Warnf("status code failed: %v", err)
+	var ri ResponseInfo
+	if err = rb.build(data, &ri); err != nil {
 		return resultBuildErr
-	} else if code, err := strconv.Atoi(s); err != nil {
-		logger.Warnf("status code is not an integer: %v", err)
-		return resultBuildErr
-	} else {
-		resp.StatusCode = code
 	}
 
-	// build headers
-	if h, err := rb.buildHeader(data); err != nil {
+	if ri.StatusCode == 0 {
+		ri.StatusCode = http.StatusOK
+	} else if ri.StatusCode < 200 || ri.StatusCode >= 600 {
+		logger.Warnf("invalid status code: %d", ri.StatusCode)
 		return resultBuildErr
-	} else {
-		resp.Header = h
+	}
+
+	resp := &http.Response{Header: http.Header{}}
+	resp.StatusCode = ri.StatusCode
+
+	for k, vs := range ri.Headers {
+		for _, v := range vs {
+			resp.Header.Add(k, v)
+		}
 	}
 
 	// build body
 	egresp, _ := httpprot.NewResponse(resp)
-	if body, err := rb.buildBody(data); err != nil {
-		return resultBuildErr
-	} else {
-		egresp.SetPayload(body)
-	}
+	egresp.SetPayload([]byte(ri.Body))
 
 	ctx.SetResponse(ctx.TargetResponseID(), egresp)
 	return ""

@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -50,10 +51,12 @@ func TestStatusCode(t *testing.T) {
 	assert := assert.New(t)
 
 	// set status code directly
+	yml := `template: |
+  statusCode: 200
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			StatusCode: "200",
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -67,10 +70,12 @@ func TestStatusCode(t *testing.T) {
 	}
 
 	// set status code from other response
+	yml = `template: |
+  statusCode: {{.Responses.response1.StatusCode}}
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			StatusCode: "{{.Responses.response1.StatusCode}}",
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -92,15 +97,14 @@ func TestResponseHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	// get header from request and response
+	yml := `template: |
+  headers:
+    "X-Request": [{{index (index .Requests.request1.Header "X-Request") 0}}]
+    "X-Response": [{{index (index .Responses.response1.Header "X-Response") 0}}]
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			Spec: Spec{
-				Headers: map[string][]string{
-					"X-Request":  {`{{index (index .Requests.request1.Header "X-Request") 0}}`},
-					"X-Response": {`{{index (index .Responses.response1.Header "X-Response") 0}}`},
-				},
-			},
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -132,12 +136,12 @@ func TestResponseBody(t *testing.T) {
 	assert := assert.New(t)
 
 	// directly set body
+	yml := `template: |
+  body: body
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			Spec: Spec{
-				Body: "body",
-			},
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -153,12 +157,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body
+	yml = `template: |
+  body: body {{ .Requests.request1.Body }}
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.Body }}",
-			},
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -178,12 +182,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body json map
+	yml = `template: |
+  body: body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}",
-			},
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -203,12 +207,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body yaml map
+	yml = `template: |
+  body: body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}
+`
 	{
-		spec := &HTTPResponseBuilderSpec{
-			Spec: Spec{
-				Body: "body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}",
-			},
-		}
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 

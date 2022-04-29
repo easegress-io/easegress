@@ -18,7 +18,9 @@
 package httpbuilder
 
 import (
+	"bytes"
 	"encoding/json"
+	"html/template"
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -34,14 +36,14 @@ const (
 type (
 	// HTTPBuilder is the base HTTP builder.
 	HTTPBuilder struct {
-		bodyBuilder    *builder
-		headerBuilders map[*builder][]*builder
+		template *template.Template
 	}
 
 	// Spec is the spec of HTTPBuilder.
 	Spec struct {
-		Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
-		Body    string              `yaml:"body" jsonschema:"omitempty"`
+		LeftDelim  string `yaml:"leftDelim" jsonschema:"omitempty"`
+		RightDelim string `yaml:"rightDelim" jsonschema:"omitempty"`
+		Template   string `yaml:"template" jsonschema:"required"`
 	}
 
 	builderData struct {
@@ -63,53 +65,24 @@ type (
 )
 
 func (b *HTTPBuilder) reload(spec *Spec) {
-	b.bodyBuilder = newBuilder(spec.Body)
-
-	b.headerBuilders = map[*builder][]*builder{}
-	for key, values := range spec.Headers {
-		kb := newBuilder(key)
-		vbs := make([]*builder, 0, len(values))
-		for _, v := range values {
-			vbs = append(vbs, newBuilder(v))
-		}
-		b.headerBuilders[kb] = vbs
-	}
+	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
+	b.template = template.Must(t.Parse(spec.Template))
 }
 
-func (b *HTTPBuilder) buildBody(data *builderData) ([]byte, error) {
-	if b.bodyBuilder == nil {
-		return nil, nil
+func (b *HTTPBuilder) build(data *builderData, v interface{}) error {
+	var result bytes.Buffer
+
+	if err := b.template.Execute(&result, data); err != nil {
+		logger.Warnf("HTTPBuilder: build failed: %v", err)
+		return err
 	}
 
-	body, err := b.bodyBuilder.build(data)
-	if err != nil {
-		logger.Warnf("build body failed: %v", err)
-		return nil, err
+	if err := yaml.NewDecoder(&result).Decode(v); err != nil {
+		logger.Warnf("HTTPBuilder: failed to decode build result: %v", err)
+		return err
 	}
 
-	return body, nil
-}
-
-func (b *HTTPBuilder) buildHeader(data *builderData) (http.Header, error) {
-	h := http.Header{}
-
-	for kb, vbs := range b.headerBuilders {
-		key, err := kb.buildString(data)
-		if err != nil {
-			logger.Warnf("build header key failed: %v", err)
-			return nil, err
-		}
-		for i, vb := range vbs {
-			value, err := vb.buildString(data)
-			if err != nil {
-				logger.Warnf("build header value %d failed: %v", i, err)
-				return nil, err
-			}
-			h.Add(key, value)
-		}
-	}
-
-	return h, nil
+	return nil
 }
 
 // Status returns status.
