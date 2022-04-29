@@ -35,6 +35,7 @@ const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
 
+	resultReadBodyFail   = "readBodyFail"
 	resultDecompressFail = "decompressFail"
 	resultCompressFail   = "compressFail"
 )
@@ -42,7 +43,7 @@ const (
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "RequestAdaptor adapts request.",
-	Results:     []string{resultDecompressFail, resultCompressFail},
+	Results:     []string{resultDecompressFail, resultCompressFail, resultReadBodyFail},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -121,9 +122,29 @@ func (ra *RequestAdaptor) reload() {
 	}
 }
 
+func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
+	h := req.Std().Header
+	for _, key := range as.Del {
+		h.Del(key)
+	}
+	for key, value := range as.Set {
+		h.Set(key, value)
+	}
+	for key, value := range as.Add {
+		h.Add(key, value)
+	}
+}
+
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	httpreq := ctx.Request().(*httpprot.Request)
+	if ra.spec.Body != "" || ra.spec.Compress != "" || ra.spec.Decompress != "" {
+		_, err := httpreq.FetchPayload()
+		if err != nil {
+			return resultReadBodyFail
+		}
+	}
+
 	method, path, _ := httpreq.Method(), httpreq.Path(), httpreq.Header()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {
@@ -140,39 +161,19 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 		}
 		httpreq.SetPath(adaptedPath)
 	}
-	// TODO update tempalte part here
 
-	// hte := ctx.Template()
-	// if ra.spec.Header != nil {
-	// 	header.Adapt(ra.spec.Header, hte)
-	// }
+	if ra.spec.Header != nil {
+		adaptHeader(httpreq, ra.spec.Header)
+	}
 
-	// if len(ra.spec.Body) != 0 {
-	// 	if hte.HasTemplates(ra.spec.Body) {
-	// 		if body, err := hte.Render(ra.spec.Body); err != nil {
-	// 			logger.Errorf("BUG request render body failed, template %s, err %v",
-	// 				ra.spec.Body, err)
-	// 		} else {
-	// 			ctx.Request().SetBody(bytes.NewReader([]byte(body)), true)
-	// 		}
-	// 	} else {
-	// 		ctx.Request().SetBody(bytes.NewReader([]byte(ra.spec.Body)), true)
-	// 	}
-	// 	ctx.Request().Header().Del("Content-Encoding")
-	// }
+	if len(ra.spec.Body) != 0 {
+		httpreq.SetPayload([]byte(ra.spec.Body))
+		httpreq.Std().Header.Del("Content-Encoding")
+	}
 
-	// if len(ra.spec.Host) != 0 {
-	// 	if hte.HasTemplates(ra.spec.Host) {
-	// 		if host, err := hte.Render(ra.spec.Host); err != nil {
-	// 			logger.Errorf("BUG request render host failed, template %s, err %v",
-	// 				ra.spec.Host, err)
-	// 		} else {
-	// 			ctx.Request().SetHost(host)
-	// 		}
-	// 	} else {
-	// 		ctx.Request().SetHost(ra.spec.Host)
-	// 	}
-	// }
+	if len(ra.spec.Host) != 0 {
+		httpreq.SetHost(ra.spec.Host)
+	}
 
 	if ra.spec.Compress != "" {
 		res := ra.processCompress(ctx)

@@ -28,13 +28,14 @@ const (
 	// Kind is the kind of Fallback.
 	Kind = "Fallback"
 
-	resultFallback = "fallback"
+	resultFallback         = "fallback"
+	resultResponseNotFound = "responseNotFound"
 )
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "Fallback do the fallback.",
-	Results:     []string{resultFallback},
+	Results:     []string{resultFallback, resultResponseNotFound},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -95,9 +96,12 @@ func (f *Fallback) reload() {
 // Handle fallbacks HTTPContext.
 // It always returns fallback.
 func (f *Fallback) Handle(ctx *context.Context) string {
-	resp := ctx.Response().(*httpprot.Response)
-	f.f.Fallback(resp)
-	return resultFallback
+	resp := ctx.GetResponse(ctx.TargetResponseID())
+	if resp != nil {
+		f.f.Fallback(resp.(*httpprot.Response))
+		return resultFallback
+	}
+	return resultResponseNotFound
 }
 
 // Status returns Status.

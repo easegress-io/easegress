@@ -26,10 +26,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
@@ -49,13 +49,13 @@ func createCertExtractor(
 	if err != nil {
 		return nil, err
 	}
-	hl := &CertExtractor{}
+	hl := kind.CreateInstance(spec)
 	if prev == nil {
-		hl.Init(spec)
+		hl.Init()
 	} else {
-		hl.Inherit(spec, prev)
+		hl.Inherit(prev)
 	}
-	return hl, nil
+	return hl.(*CertExtractor), nil
 }
 
 const yaml = `
@@ -89,32 +89,27 @@ field: "CommonName"
 	assert.Equal(ce.headerKey, "tls-subject-CommonName")
 }
 
-func prepareCtxAndHeader(connState *tls.ConnectionState) (*contexttest.MockedHTTPContext, http.Header) {
-	ctx := &contexttest.MockedHTTPContext{}
-	header := http.Header{}
+func prepareCtxAndHeader(t *testing.T, connState *tls.ConnectionState) (*context.Context, http.Header) {
+	ctx := context.New(nil)
 	stdr := &http.Request{}
+	stdr.Header = http.Header{}
 	stdr.TLS = connState
-	ctx.MockedRequest.MockedStd = func() *http.Request {
-		return stdr
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	return ctx, header
+
+	httpreq, err := httpprot.NewRequest(stdr)
+	assert.Nil(t, err)
+	ctx.SetRequest(context.InitialRequestID, httpreq)
+	ctx.UseRequest(context.InitialRequestID, context.InitialRequestID)
+	return ctx, stdr.Header
 }
 
 func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
 	t.Run("no TLS", func(t *testing.T) {
-		ctx := &contexttest.MockedHTTPContext{}
-		ce, _ := createCertExtractor(yaml, nil, nil)
-		assert.Equal("", ce.Handle(ctx))
-
 		peerCertificates := make([]*x509.Certificate, 0)
 		connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
-		ctx, _ = prepareCtxAndHeader(connState)
-		ce, _ = createCertExtractor(yaml, nil, nil)
+		ctx, _ := prepareCtxAndHeader(t, connState)
+		ce, _ := createCertExtractor(yaml, nil, nil)
 		assert.Equal("", ce.Handle(ctx))
 	})
 
@@ -125,7 +120,7 @@ func TestHandle(t *testing.T) {
 			Issuer:  pkix.Name{},
 		})
 		connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
-		ctx, _ := prepareCtxAndHeader(connState)
+		ctx, _ := prepareCtxAndHeader(t, connState)
 		ce, _ := createCertExtractor(yaml, nil, nil)
 		assert.Equal("", ce.Handle(ctx))
 	})
@@ -150,23 +145,23 @@ func TestHandle(t *testing.T) {
 		})
 		connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
 		t.Run("subject", func(t *testing.T) {
-			ctx, header := prepareCtxAndHeader(connState)
+			ctx, header := prepareCtxAndHeader(t, connState)
 			subjectYaml := yaml
 			ce, _ := createCertExtractor(subjectYaml, nil, nil)
-			assert.Equal("", ce.handle(ctx))
+			assert.Equal("", ce.Handle(ctx))
 			assert.Equal("INFO-1", header.Get("key"))
 		})
 
 		t.Run("issuer", func(t *testing.T) {
-			ctx, header := prepareCtxAndHeader(connState)
+			ctx, header := prepareCtxAndHeader(t, connState)
 			issuerYaml := strings.ReplaceAll(yaml, `target: "subject"`, `target: "issuer"`)
 			ce, _ := createCertExtractor(issuerYaml, nil, nil)
-			assert.Equal("", ce.handle(ctx))
+			assert.Equal("", ce.Handle(ctx))
 			assert.Equal("INFO-2", header.Get("key"))
 		})
 
 		t.Run("test all fields", func(t *testing.T) {
-			ctx, header := prepareCtxAndHeader(connState)
+			ctx, header := prepareCtxAndHeader(t, connState)
 			fields := []string{"Country", "Organization", "OrganizationalUnit", "Locality",
 				"Province", "StreetAddress", "PostalCode", "SerialNumber",
 			}
@@ -190,7 +185,7 @@ func TestHandle(t *testing.T) {
 
 			}
 			connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
-			ctx, header := prepareCtxAndHeader(connState)
+			ctx, header := prepareCtxAndHeader(t, connState)
 			yamlConfig := `
 kind: "CertExtractor"
 name: "cn-extractor"
@@ -202,7 +197,7 @@ field: "Province"
 			assert.Equal("", ce.Handle(ctx))
 			assert.Equal("third", header.Get("tls-subject-province"))
 
-			ctx, header = prepareCtxAndHeader(connState)
+			ctx, header = prepareCtxAndHeader(t, connState)
 			yamlConfig2 := strings.ReplaceAll(yamlConfig, "certIndex: -2", "certIndex: -15")
 			ce, _ = createCertExtractor(yamlConfig2, nil, nil)
 			assert.Equal("", ce.Handle(ctx))

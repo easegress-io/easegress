@@ -129,10 +129,20 @@ func (v *Validator) reload() {
 	}
 }
 
+func getResponse(ctx *context.Context) *httpprot.Response {
+	r := ctx.GetResponse(ctx.TargetResponseID())
+	if r != nil {
+		return r.(*httpprot.Response)
+	}
+	httpresp, _ := httpprot.NewResponse(nil)
+	ctx.SetResponse(ctx.TargetResponseID(), httpresp)
+	return httpresp
+}
+
 // Handle validates HTTPContext.
 func (v *Validator) Handle(ctx *context.Context) string {
 	req := ctx.Request().(*httpprot.Request)
-	resp := ctx.Response().(*httpprot.Response)
+	resp := getResponse(ctx)
 
 	prepareErrorResponse := func(status int, tagPrefix string, err error) {
 		resp.SetStatusCode(status)

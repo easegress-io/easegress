@@ -21,19 +21,25 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	json "github.com/goccy/go-json"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
 
 func init() {
 	logger.InitNop()
+}
+
+func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest(id, httpreq)
+	ctx.UseRequest(id, id)
 }
 
 func defaultFilterSpec(spec *Spec) filters.Spec {
@@ -45,14 +51,14 @@ func defaultFilterSpec(spec *Spec) filters.Spec {
 
 func TestHeaderToJSON(t *testing.T) {
 	assert := assert.New(t)
-	h := &HeaderToJSON{}
 	spec := defaultFilterSpec(&Spec{})
-	h.Init(spec)
+	h := kind.CreateInstance(spec)
+	h.Init()
 
 	assert.Nil(h.Status())
 
-	newh := HeaderToJSON{}
-	newh.Inherit(spec, h)
+	newh := kind.CreateInstance(spec)
+	newh.Inherit(h)
 	newh.Close()
 }
 
@@ -64,8 +70,8 @@ func TestHandleHTTP(t *testing.T) {
 		},
 	})
 
-	h2j := HeaderToJSON{}
-	h2j.Init(spec)
+	h2j := kind.CreateInstance(spec)
+	h2j.Init()
 
 	{
 		//test http request with body
@@ -80,17 +86,14 @@ func TestHandleHTTP(t *testing.T) {
 		assert.Nil(err)
 		req.Header.Add("x-username", "clientA")
 
-		w := httptest.NewRecorder()
-		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
-		ctx.SetHandlerCaller(func(lastResult string) string {
-			return lastResult
-		})
+		ctx := context.New(nil)
+		setRequest(t, ctx, "req1", req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 		ctx.Finish()
 
-		body, err = io.ReadAll(ctx.Request().Body())
+		body, err = io.ReadAll(ctx.Request().GetPayload())
 		assert.Nil(err)
 
 		res := map[string]interface{}{}
@@ -107,16 +110,13 @@ func TestHandleHTTP(t *testing.T) {
 		assert.Nil(err)
 
 		req.Header.Add("x-username", "clientA")
-		w := httptest.NewRecorder()
-		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
-		ctx.SetHandlerCaller(func(lastResult string) string {
-			return lastResult
-		})
+		ctx := context.New(nil)
+		setRequest(t, ctx, "req1", req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 
-		body, err := io.ReadAll(ctx.Request().Body())
+		body, err := io.ReadAll(ctx.Request().GetPayload())
 		assert.Nil(err)
 
 		res := map[string]interface{}{}
@@ -138,17 +138,14 @@ func TestHandleHTTP(t *testing.T) {
 		assert.Nil(err)
 		req.Header.Add("x-username", "clientA")
 
-		w := httptest.NewRecorder()
-		ctx := context.New(w, req, tracing.NoopTracing, "no trace")
-		ctx.SetHandlerCaller(func(lastResult string) string {
-			return lastResult
-		})
+		ctx := context.New(nil)
+		setRequest(t, ctx, "req1", req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 		ctx.Finish()
 
-		body, err = io.ReadAll(ctx.Request().Body())
+		body, err = io.ReadAll(ctx.Request().GetPayload())
 		assert.Nil(err)
 
 		res := []map[string]interface{}{}

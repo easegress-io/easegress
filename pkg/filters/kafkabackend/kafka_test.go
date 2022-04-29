@@ -20,7 +20,6 @@ package kafka
 import (
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -28,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,23 +58,35 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 	}
 }
 
-func defaultFilterSpec(spec *Spec) filters.Spec {
+func defaultFilterSpec(t *testing.T, spec *Spec) filters.Spec {
 	spec.BaseSpec.MetaSpec.Kind = Kind
 	spec.BaseSpec.MetaSpec.Name = "kafka"
-	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
+	result, err := filters.NewSpec(nil, "pipeline-demo", spec)
+	assert.Nil(t, err)
 	return result
+}
+
+func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest(id, httpreq)
+	ctx.UseRequest(id, id)
 }
 
 func TestKafka(t *testing.T) {
 	assert := assert.New(t)
-	k := &Kafka{}
-	spec := defaultFilterSpec(&Spec{})
+	spec := defaultFilterSpec(t, &Spec{
+		Topic: &Topic{
+			Default: "default-topic",
+		},
+	})
+	k := kind.CreateInstance(spec)
 
 	assert.Nil(k.Status())
-	assert.Panics(func() { k.Init(spec) }, "no valid backend should panic")
+	assert.Panics(func() { k.Init() }, "no valid backend should panic")
 
 	newK := &Kafka{}
-	assert.Panics(func() { newK.Inherit(spec, k) })
+	assert.Panics(func() { newK.Inherit(k) })
 }
 
 func TestHandleHTTP(t *testing.T) {
@@ -96,15 +107,13 @@ func TestHandleHTTP(t *testing.T) {
 	go kafka.checkProduceError()
 	defer kafka.Close()
 
+	ctx := context.New(nil)
+
 	// test header
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
 	req.Header.Add("x-kafka-topic", "kafka")
-	w := httptest.NewRecorder()
-	ctx := context.New(w, req, tracing.NoopTracing, "no trace")
-	ctx.SetHandlerCaller(func(lastResult string) string {
-		return lastResult
-	})
+	setRequest(t, ctx, "req1", req)
 
 	ans := kafka.Handle(ctx)
 	assert.Equal("", ans)
@@ -119,11 +128,7 @@ func TestHandleHTTP(t *testing.T) {
 	// test default
 	req, err = http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
-	w = httptest.NewRecorder()
-	ctx = context.New(w, req, tracing.NoopTracing, "no trace")
-	ctx.SetHandlerCaller(func(lastResult string) string {
-		return lastResult
-	})
+	setRequest(t, ctx, "req2", req)
 
 	ans = kafka.Handle(ctx)
 	assert.Equal("", ans)

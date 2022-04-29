@@ -19,17 +19,17 @@ package fallback
 
 import (
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFallback(t *testing.T) {
+	assert := assert.New(t)
 	const yamlSpec = `
 kind: Fallback
 name: fallback
@@ -46,30 +46,25 @@ mockBody: "mocked body"
 		t.Errorf("unexpected error: %v", e)
 	}
 
-	fb := &Fallback{}
-	fb.Init(spec)
+	fb := kind.CreateInstance(spec)
+	fb.Init()
 
-	resp := httptest.NewRecorder()
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedResponse.MockedSetStatusCode = func(code int) {
-		resp.WriteHeader(code)
-	}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(resp.Header())
-	}
-	ctx.MockedResponse.MockedSetBody = func(body io.Reader) {
-		data, _ := io.ReadAll(body)
-		resp.Write(data)
-	}
+	ctx := context.New(nil)
+	httpresp, err := httpprot.NewResponse(nil)
+	assert.Nil(err)
+	ctx.SetResponse("resp1", httpresp)
+	ctx.UseResponse("resp1")
 
 	fb.Handle(ctx)
-	if resp.Code != 203 {
+	if httpresp.StatusCode() != 203 {
 		t.Error("status code is not correct")
 	}
-	if resp.Body.String() != "mocked body" {
+	payload, err := io.ReadAll(httpresp.GetPayload())
+	assert.Nil(err)
+	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if resp.Header().Get("X-Mocked") != "true" {
+	if httpresp.Header().Get("X-Mocked") != "true" {
 		t.Error("header is not correct")
 	}
 
@@ -77,23 +72,27 @@ mockBody: "mocked body"
 		t.Error("behavior changed, please update this case")
 	}
 
-	newFb := &Fallback{}
 	spec, _ = filters.NewSpec(nil, "", rawSpec)
-	newFb.Inherit(spec, fb)
+	newFb := kind.CreateInstance(spec)
+	newFb.Inherit(fb)
 	fb.Close()
-	ctx.MockedRequest.MockedMethod = func() string {
-		return http.MethodGet
-	}
 
-	resp = httptest.NewRecorder()
+	httpresp, err = httpprot.NewResponse(nil)
+	assert.Nil(err)
+	ctx.SetResponse("resp2", httpresp)
+	ctx.UseResponse("resp2")
+
 	newFb.Handle(ctx)
-	if resp.Code != 203 {
+	if httpresp.StatusCode() != 203 {
 		t.Error("status code is not correct")
 	}
-	if resp.Body.String() != "mocked body" {
+
+	payload, err = io.ReadAll(httpresp.GetPayload())
+	assert.Nil(err)
+	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if resp.Header().Get("X-Mocked") != "true" {
+	if httpresp.Header().Get("X-Mocked") != "true" {
 		t.Error("header is not correct")
 	}
 }
