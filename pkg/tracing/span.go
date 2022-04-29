@@ -52,7 +52,7 @@ type (
 )
 
 // NoopSpan does nothing.
-var NoopSpan = &span{tracer: NoopTracer, Span: NoopTracer.tracer.StartSpan("")}
+var NoopSpan *span
 
 // IsNoop returns whether the span is a noop span.
 func (s *span) IsNoop() bool {

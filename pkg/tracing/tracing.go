@@ -71,6 +71,7 @@ var NoopTracer *Tracer
 func init() {
 	tracer, _ := zipkingo.NewTracer(nil)
 	NoopTracer = &Tracer{tracer: tracer, closer: nil}
+	NoopSpan = &span{tracer: NoopTracer, Span: NoopTracer.tracer.StartSpan("")}
 }
 
 // New creates a Tracing.

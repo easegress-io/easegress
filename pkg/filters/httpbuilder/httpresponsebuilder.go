@@ -18,6 +18,7 @@
 package httpbuilder
 
 import (
+	"net/http"
 	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -36,10 +37,10 @@ var httpResponseBuilderKind = &filters.Kind{
 	Description: "HTTPResponseBuilder builds an HTTP response",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &ResponseSpec{}
+		return &HTTPResponseBuilderSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &HTTPResponseBuilder{spec: spec.(*ResponseSpec)}
+		return &HTTPResponseBuilder{spec: spec.(*HTTPResponseBuilderSpec)}
 	},
 }
 
@@ -50,18 +51,21 @@ func init() {
 type (
 	// HTTPResponseBuilder is filter HTTPResponseBuilder.
 	HTTPResponseBuilder struct {
-		spec           *ResponseSpec
-		bodyBuilder    *builder
-		headerBuilders []*headerBuilder
+		spec *HTTPResponseBuilderSpec
+		HTTPBuilder
 	}
 
-	// ResponseSpec is HTTPResponseBuilder Spec.
-	ResponseSpec struct {
+	// HTTPResponseBuilderSpec is HTTPResponseBuilder Spec.
+	HTTPResponseBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
+		Spec             `yaml:",inline"`
+	}
 
-		StatusCode *StatusCode `yaml:"statusCode" jsonschema:"required"`
-		Headers    []Header    `yaml:"headers" jsonschema:"omitempty"`
-		Body       string      `yaml:"body" jsonschema:"omitempty"`
+	// ResponseInfo stores the information of a response.
+	ResponseInfo struct {
+		StatusCode int                 `yaml:"statusCode" jsonshema:"omitempty"`
+		Headers    map[string][]string `yaml:"headers" jsonschema:"omitempty"`
+		Body       string              `yaml:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -92,84 +96,50 @@ func (rb *HTTPResponseBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *HTTPResponseBuilder) reload() {
-	rb.bodyBuilder = getBuilder(rb.spec.Body)
-
-	for _, header := range rb.spec.Headers {
-		keyBuilder := getBuilder(header.Key)
-		valueBuilder := getBuilder(header.Value)
-		rb.headerBuilders = append(rb.headerBuilders, &headerBuilder{keyBuilder, valueBuilder})
-	}
-}
-
-func (rb *HTTPResponseBuilder) setStatusCode(ctx *context.Context, resp *httpprot.Response) {
-	code := 200
-	// set status code
-	if rb.spec.StatusCode != nil {
-		if rb.spec.StatusCode.Code != 0 {
-			code = rb.spec.StatusCode.Code
-
-		} else if rb.spec.StatusCode.CopyResponseID != "" {
-			r := ctx.GetResponse(rb.spec.StatusCode.CopyResponseID)
-			if r != nil {
-				httpresp := r.(*httpprot.Response)
-				code = httpresp.StatusCode()
-			}
-		}
-	}
-	resp.SetStatusCode(code)
+	rb.HTTPBuilder.reload(&rb.spec.Spec)
 }
 
 // Handle builds request.
 func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Errorf("panic: %s, stacktrace: %s\n", err, string(debug.Stack()))
+			msgFmt := "panic: %s, stacktrace: %s\n"
+			logger.Errorf(msgFmt, err, string(debug.Stack()))
 			result = resultBuildErr
 		}
 	}()
 
-	templateCtx, err := getTemplateContext(ctx)
+	data, err := prepareBuilderData(ctx)
 	if err != nil {
-		logger.Errorf("getTemplateContext failed: %v", err)
+		logger.Warnf("prepareBuilderData failed: %v", err)
 		return resultBuildErr
 	}
 
-	resp, _ := httpprot.NewResponse(nil)
+	var ri ResponseInfo
+	if err = rb.build(data, &ri); err != nil {
+		return resultBuildErr
+	}
 
-	rb.setStatusCode(ctx, resp)
+	if ri.StatusCode == 0 {
+		ri.StatusCode = http.StatusOK
+	} else if ri.StatusCode < 200 || ri.StatusCode >= 600 {
+		logger.Warnf("invalid status code: %d", ri.StatusCode)
+		return resultBuildErr
+	}
+
+	resp := &http.Response{Header: http.Header{}}
+	resp.StatusCode = ri.StatusCode
+
+	for k, vs := range ri.Headers {
+		for _, v := range vs {
+			resp.Header.Add(k, v)
+		}
+	}
 
 	// build body
-	var body string
-	if rb.bodyBuilder != nil {
-		body, err = rb.bodyBuilder.build(templateCtx)
-		if err != nil {
-			logger.Errorf("build body failed: %v", err)
-			return resultBuildErr
-		}
-	}
-	resp.SetPayload([]byte(body))
+	egresp, _ := httpprot.NewResponse(resp)
+	egresp.SetPayload([]byte(ri.Body))
 
-	// build headers
-	for _, headerBuilder := range rb.headerBuilders {
-		key, err := headerBuilder.key.build(templateCtx)
-		if err != nil {
-			logger.Errorf("build header key failed: %v", err)
-			return resultBuildErr
-		}
-		value, err := headerBuilder.value.build(templateCtx)
-		if err != nil {
-			logger.Errorf("build header value failed: %v", err)
-			return resultBuildErr
-		}
-		resp.Std().Header.Add(key, value)
-	}
-
-	ctx.SetResponse(ctx.TargetResponseID(), resp)
+	ctx.SetResponse(ctx.TargetResponseID(), egresp)
 	return ""
 }
-
-// Status returns status.
-func (rb *HTTPResponseBuilder) Status() interface{} { return nil }
-
-// Close closes HTTPRequestBuilder.
-func (rb *HTTPResponseBuilder) Close() {}
