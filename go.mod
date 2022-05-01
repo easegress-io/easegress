@@ -34,7 +34,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.26.0
 	github.com/megaease/easemesh-api v1.3.5
 	github.com/megaease/grace v1.0.0
-	github.com/mitchellh/mapstructure v1.4.3
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.0
 	github.com/openzipkin/zipkin-go v0.4.0
 	github.com/patrickmn/go-cache v2.1.0+incompatible
