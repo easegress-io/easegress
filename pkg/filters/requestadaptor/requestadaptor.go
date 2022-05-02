@@ -138,13 +138,6 @@ func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	httpreq := ctx.Request().(*httpprot.Request)
-	if ra.spec.Body != "" || ra.spec.Compress != "" || ra.spec.Decompress != "" {
-		_, err := httpreq.FetchPayload()
-		if err != nil {
-			return resultReadBodyFail
-		}
-	}
-
 	method, path, _ := httpreq.Method(), httpreq.Path(), httpreq.Header()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {

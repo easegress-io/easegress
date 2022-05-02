@@ -195,8 +195,15 @@ func (rf *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 // Handle handles HTTPContext by calling remote service.
 func (rf *RemoteFilter) Handle(ctx *context.Context) (result string) {
 	r := ctx.Request().(*httpprot.Request)
-	w, _ := httpprot.NewResponse(nil)
-	ctx.SetResponse(ctx.TargetResponseID(), w)
+
+	var w *httpprot.Response
+	response := ctx.GetResponse(ctx.TargetResponseID())
+	if response == nil {
+		w, _ = httpprot.NewResponse(nil)
+		ctx.SetResponse(ctx.TargetResponseID(), w)
+	} else {
+		w = response.(*httpprot.Response)
+	}
 
 	var errPrefix string
 	defer func() {

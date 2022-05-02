@@ -60,10 +60,6 @@ type (
 		done     chan struct{}
 		header   string
 	}
-
-	fetchPayload interface {
-		FetchPayload() (int, error)
-	}
 )
 
 var _ filters.Filter = (*Kafka)(nil)
@@ -159,9 +155,6 @@ func (k *Kafka) Handle(ctx *context.Context) (result string) {
 	req := ctx.Request().(*httpprot.Request)
 	topic := k.getTopic(req)
 
-	if fetcher, ok := ctx.Request().(fetchPayload); ok {
-		fetcher.FetchPayload()
-	}
 	body, err := ioutil.ReadAll(ctx.Request().GetPayload())
 	if err != nil {
 		return resultParseErr

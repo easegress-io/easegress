@@ -142,9 +142,9 @@ func getResponse(ctx *context.Context) *httpprot.Response {
 // Handle validates HTTPContext.
 func (v *Validator) Handle(ctx *context.Context) string {
 	req := ctx.Request().(*httpprot.Request)
-	resp := getResponse(ctx)
 
 	prepareErrorResponse := func(status int, tagPrefix string, err error) {
+		resp := getResponse(ctx)
 		resp.SetStatusCode(status)
 		ctx.AddTag(stringtool.Cat(tagPrefix, err.Error()))
 	}

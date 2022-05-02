@@ -64,10 +64,6 @@ type (
 		spec      *Spec
 		headerMap map[string]string
 	}
-
-	fetchPayload interface {
-		FetchPayload() (int, error)
-	}
 )
 
 var _ filters.Filter = (*HeaderToJSON)(nil)
@@ -127,9 +123,6 @@ func (h *HeaderToJSON) Handle(ctx *context.Context) string {
 		return ""
 	}
 
-	if fetcher, ok := ctx.Request().(fetchPayload); ok {
-		fetcher.FetchPayload()
-	}
 	reqBody, err := io.ReadAll(ctx.Request().GetPayload())
 	if err != nil {
 		return resultBodyReadErr
