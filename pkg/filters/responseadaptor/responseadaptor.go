@@ -20,18 +20,21 @@ package responseadaptor
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 )
 
 const (
 	// Kind is the kind of ResponseAdaptor.
 	Kind = "ResponseAdaptor"
+
+	resultResponseNotFound = "responseNotFound"
 )
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "ResponseAdaptor adapts response.",
-	Results:     []string{},
+	Results:     []string{resultResponseNotFound},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -89,24 +92,31 @@ func (ra *ResponseAdaptor) reload() {
 	// Nothing to do.
 }
 
+func adaptHeader(req *httpprot.Response, as *httpheader.AdaptSpec) {
+	h := req.Std().Header
+	for _, key := range as.Del {
+		h.Del(key)
+	}
+	for key, value := range as.Set {
+		h.Set(key, value)
+	}
+	for key, value := range as.Add {
+		h.Add(key, value)
+	}
+}
+
 // Handle adapts response.
 func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
-	// TODO: update this part when add template to context
-	// hte := ctx.Template()
-	// ctx.Response().Header().Adapt(ra.spec.Header, hte)
-
-	if len(ra.spec.Body) == 0 {
-		return ""
+	resp := ctx.GetResponse(ctx.TargetResponseID())
+	if resp == nil {
+		return resultResponseNotFound
 	}
+	httpresp := resp.(*httpprot.Response)
+	adaptHeader(httpresp, ra.spec.Header)
 
-	// if !hte.HasTemplates(ra.spec.Body) {
-	// 	ctx.Response().SetBody(bytes.NewReader([]byte(ra.spec.Body)))
-	// } else if body, err := hte.Render(ra.spec.Body); err != nil {
-	// 	logger.Errorf("BUG responseadaptor render body failed, template %s , err %v", ra.spec.Body, err)
-	// } else {
-	// 	ctx.Response().SetBody(bytes.NewReader([]byte(body)))
-	// }
-
+	if len(ra.spec.Body) != 0 {
+		httpresp.SetPayload([]byte(ra.spec.Body))
+	}
 	return ""
 }
 

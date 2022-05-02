@@ -20,16 +20,23 @@ package mock
 import (
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
+
+func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest(id, httpreq)
+	ctx.UseRequest(id, id)
+}
 
 func TestMain(m *testing.M) {
 	logger.InitNop()
@@ -38,6 +45,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestMock(t *testing.T) {
+	assert := assert.New(t)
 	const yamlSpec = `
 kind: Mock
 name: mock
@@ -96,141 +104,110 @@ rules:
 		t.Errorf("unexpected error: %v", e)
 	}
 
-	m := &Mock{}
-	m.Init(spec)
+	m := kind.CreateInstance(spec)
+	m.Init()
 
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedMethod = func() string {
-		return http.MethodGet
-	}
-	resp := httptest.NewRecorder()
-	ctx.MockedResponse.MockedSetStatusCode = func(code int) {
-		resp.WriteHeader(code)
-	}
-	ctx.MockedResponse.MockedSetBody = func(body io.Reader) {
-		data, _ := io.ReadAll(body)
-		resp.Write(data)
-	}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(resp.Header())
-	}
-	ctx.MockedCallNextHandler = func(lastResult string) string {
-		return ""
+	ctx := context.New(nil)
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/login/1", nil)
+		assert.Nil(err)
+		setRequest(t, ctx, "req1", req)
+
+		ctx.UseResponse("resp1")
+		m.Handle(ctx)
+
+		resp := ctx.GetResponse("resp1").(*httpprot.Response)
+		assert.Equal(202, resp.StatusCode())
 	}
 
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/login/1"
-	}
-	m.Handle(ctx)
-	if resp.Code != 202 {
-		t.Error("status code is not 202")
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/sales", nil)
+		assert.Nil(err)
+		setRequest(t, ctx, "req2", req)
+
+		ctx.UseResponse("resp2")
+		m.Handle(ctx)
+
+		resp := ctx.GetResponse("resp2").(*httpprot.Response)
+		assert.Equal(203, resp.StatusCode())
+		body, err := io.ReadAll(resp.GetPayload())
+		assert.Nil(err)
+		assert.Equal("mocked body", string(body))
+		assert.Equal("test2", resp.Std().Header.Get("X-Test"))
 	}
 
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/sales"
-	}
-	m.Handle(ctx)
-	if resp.Code != 203 {
-		t.Error("status code is not 203")
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/pets", nil)
+		assert.Nil(err)
+		req.Header.Set("X-Mock", "mock")
+		setRequest(t, ctx, "req3", req)
+
+		ctx.UseResponse("resp3")
+		m.Handle(ctx)
+
+		resp := ctx.GetResponse("resp3").(*httpprot.Response)
+		assert.Equal(205, resp.StatusCode())
+		body, err := io.ReadAll(resp.GetPayload())
+		assert.Equal("mocked body", string(body))
+
+		req.Header.Set("X-Mock", "mock1")
+		m.Handle(ctx)
+		resp = ctx.GetResponse("resp3").(*httpprot.Response)
+		assert.Equal(204, resp.StatusCode())
 	}
 
-	if resp.Body.String() != "mocked body" {
-		t.Error("body should be 'mocked body'")
-	}
-
-	if resp.Header().Get("X-Test") != "test2" {
-		t.Error("header 'X-Test' should be 'test2'")
-	}
-
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/pets"
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		h := http.Header{}
-		h.Add("X-Mock", "mock")
-		return httpheader.New(h)
-	}
-	m.Handle(ctx)
-	if resp.Code != 205 {
-		t.Error("status code is not 205")
-	}
-	if resp.Body.String() != "mocked body" {
-		t.Error("body should be 'mocked body'")
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		h := http.Header{}
-		h.Add("X-Mock", "mock1")
-		return httpheader.New(h)
-	}
-	resp = httptest.NewRecorder()
-	m.Handle(ctx)
-	if resp.Code != 204 {
-		t.Errorf("status code is %d, not 204", resp.Code)
-	}
-
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/customers"
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		h := http.Header{
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/customers", nil)
+		assert.Nil(err)
+		req.Header = http.Header{
 			"X-Mock": []string{},
 		}
-		return httpheader.New(h)
-	}
-	m.Handle(ctx)
-	if resp.Code != 206 {
-		t.Errorf("status code is %d, not 206", resp.Code)
-	}
-	if body := resp.Body.String(); body != "mocked body" {
-		t.Errorf("body is %q should be 'mocked body'", body)
+		setRequest(t, ctx, "req4", req)
+
+		ctx.UseResponse("resp4")
+		m.Handle(ctx)
+		resp := ctx.GetResponse("resp4").(*httpprot.Response)
+		assert.Equal(206, resp.StatusCode())
+		body, err := io.ReadAll(resp.GetPayload())
+		assert.Equal("mocked body", string(body))
 	}
 
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/vets"
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		h := http.Header{}
-		h.Add("X-Mock", "mock")
-		return httpheader.New(h)
-	}
-	m.Handle(ctx)
-	if resp.Code != 207 {
-		t.Error("status code is not 207")
-	}
-	if resp.Body.String() != "mocked body" {
-		t.Error("body should be 'mocked body'")
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/vets", nil)
+		assert.Nil(err)
+		req.Header.Set("X-Mock", "mock")
+		setRequest(t, ctx, "req5", req)
+
+		ctx.UseResponse("resp5")
+		m.Handle(ctx)
+
+		resp := ctx.GetResponse("resp5").(*httpprot.Response)
+		assert.Equal(207, resp.StatusCode())
+		body, err := io.ReadAll(resp.GetPayload())
+		assert.Equal("mocked body", string(body))
+
+		req.Header.Set("X-Mock", "mock1")
+
+		m.Handle(ctx)
+
+		resp = ctx.GetResponse("resp5").(*httpprot.Response)
+		assert.Equal(204, resp.StatusCode())
 	}
 
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		h := http.Header{}
-		h.Add("X-Mock", "mock1")
-		return httpheader.New(h)
-	}
-	m.Handle(ctx)
-	if resp.Code != 204 {
-		t.Errorf("status code is %d, not 204", resp.Code)
-	}
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://example.com/customer", nil)
+		assert.Nil(err)
+		setRequest(t, ctx, "req6", req)
 
-	if m.Status() != nil {
-		t.Error("behavior changed, please update this case")
-	}
+		spec, _ = filters.NewSpec(nil, "", rawSpec)
+		newM := kind.CreateInstance(spec)
+		newM.Inherit(m)
+		m.Close()
 
-	resp = httptest.NewRecorder()
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/customer"
-	}
-	newM := &Mock{}
-	spec, _ = filters.NewSpec(nil, "", rawSpec)
-	newM.Inherit(spec, m)
-	m.Close()
-	newM.Handle(ctx)
-	if resp.Code != 204 {
-		t.Error("status code is not 204")
+		ctx.UseResponse("resp6")
+		newM.Handle(ctx)
+
+		resp := ctx.GetResponse("resp6").(*httpprot.Response)
+		assert.Equal(204, resp.StatusCode())
 	}
 }

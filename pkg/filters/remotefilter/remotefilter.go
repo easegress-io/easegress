@@ -195,7 +195,15 @@ func (rf *RemoteFilter) limitRead(reader io.Reader, n int64) []byte {
 // Handle handles HTTPContext by calling remote service.
 func (rf *RemoteFilter) Handle(ctx *context.Context) (result string) {
 	r := ctx.Request().(*httpprot.Request)
-	w := ctx.Response().(*httpprot.Response)
+
+	var w *httpprot.Response
+	response := ctx.GetResponse(ctx.TargetResponseID())
+	if response == nil {
+		w, _ = httpprot.NewResponse(nil)
+		ctx.SetResponse(ctx.TargetResponseID(), w)
+	} else {
+		w = response.(*httpprot.Response)
+	}
 
 	var errPrefix string
 	defer func() {
@@ -215,7 +223,7 @@ func (rf *RemoteFilter) Handle(ctx *context.Context) (result string) {
 	respBody := rf.limitRead(w.GetPayload(), maxBodyBytes)
 
 	errPrefix = "marshal context"
-	ctxBuff := rf.marshalHTTPContext(ctx, reqBody, respBody)
+	ctxBuff := rf.marshalHTTPContext(r, w, reqBody, respBody)
 
 	var (
 		req *http.Request
@@ -251,7 +259,7 @@ func (rf *RemoteFilter) Handle(ctx *context.Context) (result string) {
 	ctxBuff = rf.limitRead(resp.Body, maxContextBytes)
 
 	errPrefix = "unmarshal context"
-	rf.unmarshalHTTPContext(ctxBuff, ctx)
+	rf.unmarshalHTTPContext(r, w, ctxBuff)
 
 	if resp.StatusCode == 205 {
 		return resultResponseAlready
@@ -266,9 +274,7 @@ func (rf *RemoteFilter) Status() interface{} { return nil }
 // Close closes RemoteFilter.
 func (rf *RemoteFilter) Close() {}
 
-func (rf *RemoteFilter) marshalHTTPContext(ctx *context.Context, reqBody, respBody []byte) []byte {
-	r := ctx.Request().(*httpprot.Request)
-	w := ctx.Response().(*httpprot.Response)
+func (rf *RemoteFilter) marshalHTTPContext(r *httpprot.Request, w *httpprot.Response, reqBody, respBody []byte) []byte {
 	ctxEntity := contextEntity{
 		Request: &requestEntity{
 			RealIP:   r.RealIP(),
@@ -284,7 +290,7 @@ func (rf *RemoteFilter) marshalHTTPContext(ctx *context.Context, reqBody, respBo
 		},
 		Response: &responseEntity{
 			StatusCode: w.StatusCode(),
-			Header:     w.Std().Header(),
+			Header:     w.Std().Header,
 			Body:       respBody,
 		},
 	}
@@ -297,7 +303,7 @@ func (rf *RemoteFilter) marshalHTTPContext(ctx *context.Context, reqBody, respBo
 	return buff
 }
 
-func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx *context.Context) {
+func (rf *RemoteFilter) unmarshalHTTPContext(r *httpprot.Request, w *httpprot.Response, buff []byte) {
 	ctxEntity := &contextEntity{}
 
 	err := json.Unmarshal(buff, ctxEntity)
@@ -305,8 +311,6 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx *context.Context) 
 		panic(err)
 	}
 
-	r := ctx.Request().(*httpprot.Request)
-	w := ctx.Response().(*httpprot.Response)
 	re, we := ctxEntity.Request, ctxEntity.Response
 
 	r.SetMethod(re.Method)
@@ -337,5 +341,5 @@ func (rf *RemoteFilter) unmarshalHTTPContext(buff []byte, ctx *context.Context) 
 			w.Header().Add(k, v)
 		}
 	}
-	w.Payload().SetReader(bytes.NewReader(we.Body), true)
+	w.SetPayload(we.Body)
 }

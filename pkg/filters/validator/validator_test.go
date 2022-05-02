@@ -30,13 +30,21 @@ import (
 	"time"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
+
+func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest(id, httpreq)
+	ctx.UseRequest(id, id)
+}
 
 func TestMain(m *testing.M) {
 	logger.InitNop()
@@ -61,6 +69,7 @@ func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Su
 }
 
 func TestHeaders(t *testing.T) {
+	assert := assert.New(t)
 	const yamlSpec = `
 kind: Validator
 name: validator
@@ -72,30 +81,30 @@ headers:
 
 	v := createValidator(yamlSpec, nil, nil)
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	ctx := context.New(nil)
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	assert.Nil(err)
+	setRequest(t, ctx, "req", req)
 
 	result := v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("request has no header 'Is-Valid', should be invalid")
 	}
 
-	header.Add("Is-Valid", "Invalid")
+	req.Header.Add("Is-Valid", "Invalid")
 	result = v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("request has header 'Is-Valid', but value is incorrect, should be invalid")
 	}
 
-	header.Set("Is-Valid", "goodplan")
+	req.Header.Set("Is-Valid", "goodplan")
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("request has header 'Is-Valid' and value is correct, should be valid")
 	}
 
-	header.Set("Is-Valid", "ok-1")
+	req.Header.Set("Is-Valid", "ok-1")
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("request has header 'Is-Valid' and matches the regular expression, should be valid")
@@ -103,6 +112,7 @@ headers:
 }
 
 func TestJWT(t *testing.T) {
+	assert := assert.New(t)
 	const yamlSpec = `
 kind: Validator
 name: validator
@@ -113,45 +123,40 @@ jwt:
 `
 	v := createValidator(yamlSpec, nil, nil)
 
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedCookie = func(name string) (*http.Cookie, error) {
-		return nil, fmt.Errorf("not exist")
-	}
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	ctx := context.New(nil)
+
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	assert.Nil(err)
+	setRequest(t, ctx, "req", req)
 
 	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
-	header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	result := v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("the jwt token in header should be invalid")
 	}
 
 	token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.keH6T3x1z7mmhKL1T3r9sQdAxxdzB6siemGMr_6ZOwU"
-	header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in header should be valid")
 	}
 
-	header.Set("Authorization", "not Bearer "+token)
+	req.Header.Set("Authorization", "not Bearer "+token)
 	result = v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("the jwt token in header should be invalid")
 	}
 
-	header.Set("Authorization", "Bearer "+token+"abc")
+	req.Header.Set("Authorization", "Bearer "+token+"abc")
 	result = v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("the jwt token in header should be invalid")
 	}
 
-	header.Del("Authorization")
-	ctx.MockedRequest.MockedCookie = func(name string) (*http.Cookie, error) {
-		return &http.Cookie{Value: token}, nil
-	}
+	req.Header.Del("Authorization")
+	req.AddCookie(&http.Cookie{Name: "auth", Value: token})
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in cookie should be valid")
@@ -169,6 +174,8 @@ jwt:
 }
 
 func TestOAuth2JWT(t *testing.T) {
+	assert := assert.New(t)
+
 	const yamlSpec = `
 kind: Validator
 name: validator
@@ -179,34 +186,33 @@ oauth2:
 `
 	v := createValidator(yamlSpec, nil, nil)
 
-	ctx := &contexttest.MockedHTTPContext{}
+	ctx := context.New(nil)
 
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	assert.Nil(err)
+	setRequest(t, ctx, "req", req)
 
 	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
-	header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	result := v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
 
 	token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
-	header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("OAuth/2 Authorization should succeed")
 	}
 
-	header.Set("Authorization", "not Bearer "+token)
+	req.Header.Set("Authorization", "not Bearer "+token)
 	result = v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
 
-	header.Set("Authorization", "Bearer "+token+"abc")
+	req.Header.Set("Authorization", "Bearer "+token+"abc")
 	result = v.Handle(ctx)
 	if result != resultInvalid {
 		t.Errorf("OAuth/2 Authorization should fail")
@@ -214,6 +220,7 @@ oauth2:
 }
 
 func TestOAuth2TokenIntrospect(t *testing.T) {
+	assert := assert.New(t)
 	yamlSpec := `
 kind: Validator
 name: validator
@@ -225,15 +232,14 @@ oauth2:
     clientSecret: secret
 `
 	v := createValidator(yamlSpec, nil, nil)
-	ctx := &contexttest.MockedHTTPContext{}
+	ctx := context.New(nil)
 
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	assert.Nil(err)
+	setRequest(t, ctx, "req", req)
 
 	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
-	header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	body := `{
 			"subject":"megaease.com",
@@ -286,11 +292,10 @@ signature:
 `
 	v := createValidator(yamlSpec, nil, nil)
 
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedStd = func() *http.Request {
-		r, _ := http.NewRequest(http.MethodGet, "http://megaease.com", nil)
-		return r
-	}
+	ctx := context.New(nil)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	assert.Nil(t, err)
+	setRequest(t, ctx, "req", req)
 
 	result := v.Handle(ctx)
 	if result != resultInvalid {
@@ -304,13 +309,14 @@ func check(e error) {
 	}
 }
 
-func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
-	ctx := &contexttest.MockedHTTPContext{}
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
+func prepareCtxAndHeader() (*context.Context, http.Header) {
+	ctx := context.New(nil)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+	if err != nil {
+		panic(err)
 	}
-	return ctx, header
+	setRequest(nil, ctx, "req", req)
+	return ctx, req.Header
 }
 
 func cleanFile(userFile *os.File) {

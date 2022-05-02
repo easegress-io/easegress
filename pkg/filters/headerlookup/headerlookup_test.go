@@ -26,12 +26,13 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/stretchr/testify/assert"
 
 	cluster "github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 )
@@ -50,11 +51,11 @@ func createHeaderLookup(
 	if err != nil {
 		return nil, err
 	}
-	hl := &HeaderLookup{}
+	hl := kind.CreateInstance(spec).(*HeaderLookup)
 	if prev == nil {
-		hl.Init(spec)
+		hl.Init()
 	} else {
-		hl.Inherit(spec, prev)
+		hl.Inherit(prev)
 	}
 	return hl, nil
 }
@@ -155,12 +156,15 @@ func TestFindKeysToDelete(t *testing.T) {
 	}
 }
 
-func prepareCtxAndHeader() (*contexttest.MockedHTTPContext, http.Header) {
-	ctx := &contexttest.MockedHTTPContext{}
-	header := http.Header{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+func prepareCtxAndHeader(t *testing.T) (*context.Context, http.Header) {
+	ctx := context.New(nil)
+	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	assert.Nil(t, err)
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest("req1", httpreq)
+	ctx.UseRequest("req1", "req1")
+	header := req.Header
 	return ctx, header
 }
 
@@ -192,7 +196,7 @@ extra-entry: "extra"
 	check(err)
 
 	// 'foobar' is the id
-	ctx, header := prepareCtxAndHeader()
+	ctx, header := prepareCtxAndHeader(t)
 
 	hl.Handle(ctx) // does nothing as header missing
 
@@ -225,7 +229,7 @@ ext-id: 77341
 extra-entry: "extra"
 `)
 	hl, err = createHeaderLookup(config, hl, supervisor)
-	ctx, header = prepareCtxAndHeader()
+	ctx, header = prepareCtxAndHeader(t)
 	header.Set("X-AUTH-USER", "foobar")
 
 	tryCount := 5
@@ -239,7 +243,7 @@ extra-entry: "extra"
 		}
 	}
 	hl, err = createHeaderLookup(config, hl, supervisor)
-	ctx, header = prepareCtxAndHeader()
+	ctx, header = prepareCtxAndHeader(t)
 	header.Set("X-AUTH-USER", "foobar")
 	// delete foobar completely
 	clusterInstance.Delete("/custom-data/credentials/foobar")
@@ -297,22 +301,19 @@ extra-entry: "extra"
 	hl, err := createHeaderLookup(config, nil, supervisor)
 	check(err)
 
-	ctx, header := prepareCtxAndHeader()
+	ctx, header := prepareCtxAndHeader(t)
+	req := ctx.Request().(*httpprot.Request)
 	header.Set("X-AUTH-USER", "bob")
 	hl.Handle(ctx) // path does not match
 	if header.Get("user-ext-id") != "" {
 		t.Errorf("failed")
 	}
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/api/bananas/9281"
-	}
+	req.SetPath("/api/bananas/9281")
 	hl.Handle(ctx)
 	if header.Get("user-ext-id") != "333" {
 		t.Errorf("failed")
 	}
-	ctx.MockedRequest.MockedPath = func() string {
-		return "/api/pearls/"
-	}
+	req.SetPath("/api/pearls/")
 	hl.Handle(ctx)
 	if header.Get("user-ext-id") != "4444" {
 		t.Errorf("failed")

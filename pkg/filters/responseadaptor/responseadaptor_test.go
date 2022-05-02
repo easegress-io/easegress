@@ -19,16 +19,15 @@ package responseadaptor
 
 import (
 	"io"
-	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
-	"github.com/megaease/easegress/pkg/util/texttemplate"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -44,10 +43,9 @@ name: ra
 header:
   del: ["X-Del"]
   add:
-    "[[headerName]]": "mockedHeaderValue"
-body: "copyright [[name]]"
+    "X-Mock": "mockedHeaderValue" 
+body: "copyright"
 `
-
 	ra := doTest(t, yamlSpec, nil)
 
 	yamlSpec = `
@@ -56,23 +54,14 @@ name: ra
 header:
   del: ["X-Del"]
   add:
-    "[[headerName]]": "mockedHeaderValue"
-body: "copyright megaease"
+    "X-Mock": "mockedHeaderValue"
+body: "copyright"
 `
 	doTest(t, yamlSpec, ra)
-
-	yamlSpec = `
-kind: ResponseAdaptor
-name: ra
-header:
-  del: ["X-Del"]
-  add:
-    "[[headerName]]": "mockedHeaderValue"
-`
-	doTest(t, yamlSpec, nil)
 }
 
 func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdaptor {
+	assert := assert.New(t)
 	rawSpec := make(map[string]interface{})
 	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
 
@@ -81,52 +70,29 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 		t.Errorf("unexpected error: %v", e)
 	}
 
-	ra := &ResponseAdaptor{}
+	ra := kind.CreateInstance(spec)
 	if prev == nil {
-		ra.Init(spec)
+		ra.Init()
 	} else {
-		ra.Inherit(spec, prev)
+		ra.Inherit(prev)
 	}
 
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedTemplate = func() texttemplate.TemplateEngine {
-		tt, _ := texttemplate.NewDefault([]string{"name", "headerName"})
-		tt.SetDict("name", "megaease")
-		tt.SetDict("headerName", "mockedHeader")
-		return tt
-	}
-	resp := httptest.NewRecorder()
-	resp.Header().Add("X-Del", "deleted")
+	ctx := context.New(nil)
+	resp, err := httpprot.NewResponse(nil)
+	assert.Nil(err)
+	ctx.SetResponse("resp", resp)
+	ctx.UseResponse("resp")
 
-	ctx.MockedResponse.MockedSetBody = func(body io.Reader) {
-		data, _ := io.ReadAll(body)
-		resp.Write(data)
-	}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(resp.Header())
-	}
-	ctx.MockedCallNextHandler = func(lastResult string) string {
-		return ""
-	}
+	resp.Std().Header.Add("X-Del", "deleted")
 
 	ra.Handle(ctx)
+	assert.Equal("mockedHeaderValue", resp.Std().Header.Get("X-Mock"))
+	assert.Equal("", resp.Std().Header.Get("X-Del"))
 
-	if v := resp.Header().Get("mockedHeader"); v != "mockedHeaderValue" {
-		t.Error("unexpected header name or value: ", v)
-	}
-
-	if v := resp.Header().Get("X-Del"); v != "" {
-		t.Error("header 'X-Del' should not exist")
-	}
-
-	if v := resp.Body.String(); ra.spec.Body != "" && v != "copyright megaease" {
-		t.Error("unexpected body:", v)
-	}
+	body, err := io.ReadAll(resp.GetPayload())
+	assert.Nil(err)
+	assert.Equal("copyright", string(body))
 
 	ra.Status()
-	return ra
-}
-
-func TestResponseAdaptorTemplate(t *testing.T) {
-	panic("update this test when context template is finished")
+	return ra.(*ResponseAdaptor)
 }

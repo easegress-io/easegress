@@ -199,12 +199,14 @@ func (m *Mock) match(ctx *context.Context) *Rule {
 
 func (m *Mock) mock(ctx *context.Context, rule *Rule) {
 	httpreq := ctx.Request().(*httpprot.Request)
-	w := ctx.Response().(*httpprot.Response)
-	w.SetStatusCode(rule.Code)
+	httpresp, _ := httpprot.NewResponse(nil)
+
+	httpresp.SetStatusCode(rule.Code)
 	for key, value := range rule.Headers {
-		w.Header().Set(key, value)
+		httpresp.Std().Header.Set(key, value)
 	}
-	w.SetPayload([]byte(rule.Body))
+	httpresp.SetPayload([]byte(rule.Body))
+	ctx.SetResponse(ctx.TargetResponseID(), httpresp)
 
 	if rule.delay <= 0 {
 		return

@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 const (
@@ -80,7 +81,7 @@ func (k *Kafka) Spec() filters.Spec {
 
 func (k *Kafka) setHeader(spec *Spec) {
 	if k.spec.Topic.Dynamic != nil {
-		k.header = k.spec.Topic.Dynamic.Header
+		k.header = http.CanonicalHeaderKey(k.spec.Topic.Dynamic.Header)
 		if k.header == "" {
 			panic("empty header")
 		}
@@ -139,11 +140,11 @@ func (k *Kafka) Status() interface{} {
 	return nil
 }
 
-func (k *Kafka) getTopic(ctx *context.Context) string {
+func (k *Kafka) getTopic(req *httpprot.Request) string {
 	if k.header == "" {
 		return k.spec.Topic.Default
 	}
-	topic := ctx.Request().Header().Get(http.CanonicalHeaderKey(k.header))
+	topic := req.Std().Header.Get(k.header)
 	if topic == "" {
 		return k.spec.Topic.Default
 	}
@@ -151,7 +152,8 @@ func (k *Kafka) getTopic(ctx *context.Context) string {
 }
 
 func (k *Kafka) Handle(ctx *context.Context) (result string) {
-	topic := k.getTopic(ctx)
+	req := ctx.Request().(*httpprot.Request)
+	topic := k.getTopic(req)
 
 	body, err := ioutil.ReadAll(ctx.Request().GetPayload())
 	if err != nil {

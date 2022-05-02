@@ -19,12 +19,14 @@ package ratelimiter
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	librl "github.com/megaease/easegress/pkg/util/ratelimiter"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
@@ -241,45 +243,37 @@ func (rl *RateLimiter) Inherit(previousGeneration filters.Filter) {
 
 // Handle handles HTTP request
 func (rl *RateLimiter) Handle(ctx *context.Context) string {
-	// TODO
-	/*
-		result := rl.handle(ctx)
-		return ctx.CallNextHandler(result)
-	*/
-	return ""
-}
-
-func (rl *RateLimiter) handle(ctx *context.Context) string {
-	// TODO
-	/*
-		for _, u := range rl.spec.URLs {
-			if !u.Match(ctx.Request()) {
-				continue
-			}
-
-			permitted, d := u.rl.AcquirePermission()
-			if !permitted {
-				ctx.AddTag("rateLimiter: too many requests")
-				ctx.Response().SetStatusCode(http.StatusTooManyRequests)
-				ctx.Response().Std().Header().Set("X-EG-Rate-Limiter", "too-many-requests")
-				return resultRateLimited
-			}
-
-			if d <= 0 {
-				break
-			}
-
-			timer := time.NewTimer(d)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return ""
-			case <-timer.C:
-				ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
-				return ""
-			}
+	for _, u := range rl.spec.URLs {
+		req := ctx.Request().(*httpprot.Request)
+		if !u.Match(req) {
+			continue
 		}
-	*/
+
+		permitted, d := u.rl.AcquirePermission()
+		if !permitted {
+			resp, _ := httpprot.NewResponse(nil)
+			ctx.SetResponse(ctx.TargetResponseID(), resp)
+			ctx.AddTag("rateLimiter: too many requests")
+
+			resp.SetStatusCode(http.StatusTooManyRequests)
+			resp.Std().Header.Set("X-EG-Rate-Limiter", "too-many-requests")
+			return resultRateLimited
+		}
+
+		if d <= 0 {
+			break
+		}
+
+		timer := time.NewTimer(d)
+		select {
+		case <-req.Context().Done():
+			timer.Stop()
+			return ""
+		case <-timer.C:
+			ctx.AddTag(fmt.Sprintf("rateLimiter: waiting duration: %s", d.String()))
+			return ""
+		}
+	}
 	return ""
 }
 
