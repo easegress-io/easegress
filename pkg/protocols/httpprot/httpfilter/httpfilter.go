@@ -153,7 +153,7 @@ func (hf *HTTPFilter) filterHeader(req *httpprot.Request) bool {
 func (hf *HTTPFilter) filterURL(req *httpprot.Request) bool {
 	urlMatch := false
 	for _, url := range hf.spec.URLs {
-		if url.Match(req) {
+		if url.Match(req.Std()) {
 			urlMatch = true
 			break
 		}

@@ -24,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -43,7 +42,7 @@ type testCase struct {
 	headers        map[string]string
 	realIP         string
 	rules          []*muxRule
-	expectedResult SearchResult
+	expectedResult *route
 }
 
 func (tc *testCase) toCtx() *contexttest.MockedHTTPContext {
@@ -76,7 +75,7 @@ func TestSearchPath(t *testing.T) {
 				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
 					newMuxPath(&ipfilter.IPFilters{}, &Path{Path: "/path/2"}),
 				}),
-			}, NotFound,
+			}, notFound,
 		},
 		{
 			"/path/1", http.MethodGet, emptyHeaders, "", []*muxRule{
@@ -92,7 +91,7 @@ func TestSearchPath(t *testing.T) {
 						Path: "/path/1", Methods: []string{http.MethodPost},
 					}),
 				}),
-			}, MethodNotAllowed,
+			}, methodNotAllowed,
 		},
 		{
 			"/otherpath", http.MethodPost, emptyHeaders, "", []*muxRule{
@@ -116,7 +115,7 @@ func TestSearchPath(t *testing.T) {
 						),
 					},
 				),
-			}, IPNotAllowed,
+			}, forbidden,
 		},
 		{
 			"/route", http.MethodGet, jsonHeader, "", []*muxRule{
@@ -136,7 +135,7 @@ func TestSearchPath(t *testing.T) {
 						Headers: []*Header{{Key: "content-type", Values: []string{"application/csv"}}},
 					}),
 				}),
-			}, MethodNotAllowed,
+			}, methodNotAllowed,
 		},
 		{
 			"/multimethod", http.MethodPut, emptyHeaders, "", []*muxRule{

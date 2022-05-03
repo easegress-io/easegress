@@ -35,14 +35,14 @@ type MockedSpec struct {
 	filters.BaseSpec `yaml:",inline"`
 }
 
-func (m *MockedFilter) Name() string                                                 { return "mock1" }
-func (m *MockedFilter) Kind() *filters.Kind                                          { return m.kind }
-func (m *MockedFilter) Spec() filters.Spec                                           { return nil }
-func (m *MockedFilter) Close()                                                       {}
-func (m *MockedFilter) Handle(ctx context.Context) (result string)                   { return "" }
-func (m *MockedFilter) Init(spec filters.Spec)                                       {}
-func (m *MockedFilter) Inherit(spec filters.Spec, previousGeneration filters.Filter) {}
-func (m *MockedFilter) Status() interface{}                                          { return nil }
+func (m *MockedFilter) Name() string                                { return "mock1" }
+func (m *MockedFilter) Kind() *filters.Kind                         { return m.kind }
+func (m *MockedFilter) Spec() filters.Spec                          { return nil }
+func (m *MockedFilter) Close()                                      {}
+func (m *MockedFilter) Handle(ctx *context.Context) (result string) { return "" }
+func (m *MockedFilter) Init()                                       {}
+func (m *MockedFilter) Inherit(previousGeneration filters.Filter)   {}
+func (m *MockedFilter) Status() interface{}                         { return nil }
 
 func MockFilterKind(kind string, results []string) *filters.Kind {
 	k := &filters.Kind{
@@ -53,7 +53,7 @@ func MockFilterKind(kind string, results []string) *filters.Kind {
 			return &MockedSpec{}
 		},
 	}
-	k.CreateInstance = func() filters.Filter {
+	k.CreateInstance = func(spec filters.Spec) filters.Filter {
 		return &MockedFilter{k}
 	}
 	return k
@@ -286,7 +286,7 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
@@ -337,7 +337,7 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil}
+	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
 	httpPipeline.Init(superSpec, nil)
 	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
 
