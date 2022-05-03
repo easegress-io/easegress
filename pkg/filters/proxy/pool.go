@@ -134,7 +134,7 @@ type ServerPoolSpec struct {
 	ServiceName        string              `yaml:"serviceName" jsonschema:"omitempty"`
 	LoadBalance        *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"required"`
 	Timeout            string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
-	RetryPolicy        string              `yaml:"retryPolic" jsonschema:"omitempty"`
+	RetryPolicy        string              `yaml:"retryPolicy" jsonschema:"omitempty"`
 	CircuitBreakPolicy string              `yaml:"circuitBreakPolicy" jsonschema:"omitempty"`
 	FailureCodes       []int               `yaml:"failureCodes" jsonschema:"omitempty"`
 	MemoryCache        *MemoryCacheSpec    `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
