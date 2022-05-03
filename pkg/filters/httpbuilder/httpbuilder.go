@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
@@ -63,8 +64,15 @@ type (
 	}
 )
 
+var funcs = template.FuncMap{
+	"split": func(sep, str string) []string {
+		return strings.Split(str, sep)
+	},
+}
+
 func (b *HTTPBuilder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
+	t.Funcs(funcs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
