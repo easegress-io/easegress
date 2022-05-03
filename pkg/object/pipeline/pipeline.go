@@ -73,7 +73,6 @@ type (
 		DefaultRequestID string            `yaml:"defaultRequestID" jsonschema:"defaultRequestID,omitempty"`
 		TargetRequestID  string            `yaml:"targetRequestID" jsonschema:"targetRequestID,omitempty"`
 		TargetResponseID string            `yaml:"targetResponseID" jsonschema:"targetResponseID,omitempty"`
-		UseRequest       string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
 		JumpIf           map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 		filter           filters.Filter
 	}

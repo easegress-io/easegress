@@ -24,7 +24,6 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"gopkg.in/yaml.v3"
 )
@@ -73,12 +72,10 @@ func (b *HTTPBuilder) build(data *builderData, v interface{}) error {
 	var result bytes.Buffer
 
 	if err := b.template.Execute(&result, data); err != nil {
-		logger.Warnf("HTTPBuilder: build failed: %v", err)
 		return err
 	}
 
 	if err := yaml.NewDecoder(&result).Decode(v); err != nil {
-		logger.Warnf("HTTPBuilder: failed to decode build result: %v", err)
 		return err
 	}
 

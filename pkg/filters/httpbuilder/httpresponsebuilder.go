@@ -117,6 +117,8 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 
 	var ri ResponseInfo
 	if err = rb.build(data, &ri); err != nil {
+		msgFmt := "HTTPResponseBuilder(%s): failed to build response info: %v"
+		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}
 

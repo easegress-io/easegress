@@ -26,6 +26,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/fallback"
 	_ "github.com/megaease/easegress/pkg/filters/headerlookup"
 	_ "github.com/megaease/easegress/pkg/filters/headertojson"
+	_ "github.com/megaease/easegress/pkg/filters/httpbuilder"
 
 	//_ "github.com/megaease/easegress/pkg/filters/kafka"
 	_ "github.com/megaease/easegress/pkg/filters/kafkabackend"
