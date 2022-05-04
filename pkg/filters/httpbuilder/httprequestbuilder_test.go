@@ -46,7 +46,7 @@ func TestMethod(t *testing.T) {
 	// get method from request
 	// directly set body
 	yml := `template: |
-  method: {{ .Requests.request1.Method }}
+  method: {{ .requests.request1.Method }}
   url: /
 `
 	{
@@ -116,7 +116,7 @@ func TestURL(t *testing.T) {
 	// get url from request
 	yml := `template: |
   method: Delete
-  url:  http://www.facebook.com?field1={{index .Requests.request1.URL.Query.field2 0}}
+  url:  http://www.facebook.com?field1={{index .requests.request1.URL.Query.field2 0}}
 `
 	{
 		spec := &HTTPRequestBuilderSpec{}
@@ -172,8 +172,8 @@ func TestRequestHeader(t *testing.T) {
   method: Delete
   url:  http://www.facebook.com
   headers:
-    "X-Request": [{{index (index .Requests.request1.Header "X-Request") 0}}]
-    "X-Response": [{{index (index .Responses.response1.Header "X-Response") 0}}]
+    "X-Request": [{{index (index .requests.request1.Header "X-Request") 0}}]
+    "X-Response": [{{index (index .responses.response1.Header "X-Response") 0}}]
 `
 	{
 		spec := &HTTPRequestBuilderSpec{}
@@ -239,7 +239,7 @@ func TestRequestBody(t *testing.T) {
 	yml = `template: |
   method: Delete
   url:  http://www.facebook.com
-  body: body {{ .Requests.request1.Body }}
+  body: body {{ .requests.request1.Body }}
 `
 	{
 		spec := &HTTPRequestBuilderSpec{}
@@ -266,7 +266,7 @@ func TestRequestBody(t *testing.T) {
 	yml = `template: |
   method: Delete
   url:  http://www.facebook.com
-  body: body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}
+  body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
 		spec := &HTTPRequestBuilderSpec{}
@@ -293,7 +293,7 @@ func TestRequestBody(t *testing.T) {
 	yml = `template: |
   method: Delete
   url:  http://www.facebook.com
-  body: body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}
+  body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
 		spec := &HTTPRequestBuilderSpec{}

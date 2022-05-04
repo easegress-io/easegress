@@ -71,7 +71,7 @@ func TestStatusCode(t *testing.T) {
 
 	// set status code from other response
 	yml = `template: |
-  statusCode: {{.Responses.response1.StatusCode}}
+  statusCode: {{.responses.response1.StatusCode}}
 `
 	{
 		spec := &HTTPResponseBuilderSpec{}
@@ -99,8 +99,8 @@ func TestResponseHeader(t *testing.T) {
 	// get header from request and response
 	yml := `template: |
   headers:
-    "X-Request": [{{index (index .Requests.request1.Header "X-Request") 0}}]
-    "X-Response": [{{index (index .Responses.response1.Header "X-Response") 0}}]
+    "X-Request": [{{index (index .requests.request1.Header "X-Request") 0}}]
+    "X-Response": [{{index (index .responses.response1.Header "X-Response") 0}}]
 `
 	{
 		spec := &HTTPResponseBuilderSpec{}
@@ -158,7 +158,7 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body
 	yml = `template: |
-  body: body {{ .Requests.request1.Body }}
+  body: body {{ .requests.request1.Body }}
 `
 	{
 		spec := &HTTPResponseBuilderSpec{}
@@ -183,7 +183,7 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body json map
 	yml = `template: |
-  body: body {{ .Requests.request1.JSONBody.field1 }} {{ .Requests.request1.JSONBody.field2 }}
+  body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
 		spec := &HTTPResponseBuilderSpec{}
@@ -208,7 +208,7 @@ func TestResponseBody(t *testing.T) {
 
 	// set body by using other body yaml map
 	yml = `template: |
-  body: body {{ .Requests.request1.YAMLBody.field1 }} {{ .Requests.request1.YAMLBody.field2 }}
+  body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
 		spec := &HTTPResponseBuilderSpec{}
