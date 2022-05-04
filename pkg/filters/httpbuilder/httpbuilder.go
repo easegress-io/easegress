@@ -66,7 +66,7 @@ type (
 
 func (b *HTTPBuilder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
-	t.Funcs(sprig.FuncMap()).Funcs(floatFuncs)
+	t.Funcs(sprig.FuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
