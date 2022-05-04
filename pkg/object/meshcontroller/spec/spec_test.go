@@ -23,12 +23,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/filters/circuitbreaker"
 	"github.com/megaease/easegress/pkg/filters/mock"
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
-	"github.com/megaease/easegress/pkg/filters/retryer"
-	"github.com/megaease/easegress/pkg/filters/timelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/util/urlrule"

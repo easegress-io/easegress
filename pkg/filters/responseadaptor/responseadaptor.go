@@ -73,7 +73,7 @@ type (
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		Header     *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
+		Header     *httpheader.AdaptSpec `yaml:"header" jsonschema:"omitempty"`
 		Body       string                `yaml:"body" jsonschema:"omitempty"`
 		Compress   string                `yaml:"compress" jsonschema:"omitempty"`
 		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
@@ -142,7 +142,10 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 		return resultResponseNotFound
 	}
 	egresp := resp.(*httpprot.Response)
-	adaptHeader(egresp, ra.spec.Header)
+
+	if ra.spec.Header != nil {
+		adaptHeader(egresp, ra.spec.Header)
+	}
 
 	if len(ra.spec.Body) != 0 {
 		egresp.SetPayload([]byte(ra.spec.Body))

@@ -22,8 +22,8 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
-	"strings"
 
+	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"gopkg.in/yaml.v3"
@@ -64,15 +64,9 @@ type (
 	}
 )
 
-var funcs = template.FuncMap{
-	"split": func(sep, str string) []string {
-		return strings.Split(str, sep)
-	},
-}
-
 func (b *HTTPBuilder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
-	t.Funcs(funcs)
+	t.Funcs(sprig.FuncMap()).Funcs(floatFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
