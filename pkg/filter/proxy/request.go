@@ -51,9 +51,9 @@ func (p *pool) newRequest(
 	ctx context.HTTPContext,
 	server *Server,
 	reqBody io.Reader,
-	requestPool sync.Pool,
-	httpstatResultPool sync.Pool) (*request, error) {
-	statResult := httpstatResultPool.Get().(*httpstat.Result)
+	requestPool *sync.Pool,
+	httpStatResultPool *sync.Pool) (*request, error) {
+	statResult := httpStatResultPool.Get().(*httpstat.Result)
 	req := requestPool.Get().(*request)
 	req.createTime = fasttime.Now()
 	req.server = server
