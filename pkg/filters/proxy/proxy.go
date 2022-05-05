@@ -30,7 +30,6 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -93,8 +92,6 @@ type (
 		super *supervisor.Supervisor
 		spec  *Spec
 
-		fallback *fallback.Fallback
-
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
 		mirrorPool     *ServerPool
@@ -108,7 +105,6 @@ type (
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		Fallback            *FallbackSpec     `yaml:"fallback,omitempty" jsonschema:"omitempty"`
 		Pools               []*ServerPoolSpec `yaml:"pools" jsonschema:"required"`
 		MirrorPool          *ServerPoolSpec   `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
 		FailureCodes        []int             `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
@@ -116,12 +112,6 @@ type (
 		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
 		MaxIdleConnsPerHost int               `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-	}
-
-	// FallbackSpec describes the fallback policy.
-	FallbackSpec struct {
-		ForCodes      bool `yaml:"forCodes"`
-		fallback.Spec `yaml:",inline"`
 	}
 
 	// Status is the status of Proxy.
@@ -142,15 +132,13 @@ type (
 // Validate validates Spec.
 func (s *Spec) Validate() error {
 	numMainPool := 0
-	for _, pool := range s.Pools {
+	for i, pool := range s.Pools {
 		if pool.Filter == nil {
 			numMainPool++
 		}
-		/*
-			if err := pool.Validate(p); err != nil {
-				return fmt.Errorf("pool %d: %v", i, err)
-			}
-		*/
+		if err := pool.Validate(); err != nil {
+			return fmt.Errorf("pool %d: %v", i, err)
+		}
 	}
 
 	if numMainPool != 1 {
@@ -163,12 +151,6 @@ func (s *Spec) Validate() error {
 		}
 		if s.MirrorPool.MemoryCache != nil {
 			return fmt.Errorf("memoryCache must be empty in mirrorPool")
-		}
-	}
-
-	if len(s.FailureCodes) == 0 {
-		if s.Fallback != nil {
-			return fmt.Errorf("fallback needs failureCodes")
 		}
 	}
 
@@ -310,19 +292,6 @@ func (p *Proxy) Close() {
 	}
 }
 
-func (p *Proxy) fallbackForCodes(ctx context.Context) bool {
-	if p.fallback != nil && p.spec.Fallback.ForCodes {
-		resp := ctx.Response().(*httpprot.Response)
-		for _, code := range p.spec.FailureCodes {
-			if resp.StatusCode() == code {
-				p.fallback.Fallback(resp)
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // Handle handles HTTPContext.
 func (p *Proxy) Handle(ctx *context.Context) (result string) {
 	req := ctx.Request().(*httpprot.Request)
@@ -339,7 +308,6 @@ func (p *Proxy) Handle(ctx *context.Context) (result string) {
 		}
 	}
 
-	// TODO: fallback
 	return sp.handle(ctx, false)
 }
 
