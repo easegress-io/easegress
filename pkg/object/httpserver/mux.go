@@ -86,6 +86,7 @@ type (
 		rewriteTarget string
 		backend       string
 		headers       []*Header
+		mathAllHeader bool
 	}
 
 	// SearchResult is returned by SearchPath
@@ -230,6 +231,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		methods:       path.Methods,
 		backend:       path.Backend,
 		headers:       path.Headers,
+		mathAllHeader: path.MatchAllHeader,
 	}
 }
 
@@ -299,18 +301,31 @@ func (mp *MuxPath) hasHeaders() bool {
 }
 
 func (mp *MuxPath) matchHeaders(ctx context.HTTPContext) bool {
+	var result bool
 	for _, h := range mp.headers {
+		result = false
 		v := ctx.Request().Header().Get(h.Key)
 		if stringtool.StrInSlice(v, h.Values) {
-			return true
+			result = true
 		}
-
+		if !mp.mathAllHeader && result {
+			break
+		}
+		if mp.mathAllHeader && result {
+			continue
+		}
 		if h.Regexp != "" && h.headerRE.MatchString(v) {
-			return true
+			result = true
+		}
+		if !mp.mathAllHeader && result {
+			break
+		}
+		if mp.mathAllHeader && !result {
+			break
 		}
 	}
 
-	return false
+	return result
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *topn.TopN, mapper protocol.MuxMapper) *mux {

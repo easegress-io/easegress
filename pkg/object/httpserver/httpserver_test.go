@@ -71,6 +71,14 @@ func TestSearchPath(t *testing.T) {
 	emptyHeaders := make(map[string]string)
 	jsonHeader := make(map[string]string)
 	jsonHeader["content-type"] = "application/json"
+
+	moreHeader := make(map[string]string)
+	moreHeader["content-type"] = "application/json"
+	moreHeader["accept-encoding"] = "gzip"
+
+	allMatchHeader := make(map[string]string)
+	allMatchHeader["content-type"] = "application/json"
+	allMatchHeader["accept-language"] = "zh-CN"
 	tests := []testCase{
 		{
 			"/path/1", http.MethodGet, emptyHeaders, "", []*muxRule{
@@ -168,6 +176,60 @@ func TestSearchPath(t *testing.T) {
 					newMuxPath(&ipfilter.IPFilters{}, &Path{
 						Path: "/multiheader", Methods: []string{http.MethodPut},
 						Headers: []*Header{{Key: "content-type", Values: []string{"application/txt"}}},
+					}),
+				}),
+			}, FoundSkipCache,
+		},
+		{
+			"/matchallheader", http.MethodGet, moreHeader, "", []*muxRule{
+				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
+					newMuxPath(&ipfilter.IPFilters{}, &Path{
+						Path: "/matchallheader", Methods: []string{http.MethodGet},
+						Headers: []*Header{{Key: "content-type", Values: []string{"application/json"}}},
+					}),
+				}),
+			}, FoundSkipCache,
+		},
+		//todo: When the pipeline refactoring is complete, the expected results `MethodNotAllowed` need to be adapted
+		{
+			"/matchallheader", http.MethodGet, jsonHeader, "", []*muxRule{
+				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
+					newMuxPath(&ipfilter.IPFilters{}, &Path{
+						Path: "/matchallheader", Methods: []string{http.MethodGet},
+						Headers: []*Header{
+							{Key: "content-type", Values: []string{"application/json"}},
+							{Key: "accept-language", Values: []string{"zh-CN"}},
+						},
+
+						MatchAllHeader: true,
+					}),
+				}),
+			}, MethodNotAllowed,
+		},
+		{
+			"/matchallheader", http.MethodGet, moreHeader, "", []*muxRule{
+				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
+					newMuxPath(&ipfilter.IPFilters{}, &Path{
+						Path: "/matchallheader", Methods: []string{http.MethodGet},
+						Headers: []*Header{
+							{Key: "content-type", Values: []string{"application/json"}},
+							{Key: "accept-language", Values: []string{"zh-CN"}},
+						},
+						MatchAllHeader: true,
+					}),
+				}),
+			}, MethodNotAllowed,
+		},
+		{
+			"/matchallheader", http.MethodGet, allMatchHeader, "", []*muxRule{
+				newMuxRule(&ipfilter.IPFilters{}, &Rule{}, []*MuxPath{
+					newMuxPath(&ipfilter.IPFilters{}, &Path{
+						Path: "/matchallheader", Methods: []string{http.MethodGet},
+						Headers: []*Header{
+							{Key: "content-type", Values: []string{"application/json"}},
+							{Key: "accept-language", Values: []string{"zh-CN"}},
+						},
+						MatchAllHeader: true,
 					}),
 				}),
 			}, FoundSkipCache,
