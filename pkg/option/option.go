@@ -74,6 +74,7 @@ type Options struct {
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
 
 	// cluster options
+	UseStandaloneEtcd     bool           `yaml:"use-standalone-etcd"`
 	ClusterName           string         `yaml:"cluster-name"`
 	ClusterRole           string         `yaml:"cluster-role"`
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
@@ -150,6 +151,7 @@ func New() *Options {
 	opt.flags.BoolVar(&opt.SignalUpgrade, "signal-upgrade", false, "Send an upgrade signal to the server based on the local pid file, then exit. The original server will start a graceful upgrade after signal received.")
 	opt.flags.StringVar(&opt.Name, "name", "eg-default-name", "Human-readable name for this member.")
 	opt.flags.StringToStringVar(&opt.Labels, "labels", nil, "The labels for the instance of Easegress.")
+	opt.flags.BoolVar(&opt.UseStandaloneEtcd, "use-standalone-etcd", false, "Use standalone etcd instead of embedded .")
 	addClusterVars(opt)
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
@@ -245,6 +247,11 @@ func (opt *Options) Parse() (string, error) {
 	}
 
 	opt.renameLegacyClusterRoles()
+
+	if opt.UseStandaloneEtcd {
+		opt.ClusterRole = "secondary" // when using external standalone etcd, the cluster role cannot be "primary"
+	}
+
 	err = opt.validate()
 	if err != nil {
 		return "", err
