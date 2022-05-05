@@ -157,9 +157,9 @@ func (gm *generalMatcher) init() {
 func (gm *generalMatcher) Match(req *httpprot.Request) bool {
 	matched := false
 	if gm.matchAllHeaders {
-		matched = gm.matchOneHeader(req)
-	} else {
 		matched = gm.matchAllHeader(req)
+	} else {
+		matched = gm.matchOneHeader(req)
 	}
 
 	if matched && len(gm.urls) > 0 {
@@ -235,16 +235,11 @@ type MethodAndURLMatcher struct {
 
 // Validate validates the MethodAndURLMatcher.
 func (r *MethodAndURLMatcher) Validate() error {
-	if r.URL != nil {
-		return r.URL.Validate()
-	}
-	return nil
+	return r.URL.Validate()
 }
 
 func (r *MethodAndURLMatcher) init() {
-	if r.URL != nil {
-		r.URL.init()
-	}
+	r.URL.init()
 }
 
 // Match matches a request.

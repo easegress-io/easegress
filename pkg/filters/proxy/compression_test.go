@@ -20,18 +20,9 @@ package proxy
 import (
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/megaease/easegress/pkg/logger"
 )
-
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
-}
 
 func TestAcceptGzip(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
