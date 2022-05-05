@@ -283,15 +283,21 @@ func (c *cluster) checkClusterName() error {
 		return fmt.Errorf("failed to check cluster name: %v", err)
 	}
 
-	if value == nil {
+	if value != nil {
+		if c.opt.ClusterName != *value {
+			err := fmt.Errorf("cluster names mismatch, local(%s) != existed(%s)",
+				c.opt.ClusterName, *value)
+			logger.Errorf("%v", err)
+			panic(err)
+		}
+	} else if c.opt.UseStandaloneEtcd {
+		err := c.Put(c.Layout().ClusterNameKey(), c.opt.ClusterName)
+		if err != nil {
+			return fmt.Errorf("register cluster name %s failed: %v",
+				c.opt.ClusterName, err)
+		}
+	} else {
 		return fmt.Errorf("key %s not found", c.Layout().ClusterNameKey())
-	}
-
-	if c.opt.ClusterName != *value {
-		err := fmt.Errorf("cluster names mismatch, local(%s) != existed(%s)",
-			c.opt.ClusterName, *value)
-		logger.Errorf("%v", err)
-		panic(err)
 	}
 
 	return nil
@@ -447,7 +453,6 @@ func (c *cluster) initLease() error {
 
 	}
 	return c.grantNewLease()
-
 }
 
 func (c *cluster) grantNewLease() error {
