@@ -1,8 +1,9 @@
-{{- if eq .Values.cluster.volumeType "emptyDir" }}
-  {{- if ne (int .Values.cluster.primaryReplicas) 1 }}
-    {{- fail "When .Values.cluster.volumeType is 'emptyDir', .Values.cluster.primaryReplicas should be 1" }}
+{{- if not .Values.cluster.useStandaloneEtcd }}
+  {{- if eq .Values.cluster.volumeType "emptyDir" }}
+    {{- if ne (int .Values.cluster.primaryReplicas) 1 }}
+      {{- fail "When .Values.cluster.volumeType is 'emptyDir', .Values.cluster.primaryReplicas should be 1" }}
+    {{- end }}
   {{- end }}
-{{- end }}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -96,3 +97,5 @@ spec:
       storageClassName: easegress-storage
       volumeMode: Filesystem
   {{- end }}
+
+{{- end }}
