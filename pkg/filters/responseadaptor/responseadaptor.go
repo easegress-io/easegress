@@ -18,8 +18,15 @@
 package responseadaptor
 
 import (
+	"bytes"
+	"compress/gzip"
+	"io"
+	"strconv"
+	"strings"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 )
@@ -29,12 +36,21 @@ const (
 	Kind = "ResponseAdaptor"
 
 	resultResponseNotFound = "responseNotFound"
+	resultDecompressFailed = "decompressFailed"
+	resultCompressFailed   = "compressFailed"
+
+	keyContentLength   = "Content-Length"
+	keyContentEncoding = "Content-Encoding"
 )
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "ResponseAdaptor adapts response.",
-	Results:     []string{resultResponseNotFound},
+	Results: []string{
+		resultResponseNotFound,
+		resultCompressFailed,
+		resultDecompressFailed,
+	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -57,8 +73,10 @@ type (
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		Header *httpheader.AdaptSpec `yaml:"header" jsonschema:"required"`
-		Body   string                `yaml:"body" jsonschema:"omitempty"`
+		Header     *httpheader.AdaptSpec `yaml:"header" jsonschema:"omitempty"`
+		Body       string                `yaml:"body" jsonschema:"omitempty"`
+		Compress   string                `yaml:"compress" jsonschema:"omitempty"`
+		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
 	}
 )
 
@@ -79,6 +97,18 @@ func (ra *ResponseAdaptor) Spec() filters.Spec {
 
 // Init initializes ResponseAdaptor.
 func (ra *ResponseAdaptor) Init() {
+	if ra.spec.Decompress != "" && ra.spec.Decompress != "gzip" {
+		panic("ResponseAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Compress != "gzip" {
+		panic("ResponseAdaptor only support decompress type of gzip")
+	}
+	if ra.spec.Compress != "" && ra.spec.Decompress != "" {
+		panic("ResponseAdaptor can only do compress or decompress for given request body, not both")
+	}
+	if ra.spec.Body != "" && ra.spec.Decompress != "" {
+		panic("No need to decompress when body is specified in ResponseAdaptor spec")
+	}
 	ra.reload()
 }
 
@@ -111,17 +141,85 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	if resp == nil {
 		return resultResponseNotFound
 	}
-	httpresp := resp.(*httpprot.Response)
-	adaptHeader(httpresp, ra.spec.Header)
+	egresp := resp.(*httpprot.Response)
+
+	if ra.spec.Header != nil {
+		adaptHeader(egresp, ra.spec.Header)
+	}
 
 	if len(ra.spec.Body) != 0 {
-		httpresp.SetPayload([]byte(ra.spec.Body))
+		egresp.SetPayload([]byte(ra.spec.Body))
+		egresp.HTTPHeader().Del("Content-Encoding")
 	}
+
+	if ra.spec.Compress != "" {
+		if res := ra.compress(egresp); res != "" {
+			return res
+		}
+	}
+
+	if ra.spec.Decompress != "" {
+		if res := ra.decompress(egresp); res != "" {
+			return res
+		}
+	}
+
+	return ""
+}
+
+func (ra *ResponseAdaptor) compress(resp *httpprot.Response) string {
+	for _, ce := range resp.HTTPHeader().Values(keyContentEncoding) {
+		if strings.Contains(ce, "gzip") {
+			return ""
+		}
+	}
+
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	_, err := gw.Write(resp.RawPayload())
+	if err != nil {
+		logger.Errorf("compress response body failed, %v", err)
+		return resultCompressFailed
+	}
+	gw.Close()
+
+	resp.SetPayload(buf.Bytes())
+	resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(buf.Len()))
+	resp.HTTPHeader().Set(keyContentEncoding, "gzip")
+	return ""
+}
+
+func (ra *ResponseAdaptor) decompress(resp *httpprot.Response) string {
+	if ra.spec.Decompress != "gzip" {
+		return ""
+	}
+
+	encoding := resp.HTTPHeader().Get(keyContentEncoding)
+	if encoding != "gzip" {
+		return ""
+	}
+
+	reader, err := gzip.NewReader(resp.GetPayload())
+	if err != nil {
+		return resultDecompressFailed
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return resultDecompressFailed
+	}
+
+	resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
+	resp.SetPayload(data)
 	return ""
 }
 
 // Status returns status.
-func (ra *ResponseAdaptor) Status() interface{} { return nil }
+func (ra *ResponseAdaptor) Status() interface{} {
+	return nil
+}
 
 // Close closes ResponseAdaptor.
-func (ra *ResponseAdaptor) Close() {}
+func (ra *ResponseAdaptor) Close() {
+}

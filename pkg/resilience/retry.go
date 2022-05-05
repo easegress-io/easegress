@@ -39,7 +39,7 @@ var _ Policy = (*RetryPolicy)(nil)
 
 // RetryPolicy defines the retry policy.
 type RetryPolicy struct {
-	BaseSpec
+	BaseSpec            `yaml:",inline"`
 	MaxAttempts         int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
 	WaitDuration        string `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
 	waitDuration        time.Duration

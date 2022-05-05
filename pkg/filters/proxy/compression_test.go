@@ -24,9 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 )
 
 func TestMain(m *testing.M) {
@@ -38,29 +36,24 @@ func TestMain(m *testing.M) {
 func TestAcceptGzip(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-
-	if !c.acceptGzip(ctx) {
+	req, _ := http.NewRequest(http.MethodGet, "https://megaease.com", nil)
+	if !c.acceptGzip(req) {
 		t.Error("accept gzip should be true")
 	}
 
-	header.Add(keyAcceptEncoding, "text/text")
-	if c.acceptGzip(ctx) {
+	req.Header.Add(keyAcceptEncoding, "text/text")
+	if c.acceptGzip(req) {
 		t.Error("accept gzip should be false")
 	}
 
-	header.Add(keyAcceptEncoding, "*/*")
-	if !c.acceptGzip(ctx) {
+	req.Header.Add(keyAcceptEncoding, "*/*")
+	if !c.acceptGzip(req) {
 		t.Error("accept gzip should be true")
 	}
 
-	header.Del(keyAcceptEncoding)
-	header.Add(keyAcceptEncoding, "gzip")
-	if !c.acceptGzip(ctx) {
+	req.Header.Del(keyAcceptEncoding)
+	req.Header.Add(keyAcceptEncoding, "gzip")
+	if !c.acceptGzip(req) {
 		t.Error("accept gzip should be true")
 	}
 }
@@ -68,23 +61,19 @@ func TestAcceptGzip(t *testing.T) {
 func TestAlreadyGziped(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	resp := &http.Response{Header: http.Header{}}
 
-	if c.alreadyGziped(ctx) {
+	if c.alreadyGziped(resp) {
 		t.Error("already gziped should be false")
 	}
 
-	header.Add(keyContentEncoding, "text")
-	if c.alreadyGziped(ctx) {
+	resp.Header.Add(keyContentEncoding, "text")
+	if c.alreadyGziped(resp) {
 		t.Error("already gziped should be false")
 	}
 
-	header.Add(keyContentEncoding, "gzip")
-	if !c.alreadyGziped(ctx) {
+	resp.Header.Add(keyContentEncoding, "gzip")
+	if !c.alreadyGziped(resp) {
 		t.Error("already gziped should be true")
 	}
 }
@@ -92,23 +81,19 @@ func TestAlreadyGziped(t *testing.T) {
 func TestParseContentLength(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
+	resp := &http.Response{Header: http.Header{}}
 
-	if c.parseContentLength(ctx) != -1 {
+	if c.parseContentLength(resp) != -1 {
 		t.Error("content length should be -1")
 	}
 
-	header.Set(keyContentLength, "abc")
-	if c.parseContentLength(ctx) != -1 {
+	resp.Header.Set(keyContentLength, "abc")
+	if c.parseContentLength(resp) != -1 {
 		t.Error("content length should be -1")
 	}
 
-	header.Set(keyContentLength, "100")
-	if c.parseContentLength(ctx) != 100 {
+	resp.Header.Set(keyContentLength, "100")
+	if c.parseContentLength(resp) != 100 {
 		t.Error("content length should be 100")
 	}
 }
@@ -116,35 +101,24 @@ func TestParseContentLength(t *testing.T) {
 func TestCompress(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
 
-	header := http.Header{}
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		return httpheader.New(header)
-	}
-	header.Set(keyContentLength, "20")
+	req, _ := http.NewRequest(http.MethodGet, "https://megaease.com", nil)
+	resp := &http.Response{Header: http.Header{}}
+
+	resp.Header.Set(keyContentLength, "20")
 
 	rawBody := strings.Repeat("this is the raw body. ", 100)
-	sr := strings.NewReader(rawBody)
-	ctx.MockedResponse.MockedBody = func() io.Reader {
-		return sr
-	}
+	resp.Body = io.NopCloser(strings.NewReader(rawBody))
 
-	c.compress(ctx)
-	if header.Get(keyContentEncoding) == "gzip" {
+	c.compress(req, resp)
+	if resp.Header.Get(keyContentEncoding) == "gzip" {
 		t.Error("body should not be gziped")
 	}
 
-	ctx.MockedResponse.MockedSetBody = func(body io.Reader) {
-		io.ReadAll(body)
-	}
+	resp.Body = http.NoBody
 
-	header.Set(keyContentLength, "120")
-	c.compress(ctx)
-	if header.Get(keyContentEncoding) != "gzip" {
+	resp.Header.Set(keyContentLength, "120")
+	c.compress(req, resp)
+	if resp.Header.Get(keyContentEncoding) != "gzip" {
 		t.Error("body should be gziped")
 	}
-
 }

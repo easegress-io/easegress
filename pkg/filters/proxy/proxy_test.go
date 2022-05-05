@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/cluster/clustertest"
-	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"

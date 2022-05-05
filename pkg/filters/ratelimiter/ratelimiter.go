@@ -245,7 +245,7 @@ func (rl *RateLimiter) Inherit(previousGeneration filters.Filter) {
 func (rl *RateLimiter) Handle(ctx *context.Context) string {
 	for _, u := range rl.spec.URLs {
 		req := ctx.Request().(*httpprot.Request)
-		if !u.Match(req) {
+		if !u.Match(req.Std()) {
 			continue
 		}
 

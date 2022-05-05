@@ -51,7 +51,7 @@ var ErrShortCircuited = errors.New("the call was short circuited")
 
 // CircuitBreakPolicy defines the circuit break policy.
 type CircuitBreakPolicy struct {
-	BaseSpec
+	BaseSpec                         `yaml:",inline"`
 	SlidingWindowType                string `yaml:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
 	FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
 	SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`

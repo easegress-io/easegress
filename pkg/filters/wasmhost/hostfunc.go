@@ -25,7 +25,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/textproto"
@@ -35,6 +34,7 @@ import (
 
 	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
@@ -143,106 +143,106 @@ func (vm *WasmVM) readClusterKeyFromWasm(addr int32) string {
 // request functions
 
 func (vm *WasmVM) hostRequestGetRealIP() int32 {
-	v := vm.ctx.Request().RealIP()
+	v := vm.ctx.Request().(*httpprot.Request).RealIP()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetMethod() int32 {
-	v := vm.ctx.Request().Method()
+	v := vm.ctx.Request().(*httpprot.Request).Method()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetMethod(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().SetMethod(v)
+	vm.ctx.Request().(*httpprot.Request).SetMethod(v)
 }
 
 func (vm *WasmVM) hostRequestGetScheme() int32 {
-	v := vm.ctx.Request().Scheme()
+	v := vm.ctx.Request().(*httpprot.Request).Scheme()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetHost() int32 {
-	v := vm.ctx.Request().Host()
+	v := vm.ctx.Request().(*httpprot.Request).Host()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetHost(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().SetHost(v)
+	vm.ctx.Request().(*httpprot.Request).SetHost(v)
 }
 
 func (vm *WasmVM) hostRequestGetPath() int32 {
-	v := vm.ctx.Request().Path()
+	v := vm.ctx.Request().(*httpprot.Request).Path()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetPath(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().SetPath(v)
+	vm.ctx.Request().(*httpprot.Request).SetPath(v)
 }
 
 func (vm *WasmVM) hostRequestGetEscapedPath() int32 {
-	v := vm.ctx.Request().EscapedPath()
+	v := vm.ctx.Request().(*httpprot.Request).Std().URL.EscapedPath()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetQuery() int32 {
-	v := vm.ctx.Request().Query()
+	v := vm.ctx.Request().(*httpprot.Request).Std().URL.RawQuery
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetQuery(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().SetQuery(v)
+	vm.ctx.Request().(*httpprot.Request).Std().URL.RawQuery = v
 }
 
 func (vm *WasmVM) hostRequestGetFragment() int32 {
-	v := vm.ctx.Request().Fragment()
+	v := vm.ctx.Request().(*httpprot.Request).Std().URL.Fragment
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetProto() int32 {
-	v := vm.ctx.Request().Proto()
+	v := vm.ctx.Request().(*httpprot.Request).Proto()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestAddHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	val := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Request().Header().Add(name, val)
+	vm.ctx.Request().(*httpprot.Request).Header().Add(name, val)
 }
 
 func (vm *WasmVM) hostRequestSetHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	value := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Request().Header().Set(name, value)
+	vm.ctx.Request().(*httpprot.Request).Header().Set(name, value)
 }
 
 func (vm *WasmVM) hostRequestGetHeader(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	v := vm.ctx.Request().Header().Get(name)
+	v := vm.ctx.Request().(*httpprot.Request).HTTPHeader().Get(name)
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestDelHeader(addr int32) {
 	name := vm.readStringFromWasm(addr)
-	vm.ctx.Request().Header().Del(name)
+	vm.ctx.Request().(*httpprot.Request).Header().Del(name)
 }
 
 func (vm *WasmVM) hostRequestGetAllHeader() int32 {
-	h := vm.ctx.Request().Header().Std()
+	h := vm.ctx.Request().(*httpprot.Request).HTTPHeader()
 	return vm.writeHeaderToWasm(h)
 }
 
 func (vm *WasmVM) hostRequestSetAllHeader(addr int32) {
 	h := vm.readHeaderFromWasm(addr)
-	vm.ctx.Request().Header().SetFromStd(h)
+	vm.ctx.Request().(*httpprot.Request).Std().Header = h
 }
 
 func (vm *WasmVM) hostRequestGetCookie(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	c, e := vm.ctx.Request().Cookie(name)
+	c, e := vm.ctx.Request().(*httpprot.Request).Cookie(name)
 	if e != nil && e != http.ErrNoCookie {
 		panic(e)
 	}
@@ -251,7 +251,7 @@ func (vm *WasmVM) hostRequestGetCookie(addr int32) int32 {
 
 func (vm *WasmVM) hostRequestGetAllCookie() int32 {
 	var cookies []string
-	for _, c := range vm.ctx.Request().Cookies() {
+	for _, c := range vm.ctx.Request().(*httpprot.Request).Cookies() {
 		cookies = append(cookies, c.String())
 	}
 	return vm.writeStringArrayToWasm(cookies)
@@ -263,34 +263,28 @@ func (vm *WasmVM) hostRequestAddCookie(addr int32) {
 	h.Add("Cookie", str)
 	r := http.Request{Header: h}
 	for _, c := range r.Cookies() {
-		vm.ctx.Request().AddCookie(c)
+		vm.ctx.Request().(*httpprot.Request).AddCookie(c)
 	}
 }
 
 func (vm *WasmVM) hostRequestGetBody() int32 {
-	r := vm.ctx.Request()
-	body, e := io.ReadAll(r.Body())
-	if e != nil {
-		panic(e)
-	}
-	r.SetBody(bytes.NewReader(body))
-
-	return vm.writeDataToWasm(body)
+	r := vm.ctx.Request().(*httpprot.Request)
+	return vm.writeDataToWasm(r.RawPayload())
 }
 
 func (vm *WasmVM) hostRequestSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	vm.ctx.Request().SetBody(bytes.NewReader(body))
+	vm.ctx.Request().(*httpprot.Request).SetPayload(body)
 }
 
 // response functions
 
 func (vm *WasmVM) hostResponseGetStatusCode() int32 {
-	return int32(vm.ctx.Response().StatusCode())
+	return int32(vm.ctx.Response().(*httpprot.Response).StatusCode())
 }
 
 func (vm *WasmVM) hostResponseSetStatusCode(code int32) {
-	vm.ctx.Response().SetStatusCode(int(code))
+	vm.ctx.Response().(*httpprot.Response).SetStatusCode(int(code))
 }
 
 func (vm *WasmVM) hostResponseAddHeader(nameAddr, valueAddr int32) {
@@ -307,7 +301,7 @@ func (vm *WasmVM) hostResponseSetHeader(nameAddr, valueAddr int32) {
 
 func (vm *WasmVM) hostResponseGetHeader(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	v := vm.ctx.Response().Header().Get(name)
+	v := vm.ctx.Response().(*httpprot.Response).HTTPHeader().Get(name)
 	return vm.writeStringToWasm(v)
 }
 
@@ -317,13 +311,13 @@ func (vm *WasmVM) hostResponseDelHeader(addr int32) {
 }
 
 func (vm *WasmVM) hostResponseGetAllHeader() int32 {
-	h := vm.ctx.Response().Header().Std()
+	h := vm.ctx.Response().(*httpprot.Response).HTTPHeader()
 	return vm.writeHeaderToWasm(h)
 }
 
 func (vm *WasmVM) hostResponseSetAllHeader(addr int32) {
 	h := vm.readHeaderFromWasm(addr)
-	vm.ctx.Response().Header().SetFromStd(h)
+	vm.ctx.Response().(*httpprot.Response).Std().Header = h
 }
 
 func (vm *WasmVM) hostResponseSetCookie(addr int32) {
@@ -332,24 +326,18 @@ func (vm *WasmVM) hostResponseSetCookie(addr int32) {
 	h.Add("Set-Cookie", str)
 	r := http.Response{Header: h}
 	for _, c := range r.Cookies() {
-		vm.ctx.Response().SetCookie(c)
+		vm.ctx.Response().(*httpprot.Response).SetCookie(c)
 	}
 }
 
 func (vm *WasmVM) hostResponseGetBody() int32 {
 	r := vm.ctx.Response()
-	body, e := io.ReadAll(r.Body())
-	if e != nil {
-		panic(e)
-	}
-	r.SetBody(bytes.NewReader(body))
-
-	return vm.writeDataToWasm(body)
+	return vm.writeDataToWasm(r.RawPayload())
 }
 
 func (vm *WasmVM) hostResponseSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	vm.ctx.Response().SetBody(bytes.NewReader(body))
+	vm.ctx.Response().SetPayload(body)
 }
 
 // cluster data functions

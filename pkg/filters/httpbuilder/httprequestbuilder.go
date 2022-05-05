@@ -77,7 +77,7 @@ type (
 	// RequestInfo stores the information of a request.
 	RequestInfo struct {
 		Method  string              `json:"method" jsonschema:"omitempty"`
-		URL     string              `json:"url" jsonschema:"required"`
+		URL     string              `json:"url" jsonschema:"omitempty"`
 		Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
 		Body    string              `yaml:"body" jsonschema:"omitempty"`
 	}
@@ -131,12 +131,13 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 
 	var ri RequestInfo
 	if err = rb.build(data, &ri); err != nil {
+		msgFmt := "HTTPRequestBuilder(%s): failed to build request info: %v"
+		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}
 
 	if ri.URL == "" {
-		logger.Warnf("URL cannot be empty")
-		return resultBuildErr
+		ri.URL = "/"
 	}
 
 	if ri.Method == "" {

@@ -32,7 +32,7 @@ func TestRequest(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:80", strings.NewReader("body string"))
 	assert.Nil(err)
 
-	request := NewRequest(req)
+	request, _ := NewRequest(req)
 	assert.Equal(req, request.Std())
 	assert.Equal("", request.RealIP())
 	assert.Equal("HTTP/1.1", request.Proto())

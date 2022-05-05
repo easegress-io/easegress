@@ -23,8 +23,8 @@ import (
 	"html/template"
 	"net/http"
 
+	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"gopkg.in/yaml.v3"
 )
@@ -66,19 +66,18 @@ type (
 
 func (b *HTTPBuilder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
+	t.Funcs(sprig.FuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
-func (b *HTTPBuilder) build(data *builderData, v interface{}) error {
+func (b *HTTPBuilder) build(data map[string]interface{}, v interface{}) error {
 	var result bytes.Buffer
 
 	if err := b.template.Execute(&result, data); err != nil {
-		logger.Warnf("HTTPBuilder: build failed: %v", err)
 		return err
 	}
 
 	if err := yaml.NewDecoder(&result).Decode(v); err != nil {
-		logger.Warnf("HTTPBuilder: failed to decode build result: %v", err)
 		return err
 	}
 
@@ -170,15 +169,13 @@ func (r *response) YAMLBody() (interface{}, error) {
 	return r.parsedBody, nil
 }
 
-func prepareBuilderData(ctx *context.Context) (*builderData, error) {
-	bd := &builderData{
-		Requests:  make(map[string]*request),
-		Responses: make(map[string]*response),
-	}
+func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
+	requests := make(map[string]*request)
+	responses := make(map[string]*response)
 
 	for k, v := range ctx.Requests() {
 		req := v.(*httpprot.Request)
-		bd.Requests[k] = &request{
+		requests[k] = &request{
 			Request: req.Std(),
 			rawBody: req.RawPayload(),
 		}
@@ -186,11 +183,14 @@ func prepareBuilderData(ctx *context.Context) (*builderData, error) {
 
 	for k, v := range ctx.Responses() {
 		resp := v.(*httpprot.Response)
-		bd.Responses[k] = &response{
+		responses[k] = &response{
 			Response: resp.Std(),
 			rawBody:  resp.RawPayload(),
 		}
 	}
 
-	return bd, nil
+	return map[string]interface{}{
+		"requests":  requests,
+		"responses": responses,
+	}, nil
 }

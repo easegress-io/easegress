@@ -34,8 +34,9 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 )
 
@@ -133,7 +134,7 @@ func (wh *WasmHost) Spec() filters.Spec {
 
 // Cluster returns the cluster
 func (wh *WasmHost) Cluster() cluster.Cluster {
-	return wh.filterSpec.Super().Cluster()
+	return wh.spec.Super().Cluster()
 }
 
 // Data returns the shared data
@@ -202,7 +203,7 @@ func (wh *WasmHost) loadWasmCode() error {
 func (wh *WasmHost) watchWasmCode() {
 	var (
 		chWasm <-chan *string
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 	)
 
@@ -242,7 +243,7 @@ func (wh *WasmHost) watchWasmCode() {
 func (wh *WasmHost) watchWasmData() {
 	var (
 		chWasm <-chan map[string]*mvccpb.KeyValue
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 	)
 
@@ -274,10 +275,10 @@ func (wh *WasmHost) watchWasmData() {
 	}
 }
 
-func (wh *WasmHost) reload(spec filters.Spec) {
-	wh.spec = spec.(*Spec)
+func (wh *WasmHost) reload() {
+	spec := wh.spec
 
-	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(filterSpec.Pipeline(), filterSpec.Name())
+	wh.dataPrefix = wh.Cluster().Layout().WasmDataPrefix(spec.Pipeline(), spec.Name())
 
 	wh.spec.timeout, _ = time.ParseDuration(wh.spec.Timeout)
 	wh.chStop = make(chan struct{})
@@ -288,18 +289,18 @@ func (wh *WasmHost) reload(spec filters.Spec) {
 }
 
 // Init initializes WasmHost.
-func (wh *WasmHost) Init(spec filters.Spec) {
-	wh.reload(spec)
+func (wh *WasmHost) Init() {
+	wh.reload()
 }
 
 // Inherit inherits previous generation of WasmHost.
-func (wh *WasmHost) Inherit(spec filters.Spec, previousGeneration filters.Filter) {
+func (wh *WasmHost) Inherit(previousGeneration filters.Filter) {
 	previousGeneration.Close()
-	wh.reload(spec)
+	wh.reload()
 }
 
 // Handle handles HTTP request
-func (wh *WasmHost) Handle(ctx *context.Context) string {
+func (wh *WasmHost) Handle(ctx *context.Context) (result string) {
 	// we must save the pool to a local variable for later use as it will be
 	// replaced when updating the wasm code
 	var pool *WasmVMPool
@@ -351,7 +352,7 @@ func (wh *WasmHost) Handle(ctx *context.Context) string {
 			vm.Interrupt()
 			vm = nil
 			break
-		case <-ctx.Done():
+		case <-ctx.Request().(*httpprot.Request).Context().Done():
 			vm.Interrupt()
 			vm = nil
 			break

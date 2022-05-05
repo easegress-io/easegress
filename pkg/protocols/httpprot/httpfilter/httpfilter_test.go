@@ -19,12 +19,10 @@ package httpfilter
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -39,7 +37,7 @@ func TestFilterHeader(t *testing.T) {
 		},
 	}
 
-	ctx := context.New(httptest.NewRecorder(), r, tracing.NoopTracing, "span")
+	req, _ := httpprot.NewRequest(r)
 
 	filter := New(&Spec{
 		MatchAllHeaders: true,
@@ -53,12 +51,12 @@ func TestFilterHeader(t *testing.T) {
 		},
 	})
 
-	if !filter.Filter(ctx) {
+	if !filter.Filter(req) {
 		t.Fatalf("filter failed")
 	}
 
 	filter.spec.MatchAllHeaders = false
-	if !filter.Filter(ctx) {
+	if !filter.Filter(req) {
 		t.Fatalf("filter failed")
 	}
 }

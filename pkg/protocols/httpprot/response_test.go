@@ -27,7 +27,7 @@ import (
 func TestResponse(t *testing.T) {
 	assert := assert.New(t)
 
-	resp := NewResponse(nil)
+	resp, _ := NewResponse(nil)
 	resp.SetStatusCode(http.StatusCreated)
 	assert.Equal(http.StatusCreated, resp.StatusCode())
 }
