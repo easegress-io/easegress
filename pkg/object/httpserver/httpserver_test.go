@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -32,8 +33,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
 }
 
 type testCase struct {

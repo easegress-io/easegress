@@ -107,7 +107,6 @@ type (
 
 		Pools               []*ServerPoolSpec `yaml:"pools" jsonschema:"required"`
 		MirrorPool          *ServerPoolSpec   `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes        []int             `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 		Compression         *CompressionSpec  `yaml:"compression,omitempty" jsonschema:"omitempty"`
 		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
@@ -183,11 +182,11 @@ func (p *Proxy) Inherit(previousGeneration filters.Filter) {
 	p.reload()
 }
 
-func (p *Proxy) tlsConfig() *tls.Config {
+func (p *Proxy) tlsConfig() (*tls.Config, error) {
 	mtls := p.spec.MTLS
 
 	if mtls == nil {
-		return &tls.Config{InsecureSkipVerify: true}
+		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 
 	certPem, _ := base64.StdEncoding.DecodeString(mtls.CertBase64)
@@ -195,7 +194,7 @@ func (p *Proxy) tlsConfig() *tls.Config {
 	cert, err := tls.X509KeyPair(certPem, keyPem)
 	if err != nil {
 		logger.Errorf("proxy generates x509 key pair failed: %v", err)
-		return &tls.Config{InsecureSkipVerify: true}
+		return &tls.Config{InsecureSkipVerify: true}, err
 	}
 
 	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
@@ -205,7 +204,7 @@ func (p *Proxy) tlsConfig() *tls.Config {
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
-	}
+	}, nil
 }
 
 func (p *Proxy) reload() {
@@ -236,6 +235,7 @@ func (p *Proxy) reload() {
 		p.compression = newCompression(p.spec.Compression)
 	}
 
+	tlsCfg, _ := p.tlsConfig()
 	p.client = &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
@@ -246,7 +246,7 @@ func (p *Proxy) reload() {
 				KeepAlive: 60 * time.Second,
 				DualStack: true,
 			}).DialContext,
-			TLSClientConfig:    p.tlsConfig(),
+			TLSClientConfig:    tlsCfg,
 			DisableCompression: false,
 			// NOTE: The large number of Idle Connections can
 			// reduce overhead of building connections.

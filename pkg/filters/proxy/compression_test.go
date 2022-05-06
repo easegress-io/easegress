@@ -112,4 +112,9 @@ func TestCompress(t *testing.T) {
 	if resp.Header.Get(keyContentEncoding) != "gzip" {
 		t.Error("body should be gziped")
 	}
+
+	data, _ := io.ReadAll(resp.Body)
+	if len(data) == 0 {
+		t.Error("data length should not be zero")
+	}
 }

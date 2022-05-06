@@ -36,11 +36,11 @@ type RequestMatcher interface {
 
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
-	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
 	MatchAllHeaders bool                      `yaml:"matchAllHeaders" jsonschema:"omitempty"`
 	Headers         map[string]*StringMatcher `yaml:"headers" jsonschema:"omitempty"`
 	URLs            []*MethodAndURLMatcher    `yaml:"urls" jsonschema:"omitempty"`
-	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=1,maximum=1000"`
+	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
 	HeaderHashKey   string                    `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 

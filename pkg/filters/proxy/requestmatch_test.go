@@ -27,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSpecValidate(t *testing.T) {
+func TestRequestMatcherSpecValidate(t *testing.T) {
 	assert := assert.New(t)
 
 	spec := &RequestMatcherSpec{}

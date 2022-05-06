@@ -48,7 +48,7 @@ func TestRoundRobinLoadBalancer(t *testing.T) {
 		assert.Equal(svr.Weight, i+1)
 	}
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{}, svrs)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "unknow"}, svrs)
 	for i := 0; i < 10; i++ {
 		svr := lb.ChooseServer(nil)
 		assert.Equal(svr.Weight, i+1)
