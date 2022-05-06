@@ -127,13 +127,13 @@ func (p *pool) status() *PoolStatus {
 	return s
 }
 
-var requestPool = sync.Pool{
+var requestPool = &sync.Pool{
 	New: func() interface{} {
 		return &request{}
 	},
 }
 
-var httpstatResultPool = sync.Pool{
+var httpStatResultPool = &sync.Pool{
 	New: func() interface{} {
 		return &gohttpstat.Result{}
 	},
@@ -170,7 +170,7 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *Client
 	}
 	addLazyTag("addr", server.URL, -1)
 
-	req, err := p.prepareRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
+	req, err := p.prepareRequest(ctx, server, reqBody, requestPool, httpStatResultPool)
 	if err != nil {
 		msg := stringtool.Cat("prepare request failed: ", err.Error())
 		logger.Errorf("BUG: %s", msg)
@@ -226,9 +226,9 @@ func (p *pool) prepareRequest(
 	ctx context.HTTPContext,
 	server *Server,
 	reqBody io.Reader,
-	requestPool sync.Pool,
-	httpstatResultPool sync.Pool) (req *request, err error) {
-	return p.newRequest(ctx, server, reqBody, requestPool, httpstatResultPool)
+	requestPool *sync.Pool,
+	httpStatResultPool *sync.Pool) (req *request, err error) {
+	return p.newRequest(ctx, server, reqBody, requestPool, httpStatResultPool)
 }
 
 func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *Client) (*http.Response, error) {
@@ -246,7 +246,7 @@ func (p *pool) doRequest(ctx context.HTTPContext, req *request, client *Client) 
 	return resp, nil
 }
 
-var httpstatMetricPool = sync.Pool{
+var httpStatMetricPool = &sync.Pool{
 	New: func() interface{} {
 		return &httpstat.Metric{}
 	},
@@ -276,7 +276,7 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 			return stringtool.Cat(p.tagPrefix, "#duration: ", duration.String())
 		})
 		// use recycled object
-		metric := httpstatMetricPool.Get().(*httpstat.Metric)
+		metric := httpStatMetricPool.Get().(*httpstat.Metric)
 		metric.StatusCode = resp.StatusCode
 		metric.Duration = duration
 		metric.ReqSize = ctx.Request().Size()
@@ -287,8 +287,8 @@ func (p *pool) statRequestResponse(ctx context.HTTPContext,
 		}
 		p.httpStat.Stat(metric)
 		// recycle struct instances
-		httpstatMetricPool.Put(metric)
-		httpstatResultPool.Put(req.statResult)
+		httpStatMetricPool.Put(metric)
+		httpStatResultPool.Put(req.statResult)
 		requestPool.Put(req)
 	})
 
