@@ -18,45 +18,59 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptest"
+	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster/clustertest"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpfilter"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v2"
 )
 
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
+}
+
+func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
+	rawSpec := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(yamlSpec), &rawSpec)
+	assert.NoError(err)
+
+	spec, err := filters.NewSpec(nil, "", rawSpec)
+	assert.NoError(err)
+
+	proxy := kind.CreateInstance(spec).(*Proxy)
+	proxy.Init()
+
+	assert.Equal(kind, proxy.Kind())
+	assert.Equal(spec, proxy.Spec())
+	return proxy
+}
+
 func TestProxy(t *testing.T) {
+	assert := assert.New(t)
+
 	const yamlSpec = `
 name: proxy
 kind: Proxy
-fallback:
-  forCodes: true
-  mockCode: 200
-  mockHeaders:
-    X-Mock: mocked
-  mockBody: this is the mocked body
-mainPool:
-  servers:
+pools:
+- servers:
   - url: http://127.0.0.1:9095
   - url: http://127.0.0.1:9096
   - url: http://127.0.0.1:9097
   loadBalance:
     policy: roundRobin
-candidatePools:
 - filter:
     headers:
       "X-Test":
@@ -68,6 +82,7 @@ candidatePools:
   - url: http://127.0.0.2:9098
   loadBalance:
     policy: roundRobin
+  timeout: 10ms
 mirrorPool:
   filter:
     headers:
@@ -80,285 +95,176 @@ mirrorPool:
     policy: roundRobin
 compression:
   minLength: 1024
-failureCodes: [503, 504]
 `
-	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	proxy := newTestProxy(yamlSpec, assert)
+	proxy.InjectResiliencePolicy(make(map[string]resilience.Policy))
 
-	spec, e := filters.NewSpec(nil, "", rawSpec)
-	if e != nil {
-		t.Errorf("unexpected error: %v", e)
-	}
+	assert.Equal(1, len(proxy.candidatePools))
+	assert.Equal(2, len(proxy.mirrorPool.spec.Servers))
 
-	proxy := &Proxy{}
-	proxy.Init(spec)
+	assert.NotNil(proxy.Status())
 
-	if len(proxy.candidatePools) != 1 {
-		t.Error("length of candidate pools is incorrect")
-	}
-	if len(proxy.mirrorPool.spec.Servers) != 2 {
-		t.Error("server count of mirror pool is incorrect")
-	}
-
-	status := proxy.Status()
-	if status == nil {
-		t.Error("status should not be nil")
-	}
-
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedResponse.MockedStatusCode = func() int {
-		return http.StatusServiceUnavailable
-	}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		header := http.Header{}
-		header.Set("X-Mirror", "mirror")
-		return httpheader.New(header)
-	}
-	ctx.MockedResponse.MockedHeader = func() *httpheader.HTTPHeader {
-		header := http.Header{}
-		return httpheader.New(header)
-	}
-	if !proxy.fallbackForCodes(ctx) {
-		t.Error("fallback for 503 should be true")
-	}
-	ctx.MockedResponse.MockedStatusCode = func() int {
-		return http.StatusInternalServerError
-	}
-	if proxy.fallbackForCodes(ctx) {
-		t.Error("fallback for 500 should be false")
-	}
-
-	fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return &http.Response{
-			Body: io.NopCloser(strings.NewReader("this is the body")),
+			Header: http.Header{},
+			Body:   io.NopCloser(strings.NewReader("this is the body")),
 		}, nil
 	}
 
-	result := proxy.Handle(ctx)
-	if result != "" {
-		t.Error("proxy.Handle should succeeded")
-	}
-	ctx.Finish()
+	stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+	stdr.Header.Set("X-Mirror", "mirror")
+	req, _ := httpprot.NewRequest(stdr)
+	ctx := context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.InitialRequestID, req)
+	ctx.UseRequest("", "")
 
-	fnSendRequest = func(r *http.Request, client *Client) (*http.Response, error) {
+	assert.Equal("", proxy.Handle(ctx))
+
+	stdr.Header.Del("X-Mirror")
+	assert.Equal("", proxy.Handle(ctx))
+
+	stdr.Header.Set("X-Test", "testheader")
+	assert.Equal("", proxy.Handle(ctx))
+
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return nil, fmt.Errorf("mocked error")
 	}
+	assert.NotEqual("", proxy.Handle(ctx))
 
-	result = proxy.Handle(ctx)
-	if result == "" {
-		t.Error("proxy.Handle should fail")
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+		select {
+		case <-r.Context().Done():
+			return nil, r.Context().Err()
+		case <-time.After(100 * time.Millisecond):
+			break
+		}
+		return &http.Response{
+			Header: http.Header{},
+			Body:   io.NopCloser(strings.NewReader("this is the body")),
+		}, nil
 	}
+	assert.NotEqual("", proxy.Handle(ctx))
 
-	// test fallback
-	ctx.MockedResponse.MockedStatusCode = func() int {
-		return http.StatusServiceUnavailable
-	}
-
-	result = proxy.Handle(ctx)
-	if result != "fallback" {
-		t.Error("proxy.Handle should fallback")
-	}
-
-	time.Sleep(10 * time.Millisecond)
 	proxy.Close()
-	time.Sleep(10 * time.Millisecond)
 }
 
 func TestSpecValidate(t *testing.T) {
-	spec := Spec{}
-
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.MainPool = &PoolSpec{}
-	spec.MainPool.Filter = &httpfilter.Spec{}
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.MainPool.Filter = nil
-	if spec.Validate() != nil {
-		t.Error("validate should succeed")
-	}
-
-	spec.CandidatePools = append(spec.CandidatePools, &PoolSpec{})
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.CandidatePools[0].Filter = &httpfilter.Spec{}
-	if spec.Validate() != nil {
-		t.Error("validate should succeed")
-	}
-
-	spec.MirrorPool = &PoolSpec{}
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.MirrorPool.Filter = &httpfilter.Spec{}
-	if spec.Validate() != nil {
-		t.Error("validate should succeed")
-	}
-
-	spec.MirrorPool.MemoryCache = &memorycache.Spec{}
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-	spec.MirrorPool.MemoryCache = nil
-
-	spec.Fallback = &FallbackSpec{}
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.FailureCodes = []int{500}
-	if spec.Validate() != nil {
-		t.Error("validate should succeed")
-	}
-}
-
-func TestPoolSpecValidate(t *testing.T) {
-	spec := PoolSpec{}
-
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	servers := []*Server{
-		{
-			URL:  "http://127.0.0.1:9090",
-			Tags: []string{"d1", "v1", "green"},
-		},
-		{
-			URL:    "http://127.0.0.1:9091",
-			Tags:   []string{"v1", "d1", "green"},
-			Weight: 2,
-		},
-	}
-	spec.Servers = servers
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	servers[0].Weight = 1
-	spec.ServersTags = []string{"v2"}
-	if spec.Validate() == nil {
-		t.Error("validate should fail")
-	}
-
-	spec.ServersTags = []string{"v1"}
-	if spec.Validate() != nil {
-		t.Error("validate should succeed")
-	}
-}
-
-func createTracing(assert *assert.Assertions, url string) *tracing.Tracing {
-	if url == "" {
-		url = "http://localhost:9411"
-	}
-	spec := `
-serviceName: testService
-tags:
-    MyTagKey: X-value
-    SecondTag: 382
-zipkin:
-    hostport: 0.0.0.0:10087
-    serverURL: <URL>/api/v2/spans
-    sampleRate: 1
-    sameSpan: true
-    id128Bit: false
-`
-	spec = strings.Replace(spec, "<URL>", url, 1)
-	rawSpec := tracing.Spec{}
-	yamltool.Unmarshal([]byte(spec), &rawSpec)
-	tracer, err := tracing.New(&rawSpec)
-	assert.Nil(err)
-	return tracer
-}
-
-func TestProxyClient(t *testing.T) {
 	assert := assert.New(t)
 
-	client := &http.Client{}
-	pc := NewClient(client, nil)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		wg.Done()
-	}))
-	ctx := context.Background()
-	stdr, err := http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
-	assert.Nil(err)
-	pc.Do(stdr)
-
-	// with tracing
-	tracer := createTracing(assert, "")
-	tracer.Tracer.SetNoop(true) // skip sending spans
-	pc = NewClient(client, tracer)
-	stdr, err = http.NewRequestWithContext(ctx, "GET", ts.URL, nil)
-	assert.Nil(err)
-	pc.Do(stdr)
-	wg.Wait()
-	tracer.Close()
-	ts.Close()
-}
-
-func TestHandleWithTracing(t *testing.T) {
-	logger.InitNop()
-	assert := assert.New(t)
-
-	//httppipeline.Register(&Proxy{})
-
-	const proxySpec = `
+	// no main pool
+	yamlSpec := `
 name: proxy
 kind: Proxy
-mainPool:
+pools:
+- filter:
+    headers:
+      "X-Test":
+        exact: testheader
   servers:
   - url: http://127.0.0.1:9095
-  loadBalance:
-    policy: roundRobin`
+`
+	spec := &Spec{}
+	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
 
-	var mockMap sync.Map
-	clsMock := clustertest.NewMockedCluster()
-	superMock := supervisor.NewMock(nil, clsMock, mockMap, mockMap, nil, nil, false, nil, nil)
+	// no servers and service discovery
+	yamlSpec = `
+name: proxy
+kind: Proxy
+pools:
+- spanName: test
+`
+	spec = &Spec{}
+	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
 
-	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(proxySpec), &rawSpec)
-	spec, err := httppipeline.NewFilterSpec(rawSpec, superMock)
-	assert.Nil(err)
-	proxy := &Proxy{}
-	proxy.Init(spec)
+	// two main pools
+	yamlSpec = `
+name: proxy
+kind: Proxy
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+- servers:
+  - url: http://127.0.0.2:9096
+`
+	spec = &Spec{}
+	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
 
-	ctx := &contexttest.MockedHTTPContext{}
-	ctx.MockedRequest.MockedHeader = func() *httpheader.HTTPHeader {
-		header := http.Header{}
-		return httpheader.New(header)
-	}
-	ctx.MockedTracing = func() *tracing.Tracing {
-		return tracing.NoopTracing
-	}
-	proxy.handle(ctx)
-	assert.Nil(proxy.client.Load().(*Client).zipkinClient)
+	// mirror pool: no filter
+	yamlSpec = `
+name: proxy
+kind: Proxy
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+mirrorPool:
+  servers:
+  - url: http://127.0.0.3:9095
+`
+	spec = &Spec{}
+	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
 
-	// HTTPServer updates tracing
-	tracer := createTracing(assert, "")
+	// mirror pool: has cache
+	yamlSpec = `
+name: proxy
+kind: Proxy
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+mirrorPool:
+  filter:
+    headers:
+      "X-Mirror":
+        exact: mirror
+  servers:
+  - url: http://127.0.0.3:9095
+  memoryCache:
+    Methods: [Get]
+`
+	spec = &Spec{}
+	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
+}
 
-	ctx.MockedTracing = func() *tracing.Tracing {
-		return tracer
-	}
+func TestTLSConfig(t *testing.T) {
+	assert := assert.New(t)
 
-	proxy.handle(ctx)
-	assert.NotNil(proxy.client.Load().(*Client).zipkinClient)
+	yamlSpec := `
+name: proxy
+kind: Proxy
+mtls:
+  certBase64: YWJjZGVmZw==
+  keyBase64: YWJjZGVmZ2FkZg==
+  rootCertBase64: YWJjM2VmZ2FkZg==
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+`
 
-	// HTTPServer removes tracing
-	ctx.MockedTracing = func() *tracing.Tracing {
-		return tracing.NoopTracing
-	}
-	proxy.handle(ctx)
-	assert.Nil(proxy.client.Load().(*Client).zipkinClient)
+	proxy := newTestProxy(yamlSpec, assert)
+	_, err := proxy.tlsConfig()
+	assert.Error(err)
 
-	tracer.Close() // normally HTTPServer closes this
+	yamlSpec = `
+name: proxy
+kind: Proxy
+mtls:
+  keyBase64: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRQ1M3YVJXYXNOTi9GVWgKRXBZcHFVRmhHL2k1SGY2dFl4REZ0djhvcUxBRGNjaThabWlZSFczWHJ3aVFENXdia2prZFpMMkRrZFdUbVFnUwpkVUYxS2NzREhIc2UyNDFlbGw0U3BVSXIrVndMZXplUnMwSm1PQ3FYWWxzTHJCUElyRzh6MXZzY0lnZ2tNVVBaCnl1aUJsc0FUWDJLenk1Rm9oZjJRcUthQmllZFA2cmtZU1YrV2Jqc0drcTlVODEyT0UrTFhONUtKaGhEQnF6TS8KNUlnSlgycnY0TXRjU0JwelRNS0h1YmcvdG5hVlM3Ykc1Wmpyc0ZDcWc5bTNJbUc0Ti9BbFVtMTRrU1M0UC9CRgpXMGFBcC9BYjNxT0hVbzlzaXRyK040aTJOckhjQWkyc3BFR29nTGgzS1JTN2ZvVldKSFkrY2hTTGRyMGZmRGxJCng3dXhvQWVWQWdNQkFBRUNnZ0VBQW9FVVpQaXEzWUJvZndqUEVHUzNIWTJaZnFZNU9nRlBQdDl3bCtQUUpDN2oKU2ZyQTI1N2N5V2xOVHc5RkROOUFJL1VjbWNwNWhtdDhUTHc4NGw5VSszZVh6WjNXV2Y5Y0dSdEI5bmZvanJXSgo2K3pQTytqSEtROWZGK0xWNzN5bzVJeE1lVjFISUQ3S3RrS1VGZWxZMnJ1c2RmNEpPMnZWTjRyNFU0cmpLMlNCCktLTkp1U0hxZ01LV21rVmZsS1RhSGlyY2ZBV09sc1ZxWjlzUnpKdTJpcUc1NmtzVFBnRG9LK05obnNyaEc5cEwKT0pwQzRCeDVaQ2J5eUdTYXpjWXNDOTRUQnV6a1E5cGJvcjJTMkl2dC9pc00zaFdhUFhKVk1uNVVpUEhQYWlpNgpvVFpDcFhWTlJidkJyOFVuZFo1ODZQRmJJUWVsN2wzODRGZ2I4Zk95b1FLQmdRRERFY1JsZUIvc0FBWTZjbzAxCkRLVEdXaG9JMFZKRUYwZDhBWlRkR0s1ZEc0R1RnTGhOWFpEZDA2blFITDhxenlwMnppWlNjQTVVbXRsTUFKaWcKenhXNVFDaHZyNGdzT0ZNKzVVWk5sNjU1SU9mL0VQVG1wbUI4ZjhGaDNFT1paRkpaa3h1eVY0eXVoZWpkZnZEYQozeVVzYnFEOU5WZURReWpRZFNzT3U0WHF2UUtCZ1FEQTBtUlpsNkNyZGlRWUdMaXk3ZmY5VUtpQkNZMjZ0c08wCk02am1YMy81V21KTkt0eXZSZFFsbkJtbExMVGEyTlN2WVNVbk9uYklXZGd0SmRWVzhMUEp5ejBKcy9mM3BEam0KUzJoQzZNdjJZb3VhemtQcWlmelh4ZGl4NTJSMXdNT1dPN1VONUJvbE5SVkRDSkNYdVQ1c0YwTDYxRG1YWFdBdwpKRW5mbU9mSnVRS0JnQ3ZxT2c2bDVublkzNDRVNzlrN2lYVG1IK3BRUlhieXpyTUtJQnRPVFNMRTZIenVnNDlYCk94L1ZZT3RyTFZaVDRUbHgyNHEvazFwVXFnckVMNWcwUnEyMzFlS2UzOGNrdndqdjBNM3pFZUpQR0N1Q0E4QlIKUUhPR3gyQmltQTFXV251ejlJNUh5M0lXejMvZDdoYzRHVVJSZTRqRmszZ0hqSTZ4Y2dvVkNXYjVBb0dBRFNrTwo4bEo0QTl2ZllNbW5LWWMyYXRLcmZZc2lZa0VCSUhaNks2Y08rL3pnUXJZUE0rTkhOSDN2L2ljTC9QZlpwRkswCkQzWmREeFdhdkpJZGVuNlpOc2VwVmRVenNuSkI4KzNub3RGeXdsRTlpQVpWK2xjS3E4dDBHOGhZUWZVekpEalYKQmFxdzRpTTZYVVhqWUllakxBdDJaZHBBU0FWMmdES3AzQm42ai9rQ2dZRUFubEtSLzNRUFROTEtkUTE3cWhHVApYYjBUUGtRdWlQQkU0aWJmTDN1NTZDaVNzd3h1RlM4S2szTkYxMTVrUVh4VWR2T3ZrU0lBOFlwU1dzWGdxZzh0CnRTQjBDcGlhTzNLOWxOWEh3ZmNzcHlYVENWaFg5NElvOWhEenZ1bGtqRmIzaG41ams5SFovM3FIWCs3Z1ErbXYKeU5iS3pZcnVlRUhzWWpMVzJmZlpSeXc9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+  certBase64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURJVENDQWdtZ0F3SUJBZ0lRU1FIYU5pMUlzd2hKcnZwcDBrRytRREFOQmdrcWhraUc5dzBCQVFzRkFEQVMKTVJBd0RnWURWUVFLRXdkQlkyMWxJRU52TUI0WERURTJNREV3TVRFMU1EUXdOVm9YRFRJMU1USXlPVEUxTURRdwpOVm93RWpFUU1BNEdBMVVFQ2hNSFFXTnRaU0JEYnpDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDCkFRb0NnZ0VCQUpMdHBGWnF3MDM4VlNFU2xpbXBRV0ViK0xrZC9xMWpFTVcyL3lpb3NBTnh5THhtYUpnZGJkZXYKQ0pBUG5CdVNPUjFrdllPUjFaT1pDQkoxUVhVcHl3TWNleDdialY2V1hoS2xRaXY1WEF0N041R3pRbVk0S3BkaQpXd3VzRThpc2J6UFcreHdpQ0NReFE5bks2SUdXd0JOZllyUExrV2lGL1pDb3BvR0o1MC9xdVJoSlg1WnVPd2FTCnIxVHpYWTRUNHRjM2tvbUdFTUdyTXova2lBbGZhdS9neTF4SUduTk13b2U1dUQrMmRwVkx0c2JsbU91d1VLcUQKMmJjaVliZzM4Q1ZTYlhpUkpMZy84RVZiUm9DbjhCdmVvNGRTajJ5SzJ2NDNpTFkyc2R3Q0xheWtRYWlBdUhjcApGTHQraFZZa2RqNXlGSXQydlI5OE9Vakh1N0dnQjVVQ0F3RUFBYU56TUhFd0RnWURWUjBQQVFIL0JBUURBZ0trCk1CTUdBMVVkSlFRTU1Bb0dDQ3NHQVFVRkJ3TUJNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUUKRkdNb0xXMW5tWkU0LzhodVhyTkJjRzdHK0txcU1Cb0dBMVVkRVFRVE1CR0NDV3h2WTJGc2FHOXpkSWNFZndBQQpBVEFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBaGlOK1VUQjlpMUd5QzZnUTRCeDZ4VlJIUzJnYjFoVUlKU3pJClhXT1h5cEMxVjlNUnpHeWJsQTdQYzhJUHllWlRGQkkyUS9xWUNMaWh2S3hRbzZuUk5zQU5zdVFqRGtNakpVUkYKQldhQzZwQzNWRVZ5YURtNnYzelVYcWczZllSbDJvalc0dkZQbDhrdkkxbGxWaGxZZEs0VjVVVTI5R1h0WklJZgpPQTlJa0JVZDJwMVBmQ0J0QWRrc21qTVBWczZUalBzVHdHd2dKa0FqVUlwV1ZjRTUzT1JSQ1JsRDZLK2xDc1RLClBqVGRteXpMeEUyQTltT2xhMEVac3JaNGh5ZmVlMW9rU1dQMFFRUmNVQU1MNDlPR2JMOXY5RXZPaFVac29lczYKWUgzcUVjYWVhaFlJSG00ZnZ3aUJkRUpyT0RaUmt2V2l2ZDlVUU9Lc25BSzI0TENWcEE9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+  rootCertBase64: YWJjM2VmZ2FkZg==
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+`
+	proxy = newTestProxy(yamlSpec, assert)
+	_, err = proxy.tlsConfig()
+	assert.NoError(err)
 }

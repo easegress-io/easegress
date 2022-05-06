@@ -36,11 +36,11 @@ type RequestMatcher interface {
 
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
-	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
 	MatchAllHeaders bool                      `yaml:"matchAllHeaders" jsonschema:"omitempty"`
 	Headers         map[string]*StringMatcher `yaml:"headers" jsonschema:"omitempty"`
 	URLs            []*MethodAndURLMatcher    `yaml:"urls" jsonschema:"omitempty"`
-	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=1,maximum=1000"`
+	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
 	HeaderHashKey   string                    `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 
@@ -157,9 +157,9 @@ func (gm *generalMatcher) init() {
 func (gm *generalMatcher) Match(req *httpprot.Request) bool {
 	matched := false
 	if gm.matchAllHeaders {
-		matched = gm.matchOneHeader(req)
-	} else {
 		matched = gm.matchAllHeader(req)
+	} else {
+		matched = gm.matchOneHeader(req)
 	}
 
 	if matched && len(gm.urls) > 0 {
@@ -235,16 +235,11 @@ type MethodAndURLMatcher struct {
 
 // Validate validates the MethodAndURLMatcher.
 func (r *MethodAndURLMatcher) Validate() error {
-	if r.URL != nil {
-		return r.URL.Validate()
-	}
-	return nil
+	return r.URL.Validate()
 }
 
 func (r *MethodAndURLMatcher) init() {
-	if r.URL != nil {
-		r.URL.init()
-	}
+	r.URL.init()
 }
 
 // Match matches a request.

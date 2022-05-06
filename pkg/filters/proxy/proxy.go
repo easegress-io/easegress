@@ -30,7 +30,6 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -93,8 +92,6 @@ type (
 		super *supervisor.Supervisor
 		spec  *Spec
 
-		fallback *fallback.Fallback
-
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
 		mirrorPool     *ServerPool
@@ -108,20 +105,12 @@ type (
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		Fallback            *FallbackSpec     `yaml:"fallback,omitempty" jsonschema:"omitempty"`
 		Pools               []*ServerPoolSpec `yaml:"pools" jsonschema:"required"`
 		MirrorPool          *ServerPoolSpec   `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		FailureCodes        []int             `yaml:"failureCodes" jsonschema:"omitempty,uniqueItems=true,format=httpcode-array"`
 		Compression         *CompressionSpec  `yaml:"compression,omitempty" jsonschema:"omitempty"`
 		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
 		MaxIdleConnsPerHost int               `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-	}
-
-	// FallbackSpec describes the fallback policy.
-	FallbackSpec struct {
-		ForCodes      bool `yaml:"forCodes"`
-		fallback.Spec `yaml:",inline"`
 	}
 
 	// Status is the status of Proxy.
@@ -142,15 +131,13 @@ type (
 // Validate validates Spec.
 func (s *Spec) Validate() error {
 	numMainPool := 0
-	for _, pool := range s.Pools {
+	for i, pool := range s.Pools {
 		if pool.Filter == nil {
 			numMainPool++
 		}
-		/*
-			if err := pool.Validate(p); err != nil {
-				return fmt.Errorf("pool %d: %v", i, err)
-			}
-		*/
+		if err := pool.Validate(); err != nil {
+			return fmt.Errorf("pool %d: %v", i, err)
+		}
 	}
 
 	if numMainPool != 1 {
@@ -163,12 +150,6 @@ func (s *Spec) Validate() error {
 		}
 		if s.MirrorPool.MemoryCache != nil {
 			return fmt.Errorf("memoryCache must be empty in mirrorPool")
-		}
-	}
-
-	if len(s.FailureCodes) == 0 {
-		if s.Fallback != nil {
-			return fmt.Errorf("fallback needs failureCodes")
 		}
 	}
 
@@ -201,11 +182,11 @@ func (p *Proxy) Inherit(previousGeneration filters.Filter) {
 	p.reload()
 }
 
-func (p *Proxy) tlsConfig() *tls.Config {
+func (p *Proxy) tlsConfig() (*tls.Config, error) {
 	mtls := p.spec.MTLS
 
 	if mtls == nil {
-		return &tls.Config{InsecureSkipVerify: true}
+		return &tls.Config{InsecureSkipVerify: true}, nil
 	}
 
 	certPem, _ := base64.StdEncoding.DecodeString(mtls.CertBase64)
@@ -213,7 +194,7 @@ func (p *Proxy) tlsConfig() *tls.Config {
 	cert, err := tls.X509KeyPair(certPem, keyPem)
 	if err != nil {
 		logger.Errorf("proxy generates x509 key pair failed: %v", err)
-		return &tls.Config{InsecureSkipVerify: true}
+		return &tls.Config{InsecureSkipVerify: true}, err
 	}
 
 	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
@@ -223,7 +204,7 @@ func (p *Proxy) tlsConfig() *tls.Config {
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caCertPool,
-	}
+	}, nil
 }
 
 func (p *Proxy) reload() {
@@ -254,6 +235,7 @@ func (p *Proxy) reload() {
 		p.compression = newCompression(p.spec.Compression)
 	}
 
+	tlsCfg, _ := p.tlsConfig()
 	p.client = &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: 0,
@@ -264,7 +246,7 @@ func (p *Proxy) reload() {
 				KeepAlive: 60 * time.Second,
 				DualStack: true,
 			}).DialContext,
-			TLSClientConfig:    p.tlsConfig(),
+			TLSClientConfig:    tlsCfg,
 			DisableCompression: false,
 			// NOTE: The large number of Idle Connections can
 			// reduce overhead of building connections.
@@ -310,19 +292,6 @@ func (p *Proxy) Close() {
 	}
 }
 
-func (p *Proxy) fallbackForCodes(ctx context.Context) bool {
-	if p.fallback != nil && p.spec.Fallback.ForCodes {
-		resp := ctx.Response().(*httpprot.Response)
-		for _, code := range p.spec.FailureCodes {
-			if resp.StatusCode() == code {
-				p.fallback.Fallback(resp)
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // Handle handles HTTPContext.
 func (p *Proxy) Handle(ctx *context.Context) (result string) {
 	req := ctx.Request().(*httpprot.Request)
@@ -339,7 +308,6 @@ func (p *Proxy) Handle(ctx *context.Context) (result string) {
 		}
 	}
 
-	// TODO: fallback
 	return sp.handle(ctx, false)
 }
 

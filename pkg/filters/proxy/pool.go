@@ -132,7 +132,7 @@ type ServerPoolSpec struct {
 	Servers            []*Server           `yaml:"servers" jsonschema:"omitempty"`
 	ServiceRegistry    string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName        string              `yaml:"serviceName" jsonschema:"omitempty"`
-	LoadBalance        *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"required"`
+	LoadBalance        *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
 	Timeout            string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 	RetryPolicy        string              `yaml:"retryPolicy" jsonschema:"omitempty"`
 	CircuitBreakPolicy string              `yaml:"circuitBreakPolicy" jsonschema:"omitempty"`
@@ -381,7 +381,11 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		spCtx.resp = nil
 		spCtx.stdResp = nil
 
-		spCtx.span = ctx.Span().NewChild(sp.spec.SpanName)
+		spanName := sp.spec.SpanName
+		if spanName == "" {
+			spanName = sp.name
+		}
+		spCtx.span = ctx.Span().NewChild(spanName)
 		defer spCtx.span.Finish()
 
 		return sp.doHandle(stdctx, spCtx)
