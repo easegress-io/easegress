@@ -141,7 +141,7 @@ func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
 	return ipFilter.Allow(ip)
 }
 
-func (mi *muxInstance) getCacheRoute(req *httpprot.Request) *route {
+func (mi *muxInstance) getRouteFromCache(req *httpprot.Request) *route {
 	if mi.cache != nil {
 		key := stringtool.Cat(req.Host(), req.Method(), req.Path())
 		if value, ok := mi.cache.Get(key); ok {
@@ -166,8 +166,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 		hostRE, err = regexp.Compile(rule.HostRegexp)
 		// defensive programming
 		if err != nil {
-			logger.Errorf("BUG: compile %s failed: %v",
-				rule.HostRegexp, err)
+			logger.Errorf("BUG: compile %s failed: %v", rule.HostRegexp, err)
 		}
 	}
 
@@ -209,8 +208,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		pathRE, err = regexp.Compile(path.PathRegexp)
 		// defensive programming
 		if err != nil {
-			logger.Errorf("BUG: compile %s failed: %v",
-				path.PathRegexp, err)
+			logger.Errorf("BUG: compile %s failed: %v", path.PathRegexp, err)
 		}
 	}
 
@@ -484,7 +482,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	route.path.rewrite(req)
 	if mi.spec.XForwardedFor {
-		mi.appendXForwardedFor(req)
+		appendXForwardedFor(req)
 	}
 
 	bodySize, err := req.FetchPayload()
@@ -511,7 +509,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
 	// headers.
-	r := mi.getCacheRoute(req)
+	r := mi.getRouteFromCache(req)
 	if r != nil {
 		if r.code != 0 {
 			return r
@@ -561,7 +559,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				return forbidden
 			}
 
-			return r
+			return &route{code: 0, path: path}
 		}
 	}
 
@@ -578,7 +576,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 	return notFound
 }
 
-func (mi *muxInstance) appendXForwardedFor(r *httpprot.Request) {
+func appendXForwardedFor(r *httpprot.Request) {
 	const xForwardedFor = "X-Forwarded-For"
 
 	v := r.HTTPHeader().Get(xForwardedFor)

@@ -18,23 +18,15 @@
 package httpserver
 
 import (
-	"os"
 	"testing"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
-}
-
-func TestHTTPServer(t *testing.T) {
+func TestNewRuntim(t *testing.T) {
 	assert := assert.New(t)
 
 	yamlSpec := `
@@ -47,8 +39,39 @@ https: false
 	superSpec, err := supervisor.NewSpec(yamlSpec)
 	assert.NoError(err)
 
-	svr := &HTTPServer{}
-	svr.Init(superSpec, &contexttest.MockedMuxMapper{})
+	r := newRuntime(superSpec, &contexttest.MockedMuxMapper{})
+	assert.NotNil(r)
+
+	yamlSpec = `
+kind: HTTPServer
+name: test
+port: 8080
+keepAlive: true
+https: false
+cacheSize: 100
+tracing:
+  serviceName: test
+  zipkin:
+    serverURL: http://test.megaease.com/zipkin
+    sampleRate: 0.1
+rules:
+- host: www.megaease.com
+  paths:
+  - path: /abc
+    backend: abc-pipeline
+- host: www.megaease.cn
+  paths:
+  - pathPrefix: /xyz
+    backend: xyz-pipeline
+`
+	superSpec, err = supervisor.NewSpec(yamlSpec)
+	assert.NoError(err)
+
+	r.reload(superSpec, &contexttest.MockedMuxMapper{})
+
+	time.Sleep(500 * time.Millisecond)
+
+	assert.NotNil(r.Status())
 
 	yamlSpec = `
 kind: HTTPServer
@@ -59,11 +82,8 @@ https: false
 `
 	superSpec, err = supervisor.NewSpec(yamlSpec)
 	assert.NoError(err)
-	svr2 := &HTTPServer{}
-	svr2.Inherit(superSpec, svr, &contexttest.MockedMuxMapper{})
+	assert.True(r.needRestartServer(superSpec.ObjectSpec().(*Spec)))
 
-	time.Sleep(200 * time.Millisecond)
-	assert.NotNil(svr2.Status())
-	svr2.Close()
-	time.Sleep(200 * time.Millisecond)
+	r.Close()
+	time.Sleep(100 * time.Millisecond)
 }
