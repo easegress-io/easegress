@@ -335,6 +335,9 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			} else {
 				p.PathPrefix = path.Path
 			}
+
+			p.RewriteTarget = ingress.Annotations["easegress.ingress.kubernetes.io/rewrite-target"]
+
 			r.Paths = append(r.Paths, &p)
 		}
 
