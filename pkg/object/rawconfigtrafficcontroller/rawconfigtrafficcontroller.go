@@ -90,9 +90,9 @@ func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousG
 	rctc.Init(spec)
 }
 
-// GetHTTPPipeline gets Pipeline within the default namespace
-func (rctc *RawConfigTrafficController) GetHTTPPipeline(name string) (context.Handler, bool) {
-	p, exist := rctc.tc.GetHTTPPipeline(DefaultNamespace, name)
+// GetPipeline gets Pipeline within the default namespace
+func (rctc *RawConfigTrafficController) GetPipeline(name string) (context.Handler, bool) {
+	p, exist := rctc.tc.GetPipeline(DefaultNamespace, name)
 	if !exist {
 		return nil, false
 	}
@@ -142,7 +142,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		case httpserver.Kind:
 			err = rctc.tc.DeleteHTTPServer(DefaultNamespace, name)
 		case pipeline.Kind:
-			err = rctc.tc.DeleteHTTPPipeline(DefaultNamespace, name)
+			err = rctc.tc.DeletePipeline(DefaultNamespace, name)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -160,7 +160,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		case httpserver.Kind:
 			_, err = rctc.tc.CreateHTTPServer(DefaultNamespace, entity)
 		case pipeline.Kind:
-			_, err = rctc.tc.CreateHTTPPipeline(DefaultNamespace, entity)
+			_, err = rctc.tc.CreatePipeline(DefaultNamespace, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -178,7 +178,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		case httpserver.Kind:
 			_, err = rctc.tc.UpdateHTTPServer(DefaultNamespace, entity)
 		case pipeline.Kind:
-			_, err = rctc.tc.UpdateHTTPPipeline(DefaultNamespace, entity)
+			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, entity)
 		default:
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -192,9 +192,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 // Status returns the status of RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	status := &Status{
-		Namespace:     rctc.namespace,
-		HTTPServers:   make(map[string]*trafficcontroller.HTTPServerStatus),
-		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
+		Namespace:   rctc.namespace,
+		HTTPServers: make(map[string]*trafficcontroller.HTTPServerStatus),
+		Pipelines:   make(map[string]*trafficcontroller.PipelineStatus),
 	}
 
 	rctc.tc.WalkHTTPServers(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
@@ -205,8 +205,8 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 		return true
 	})
 
-	rctc.tc.WalkHTTPPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
+	rctc.tc.WalkPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.Pipelines[entity.Spec().Name()] = &trafficcontroller.PipelineStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
 		}

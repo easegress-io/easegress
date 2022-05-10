@@ -439,7 +439,7 @@ func (egs *EgressServer) reload() {
 		}
 		logger.Infof("service: %s visit: %s pipeline init ok", egs.serviceName, svc.Name)
 
-		entity, err := egs.tc.CreateHTTPPipelineForSpec(egs.namespace, pipelineSpec)
+		entity, err := egs.tc.CreatePipelineForSpec(egs.namespace, pipelineSpec)
 		if err != nil {
 			logger.Errorf("update http pipeline failed: %v", err)
 			return
@@ -554,7 +554,7 @@ func (egs *EgressServer) Close() {
 	if egs._ready() {
 		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {
-			egs.tc.DeleteHTTPPipeline(egs.namespace, entity.Spec().Name())
+			egs.tc.DeletePipeline(egs.namespace, entity.Spec().Name())
 		}
 	}
 }

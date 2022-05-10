@@ -190,7 +190,7 @@ func (s *Server) _getStatusObjectFromTrafficController(name string, spec *superv
 			}
 			ans[key] = string(b)
 		} else if spec.Kind() == pipeline.Kind {
-			status := &trafficcontroller.HTTPPipelineStatus{}
+			status := &trafficcontroller.PipelineStatus{}
 			err = yaml.Unmarshal([]byte(v), status)
 			if err != nil {
 				ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))

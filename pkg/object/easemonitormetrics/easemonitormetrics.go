@@ -298,9 +298,9 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 			reqs, codes := emm.httpServer2Metrics(baseFields, status.Status)
 			reqMetrics = append(reqMetrics, reqs...)
 			codeMetrics = append(codeMetrics, codes...)
-		case *trafficcontroller.HTTPPipelineStatus:
+		case *trafficcontroller.PipelineStatus:
 			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
-			reqs, codes := emm.httpPipeline2Metrics(baseFields, status.Status)
+			reqs, codes := emm.pipeline2Metrics(baseFields, status.Status)
 			reqMetrics = append(reqMetrics, reqs...)
 			codeMetrics = append(codeMetrics, codes...)
 		default:
@@ -336,7 +336,7 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 	return messages
 }
 
-func (emm *EaseMonitorMetrics) httpPipeline2Metrics(baseFields *GlobalFields, pipelineStatus *pipeline.Status) (
+func (emm *EaseMonitorMetrics) pipeline2Metrics(baseFields *GlobalFields, pipelineStatus *pipeline.Status) (
 	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
 
 	for filterName, filterStatus := range pipelineStatus.Filters {

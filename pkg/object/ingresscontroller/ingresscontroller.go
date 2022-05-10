@@ -207,7 +207,7 @@ func (ic *IngressController) translate() error {
 
 	pipelines := st.pipelineSpecs()
 	for _, spec := range pipelines {
-		_, err = ic.tc.ApplyHTTPPipelineForSpec(ic.namespace, spec)
+		_, err = ic.tc.ApplyPipelineForSpec(ic.namespace, spec)
 		if err != nil {
 			logger.Errorf("BUG: failed to apply pipeline spec to %s: %v", spec.Name(), err)
 		}
@@ -222,9 +222,9 @@ func (ic *IngressController) translate() error {
 		logger.Debugf("http server updated")
 	}
 
-	for _, p := range ic.tc.ListHTTPPipelines(ic.namespace) {
+	for _, p := range ic.tc.ListPipelines(ic.namespace) {
 		if _, ok := pipelines[p.Spec().Name()]; !ok {
-			ic.tc.DeleteHTTPPipeline(ic.namespace, p.Spec().Name())
+			ic.tc.DeletePipeline(ic.namespace, p.Spec().Name())
 		}
 	}
 
