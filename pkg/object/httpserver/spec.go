@@ -78,14 +78,15 @@ type (
 
 	// Path is second level entry of router.
 	Path struct {
-		IPFilter      *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Path          string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix    string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathRegexp    string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		RewriteTarget string         `yaml:"rewriteTarget" jsonschema:"omitempty"`
-		Methods       []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		Backend       string         `yaml:"backend" jsonschema:"required"`
-		Headers       []*Header      `yaml:"headers" jsonschema:"omitempty"`
+		IPFilter       *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Path           string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix     string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathRegexp     string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		RewriteTarget  string         `yaml:"rewriteTarget" jsonschema:"omitempty"`
+		Methods        []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		Backend        string         `yaml:"backend" jsonschema:"required"`
+		Headers        []*Header      `yaml:"headers" jsonschema:"omitempty"`
+		MatchAllHeader bool           `yaml:"MatchAllHeader" jsonschema:"omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
