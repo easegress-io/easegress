@@ -88,6 +88,7 @@ type (
 		Backend           string         `yaml:"backend" jsonschema:"required"`
 		Headers           []*Header      `yaml:"headers" jsonschema:"omitempty"`
 		ClientMaxBodySize int64          `yaml:"clientMaxBodySize" jsonschema:"omitempty"`
+		MatchAllHeader    bool           `yaml:"MatchAllHeader" jsonschema:"omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean

@@ -92,6 +92,7 @@ type (
 		backend           string
 		headers           []*Header
 		clientMaxBodySize int64
+		mathAllHeader     bool
 	}
 
 	route struct {
@@ -222,16 +223,16 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		ipFilter:      newIPFilter(path.IPFilter),
 		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
 
-		path:          path.Path,
-		pathPrefix:    path.PathPrefix,
-		pathRegexp:    path.PathRegexp,
-		pathRE:        pathRE,
-		rewriteTarget: path.RewriteTarget,
-		methods:       path.Methods,
-		backend:       path.Backend,
-		headers:       path.Headers,
-
+		path:              path.Path,
+		pathPrefix:        path.PathPrefix,
+		pathRegexp:        path.PathRegexp,
+		pathRE:            pathRE,
+		rewriteTarget:     path.RewriteTarget,
+		methods:           path.Methods,
+		backend:           path.Backend,
+		headers:           path.Headers,
 		clientMaxBodySize: path.ClientMaxBodySize,
+		mathAllHeader:     path.MatchAllHeader,
 	}
 }
 
@@ -286,18 +287,33 @@ func (mp *MuxPath) matchMethod(r *httpprot.Request) bool {
 }
 
 func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
-	for _, h := range mp.headers {
-		v := r.HTTPHeader().Get(h.Key)
-		if stringtool.StrInSlice(v, h.Values) {
-			return true
+	if mp.mathAllHeader {
+		for _, h := range mp.headers {
+			v := r.HTTPHeader().Get(h.Key)
+			if !stringtool.StrInSlice(v, h.Values) {
+				return false
+			}
+
+			if h.Regexp != "" && !h.headerRE.MatchString(v) {
+				return false
+			}
 		}
 
-		if h.Regexp != "" && h.headerRE.MatchString(v) {
-			return true
+		return true
+	} else {
+		for _, h := range mp.headers {
+			v := r.HTTPHeader().Get(h.Key)
+			if stringtool.StrInSlice(v, h.Values) {
+				return true
+			}
+
+			if h.Regexp != "" && h.headerRE.MatchString(v) {
+				return true
+			}
 		}
+
+		return false
 	}
-
-	return false
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
