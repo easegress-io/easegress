@@ -1,5 +1,29 @@
 # Changelog
 
+
+## [v1.5.2](https://github.com/megaease/easegress/tree/v1.5.2) (2022-04-06)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.1...v1.5.2)
+
+**Significant changes:**
+
+- Support external standalone etcd [\#595](https://github.com/megaease/easegress/pull/595)
+
+**Implemented enhancements:**
+
+- Support Easegress ingress rewrite target [\#617](https://github.com/megaease/easegress/pull/617)
+- Support the AND-OR header strategy in HTTPServer [\#613](https://github.com/megaease/easegress/pull/613)
+- Support proxy to send zipkin b3 headers [\#579](https://github.com/megaease/easegress/pull/579)
+
+**Fixed bugs:**
+- Fix proxy pool bug [\#614](https://github.com/megaease/easegress/pull/614)
+- Fix FaasController request host field [\#586](https://github.com/megaease/easegress/pull/586)
+- Fix Easemonitor metrics status convert error [\#583](https://github.com/megaease/easegress/pull/583)
+- Fix Status sync controller pointer error [\#582](https://github.com/megaease/easegress/pull/582) 
+- Fix HTTPPipeline creation fail [\#577](https://github.com/megaease/easegress/pull/577)
+
+
+
 ## [v1.5.1](https://github.com/megaease/easegress/tree/v1.5.1) (2022-04-06)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.5.0...v1.5.1)
