@@ -18,9 +18,9 @@
 **Fixed bugs:**
 - Fix proxy pool bug [\#614](https://github.com/megaease/easegress/pull/614)
 - Fix FaasController request host field [\#586](https://github.com/megaease/easegress/pull/586)
-- fix Easemonitor metrics status convert error [\#583](https://github.com/megaease/easegress/pull/583)
-- fix Status sync controller pointer error [\#582](https://github.com/megaease/easegress/pull/582) 
-- fix HTTPPipeline creation fail [\#577](https://github.com/megaease/easegress/pull/577)
+- Fix Easemonitor metrics status convert error [\#583](https://github.com/megaease/easegress/pull/583)
+- Fix Status sync controller pointer error [\#582](https://github.com/megaease/easegress/pull/582) 
+- Fix HTTPPipeline creation fail [\#577](https://github.com/megaease/easegress/pull/577)
 
 
 
