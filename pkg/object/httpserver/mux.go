@@ -20,6 +20,7 @@ package httpserver
 import (
 	"net"
 	"net/http"
+	stdpath "path"
 	"reflect"
 	"regexp"
 	"strings"
@@ -278,7 +279,8 @@ func (mp *MuxPath) handleRewrite(ctx context.HTTPContext) {
 	}
 
 	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
-		path = mp.rewriteTarget + path[len(mp.pathPrefix):]
+		path = stdpath.Join(mp.rewriteTarget, path[len(mp.pathPrefix):])
+
 		ctx.Request().SetPath(path)
 		return
 	}
