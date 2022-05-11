@@ -23,7 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
 
 const (
@@ -71,7 +71,6 @@ type (
 		BannedClients  []string `yaml:"bannedClients" jsonschema:"omitempty"`
 		BannedTopicRe  string   `yaml:"bannedTopicRe" jsonschema:"omitempty"`
 		BannedTopics   []string `yaml:"bannedTopics" jsonschema:"omitempty"`
-		EarlyStop      bool     `yaml:"earlyStop" jsonschema:"omitempty"`
 	}
 
 	// Status is ConnectControl filter status
@@ -84,7 +83,6 @@ type (
 )
 
 var _ filters.Filter = (*ConnectControl)(nil)
-var _ pipeline.MQTTFilter = (*ConnectControl)(nil)
 
 // Name returns the name of the ConnectControl filter instance.
 func (cc *ConnectControl) Name() string {
@@ -103,10 +101,6 @@ func (cc *ConnectControl) Spec() filters.Spec {
 
 // Init init ConnectControl with pipeline filter spec
 func (cc *ConnectControl) Init() {
-	spec := cc.spec
-	if spec.Protocol() != context.MQTT {
-		panic("filter ConnectControl only support MQTT protocol for now")
-	}
 	cc.bannedClients = make(map[string]struct{})
 	cc.bannedTopics = make(map[string]struct{})
 	cc.reload()
@@ -160,15 +154,15 @@ func (cc *ConnectControl) Status() interface{} {
 func (cc *ConnectControl) Close() {
 }
 
-func (cc *ConnectControl) checkBan(ctx context.MQTTContext) bool {
-	cid := ctx.Client().ClientID()
+func (cc *ConnectControl) checkBan(req *mqttprot.Request) bool {
+	cid := req.Client().ClientID()
 	if cc.bannedClientRe != nil && cc.bannedClientRe.MatchString(cid) {
 		return true
 	}
 	if _, ok := cc.bannedClients[cid]; ok {
 		return true
 	}
-	topic := ctx.PublishPacket().TopicName
+	topic := req.PublishPacket().TopicName
 	if cc.bannedTopicRe != nil && cc.bannedTopicRe.MatchString(topic) {
 		return true
 	}
@@ -179,17 +173,16 @@ func (cc *ConnectControl) checkBan(ctx context.MQTTContext) bool {
 }
 
 // HandleMQTT handle MQTT request
-func (cc *ConnectControl) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
-	if ctx.PacketType() != context.MQTTPublish {
-		return &context.MQTTResult{}
+func (cc *ConnectControl) Handle(ctx *context.Context) string {
+	req := ctx.Request().(*mqttprot.Request)
+	resp := ctx.Response().(*mqttprot.Response)
+	if req.PacketType() != mqttprot.PublishType {
+		return ""
 	}
 
-	if cc.checkBan(ctx) {
-		ctx.SetDisconnect()
-		if cc.spec.EarlyStop {
-			ctx.SetEarlyStop()
-		}
-		return &context.MQTTResult{ErrString: resultBannedClientOrTopic}
+	if cc.checkBan(req) {
+		resp.SetDisconnect()
+		return resultBannedClientOrTopic
 	}
-	return &context.MQTTResult{}
+	return ""
 }

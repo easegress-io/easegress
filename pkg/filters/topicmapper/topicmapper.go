@@ -21,7 +21,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
 
 const (
@@ -56,7 +56,6 @@ type (
 )
 
 var _ filters.Filter = (*TopicMapper)(nil)
-var _ pipeline.MQTTFilter = (*TopicMapper)(nil)
 
 // Name returns the name of the TopicMapper filter instance.
 func (k *TopicMapper) Name() string {
@@ -75,10 +74,6 @@ func (k *TopicMapper) Spec() filters.Spec {
 
 // Init init TopicMapper
 func (k *TopicMapper) Init() {
-	spec := k.spec
-	if spec.Protocol() != context.MQTT {
-		panic("filter TopicMapper only support MQTT protocol for now")
-	}
 	k.mapFn = getTopicMapFunc(k.spec)
 	if k.mapFn == nil {
 		panic("invalid spec for TopicMapper")
@@ -101,19 +96,20 @@ func (k *TopicMapper) Status() interface{} {
 }
 
 // HandleMQTT handle MQTT context
-func (k *TopicMapper) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
-	if ctx.PacketType() != context.MQTTPublish {
-		return &context.MQTTResult{}
+func (k *TopicMapper) Handle(ctx *context.Context) string {
+	req := ctx.Request().(*mqttprot.Request)
+	if req.PacketType() != mqttprot.PublishType {
+		return ""
 	}
 
-	publish := ctx.PublishPacket()
+	publish := req.PublishPacket()
 	topic, headers, err := k.mapFn(publish.TopicName)
 	if err != nil {
 		logger.Errorf("map topic %v failed, %v", publish.TopicName, err)
-		ctx.SetEarlyStop()
-		return &context.MQTTResult{ErrString: resultMQTTTopicMapFailed}
+
+		return resultMQTTTopicMapFailed
 	}
 	ctx.SetKV(k.spec.SetKV.Topic, topic)
 	ctx.SetKV(k.spec.SetKV.Headers, headers)
-	return &context.MQTTResult{ErrString: ""}
+	return ""
 }

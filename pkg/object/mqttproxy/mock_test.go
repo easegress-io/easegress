@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -197,34 +197,186 @@ func TestMockStorage(t *testing.T) {
 }
 
 type MockKafka struct {
-	ch chan *packets.PublishPacket
+	ch   chan *packets.PublishPacket
+	spec *MockKafkaSpec
 }
 
-type MockKafkaSpec struct{}
+type MockKafkaSpec struct {
+	filters.BaseSpec `yaml:",inline"`
+}
 
-var _ pipeline.MQTTFilter = (*MockKafka)(nil)
+var mockKafkaKind = &filters.Kind{
+	Name:        "MockKafka",
+	Description: "MockKafka filter is used for testing MQTTProxy",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &MockKafkaSpec{}
+	},
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &MockKafka{
+			spec: spec.(*MockKafkaSpec),
+		}
+	},
+}
 
-func (k *MockKafka) Kind() string                                              { return "MockKafka" }
-func (k *MockKafka) DefaultSpec() interface{}                                  { return &MockKafkaSpec{} }
-func (k *MockKafka) Status() interface{}                                       { return nil }
-func (k *MockKafka) Description() string                                       { return "mock kafka" }
-func (k *MockKafka) Inherit(filterSpec *filters.Spec, previous filters.Filter) {}
-func (k *MockKafka) Close()                                                    {}
-func (k *MockKafka) Results() []string                                         { return nil }
+var _ filters.Filter = (*MockKafka)(nil)
 
-func (k *MockKafka) Init(filterSpec *filters.Spec) {
+func (k *MockKafka) Name() string                    { return k.spec.Name() }
+func (k *MockKafka) Kind() *filters.Kind             { return mockKafkaKind }
+func (k *MockKafka) Spec() filters.Spec              { return nil }
+func (k *MockKafka) Status() interface{}             { return nil }
+func (k *MockKafka) Inherit(previous filters.Filter) {}
+func (k *MockKafka) Close()                          {}
+
+func (k *MockKafka) Init() {
 	k.ch = make(chan *packets.PublishPacket, 100)
 }
 
-func (k *MockKafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
-	if ctx.PacketType() != context.MQTTPublish {
-		panic(fmt.Errorf("mock kafka for test should only receive publish packet, but received %v", ctx.PacketType()))
+func (k *MockKafka) Handle(ctx *context.Context) string {
+	req := ctx.Request().(*mqttprot.Request)
+	if req.PacketType() != mqttprot.PublishType {
+		panic(fmt.Errorf("mock kafka for test should only receive publish packet, but received %v", req.PacketType()))
 	}
-	k.ch <- ctx.PublishPacket()
-	return &context.MQTTResult{}
+	k.ch <- req.PublishPacket()
+	return ""
 }
 
 func (k *MockKafka) get() *packets.PublishPacket {
 	p := <-k.ch
 	return p
 }
+
+var mockMQTTFilterKind = &filters.Kind{
+	Name:        "MockMQTTFilter",
+	Description: "MockFilter is used for testing MQTTProxy",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec {
+		return &MockMQTTSpec{}
+	},
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &MockMQTTFilter{spec: spec.(*MockMQTTSpec)}
+	},
+}
+
+var _ filters.Filter = (*MockMQTTFilter)(nil)
+
+// MockMQTTFilter is used for test pipeline, which will count the client number of MQTTContext
+type MockMQTTFilter struct {
+	mu sync.Mutex
+
+	spec        *MockMQTTSpec
+	clients     map[string]int
+	disconnect  map[string]struct{}
+	subscribe   map[string][]string
+	unsubscribe map[string][]string
+}
+
+// MockMQTTSpec is spec of MockMQTTFilter
+type MockMQTTSpec struct {
+	filters.BaseSpec `yaml:",inline"`
+	UserName         string   `yaml:"userName" jsonschema:"required"`
+	Password         string   `yaml:"password" jsonschema:"required"`
+	Port             uint16   `yaml:"port" jsonschema:"required"`
+	BackendType      string   `yaml:"backendType" jsonschema:"required"`
+	EarlyStop        bool     `yaml:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore      []string `yaml:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey       string   `yaml:"connectKey" jsonschema:"omitempty"`
+}
+
+// MockMQTTStatus is status of MockMQTTFilter
+type MockMQTTStatus struct {
+	ClientCount      map[string]int
+	ClientDisconnect map[string]struct{}
+	Subscribe        map[string][]string
+	Unsubscribe      map[string][]string
+}
+
+var _ filters.Filter = (*MockMQTTFilter)(nil)
+
+// Kind retrun kind of MockMQTTFilter
+func (m *MockMQTTFilter) Kind() *filters.Kind {
+	return mockMQTTFilterKind
+}
+
+// Init init MockMQTTFilter
+func (m *MockMQTTFilter) Init() {
+	m.clients = make(map[string]int)
+	m.disconnect = make(map[string]struct{})
+	m.subscribe = make(map[string][]string)
+	m.unsubscribe = make(map[string][]string)
+}
+
+func (m *MockMQTTFilter) Name() string {
+	return m.spec.Name()
+}
+
+func (m *MockMQTTFilter) Inherit(previous filters.Filter) {
+	m.Init()
+}
+
+// HandleMQTT handle MQTTContext
+func (m *MockMQTTFilter) Handle(ctx *context.Context) string {
+	req := ctx.Request().(*mqttprot.Request)
+	resp := ctx.Response().(*mqttprot.Response)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.clients[req.Client().ClientID()]++
+
+	switch req.PacketType() {
+	case mqttprot.ConnectType:
+		req.Client().Store(m.spec.ConnectKey, struct{}{})
+		if req.ConnectPacket().Username != m.spec.UserName || string(req.ConnectPacket().Password) != m.spec.Password {
+			resp.SetDisconnect()
+		}
+	case mqttprot.DisconnectType:
+		m.disconnect[req.Client().ClientID()] = struct{}{}
+	case mqttprot.SubscribeType:
+		m.subscribe[req.Client().ClientID()] = req.SubscribePacket().Topics
+	case mqttprot.UnsubscribeType:
+		m.unsubscribe[req.Client().ClientID()] = req.UnsubscribePacket().Topics
+	}
+
+	for _, k := range m.spec.KeysToStore {
+		req.Client().Store(k, struct{}{})
+	}
+	return ""
+}
+
+// Status return status of MockMQTTFilter
+func (m *MockMQTTFilter) Status() interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clientCount := make(map[string]int)
+	for k, v := range m.clients {
+		clientCount[k] = v
+	}
+	disconnect := make(map[string]struct{})
+	for k := range m.disconnect {
+		disconnect[k] = struct{}{}
+	}
+	subscribe := make(map[string][]string)
+	for k, v := range m.subscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		subscribe[k] = v
+	}
+	unsubscribe := make(map[string][]string)
+	for k, v := range m.unsubscribe {
+		vv := make([]string, len(v))
+		copy(vv, v)
+		unsubscribe[k] = vv
+	}
+	return MockMQTTStatus{
+		ClientCount:      clientCount,
+		ClientDisconnect: disconnect,
+		Subscribe:        subscribe,
+		Unsubscribe:      unsubscribe,
+	}
+}
+
+func (m *MockMQTTFilter) Spec() filters.Spec {
+	return &MockMQTTSpec{}
+}
+
+func (m *MockMQTTFilter) Close() {}

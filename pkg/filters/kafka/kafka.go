@@ -24,14 +24,14 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
 
 const (
 	// Kind is the kind of Kafka
-	Kind = "Kafka"
+	Kind = "KafkaMQTT"
 
-	resultGetDataFailed = "GetDataFailed"
+	resultGetDataFailed = "getDataFailed"
 )
 
 var kind = &filters.Kind{
@@ -41,7 +41,7 @@ var kind = &filters.Kind{
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
-	CreateInstance: func(spec filter.Spec) filters.Filter {
+	CreateInstance: func(spec filters.Spec) filters.Filter {
 		return &Kafka{spec: spec.(*Spec)}
 	},
 }
@@ -65,7 +65,6 @@ type (
 )
 
 var _ filters.Filter = (*Kafka)(nil)
-var _ pipeline.MQTTFilter = (*Kafka)(nil)
 
 // Name returns the name of the Kafka filter instance.
 func (k *Kafka) Name() string {
@@ -125,10 +124,6 @@ func (k *Kafka) setProducer() {
 
 // Init init Kafka
 func (k *Kafka) Init() {
-	spec := k.spec
-	if spec.Protocol() != context.MQTT {
-		panic("filter Kafka only support MQTT protocol for now")
-	}
 	k.done = make(chan struct{})
 	k.setKV()
 	k.setProducer()
@@ -151,7 +146,7 @@ func (k *Kafka) Status() interface{} {
 }
 
 // HandleMQTT handle MQTT context
-func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
+func (k *Kafka) Handle(ctx *context.Context) string {
 	var topic string
 	var headers map[string]string
 	var payload []byte
@@ -161,25 +156,26 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	if k.topicKey != "" {
 		topic, ok = ctx.GetKV(k.topicKey).(string)
 		if !ok {
-			return &context.MQTTResult{ErrString: resultGetDataFailed}
+			return resultGetDataFailed
 		}
 	}
 	if k.headerKey != "" {
 		headers, ok = ctx.GetKV(k.headerKey).(map[string]string)
 		if !ok {
-			return &context.MQTTResult{ErrString: resultGetDataFailed}
+			return resultGetDataFailed
 		}
 	}
 	if k.payloadKey != "" {
 		payload, ok = ctx.GetKV(k.payloadKey).([]byte)
 		if !ok {
-			return &context.MQTTResult{ErrString: resultGetDataFailed}
+			return resultGetDataFailed
 		}
 	}
 
+	req := ctx.Request().(*mqttprot.Request)
 	// set data from PublishPacket if data is missing
-	if ctx.PacketType() == context.MQTTPublish {
-		p := ctx.PublishPacket()
+	if req.PacketType() == mqttprot.PublishType {
+		p := req.PublishPacket()
 		if topic == "" {
 			topic = p.TopicName
 		}
@@ -193,7 +189,7 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 	}
 
 	if topic == "" || payload == nil {
-		return &context.MQTTResult{ErrString: resultGetDataFailed}
+		return resultGetDataFailed
 	}
 
 	kafkaHeaders := []sarama.RecordHeader{}
@@ -207,5 +203,5 @@ func (k *Kafka) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
 		Value:   sarama.ByteEncoder(payload),
 	}
 	k.producer.Input() <- msg
-	return &context.MQTTResult{}
+	return ""
 }

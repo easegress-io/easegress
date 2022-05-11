@@ -19,7 +19,7 @@ package mqttproxy
 
 import (
 	"bytes"
-	"context"
+	stdcontext "context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -35,6 +35,7 @@ import (
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	"github.com/megaease/easegress/pkg/logger"
@@ -48,9 +49,19 @@ import (
 
 func init() {
 	logger.InitNop()
-	filters.Register(&pipeline.MockMQTTFilter{})
-	filters.Register(&MockKafka{})
-	// filters.Register(&authentication.Authentication{})
+	filters.Register(mockKafkaKind)
+	filters.Register(mockMQTTFilterKind)
+}
+
+type mockMuxMapper struct {
+	MockFunc func(name string) (context.Handler, bool)
+}
+
+func (m *mockMuxMapper) GetHandler(name string) (context.Handler, bool) {
+	if m.MockFunc != nil {
+		return m.MockFunc(name)
+	}
+	return nil, false
 }
 
 var (
@@ -106,9 +117,9 @@ func getDefaultSpec() *Spec {
 	return spec
 }
 
-func getBrokerFromSpec(spec *Spec) *Broker {
+func getBrokerFromSpec(spec *Spec, mapper context.MuxMapper) *Broker {
 	store := newStorage(nil)
-	broker := newBroker(spec, store, func(s, ss string) ([]string, error) {
+	broker := newBroker(spec, store, mapper, func(s, ss string) ([]string, error) {
 		m := map[string]string{
 			"test":  "http://localhost:8888/mqtt",
 			"test1": "http://localhost:8889/mqtt",
@@ -124,16 +135,15 @@ func getBrokerFromSpec(spec *Spec) *Broker {
 	return broker
 }
 
-func getDefaultBroker() *Broker {
+func getDefaultBroker(mapper context.MuxMapper) *Broker {
 	spec := getDefaultSpec()
-	return getBrokerFromSpec(spec)
+	return getBrokerFromSpec(spec, mapper)
 }
 
 func getConnectPipeline(t *testing.T) *pipeline.Pipeline {
 	yamlStr := `
 name: %s
 kind: Pipeline
-protocol: MQTT
 filters:
 - name: connect
   kind: MockMQTTFilter
@@ -146,7 +156,7 @@ filters:
 	superSpec, err := super.NewSpec(yamlStr)
 	require.Nil(t, err)
 	pipe := &pipeline.Pipeline{}
-	pipe.Init(superSpec)
+	pipe.Init(superSpec, nil)
 	return pipe
 }
 
@@ -165,7 +175,7 @@ filters:
 	superSpec, err := super.NewSpec(yamlStr)
 	require.Nil(t, err)
 	pipe := &pipeline.Pipeline{}
-	pipe.Init(superSpec)
+	pipe.Init(superSpec, nil)
 
 	filter := pipeline.MockGetFilter(pipe, "publish")
 	require.NotNil(t, filter)
@@ -205,6 +215,9 @@ func checkSessionStore(broker *Broker, cid, topic string) error {
 }
 
 func TestConnection(t *testing.T) {
+	pipe := getConnectPipeline(t)
+	defer pipe.Close()
+
 	spec := getDefaultSpec()
 	spec.Rules = append(spec.Rules, &Rule{
 		When: &When{
@@ -212,11 +225,13 @@ func TestConnection(t *testing.T) {
 		},
 		Pipeline: connectPipeline,
 	})
-	broker := getBrokerFromSpec(spec)
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			return pipe, true
+		},
+	}
+	broker := getBrokerFromSpec(spec, mapper)
 	defer broker.close()
-
-	pipe := getConnectPipeline(t)
-	defer pipe.Close()
 
 	c1 := getDefaultMQTTClient(t, "test", true)
 	c1.Disconnect(200)
@@ -229,11 +244,16 @@ func TestConnection(t *testing.T) {
 }
 
 func TestPublish(t *testing.T) {
-	broker := getDefaultBroker()
-	defer broker.close()
-
 	pipe, backend := getPublishPipeline(t)
 	defer pipe.Close()
+
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			return pipe, true
+		},
+	}
+	broker := getDefaultBroker(mapper)
+	defer broker.close()
 
 	client := getMQTTClient(t, "test", "test", "test", true)
 
@@ -265,7 +285,7 @@ func TestPublish(t *testing.T) {
 }
 
 func TestSubUnsub(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	client := getMQTTClient(t, "test", "test", "test", true)
@@ -282,7 +302,8 @@ func TestSubUnsub(t *testing.T) {
 }
 
 func TestCleanSession(t *testing.T) {
-	broker := getDefaultBroker()
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	// client that set cleanSession
@@ -379,11 +400,16 @@ func TestCleanSession(t *testing.T) {
 }
 
 func TestMultiClientPublish(t *testing.T) {
-	broker := getDefaultBroker()
-	defer broker.close()
-
 	pipe, backend := getPublishPipeline(t)
 	defer pipe.Close()
+
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			return pipe, true
+		},
+	}
+	broker := getDefaultBroker(mapper)
+	defer broker.close()
 
 	var wg sync.WaitGroup
 
@@ -433,7 +459,7 @@ func TestMultiClientPublish(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	client := getDefaultMQTTClient(t, "test", true)
@@ -534,12 +560,17 @@ func TestSendMsgBack(t *testing.T) {
 	subscribeCh := make(chan CheckMsg, 100)
 	var wg sync.WaitGroup
 
-	// make broker
-	broker := getDefaultBroker()
-	defer broker.close()
-
 	pipe, backend := getPublishPipeline(t)
 	defer pipe.Close()
+
+	// make broker
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			return pipe, true
+		},
+	}
+	broker := getDefaultBroker(mapper)
+	defer broker.close()
 
 	// subscribe handler
 	handler := getMQTTSubscribeHandler(subscribeCh)
@@ -674,7 +705,7 @@ func TestSendMsgBack(t *testing.T) {
 }
 
 func TestYamlEncodeDecode(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	// old session
@@ -740,7 +771,7 @@ func (ts *testServer) start() error {
 }
 
 func (ts *testServer) shutdown() {
-	ts.srv.Shutdown(context.Background())
+	ts.srv.Shutdown(stdcontext.Background())
 }
 
 func topicsPublish(t *testing.T, data HTTPJsonData) int {
@@ -761,7 +792,7 @@ func topicsPublish(t *testing.T, data HTTPJsonData) int {
 }
 
 func TestHTTPRequest(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	srv := newServer(":8888")
@@ -845,7 +876,7 @@ func TestHTTPRequest(t *testing.T) {
 }
 
 func TestHTTPPublish(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	srv := newServer(":8888")
@@ -904,7 +935,7 @@ func TestHTTPPublish(t *testing.T) {
 }
 
 func TestHTTPTransfer(t *testing.T) {
-	broker0 := getDefaultBroker()
+	broker0 := getDefaultBroker(nil)
 
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", broker0.httpTopicsPublishHandler)
@@ -914,7 +945,7 @@ func TestHTTPTransfer(t *testing.T) {
 	spec.EGName = "test1"
 	spec.Name = "test1"
 	spec.Port = 1884
-	broker1 := getBrokerFromSpec(spec)
+	broker1 := getBrokerFromSpec(spec, nil)
 
 	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", broker1.httpTopicsPublishHandler)
@@ -1154,7 +1185,7 @@ func TestTLSConfig(t *testing.T) {
 }
 
 func TestSessMgr(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	sessMgr := broker.sessMgr
@@ -1259,7 +1290,7 @@ func TestBrokerListen(t *testing.T) {
 			{"fake", "abc", "abc"},
 		},
 	}
-	broker := getBrokerFromSpec(spec)
+	broker := getBrokerFromSpec(spec, nil)
 	if broker != nil {
 		t.Errorf("invalid tls config should return nil broker")
 	}
@@ -1274,12 +1305,12 @@ func TestBrokerListen(t *testing.T) {
 			{"demo", certPem, keyPem},
 		},
 	}
-	broker = getBrokerFromSpec(spec)
+	broker = getBrokerFromSpec(spec, nil)
 	if broker == nil {
 		t.Errorf("valid tls config should not return nil broker")
 	}
 
-	broker1 := getBrokerFromSpec(spec)
+	broker1 := getBrokerFromSpec(spec, nil)
 	if broker1 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
@@ -1290,7 +1321,7 @@ func TestBrokerListen(t *testing.T) {
 		EGName: "test-1",
 		Port:   1883,
 	}
-	broker2 := getBrokerFromSpec(spec)
+	broker2 := getBrokerFromSpec(spec, nil)
 	if broker2 != nil {
 		t.Errorf("not valid port should return nil broker")
 	}
@@ -1300,7 +1331,7 @@ func TestBrokerListen(t *testing.T) {
 }
 
 func TestBrokerHandleConn(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 
 	// broker handleConn return if error happen
 	svcConn, clientConn := net.Pipe()
@@ -1329,7 +1360,7 @@ func TestMQTTProxy(t *testing.T) {
 	mp := MQTTProxy{}
 	mp.Status()
 
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 
 	mp.broker = broker
 	broker.reconnectWatcher()
@@ -1365,15 +1396,23 @@ filters:
 		t.Errorf("supervisor unmarshal yaml failed, %s", err)
 		t.Skip()
 	}
-	pipe := pipeline.Pipeline{}
-	pipe.Init(superSpec)
+	pipe := &pipeline.Pipeline{}
+	pipe.Init(superSpec, nil)
 	defer pipe.Close()
 
 	publishPipe, backend := getPublishPipeline(t)
 	defer publishPipe.Close()
 
 	// get broker
-	broker := getDefaultBroker()
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			if name == publishPipeline {
+				return publishPipe, true
+			}
+			return pipe, true
+		},
+	}
+	broker := getDefaultBroker(mapper)
 	broker.pipelines[Subscribe] = "mqtt-test-pipeline"
 	broker.pipelines[Unsubscribe] = "mqtt-test-pipeline"
 	broker.pipelines[Disconnect] = "mqtt-test-pipeline"
@@ -1413,7 +1452,7 @@ filters:
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(pipeline.MockMQTTStatus)
+	filterStatus := pipe.Status().ObjectStatus.(*pipeline.Status).Filters["mqtt-filter"].(MockMQTTStatus)
 	if len(filterStatus.ClientCount) != clientNum {
 		t.Errorf("filter get wrong result %v for client num", len(filterStatus.ClientCount))
 	}
@@ -1429,7 +1468,8 @@ filters:
 }
 
 func TestAuthByPipeline(t *testing.T) {
-	broker := getDefaultBroker()
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	broker.pipelines[Connect] = "mqtt-test-pipeline"
 	defer broker.close()
 
@@ -1462,10 +1502,13 @@ filters:
 		t.Errorf("supervisor unmarshal yaml failed, %s", err)
 		t.Skip()
 	}
-	pipe := pipeline.Pipeline{}
-	pipe.Init(superSpec)
+	pipe := &pipeline.Pipeline{}
+	pipe.Init(superSpec, nil)
 	defer pipe.Close()
 
+	mapper.MockFunc = func(name string) (context.Handler, bool) {
+		return pipe, true
+	}
 	// same username and passwd with filter, success
 	option = paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID("test").SetUsername("filter-auth-name").SetPassword("filter-auth-passwd")
 	client = paho.NewClient(option)
@@ -1491,7 +1534,7 @@ filters:
 func TestMaxAllowedConnection(t *testing.T) {
 	spec := getDefaultSpec()
 	spec.MaxAllowedConnection = 10
-	broker := getBrokerFromSpec(spec)
+	broker := getBrokerFromSpec(spec, nil)
 	defer broker.close()
 
 	clients := []paho.Client{}
@@ -1528,7 +1571,7 @@ func TestConnectionLimit(t *testing.T) {
 		RequestRate: 10,
 		TimePeriod:  1000,
 	}
-	broker := getBrokerFromSpec(spec)
+	broker := getBrokerFromSpec(spec, nil)
 	defer broker.close()
 
 	// use all rate
@@ -1547,7 +1590,7 @@ func TestClientPublishLimit(t *testing.T) {
 		RequestRate: 10,
 		TimePeriod:  1000,
 	}
-	broker := getBrokerFromSpec(spec)
+	broker := getBrokerFromSpec(spec, nil)
 	defer broker.close()
 
 	client := getMQTTClient(t, "test", "test", "test", true)
@@ -1566,7 +1609,7 @@ func TestClientPublishLimit(t *testing.T) {
 }
 
 func TestHTTPGetAllSession(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	// connect 10 clients
@@ -1655,7 +1698,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 }
 
 func TestHTTPDeleteSession(t *testing.T) {
-	broker := getDefaultBroker()
+	broker := getDefaultBroker(nil)
 	defer broker.close()
 
 	// connect 10 clients
@@ -1709,7 +1752,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 func TestHTTPTransferHeaderCopy(t *testing.T) {
 	done := make(chan bool, 2)
 
-	broker0 := getDefaultBroker()
+	broker0 := getDefaultBroker(nil)
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
 		broker0.httpTopicsPublishHandler(w, r)
@@ -1721,7 +1764,7 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 	spec.Name = "test1"
 	spec.EGName = "test1"
 	spec.Port = 1884
-	broker1 := getBrokerFromSpec(spec)
+	broker1 := getBrokerFromSpec(spec, nil)
 
 	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {

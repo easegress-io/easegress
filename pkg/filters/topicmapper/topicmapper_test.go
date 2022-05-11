@@ -18,37 +18,33 @@
 package topicmapper
 
 import (
-	stdcontext "context"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 	"github.com/stretchr/testify/assert"
 )
 
-func defaultFilterSpec(spec *Spec) filters.Spec {
-	spec.BaseSpec.MetaSpec.Kind = Kind
-	spec.BaseSpec.MetaSpec.Name = "topic-mapper-demo"
-	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
-	return result
-}
+func newContext(cid string, topic string) *context.Context {
+	ctx := context.New(nil)
 
-func newContext(cid string, topic string) context.MQTTContext {
-	client := &context.MockMQTTClient{
+	client := &mqttprot.MockClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
-	ctx := context.NewMQTTContext(stdcontext.Background(), client, packet)
+
+	req := mqttprot.NewRequest(packet, client)
+	ctx.SetRequest("req1", req)
+	ctx.UseRequest("req1", "req1")
 	return ctx
 }
 
 func TestTopicMapper(t *testing.T) {
 	spec := getDefaultSpec()
-	filterSpec := defaultFilterSpec(spec)
-	topicMapper := &TopicMapper{}
-	topicMapper.Init(filterSpec)
+	topicMapper := kind.CreateInstance(spec)
+	topicMapper.Init()
 	defer topicMapper.Close()
 
 	tests := []struct {
@@ -82,7 +78,7 @@ func TestTopicMapper(t *testing.T) {
 
 	for _, tt := range tests {
 		ctx := newContext("client", tt.mqttTopic)
-		topicMapper.HandleMQTT(ctx)
+		topicMapper.Handle(ctx)
 		assert.Equal(t, tt.topic, ctx.GetKV("topic").(string))
 		assert.Equal(t, tt.headers, ctx.GetKV("headers").(map[string]string))
 	}

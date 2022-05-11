@@ -18,15 +18,14 @@
 package mqttclientauth
 
 import (
-	stdcontext "context"
 	"fmt"
 	"sync"
 	"testing"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -34,37 +33,40 @@ func init() {
 	logger.InitNop()
 }
 
-func newContext(cid, username, password string) context.MQTTContext {
-	client := &context.MockMQTTClient{
+func newContext(cid, username, password string) *context.Context {
+	ctx := context.New(nil)
+
+	client := &mqttprot.MockClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Connect).(*packets.ConnectPacket)
 	packet.ClientIdentifier = cid
 	packet.Username = username
 	packet.Password = []byte(password)
-	return context.NewMQTTContext(stdcontext.Background(), client, packet)
-}
 
-func defaultFilterSpec(spec *Spec) filters.Spec {
-	spec.BaseSpec.MetaSpec.Kind = Kind
-	spec.BaseSpec.MetaSpec.Name = "connect-demo"
-	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
-	return result
+	req := mqttprot.NewRequest(packet, client)
+	ctx.SetRequest("req1", req)
+	ctx.UseRequest("req1", "req1")
+
+	resp := mqttprot.NewResponse()
+	ctx.SetResponse(context.DefaultResponseID, resp)
+	ctx.UseResponse(context.DefaultResponseID)
+
+	return ctx
 }
 
 func TestAuth(t *testing.T) {
 	assert := assert.New(t)
 	spec := &Spec{}
-	filterSpec := defaultFilterSpec(spec)
-	auth := &MQTTClientAuth{}
-	auth.Init(filterSpec)
+	auth := kind.CreateInstance(spec)
+	auth.Init()
 
-	assert.Equal(Kind, auth.Kind())
-	assert.Equal(1, len(auth.Results()), "please update this case if add more results")
+	assert.Equal(Kind, auth.Kind().Name)
+	assert.Equal(1, len(kind.Results), "please update this case if add more results")
 	assert.Nil(auth.Status(), "please update this case if return status")
 
-	newAuth := &MQTTClientAuth{}
-	newAuth.Inherit(filterSpec, auth)
+	newAuth := kind.CreateInstance(spec)
+	newAuth.Inherit(auth)
 	newAuth.Close()
 }
 
@@ -79,9 +81,8 @@ func TestAuthFile(t *testing.T) {
 		},
 	}
 
-	filterSpec := defaultFilterSpec(spec)
-	auth := &MQTTClientAuth{}
-	auth.Init(filterSpec)
+	auth := kind.CreateInstance(spec)
+	auth.Init()
 
 	type testCase struct {
 		cid        string
@@ -102,8 +103,9 @@ func TestAuthFile(t *testing.T) {
 		wg.Add(1)
 		go func(test testCase) {
 			ctx := newContext(test.cid, test.name, test.pass)
-			auth.HandleMQTT(ctx)
-			assert.Equal(test.disconnect, ctx.Disconnect(), fmt.Errorf("test case %+v got wrong result", test))
+			auth.Handle(ctx)
+			resp := ctx.Response().(*mqttprot.Response)
+			assert.Equal(test.disconnect, resp.Disconnect(), fmt.Errorf("test case %+v got wrong result", test))
 			wg.Done()
 		}(test)
 	}

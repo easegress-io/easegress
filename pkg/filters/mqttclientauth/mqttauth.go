@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
 
 const (
@@ -77,7 +77,6 @@ type (
 )
 
 var _ filters.Filter = (*MQTTClientAuth)(nil)
-var _ pipeline.MQTTFilter = (*MQTTClientAuth)(nil)
 
 // Name returns the name of the MQTTClientAuth filter instance.
 func (a *MQTTClientAuth) Name() string {
@@ -96,10 +95,6 @@ func (a *MQTTClientAuth) Spec() filters.Spec {
 
 // Init init MQTTClientAuth
 func (a *MQTTClientAuth) Init() {
-	spec := a.spec
-	if spec.Protocol() != context.MQTT {
-		panic("filter ConnectControl only support MQTT protocol for now")
-	}
 	a.salt = a.spec.Salt
 	a.authMap = make(map[string]string)
 
@@ -108,7 +103,7 @@ func (a *MQTTClientAuth) Init() {
 	}
 
 	if len(a.authMap) == 0 {
-		logger.Errorf("empty valid authentication for MQTT filter %v", spec.Name())
+		logger.Errorf("empty valid authentication for MQTT filter %v", a.spec.Name())
 	}
 }
 
@@ -147,14 +142,16 @@ func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) string {
 }
 
 // HandleMQTT handle MQTT context
-func (a *MQTTClientAuth) HandleMQTT(ctx context.MQTTContext) *context.MQTTResult {
-	if ctx.PacketType() != context.MQTTConnect {
-		return &context.MQTTResult{}
+func (a *MQTTClientAuth) Handle(ctx *context.Context) string {
+	req := ctx.Request().(*mqttprot.Request)
+	resp := ctx.Response().(*mqttprot.Response)
+	if req.PacketType() != mqttprot.ConnectType {
+		return ""
 	}
-	result := a.checkAuth(ctx.ConnectPacket())
+	result := a.checkAuth(req.ConnectPacket())
 	if result != "" {
-		ctx.SetDisconnect()
-		return &context.MQTTResult{ErrString: resultAuthFail}
+		resp.SetDisconnect()
+		return resultAuthFail
 	}
-	return &context.MQTTResult{ErrString: ""}
+	return ""
 }

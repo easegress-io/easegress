@@ -19,7 +19,6 @@ package mqttproxy
 
 import (
 	"bytes"
-	stdcontext "context"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -36,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 	"github.com/openzipkin/zipkin-go/model"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 )
@@ -53,6 +52,7 @@ type (
 		clients   map[string]*Client
 		tlsCfg    *tls.Config
 		pipelines map[PacketType]string
+		muxMapper context.MuxMapper
 
 		sessMgr           *SessionManager
 		topicMgr          *TopicManager
@@ -108,7 +108,7 @@ func getPipelineMap(spec *Spec) (map[PacketType]string, error) {
 	return ans, nil
 }
 
-func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]string, error)) *Broker {
+func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL func(string, string) ([]string, error)) *Broker {
 	broker := &Broker{
 		egName:    spec.EGName,
 		name:      spec.Name,
@@ -116,6 +116,7 @@ func newBroker(spec *Spec, store storage, memberURL func(string, string) ([]stri
 		clients:   make(map[string]*Client),
 		memberURL: memberURL,
 		done:      make(chan struct{}),
+		muxMapper: muxMapper,
 	}
 	pipelines, err := getPipelineMap(spec)
 	if err != nil {
@@ -300,14 +301,15 @@ func (b *Broker) connectionValidation(connect *packets.ConnectPacket, conn net.C
 
 	authPipeline, ok := b.pipelines[Connect]
 	if ok {
-		pipe, err := pipeline.GetPipeline(authPipeline, context.MQTT)
-		if err != nil {
-			logger.SpanErrorf(nil, "get pipeline %v failed, %v", authPipeline, err)
+		pipe, ok := b.muxMapper.GetHandler(authPipeline)
+		if !ok {
+			logger.SpanErrorf(nil, "get pipeline %v failed", authPipeline)
 			authFail = true
 		} else {
-			ctx := context.NewMQTTContext(stdcontext.Background(), client, connect)
-			pipe.HandleMQTT(ctx)
-			if ctx.Disconnect() {
+			ctx := newContext(connect, client)
+			pipe.Handle(ctx)
+			res := ctx.Response().(*mqttprot.Response)
+			if res.Disconnect() {
 				logger.SpanErrorf(nil, "client %v not get connect permission from pipeline", connect.ClientIdentifier)
 				authFail = true
 			}
@@ -667,4 +669,13 @@ func (b *Broker) close() {
 		go v.closeAndDelSession()
 	}
 	b.clients = nil
+}
+
+func newContext(packet packets.ControlPacket, client mqttprot.Client) *context.Context {
+	ctx := context.New(nil)
+	req := mqttprot.NewRequest(packet, client)
+	ctx.SetRequest(context.InitialRequestID, req)
+	resp := mqttprot.NewResponse()
+	ctx.SetResponse(context.DefaultResponseID, resp)
+	return ctx
 }
