@@ -284,7 +284,7 @@ func (ic *IngressController) _reloadHTTPServer() {
 		return
 	}
 
-	entity, err := ic.tc.ApplyHTTPServerForSpec(ic.namespace, superSpec)
+	entity, err := ic.tc.ApplyTrafficGateForSpec(ic.namespace, superSpec)
 	if err != nil {
 		logger.Errorf("apply http server failed: %v", err)
 		return
@@ -296,13 +296,13 @@ func (ic *IngressController) _reloadHTTPServer() {
 // Status returns the status of IngressController.
 func (ic *IngressController) Status() *supervisor.Status {
 	status := &Status{
-		Namespace:   ic.namespace,
-		HTTPServers: make(map[string]*trafficcontroller.HTTPServerStatus),
-		Pipelines:   make(map[string]*trafficcontroller.PipelineStatus),
+		Namespace:    ic.namespace,
+		TrafficGates: make(map[string]*trafficcontroller.TrafficGateStatus),
+		Pipelines:    make(map[string]*trafficcontroller.PipelineStatus),
 	}
 
-	ic.tc.WalkHTTPServers(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
+	ic.tc.WalkTrafficGates(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.TrafficGates[entity.Spec().Name()] = &trafficcontroller.TrafficGateStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
 		}

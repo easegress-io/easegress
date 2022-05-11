@@ -127,7 +127,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		return err
 	}
 
-	entity, err := egs.tc.CreateHTTPServerForSpec(egs.namespace, superSpec)
+	entity, err := egs.tc.CreateTrafficGateForSpec(egs.namespace, superSpec)
 	if err != nil {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
@@ -526,7 +526,7 @@ func (egs *EgressServer) reload() {
 		logger.Errorf("new spec for %s failed: %v", err)
 		return
 	}
-	entity, err := egs.tc.UpdateHTTPServerForSpec(egs.namespace, superSpec)
+	entity, err := egs.tc.UpdateTrafficGateForSpec(egs.namespace, superSpec)
 	if err != nil {
 		logger.Errorf("update http server %s failed: %v", egs.egressServerName, err)
 		return
@@ -552,7 +552,7 @@ func (egs *EgressServer) Close() {
 	egs.inf.Close()
 
 	if egs._ready() {
-		egs.tc.DeleteHTTPServer(egs.namespace, egs.httpServer.Spec().Name())
+		egs.tc.DeleteTrafficGate(egs.namespace, egs.httpServer.Spec().Name())
 		for _, entity := range egs.pipelines {
 			egs.tc.DeletePipeline(egs.namespace, entity.Spec().Name())
 		}

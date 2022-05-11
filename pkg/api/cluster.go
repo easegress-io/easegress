@@ -179,7 +179,7 @@ func (s *Server) _getStatusObjectFromTrafficController(name string, spec *superv
 	ans := make(map[string]string)
 	for _, v := range kvs {
 		if spec.Kind() == httpserver.Kind {
-			status := &trafficcontroller.HTTPServerStatus{}
+			status := &trafficcontroller.TrafficGateStatus{}
 			err = yaml.Unmarshal([]byte(v), status)
 			if err != nil {
 				ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))

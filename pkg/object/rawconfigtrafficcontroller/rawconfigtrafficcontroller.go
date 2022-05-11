@@ -140,7 +140,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Spec().Kind()
 		switch kind {
 		case httpserver.Kind:
-			err = rctc.tc.DeleteHTTPServer(DefaultNamespace, name)
+			err = rctc.tc.DeleteTrafficGate(DefaultNamespace, name)
 		case pipeline.Kind:
 			err = rctc.tc.DeletePipeline(DefaultNamespace, name)
 		default:
@@ -158,7 +158,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Spec().Kind()
 		switch kind {
 		case httpserver.Kind:
-			_, err = rctc.tc.CreateHTTPServer(DefaultNamespace, entity)
+			_, err = rctc.tc.CreateTrafficGate(DefaultNamespace, entity)
 		case pipeline.Kind:
 			_, err = rctc.tc.CreatePipeline(DefaultNamespace, entity)
 		default:
@@ -176,7 +176,7 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		kind := entity.Instance().Kind()
 		switch kind {
 		case httpserver.Kind:
-			_, err = rctc.tc.UpdateHTTPServer(DefaultNamespace, entity)
+			_, err = rctc.tc.UpdateTrafficGate(DefaultNamespace, entity)
 		case pipeline.Kind:
 			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, entity)
 		default:
@@ -192,13 +192,13 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 // Status returns the status of RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	status := &Status{
-		Namespace:   rctc.namespace,
-		HTTPServers: make(map[string]*trafficcontroller.HTTPServerStatus),
-		Pipelines:   make(map[string]*trafficcontroller.PipelineStatus),
+		Namespace:    rctc.namespace,
+		TrafficGates: make(map[string]*trafficcontroller.TrafficGateStatus),
+		Pipelines:    make(map[string]*trafficcontroller.PipelineStatus),
 	}
 
-	rctc.tc.WalkHTTPServers(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
+	rctc.tc.WalkTrafficGates(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.TrafficGates[entity.Spec().Name()] = &trafficcontroller.TrafficGateStatus{
 			Spec:   entity.Spec().RawSpec(),
 			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
 		}

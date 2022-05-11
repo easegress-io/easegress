@@ -293,44 +293,45 @@ func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.Stat
 		}
 
 		switch status := status.ObjectStatus.(type) {
-		case *trafficcontroller.HTTPServerStatus:
+		case *trafficcontroller.TrafficGateStatus:
 			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
-			reqs, codes := emm.httpServer2Metrics(baseFields, status.Status)
-			reqMetrics = append(reqMetrics, reqs...)
-			codeMetrics = append(codeMetrics, codes...)
+			// TODO: support other status type
+			switch s := status.Status.(type) {
+			case *httpserver.Status:
+				reqs, codes := emm.httpServer2Metrics(baseFields, s)
+				reqMetrics = append(reqMetrics, reqs...)
+				codeMetrics = append(codeMetrics, codes...)
+			}
 		case *trafficcontroller.PipelineStatus:
 			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
 			reqs, codes := emm.pipeline2Metrics(baseFields, status.Status)
 			reqMetrics = append(reqMetrics, reqs...)
 			codeMetrics = append(codeMetrics, codes...)
-		default:
-			continue
 		}
-
 	}
 
-	metrics := [][]byte{}
+	messages := make([]*sarama.ProducerMessage, 0, len(reqMetrics)+len(codeMetrics))
+
 	for _, req := range reqMetrics {
-		buff, err := jsoniter.Marshal(req)
+		metric, err := jsoniter.Marshal(req)
 		if err != nil {
 			logger.Errorf("marshal %#v to json failed: %v", req, err)
 		}
-		metrics = append(metrics, buff)
+		messages = append(messages, &sarama.ProducerMessage{
+			Topic: emm.spec.Kafka.Topic,
+			Value: sarama.ByteEncoder(metric),
+		})
 	}
+
 	for _, code := range codeMetrics {
-		buff, err := jsoniter.Marshal(code)
+		metric, err := jsoniter.Marshal(code)
 		if err != nil {
 			logger.Errorf("marshal %#v to json failed: %v", code, err)
 		}
-		metrics = append(metrics, buff)
-	}
-
-	messages := make([]*sarama.ProducerMessage, len(metrics))
-	for i, metric := range metrics {
-		messages[i] = &sarama.ProducerMessage{
+		messages = append(messages, &sarama.ProducerMessage{
 			Topic: emm.spec.Kafka.Topic,
 			Value: sarama.ByteEncoder(metric),
-		}
+		})
 	}
 
 	return messages

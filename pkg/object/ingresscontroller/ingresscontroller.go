@@ -215,7 +215,7 @@ func (ic *IngressController) translate() error {
 	logger.Debugf("pipelines updated")
 
 	spec := st.httpServerSpec()
-	_, err = ic.tc.ApplyHTTPServerForSpec(ic.namespace, spec)
+	_, err = ic.tc.ApplyTrafficGateForSpec(ic.namespace, spec)
 	if err != nil {
 		logger.Errorf("BUG: failed to apply http server spec: %v", err)
 	} else {
