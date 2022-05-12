@@ -36,6 +36,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/mqttprot"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/openzipkin/zipkin-go/model"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 )
@@ -672,7 +673,7 @@ func (b *Broker) close() {
 }
 
 func newContext(packet packets.ControlPacket, client mqttprot.Client) *context.Context {
-	ctx := context.New(nil)
+	ctx := context.New(tracing.NoopSpan)
 	req := mqttprot.NewRequest(packet, client)
 	ctx.SetRequest(context.InitialRequestID, req)
 	resp := mqttprot.NewResponse()
