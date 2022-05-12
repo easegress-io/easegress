@@ -78,6 +78,7 @@ type (
 		Namespace    string                      `yaml:"namespace"`
 		TrafficGates map[string]interface{}      `yaml:"trafficGates"`
 		Pipelines    map[string]*pipeline.Status `yaml:"pipelines"`
+		Kinds        map[string]string           `yaml:"kinds"`
 	}
 )
 
@@ -628,6 +629,11 @@ func (tc *TrafficController) _cleanSpace(namespace string) {
 }
 
 // Status returns the status of TrafficController.
+// return []StatusInSameNamespace
+// StatusInSameNamespace:
+//  - Namespace: namespace
+//  - TrafficGates: map[objectName]objectStatus
+//  - Pipelines: map[objectName]objectStatus
 func (tc *TrafficController) Status() *supervisor.Status {
 	// NOTE: TrafficController won't report any namespaced statuses.
 	// Higher controllers should report their own namespaced status.
@@ -638,11 +644,13 @@ func (tc *TrafficController) Status() *supervisor.Status {
 	statuses := []*StatusInSameNamespace{}
 
 	for namespace, namespaceSpec := range tc.namespaces {
+		kinds := make(map[string]string)
 		trafficGates := make(map[string]interface{})
 		namespaceSpec.trafficGates.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
 			trafficGates[k] = v.Instance().Status().ObjectStatus
+			kinds[k] = v.Spec().Kind()
 			return true
 		})
 
@@ -652,12 +660,14 @@ func (tc *TrafficController) Status() *supervisor.Status {
 			v := value.(*supervisor.ObjectEntity)
 
 			pipelines[k] = v.Instance().Status().ObjectStatus.(*pipeline.Status)
+			kinds[k] = v.Spec().Kind()
 			return true
 		})
 
 		statuses = append(statuses, &StatusInSameNamespace{
 			Namespace:    namespace,
 			TrafficGates: trafficGates,
+			Kinds:        kinds,
 			Pipelines:    pipelines,
 		})
 	}
