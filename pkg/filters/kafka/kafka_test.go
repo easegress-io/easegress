@@ -18,13 +18,13 @@
 package kafka
 
 import (
-	stdcontext "context"
 	"fmt"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -61,18 +61,22 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 func defaultFilterSpec(spec *Spec) filters.Spec {
 	spec.BaseSpec.MetaSpec.Kind = Kind
 	spec.BaseSpec.MetaSpec.Name = "kafka-demo"
-	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
-	return result
+	return spec
 }
 
-func newContext(cid string, topic string, payload []byte) context.MQTTContext {
-	client := &context.MockMQTTClient{
+func newContext(cid string, topic string, payload []byte) *context.Context {
+	ctx := context.New(nil)
+
+	client := &mqttprot.MockClient{
 		MockClientID: cid,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
 	packet.Payload = payload
-	ctx := context.NewMQTTContext(stdcontext.Background(), client, packet)
+	req := mqttprot.NewRequest(packet, client)
+
+	ctx.SetRequest("req1", req)
+	ctx.UseRequest("req1", "req1")
 	return ctx
 }
 
@@ -82,8 +86,8 @@ func TestKafka(t *testing.T) {
 		Backend: []string{"localhost:1234"},
 	}
 	filterSpec := defaultFilterSpec(spec)
-	k := &Kafka{}
-	assert.Panics(func() { k.Init(filterSpec) }, "kafka should panic for invalid backend")
+	k := kind.CreateInstance(filterSpec)
+	assert.Panics(func() { k.Init() }, "kafka should panic for invalid backend")
 
 	kafka := Kafka{
 		producer: newMockAsyncProducer(),
@@ -91,9 +95,11 @@ func TestKafka(t *testing.T) {
 	}
 
 	mqttCtx := newContext("test", "a/b/c", []byte("text"))
-	kafka.HandleMQTT(mqttCtx)
+	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
-	assert.Equal(msg.Topic, mqttCtx.PublishPacket().TopicName)
+
+	req := mqttCtx.Request().(*mqttprot.Request)
+	assert.Equal(msg.Topic, req.PublishPacket().TopicName)
 	assert.Equal(0, len(msg.Headers))
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
@@ -122,7 +128,7 @@ func TestKafkaWithKVMap(t *testing.T) {
 	mqttCtx.SetKV("topic", "123")
 	mqttCtx.SetKV("headers", map[string]string{"1": "a"})
 
-	kafka.HandleMQTT(mqttCtx)
+	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
 	assert.Equal("123", msg.Topic)
 	assert.Equal(1, len(msg.Headers))
