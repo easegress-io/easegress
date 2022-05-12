@@ -72,24 +72,12 @@ type (
 		Specs []*StatusInSameNamespace `yaml:"specs"`
 	}
 
-	// TrafficGateStatus is the traffic gate status
-	TrafficGateStatus struct {
-		Spec   map[string]interface{} `yaml:"spec"`
-		Status interface{}            `yaml:"status"`
-	}
-
-	// PipelineStatus is the pipeline status
-	PipelineStatus struct {
-		Spec   map[string]interface{} `yaml:"spec"`
-		Status *pipeline.Status       `yaml:"status"`
-	}
-
 	// StatusInSameNamespace is the universal status in one space.
 	// TrafficController won't use it.
 	StatusInSameNamespace struct {
-		Namespace    string                        `yaml:"namespace"`
-		TrafficGates map[string]*TrafficGateStatus `yaml:"trafficGates"`
-		Pipelines    map[string]*PipelineStatus    `yaml:"pipelines"`
+		Namespace    string                      `yaml:"namespace"`
+		TrafficGates map[string]interface{}      `yaml:"trafficGates"`
+		Pipelines    map[string]*pipeline.Status `yaml:"pipelines"`
 	}
 )
 
@@ -114,22 +102,14 @@ func (ns *Namespace) GetHandler(name string) (context.Handler, bool) {
 	return handler, true
 }
 
-func (hss *TrafficGateStatus) toSyncStatus() *supervisor.Status {
-	return &supervisor.Status{ObjectStatus: hss}
-}
-
-func (hps *PipelineStatus) toSyncStatus() *supervisor.Status {
-	return &supervisor.Status{ObjectStatus: hps}
-}
-
-// ToSyncStatus returns traffic gate and pipelines in a map
+// ToSyncStatus returns traffic gates and pipelines in a map
 func (sisn *StatusInSameNamespace) ToSyncStatus() map[string]*supervisor.Status {
 	objects := make(map[string]*supervisor.Status)
-	for key, server := range sisn.TrafficGates {
-		objects[key] = server.toSyncStatus()
+	for key, status := range sisn.TrafficGates {
+		objects[key] = &supervisor.Status{ObjectStatus: status}
 	}
-	for key, pipeline := range sisn.Pipelines {
-		objects[key] = pipeline.toSyncStatus()
+	for key, status := range sisn.Pipelines {
+		objects[key] = &supervisor.Status{ObjectStatus: status}
 	}
 	return objects
 }
@@ -658,29 +638,20 @@ func (tc *TrafficController) Status() *supervisor.Status {
 	statuses := []*StatusInSameNamespace{}
 
 	for namespace, namespaceSpec := range tc.namespaces {
-		trafficGates := make(map[string]*TrafficGateStatus)
+		trafficGates := make(map[string]interface{})
 		namespaceSpec.trafficGates.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
-
-			trafficGates[k] = &TrafficGateStatus{
-				Spec:   v.Spec().RawSpec(),
-				Status: v.Instance().Status().ObjectStatus,
-			}
-
+			trafficGates[k] = v.Instance().Status().ObjectStatus
 			return true
 		})
 
-		pipelines := make(map[string]*PipelineStatus)
+		pipelines := make(map[string]*pipeline.Status)
 		namespaceSpec.pipelines.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
 
-			pipelines[k] = &PipelineStatus{
-				Spec:   v.Spec().RawSpec(),
-				Status: v.Instance().Status().ObjectStatus.(*pipeline.Status),
-			}
-
+			pipelines[k] = v.Instance().Status().ObjectStatus.(*pipeline.Status)
 			return true
 		})
 

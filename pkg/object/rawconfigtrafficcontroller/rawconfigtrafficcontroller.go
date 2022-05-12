@@ -191,30 +191,26 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 
 // Status returns the status of RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
-	status := &Status{
-		Namespace:    rctc.namespace,
-		TrafficGates: make(map[string]*trafficcontroller.TrafficGateStatus),
-		Pipelines:    make(map[string]*trafficcontroller.PipelineStatus),
-	}
-
+	trafficGates := make(map[string]interface{})
 	rctc.tc.WalkTrafficGates(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.TrafficGates[entity.Spec().Name()] = &trafficcontroller.TrafficGateStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
-		}
+		status := entity.Instance().Status().ObjectStatus
+		trafficGates[entity.Spec().Name()] = status
 		return true
 	})
 
+	pipelines := make(map[string]*pipeline.Status)
 	rctc.tc.WalkPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.Pipelines[entity.Spec().Name()] = &trafficcontroller.PipelineStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
-		}
+		status := entity.Instance().Status().ObjectStatus.(*pipeline.Status)
+		pipelines[entity.Spec().Name()] = status
 		return true
 	})
 
 	return &supervisor.Status{
-		ObjectStatus: status,
+		ObjectStatus: &Status{
+			Namespace:    rctc.namespace,
+			TrafficGates: trafficGates,
+			Pipelines:    pipelines,
+		},
 	}
 }
 
