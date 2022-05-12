@@ -18,6 +18,7 @@
 package easemonitormetrics
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
@@ -25,16 +26,11 @@ import (
 	"time"
 
 	"github.com/Shopify/sarama"
-	jsoniter "github.com/json-iterator/go"
 
-	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
-	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
-	"github.com/megaease/easegress/pkg/object/trafficcontroller"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/easemonitor"
 )
 
 const (
@@ -83,61 +79,6 @@ type (
 	// Status is the status of EaseMonitorMetrics.
 	Status struct {
 		Health string `json:"health"`
-	}
-
-	// GlobalFields is the global fields of EaseMonitor metrics.
-	GlobalFields struct {
-		Timestamp int64  `json:"timestamp"`
-		Category  string `json:"category"`
-		HostName  string `json:"host_name"`
-		HostIpv4  string `json:"host_ipv4"`
-		System    string `json:"system"`
-		Service   string `json:"service"`
-		Type      string `json:"type"`
-		Resource  string `json:"resource"`
-		URL       string `json:"url,omitempty"`
-	}
-
-	// RequestMetrics is the metrics of http request.
-	RequestMetrics struct {
-		GlobalFields
-
-		Count uint64  `json:"cnt"`
-		M1    float64 `json:"m1"`
-		M5    float64 `json:"m5"`
-		M15   float64 `json:"m15"`
-
-		ErrCount uint64  `json:"errcnt"`
-		M1Err    float64 `json:"m1err"`
-		M5Err    float64 `json:"m5err"`
-		M15Err   float64 `json:"m15err"`
-
-		M1ErrPercent  float64 `json:"m1errpct"`
-		M5ErrPercent  float64 `json:"m5errpct"`
-		M15ErrPercent float64 `json:"m15errpct"`
-
-		Min  uint64 `json:"min"`
-		Max  uint64 `json:"max"`
-		Mean uint64 `json:"mean"`
-
-		P25  float64 `json:"p25"`
-		P50  float64 `json:"p50"`
-		P75  float64 `json:"p75"`
-		P95  float64 `json:"p95"`
-		P98  float64 `json:"p98"`
-		P99  float64 `json:"p99"`
-		P999 float64 `json:"p999"`
-
-		ReqSize  uint64 `json:"reqsize"`
-		RespSize uint64 `json:"respsize"`
-	}
-
-	// StatusCodeMetrics is the metrics of http status code.
-	StatusCodeMetrics struct {
-		GlobalFields
-
-		Code  int    `json:"code"`
-		Count uint64 `json:"cnt"`
 	}
 )
 
@@ -205,8 +146,8 @@ func (emm *EaseMonitorMetrics) getClient() (sarama.AsyncProducer, error) {
 
 	producer, err := sarama.NewAsyncProducer(emm.spec.Kafka.Brokers, config)
 	if err != nil {
-		return nil, fmt.Errorf("start sarama producer failed(brokers: %v): %v",
-			emm.spec.Kafka.Brokers, err)
+		msgFmt := "start sarama producer failed(brokers: %v): %v"
+		return nil, fmt.Errorf(msgFmt, emm.spec.Kafka.Brokers, err)
 	}
 
 	go func() {
@@ -248,206 +189,60 @@ func (emm *EaseMonitorMetrics) closeClient() {
 
 func (emm *EaseMonitorMetrics) run() {
 	var latestTimestamp int64
+	interval := statussynccontroller.SyncStatusPaceInUnixSeconds * time.Second
 
 	for {
 		select {
 		case <-emm.done:
 			emm.closeClient()
 			return
-		case <-time.After(statussynccontroller.SyncStatusPaceInUnixSeconds * time.Second):
-			client, err := emm.getClient()
-			if err != nil {
-				logger.Errorf("%s get kafka producer failed: %v",
-					emm.superSpec.Name(), err)
+		case <-time.After(interval):
+			latestTimestamp = emm.sendMetrics(latestTimestamp)
+		}
+	}
+}
+
+func (emm *EaseMonitorMetrics) sendMetrics(latestTimestamp int64) int64 {
+	client, err := emm.getClient()
+	if err != nil {
+		msgFmt := "%s get kafka producer failed: %v"
+		logger.Errorf(msgFmt, emm.superSpec.Name(), err)
+		return latestTimestamp
+	}
+
+	for _, record := range emm.ssc.GetStatusesRecords() {
+		if record.UnixTimestamp <= latestTimestamp {
+			continue
+		}
+		latestTimestamp = record.UnixTimestamp
+
+		for service, status := range record.Statuses {
+			metricer, ok := status.ObjectStatus.(easemonitor.Metricer)
+			if !ok {
 				continue
 			}
 
-			records := emm.ssc.GetStatusesRecords()
-			for _, record := range records {
-				if record.UnixTimestamp <= latestTimestamp {
-					continue
+			for _, m := range metricer.ToMetrics(service) {
+				m.Category = "application"
+				m.HostName = emm.super.Options().Name
+				m.HostIpv4 = hostIPv4
+				m.System = emm.super.Options().ClusterName
+				m.Timestamp = latestTimestamp * 1000
+
+				data, err := json.Marshal(m)
+				if err != nil {
+					logger.Errorf("marshal %#v to json failed: %v", m, err)
 				}
-				latestTimestamp = record.UnixTimestamp
 
-				messages := emm.record2Messages(record)
-				for _, message := range messages {
-					client.Input() <- message
+				client.Input() <- &sarama.ProducerMessage{
+					Topic: emm.spec.Kafka.Topic,
+					Value: sarama.ByteEncoder(data),
 				}
 			}
 		}
 	}
-}
 
-func (emm *EaseMonitorMetrics) record2Messages(record *statussynccontroller.StatusesRecord) []*sarama.ProducerMessage {
-	reqMetrics := []*RequestMetrics{}
-	codeMetrics := []*StatusCodeMetrics{}
-
-	for objectName, status := range record.Statuses {
-		baseFields := &GlobalFields{
-			Timestamp: record.UnixTimestamp * 1000,
-			Category:  "application",
-			HostName:  emm.super.Options().Name,
-			HostIpv4:  hostIPv4,
-			System:    emm.super.Options().ClusterName,
-			Service:   objectName,
-		}
-
-		switch status := status.ObjectStatus.(type) {
-		case *trafficcontroller.TrafficGateStatus:
-			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
-			// TODO: support other status type
-			switch s := status.Status.(type) {
-			case *httpserver.Status:
-				reqs, codes := emm.httpServer2Metrics(baseFields, s)
-				reqMetrics = append(reqMetrics, reqs...)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-		case *trafficcontroller.PipelineStatus:
-			baseFields.Service = fmt.Sprintf("%s/%s", baseFields.Service, status.Spec["name"])
-			reqs, codes := emm.pipeline2Metrics(baseFields, status.Status)
-			reqMetrics = append(reqMetrics, reqs...)
-			codeMetrics = append(codeMetrics, codes...)
-		}
-	}
-
-	messages := make([]*sarama.ProducerMessage, 0, len(reqMetrics)+len(codeMetrics))
-
-	for _, req := range reqMetrics {
-		metric, err := jsoniter.Marshal(req)
-		if err != nil {
-			logger.Errorf("marshal %#v to json failed: %v", req, err)
-		}
-		messages = append(messages, &sarama.ProducerMessage{
-			Topic: emm.spec.Kafka.Topic,
-			Value: sarama.ByteEncoder(metric),
-		})
-	}
-
-	for _, code := range codeMetrics {
-		metric, err := jsoniter.Marshal(code)
-		if err != nil {
-			logger.Errorf("marshal %#v to json failed: %v", code, err)
-		}
-		messages = append(messages, &sarama.ProducerMessage{
-			Topic: emm.spec.Kafka.Topic,
-			Value: sarama.ByteEncoder(metric),
-		})
-	}
-
-	return messages
-}
-
-func (emm *EaseMonitorMetrics) pipeline2Metrics(baseFields *GlobalFields, pipelineStatus *pipeline.Status) (
-	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics) {
-
-	for filterName, filterStatus := range pipelineStatus.Filters {
-		proxyStatus, ok := filterStatus.(*proxy.Status)
-		if !ok {
-			continue
-		}
-
-		baseFieldsProxy := *baseFields
-		baseFieldsProxy.Resource = "PROXY"
-
-		if proxyStatus.MainPool != nil {
-			baseFieldsProxy.Service = baseFields.Service + "/" + filterName + "/mainPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.MainPool.Stat)
-			reqMetrics = append(reqMetrics, req)
-			codeMetrics = append(codeMetrics, codes...)
-		}
-
-		if len(proxyStatus.CandidatePools) > 0 {
-			for idx := range proxyStatus.CandidatePools {
-				baseFieldsProxy.Service = fmt.Sprintf("%s/%s/candidatePool/%d", baseFields.Service, filterName, idx)
-				req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.CandidatePools[idx].Stat)
-				reqMetrics = append(reqMetrics, req)
-				codeMetrics = append(codeMetrics, codes...)
-			}
-		}
-
-		if proxyStatus.MirrorPool != nil {
-			baseFieldsProxy.Service = baseFields.Service + "/" + filterName + "/mirrorPool"
-			req, codes := emm.httpStat2Metrics(&baseFieldsProxy, proxyStatus.MainPool.Stat)
-			reqMetrics = append(reqMetrics, req)
-			codeMetrics = append(codeMetrics, codes...)
-		}
-	}
-
-	return
-}
-
-func (emm *EaseMonitorMetrics) httpServer2Metrics(
-	baseFields *GlobalFields, serverStatus *httpserver.Status) (
-	reqMetrics []*RequestMetrics, codeMetrics []*StatusCodeMetrics,
-) {
-	if serverStatus.Status != nil {
-		baseFieldsServer := *baseFields
-		baseFieldsServer.Resource = "SERVER"
-		req, codes := emm.httpStat2Metrics(&baseFieldsServer, serverStatus.Status)
-		reqMetrics = append(reqMetrics, req)
-		codeMetrics = append(codeMetrics, codes...)
-	}
-
-	for _, item := range serverStatus.TopN {
-		baseFieldsServerTopN := *baseFields
-		baseFieldsServerTopN.Resource = "SERVER_TOPN"
-		baseFieldsServerTopN.URL = item.Path
-		req, codes := emm.httpStat2Metrics(&baseFieldsServerTopN, item.Status)
-		reqMetrics = append(reqMetrics, req)
-		codeMetrics = append(codeMetrics, codes...)
-	}
-
-	return
-}
-
-func (emm *EaseMonitorMetrics) httpStat2Metrics(baseFields *GlobalFields, s *httpstat.Status) (
-	*RequestMetrics, []*StatusCodeMetrics,
-) {
-	baseFields.Type = "eg-http-request"
-	rm := &RequestMetrics{
-		GlobalFields: *baseFields,
-
-		Count: s.Count,
-		M1:    s.M1,
-		M5:    s.M5,
-		M15:   s.M15,
-
-		ErrCount: s.ErrCount,
-		M1Err:    s.M1Err,
-		M5Err:    s.M5Err,
-		M15Err:   s.M15Err,
-
-		M1ErrPercent:  s.M1ErrPercent,
-		M5ErrPercent:  s.M5ErrPercent,
-		M15ErrPercent: s.M15ErrPercent,
-
-		Min:  s.Min,
-		Max:  s.Max,
-		Mean: s.Mean,
-
-		P25:  s.P25,
-		P50:  s.P50,
-		P75:  s.P75,
-		P95:  s.P95,
-		P98:  s.P98,
-		P99:  s.P99,
-		P999: s.P999,
-
-		ReqSize:  s.ReqSize,
-		RespSize: s.RespSize,
-	}
-
-	baseFields.Type = "eg-http-status-code"
-	codes := []*StatusCodeMetrics{}
-	for code, count := range s.Codes {
-		codes = append(codes, &StatusCodeMetrics{
-			GlobalFields: *baseFields,
-			Code:         code,
-			Count:        count,
-		})
-	}
-
-	return rm, codes
+	return latestTimestamp
 }
 
 // Status returns status of EtcdServiceRegister.

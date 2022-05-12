@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -297,23 +296,17 @@ func (ic *IngressController) _reloadHTTPServer() {
 func (ic *IngressController) Status() *supervisor.Status {
 	status := &Status{
 		Namespace:    ic.namespace,
-		TrafficGates: make(map[string]*trafficcontroller.TrafficGateStatus),
-		Pipelines:    make(map[string]*trafficcontroller.PipelineStatus),
+		TrafficGates: make(map[string]interface{}),
+		Pipelines:    make(map[string]*pipeline.Status),
 	}
 
 	ic.tc.WalkTrafficGates(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.TrafficGates[entity.Spec().Name()] = &trafficcontroller.TrafficGateStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
-		}
+		status.TrafficGates[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus
 		return true
 	})
 
 	ic.tc.WalkPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.Pipelines[entity.Spec().Name()] = &trafficcontroller.PipelineStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
-		}
+		status.Pipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*pipeline.Status)
 		return true
 	})
 
