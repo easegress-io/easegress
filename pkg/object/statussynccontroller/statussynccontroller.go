@@ -180,8 +180,7 @@ func (ssc *StatusSyncController) splitNamespaceStatus(status *trafficcontroller.
 	targetStatuses map[string]string, targetStatusesRecord *StatusesRecord) bool {
 
 	for key, value := range status.ToSyncStatus() {
-		kind := status.Kinds[key]
-		name := ssc.superSpec.Super().Cluster().Layout().StatusNamespaceFormat(status.Namespace, kind, key)
+		name := ssc.superSpec.Super().Cluster().Layout().StatusNamespaceFormat(status.Namespace, key)
 		targetStatusesRecord.Statuses[name] = value
 
 		marshalledValue, ok := safeMarshal(value)

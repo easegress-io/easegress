@@ -148,6 +148,8 @@ func ObjectKinds() []string {
 	return kinds
 }
 
+var TrafficObjectKinds = make(map[string]struct{})
+
 // Register registers object.
 func Register(o Object) {
 	if o.Kind() == "" {
@@ -165,6 +167,7 @@ func Register(o Object) {
 		if !ok {
 			panic(fmt.Errorf("%s: doesn't implement interface TrafficObject", o.Kind()))
 		}
+		TrafficObjectKinds[o.Kind()] = struct{}{}
 	}
 
 	existedObject, existed := objectRegistry[o.Kind()]

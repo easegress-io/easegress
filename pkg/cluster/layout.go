@@ -28,7 +28,7 @@ const (
 	statusMemberFormat       = "/status/members/%s" // +memberName
 	statusObjectPrefix       = "/status/objects/"
 	statusObjectNameFormat   = "%s-%s"
-	statusNamespaceFormat    = "%s/%s/%s"
+	statusNamespaceFormat    = "%s/%s"
 	statusObjectPrefixFormat = "/status/objects/%s/"   // +objectName
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
@@ -108,8 +108,8 @@ func (l *Layout) StatusObjectName(kind string, specName string) string {
 	return fmt.Sprintf(statusObjectNameFormat, kind, specName)
 }
 
-func (l *Layout) StatusNamespaceFormat(namespace string, kind string, specName string) string {
-	return fmt.Sprintf(statusNamespaceFormat, namespace, kind, specName)
+func (l *Layout) StatusNamespaceFormat(namespace string, specName string) string {
+	return fmt.Sprintf(statusNamespaceFormat, namespace, specName)
 }
 
 // StatusObjectKey returns the key of object status.

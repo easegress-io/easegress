@@ -196,11 +196,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 //  - Pipelines: map[objectName]objectStatus
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	trafficGates := make(map[string]interface{})
-	kinds := make(map[string]string)
 	rctc.tc.WalkTrafficGates(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
 		status := entity.Instance().Status().ObjectStatus
 		trafficGates[entity.Spec().Name()] = status
-		kinds[entity.Spec().Name()] = entity.Spec().Kind()
 		return true
 	})
 
@@ -208,7 +206,6 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	rctc.tc.WalkPipelines(rctc.namespace, func(entity *supervisor.ObjectEntity) bool {
 		status := entity.Instance().Status().ObjectStatus.(*pipeline.Status)
 		pipelines[entity.Spec().Name()] = status
-		kinds[entity.Spec().Name()] = entity.Spec().Kind()
 		return true
 	})
 
@@ -217,7 +214,6 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 			Namespace:    rctc.namespace,
 			TrafficGates: trafficGates,
 			Pipelines:    pipelines,
-			Kinds:        kinds,
 		},
 	}
 }
