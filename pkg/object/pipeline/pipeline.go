@@ -69,12 +69,16 @@ type (
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
-		Filter           string            `yaml:"filter" jsonschema:"required,format=urlname"`
-		DefaultRequestID string            `yaml:"defaultRequestID" jsonschema:"defaultRequestID,omitempty"`
-		TargetRequestID  string            `yaml:"targetRequestID" jsonschema:"targetRequestID,omitempty"`
-		TargetResponseID string            `yaml:"targetResponseID" jsonschema:"targetResponseID,omitempty"`
-		JumpIf           map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
-		filter           filters.Filter
+		Filter string `yaml:"filter" jsonschema:"required,format=urlname"`
+		// Note, the JSON tag of `DefaultRequest` is 'useRequest`, which is
+		// different from its name, because, from the aspect of code,
+		// `DefaultRequest` is to set the default request for the filter, but
+		// from the view of users, `useRequest` is much easier to understand.
+		DefaultRequest string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
+		TargetRequest  string            `yaml:"targetRequest" jsonschema:"targetRequest,omitempty"`
+		TargetResponse string            `yaml:"targetResponse" jsonschema:"targetResponse,omitempty"`
+		JumpIf         map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
+		filter         filters.Filter
 	}
 
 	// FilterStat records the statistics of a filter.
@@ -127,12 +131,12 @@ func (s *Spec) ValidateRequest() {
 
 	for i := 0; i < len(s.Flow); i++ {
 		node := &s.Flow[i]
-		if node.DefaultRequestID != "" && !validIDs[node.DefaultRequestID] {
-			panic(fmt.Errorf(errFmt, node.Filter, node.DefaultRequestID))
+		if node.DefaultRequest != "" && !validIDs[node.DefaultRequest] {
+			panic(fmt.Errorf(errFmt, node.Filter, node.DefaultRequest))
 		}
 
-		if node.TargetRequestID != "" {
-			validIDs[node.TargetRequestID] = true
+		if node.TargetRequest != "" {
+			validIDs[node.TargetRequest] = true
 		}
 	}
 }
@@ -327,8 +331,8 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 		}
 
 		start := fasttime.Now()
-		ctx.UseRequest(node.DefaultRequestID, node.TargetRequestID)
-		ctx.UseResponse(node.TargetResponseID)
+		ctx.UseRequest(node.DefaultRequest, node.TargetRequest)
+		ctx.UseResponse(node.TargetResponse)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{
