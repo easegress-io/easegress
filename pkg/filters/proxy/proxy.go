@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/easemonitor"
 )
 
 const (
@@ -318,4 +319,31 @@ func (p *Proxy) InjectResiliencePolicy(policies map[string]resilience.Policy) {
 	for _, sp := range p.candidatePools {
 		sp.InjectResiliencePolicy(policies)
 	}
+}
+
+// ToMetrics implements easemonitor.Metricer.
+func (s *Status) ToMetrics(service string) []*easemonitor.Metrics {
+	var results []*easemonitor.Metrics
+
+	if s.MainPool != nil {
+		svc := service + "/mainPool"
+		results = append(results, s.MainPool.Stat.ToMetrics(svc)...)
+	}
+
+	for i := range s.CandidatePools {
+		svc := fmt.Sprintf("%s/candidatePool/%d", service, i)
+		p := s.CandidatePools[i]
+		results = append(results, p.Stat.ToMetrics(svc)...)
+	}
+
+	if s.MirrorPool != nil {
+		svc := service + "/mirrorPool"
+		results = append(results, s.MirrorPool.Stat.ToMetrics(svc)...)
+	}
+
+	for _, m := range results {
+		m.Resource = "PROXY"
+	}
+
+	return results
 }

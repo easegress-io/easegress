@@ -24,7 +24,6 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
@@ -51,9 +50,9 @@ type (
 
 		httpServer *supervisor.ObjectEntity
 		// key is the backend name instead of pipeline name.
-		backendHTTPPipelines map[string]*supervisor.ObjectEntity
-		ingressBackends      map[string]struct{}
-		ingressRules         []*spec.IngressRule
+		backendPipelines map[string]*supervisor.ObjectEntity
+		ingressBackends  map[string]struct{}
+		ingressRules     []*spec.IngressRule
 	}
 
 	// Status is the traffic controller status
@@ -90,11 +89,11 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		tc:        tc,
 		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingresscontroller"),
 
-		backendHTTPPipelines: make(map[string]*supervisor.ObjectEntity),
-		ingressBackends:      make(map[string]struct{}),
-		ingressRules:         []*spec.IngressRule{},
-		instanceID:           instanceID,
-		IP:                   applicationIP,
+		backendPipelines: make(map[string]*supervisor.ObjectEntity),
+		ingressBackends:  make(map[string]struct{}),
+		ingressRules:     []*spec.IngressRule{},
+		instanceID:       instanceID,
+		IP:               applicationIP,
 	}
 
 	ic.putIngressControllerInstance()
@@ -197,7 +196,7 @@ func (ic *IngressController) reloadTraffic() {
 	defer ic.mutex.Unlock()
 
 	ic._reloadIngress()
-	ic._reloadHTTPPipelines()
+	ic._reloadPipelines()
 	ic._reloadHTTPServer()
 }
 
@@ -220,15 +219,15 @@ func (ic *IngressController) _reloadIngress() {
 	ic.ingressBackends, ic.ingressRules = ingressBackends, ingressRules
 }
 
-func (ic *IngressController) _reloadHTTPPipelines() {
-	for backend, entity := range ic.backendHTTPPipelines {
+func (ic *IngressController) _reloadPipelines() {
+	for backend, entity := range ic.backendPipelines {
 		if _, exists := ic.ingressBackends[backend]; !exists {
-			err := ic.tc.DeleteHTTPPipeline(ic.namespace, entity.Spec().Name())
+			err := ic.tc.DeletePipeline(ic.namespace, entity.Spec().Name())
 			if err != nil {
 				logger.Errorf("delete http pipeline %s failed: %v",
 					entity.Spec().Name(), err)
 			}
-			delete(ic.backendHTTPPipelines, backend)
+			delete(ic.backendPipelines, backend)
 		}
 	}
 
@@ -267,13 +266,13 @@ func (ic *IngressController) _reloadHTTPPipelines() {
 			continue
 		}
 
-		entity, err := ic.tc.ApplyHTTPPipelineForSpec(ic.namespace, superSpec)
+		entity, err := ic.tc.ApplyPipelineForSpec(ic.namespace, superSpec)
 		if err != nil {
 			logger.Errorf("apply http pipeline %s failed: %v", superSpec.Name(), err)
 			continue
 		}
 
-		ic.backendHTTPPipelines[serviceSpec.BackendName()] = entity
+		ic.backendPipelines[serviceSpec.BackendName()] = entity
 	}
 }
 
@@ -284,7 +283,7 @@ func (ic *IngressController) _reloadHTTPServer() {
 		return
 	}
 
-	entity, err := ic.tc.ApplyHTTPServerForSpec(ic.namespace, superSpec)
+	entity, err := ic.tc.ApplyTrafficGateForSpec(ic.namespace, superSpec)
 	if err != nil {
 		logger.Errorf("apply http server failed: %v", err)
 		return
@@ -296,24 +295,18 @@ func (ic *IngressController) _reloadHTTPServer() {
 // Status returns the status of IngressController.
 func (ic *IngressController) Status() *supervisor.Status {
 	status := &Status{
-		Namespace:     ic.namespace,
-		HTTPServers:   make(map[string]*trafficcontroller.HTTPServerStatus),
-		HTTPPipelines: make(map[string]*trafficcontroller.HTTPPipelineStatus),
+		Namespace:    ic.namespace,
+		TrafficGates: make(map[string]interface{}),
+		Pipelines:    make(map[string]*pipeline.Status),
 	}
 
-	ic.tc.WalkHTTPServers(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPServers[entity.Spec().Name()] = &trafficcontroller.HTTPServerStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*httpserver.Status),
-		}
+	ic.tc.WalkTrafficGates(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.TrafficGates[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus
 		return true
 	})
 
-	ic.tc.WalkHTTPPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
-		status.HTTPPipelines[entity.Spec().Name()] = &trafficcontroller.HTTPPipelineStatus{
-			Spec:   entity.Spec().RawSpec(),
-			Status: entity.Instance().Status().ObjectStatus.(*pipeline.Status),
-		}
+	ic.tc.WalkPipelines(ic.namespace, func(entity *supervisor.ObjectEntity) bool {
+		status.Pipelines[entity.Spec().Name()] = entity.Instance().Status().ObjectStatus.(*pipeline.Status)
 		return true
 	})
 

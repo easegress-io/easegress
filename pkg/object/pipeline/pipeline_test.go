@@ -286,20 +286,20 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
-	httpPipeline.Init(superSpec, nil)
-	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
+	pipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
+	pipeline.Init(superSpec, nil)
+	pipeline.Inherit(superSpec, &pipeline, nil)
 
 	// ctx := &contexttest.MockedHTTPContext{}
-	// httpPipeline.Handle(ctx)
-	status := httpPipeline.Status()
+	// pipeline.Handle(ctx)
+	status := pipeline.Status()
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
 	}
-	if httpPipeline.getFilter("unknown") != nil {
+	if pipeline.getFilter("unknown") != nil {
 		t.Errorf("should not have filters")
 	}
-	httpPipeline.Close()
+	pipeline.Close()
 	cleanup()
 }
 
@@ -337,22 +337,22 @@ filters:
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
-	httpPipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
-	httpPipeline.Init(superSpec, nil)
-	httpPipeline.Inherit(superSpec, &httpPipeline, nil)
+	pipeline := Pipeline{nil, nil, map[string]filters.Filter{}, nil, nil}
+	pipeline.Init(superSpec, nil)
+	pipeline.Inherit(superSpec, &pipeline, nil)
 
 	//ctx := &contexttest.MockedHTTPContext{}
-	//httpPipeline.Handle(ctx)
-	status := httpPipeline.Status()
+	//pipeline.Handle(ctx)
+	status := pipeline.Status()
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
 	}
-	if httpPipeline.getFilter("unknown") != nil {
+	if pipeline.getFilter("unknown") != nil {
 		t.Errorf("should not have filters")
 	}
-	if httpPipeline.getFilter("proxy") == nil {
+	if pipeline.getFilter("proxy") == nil {
 		t.Errorf("should have filter")
 	}
-	httpPipeline.Close()
+	pipeline.Close()
 	cleanup()
 }

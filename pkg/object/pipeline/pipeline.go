@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/easemonitor"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -375,4 +376,21 @@ func (p *Pipeline) Close() {
 	for _, filter := range p.filters {
 		filter.Close()
 	}
+}
+
+// ToMetrics implements easemonitor.Metricer.
+func (s *Status) ToMetrics(service string) []*easemonitor.Metrics {
+	var results []*easemonitor.Metrics
+
+	for name, status := range s.Filters {
+		metricer, ok := status.(easemonitor.Metricer)
+		if !ok {
+			continue
+		}
+
+		svc := service + "/" + name
+		results = append(results, metricer.ToMetrics(svc)...)
+	}
+
+	return results
 }

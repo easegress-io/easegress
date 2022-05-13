@@ -198,7 +198,7 @@ func (ings *ingressServer) Init() error {
 	}
 
 	ings.httpServerSpec = superSpec
-	entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
+	entity, err := ings.tc.CreateTrafficGateForSpec(ings.namespace, superSpec)
 	if err != nil {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
@@ -215,7 +215,7 @@ func (ings *ingressServer) updateHTTPServer(spec *httpserver.Spec) error {
 	if err != nil {
 		return fmt.Errorf("BUG: new spec: %s failed: %v", builder.yamlConfig(), err)
 	}
-	_, err = ings.tc.ApplyHTTPServerForSpec(ings.namespace, ings.httpServerSpec)
+	_, err = ings.tc.ApplyTrafficGateForSpec(ings.namespace, ings.httpServerSpec)
 	if err != nil {
 		return fmt.Errorf("apply http server %s failed: %v", ings.httpServerSpec.Name(), err)
 	}
@@ -286,7 +286,7 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return err
 	}
-	if _, err = ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec); err != nil {
+	if _, err = ings.tc.CreatePipelineForSpec(ings.namespace, superSpec); err != nil {
 		return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
 	}
 	ings.add(funcSpec.Name)
@@ -358,8 +358,8 @@ func (ings *ingressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+	ings.tc.DeleteTrafficGate(ings.namespace, ings.httpServer.Spec().Name())
 	for name := range ings.pipelines {
-		ings.tc.DeleteHTTPPipeline(ings.namespace, name)
+		ings.tc.DeletePipeline(ings.namespace, name)
 	}
 }
