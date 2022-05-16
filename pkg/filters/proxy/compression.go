@@ -18,30 +18,15 @@
 package proxy
 
 import (
-	"bytes"
-	"io"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 
-	"github.com/klauspost/compress/gzip"
-
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 // TODO: Expose more options: compression level, mime types.
 
-var bodyFlushSize = 8 * int64(os.Getpagesize())
-
 type (
-	gzipBody struct {
-		body     io.Reader
-		buff     *bytes.Buffer
-		gw       *gzip.Writer
-		complete bool
-	}
-
 	// compression is filter compression.
 	compression struct {
 		spec *CompressionSpec
@@ -75,8 +60,7 @@ func (c *compression) compress(req *http.Request, resp *http.Response) bool {
 		return false
 	}
 
-	cl := c.parseContentLength(resp)
-	if cl != -1 && cl < int(c.spec.MinLength) {
+	if resp.ContentLength != -1 && resp.ContentLength < int64(c.spec.MinLength) {
 		return false
 	}
 
@@ -84,7 +68,7 @@ func (c *compression) compress(req *http.Request, resp *http.Response) bool {
 	resp.Header.Set(keyContentEncoding, "gzip")
 	resp.Header.Add(keyVary, keyContentEncoding)
 
-	resp.Body = io.NopCloser(newGzipBody(resp.Body))
+	resp.Body = readers.NewGZipCompressReader(resp.Body)
 	return true
 }
 
@@ -114,62 +98,4 @@ func (c *compression) acceptGzip(req *http.Request) bool {
 	}
 
 	return true
-}
-
-func (c *compression) parseContentLength(resp *http.Response) int {
-	contentLength := resp.Header.Get(keyContentLength)
-	if contentLength == "" {
-		return -1
-	}
-
-	cl, err := strconv.ParseInt(contentLength, 10, 64)
-	if err != nil {
-		return -1
-	}
-
-	return int(cl)
-}
-
-func newGzipBody(body io.Reader) *gzipBody {
-	buff := bytes.NewBuffer(nil)
-	return &gzipBody{
-		body: body,
-		buff: buff,
-		gw:   gzip.NewWriter(buff),
-	}
-}
-
-// body -> gw -> p
-func (gb *gzipBody) Read(p []byte) (int, error) {
-	if gb.complete {
-		return 0, io.EOF
-	}
-
-	if len(gb.buff.Bytes()) < len(p) {
-		gb.pull()
-	}
-
-	n, err := gb.buff.Read(p)
-	if err == io.EOF && !gb.complete {
-		err = nil
-	}
-
-	return n, err
-}
-
-func (gb *gzipBody) pull() {
-	_, err := io.CopyN(gb.gw, gb.body, bodyFlushSize)
-	switch err {
-	case nil:
-		// Nothing to do.
-	case io.EOF:
-		err := gb.gw.Close()
-		if err != nil {
-			logger.Errorf("BUG: close gzip failed: %v", err)
-		}
-		gb.complete = true
-	default:
-		gb.complete = true
-		logger.Errorf("BUG: copy body to gzip failed: %v", err)
-	}
 }
