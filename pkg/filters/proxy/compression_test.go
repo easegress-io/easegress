@@ -69,26 +69,6 @@ func TestAlreadyGziped(t *testing.T) {
 	}
 }
 
-func TestParseContentLength(t *testing.T) {
-	c := newCompression(&CompressionSpec{MinLength: 100})
-
-	resp := &http.Response{Header: http.Header{}}
-
-	if c.parseContentLength(resp) != -1 {
-		t.Error("content length should be -1")
-	}
-
-	resp.Header.Set(keyContentLength, "abc")
-	if c.parseContentLength(resp) != -1 {
-		t.Error("content length should be -1")
-	}
-
-	resp.Header.Set(keyContentLength, "100")
-	if c.parseContentLength(resp) != 100 {
-		t.Error("content length should be 100")
-	}
-}
-
 func TestCompress(t *testing.T) {
 	c := newCompression(&CompressionSpec{MinLength: 100})
 
