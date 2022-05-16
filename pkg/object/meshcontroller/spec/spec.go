@@ -92,6 +92,8 @@ const (
 
 	// ServiceCanaryHeaderKey is the http header key of service canary.
 	ServiceCanaryHeaderKey = "X-Mesh-Service-Canary"
+
+	defaultKeepaliveTimeout = "60s"
 )
 
 var (
@@ -135,6 +137,25 @@ type (
 		Log4jConfigName           string `yaml:"log4jConfigName" jsonschema:"omitempty"`
 
 		MonitorMTLS *MonitorMTLS `yaml:"monitorMTLS" jsonschema:"omitempty"`
+		WorkerSpec  *WorkerSpec  `yaml:"workerSpec" jsonschema:"omitempty"`
+	}
+
+	// WorkerSpec is the spec of worker
+	WorkerSpec struct {
+		IngressServerSpec IngressServerSpec `yaml:"ingressServerSpec" jsonschema:"omitempty"`
+		EgressServerSpec  EgressServerSpec  `yaml:"egressServerSpec" jsonschema:"omitempty"`
+	}
+
+	// IngressServerSpec is the spec of ingress httpserver in worker
+	IngressServerSpec struct {
+		KeepAlive        bool   `yaml:"keepAlive" jsonschema:"omitempty"`
+		KeepAliveTimeout string `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+	}
+
+	// EgressServerSpec is the spec of egress httpserver in worker
+	EgressServerSpec struct {
+		KeepAlive        bool   `yaml:"keepAlive" jsonschema:"omitempty"`
+		KeepAliveTimeout string `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
 	}
 
 	// MonitorMTLS is the spec of mTLS specification of monitor.
@@ -893,12 +914,13 @@ func (s *Service) IngressControllerPipelineSpec(instanceSpecs []*ServiceInstance
 }
 
 // SidecarIngressHTTPServerSpec generates a spec for sidecar ingress HTTP server
-func (s *Service) SidecarIngressHTTPServerSpec(cert, rootCert *Certificate) (*supervisor.Spec, error) {
+func (s *Service) SidecarIngressHTTPServerSpec(keepalive bool, timeout string, cert, rootCert *Certificate) (*supervisor.Spec, error) {
 	ingressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
 port: %d
-keepAlive: false
+keepAlive: %v
+keepAliveTimeout: %s
 https: %s
 certBase64: %s
 keyBase64: %s
@@ -917,8 +939,11 @@ rules:
 		rootCertBaser64 = rootCert.CertBase64
 		needHTTPS = "true"
 	}
+	if timeout == "" {
+		timeout = defaultKeepaliveTimeout
+	}
 	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
-		s.Sidecar.IngressPort, needHTTPS, certBase64, keyBase64, rootCertBaser64, pipelineName)
+		s.Sidecar.IngressPort, keepalive, timeout, needHTTPS, certBase64, keyBase64, rootCertBaser64, pipelineName)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
@@ -991,18 +1016,23 @@ func (s *Service) BackendName() string {
 }
 
 // SidecarEgressHTTPServerSpec returns a spec for egress HTTP server
-func (s *Service) SidecarEgressHTTPServerSpec() (*supervisor.Spec, error) {
+func (s *Service) SidecarEgressHTTPServerSpec(keepalive bool, timeout string) (*supervisor.Spec, error) {
 	egressHTTPServerFormat := `
 kind: HTTPServer
 name: %s
 port: %d
-keepAlive: false
+keepAlive: %v
+keepAliveTimeout: %s
 https: false
 `
-
+	if timeout == "" {
+		timeout = defaultKeepaliveTimeout
+	}
 	yamlConfig := fmt.Sprintf(egressHTTPServerFormat,
 		s.EgressHTTPServerName(),
-		s.Sidecar.EgressPort)
+		s.Sidecar.EgressPort,
+		keepalive,
+		timeout)
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {

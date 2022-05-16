@@ -122,7 +122,8 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 	}
 
 	egs.egressServerName = service.EgressHTTPServerName()
-	superSpec, err := service.SidecarEgressHTTPServerSpec()
+	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
+	superSpec, err := service.SidecarEgressHTTPServerSpec(admSpec.WorkerSpec.EgressServerSpec.KeepAlive, admSpec.WorkerSpec.EgressServerSpec.KeepAliveTimeout)
 	if err != nil {
 		return err
 	}
@@ -148,7 +149,6 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 		}
 	}
 
-	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
 	if admSpec.EnablemTLS() {
 		logger.Infof("egress in mtls mode, start listen ID: %s's cert", egs.instanceID)
 		if err := egs.inf.OnServerCert(egs.serviceName, egs.instanceID, egs.reloadByCert); err != nil {
