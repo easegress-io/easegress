@@ -25,17 +25,20 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 type MockedFilter struct {
 	kind *filters.Kind
+	spec *MockedSpec
 }
 
 type MockedSpec struct {
 	filters.BaseSpec `yaml:",inline"`
 }
 
-func (m *MockedFilter) Name() string                                { return "mock1" }
+func (m *MockedFilter) Name() string                                { return m.spec.Name() }
 func (m *MockedFilter) Kind() *filters.Kind                         { return m.kind }
 func (m *MockedFilter) Spec() filters.Spec                          { return nil }
 func (m *MockedFilter) Close()                                      {}
@@ -54,7 +57,7 @@ func MockFilterKind(kind string, results []string) *filters.Kind {
 		},
 	}
 	k.CreateInstance = func(spec filters.Spec) filters.Filter {
-		return &MockedFilter{k}
+		return &MockedFilter{k, spec.(*MockedSpec)}
 	}
 	return k
 }
@@ -67,10 +70,9 @@ func TestSpecValidate(t *testing.T) {
 	cleanup()
 	t.Run("spec missing flow", func(t *testing.T) {
 		filters.Register(MockFilterKind("mock-filter", nil))
-		filters.Register(MockFilterKind("mock-pipeline", nil))
 		spec := map[string]interface{}{
 			"name": "pipeline",
-			"kind": "mock-pipeline",
+			"kind": "Pipeline",
 			"flow": []FlowNode{
 				{Filter: "filter-1"}, // no such a filter defined
 			},
@@ -81,18 +83,17 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
+		superSpecYaml, err := yaml.Marshal(spec)
+		assert.Nil(t, err)
+		_, err = supervisor.NewSpec(string(superSpecYaml))
+		assert.NotNil(t, err, "filter-1 not found")
 	})
 	cleanup()
 	t.Run("ordered filters with flow", func(t *testing.T) {
 		filters.Register(MockFilterKind("mock-filter", nil))
-		filters.Register(MockFilterKind("mock-pipeline", nil))
 		spec := map[string]interface{}{
 			"name": "pipeline",
-			"kind": "mock-pipeline",
+			"kind": "Pipeline",
 			"flow": []FlowNode{
 				{Filter: "filter-1"}, {Filter: "filter-2"},
 			},
@@ -110,18 +111,17 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := filters.NewSpec(nil, "", spec)
-		if err != nil {
-			t.Errorf("failed creating valid filter spec %s", err)
-		}
+		superSpecYaml, err := yaml.Marshal(spec)
+		assert.Nil(t, err)
+		_, err = supervisor.NewSpec(string(superSpecYaml))
+		assert.Nil(t, err, "valid spec")
 	})
 	cleanup()
 	t.Run("ordered filters without flow", func(t *testing.T) {
 		filters.Register(MockFilterKind("mock-filter", nil))
-		filters.Register(MockFilterKind("mock-pipeline", nil))
 		spec := map[string]interface{}{
 			"name": "pipeline",
-			"kind": "mock-pipeline",
+			"kind": "Pipeline",
 			"filters": []map[string]interface{}{
 				{
 					"name": "filter-2",
@@ -136,58 +136,26 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		_, err := filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
-	})
-	cleanup()
-	t.Run("invalid spec", func(t *testing.T) {
-		spec := map[string]interface{}{
-			"name": "pipeline",
-			"kind": "mock-pipeline",
-		}
-		_, err := filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
-		filters.Register(MockFilterKind("mock-pipeline", nil))
-		spec = map[string]interface{}{
-			"name": "pipeline",
-			"kind": "mock-pipeline",
-			"filters": []map[string]interface{}{
-				{
-					"name": "filter-1",
-					"kind": "mock-filter", // missing this
-				},
-			},
-		}
-		_, err = filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
-		spec = map[string]interface{}{"name": "pipeline"}
-		_, err = filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
+		superSpecYaml, err := yaml.Marshal(spec)
+		assert.Nil(t, err)
+		_, err = supervisor.NewSpec(string(superSpecYaml))
+		assert.Nil(t, err, "valid spec")
 	})
 	cleanup()
 	t.Run("duplicate filter", func(t *testing.T) {
-		filters.Register(MockFilterKind("mock-pipeline", nil))
 		filters.Register(MockFilterKind("mock-filter", nil))
 		spec := map[string]interface{}{
 			"name": "pipeline",
-			"kind": "mock-pipeline",
+			"kind": "Pipeline",
 			"filters": []map[string]interface{}{
 				{"name": "filter-1", "kind": "mock-filter"},
 				{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
-		_, err := filters.NewSpec(nil, "", spec)
-		if err == nil {
-			t.Errorf("spec creation should have failed")
-		}
+		superSpecYaml, err := yaml.Marshal(spec)
+		assert.Nil(t, err)
+		_, err = supervisor.NewSpec(string(superSpecYaml))
+		assert.NotNil(t, err, "invalid spec")
 	})
 	cleanup()
 }
@@ -290,8 +258,6 @@ filters:
 	pipeline.Init(superSpec, nil)
 	pipeline.Inherit(superSpec, &pipeline, nil)
 
-	// ctx := &contexttest.MockedHTTPContext{}
-	// pipeline.Handle(ctx)
 	status := pipeline.Status()
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
@@ -303,7 +269,7 @@ filters:
 	cleanup()
 }
 
-func TestHttpipelineNoFlow(t *testing.T) {
+func TestHTTPPipelineNoFlow(t *testing.T) {
 	superSpecYaml := `
 name: http-pipeline-test
 kind: Pipeline

@@ -54,7 +54,7 @@ func TestHeader(t *testing.T) {
 	header2.Add("X-Users", "header2")
 	multiEqual([]string(nil), []interface{}{header.Values("X-Users"), req.Header.Values("X-Users")})
 	multiEqual("", []interface{}{header.Get("X-Users"), req.Header.Get("X-Users")})
-	assert.Equal([]string{"header2"}, header2.Get("X-Users"))
+	assert.Equal("header2", header2.Get("X-Users"))
 
 	header.Add("X-User", "abc")
 	header.Add("X-Device", "phone")

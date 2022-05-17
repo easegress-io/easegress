@@ -33,6 +33,7 @@ func TestRequest(t *testing.T) {
 	assert.Nil(err)
 
 	request, _ := NewRequest(req)
+	request.FetchPayload()
 	assert.Equal(req, request.Std())
 	assert.Equal("", request.RealIP())
 	assert.Equal("HTTP/1.1", request.Proto())
@@ -74,10 +75,9 @@ func TestRequest(t *testing.T) {
 
 	// check context
 	ctx, cancel := context.WithCancel(request.Context())
-	request.WithContext(ctx)
-	assert.Nil(request.Context().Err())
+	newReq := request.WithContext(ctx)
+	assert.Nil(newReq.Context().Err())
 
 	cancel()
-	assert.Equal(context.Canceled, request.Context().Err())
-	assert.Equal(context.Canceled, request.Std().Context().Err())
+	assert.Equal(context.Canceled, newReq.Context().Err())
 }

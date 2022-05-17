@@ -165,6 +165,9 @@ func (s *Spec) Validate() (err error) {
 		if isBuiltInFilter(name) {
 			panic(fmt.Errorf("can't use %s(built-in) for filter name", name))
 		}
+		if _, ok := specs[name]; ok {
+			panic(fmt.Errorf("duplicated filter name %s", name))
+		}
 
 		specs[name] = spec
 	}

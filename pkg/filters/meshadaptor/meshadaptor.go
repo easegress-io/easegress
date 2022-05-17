@@ -107,9 +107,8 @@ func (ra *MeshAdaptor) Handle(ctx *context.Context) string {
 	httpreq := ctx.Request().(*httpprot.Request)
 	for _, serviceCanary := range ra.spec.ServiceCanaries {
 		if serviceCanary.filter.Match(httpreq) {
-			// ctx.Request().Header().Adapt(serviceCanary.Header, ctx.Template())
-			// TODO: add context template here!
-			panic("")
+			h := httpheader.New(httpreq.HTTPHeader())
+			h.Adapt(serviceCanary.Header)
 		}
 	}
 

@@ -75,11 +75,10 @@ func TestCompress(t *testing.T) {
 	req, _ := http.NewRequest(http.MethodGet, "https://megaease.com", nil)
 	resp := &http.Response{Header: http.Header{}}
 
-	resp.Header.Set(keyContentLength, "20")
-
 	rawBody := strings.Repeat("this is the raw body. ", 100)
 	resp.Body = io.NopCloser(strings.NewReader(rawBody))
 
+	resp.ContentLength = 20
 	c.compress(req, resp)
 	if resp.Header.Get(keyContentEncoding) == "gzip" {
 		t.Error("body should not be gziped")
@@ -87,7 +86,7 @@ func TestCompress(t *testing.T) {
 
 	resp.Body = http.NoBody
 
-	resp.Header.Set(keyContentLength, "120")
+	resp.ContentLength = 120
 	c.compress(req, resp)
 	if resp.Header.Get(keyContentEncoding) != "gzip" {
 		t.Error("body should be gziped")
