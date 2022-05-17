@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - pipeline 
     paths:
       - "**/*.go"
       - "**/*.yaml"
@@ -15,6 +16,7 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
+      - pipeline 
     paths:
       - "**/*.go"
       - "go.mod"
