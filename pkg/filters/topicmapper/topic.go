@@ -27,17 +27,22 @@ import (
 
 type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)
 
-func getPolicyRoute(routes []*PolicyRe) map[string]*regexp.Regexp {
-	ans := make(map[string]*regexp.Regexp)
+type policyRe struct {
+	name string
+	re   *regexp.Regexp
+}
+
+func getPolicyRoute(routes []*PolicyRe) []*policyRe {
+	res := make([]*policyRe, 0, len(routes))
 	for _, route := range routes {
 		r, err := regexp.Compile(route.MatchExpr)
 		if err != nil {
 			logger.SpanErrorf(nil, "topicMapper policy <%s> match expr <%s> compile failed: %v", route.Name, route.MatchExpr, err)
 		} else {
-			ans[route.Name] = r
+			res = append(res, &policyRe{name: route.Name, re: r})
 		}
 	}
-	return ans
+	return res
 }
 
 type topicRouteType map[string][]*regexp.Regexp
@@ -77,9 +82,9 @@ func getTopicMapFunc(topicMapper *Spec) topicMapFunc {
 	}
 
 	getPolicy := func(level string) *Policy {
-		for name, r := range policyRoute {
-			if r.MatchString(level) {
-				return policyMap[name]
+		for _, route := range policyRoute {
+			if route.re.MatchString(level) {
+				return policyMap[route.name]
 			}
 		}
 		return nil
