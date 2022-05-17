@@ -1045,14 +1045,14 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 		SignTime:    "2021-10-13 12:33:10",
 	}
 
-	superSpec, err := s.SidecarIngressHTTPServerSpec(false, defaultKeepaliveTimeout, cert, rootCert)
+	superSpec, err := s.SidecarIngressHTTPServerSpec(false, defaultKeepAliveTimeout, cert, rootCert)
 
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
 	fmt.Println(superSpec.YAMLConfig())
 
-	superSpec, err = s.SidecarEgressHTTPServerSpec(true, defaultKeepaliveTimeout)
+	superSpec, err = s.SidecarEgressHTTPServerSpec(true, defaultKeepAliveTimeout)
 
 	if err != nil {
 		t.Fatalf("egress http server spec failed: %v", err)

@@ -132,7 +132,7 @@ func (ings *IngressServer) InitIngress(service *spec.Service, port uint32) error
 			logger.Infof("ingress enable TLS, init httpserver with cert: %#v", cert)
 		}
 
-		superSpec, err := service.SidecarIngressHTTPServerSpec(admSpec.WorkerSpec.IngressServerSpec.KeepAlive, admSpec.WorkerSpec.IngressServerSpec.KeepAliveTimeout, cert, rootCert)
+		superSpec, err := service.SidecarIngressHTTPServerSpec(admSpec.WorkerSpec.Ingress.KeepAlive, admSpec.WorkerSpec.Ingress.KeepAliveTimeout, cert, rootCert)
 		if err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Ce
 	}
 	admSpec := ings.superSpec.ObjectSpec().(*spec.Admin)
 	rootCert := ings.service.GetRootCert()
-	superSpec, err := serviceSpec.SidecarIngressHTTPServerSpec(admSpec.WorkerSpec.IngressServerSpec.KeepAlive, admSpec.WorkerSpec.IngressServerSpec.KeepAliveTimeout, value, rootCert)
+	superSpec, err := serviceSpec.SidecarIngressHTTPServerSpec(admSpec.WorkerSpec.Ingress.KeepAlive, admSpec.WorkerSpec.Ingress.KeepAliveTimeout, value, rootCert)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
 			superSpec.YAMLConfig(), err)

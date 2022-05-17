@@ -123,7 +123,7 @@ func (egs *EgressServer) InitEgress(service *spec.Service) error {
 
 	egs.egressServerName = service.EgressHTTPServerName()
 	admSpec := egs.superSpec.ObjectSpec().(*spec.Admin)
-	superSpec, err := service.SidecarEgressHTTPServerSpec(admSpec.WorkerSpec.EgressServerSpec.KeepAlive, admSpec.WorkerSpec.EgressServerSpec.KeepAliveTimeout)
+	superSpec, err := service.SidecarEgressHTTPServerSpec(admSpec.WorkerSpec.Egress.KeepAlive, admSpec.WorkerSpec.Egress.KeepAliveTimeout)
 	if err != nil {
 		return err
 	}

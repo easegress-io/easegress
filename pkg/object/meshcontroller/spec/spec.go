@@ -93,7 +93,7 @@ const (
 	// ServiceCanaryHeaderKey is the http header key of service canary.
 	ServiceCanaryHeaderKey = "X-Mesh-Service-Canary"
 
-	defaultKeepaliveTimeout = "60s"
+	defaultKeepAliveTimeout = "60s"
 )
 
 var (
@@ -142,8 +142,8 @@ type (
 
 	// WorkerSpec is the spec of worker
 	WorkerSpec struct {
-		IngressServerSpec IngressServerSpec `yaml:"ingressServerSpec" jsonschema:"omitempty"`
-		EgressServerSpec  EgressServerSpec  `yaml:"egressServerSpec" jsonschema:"omitempty"`
+		Ingress IngressServerSpec `yaml:"ingress" jsonschema:"omitempty"`
+		Egress  EgressServerSpec  `yaml:"egress" jsonschema:"omitempty"`
 	}
 
 	// IngressServerSpec is the spec of ingress httpserver in worker
@@ -940,7 +940,7 @@ rules:
 		needHTTPS = "true"
 	}
 	if timeout == "" {
-		timeout = defaultKeepaliveTimeout
+		timeout = defaultKeepAliveTimeout
 	}
 	yamlConfig := fmt.Sprintf(ingressHTTPServerFormat, name,
 		s.Sidecar.IngressPort, keepalive, timeout, needHTTPS, certBase64, keyBase64, rootCertBaser64, pipelineName)
@@ -1026,7 +1026,7 @@ keepAliveTimeout: %s
 https: false
 `
 	if timeout == "" {
-		timeout = defaultKeepaliveTimeout
+		timeout = defaultKeepAliveTimeout
 	}
 	yamlConfig := fmt.Sprintf(egressHTTPServerFormat,
 		s.EgressHTTPServerName(),
