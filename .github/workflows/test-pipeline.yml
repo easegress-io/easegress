@@ -1,9 +1,9 @@
-name: Test
+name: TestPipeline
 
 on:
   push:
     branches:
-      - main
+      - pipeline 
     paths:
       - "**/*.go"
       - "**/*.yaml"
@@ -14,7 +14,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - main
+      - pipeline 
     paths:
       - "**/*.go"
       - "go.mod"
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest] 
     steps:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v2
@@ -49,39 +49,3 @@ jobs:
         uses: codecov/codecov-action@v2.1.0
         with:
           file: ./coverage.txt
-  test-win:
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Set up Go 1.x.y
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Checkout codebase
-        uses: actions/checkout@v3
-
-      - name: Test
-        run: |
-          go mod verify
-          go mod download
-          go test -v ./...
-  integration-test-ubuntu:
-    needs: [test, test-win]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - name: Set up Go 1.x.y
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Checkout codebase
-        uses: actions/checkout@v3
-
-      - name: Test
-        run: |
-          make httpserver_test
-
