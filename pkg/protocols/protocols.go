@@ -38,18 +38,34 @@ type Request interface {
 	// Header returns the header of the request.
 	Header() Header
 
-	// SetPayload set the payload of the request to payload.
-	SetPayload(payload []byte)
+	// IsStream returns whether the payload is a stream, which cannot be
+	// read for more than once.
+	IsStream() bool
 
-	// GetPayload returns a new payload reader.
+	// SetPayload set the payload of the request to payload. The payload
+	// could be a string, a byte slice, or an io.Reader, and if it is an
+	// io.Reader, it will be treated as a stream, if this is not desired,
+	// please read the data to a byte slice, and set the byte slice as
+	// the payload.
+	//
+	// If the previous payload is a stream, it is the caller's responsibility
+	// to close it, if required (that's, the previouse payload is also an
+	// io.Closer).
+	SetPayload(payload interface{})
+
+	// GetPayload returns a payload reader. For non-stream payload, the
+	// returned reader is always a new one, which contains the full data.
+	// For stream payload, the function always returns the same reader.
 	GetPayload() io.Reader
 
-	// RawPayload returns the payload in []byte, the caller should
-	// not modify its content.
+	// RawPayload returns the payload in []byte, the caller should not
+	// modify its content. The function panic if the payload is a stream.
 	RawPayload() []byte
 
-	// PayloadLength returns the length of the payload.
-	PayloadLength() int
+	// PayloadSize returns the size of the payload. If the payload is a
+	// stream, it returns the bytes count that have been currently read
+	// out.
+	PayloadSize() int64
 
 	// Close closes the request.
 	Close()
@@ -60,18 +76,34 @@ type Response interface {
 	// Header returns the header of the response.
 	Header() Header
 
-	// SetPayload set the payload of the response to payload.
-	SetPayload(payload []byte)
+	// IsStream returns whether the payload is a stream, which cannot be
+	// read for more than once.
+	IsStream() bool
 
-	// GetPayload returns a new payload reader.
+	// SetPayload set the payload of the response to payload. The payload
+	// could be a string, a byte slice, or an io.Reader, and if it is an
+	// io.Reader, it will be treated as a stream, if this is not desired,
+	// please read the data to a byte slice, and set the byte slice as
+	// the payload.
+	//
+	// If the previous payload is a stream, it is the caller's responsibility
+	// to close it, if required (that's, the previouse payload is also an
+	// io.Closer).
+	SetPayload(payload interface{})
+
+	// GetPayload returns a payload reader. For non-stream payload, the
+	// returned reader is always a new one, which contains the full data.
+	// For stream payload, the function always returns the same reader.
 	GetPayload() io.Reader
 
-	// RawPayload returns the payload in []byte, the caller should
-	// not modify its content.
+	// RawPayload returns the payload in []byte, the caller should not
+	// modify its content. The function panic if the payload is a stream.
 	RawPayload() []byte
 
-	// PayloadLength returns the length of the payload.
-	PayloadLength() int
+	// PayloadSize returns the size of the payload. If the payload is a
+	// stream, it returns the bytes count that have been currently read
+	// out.
+	PayloadSize() int64
 
 	// Close closes the response.
 	Close()

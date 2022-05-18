@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,7 @@ import (
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -74,16 +76,21 @@ type serverPoolContext struct {
 	stdResp *http.Response
 }
 
-func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context) error {
-	stdr := spCtx.req.Std()
+func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context, mirror bool) error {
+	req := spCtx.req
 
-	url := svr.URL + spCtx.req.Path()
-	if stdr.URL.RawQuery != "" {
-		url += "?" + stdr.URL.RawQuery
+	url := svr.URL + req.Path()
+	if rq := req.Std().URL.RawQuery; rq != "" {
+		url += "?" + rq
 	}
 
-	payload := spCtx.req.GetPayload()
-	stdr, err := http.NewRequestWithContext(ctx, stdr.Method, url, payload)
+	var payload io.Reader
+	if mirror && spCtx.req.IsStream() {
+		payload = strings.NewReader("cannot send a stream body to mirror")
+	} else {
+		payload = req.GetPayload()
+	}
+	stdr, err := http.NewRequestWithContext(ctx, req.Method(), url, payload)
 	if err != nil {
 		logger.Errorf("prepare request failed: %v", err)
 		return err
@@ -94,7 +101,7 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 	// only set host when server address is not host name OR
 	// server is explicitly told to keep the host of the request.
 	if !svr.addrIsHostName || svr.KeepHost {
-		stdr.Host = spCtx.req.Host()
+		stdr.Host = req.Host()
 	}
 
 	if spCtx.span != nil {
@@ -128,6 +135,7 @@ type ServerPool struct {
 type ServerPoolSpec struct {
 	SpanName           string              `yaml:"spanName" jsonschema:"omitempty"`
 	Filter             *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
+	ServerMaxBodySize  int64               `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
 	ServersTags        []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
 	Servers            []*Server           `yaml:"servers" jsonschema:"omitempty"`
 	ServiceRegistry    string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
@@ -309,23 +317,44 @@ func (sp *ServerPool) InjectResiliencePolicy(policies map[string]resilience.Poli
 }
 
 func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
-	duration := fasttime.Since(spCtx.startTime)
+	metric := &httpstat.Metric{}
 
-	spCtx.LazyAddTag(func() string {
-		return stringtool.Cat(sp.name, "#duration: ", duration.String())
+	metric.StatusCode = spCtx.resp.StatusCode()
+	metric.ReqSize = uint64(spCtx.req.MetaSize())
+	metric.ReqSize += uint64(spCtx.req.PayloadSize())
+	metric.RespSize = uint64(spCtx.resp.MetaSize())
+
+	collect := func() {
+		metric.Duration = fasttime.Since(spCtx.startTime)
+		sp.httpStat.Stat(metric)
+		spCtx.LazyAddTag(func() string {
+			return sp.name + "#duration: " + metric.Duration.String()
+		})
+	}
+
+	// Collect all metrics directly if not a stream.
+	if !spCtx.resp.IsStream() {
+		metric.RespSize += uint64(spCtx.resp.PayloadSize())
+		collect()
+		return
+	}
+
+	// Now, the body must be a CallbackReader.
+	body, _ := spCtx.stdResp.Body.(*readers.CallbackReader)
+
+	// Collect when reach EOF or meet an error.
+	body.OnAfter(func(total int, p []byte, err error) {
+		if err != nil {
+			metric.RespSize += uint64(total)
+			collect()
+		}
 	})
 
-	metric := &httpstat.Metric{}
-	metric.StatusCode = spCtx.resp.StatusCode()
-	metric.Duration = duration
-
-	metric.ReqSize = uint64(spCtx.req.MetaSize())
-	metric.ReqSize += uint64(spCtx.req.PayloadLength())
-
-	metric.RespSize = uint64(spCtx.resp.MetaSize())
-	metric.RespSize += uint64(spCtx.resp.PayloadLength())
-
-	sp.httpStat.Stat(metric)
+	// Drain off the body to make sure collect is called even no one
+	// read the stream.
+	body.OnClose(func() {
+		io.Copy(io.Discard, spCtx.resp.GetPayload())
+	})
 }
 
 func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
@@ -334,7 +363,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 		return
 	}
 
-	err := spCtx.prepareRequest(svr, spCtx.req.Context())
+	err := spCtx.prepareRequest(svr, spCtx.req.Context(), true)
 	if err != nil {
 		return
 	}
@@ -391,8 +420,9 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		return sp.doHandle(stdctx, spCtx)
 	}
 
-	// resilience wrappers.
-	if sp.retryWrapper != nil {
+	// resilience wrappers, note that it is impossible to retry a stream
+	// request as its body can only be read once.
+	if sp.retryWrapper != nil && !spCtx.req.IsStream() {
 		handler = sp.retryWrapper.Wrap(handler)
 	}
 	if sp.circuitbreakWrapper != nil {
@@ -442,7 +472,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	// prepare the request to send.
 	statResult := &gohttpstat.Result{}
 	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
-	if err := spCtx.prepareRequest(svr, stdctx); err != nil {
+	if err := spCtx.prepareRequest(svr, stdctx, false); err != nil {
 		spCtx.LazyAddTag(func() string {
 			return "prepare request failed: " + err.Error()
 		})
@@ -496,21 +526,34 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	return nil
 }
 
-func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) error {
-	body := spCtx.stdResp.Body
-	defer body.Close()
+func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
+	body := readers.NewCallbackReader(spCtx.stdResp.Body)
+	spCtx.stdResp.Body = body
 
 	if sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
-		spCtx.Context.AddTag("gzip")
+		spCtx.AddTag("gzip")
 	}
 
 	resp, err := httpprot.NewResponse(spCtx.stdResp)
 	if err != nil {
+		body.Close()
 		return err
 	}
 
-	if _, err = resp.FetchPayload(); err != nil {
+	maxBodySize := sp.spec.ServerMaxBodySize
+	if maxBodySize == 0 {
+		maxBodySize = sp.proxy.spec.ServerMaxBodySize
+	}
+	if err = resp.FetchPayload(maxBodySize); err != nil {
+		spCtx.LazyAddTag(func() string {
+			return fmt.Sprintf("fetch response payload error: %v", err)
+		})
+		body.Close()
 		return err
+	}
+
+	if !resp.IsStream() {
+		body.Close()
 	}
 
 	spCtx.resp = resp

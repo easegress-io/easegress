@@ -40,6 +40,11 @@ func NewResponse() *Response {
 	return &Response{}
 }
 
+// IsStream returns whether the payload of the response is a stream.
+func (r *Response) IsStream() bool {
+	return false
+}
+
 // SetDrop means the packet in context will be drop.
 func (r *Response) SetDrop() {
 	r.drop = true
@@ -69,8 +74,12 @@ func (r *Response) Header() protocols.Header {
 }
 
 // SetPayload set the payload of the response to payload.
-func (r *Response) SetPayload(payload []byte) {
-	r.payload = payload
+func (r *Response) SetPayload(payload interface{}) {
+	p, ok := payload.([]byte)
+	if !ok {
+		panic("payload is not a byte slice")
+	}
+	r.payload = p
 }
 
 // GetPayload returns a new payload reader.
@@ -84,9 +93,9 @@ func (r *Response) RawPayload() []byte {
 	return r.payload
 }
 
-// PayloadLength returns the length of the payload.
-func (r *Response) PayloadLength() int {
-	return len(r.payload)
+// PayloadSize returns the length of the payload.
+func (r *Response) PayloadSize() int64 {
+	return int64(len(r.payload))
 }
 
 // Close closes the response.

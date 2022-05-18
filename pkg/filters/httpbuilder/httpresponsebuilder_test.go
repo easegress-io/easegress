@@ -42,7 +42,7 @@ func getResponseBuilder(spec *HTTPResponseBuilderSpec) *HTTPResponseBuilder {
 
 func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
 	r, err := httpprot.NewRequest(req)
-	r.FetchPayload()
+	r.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
 	ctx.SetRequest(id, r)
 }

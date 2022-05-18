@@ -20,29 +20,39 @@ package httpprot
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/tomasen/realip"
 )
 
 // Request wraps http.Request.
+//
+// The payload of the request can be replaced with a new one, but it will
+// never replace the body of the original http.Request.
 type Request struct {
 	*http.Request
+	stream  *readers.ByteCountReader
 	payload []byte
 	realIP  string
 }
+
+// ErrRequestEntityTooLarge means the request entity is too large.
+var ErrRequestEntityTooLarge = fmt.Errorf("request entity too large")
 
 var _ protocols.Request = (*Request)(nil)
 
 // NewRequest creates a new request from a standard request.
 //
-// The body of http.Request can only be read once, but the httpprot.Request
-// need to support being read more times, to make this possible, FetchPayload
-// must be called before any read of the request body. This consumes a lot
-// of memory, but seems no way to avoid it.
+// Code should always use payload functions of this request to read the
+// body of the original request, and never use the Body of the original
+// request directly.
+//
+// FetchPayload must be called before any read of the request body.
 func NewRequest(stdr *http.Request) (*Request, error) {
 	if stdr == nil {
 		stdr = &http.Request{Body: http.NoBody}
@@ -54,64 +64,140 @@ func NewRequest(stdr *http.Request) (*Request, error) {
 	return r, nil
 }
 
-// FetchPayload reads the body of the underlying http.Request, initializes
-// payload, and bind a new body to the underlying http.Request.
-func (r *Request) FetchPayload() (int, error) {
-	var payload []byte
-	var err error
+// IsStream returns whether the payload of the request is a stream.
+func (r *Request) IsStream() bool {
+	return r.stream != nil
+}
+
+// FetchPayload reads the body of the underlying http.Request and initializes
+// the payload.
+//
+// if maxPayloadSize is a negative number, the payload is treated as a stream.
+// if maxPayloadSize is zero, DefaultMaxPayloadSize is used.
+func (r *Request) FetchPayload(maxPayloadSize int64) error {
+	if maxPayloadSize == 0 {
+		maxPayloadSize = DefaultMaxPayloadSize
+	}
 
 	stdr := r.Request
+
+	if maxPayloadSize < 0 {
+		// For an HTTP request, it is the caller's responsibility to close
+		// its body, wrap it with io.NopCloser, so httpprot.Request will
+		// never close it.
+		r.stream = readers.NewByteCountReader(io.NopCloser(stdr.Body))
+		return nil
+	}
+
+	if stdr.ContentLength > maxPayloadSize {
+		return ErrRequestEntityTooLarge
+	}
+
 	if stdr.ContentLength > 0 {
-		payload = make([]byte, stdr.ContentLength)
-		_, err = io.ReadFull(stdr.Body, payload)
-	} else if stdr.ContentLength == -1 {
-		payload, err = io.ReadAll(stdr.Body)
+		payload := make([]byte, stdr.ContentLength)
+		n, err := io.ReadFull(stdr.Body, payload)
+		payload = payload[:n]
+		r.SetPayload(payload)
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+		return err
 	}
+
+	if stdr.ContentLength == 0 {
+		r.SetPayload(nil)
+		return nil
+	}
+
+	payload, err := io.ReadAll(io.LimitReader(stdr.Body, maxPayloadSize))
 	r.SetPayload(payload)
-
-	if err == io.EOF {
-		err = nil
+	if err != nil {
+		return err
 	}
-	return len(payload), err
+
+	if len(payload) < int(maxPayloadSize) {
+		return nil
+	}
+
+	// try read extra bytes to check if the payload is too large.
+	n, err := io.Copy(io.Discard, stdr.Body)
+	if n > 0 {
+		return ErrRequestEntityTooLarge
+	}
+
+	return err
 }
 
-// SetPayload sets the payload of the request to payload.
-func (r *Request) SetPayload(payload []byte) {
-	r.payload = payload
-	reader := r.GetPayload()
-	if rc, ok := reader.(io.ReadCloser); ok {
-		r.Body = rc
-	} else {
-		r.Body = io.NopCloser(reader)
+// SetPayload set the payload of the request to payload. The payload
+// could be a string, a byte slice, or an io.Reader, and if it is an
+// io.Reader, it will be treated as a stream, if this is not desired,
+// please read the data to a byte slice, and set the byte slice as
+// the payload.
+func (r *Request) SetPayload(payload interface{}) {
+	r.stream = nil
+	r.payload = nil
+
+	if payload == nil {
+		return
+	}
+
+	switch p := payload.(type) {
+	case []byte:
+		r.payload = p
+	case string:
+		r.payload = []byte(p)
+	case io.Reader:
+		if bcr, ok := p.(*readers.ByteCountReader); ok {
+			r.stream = bcr
+		} else {
+			r.stream = readers.NewByteCountReader(p)
+		}
+	default:
+		panic("unknown payload type")
 	}
 }
 
-// GetPayload returns a new payload reader.
+// GetPayload returns a payload reader. For non-stream payload, the
+// returned reader is always a new one, which contains the full data.
+// For stream payload, the function always returns the same reader.
 func (r *Request) GetPayload() io.Reader {
+	if r.stream != nil {
+		return r.stream
+	}
 	if len(r.payload) == 0 {
 		return http.NoBody
-	} else {
-		return bytes.NewReader(r.payload)
 	}
+	return bytes.NewReader(r.payload)
 }
 
-// RawPayload returns the payload in []byte, the caller should
-// not modify its content.
+// RawPayload returns the payload in []byte, the caller should not
+// modify its content. The function panic if the payload is a stream.
 func (r *Request) RawPayload() []byte {
-	return r.payload
+	if r.stream == nil {
+		return r.payload
+	}
+	panic("the payload is a large one")
 }
 
-// PayloadLength returns the length of the payload.
-func (r *Request) PayloadLength() int {
-	return len(r.payload)
+// PayloadSize returns the size of the payload. If the payload is a
+// stream, it returns the bytes count that have been currently read
+// out.
+func (r *Request) PayloadSize() int64 {
+	if r.stream == nil {
+		return int64(len(r.payload))
+	}
+	return int64(r.stream.BytesRead())
 }
 
 // Close closes the request.
 func (r *Request) Close() {
+	if r.stream != nil {
+		r.stream.Close()
+	}
 }
 
 // MetaSize returns the meta data size of the request.
-func (r *Request) MetaSize() int {
+func (r *Request) MetaSize() int64 {
 	// Reference: https://tools.ietf.org/html/rfc2616#section-5
 	//
 	// meta length is the length of:
@@ -139,7 +225,7 @@ func (r *Request) MetaSize() int {
 		size += (lines - 1) * 2 // "\r\n"
 	}
 
-	return size + 4
+	return int64(size + 4)
 }
 
 // HTTPHeader returns the header of the request in type http.Header.

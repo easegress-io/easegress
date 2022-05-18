@@ -39,6 +39,7 @@ import (
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -82,14 +83,15 @@ type (
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path          string
-		pathPrefix    string
-		pathRegexp    string
-		pathRE        *regexp.Regexp
-		methods       []string
-		rewriteTarget string
-		backend       string
-		headers       []*Header
+		path              string
+		pathPrefix        string
+		pathRegexp        string
+		pathRE            *regexp.Regexp
+		methods           []string
+		rewriteTarget     string
+		backend           string
+		headers           []*Header
+		clientMaxBodySize int64
 	}
 
 	route struct {
@@ -228,6 +230,8 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		methods:       path.Methods,
 		backend:       path.Backend,
 		headers:       path.Headers,
+
+		clientMaxBodySize: path.ClientMaxBodySize,
 	}
 }
 
@@ -394,11 +398,10 @@ func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Respon
 }
 
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
-	// The body of the original request maybe changed by handlers, we
-	// need to restore it before the return of this funtion to make
-	// sure it can be correctly closed by the standard Go HTTP package.
-	originalBody := stdr.Body
-	bodySize := -1
+	// Replace the body of the original request with a ByteCountReader, so
+	// that we can calculate the actual request size.
+	body := readers.NewByteCountReader(stdr.Body)
+	stdr.Body = body
 
 	startAt := fasttime.Now()
 	span := mi.tracer.NewSpanWithStart(mi.superSpec.Name(), startAt)
@@ -406,17 +409,18 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	// httpprot.NewRequest never returns an error.
 	req, _ := httpprot.NewRequest(stdr)
+
+	// Calculate the meta size now, as everything could be modified.
+	reqMetaSize := req.MetaSize()
 	ctx.SetRequest(context.InitialRequestID, req)
 
 	// get topN here, as the path could be modified later.
 	topN := mi.topN.Stat(req.Path())
 
 	defer func() {
-		// If FetchPayload is not called yet.
-		if bodySize == -1 {
-			written, _ := io.Copy(io.Discard, originalBody)
-			bodySize = int(written)
-		}
+		// Drain off the body if it has not been, so that we can get the
+		// correct body size.
+		io.Copy(io.Discard, body)
 
 		var resp *httpprot.Response
 		if v := ctx.Response(); v != nil {
@@ -431,23 +435,20 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 			header[k] = v
 		}
 		stdw.WriteHeader(resp.StatusCode())
-		io.Copy(stdw, resp.GetPayload())
+		respBodySize, _ := io.Copy(stdw, resp.GetPayload())
 
 		ctx.Finish()
 
 		metric := httpstat.Metric{
 			StatusCode: resp.StatusCode(),
 			Duration:   fasttime.Since(startAt),
-			ReqSize:    uint64(bodySize + req.MetaSize()),
-			RespSize:   uint64(resp.MetaSize() + resp.PayloadLength()),
+			ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
+			RespSize:   uint64(resp.MetaSize() + respBodySize),
 		}
 		topN.Stat(&metric)
 		mi.httpStat.Stat(&metric)
 
 		span.Finish()
-
-		// Restore the body of the origin request.
-		stdr.Body = originalBody
 
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
@@ -485,7 +486,16 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		appendXForwardedFor(req)
 	}
 
-	bodySize, err := req.FetchPayload()
+	maxBodySize := route.path.clientMaxBodySize
+	if maxBodySize == 0 {
+		maxBodySize = mi.spec.ClientMaxBodySize
+	}
+	err := req.FetchPayload(maxBodySize)
+	if err == httpprot.ErrRequestEntityTooLarge {
+		ctx.AddTag(err.Error())
+		buildFailureResponse(ctx, http.StatusRequestEntityTooLarge)
+		return
+	}
 	if err != nil {
 		ctx.AddTag(fmt.Sprintf("failed to read request body: %v", err))
 		buildFailureResponse(ctx, http.StatusBadRequest)

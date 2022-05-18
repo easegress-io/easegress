@@ -33,17 +33,18 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		HTTP3            bool          `yaml:"http3" jsonschema:"omitempty"`
-		Port             uint16        `yaml:"port" jsonschema:"required,minimum=1"`
-		KeepAlive        bool          `yaml:"keepAlive" jsonschema:"required"`
-		KeepAliveTimeout string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnections   uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		CacheSize        uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
-		HTTPS            bool          `yaml:"https" jsonschema:"required"`
-		AutoCert         bool          `yaml:"autoCert" jsonschema:"omitempty"`
-		XForwardedFor    bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
-		Tracing          *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
-		CaCertBase64     string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
+		HTTP3             bool          `yaml:"http3" jsonschema:"omitempty"`
+		KeepAlive         bool          `yaml:"keepAlive" jsonschema:"required"`
+		HTTPS             bool          `yaml:"https" jsonschema:"required"`
+		AutoCert          bool          `yaml:"autoCert" jsonschema:"omitempty"`
+		XForwardedFor     bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
+		Port              uint16        `yaml:"port" jsonschema:"required,minimum=1"`
+		ClientMaxBodySize int64         `yaml:"clientMaxBodySize" jsonschema:"omitempty"`
+		KeepAliveTimeout  string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		MaxConnections    uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		CacheSize         uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
+		Tracing           *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
+		CaCertBase64      string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
@@ -78,14 +79,15 @@ type (
 
 	// Path is second level entry of router.
 	Path struct {
-		IPFilter      *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Path          string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix    string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathRegexp    string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		RewriteTarget string         `yaml:"rewriteTarget" jsonschema:"omitempty"`
-		Methods       []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		Backend       string         `yaml:"backend" jsonschema:"required"`
-		Headers       []*Header      `yaml:"headers" jsonschema:"omitempty"`
+		IPFilter          *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Path              string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix        string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathRegexp        string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		RewriteTarget     string         `yaml:"rewriteTarget" jsonschema:"omitempty"`
+		Methods           []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		Backend           string         `yaml:"backend" jsonschema:"required"`
+		Headers           []*Header      `yaml:"headers" jsonschema:"omitempty"`
+		ClientMaxBodySize int64          `yaml:"clientMaxBodySize" jsonschema:"omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
