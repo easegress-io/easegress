@@ -18,8 +18,6 @@
 package requestadaptor
 
 import (
-	"bytes"
-	"compress/gzip"
 	"io"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -28,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -35,15 +34,19 @@ const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
 
-	resultReadBodyFail   = "readBodyFail"
-	resultDecompressFail = "decompressFail"
-	resultCompressFail   = "compressFail"
+	resultReadBodyFailed   = "readBodyFailed"
+	resultDecompressFailed = "decompressFailed"
+	resultCompressFailed   = "compressFailed"
 )
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "RequestAdaptor adapts request.",
-	Results:     []string{resultDecompressFail, resultCompressFail, resultReadBodyFail},
+	Results: []string{
+		resultDecompressFailed,
+		resultCompressFailed,
+		resultReadBodyFailed,
+	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -188,41 +191,56 @@ func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {
 	if encoding != "" {
 		return ""
 	}
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
 
-	_, err := io.Copy(gw, req.GetPayload())
-	if err != nil {
-		logger.Errorf("compress request body failed, %v", err)
-		return resultCompressFail
+	zr := readers.NewGZipCompressReader(req.GetPayload())
+	if req.IsStream() {
+		req.SetPayload(zr)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		if err != nil {
+			logger.Errorf("compress request body failed, %v", err)
+			return resultCompressFailed
+		}
+		req.SetPayload(data)
 	}
-	gw.Close()
 
-	req.SetPayload(buf.Bytes())
 	req.HTTPHeader().Set("Content-Encoding", "gzip")
 	return ""
 }
 
 func (ra *RequestAdaptor) processDecompress(req *httpprot.Request) string {
 	encoding := req.HTTPHeader().Get("Content-Encoding")
-	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
-		reader, err := gzip.NewReader(req.GetPayload())
+	if ra.spec.Decompress != "gzip" || encoding != "gzip" {
+		return ""
+	}
+
+	zr, err := readers.NewGZipDecompressReader(req.GetPayload())
+	if err != nil {
+		return resultDecompressFailed
+	}
+
+	if req.IsStream() {
+		req.SetPayload(zr)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
 		if err != nil {
-			return resultDecompressFail
-		}
-		defer reader.Close()
-		data, err := io.ReadAll(reader)
-		if err != nil {
-			return resultDecompressFail
+			logger.Errorf("decompress request body failed, %v", err)
+			return resultDecompressFailed
 		}
 		req.SetPayload(data)
-		req.HTTPHeader().Del("Content-Encoding")
 	}
+
+	req.HTTPHeader().Del("Content-Encoding")
 	return ""
 }
 
 // Status returns status.
-func (ra *RequestAdaptor) Status() interface{} { return nil }
+func (ra *RequestAdaptor) Status() interface{} {
+	return nil
+}
 
 // Close closes RequestAdaptor.
-func (ra *RequestAdaptor) Close() {}
+func (ra *RequestAdaptor) Close() {
+}

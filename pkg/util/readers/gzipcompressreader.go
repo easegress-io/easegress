@@ -86,3 +86,35 @@ func (r *GZipCompressReader) Close() error {
 	}
 	return nil
 }
+
+// GZipDecompressReader wraps an io.Reader to a new io.Reader, whose data
+// is the gzip decompression result of the original io.Reader.
+type GZipDecompressReader struct {
+	*gzip.Reader
+	r io.Reader
+}
+
+// NewGZipDecompressReader creates a new GZipDecompressReader from r.
+func NewGZipDecompressReader(r io.Reader) (*GZipDecompressReader, error) {
+	zr, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GZipDecompressReader{
+		Reader: zr,
+		r:      r,
+	}, nil
+}
+
+// Close implements io.Closer, it closes both the gzip.Reader and the
+// underlying io.Reader, if it is an io.Closer.
+func (r *GZipDecompressReader) Close() error {
+	err := r.Reader.Close()
+	if c, ok := r.r.(io.Closer); ok {
+		if err2 := c.Close(); err2 != nil {
+			err = err2
+		}
+	}
+	return err
+}

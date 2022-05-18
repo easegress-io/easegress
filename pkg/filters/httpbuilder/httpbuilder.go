@@ -20,6 +20,7 @@ package httpbuilder
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 
@@ -170,22 +171,34 @@ func (r *response) YAMLBody() (interface{}, error) {
 }
 
 func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
+	var rawBody []byte
+
 	requests := make(map[string]*request)
 	responses := make(map[string]*response)
 
 	for k, v := range ctx.Requests() {
 		req := v.(*httpprot.Request)
+		if req.IsStream() {
+			rawBody = []byte(fmt.Sprintf("the body of request %s is a stream", k))
+		} else {
+			rawBody = req.RawPayload()
+		}
 		requests[k] = &request{
 			Request: req.Std(),
-			rawBody: req.RawPayload(),
+			rawBody: rawBody,
 		}
 	}
 
 	for k, v := range ctx.Responses() {
 		resp := v.(*httpprot.Response)
+		if resp.IsStream() {
+			rawBody = []byte(fmt.Sprintf("the body of response %s is a stream", k))
+		} else {
+			rawBody = resp.RawPayload()
+		}
 		responses[k] = &response{
 			Response: resp.Std(),
-			rawBody:  resp.RawPayload(),
+			rawBody:  rawBody,
 		}
 	}
 

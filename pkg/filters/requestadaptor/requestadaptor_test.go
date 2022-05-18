@@ -156,7 +156,7 @@ func TestDecompress(t *testing.T) {
 			setRequest(t, ctx, "req1", req)
 
 			ans := ra.Handle(ctx)
-			assert.Equal(resultDecompressFail, ans)
+			assert.Equal(resultDecompressFailed, ans)
 			ctx.Finish()
 		}
 	}
