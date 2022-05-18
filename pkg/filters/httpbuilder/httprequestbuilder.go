@@ -150,7 +150,7 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	req, err := http.NewRequest(ri.Method, ri.URL, nil)
+	stdReq, err := http.NewRequest(ri.Method, ri.URL, nil)
 	if err != nil {
 		logger.Warnf("failed to create new request: %v", err)
 		return resultBuildErr
@@ -158,13 +158,13 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 
 	for k, vs := range ri.Headers {
 		for _, v := range vs {
-			req.Header.Add(k, v)
+			stdReq.Header.Add(k, v)
 		}
 	}
 
-	egreq, _ := httpprot.NewRequest(req)
-	egreq.SetPayload([]byte(ri.Body))
+	req, _ := httpprot.NewRequest(stdReq)
+	req.SetPayload([]byte(ri.Body))
 
-	ctx.SetRequest(ctx.TargetRequestID(), egreq)
+	ctx.SetRequest(ctx.TargetRequestID(), req)
 	return ""
 }

@@ -29,6 +29,9 @@ import (
 )
 
 // Response wraps http.Response.
+//
+// The payload of the response can be replaced with a new one, but it will
+// never replace the body of the original http.Response.
 type Response struct {
 	// TODO: we only need StatusCode, Header and Body, that's can avoid
 	// using the big http.Response object.
@@ -45,10 +48,11 @@ var _ protocols.Response = (*Response)(nil)
 
 // NewResponse creates a new response from a standard response.
 //
-// The body of http.Response can only be read once, but the httpprot.Response
-// need to support being read more times, to make this possible, FetchPayload
-// must be called before any read of the request body. This consumes a lot
-// of memory, but seems no way to avoid it.
+// Code should always use payload functions of this response to read the
+// body of the original response, and never use the Body of the original
+// response directly.
+//
+// FetchPayload must be called before any read of the response body.
 func NewResponse(stdr *http.Response) (*Response, error) {
 	if stdr == nil {
 		stdr := &http.Response{
