@@ -18,34 +18,64 @@
 package pipeline
 
 import (
+	"fmt"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
+func init() {
+	logger.InitNop()
+}
+
 type MockedFilter struct {
-	kind *filters.Kind
-	spec *MockedSpec
+	kind  *filters.Kind
+	spec  *MockedSpec
+	count int
 }
 
 type MockedSpec struct {
 	filters.BaseSpec `yaml:",inline"`
 }
 
-func (m *MockedFilter) Name() string                                { return m.spec.Name() }
-func (m *MockedFilter) Kind() *filters.Kind                         { return m.kind }
-func (m *MockedFilter) Spec() filters.Spec                          { return nil }
-func (m *MockedFilter) Close()                                      {}
-func (m *MockedFilter) Handle(ctx *context.Context) (result string) { return "" }
-func (m *MockedFilter) Init()                                       {}
-func (m *MockedFilter) Inherit(previousGeneration filters.Filter)   {}
-func (m *MockedFilter) Status() interface{}                         { return nil }
+type MockedStatus struct {
+	Count int
+}
+
+func (m *MockedFilter) Name() string                              { return m.spec.Name() }
+func (m *MockedFilter) Kind() *filters.Kind                       { return m.kind }
+func (m *MockedFilter) Spec() filters.Spec                        { return nil }
+func (m *MockedFilter) Close()                                    {}
+func (m *MockedFilter) Init()                                     {}
+func (m *MockedFilter) Inherit(previousGeneration filters.Filter) {}
+
+func (m *MockedFilter) HeaderKV() (string, string) {
+	return fmt.Sprintf("X-Mock-%s", m.spec.Name()), m.spec.Name()
+}
+
+func (m *MockedFilter) Status() interface{} {
+	return &MockedStatus{m.count}
+}
+
+func (m *MockedFilter) Handle(ctx *context.Context) (result string) {
+	m.count++
+	req := ctx.Request()
+	if r, ok := req.(*httpprot.Request); ok {
+		k, v := m.HeaderKV()
+		r.HTTPHeader().Set(k, v)
+	}
+	return ""
+}
 
 func MockFilterKind(kind string, results []string) *filters.Kind {
 	k := &filters.Kind{
@@ -57,7 +87,10 @@ func MockFilterKind(kind string, results []string) *filters.Kind {
 		},
 	}
 	k.CreateInstance = func(spec filters.Spec) filters.Filter {
-		return &MockedFilter{k, spec.(*MockedSpec)}
+		return &MockedFilter{
+			kind: k,
+			spec: spec.(*MockedSpec),
+		}
 	}
 	return k
 }
@@ -205,7 +238,7 @@ func TestRegistry(t *testing.T) {
 	cleanup()
 }
 
-func TestHttpipeline(t *testing.T) {
+func TestHTTPPipeline(t *testing.T) {
 	superSpecYaml := `
 name: http-pipeline-test
 kind: Pipeline
@@ -235,7 +268,6 @@ filters:
         values:
         - application/json
 `
-	logger.InitNop()
 	filters.Register(MockFilterKind("Proxy", nil))
 	filters.Register(MockFilterKind("Pipeline", nil))
 	t.Run("missing filter results", func(t *testing.T) {
@@ -293,7 +325,6 @@ filters:
       loadBalance:
         policy: roundRobin
 `
-	logger.InitNop()
 	filters.Register(MockFilterKind("Proxy", nil))
 	filters.Register(MockFilterKind("Pipeline", nil))
 	filters.Register(MockFilterKind("Validator", nil))
@@ -307,8 +338,6 @@ filters:
 	pipeline.Init(superSpec, nil)
 	pipeline.Inherit(superSpec, &pipeline, nil)
 
-	//ctx := &contexttest.MockedHTTPContext{}
-	//pipeline.Handle(ctx)
 	status := pipeline.Status()
 	if reflect.TypeOf(status).Kind() == reflect.Struct {
 		t.Errorf("should be type of Status")
@@ -321,4 +350,55 @@ filters:
 	}
 	pipeline.Close()
 	cleanup()
+}
+
+func TestHandle(t *testing.T) {
+	assert := assert.New(t)
+	superSpecYaml := `
+name: http-pipeline-test
+kind: Pipeline
+flow:
+  - filter: filter1
+  - filter: filter2 
+filters:
+  - name: filter1 
+    kind: Filter1 
+  - name: filter2
+    kind: Filter2 
+`
+	filters.Register(MockFilterKind("Filter1", nil))
+	filters.Register(MockFilterKind("Filter2", nil))
+	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	assert.Nil(err)
+
+	pipeline := &Pipeline{}
+	pipeline.Init(superSpec, nil)
+	defer pipeline.Close()
+	defer cleanup()
+
+	stdReq, err := http.NewRequest(http.MethodGet, "http://localhost:9095", nil)
+	assert.Nil(err)
+	req, err := httpprot.NewRequest(stdReq)
+	assert.Nil(err)
+
+	ctx := context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.InitialRequestID, req)
+	ctx.UseRequest(context.InitialRequestID, context.InitialRequestID)
+
+	pipeline.Handle(ctx)
+
+	filter1 := MockGetFilter(pipeline, "filter1").(*MockedFilter)
+	k1, v1 := filter1.HeaderKV()
+	filter2 := MockGetFilter(pipeline, "filter2").(*MockedFilter)
+	k2, v2 := filter2.HeaderKV()
+	assert.Equal(v1, stdReq.Header.Get(k1))
+	assert.Equal(v2, stdReq.Header.Get(k2))
+	fmt.Printf("tags %+v\n", ctx.Tags())
+
+	assert.True(strings.Contains(ctx.Tags(), "filter1"), "current: filter1->filter2")
+	assert.True(strings.Contains(ctx.Tags(), "filter2"))
+
+	status := pipeline.Status().ObjectStatus.(*Status)
+	assert.Equal(2, len(status.Filters))
+	assert.Empty(status.ToMetrics("123"), "no metrics")
 }
