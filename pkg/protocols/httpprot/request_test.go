@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -29,55 +30,72 @@ import (
 
 func TestRequest(t *testing.T) {
 	assert := assert.New(t)
-	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:80", strings.NewReader("body string"))
+
+	// nil request
+	request, err := NewRequest(nil)
+	assert.Nil(err)
+	assert.NotNil(request.Std())
+	request.Close()
+
+	// not nil request
+	ctx, cancel := context.WithCancel(context.Background())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:80", strings.NewReader("body string"))
+	assert.Nil(err)
+	request, err = NewRequest(req)
 	assert.Nil(err)
 
-	request, _ := NewRequest(req)
-	request.FetchPayload()
-	assert.Equal(req, request.Std())
-	assert.Equal("", request.RealIP())
-	assert.Equal("HTTP/1.1", request.Proto())
-	assert.Equal(req.URL, request.URL())
-	assert.Equal(http.MethodGet, request.Method())
-
-	// when SetMethod, both Request and http.Request method should be changed
-	request.SetMethod(http.MethodDelete)
-	assert.Equal(http.MethodDelete, request.Method())
-	assert.Equal(http.MethodDelete, req.Method)
-
-	// Request and http.Request should share same cookie
-	assert.Equal([]*http.Cookie{}, request.Cookies())
-	assert.Equal([]*http.Cookie{}, req.Cookies())
-
-	request.AddCookie(&http.Cookie{
-		Name:  "cookie",
-		Value: "123",
-	})
-	cookie, err := request.Cookie("cookie")
+	// payload related
+	l, err := request.FetchPayload()
 	assert.Nil(err)
-	assert.Equal("123", cookie.Value)
-	cookie, err = req.Cookie("cookie")
-	assert.Nil(err)
-	assert.Equal("123", cookie.Value)
+	assert.Equal(len("body string"), l)
 
-	// Request and http.Request should share same header
-	assert.Equal(req.Header.Get("Cookie"), request.Header().Get("Cookie"))
-
-	// Payload reader and http.Request reader should both work
+	request.SetPayload([]byte("hello"))
 	reader := request.GetPayload()
 	data, err := io.ReadAll(reader)
 	assert.Nil(err)
-	assert.Equal("body string", string(data))
+	assert.Equal([]byte("hello"), data)
+	assert.Equal([]byte("hello"), request.RawPayload())
+	assert.Equal(5, request.PayloadLength())
+	assert.NotZero(request.MetaSize())
 
-	data, err = io.ReadAll(req.Body)
+	// header
+	assert.IsType(http.Header{}, request.HTTPHeader())
+	request.HTTPHeader().Set("foo", "bar")
+	assert.Equal("bar", request.Header().Get("foo"))
+
+	assert.Equal("http", RequestScheme(request.Std()))
+	assert.Equal("http", request.Scheme())
+	assert.Empty(request.RealIP())
+	assert.Equal(req, request.Std())
+	assert.IsType(&url.URL{}, request.URL())
+	assert.Equal("HTTP/1.1", request.Proto())
+	assert.Equal(http.MethodGet, request.Method())
+
+	// cookie
+	cookie := &http.Cookie{
+		Name:   "key",
+		Value:  "value",
+		MaxAge: 300,
+	}
+	request.AddCookie(cookie)
+	assert.Equal(cookie.Name, request.Cookies()[0].Name)
+
+	c, err := request.Cookie("key")
 	assert.Nil(err)
-	assert.Equal("body string", string(data))
+	assert.Equal(cookie.Name, c.Name)
+	assert.Equal(cookie.Value, c.Value)
 
-	// check context
-	ctx, cancel := context.WithCancel(request.Context())
-	newReq := request.WithContext(ctx)
-	assert.Nil(newReq.Context().Err())
-
+	assert.NotNil(request.Context())
 	cancel()
-	assert.Equal(context.Canceled, newReq.Context().Err())
+	assert.Equal(context.Canceled, request.Context().Err())
+
+	request.SetMethod(http.MethodPost)
+	assert.Equal(http.MethodPost, request.Method())
+
+	assert.Equal("127.0.0.1:80", request.Host())
+	request.SetHost("localhost:8080")
+	assert.Equal("localhost:8080", request.Host())
+
+	request.SetPath("/foo/bar")
+	assert.Equal("/foo/bar", request.Path())
 }
