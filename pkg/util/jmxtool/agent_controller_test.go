@@ -25,7 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 )
@@ -73,7 +72,7 @@ func getTestService() spec.Service {
 	service := spec.Service{
 		Name: "agent",
 		LoadBalance: &spec.LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: "random",
 		},
 		Sidecar: &spec.Sidecar{
 			Address:         "127.0.0.1",

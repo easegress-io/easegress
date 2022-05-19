@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,6 +57,14 @@ func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
 	assert.Equal(kind, proxy.Kind())
 	assert.Equal(spec, proxy.Spec())
 	return proxy
+}
+
+func getCtx(stdr *http.Request) *context.Context {
+	req, _ := httpprot.NewRequest(stdr)
+	ctx := context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.InitialRequestID, req)
+	ctx.UseRequest("", "")
+	return ctx
 }
 
 func TestProxy(t *testing.T) {
@@ -104,34 +113,18 @@ compression:
 
 	assert.NotNil(proxy.Status())
 
-	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	fnSendRequest0 := func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return &http.Response{
 			Header: http.Header{},
 			Body:   io.NopCloser(strings.NewReader("this is the body")),
 		}, nil
 	}
 
-	stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
-	stdr.Header.Set("X-Mirror", "mirror")
-	req, _ := httpprot.NewRequest(stdr)
-	ctx := context.New(tracing.NoopSpan)
-	ctx.SetRequest(context.InitialRequestID, req)
-	ctx.UseRequest("", "")
-
-	assert.Equal("", proxy.Handle(ctx))
-
-	stdr.Header.Del("X-Mirror")
-	assert.Equal("", proxy.Handle(ctx))
-
-	stdr.Header.Set("X-Test", "testheader")
-	assert.Equal("", proxy.Handle(ctx))
-
-	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	fnSendRequest1 := func(r *http.Request, client *http.Client) (*http.Response, error) {
 		return nil, fmt.Errorf("mocked error")
 	}
-	assert.NotEqual("", proxy.Handle(ctx))
 
-	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+	fnSendRequest2 := func(r *http.Request, client *http.Client) (*http.Response, error) {
 		select {
 		case <-r.Context().Done():
 			return nil, r.Context().Err()
@@ -143,7 +136,59 @@ compression:
 			Body:   io.NopCloser(strings.NewReader("this is the body")),
 		}, nil
 	}
-	assert.NotEqual("", proxy.Handle(ctx))
+
+	// direct set fnSendRequest to different function will cause data race since we use goroutine
+	// for mirror.
+	var fnKind int32 = 0
+	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
+		kind := atomic.LoadInt32(&fnKind)
+		switch kind {
+		case 0:
+			return fnSendRequest0(r, client)
+		case 1:
+			return fnSendRequest1(r, client)
+		case 2:
+			return fnSendRequest2(r, client)
+		}
+		return nil, fmt.Errorf("unknown kind")
+	}
+
+	atomic.StoreInt32(&fnKind, 0)
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr.Header.Set("X-Mirror", "mirror")
+		ctx := getCtx(stdr)
+		assert.Equal("", proxy.Handle(ctx))
+	}
+
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		ctx := getCtx(stdr)
+		assert.Equal("", proxy.Handle(ctx))
+	}
+
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr.Header.Set("X-Test", "testheader")
+		ctx := getCtx(stdr)
+		assert.Equal("", proxy.Handle(ctx))
+	}
+
+	atomic.StoreInt32(&fnKind, 1)
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr.Header.Set("X-Test", "testheader")
+		ctx := getCtx(stdr)
+		assert.NotEqual("", proxy.Handle(ctx))
+	}
+
+	atomic.StoreInt32(&fnKind, 2)
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr.Header.Set("X-Test", "testheader")
+		ctx := getCtx(stdr)
+		assert.NotEqual("", proxy.Handle(ctx))
+	}
 
 	proxy.Close()
 }

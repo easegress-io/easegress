@@ -19,6 +19,7 @@ package httpprot
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestHeader(t *testing.T) {
 	header2.Add("X-Users", "header2")
 	multiEqual([]string(nil), []interface{}{header.Values("X-Users"), req.Header.Values("X-Users")})
 	multiEqual("", []interface{}{header.Get("X-Users"), req.Header.Get("X-Users")})
-	assert.Equal([]string{"header2"}, header2.Get("X-Users"))
+	assert.Equal("header2", header2.Get("X-Users"))
 
 	header.Add("X-User", "abc")
 	header.Add("X-Device", "phone")
@@ -64,49 +65,29 @@ func TestHeader(t *testing.T) {
 		return true
 	})
 	assert.Equal(map[string][]string{"X-User": {"abc"}, "X-Device": {"phone"}}, res)
+
+	res = map[string][]string{}
+	header.Walk(func(key string, value interface{}) bool {
+		res[key] = value.([]string)
+		return false
+	})
+	assert.Equal(1, len(res))
 }
 
-/*
-func TestPayload(t *testing.T) {
+func TestProtocol(t *testing.T) {
 	assert := assert.New(t)
-
-	reader := strings.NewReader("body string")
-	payload := newPayload(reader)
-
-	wg := sync.WaitGroup{}
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			newReader := payload.NewReader()
-			data, err := io.ReadAll(newReader)
-			assert.Nil(err)
-			assert.Equal("body string", string(data))
-		}()
-	}
-	wg.Wait()
-
-	payload.SetReader(strings.NewReader("new body"), true)
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			newReader := payload.NewReader()
-			data, err := io.ReadAll(newReader)
-			assert.Nil(err)
-			assert.Equal("new body", string(data))
-		}()
-	}
-	wg.Wait()
-
-	// close only close original reader, the buffer not changed.
-	// so in current implementation, after close payload, we still
-	// can read data from reader
-	newReader := payload.NewReader()
-	payload.Close()
-	data, err := io.ReadAll(newReader)
+	p := &Protocol{}
+	stdReq, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080", nil)
 	assert.Nil(err)
-	assert.Equal("new body", string(data))
-}
 
-*/
+	req, err := p.CreateRequest(stdReq)
+	assert.Nil(err)
+	_, ok := req.(*Request)
+	assert.True(ok)
+
+	stdResp := httptest.NewRecorder().Result()
+	resp, err := p.CreateResponse(stdResp)
+	assert.Nil(err)
+	_, ok = resp.(*Response)
+	assert.True(ok)
+}
