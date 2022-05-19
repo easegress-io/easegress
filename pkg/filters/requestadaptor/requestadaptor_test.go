@@ -40,7 +40,7 @@ func init() {
 func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
 	httpreq, err := httpprot.NewRequest(req)
 	assert.Nil(t, err)
-	_, err = httpreq.FetchPayload()
+	err = httpreq.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
 	ctx.SetRequest(id, httpreq)
 	ctx.UseRequest(id, id)
@@ -156,7 +156,7 @@ func TestDecompress(t *testing.T) {
 			setRequest(t, ctx, "req1", req)
 
 			ans := ra.Handle(ctx)
-			assert.Equal(resultDecompressFail, ans)
+			assert.Equal(resultDecompressFailed, ans)
 			ctx.Finish()
 		}
 	}

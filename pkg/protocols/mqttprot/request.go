@@ -94,6 +94,11 @@ func NewRequest(packet packets.ControlPacket, client Client) *Request {
 	return req
 }
 
+// IsStream returns whether the payload of the request is a stream.
+func (r *Request) IsStream() bool {
+	return false
+}
+
 // Client return MQTT request client
 func (r *Request) Client() Client {
 	return r.client
@@ -136,10 +141,14 @@ func (r *Request) Header() protocols.Header {
 }
 
 // SetPayload set the payload of the request to payload.
-func (r *Request) SetPayload(payload []byte) {
-	r.payload = payload
+func (r *Request) SetPayload(payload interface{}) {
+	p, ok := payload.([]byte)
+	if !ok {
+		panic("payload is not a byte slice")
+	}
+	r.payload = p
 	if r.packetType == PublishType {
-		r.packet.(*packets.PublishPacket).Payload = payload
+		r.packet.(*packets.PublishPacket).Payload = p
 	}
 }
 
@@ -154,9 +163,9 @@ func (r *Request) RawPayload() []byte {
 	return r.payload
 }
 
-// PayloadLength returns the length of the payload.
-func (r *Request) PayloadLength() int {
-	return len(r.payload)
+// PayloadSize returns the length of the payload.
+func (r *Request) PayloadSize() int64 {
+	return int64(len(r.payload))
 }
 
 // Close closes the request.

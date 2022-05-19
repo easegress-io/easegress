@@ -274,7 +274,13 @@ func (vm *WasmVM) hostRequestGetBody() int32 {
 
 func (vm *WasmVM) hostRequestSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).SetPayload(body)
+	req := vm.ctx.Request()
+	if req.IsStream() {
+		if c, ok := req.GetPayload().(io.Closer); ok {
+			c.Close()
+		}
+	}
+	req.SetPayload(body)
 }
 
 // response functions
@@ -337,7 +343,13 @@ func (vm *WasmVM) hostResponseGetBody() int32 {
 
 func (vm *WasmVM) hostResponseSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	vm.ctx.Response().SetPayload(body)
+	resp := vm.ctx.Response()
+	if resp.IsStream() {
+		if c, ok := resp.GetPayload().(io.Closer); ok {
+			c.Close()
+		}
+	}
+	resp.SetPayload(body)
 }
 
 // cluster data functions

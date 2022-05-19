@@ -19,29 +19,39 @@ package httpprot
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 // Response wraps http.Response.
+//
+// The payload of the response can be replaced with a new one, but it will
+// never replace the body of the original http.Response.
+//
+// Code should always use payload functions of this response to read the
+// body of the original response, and never use the Body of the original
+// response directly.
 type Response struct {
 	// TODO: we only need StatusCode, Header and Body, that's can avoid
 	// using the big http.Response object.
 	*http.Response
-	payload []byte
+	stream      *readers.ByteCountReader
+	payload     []byte
+	payloadSize int64
 }
+
+// ErrResponseEntityTooLarge means the request entity is too large.
+var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large")
 
 var _ protocols.Response = (*Response)(nil)
 
-// NewResponse creates a new response from a standard response.
-//
-// The body of http.Response can only be read once, but the httpprot.Response
-// need to support being read more times, to make this possible, FetchPayload
-// must be called before any read of the request body. This consumes a lot
-// of memory, but seems no way to avoid it.
+// NewResponse creates a new response from a standard response. If stdr is not
+// nil, FetchPayload must be called before any read of the response body.
 func NewResponse(stdr *http.Response) (*Response, error) {
 	if stdr == nil {
 		stdr := &http.Response{
@@ -56,57 +66,126 @@ func NewResponse(stdr *http.Response) (*Response, error) {
 	return &Response{Response: stdr}, nil
 }
 
-// FetchPayload reads the body of the underlying http.Response, initializes
-// payload, and bind a new body to the underlying http.Response.
-func (r *Response) FetchPayload() (int, error) {
-	var payload []byte
-	var err error
+// IsStream returns whether the payload of the response is a stream.
+func (r *Response) IsStream() bool {
+	return r.stream != nil
+}
+
+// FetchPayload reads the body of the underlying http.Response and initializes
+// the payload.
+//
+// if maxPayloadSize is a negative number, the payload is treated as a stream.
+// if maxPayloadSize is zero, DefaultMaxPayloadSize is used.
+func (r *Response) FetchPayload(maxPayloadSize int64) error {
+	if maxPayloadSize == 0 {
+		maxPayloadSize = DefaultMaxPayloadSize
+	}
+
+	if maxPayloadSize < 0 {
+		r.SetPayload(r.Request.Body)
+		return nil
+	}
 
 	stdr := r.Response
+
+	if stdr.ContentLength > maxPayloadSize {
+		return ErrResponseEntityTooLarge
+	}
+
 	if stdr.ContentLength > 0 {
-		payload = make([]byte, stdr.ContentLength)
-		_, err = io.ReadFull(stdr.Body, payload)
-	} else if stdr.ContentLength == -1 {
-		payload, err = io.ReadAll(stdr.Body)
+		payload := make([]byte, stdr.ContentLength)
+		n, err := io.ReadFull(stdr.Body, payload)
+		payload = payload[:n]
+		r.SetPayload(payload)
+		if err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+		return err
 	}
 
+	if stdr.ContentLength == 0 {
+		r.SetPayload(nil)
+		return nil
+	}
+
+	payload, err := io.ReadAll(io.LimitReader(stdr.Body, maxPayloadSize))
 	r.SetPayload(payload)
-
-	if err == io.EOF {
-		err = nil
+	if err != nil {
+		return err
 	}
-	return len(payload), err
+
+	if len(payload) < int(maxPayloadSize) {
+		return nil
+	}
+
+	// try read extra bytes to check if the payload is too large.
+	n, err := io.Copy(io.Discard, stdr.Body)
+	if n > 0 {
+		return ErrResponseEntityTooLarge
+	}
+
+	return err
 }
 
-// SetPayload sets the payload of the response to payload.
-func (r *Response) SetPayload(payload []byte) {
-	r.payload = payload
-	reader := r.GetPayload()
-	if rc, ok := reader.(io.ReadCloser); ok {
-		r.Body = rc
-	} else {
-		r.Body = io.NopCloser(reader)
+// SetPayload set the payload of the response to payload. The payload
+// could be a string, a byte slice, or an io.Reader, and if it is an
+// io.Reader, it will be treated as a stream, if this is not desired,
+// please read the data to a byte slice, and set the byte slice as
+// the payload.
+func (r *Response) SetPayload(payload interface{}) {
+	r.stream = nil
+	r.payload = nil
+
+	if payload == nil {
+		return
+	}
+
+	switch p := payload.(type) {
+	case []byte:
+		r.payload = p
+	case string:
+		r.payload = []byte(p)
+	case io.Reader:
+		if bcr, ok := p.(*readers.ByteCountReader); ok {
+			r.stream = bcr
+		} else {
+			r.stream = readers.NewByteCountReader(p)
+		}
+	default:
+		panic("unknown payload type")
 	}
 }
 
-// GetPayload returns a new payload reader.
+// GetPayload returns a payload reader. For non-stream payload, the
+// returned reader is always a new one, which contains the full data.
+// For stream payload, the function always returns the same reader.
 func (r *Response) GetPayload() io.Reader {
+	if r.stream != nil {
+		return r.stream
+	}
 	if len(r.payload) == 0 {
 		return http.NoBody
-	} else {
-		return bytes.NewReader(r.payload)
 	}
+	return bytes.NewReader(r.payload)
 }
 
-// RawPayload returns the payload in []byte, the caller should
-// not modify its content.
+// RawPayload returns the payload in []byte, the caller should not
+// modify its content. The function panic if the payload is a stream.
 func (r *Response) RawPayload() []byte {
-	return r.payload
+	if r.stream == nil {
+		return r.payload
+	}
+	panic("the payload is a large one")
 }
 
-// PayloadLength returns the length of the payload.
-func (r *Response) PayloadLength() int {
-	return len(r.payload)
+// PayloadSize returns the size of the payload. If the payload is a
+// stream, it returns the bytes count that have been currently read
+// out.
+func (r *Response) PayloadSize() int64 {
+	if r.stream == nil {
+		return int64(len(r.payload))
+	}
+	return int64(r.stream.BytesRead())
 }
 
 // Std returns the underlying http.Response.
@@ -115,7 +194,7 @@ func (r *Response) Std() *http.Response {
 }
 
 // MetaSize returns the meta data size of the response.
-func (r *Response) MetaSize() int {
+func (r *Response) MetaSize() int64 {
 	stdr := r.Std()
 	text := http.StatusText(stdr.StatusCode)
 	if text == "" {
@@ -151,7 +230,7 @@ func (r *Response) MetaSize() int {
 		size += (lines - 1) * 2 // "\r\n"
 	}
 
-	return size
+	return int64(size)
 }
 
 // StatusCode returns the status code of the response.
@@ -183,4 +262,8 @@ func (r *Response) Header() protocols.Header {
 
 // Close closes the response.
 func (r *Response) Close() {
+	if r.stream != nil {
+		r.stream.Close()
+	}
+	r.Std().Body.Close()
 }

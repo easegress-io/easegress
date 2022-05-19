@@ -18,10 +18,12 @@
 package fallback
 
 import (
+	"io"
+	"strconv"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/fallback"
 )
 
 const (
@@ -51,15 +53,18 @@ func init() {
 type (
 	// Fallback is filter Fallback.
 	Fallback struct {
-		spec *Spec
-		f    *fallback.Fallback
+		spec       *Spec
+		mockBody   []byte
+		bodyLength string
 	}
 
 	// Spec describes the Fallback.
 	Spec struct {
 		filters.BaseSpec `yaml:",inline"`
 
-		fallback.Spec `yaml:",inline"`
+		MockCode    int               `yaml:"mockCode" jsonschema:"required,format=httpcode"`
+		MockHeaders map[string]string `yaml:"mockHeaders" jsonschema:"omitempty"`
+		MockBody    string            `yaml:"mockBody" jsonschema:"omitempty"`
 	}
 )
 
@@ -90,18 +95,32 @@ func (f *Fallback) Inherit(previousGeneration filters.Filter) {
 }
 
 func (f *Fallback) reload() {
-	f.f = fallback.New(&f.spec.Spec)
+	f.mockBody = []byte(f.spec.MockBody)
+	f.bodyLength = strconv.Itoa(len(f.mockBody))
 }
 
 // Handle fallbacks HTTPContext.
 // It always returns fallback.
 func (f *Fallback) Handle(ctx *context.Context) string {
-	resp := ctx.GetResponse(ctx.TargetResponseID())
-	if resp != nil {
-		f.f.Fallback(resp.(*httpprot.Response))
-		return resultFallback
+	resp := ctx.GetResponse(ctx.TargetResponseID()).(*httpprot.Response)
+	if resp == nil {
+		return resultResponseNotFound
 	}
-	return resultResponseNotFound
+
+	resp.SetStatusCode(f.spec.MockCode)
+	resp.HTTPHeader().Set("Content-Length", f.bodyLength)
+	for key, value := range f.spec.MockHeaders {
+		resp.HTTPHeader().Set(key, value)
+	}
+
+	if resp.IsStream() {
+		if c, ok := resp.GetPayload().(io.Closer); ok {
+			c.Close()
+		}
+	}
+
+	resp.SetPayload(f.mockBody)
+	return resultFallback
 }
 
 // Status returns Status.
@@ -110,4 +129,5 @@ func (f *Fallback) Status() interface{} {
 }
 
 // Close closes Fallback.
-func (f *Fallback) Close() {}
+func (f *Fallback) Close() {
+}

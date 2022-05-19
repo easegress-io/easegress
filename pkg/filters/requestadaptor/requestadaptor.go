@@ -18,8 +18,6 @@
 package requestadaptor
 
 import (
-	"bytes"
-	"compress/gzip"
 	"io"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -28,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -35,15 +34,19 @@ const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
 
-	resultReadBodyFail   = "readBodyFail"
-	resultDecompressFail = "decompressFail"
-	resultCompressFail   = "compressFail"
+	resultReadBodyFailed   = "readBodyFailed"
+	resultDecompressFailed = "decompressFailed"
+	resultCompressFailed   = "compressFailed"
 )
 
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "RequestAdaptor adapts request.",
-	Results:     []string{resultDecompressFail, resultCompressFail, resultReadBodyFail},
+	Results: []string{
+		resultDecompressFailed,
+		resultCompressFailed,
+		resultReadBodyFailed,
+	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
@@ -137,93 +140,107 @@ func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
 
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
-	httpreq := ctx.Request().(*httpprot.Request)
-	method, path, _ := httpreq.Method(), httpreq.Path(), httpreq.Header()
+	req := ctx.Request().(*httpprot.Request)
+	method, path := req.Method(), req.Path()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {
-		ctx.AddTag(stringtool.Cat("requestAdaptor: method ",
-			method, " adapted to ", ra.spec.Method))
-		httpreq.SetMethod(ra.spec.Method)
+		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", ra.spec.Method))
+		req.SetMethod(ra.spec.Method)
 	}
 
 	if ra.pa != nil {
 		adaptedPath := ra.pa.Adapt(path)
 		if adaptedPath != path {
-			ctx.AddTag(stringtool.Cat("requestAdaptor: path ",
-				path, " adapted to ", adaptedPath))
+			ctx.AddTag(stringtool.Cat("requestAdaptor: path ", path, " adapted to ", adaptedPath))
 		}
-		httpreq.SetPath(adaptedPath)
+		req.SetPath(adaptedPath)
 	}
 
 	if ra.spec.Header != nil {
-		adaptHeader(httpreq, ra.spec.Header)
+		adaptHeader(req, ra.spec.Header)
 	}
 
 	if len(ra.spec.Body) != 0 {
-		httpreq.SetPayload([]byte(ra.spec.Body))
-		httpreq.Std().Header.Del("Content-Encoding")
+		req.SetPayload([]byte(ra.spec.Body))
+		req.Std().Header.Del("Content-Encoding")
 	}
 
 	if len(ra.spec.Host) != 0 {
-		httpreq.SetHost(ra.spec.Host)
+		req.SetHost(ra.spec.Host)
 	}
 
 	if ra.spec.Compress != "" {
-		res := ra.processCompress(ctx)
+		res := ra.processCompress(req)
 		if res != "" {
 			return res
 		}
 	}
 
 	if ra.spec.Decompress != "" {
-		res := ra.processDecompress(ctx)
+		res := ra.processDecompress(req)
 		if res != "" {
 			return res
 		}
 	}
+
 	return ""
 }
 
-func (ra *RequestAdaptor) processCompress(ctx *context.Context) string {
-	encoding := ctx.Request().Header().Get("Content-Encoding")
+func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {
+	encoding := req.HTTPHeader().Get("Content-Encoding")
 	if encoding != "" {
 		return ""
 	}
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
 
-	_, err := io.Copy(gw, ctx.Request().GetPayload())
-	if err != nil {
-		logger.Errorf("compress request body failed, %v", err)
-		return resultCompressFail
+	zr := readers.NewGZipCompressReader(req.GetPayload())
+	if req.IsStream() {
+		req.SetPayload(zr)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		if err != nil {
+			logger.Errorf("compress request body failed, %v", err)
+			return resultCompressFailed
+		}
+		req.SetPayload(data)
 	}
-	gw.Close()
 
-	ctx.Request().SetPayload(buf.Bytes())
-	ctx.Request().Header().Set("Content-Encoding", "gzip")
+	req.HTTPHeader().Set("Content-Encoding", "gzip")
 	return ""
 }
 
-func (ra *RequestAdaptor) processDecompress(ctx *context.Context) string {
-	encoding := ctx.Request().Header().Get("Content-Encoding")
-	if ra.spec.Decompress == "gzip" && encoding == "gzip" {
-		reader, err := gzip.NewReader(ctx.Request().GetPayload())
-		if err != nil {
-			return resultDecompressFail
-		}
-		defer reader.Close()
-		data, err := io.ReadAll(reader)
-		if err != nil {
-			return resultDecompressFail
-		}
-		ctx.Request().SetPayload(data)
-		ctx.Request().Header().Del("Content-Encoding")
+func (ra *RequestAdaptor) processDecompress(req *httpprot.Request) string {
+	encoding := req.HTTPHeader().Get("Content-Encoding")
+	if ra.spec.Decompress != "gzip" || encoding != "gzip" {
+		return ""
 	}
+
+	zr, err := readers.NewGZipDecompressReader(req.GetPayload())
+	if err != nil {
+		return resultDecompressFailed
+	}
+
+	if req.IsStream() {
+		req.SetPayload(zr)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		if err != nil {
+			logger.Errorf("decompress request body failed, %v", err)
+			return resultDecompressFailed
+		}
+		req.SetPayload(data)
+	}
+
+	req.HTTPHeader().Del("Content-Encoding")
 	return ""
 }
 
 // Status returns status.
-func (ra *RequestAdaptor) Status() interface{} { return nil }
+func (ra *RequestAdaptor) Status() interface{} {
+	return nil
+}
 
 // Close closes RequestAdaptor.
-func (ra *RequestAdaptor) Close() {}
+func (ra *RequestAdaptor) Close() {
+}

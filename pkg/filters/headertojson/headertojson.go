@@ -123,17 +123,19 @@ func (h *HeaderToJSON) Handle(ctx *context.Context) string {
 		return ""
 	}
 
-	reqBody, err := io.ReadAll(ctx.Request().GetPayload())
-	if err != nil {
+	req := ctx.Request()
+	if req.IsStream() {
 		return resultBodyReadErr
 	}
+
+	reqBody := req.RawPayload()
 
 	var body interface{}
 	if len(reqBody) == 0 {
 		body = headerMap
 	} else {
-		body, err = getNewBody(reqBody, headerMap)
-		if err != nil {
+		var err error
+		if body, err = getNewBody(reqBody, headerMap); err != nil {
 			return resultJSONEncodeDecodeErr
 		}
 	}
@@ -142,7 +144,8 @@ func (h *HeaderToJSON) Handle(ctx *context.Context) string {
 	if err != nil {
 		return resultJSONEncodeDecodeErr
 	}
-	ctx.Request().SetPayload(bodyBytes)
+
+	req.SetPayload(bodyBytes)
 	return ""
 }
 

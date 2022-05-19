@@ -23,6 +23,9 @@ import (
 	"github.com/megaease/easegress/pkg/protocols"
 )
 
+// DefaultMaxPayloadSize is the default max allowed payload size.
+const DefaultMaxPayloadSize = 4 * 1024 * 1024
+
 func init() {
 	protocols.Register("http", &Protocol{})
 }

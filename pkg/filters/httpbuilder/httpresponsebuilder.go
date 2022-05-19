@@ -129,19 +129,19 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	resp := &http.Response{Header: http.Header{}}
-	resp.StatusCode = ri.StatusCode
+	stdResp := &http.Response{Header: http.Header{}, Body: http.NoBody}
+	stdResp.StatusCode = ri.StatusCode
 
 	for k, vs := range ri.Headers {
 		for _, v := range vs {
-			resp.Header.Add(k, v)
+			stdResp.Header.Add(k, v)
 		}
 	}
 
 	// build body
-	egresp, _ := httpprot.NewResponse(resp)
-	egresp.SetPayload([]byte(ri.Body))
+	resp, _ := httpprot.NewResponse(stdResp)
+	resp.SetPayload([]byte(ri.Body))
 
-	ctx.SetResponse(ctx.TargetResponseID(), egresp)
+	ctx.SetResponse(ctx.TargetResponseID(), resp)
 	return ""
 }

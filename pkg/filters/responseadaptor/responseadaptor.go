@@ -18,8 +18,6 @@
 package responseadaptor
 
 import (
-	"bytes"
-	"compress/gzip"
 	"io"
 	"strconv"
 	"strings"
@@ -29,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/util/readers"
 )
 
 const (
@@ -174,17 +173,21 @@ func (ra *ResponseAdaptor) compress(resp *httpprot.Response) string {
 		}
 	}
 
-	var buf bytes.Buffer
-	gw := gzip.NewWriter(&buf)
-	_, err := gw.Write(resp.RawPayload())
-	if err != nil {
-		logger.Errorf("compress response body failed, %v", err)
-		return resultCompressFailed
+	zr := readers.NewGZipCompressReader(resp.GetPayload())
+	if resp.IsStream() {
+		resp.SetPayload(zr)
+		resp.HTTPHeader().Del(keyContentLength)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		if err != nil {
+			logger.Errorf("compress response body failed, %v", err)
+			return resultCompressFailed
+		}
+		resp.SetPayload(data)
+		resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
 	}
-	gw.Close()
 
-	resp.SetPayload(buf.Bytes())
-	resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(buf.Len()))
 	resp.HTTPHeader().Set(keyContentEncoding, "gzip")
 	return ""
 }
@@ -199,19 +202,26 @@ func (ra *ResponseAdaptor) decompress(resp *httpprot.Response) string {
 		return ""
 	}
 
-	reader, err := gzip.NewReader(resp.GetPayload())
-	if err != nil {
-		return resultDecompressFailed
-	}
-	defer reader.Close()
-
-	data, err := io.ReadAll(reader)
+	zr, err := readers.NewGZipDecompressReader(resp.GetPayload())
 	if err != nil {
 		return resultDecompressFailed
 	}
 
-	resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
-	resp.SetPayload(data)
+	if resp.IsStream() {
+		resp.SetPayload(zr)
+		resp.HTTPHeader().Del(keyContentLength)
+	} else {
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		if err != nil {
+			logger.Errorf("decompress response body failed, %v", err)
+			return resultDecompressFailed
+		}
+		resp.SetPayload(data)
+		resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
+	}
+
+	resp.HTTPHeader().Del(keyContentEncoding)
 	return ""
 }
 

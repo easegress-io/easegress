@@ -112,6 +112,7 @@ type (
 		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
 		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
 		MaxIdleConnsPerHost int               `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		ServerMaxBodySize   int64             `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of Proxy.

@@ -113,6 +113,10 @@ func (mc *MemoryCache) Load(req *httpprot.Request) *CacheEntry {
 
 // Store tries to cache the response.
 func (mc *MemoryCache) Store(req *httpprot.Request, resp *httpprot.Response) {
+	if resp.IsStream() {
+		return
+	}
+
 	if len(resp.RawPayload()) > int(mc.spec.MaxEntryBytes) {
 		return
 	}
