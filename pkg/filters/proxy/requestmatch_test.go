@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"testing"
@@ -63,6 +64,8 @@ func TestRequestMatcherSpecValidate(t *testing.T) {
 }
 
 func TestRandomMatcher(t *testing.T) {
+	rand.Seed(0)
+
 	rm := NewRequestMatcher(&RequestMatcherSpec{
 		Policy: "random",
 		Permil: 100,
