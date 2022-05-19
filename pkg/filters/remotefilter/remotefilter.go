@@ -325,6 +325,12 @@ func (rf *RemoteFilter) unmarshalHTTPContext(r *httpprot.Request, w *httpprot.Re
 			r.Header().Add(k, v)
 		}
 	}
+
+	if r.IsStream() {
+		if c, ok := r.GetPayload().(io.Closer); ok {
+			c.Close()
+		}
+	}
 	r.SetPayload(re.Body)
 
 	if we == nil {
@@ -339,6 +345,12 @@ func (rf *RemoteFilter) unmarshalHTTPContext(r *httpprot.Request, w *httpprot.Re
 	for k, vs := range we.Header {
 		for _, v := range vs {
 			w.Header().Add(k, v)
+		}
+	}
+
+	if w.IsStream() {
+		if c, ok := w.GetPayload().(io.Closer); ok {
+			c.Close()
 		}
 	}
 	w.SetPayload(we.Body)

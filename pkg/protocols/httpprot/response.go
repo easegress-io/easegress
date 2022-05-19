@@ -32,6 +32,10 @@ import (
 //
 // The payload of the response can be replaced with a new one, but it will
 // never replace the body of the original http.Response.
+//
+// Code should always use payload functions of this response to read the
+// body of the original response, and never use the Body of the original
+// response directly.
 type Response struct {
 	// TODO: we only need StatusCode, Header and Body, that's can avoid
 	// using the big http.Response object.
@@ -46,13 +50,8 @@ var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large")
 
 var _ protocols.Response = (*Response)(nil)
 
-// NewResponse creates a new response from a standard response.
-//
-// Code should always use payload functions of this response to read the
-// body of the original response, and never use the Body of the original
-// response directly.
-//
-// FetchPayload must be called before any read of the response body.
+// NewResponse creates a new response from a standard response. If stdr is not
+// nil, FetchPayload must be called before any read of the response body.
 func NewResponse(stdr *http.Response) (*Response, error) {
 	if stdr == nil {
 		stdr := &http.Response{

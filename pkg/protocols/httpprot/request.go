@@ -33,7 +33,11 @@ import (
 // Request wraps http.Request.
 //
 // The payload of the request can be replaced with a new one, but it will
-// never replace the body of the original http.Request.
+// never replace the body of the underlying http.Request.
+//
+// Code should always use payload functions of this request to read the
+// body of the original request, and never use the Body of the original
+// request directly.
 type Request struct {
 	*http.Request
 	stream  *readers.ByteCountReader
@@ -46,13 +50,8 @@ var ErrRequestEntityTooLarge = fmt.Errorf("request entity too large")
 
 var _ protocols.Request = (*Request)(nil)
 
-// NewRequest creates a new request from a standard request.
-//
-// Code should always use payload functions of this request to read the
-// body of the original request, and never use the Body of the original
-// request directly.
-//
-// FetchPayload must be called before any read of the request body.
+// NewRequest creates a new request from a standard request. If stdr is not
+// nil, FetchPayload must be called before any read of the request body.
 func NewRequest(stdr *http.Request) (*Request, error) {
 	if stdr == nil {
 		stdr = &http.Request{Body: http.NoBody}
