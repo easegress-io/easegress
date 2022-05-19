@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - pipeline 
   pull_request:
     branches:
       - main
+      - pipeline 
 
 jobs:
   check-license:
