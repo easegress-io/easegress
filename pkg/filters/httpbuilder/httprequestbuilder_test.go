@@ -229,8 +229,8 @@ func TestRequestBody(t *testing.T) {
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-		data, err := io.ReadAll(testReq.Body)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		data, err := io.ReadAll(testReq.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body", string(data))
 	}
@@ -256,8 +256,8 @@ func TestRequestBody(t *testing.T) {
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-		data, err := io.ReadAll(testReq.Body)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		data, err := io.ReadAll(testReq.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body 123", string(data))
 	}
@@ -283,8 +283,8 @@ func TestRequestBody(t *testing.T) {
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-		data, err := io.ReadAll(testReq.Body)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		data, err := io.ReadAll(testReq.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}
@@ -313,8 +313,8 @@ field2: value2
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
-		data, err := io.ReadAll(testReq.Body)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		data, err := io.ReadAll(testReq.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}

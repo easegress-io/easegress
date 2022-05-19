@@ -150,8 +150,8 @@ func TestResponseBody(t *testing.T) {
 		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
-		data, err := io.ReadAll(testReq.Body)
+		testReq := ctx.GetResponse("test").(*httpprot.Response)
+		data, err := io.ReadAll(testReq.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body", string(data))
 	}
@@ -175,8 +175,8 @@ func TestResponseBody(t *testing.T) {
 		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
-		data, err := io.ReadAll(testResp.Body)
+		testResp := ctx.GetResponse("test").(*httpprot.Response)
+		data, err := io.ReadAll(testResp.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body 123", string(data))
 	}
@@ -200,8 +200,8 @@ func TestResponseBody(t *testing.T) {
 		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
-		data, err := io.ReadAll(testResp.Body)
+		testResp := ctx.GetResponse("test").(*httpprot.Response)
+		data, err := io.ReadAll(testResp.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}
@@ -228,8 +228,8 @@ field2: value2
 		ctx.UseResponse("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
-		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
-		data, err := io.ReadAll(testResp.Body)
+		testResp := ctx.GetResponse("test").(*httpprot.Response)
+		data, err := io.ReadAll(testResp.GetPayload())
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}

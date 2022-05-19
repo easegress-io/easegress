@@ -150,7 +150,7 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	stdReq, err := http.NewRequest(ri.Method, ri.URL, nil)
+	stdReq, err := http.NewRequest(ri.Method, ri.URL, http.NoBody)
 	if err != nil {
 		logger.Warnf("failed to create new request: %v", err)
 		return resultBuildErr
