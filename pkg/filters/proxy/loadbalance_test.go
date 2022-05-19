@@ -19,6 +19,7 @@ package proxy
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"testing"
 
@@ -57,6 +58,7 @@ func TestRoundRobinLoadBalancer(t *testing.T) {
 
 func TestRandomLoadBalancer(t *testing.T) {
 	assert := assert.New(t)
+	rand.Seed(0)
 
 	var svrs []*Server
 	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs)
@@ -74,13 +76,14 @@ func TestRandomLoadBalancer(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		if v := counter[i]; v < 900 || v > 1100 {
-			t.Error("possibility is not even")
+			t.Errorf("possibility is not even with value %v", v)
 		}
 	}
 }
 
 func TestWeightedRandomLoadBalancer(t *testing.T) {
 	assert := assert.New(t)
+	rand.Seed(0)
 
 	var svrs []*Server
 	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs)
