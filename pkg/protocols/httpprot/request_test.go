@@ -45,9 +45,8 @@ func TestRequest(t *testing.T) {
 	assert.Nil(err)
 
 	// payload related
-	l, err := request.FetchPayload()
+	err = request.FetchPayload(1024 * 1024)
 	assert.Nil(err)
-	assert.Equal(len("body string"), l)
 
 	request.SetPayload([]byte("hello"))
 	reader := request.GetPayload()
@@ -55,7 +54,6 @@ func TestRequest(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal([]byte("hello"), data)
 	assert.Equal([]byte("hello"), request.RawPayload())
-	assert.Equal(5, request.PayloadLength())
 	assert.NotZero(request.MetaSize())
 
 	// header

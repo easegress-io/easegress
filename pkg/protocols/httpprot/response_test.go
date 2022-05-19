@@ -35,9 +35,8 @@ func TestNilResponse(t *testing.T) {
 	resp.HTTPHeader().Set("foo", "bar")
 	assert.Equal("bar", resp.Header().Get("foo"))
 
-	l, err := resp.FetchPayload()
+	err = resp.FetchPayload(1024 * 1024)
 	assert.Nil(err)
-	assert.Equal(0, l)
 
 	resp.SetPayload([]byte("hello"))
 	r := resp.GetPayload()
@@ -45,7 +44,6 @@ func TestNilResponse(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal([]byte("hello"), data)
 	assert.Equal([]byte("hello"), resp.RawPayload())
-	assert.Equal(5, resp.PayloadLength())
 
 	assert.NotNil(resp.Std())
 	assert.NotZero(resp.MetaSize())
@@ -77,9 +75,8 @@ func TestResponse(t *testing.T) {
 	defer resp.Close()
 	resp.HTTPHeader().Set("foo", "bar")
 
-	l, err = resp.FetchPayload()
+	err = resp.FetchPayload(1024 * 1024)
 	assert.Nil(err)
-	assert.Equal(5, l)
 
 	resp.SetPayload([]byte("new"))
 	reader := resp.GetPayload()
