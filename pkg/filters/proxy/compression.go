@@ -52,10 +52,6 @@ func newCompression(spec *CompressionSpec) *compression {
 }
 
 func (c *compression) compress(req *http.Request, resp *http.Response) bool {
-	if c.spec == nil {
-		return false
-	}
-
 	if !c.acceptGzip(req) {
 		return false
 	}
