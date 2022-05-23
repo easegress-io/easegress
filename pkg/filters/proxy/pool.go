@@ -530,7 +530,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 	body := readers.NewCallbackReader(spCtx.stdResp.Body)
 	spCtx.stdResp.Body = body
 
-	if sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
+	if sp.proxy.compression != nil && sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
 		spCtx.AddTag("gzip")
 	}
 
