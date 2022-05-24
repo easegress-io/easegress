@@ -10,7 +10,7 @@ MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
 GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
-HTTPSERVER_TEST_PATH := build/test
+INTEGRATION_TEST_PATH := build/test
 
 # Image Name
 IMAGE_NAME?=megaease/easegress
@@ -101,13 +101,14 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v ./... ${TEST_FLAGS}
+	go test -v ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
 
-httpserver_test: build
+integration_test: build
 	{ \
 	set -e ;\
-	cd ${HTTPSERVER_TEST_PATH} ;\
-	./httpserver_test.sh ;\
+	cd ${INTEGRATION_TEST_PATH} ;\
+	./test.sh ;\
+	./clean.sh ;\
     }
 
 clean:
