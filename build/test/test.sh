@@ -30,9 +30,6 @@ PRIMARYDIR=$EXAMPLEDIR"/primary-single"
 
 # target file related define.
 server="primary-single/bin/easegress-server"
-backend="$EXAMPLEDIR/backend-service/echo/echo.go"
-httpsvr_port=10080
-echo_port=9095
 eg_apiport=12381
 
 # color define.
@@ -46,20 +43,6 @@ function clean()
     # basic cleaning routine
     bash $EXAMPLEDIR/stop_cluster.sh
     bash $EXAMPLEDIR/clean_cluster.sh
-
-
-    # clean the go mirror backend
-    if [ "$1" != "" ];then
-        echo -e "\n${COLOR_INFO}finish echo-svr running pid=$1${COLOR_NONE}"
-        child_pid=`pgrep -P $1`
-
-        if [ "$child_pid" != "" ]; then
-            kill -9 $child_pid
-            echo -e "\n${COLOR_INFO}finish echo-svr running child process pid=$child_pid${COLOR_NONE}"
-        fi
-
-        kill -9 $1
-    fi
 }
 
 # clean the cluster resource first.
@@ -90,82 +73,8 @@ else
     echo -e "\n${COLOR_INFO}start test server $server ok${COLOR_NONE}"
 fi
 
-
-# create HTTPServer
-echo '
-kind: HTTPServer
-name: server-demo
-port: 10080
-keepAlive: true
-https: false
-rules:
-  - paths:
-    - pathPrefix: /pipeline
-      backend: pipeline-demo' | $PRIMARYDIR/egctl.sh object create
-
-#  create Pipeline
-echo '
-name: pipeline-demo
-kind: HTTPPipeline
-flow:
-  - filter: proxy
-filters:
-  - name: proxy
-    kind: Proxy
-    mainPool:
-      servers:
-      - url: http://127.0.0.1:9095
-      loadBalance:
-        policy: roundRobin' | $PRIMARYDIR/egctl.sh object create
-
-while ! nc -z localhost $httpsvr_port </dev/null
-do
-    sleep 5
-    try_time=$(($try_time+1))
-    if [[ $try_time -ge 3 ]]; then
-       echo -e "\n{COLOR_ERROR}start mirror server failed${COLOR_NONE}"
-       clean
-       exit 3
-    fi
-done
-
-# run the backend.
-(go run $backend &)
-try_time=0
-# wait the mirror backend ready, it will retry three times.
-while ! nc -z localhost $echo_port </dev/null
-do
-    sleep 5
-    try_time=$(($try_time+1))
-    if [[ $try_time -ge 3 ]]; then
-       echo -e "\n{COLOR_ERROR}start mirror server failed${COLOR_NONE}"
-       clean
-       exit 3
-    fi
-done
-
-# check the mirror backend running status.
-echo_pid=`ps -eo pid,args|grep $backend |grep -v grep |awk '{print $1}'`
-if [ "$echo_pid" = "" ]; then
-    echo  -e "\n${COLOR_ERROR}start test backend server failed, command=go run $backend${COLOR_NONE}"
-    clean
-    exit 4 
-else
-    echo -e "\n${COLOR_INFO}start mirror, its pid=$echo_pid${COLOR_NONE}"
-fi
-
-# test backend routed by HTTPServer and Pipeline with curl.
-response=$(curl --write-out '%{http_code}' --silent --output /dev/null http://localhost:$httpsvr_port/pipeline -d'hello easegress')
-if [ "$response" != "200" ]; then
-    echo "curl http server failed, response code :$response url is  http://localhost:$httpsvr_port/pipeline"
-    clean $echo_pid
-    exit 5
-else 
-    echo -e "\n${COLOR_INFO}test succ${COLOR_NONE}"
-fi
-
-# clean all created resources.
-clean $echo_pid
+# run go test
+go test -v $SCRIPTPATH
 
 popd > /dev/null
 exit 0

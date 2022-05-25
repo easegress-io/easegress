@@ -91,7 +91,6 @@ func (rb *HTTPResponseBuilder) Init() {
 
 // Inherit inherits previous generation of HTTPResponseBuilder.
 func (rb *HTTPResponseBuilder) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	rb.Init()
 }
 

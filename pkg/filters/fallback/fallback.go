@@ -90,7 +90,6 @@ func (f *Fallback) Init() {
 
 // Inherit inherits previous generation of Fallback.
 func (f *Fallback) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	f.Init()
 }
 

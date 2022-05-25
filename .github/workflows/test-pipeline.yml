@@ -49,3 +49,19 @@ jobs:
         uses: codecov/codecov-action@v2.1.0
         with:
           file: ./coverage.txt
+  integration-test-ubuntu:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Set up Go 1.x.y
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout codebase
+        uses: actions/checkout@v3
+
+      - name: Test
+        run: |
+          make integration_test

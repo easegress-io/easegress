@@ -180,7 +180,6 @@ func (p *Proxy) Init() {
 
 // Inherit inherits previous generation of Proxy.
 func (p *Proxy) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	p.reload()
 }
 

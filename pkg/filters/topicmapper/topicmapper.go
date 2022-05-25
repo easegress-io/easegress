@@ -82,7 +82,6 @@ func (k *TopicMapper) Init() {
 
 // Inherit init TopicMapper based on previous generation
 func (k *TopicMapper) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	k.Init()
 }
 

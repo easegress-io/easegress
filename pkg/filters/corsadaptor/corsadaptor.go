@@ -96,7 +96,6 @@ func (a *CORSAdaptor) Init() {
 
 // Inherit inherits previous generation of CORSAdaptor.
 func (a *CORSAdaptor) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	a.Init()
 }
 

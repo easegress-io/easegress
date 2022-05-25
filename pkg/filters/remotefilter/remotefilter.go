@@ -160,7 +160,6 @@ func (rf *RemoteFilter) Init() {
 
 // Inherit inherits previous generation of RemoteFilter.
 func (rf *RemoteFilter) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	rf.Init()
 }
 

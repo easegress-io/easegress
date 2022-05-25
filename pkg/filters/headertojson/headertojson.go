@@ -97,7 +97,6 @@ func (h *HeaderToJSON) Init() {
 
 // Inherit init HeaderToJSON based on previous generation
 func (h *HeaderToJSON) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	h.Init()
 }
 

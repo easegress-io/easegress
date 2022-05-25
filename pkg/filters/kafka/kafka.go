@@ -131,7 +131,6 @@ func (k *Kafka) Init() {
 
 // Inherit init Kafka based on previous generation
 func (k *Kafka) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	k.Init()
 }
 

@@ -126,7 +126,6 @@ func (k *Kafka) checkProduceError() {
 
 // Inherit init Kafka based on previous generation
 func (k *Kafka) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	k.Init()
 }
 
