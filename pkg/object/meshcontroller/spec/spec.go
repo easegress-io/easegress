@@ -582,7 +582,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineS
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             ratelimiter.Kind,
 		"name":             name,
@@ -654,7 +654,7 @@ func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":  mock.Kind,
 		"name":  name,
@@ -759,7 +759,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
 
 	return b
 }
@@ -799,7 +799,7 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 	filter["serviceCanaries"] = adaptors
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
 
 	return b
 }
@@ -811,7 +811,7 @@ func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy
 		lb = &proxy.LoadBalanceSpec{}
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,

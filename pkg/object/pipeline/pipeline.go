@@ -70,7 +70,8 @@ type (
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
-		Filter string `yaml:"filter" jsonschema:"required,format=urlname"`
+		FilterName  string `yaml:"filter" jsonschema:"required,format=urlname"`
+		FilterAlias string `yaml:"alias" jsonschema:"omitempty"`
 		// Note, the JSON tag of `DefaultRequest` is 'useRequest`, which is
 		// different from its name, because, from the aspect of code,
 		// `DefaultRequest` is to set the default request for the filter, but
@@ -97,30 +98,37 @@ type (
 	}
 )
 
-// ValidateJumpIf validates the JumpIfs of the flow.
+// ValidateJumpIf validates whether the target of JumpIfs are valid or not.
 func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
 	validTargets := map[string]bool{BuiltInFilterEnd: true}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		node := &s.Flow[i]
-		if node.Filter == BuiltInFilterEnd {
+		if node.FilterName == BuiltInFilterEnd {
 			continue
 		}
-		spec := specs[node.Filter]
+		spec := specs[node.FilterName]
 		if spec == nil {
-			panic(fmt.Errorf("filter %s not found", node.Filter))
+			panic(fmt.Errorf("filter %s not found", node.FilterName))
 		}
 		results := filters.GetKind(spec.Kind()).Results
 		for result, target := range node.JumpIf {
 			if !stringtool.StrInSlice(result, results) {
 				msgFmt := "filter %s: result %s is not in %v"
-				panic(fmt.Errorf(msgFmt, node.Filter, result, results))
+				panic(fmt.Errorf(msgFmt, node.FilterName, result, results))
 			}
 			if ok := validTargets[target]; !ok {
 				msgFmt := "filter %s: target filter %s not found"
-				panic(fmt.Errorf(msgFmt, node.Filter, target))
+				panic(fmt.Errorf(msgFmt, node.FilterName, target))
 			}
 		}
-		validTargets[node.Filter] = true
+		alias := node.FilterAlias
+		if alias == "" {
+			alias = node.FilterName
+		}
+		if validTargets[alias] {
+			panic(fmt.Errorf("duplicated filter name/alias: %s", alias))
+		}
+		validTargets[alias] = true
 	}
 }
 
@@ -133,7 +141,7 @@ func (s *Spec) ValidateRequest() {
 	for i := 0; i < len(s.Flow); i++ {
 		node := &s.Flow[i]
 		if node.DefaultRequest != "" && !validIDs[node.DefaultRequest] {
-			panic(fmt.Errorf(errFmt, node.Filter, node.DefaultRequest))
+			panic(fmt.Errorf(errFmt, node.FilterName, node.DefaultRequest))
 		}
 
 		if node.TargetRequest != "" {
@@ -300,7 +308,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 		// flow, append it to the flow we just created.
 		p.filters[filter.Name()] = filter
 		if len(p.spec.Flow) == 0 {
-			flow = append(flow, FlowNode{Filter: spec.Name()})
+			flow = append(flow, FlowNode{FilterName: spec.Name()})
 		}
 	}
 
@@ -309,8 +317,8 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 	// bind filter instance to flow node.
 	for i := range flow {
 		node := &flow[i]
-		if node.Filter != BuiltInFilterEnd {
-			node.filter = p.filters[node.Filter]
+		if node.FilterName != BuiltInFilterEnd {
+			node.filter = p.filters[node.FilterName]
 		}
 	}
 }
@@ -326,11 +334,16 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 
 	for i := range p.flow {
 		node := &p.flow[i]
-		if next != "" && node.Filter != next {
+		alias := node.FilterAlias
+		if alias == "" {
+			alias = node.FilterName
+		}
+
+		if next != "" && next != alias {
 			continue
 		}
 
-		if node.Filter == BuiltInFilterEnd {
+		if node.FilterName == BuiltInFilterEnd {
 			break
 		}
 
@@ -340,7 +353,7 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{
-			Name:     node.Filter,
+			Name:     alias,
 			Kind:     node.filter.Kind().Name,
 			Duration: fasttime.Since(start),
 			Result:   result,

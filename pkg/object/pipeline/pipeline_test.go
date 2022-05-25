@@ -107,7 +107,7 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "Pipeline",
 			"flow": []FlowNode{
-				{Filter: "filter-1"}, // no such a filter defined
+				{FilterName: "filter-1"}, // no such a filter defined
 			},
 			"filters": []map[string]interface{}{
 				{
@@ -128,7 +128,7 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "Pipeline",
 			"flow": []FlowNode{
-				{Filter: "filter-1"}, {Filter: "filter-2"},
+				{FilterName: "filter-1"}, {FilterName: "filter-2"},
 			},
 			"filters": []map[string]interface{}{
 				{
