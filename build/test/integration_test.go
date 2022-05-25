@@ -18,10 +18,15 @@
 package test
 
 import (
+	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPipeline(t *testing.T) {
@@ -167,4 +172,68 @@ rules:
 	ok, msg = listObject(t)
 	assert.True(ok)
 	assert.False(strings.Contains(msg, "name: httpserver-success"))
+}
+
+func TestHTTPServerAndPipeline(t *testing.T) {
+	assert := assert.New(t)
+
+	// create httpserver
+	yamlStr := `
+name: httpserver-test
+kind: HTTPServer
+port: 10081
+https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - backend: pipeline-test
+`
+	ok, msg := createObject(t, yamlStr)
+	assert.True(ok, msg)
+	defer deleteObject(t, "httpserver-test")
+
+	// create pipeline
+	yamlStr = `
+name: pipeline-test
+kind: Pipeline 
+flow:
+- filter: proxy 
+filters:
+- name: proxy 
+  kind: Proxy 
+  pools:
+  - servers:
+    - url: http://127.0.0.1:8888 
+`
+	ok, msg = createObject(t, yamlStr)
+	assert.True(ok, msg)
+	defer deleteObject(t, "pipeline-test")
+
+	// create backend server with port 8888
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, "hello from backend")
+	})
+	server := startServer(8888, mux)
+	defer server.Shutdown(context.Background())
+	// check 8888 server is started
+	started := checkServerStart(t, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888", nil)
+		require.Nil(t, err)
+		return req
+	})
+	require.True(t, started)
+
+	// send request to 10081 HTTPServer
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10081/", nil)
+	assert.Nil(err)
+	resp, err := http.DefaultClient.Do(req)
+	assert.Nil(err)
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	assert.Nil(err)
+	assert.Equal("hello from backend", string(data))
 }

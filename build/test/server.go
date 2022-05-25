@@ -16,3 +16,32 @@
  */
 
 package test
+
+import (
+	"fmt"
+	"net/http"
+	"testing"
+	"time"
+)
+
+func startServer(port int, handler http.Handler) *http.Server {
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%v", port),
+		Handler: handler,
+	}
+	go server.ListenAndServe()
+	return server
+}
+
+func checkServerStart(t *testing.T, checkReq func() *http.Request) bool {
+	for i := 0; i < 10; i++ {
+		req := checkReq()
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			resp.Body.Close()
+			return true
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
+}
