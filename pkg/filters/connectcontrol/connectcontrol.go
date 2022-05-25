@@ -141,7 +141,6 @@ func (cc *ConnectControl) reload() {
 
 // Inherit init ConnectControl with previous generation
 func (cc *ConnectControl) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	cc.Init()
 }
 

@@ -295,7 +295,6 @@ func (wh *WasmHost) Init() {
 
 // Inherit inherits previous generation of WasmHost.
 func (wh *WasmHost) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	wh.reload()
 }
 

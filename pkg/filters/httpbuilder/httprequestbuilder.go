@@ -105,7 +105,6 @@ func (rb *HTTPRequestBuilder) Init() {
 
 // Inherit inherits previous generation of HTTPRequestBuilder.
 func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	rb.Init()
 }
 

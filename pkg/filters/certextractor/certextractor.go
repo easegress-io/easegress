@@ -94,7 +94,6 @@ func (ce *CertExtractor) Init() {
 
 // Inherit inherits previous generation of CertExtractor.
 func (ce *CertExtractor) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	ce.Init()
 }
 

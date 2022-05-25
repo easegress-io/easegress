@@ -109,7 +109,6 @@ func (a *MQTTClientAuth) Init() {
 
 // Inherit init MQTTClientAuth based on previous generation
 func (a *MQTTClientAuth) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	a.Init()
 }
 

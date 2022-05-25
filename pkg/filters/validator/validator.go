@@ -107,7 +107,6 @@ func (v *Validator) Init() {
 
 // Inherit inherits previous generation of Validator.
 func (v *Validator) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	v.reload()
 }
 

@@ -115,7 +115,6 @@ func (ra *RequestAdaptor) Init() {
 
 // Inherit inherits previous generation of RequestAdaptor.
 func (ra *RequestAdaptor) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	ra.Init()
 }
 

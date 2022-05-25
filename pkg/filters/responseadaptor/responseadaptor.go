@@ -113,7 +113,6 @@ func (ra *ResponseAdaptor) Init() {
 
 // Inherit inherits previous generation of ResponseAdaptor.
 func (ra *ResponseAdaptor) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	ra.reload()
 }
 

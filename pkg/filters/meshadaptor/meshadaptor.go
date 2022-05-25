@@ -92,7 +92,6 @@ func (ra *MeshAdaptor) Init() {
 
 // Inherit inherits previous generation of MeshAdaptor.
 func (ra *MeshAdaptor) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	ra.Init()
 }
 

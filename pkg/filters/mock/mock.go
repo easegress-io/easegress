@@ -106,7 +106,6 @@ func (m *Mock) Init() {
 
 // Inherit inherits previous generation of Mock.
 func (m *Mock) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	m.Init()
 }
 

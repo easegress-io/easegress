@@ -155,7 +155,6 @@ func (hl *HeaderLookup) Init() {
 
 // Inherit inherits previous generation of HeaderLookup.
 func (hl *HeaderLookup) Inherit(previousGeneration filters.Filter) {
-	previousGeneration.Close()
 	hl.Init()
 }
 
