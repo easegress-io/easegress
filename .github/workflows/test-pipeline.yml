@@ -50,7 +50,6 @@ jobs:
         with:
           file: ./coverage.txt
   integration-test-ubuntu:
-    needs: [test] 
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
