@@ -136,7 +136,7 @@ func adaptHeader(req *httpprot.Response, as *httpheader.AdaptSpec) {
 
 // Handle adapts response.
 func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
-	resp := ctx.GetResponse(ctx.TargetResponseID())
+	resp := ctx.GetInputResponse()
 	if resp == nil {
 		return resultResponseNotFound
 	}

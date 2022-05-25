@@ -233,7 +233,7 @@ func (k *MockKafka) Init() {
 }
 
 func (k *MockKafka) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*mqttprot.Request)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
 	if req.PacketType() != mqttprot.PublishType {
 		panic(fmt.Errorf("mock kafka for test should only receive publish packet, but received %v", req.PacketType()))
 	}
@@ -316,8 +316,8 @@ func (m *MockMQTTFilter) Inherit(previous filters.Filter) {
 
 // HandleMQTT handle MQTTContext
 func (m *MockMQTTFilter) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*mqttprot.Request)
-	resp := ctx.Response().(*mqttprot.Response)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
+	resp := ctx.GetOutputResponse().(*mqttprot.Response)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clients[req.Client().ClientID()]++

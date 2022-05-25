@@ -41,12 +41,10 @@ func newContext(cid string, topic string) *context.Context {
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
 	req := mqttprot.NewRequest(packet, client)
-	ctx.SetRequest("req1", req)
-	ctx.UseRequest("req1", "req1")
+	ctx.SetRequest(context.DefaultNamespace, req)
 
 	resp := mqttprot.NewResponse()
-	ctx.SetResponse(context.DefaultResponseID, resp)
-	ctx.UseResponse(context.DefaultResponseID)
+	ctx.SetOutputResponse(resp)
 	return ctx
 }
 
@@ -97,7 +95,7 @@ func doTest(t *testing.T, spec *Spec, testCases []testCase) {
 		ctx := newContext(test.cid, test.topic)
 		res := cc.Handle(ctx)
 		assert.Equal(res, test.errString)
-		resp := ctx.Response().(*mqttprot.Response)
+		resp := ctx.GetOutputResponse().(*mqttprot.Response)
 		assert.Equal(resp.Disconnect(), test.disconnect)
 	}
 	status := cc.Status().(*Status)

@@ -66,13 +66,12 @@ func defaultFilterSpec(t *testing.T, spec *Spec) filters.Spec {
 	return result
 }
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
-	httpreq, err := httpprot.NewRequest(req)
+func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	err = httpreq.FetchPayload(1024 * 1024)
+	err = req.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetInputRequest(req)
 }
 
 func TestKafka(t *testing.T) {
@@ -115,7 +114,7 @@ func TestHandleHTTP(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
 	req.Header.Add("x-kafka-topic", "kafka")
-	setRequest(t, ctx, "req1", req)
+	setRequest(t, ctx, req)
 
 	ans := kafka.Handle(ctx)
 	assert.Equal("", ans)
@@ -130,7 +129,7 @@ func TestHandleHTTP(t *testing.T) {
 	// test default
 	req, err = http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
-	setRequest(t, ctx, "req2", req)
+	setRequest(t, ctx, req)
 
 	ans = kafka.Handle(ctx)
 	assert.Equal("", ans)

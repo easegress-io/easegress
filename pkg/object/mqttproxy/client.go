@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
@@ -228,7 +229,7 @@ func (c *Client) runPipeline(packet packets.ControlPacket, packetType PacketType
 
 	ctx := newContext(packet, c)
 	pipe.Handle(ctx)
-	resp := ctx.Response().(*mqttprot.Response)
+	resp := ctx.GetResponse(context.DefaultNamespace).(*mqttprot.Response)
 	if resp.Disconnect() {
 		c.close()
 		return errors.New("pipeline set disconnect")

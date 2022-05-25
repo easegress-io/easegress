@@ -36,8 +36,7 @@ func newContext(cid string, topic string) *context.Context {
 	packet.TopicName = topic
 
 	req := mqttprot.NewRequest(packet, client)
-	ctx.SetRequest("req1", req)
-	ctx.UseRequest("req1", "req1")
+	ctx.SetInputRequest(req)
 	return ctx
 }
 

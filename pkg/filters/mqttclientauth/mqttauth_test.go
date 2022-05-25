@@ -45,12 +45,10 @@ func newContext(cid, username, password string) *context.Context {
 	packet.Password = []byte(password)
 
 	req := mqttprot.NewRequest(packet, client)
-	ctx.SetRequest("req1", req)
-	ctx.UseRequest("req1", "req1")
+	ctx.SetInputRequest(req)
 
 	resp := mqttprot.NewResponse()
-	ctx.SetResponse(context.DefaultResponseID, resp)
-	ctx.UseResponse(context.DefaultResponseID)
+	ctx.SetOutputResponse(resp)
 
 	return ctx
 }
@@ -104,7 +102,7 @@ func TestAuthFile(t *testing.T) {
 		go func(test testCase) {
 			ctx := newContext(test.cid, test.name, test.pass)
 			auth.Handle(ctx)
-			resp := ctx.Response().(*mqttprot.Response)
+			resp := ctx.GetOutputResponse().(*mqttprot.Response)
 			assert.Equal(test.disconnect, resp.Disconnect(), fmt.Errorf("test case %+v got wrong result", test))
 			wg.Done()
 		}(test)

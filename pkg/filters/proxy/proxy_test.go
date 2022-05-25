@@ -62,8 +62,7 @@ func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
 func getCtx(stdr *http.Request) *context.Context {
 	req, _ := httpprot.NewRequest(stdr)
 	ctx := context.New(tracing.NoopSpan)
-	ctx.SetRequest(context.InitialRequestID, req)
-	ctx.UseRequest("", "")
+	ctx.SetRequest(context.DefaultNamespace, req)
 	return ctx
 }
 

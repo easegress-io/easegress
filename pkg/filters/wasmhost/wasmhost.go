@@ -352,7 +352,7 @@ func (wh *WasmHost) Handle(ctx *context.Context) (result string) {
 			vm.Interrupt()
 			vm = nil
 			break
-		case <-ctx.Request().(*httpprot.Request).Context().Done():
+		case <-ctx.GetInputRequest().(*httpprot.Request).Context().Done():
 			vm.Interrupt()
 			vm = nil
 			break

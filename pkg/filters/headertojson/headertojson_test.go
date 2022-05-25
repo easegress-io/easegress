@@ -35,13 +35,12 @@ func init() {
 	logger.InitNop()
 }
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
-	httpreq, err := httpprot.NewRequest(req)
+func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	err = httpreq.FetchPayload(1024 * 1024)
+	err = req.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetInputRequest(req)
 }
 
 func defaultFilterSpec(spec *Spec) filters.Spec {
@@ -89,13 +88,13 @@ func TestHandleHTTP(t *testing.T) {
 		req.Header.Add("x-username", "clientA")
 
 		ctx := context.New(nil)
-		setRequest(t, ctx, "req1", req)
+		setRequest(t, ctx, req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 		ctx.Finish()
 
-		body, err = io.ReadAll(ctx.Request().GetPayload())
+		body, err = io.ReadAll(ctx.GetOutputRequest().GetPayload())
 		assert.Nil(err)
 
 		res := map[string]interface{}{}
@@ -113,12 +112,12 @@ func TestHandleHTTP(t *testing.T) {
 
 		req.Header.Add("x-username", "clientA")
 		ctx := context.New(nil)
-		setRequest(t, ctx, "req1", req)
+		setRequest(t, ctx, req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 
-		body, err := io.ReadAll(ctx.Request().GetPayload())
+		body, err := io.ReadAll(ctx.GetOutputRequest().GetPayload())
 		assert.Nil(err)
 
 		res := map[string]interface{}{}
@@ -141,13 +140,13 @@ func TestHandleHTTP(t *testing.T) {
 		req.Header.Add("x-username", "clientA")
 
 		ctx := context.New(nil)
-		setRequest(t, ctx, "req1", req)
+		setRequest(t, ctx, req)
 
 		ans := h2j.Handle(ctx)
 		assert.Equal("", ans)
 		ctx.Finish()
 
-		body, err = io.ReadAll(ctx.Request().GetPayload())
+		body, err = io.ReadAll(ctx.GetOutputRequest().GetPayload())
 		assert.Nil(err)
 
 		res := []map[string]interface{}{}

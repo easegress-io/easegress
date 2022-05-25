@@ -244,7 +244,7 @@ func (rl *RateLimiter) Inherit(previousGeneration filters.Filter) {
 // Handle handles HTTP request
 func (rl *RateLimiter) Handle(ctx *context.Context) string {
 	for _, u := range rl.spec.URLs {
-		req := ctx.Request().(*httpprot.Request)
+		req := ctx.GetInputRequest().(*httpprot.Request)
 		if !u.Match(req.Std()) {
 			continue
 		}
@@ -252,7 +252,7 @@ func (rl *RateLimiter) Handle(ctx *context.Context) string {
 		permitted, d := u.rl.AcquirePermission()
 		if !permitted {
 			resp, _ := httpprot.NewResponse(nil)
-			ctx.SetResponse(ctx.TargetResponseID(), resp)
+			ctx.SetOutputResponse(resp)
 			ctx.AddTag("rateLimiter: too many requests")
 
 			resp.SetStatusCode(http.StatusTooManyRequests)

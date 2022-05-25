@@ -70,17 +70,12 @@ type (
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
-		FilterName  string `yaml:"filter" jsonschema:"required,format=urlname"`
-		FilterAlias string `yaml:"alias" jsonschema:"omitempty"`
-		// Note, the JSON tag of `DefaultRequest` is 'useRequest`, which is
-		// different from its name, because, from the aspect of code,
-		// `DefaultRequest` is to set the default request for the filter, but
-		// from the view of users, `useRequest` is much easier to understand.
-		DefaultRequest string            `yaml:"useRequest" jsonschema:"useRequest,omitempty"`
-		TargetRequest  string            `yaml:"targetRequest" jsonschema:"targetRequest,omitempty"`
-		TargetResponse string            `yaml:"targetResponse" jsonschema:"targetResponse,omitempty"`
-		JumpIf         map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
-		filter         filters.Filter
+		FilterName  string            `yaml:"filter" jsonschema:"required,format=urlname"`
+		FilterAlias string            `yaml:"alias" jsonschema:"omitempty"`
+		Namespace   string            `yaml:"namespace" jsonshema:"omitempty"`
+		OutputTo    string            `yaml:"outputTo" jsonschema:"omitempty"`
+		JumpIf      map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
+		filter      filters.Filter
 	}
 
 	// FilterStat records the statistics of a filter.
@@ -134,20 +129,22 @@ func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
 
 // ValidateRequest validates requests.
 func (s *Spec) ValidateRequest() {
-	const errFmt = "filter %s: desired request %s not found"
+	/*
+		const errFmt = "filter %s: desired request %s not found"
 
-	validIDs := map[string]bool{context.InitialRequestID: true}
+		validIDs := map[string]bool{context.InitialRequestID: true}
 
-	for i := 0; i < len(s.Flow); i++ {
-		node := &s.Flow[i]
-		if node.DefaultRequest != "" && !validIDs[node.DefaultRequest] {
-			panic(fmt.Errorf(errFmt, node.FilterName, node.DefaultRequest))
+		for i := 0; i < len(s.Flow); i++ {
+			node := &s.Flow[i]
+			if node.DefaultRequest != "" && !validIDs[node.DefaultRequest] {
+				panic(fmt.Errorf(errFmt, node.FilterName, node.DefaultRequest))
+			}
+
+			if node.TargetRequest != "" {
+				validIDs[node.TargetRequest] = true
+			}
 		}
-
-		if node.TargetRequest != "" {
-			validIDs[node.TargetRequest] = true
-		}
-	}
+	*/
 }
 
 // Validate validates Spec.
@@ -348,8 +345,7 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 		}
 
 		start := fasttime.Now()
-		ctx.UseRequest(node.DefaultRequest, node.TargetRequest)
-		ctx.UseResponse(node.TargetResponse)
+		ctx.UseNamespace(node.Namespace, node.OutputTo)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{

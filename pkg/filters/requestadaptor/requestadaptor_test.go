@@ -37,13 +37,12 @@ func init() {
 	logger.InitNop()
 }
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
-	httpreq, err := httpprot.NewRequest(req)
+func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	err = httpreq.FetchPayload(1024 * 1024)
+	err = req.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetInputRequest(req)
 }
 
 func defaultFilterSpec(spec *Spec) filters.Spec {
@@ -132,15 +131,15 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, "req1", req)
+			setRequest(t, ctx, req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
 
-			encoding := ctx.Request().Header().Get("Content-Encoding")
+			encoding := ctx.GetInputRequest().Header().Get("Content-Encoding")
 			assert.Equal("", encoding)
 
-			body, err := io.ReadAll(ctx.Request().GetPayload())
+			body, err := io.ReadAll(ctx.GetInputRequest().GetPayload())
 			assert.Nil(err)
 			assert.Equal("123", string(body))
 		}
@@ -153,7 +152,7 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, "req1", req)
+			setRequest(t, ctx, req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal(resultDecompressFailed, ans)
@@ -178,15 +177,15 @@ func TestCompress(t *testing.T) {
 		assert.Nil(err)
 
 		ctx := context.New(nil)
-		setRequest(t, ctx, "req1", req)
+		setRequest(t, ctx, req)
 
 		ans := ra.Handle(ctx)
 		assert.Equal("", ans)
 
-		encoding := ctx.Request().Header().Get("Content-Encoding")
+		encoding := ctx.GetInputRequest().Header().Get("Content-Encoding")
 		assert.Equal("gzip", encoding)
 
-		reader, err := gzip.NewReader(ctx.Request().GetPayload())
+		reader, err := gzip.NewReader(ctx.GetInputRequest().GetPayload())
 		assert.Nil(err)
 		defer reader.Close()
 		body, err := io.ReadAll(reader)
@@ -211,15 +210,15 @@ func TestCompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, "req1", req)
+			setRequest(t, ctx, req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
 
-			encoding := ctx.Request().Header().Get("Content-Encoding")
+			encoding := ctx.GetInputRequest().Header().Get("Content-Encoding")
 			assert.Equal("gzip", encoding)
 
-			reader, err := gzip.NewReader(ctx.Request().GetPayload())
+			reader, err := gzip.NewReader(ctx.GetInputRequest().GetPayload())
 			assert.Nil(err)
 			defer reader.Close()
 			body, err := io.ReadAll(reader)
@@ -234,16 +233,16 @@ func TestCompress(t *testing.T) {
 			assert.Nil(err)
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, "req1", req)
+			setRequest(t, ctx, req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
 			ctx.Finish()
 
-			encoding := ctx.Request().Header().Get("Content-Encoding")
+			encoding := ctx.GetInputRequest().Header().Get("Content-Encoding")
 			assert.Equal("gzip", encoding)
 
-			reader, err := gzip.NewReader(ctx.Request().GetPayload())
+			reader, err := gzip.NewReader(ctx.GetInputRequest().GetPayload())
 			assert.Nil(err)
 			defer reader.Close()
 			body, err := io.ReadAll(reader)
@@ -275,13 +274,13 @@ func TestHandle(t *testing.T) {
 	assert.Nil(err)
 
 	ctx := context.New(nil)
-	setRequest(t, ctx, "req1", req)
+	setRequest(t, ctx, req)
 
 	ans := ra.Handle(ctx)
 	assert.Equal("", ans)
 	ctx.Finish()
 
-	httpreq := ctx.Request().(*httpprot.Request)
+	httpreq := ctx.GetInputRequest().(*httpprot.Request)
 	method := httpreq.Method()
 	assert.Equal(http.MethodDelete, method)
 

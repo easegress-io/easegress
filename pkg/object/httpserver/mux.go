@@ -393,7 +393,7 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Response {
 	resp, _ := httpprot.NewResponse(nil)
 	resp.SetStatusCode(statusCode)
-	ctx.SetResponse(context.DefaultResponseID, resp)
+	ctx.SetResponse(context.DefaultNamespace, resp)
 	return resp
 }
 
@@ -412,7 +412,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	// Calculate the meta size now, as everything could be modified.
 	reqMetaSize := req.MetaSize()
-	ctx.SetRequest(context.InitialRequestID, req)
+	ctx.SetRequest(context.DefaultNamespace, req)
 
 	// get topN here, as the path could be modified later.
 	topN := mi.topN.Stat(req.Path())
@@ -423,7 +423,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		io.Copy(io.Discard, body)
 
 		var resp *httpprot.Response
-		if v := ctx.Response(); v != nil {
+		if v := ctx.GetResponse(context.DefaultNamespace); v != nil {
 			resp = v.(*httpprot.Response)
 		} else {
 			resp = buildFailureResponse(ctx, http.StatusInternalServerError)

@@ -145,7 +145,7 @@ func (k *Kafka) Status() interface{} {
 	return nil
 }
 
-// HandleMQTT handle MQTT context
+// Handle handles context
 func (k *Kafka) Handle(ctx *context.Context) string {
 	var topic string
 	var headers map[string]string
@@ -172,7 +172,7 @@ func (k *Kafka) Handle(ctx *context.Context) string {
 		}
 	}
 
-	req := ctx.Request().(*mqttprot.Request)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
 	// set data from PublishPacket if data is missing
 	if req.PacketType() == mqttprot.PublishType {
 		p := req.PublishPacket()

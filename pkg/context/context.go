@@ -19,7 +19,6 @@ package context
 
 import (
 	"bytes"
-	"fmt"
 	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/logger"
@@ -27,12 +26,8 @@ import (
 	"github.com/megaease/easegress/pkg/tracing"
 )
 
-const (
-	// InitialRequestID is the ID of the initial request.
-	InitialRequestID = "initial"
-	// DefaultResponseID is the ID of the default response.
-	DefaultResponseID = "default"
-)
+// DefaultNamespace is the name of the default namespace.
+const DefaultNamespace = "PIPELINE"
 
 // Handler is the common interface for all traffic handlers,
 // which handle the traffic represented by ctx.
@@ -51,12 +46,11 @@ type Context struct {
 	span     tracing.Span
 	lazyTags []func() string
 
-	targetRequestID string
-	request         protocols.Request
-	requests        map[string]protocols.Request
+	inputNs  string
+	outputNs string
 
-	targetResponseID string
-	responses        map[string]protocols.Response
+	requests  map[string]protocols.Request
+	responses map[string]protocols.Response
 
 	kv          map[interface{}]interface{}
 	finishFuncs []func()
@@ -66,6 +60,8 @@ type Context struct {
 func New(span tracing.Span) *Context {
 	ctx := &Context{
 		span:      span,
+		inputNs:   DefaultNamespace,
+		outputNs:  DefaultNamespace,
 		requests:  map[string]protocols.Request{},
 		responses: map[string]protocols.Response{},
 		kv:        map[interface{}]interface{}{},
@@ -88,100 +84,58 @@ func (ctx *Context) LazyAddTag(lazyTagFunc func() string) {
 	ctx.lazyTags = append(ctx.lazyTags, lazyTagFunc)
 }
 
-// Request returns the default request.
-func (ctx *Context) Request() protocols.Request {
-	return ctx.request
-}
-
-// UseRequest set the requests to use.
-//
-// dflt set the default request, the next call to Request returns
-// this request, if this parameter is empty, InitialRequestID will be
-// used.
-//
-// target is for request producers, if the request exists, the request
-// producer update it in place, if the request does not exist, the
-// request procuder creates a new request and save it as the target
-// request.
-//
-// If target is an empty string, InitialRequestID will be used.
-func (ctx *Context) UseRequest(dflt, target string) {
-	if dflt == "" {
-		dflt = InitialRequestID
+// UseNamespace sets the input and output namespace to input and output.
+func (ctx *Context) UseNamespace(input, output string) {
+	if input == "" {
+		input = DefaultNamespace
 	}
 
-	if target == "" {
-		target = InitialRequestID
+	if output == "" {
+		output = input
 	}
 
-	if req := ctx.requests[dflt]; req == nil {
-		panic(fmt.Errorf("request %s does not exist", dflt))
-	} else {
-		ctx.request = req
-	}
-
-	ctx.targetRequestID = target
+	ctx.inputNs = input
+	ctx.outputNs = output
 }
 
-// TargetRequestID returns the ID of the target request.
-func (ctx *Context) TargetRequestID() string {
-	return ctx.targetRequestID
-}
-
-// Requests returns all requests.
+// Requests returns all requests, the caller should NOT modify the
+// return value.
 func (ctx *Context) Requests() map[string]protocols.Request {
 	return ctx.requests
 }
 
-// GetRequest returns the request for id, the function returns nil if
-// there's no such request.
-func (ctx *Context) GetRequest(id string) protocols.Request {
-	return ctx.requests[id]
+// GetOutputRequest returns the request of the output namespace.
+func (ctx *Context) GetOutputRequest() protocols.Request {
+	return ctx.requests[ctx.outputNs]
 }
 
-// SetRequest sets the request of id to req.
-func (ctx *Context) SetRequest(id string, req protocols.Request) {
-	prev := ctx.requests[id]
+// SetOutputRequest sets the request of the output namespace to req.
+func (ctx *Context) SetOutputRequest(req protocols.Request) {
+	ctx.SetRequest(ctx.outputNs, req)
+}
+
+// GetRequest set the request of namespace ns to req.
+func (ctx *Context) GetRequest(ns string) protocols.Request {
+	return ctx.requests[ns]
+}
+
+// SetRequest set the request of namespace ns to req.
+func (ctx *Context) SetRequest(ns string, req protocols.Request) {
+	prev := ctx.requests[ns]
 	if prev != nil && prev != req {
 		prev.Close()
 	}
-	ctx.requests[id] = req
+	ctx.requests[ns] = req
 }
 
-// DeleteRequest deletes the request of id.
-func (ctx *Context) DeleteRequest(id string) {
-	req := ctx.requests[id]
-	if req != nil {
-		req.Close()
-		delete(ctx.requests, id)
-	}
+// GetInputRequest returns the request of the input namespace.
+func (ctx *Context) GetInputRequest() protocols.Request {
+	return ctx.requests[ctx.inputNs]
 }
 
-// UseResponse set the reponses to use.
-//
-// target is for response producers, if the response exists, the
-// response producer update it in place, if the reponse does not exist,
-// response producer creates a new response and save it as the target
-// response.
-//
-// If target is an empty string, DefaultResponseID will be used;
-func (ctx *Context) UseResponse(target string) {
-	if target == "" {
-		target = DefaultResponseID
-	}
-
-	ctx.targetResponseID = target
-}
-
-// TargetResponseID returns the ID of the target response.
-func (ctx *Context) TargetResponseID() string {
-	return ctx.targetResponseID
-}
-
-// Response returns the default response, and the return value could
-// be nil.
-func (ctx *Context) Response() protocols.Response {
-	return ctx.GetResponse(DefaultResponseID)
+// SetInputRequest sets the request of the input namespace to req.
+func (ctx *Context) SetInputRequest(req protocols.Request) {
+	ctx.SetRequest(ctx.inputNs, req)
 }
 
 // Responses returns all responses.
@@ -189,28 +143,38 @@ func (ctx *Context) Responses() map[string]protocols.Response {
 	return ctx.responses
 }
 
-// GetResponse returns the response for id, the function returns nil if
-// there's no such response.
-func (ctx *Context) GetResponse(id string) protocols.Response {
-	return ctx.responses[id]
+// GetOutputResponse returns the response of the output namespace.
+func (ctx *Context) GetOutputResponse() protocols.Response {
+	return ctx.responses[ctx.outputNs]
 }
 
-// SetResponse sets the response of id to req.
-func (ctx *Context) SetResponse(id string, resp protocols.Response) {
-	prev := ctx.responses[id]
+// SetOutputResponse sets the response of the output namespace to resp.
+func (ctx *Context) SetOutputResponse(resp protocols.Response) {
+	ctx.SetResponse(ctx.outputNs, resp)
+}
+
+// GetResponse returns the response of namespace ns.
+func (ctx *Context) GetResponse(ns string) protocols.Response {
+	return ctx.responses[ns]
+}
+
+// SetResponse set the response of namespace ns to resp.
+func (ctx *Context) SetResponse(ns string, resp protocols.Response) {
+	prev := ctx.responses[ns]
 	if prev != nil && prev != resp {
 		prev.Close()
 	}
-	ctx.responses[id] = resp
+	ctx.responses[ns] = resp
 }
 
-// DeleteResponse delete the response of id.
-func (ctx *Context) DeleteResponse(id string) {
-	resp := ctx.responses[id]
-	if resp != nil {
-		resp.Close()
-		delete(ctx.responses, id)
-	}
+// GetInputResponse returns the response of the input namespace.
+func (ctx *Context) GetInputResponse() protocols.Response {
+	return ctx.GetResponse(ctx.inputNs)
+}
+
+// SetInputResponse sets the response of the input namespace to resp.
+func (ctx *Context) SetInputResponse(resp protocols.Response) {
+	ctx.SetResponse(ctx.inputNs, resp)
 }
 
 // SetKV sets the value of key to val.
