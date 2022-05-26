@@ -81,7 +81,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 		pool.Servers = append(pool.Servers, &proxy.Server{URL: ep})
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":     proxy.Kind,
 		"name":     name,

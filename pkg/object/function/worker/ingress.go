@@ -134,7 +134,7 @@ func (b *pipelineSpecBuilder) yamlConfig() string {
 
 func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespace, faasHostSuffix string) *pipelineSpecBuilder {
 	adaptorName := "requestAdaptor"
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: adaptorName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: adaptorName})
 
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":   requestadaptor.Kind,
@@ -162,7 +162,7 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 
 	lb := &proxy.LoadBalanceSpec{}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,

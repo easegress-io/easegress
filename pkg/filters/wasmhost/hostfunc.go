@@ -143,106 +143,106 @@ func (vm *WasmVM) readClusterKeyFromWasm(addr int32) string {
 // request functions
 
 func (vm *WasmVM) hostRequestGetRealIP() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).RealIP()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).RealIP()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetMethod() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Method()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Method()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetMethod(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).SetMethod(v)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).SetMethod(v)
 }
 
 func (vm *WasmVM) hostRequestGetScheme() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Scheme()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Scheme()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetHost() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Host()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Host()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetHost(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).SetHost(v)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).SetHost(v)
 }
 
 func (vm *WasmVM) hostRequestGetPath() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Path()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Path()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetPath(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).SetPath(v)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).SetPath(v)
 }
 
 func (vm *WasmVM) hostRequestGetEscapedPath() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Std().URL.EscapedPath()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Std().URL.EscapedPath()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetQuery() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Std().URL.RawQuery
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Std().URL.RawQuery
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestSetQuery(addr int32) {
 	v := vm.readStringFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).Std().URL.RawQuery = v
+	vm.ctx.GetOutputRequest().(*httpprot.Request).Std().URL.RawQuery = v
 }
 
 func (vm *WasmVM) hostRequestGetFragment() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Std().URL.Fragment
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Std().URL.Fragment
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestGetProto() int32 {
-	v := vm.ctx.Request().(*httpprot.Request).Proto()
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).Proto()
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestAddHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	val := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Request().(*httpprot.Request).Header().Add(name, val)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).Header().Add(name, val)
 }
 
 func (vm *WasmVM) hostRequestSetHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	value := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Request().(*httpprot.Request).Header().Set(name, value)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).Header().Set(name, value)
 }
 
 func (vm *WasmVM) hostRequestGetHeader(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	v := vm.ctx.Request().(*httpprot.Request).HTTPHeader().Get(name)
+	v := vm.ctx.GetInputRequest().(*httpprot.Request).HTTPHeader().Get(name)
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostRequestDelHeader(addr int32) {
 	name := vm.readStringFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).Header().Del(name)
+	vm.ctx.GetOutputRequest().(*httpprot.Request).Header().Del(name)
 }
 
 func (vm *WasmVM) hostRequestGetAllHeader() int32 {
-	h := vm.ctx.Request().(*httpprot.Request).HTTPHeader()
+	h := vm.ctx.GetInputRequest().(*httpprot.Request).HTTPHeader()
 	return vm.writeHeaderToWasm(h)
 }
 
 func (vm *WasmVM) hostRequestSetAllHeader(addr int32) {
 	h := vm.readHeaderFromWasm(addr)
-	vm.ctx.Request().(*httpprot.Request).Std().Header = h
+	vm.ctx.GetOutputRequest().(*httpprot.Request).Std().Header = h
 }
 
 func (vm *WasmVM) hostRequestGetCookie(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	c, e := vm.ctx.Request().(*httpprot.Request).Cookie(name)
+	c, e := vm.ctx.GetInputRequest().(*httpprot.Request).Cookie(name)
 	if e != nil && e != http.ErrNoCookie {
 		panic(e)
 	}
@@ -251,7 +251,7 @@ func (vm *WasmVM) hostRequestGetCookie(addr int32) int32 {
 
 func (vm *WasmVM) hostRequestGetAllCookie() int32 {
 	var cookies []string
-	for _, c := range vm.ctx.Request().(*httpprot.Request).Cookies() {
+	for _, c := range vm.ctx.GetInputRequest().(*httpprot.Request).Cookies() {
 		cookies = append(cookies, c.String())
 	}
 	return vm.writeStringArrayToWasm(cookies)
@@ -263,18 +263,18 @@ func (vm *WasmVM) hostRequestAddCookie(addr int32) {
 	h.Add("Cookie", str)
 	r := http.Request{Header: h}
 	for _, c := range r.Cookies() {
-		vm.ctx.Request().(*httpprot.Request).AddCookie(c)
+		vm.ctx.GetOutputRequest().(*httpprot.Request).AddCookie(c)
 	}
 }
 
 func (vm *WasmVM) hostRequestGetBody() int32 {
-	r := vm.ctx.Request().(*httpprot.Request)
+	r := vm.ctx.GetInputRequest().(*httpprot.Request)
 	return vm.writeDataToWasm(r.RawPayload())
 }
 
 func (vm *WasmVM) hostRequestSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	req := vm.ctx.Request()
+	req := vm.ctx.GetOutputRequest()
 	if req.IsStream() {
 		if c, ok := req.GetPayload().(io.Closer); ok {
 			c.Close()
@@ -286,44 +286,44 @@ func (vm *WasmVM) hostRequestSetBody(addr int32) {
 // response functions
 
 func (vm *WasmVM) hostResponseGetStatusCode() int32 {
-	return int32(vm.ctx.Response().(*httpprot.Response).StatusCode())
+	return int32(vm.ctx.GetInputResponse().(*httpprot.Response).StatusCode())
 }
 
 func (vm *WasmVM) hostResponseSetStatusCode(code int32) {
-	vm.ctx.Response().(*httpprot.Response).SetStatusCode(int(code))
+	vm.ctx.GetOutputResponse().(*httpprot.Response).SetStatusCode(int(code))
 }
 
 func (vm *WasmVM) hostResponseAddHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	value := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Response().Header().Add(name, value)
+	vm.ctx.GetOutputResponse().Header().Add(name, value)
 }
 
 func (vm *WasmVM) hostResponseSetHeader(nameAddr, valueAddr int32) {
 	name := vm.readStringFromWasm(nameAddr)
 	value := vm.readStringFromWasm(valueAddr)
-	vm.ctx.Response().Header().Set(name, value)
+	vm.ctx.GetOutputResponse().Header().Set(name, value)
 }
 
 func (vm *WasmVM) hostResponseGetHeader(addr int32) int32 {
 	name := vm.readStringFromWasm(addr)
-	v := vm.ctx.Response().(*httpprot.Response).HTTPHeader().Get(name)
+	v := vm.ctx.GetInputResponse().(*httpprot.Response).HTTPHeader().Get(name)
 	return vm.writeStringToWasm(v)
 }
 
 func (vm *WasmVM) hostResponseDelHeader(addr int32) {
 	name := vm.readStringFromWasm(addr)
-	vm.ctx.Response().Header().Del(name)
+	vm.ctx.GetOutputResponse().Header().Del(name)
 }
 
 func (vm *WasmVM) hostResponseGetAllHeader() int32 {
-	h := vm.ctx.Response().(*httpprot.Response).HTTPHeader()
+	h := vm.ctx.GetInputResponse().(*httpprot.Response).HTTPHeader()
 	return vm.writeHeaderToWasm(h)
 }
 
 func (vm *WasmVM) hostResponseSetAllHeader(addr int32) {
 	h := vm.readHeaderFromWasm(addr)
-	vm.ctx.Response().(*httpprot.Response).Std().Header = h
+	vm.ctx.GetOutputResponse().(*httpprot.Response).Std().Header = h
 }
 
 func (vm *WasmVM) hostResponseSetCookie(addr int32) {
@@ -332,18 +332,18 @@ func (vm *WasmVM) hostResponseSetCookie(addr int32) {
 	h.Add("Set-Cookie", str)
 	r := http.Response{Header: h}
 	for _, c := range r.Cookies() {
-		vm.ctx.Response().(*httpprot.Response).SetCookie(c)
+		vm.ctx.GetOutputResponse().(*httpprot.Response).SetCookie(c)
 	}
 }
 
 func (vm *WasmVM) hostResponseGetBody() int32 {
-	r := vm.ctx.Response()
+	r := vm.ctx.GetInputResponse()
 	return vm.writeDataToWasm(r.RawPayload())
 }
 
 func (vm *WasmVM) hostResponseSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	resp := vm.ctx.Response()
+	resp := vm.ctx.GetOutputResponse()
 	if resp.IsStream() {
 		if c, ok := resp.GetPayload().(io.Closer); ok {
 			c.Close()

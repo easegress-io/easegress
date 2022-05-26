@@ -31,11 +31,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	httpreq, err := httpprot.NewRequest(req)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetRequest(ns, httpreq)
 }
 
 func TestMain(m *testing.M) {
@@ -113,7 +112,7 @@ rules:
 		assert.Nil(err)
 		setRequest(t, ctx, "req1", req)
 
-		ctx.UseResponse("resp1")
+		ctx.UseNamespace("req1", "resp1")
 		m.Handle(ctx)
 
 		resp := ctx.GetResponse("resp1").(*httpprot.Response)
@@ -125,7 +124,7 @@ rules:
 		assert.Nil(err)
 		setRequest(t, ctx, "req2", req)
 
-		ctx.UseResponse("resp2")
+		ctx.UseNamespace("req2", "resp2")
 		m.Handle(ctx)
 
 		resp := ctx.GetResponse("resp2").(*httpprot.Response)
@@ -142,7 +141,7 @@ rules:
 		req.Header.Set("X-Mock", "mock")
 		setRequest(t, ctx, "req3", req)
 
-		ctx.UseResponse("resp3")
+		ctx.UseNamespace("req3", "resp3")
 		m.Handle(ctx)
 
 		resp := ctx.GetResponse("resp3").(*httpprot.Response)
@@ -164,7 +163,7 @@ rules:
 		}
 		setRequest(t, ctx, "req4", req)
 
-		ctx.UseResponse("resp4")
+		ctx.UseNamespace("req4", "resp4")
 		m.Handle(ctx)
 		resp := ctx.GetResponse("resp4").(*httpprot.Response)
 		assert.Equal(206, resp.StatusCode())
@@ -178,7 +177,7 @@ rules:
 		req.Header.Set("X-Mock", "mock")
 		setRequest(t, ctx, "req5", req)
 
-		ctx.UseResponse("resp5")
+		ctx.UseNamespace("req5", "resp5")
 		m.Handle(ctx)
 
 		resp := ctx.GetResponse("resp5").(*httpprot.Response)
@@ -204,7 +203,7 @@ rules:
 		newM.Inherit(m)
 		m.Close()
 
-		ctx.UseResponse("resp6")
+		ctx.UseNamespace("req6", "resp6")
 		newM.Handle(ctx)
 
 		resp := ctx.GetResponse("resp6").(*httpprot.Response)

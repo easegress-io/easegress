@@ -140,10 +140,10 @@ func (a *MQTTClientAuth) checkAuth(connect *packets.ConnectPacket) string {
 	return ""
 }
 
-// HandleMQTT handle MQTT context
+// Handle handles context.
 func (a *MQTTClientAuth) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*mqttprot.Request)
-	resp := ctx.Response().(*mqttprot.Response)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
+	resp := ctx.GetOutputResponse().(*mqttprot.Response)
 	if req.PacketType() != mqttprot.ConnectType {
 		return ""
 	}

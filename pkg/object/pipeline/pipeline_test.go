@@ -69,7 +69,7 @@ func (m *MockedFilter) Status() interface{} {
 
 func (m *MockedFilter) Handle(ctx *context.Context) (result string) {
 	m.count++
-	req := ctx.Request()
+	req := ctx.GetInputRequest()
 	if r, ok := req.(*httpprot.Request); ok {
 		k, v := m.HeaderKV()
 		r.HTTPHeader().Set(k, v)
@@ -107,7 +107,7 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "Pipeline",
 			"flow": []FlowNode{
-				{Filter: "filter-1"}, // no such a filter defined
+				{FilterName: "filter-1"}, // no such a filter defined
 			},
 			"filters": []map[string]interface{}{
 				{
@@ -128,7 +128,7 @@ func TestSpecValidate(t *testing.T) {
 			"name": "pipeline",
 			"kind": "Pipeline",
 			"flow": []FlowNode{
-				{Filter: "filter-1"}, {Filter: "filter-2"},
+				{FilterName: "filter-1"}, {FilterName: "filter-2"},
 			},
 			"filters": []map[string]interface{}{
 				{
@@ -382,8 +382,7 @@ filters:
 	assert.Nil(err)
 
 	ctx := context.New(tracing.NoopSpan)
-	ctx.SetRequest(context.InitialRequestID, req)
-	ctx.UseRequest(context.InitialRequestID, context.InitialRequestID)
+	ctx.SetRequest(context.DefaultNamespace, req)
 
 	pipeline.Handle(ctx)
 

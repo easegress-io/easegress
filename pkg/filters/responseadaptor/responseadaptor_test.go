@@ -80,8 +80,7 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 	ctx := context.New(nil)
 	resp, err := httpprot.NewResponse(nil)
 	assert.Nil(err)
-	ctx.SetResponse("resp", resp)
-	ctx.UseResponse("resp")
+	ctx.SetInputResponse(resp)
 
 	resp.Std().Header.Add("X-Del", "deleted")
 

@@ -28,11 +28,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setRequest(t *testing.T, ctx *context.Context, req *http.Request, id string) {
-	httpreq, err := httpprot.NewRequest(req)
+func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetInputRequest(req)
 }
 
 func TestCORSAdaptor(t *testing.T) {
@@ -57,7 +56,7 @@ name: cors
 		ctx := context.New(nil)
 		req, err := http.NewRequest(http.MethodOptions, "http://example.com/", nil)
 		assert.Nil(err)
-		setRequest(t, ctx, req, "req1")
+		setRequest(t, ctx, req)
 
 		result := cors.Handle(ctx)
 		if result == resultPreflighted {
@@ -104,7 +103,7 @@ allowedOrigins:
 		ctx := context.New(nil)
 		req, err := http.NewRequest(http.MethodOptions, "http://example.com", nil)
 		assert.Nil(err)
-		setRequest(t, ctx, req, "req1")
+		setRequest(t, ctx, req)
 
 		result := cors.Handle(ctx)
 		if result == resultPreflighted {

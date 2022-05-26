@@ -164,6 +164,6 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 	req, _ := httpprot.NewRequest(stdReq)
 	req.SetPayload([]byte(ri.Body))
 
-	ctx.SetRequest(ctx.TargetRequestID(), req)
+	ctx.SetOutputRequest(req)
 	return ""
 }

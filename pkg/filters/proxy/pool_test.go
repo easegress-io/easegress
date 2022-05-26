@@ -136,9 +136,7 @@ servers:
 	req, _ := httpprot.NewRequest(stdr)
 	spCtx.req = req
 
-	spCtx.SetRequest(context.InitialRequestID, req)
-	spCtx.UseRequest(context.InitialRequestID, context.InitialRequestID)
-	spCtx.UseResponse(context.DefaultResponseID)
+	spCtx.SetRequest(context.DefaultNamespace, req)
 
 	assert.False(sp.buildResponseFromCache(spCtx))
 

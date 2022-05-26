@@ -150,11 +150,12 @@ func (k *Kafka) getTopic(req *httpprot.Request) string {
 	return topic
 }
 
+// Handle handles the context.
 func (k *Kafka) Handle(ctx *context.Context) (result string) {
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 	topic := k.getTopic(req)
 
-	body, err := ioutil.ReadAll(ctx.Request().GetPayload())
+	body, err := ioutil.ReadAll(req.GetPayload())
 	if err != nil {
 		return resultParseErr
 	}

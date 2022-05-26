@@ -75,8 +75,7 @@ func newContext(cid string, topic string, payload []byte) *context.Context {
 	packet.Payload = payload
 	req := mqttprot.NewRequest(packet, client)
 
-	ctx.SetRequest("req1", req)
-	ctx.UseRequest("req1", "req1")
+	ctx.SetInputRequest(req)
 	return ctx
 }
 
@@ -98,7 +97,7 @@ func TestKafka(t *testing.T) {
 	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
 
-	req := mqttCtx.Request().(*mqttprot.Request)
+	req := mqttCtx.GetInputRequest().(*mqttprot.Request)
 	assert.Equal(msg.Topic, req.PublishPacket().TopicName)
 	assert.Equal(0, len(msg.Headers))
 	value, err := msg.Value.Encode()

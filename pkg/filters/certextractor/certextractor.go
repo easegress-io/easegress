@@ -102,7 +102,7 @@ func (ce *CertExtractor) Close() {}
 
 // Handle retrieves header values and sets request headers.
 func (ce *CertExtractor) Handle(ctx *context.Context) string {
-	r := ctx.Request().(*httpprot.Request)
+	r := ctx.GetInputRequest().(*httpprot.Request)
 	connectionState := r.Std().TLS
 	if connectionState == nil {
 		return ""

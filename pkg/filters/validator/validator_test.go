@@ -39,11 +39,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
-	httpreq, err := httpprot.NewRequest(req)
+func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, httpreq)
-	ctx.UseRequest(id, id)
+	ctx.SetInputRequest(req)
 }
 
 func TestMain(m *testing.M) {
@@ -85,7 +84,7 @@ headers:
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	assert.Nil(err)
-	setRequest(t, ctx, "req", req)
+	setRequest(t, ctx, req)
 
 	result := v.Handle(ctx)
 	if result != resultInvalid {
@@ -127,7 +126,7 @@ jwt:
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	assert.Nil(err)
-	setRequest(t, ctx, "req", req)
+	setRequest(t, ctx, req)
 
 	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -190,7 +189,7 @@ oauth2:
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	assert.Nil(err)
-	setRequest(t, ctx, "req", req)
+	setRequest(t, ctx, req)
 
 	token := "eyJhbGciOiJIUzM4NCIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.3Ywq9NlR3cBST4nfcdbR-fcZ8374RHzU50X6flKvG-tnWFMalMaHRm3cMpXs1NrZ"
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -236,7 +235,7 @@ oauth2:
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	assert.Nil(err)
-	setRequest(t, ctx, "req", req)
+	setRequest(t, ctx, req)
 
 	token := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJzY29wZSI6Im1lZ2FlYXNlIn0.HRcRwN6zLJnubaUnZhZ5jC-j-rRiT-5mY8emJW6h6so"
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -295,7 +294,7 @@ signature:
 	ctx := context.New(nil)
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
 	assert.Nil(t, err)
-	setRequest(t, ctx, "req", req)
+	setRequest(t, ctx, req)
 
 	result := v.Handle(ctx)
 	if result != resultInvalid {
@@ -315,7 +314,7 @@ func prepareCtxAndHeader() (*context.Context, http.Header) {
 	if err != nil {
 		panic(err)
 	}
-	setRequest(nil, ctx, "req", req)
+	setRequest(nil, ctx, req)
 	return ctx, req.Header
 }
 

@@ -40,11 +40,11 @@ func getResponseBuilder(spec *HTTPResponseBuilderSpec) *HTTPResponseBuilder {
 	return rb
 }
 
-func setRequest(t *testing.T, ctx *context.Context, id string, req *http.Request) {
+func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	r, err := httpprot.NewRequest(req)
 	r.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetRequest(id, r)
+	ctx.SetRequest(ns, r)
 }
 
 func TestStatusCode(t *testing.T) {
@@ -62,7 +62,7 @@ func TestStatusCode(t *testing.T) {
 
 		ctx := context.New(nil)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -85,7 +85,7 @@ func TestStatusCode(t *testing.T) {
 		resp.SetStatusCode(http.StatusBadRequest)
 		ctx.SetResponse("response1", resp)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -122,7 +122,7 @@ func TestResponseHeader(t *testing.T) {
 		assert.Nil(err)
 		ctx.SetResponse("response1", httpresp1)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -147,7 +147,7 @@ func TestResponseBody(t *testing.T) {
 
 		ctx := context.New(nil)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response)
@@ -172,7 +172,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)
@@ -197,7 +197,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)
@@ -225,7 +225,7 @@ field2: value2
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseResponse("test")
+		ctx.UseNamespace("", "test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)

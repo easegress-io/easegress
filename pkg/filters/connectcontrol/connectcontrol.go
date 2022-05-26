@@ -171,10 +171,10 @@ func (cc *ConnectControl) checkBan(req *mqttprot.Request) bool {
 	return false
 }
 
-// HandleMQTT handle MQTT request
+// Handle handles context.
 func (cc *ConnectControl) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*mqttprot.Request)
-	resp := ctx.Response().(*mqttprot.Response)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
+	resp := ctx.GetOutputResponse().(*mqttprot.Response)
 	if req.PacketType() != mqttprot.PublishType {
 		return ""
 	}

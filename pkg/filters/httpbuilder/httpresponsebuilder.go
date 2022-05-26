@@ -141,6 +141,6 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 	resp, _ := httpprot.NewResponse(stdResp)
 	resp.SetPayload([]byte(ri.Body))
 
-	ctx.SetResponse(ctx.TargetResponseID(), resp)
+	ctx.SetOutputResponse(resp)
 	return ""
 }

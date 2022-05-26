@@ -24,6 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,22 +50,21 @@ mockBody: "mocked body"
 	fb := kind.CreateInstance(spec)
 	fb.Init()
 
-	ctx := context.New(nil)
-	httpresp, err := httpprot.NewResponse(nil)
+	ctx := context.New(tracing.NoopSpan)
+	resp, err := httpprot.NewResponse(nil)
 	assert.Nil(err)
-	ctx.SetResponse("resp1", httpresp)
-	ctx.UseResponse("resp1")
+	ctx.SetInputResponse(resp)
 
 	fb.Handle(ctx)
-	if httpresp.StatusCode() != 203 {
+	if resp.StatusCode() != 203 {
 		t.Error("status code is not correct")
 	}
-	payload, err := io.ReadAll(httpresp.GetPayload())
+	payload, err := io.ReadAll(resp.GetPayload())
 	assert.Nil(err)
 	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if httpresp.Header().Get("X-Mocked") != "true" {
+	if resp.Header().Get("X-Mocked") != "true" {
 		t.Error("header is not correct")
 	}
 
@@ -77,22 +77,21 @@ mockBody: "mocked body"
 	newFb.Inherit(fb)
 	fb.Close()
 
-	httpresp, err = httpprot.NewResponse(nil)
+	resp, err = httpprot.NewResponse(nil)
 	assert.Nil(err)
-	ctx.SetResponse("resp2", httpresp)
-	ctx.UseResponse("resp2")
+	ctx.SetInputResponse(resp)
 
 	newFb.Handle(ctx)
-	if httpresp.StatusCode() != 203 {
+	if resp.StatusCode() != 203 {
 		t.Error("status code is not correct")
 	}
 
-	payload, err = io.ReadAll(httpresp.GetPayload())
+	payload, err = io.ReadAll(resp.GetPayload())
 	assert.Nil(err)
 	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if httpresp.Header().Get("X-Mocked") != "true" {
+	if resp.Header().Get("X-Mocked") != "true" {
 		t.Error("header is not correct")
 	}
 }

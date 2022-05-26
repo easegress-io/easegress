@@ -309,7 +309,7 @@ func (b *Broker) connectionValidation(connect *packets.ConnectPacket, conn net.C
 		} else {
 			ctx := newContext(connect, client)
 			pipe.Handle(ctx)
-			res := ctx.Response().(*mqttprot.Response)
+			res := ctx.GetResponse(context.DefaultNamespace).(*mqttprot.Response)
 			if res.Disconnect() {
 				logger.SpanErrorf(nil, "client %v not get connect permission from pipeline", connect.ClientIdentifier)
 				authFail = true
@@ -675,8 +675,8 @@ func (b *Broker) close() {
 func newContext(packet packets.ControlPacket, client mqttprot.Client) *context.Context {
 	ctx := context.New(tracing.NoopSpan)
 	req := mqttprot.NewRequest(packet, client)
-	ctx.SetRequest(context.InitialRequestID, req)
+	ctx.SetRequest(context.DefaultNamespace, req)
 	resp := mqttprot.NewResponse()
-	ctx.SetResponse(context.DefaultResponseID, resp)
+	ctx.SetResponse(context.DefaultNamespace, resp)
 	return ctx
 }

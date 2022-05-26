@@ -139,7 +139,7 @@ func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
 
 // Handle adapts request.
 func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 	method, path := req.Method(), req.Path()
 
 	if ra.spec.Method != "" && ra.spec.Method != method {

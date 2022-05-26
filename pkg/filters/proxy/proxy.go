@@ -295,7 +295,7 @@ func (p *Proxy) Close() {
 
 // Handle handles HTTPContext.
 func (p *Proxy) Handle(ctx *context.Context) (result string) {
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 
 	if p.mirrorPool != nil && p.mirrorPool.filter.Match(req) {
 		go p.mirrorPool.handle(ctx, true)

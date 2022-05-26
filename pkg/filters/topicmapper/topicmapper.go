@@ -94,9 +94,9 @@ func (k *TopicMapper) Status() interface{} {
 	return nil
 }
 
-// HandleMQTT handle MQTT context
+// Handle handle context
 func (k *TopicMapper) Handle(ctx *context.Context) string {
-	req := ctx.Request().(*mqttprot.Request)
+	req := ctx.GetInputRequest().(*mqttprot.Request)
 	if req.PacketType() != mqttprot.PublishType {
 		return ""
 	}

@@ -103,7 +103,7 @@ func (ra *MeshAdaptor) reload() {
 
 // Handle adapts request.
 func (ra *MeshAdaptor) Handle(ctx *context.Context) string {
-	httpreq := ctx.Request().(*httpprot.Request)
+	httpreq := ctx.GetInputRequest().(*httpprot.Request)
 	for _, serviceCanary := range ra.spec.ServiceCanaries {
 		if serviceCanary.filter.Match(httpreq) {
 			h := httpheader.New(httpreq.HTTPHeader())

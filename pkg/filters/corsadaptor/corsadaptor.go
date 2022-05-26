@@ -119,21 +119,21 @@ func (a *CORSAdaptor) Handle(ctx *context.Context) string {
 }
 
 func (a *CORSAdaptor) handle(ctx *context.Context) string {
-	r := ctx.Request().(*httpprot.Request)
+	r := ctx.GetInputRequest().(*httpprot.Request)
 	method := r.Method()
 	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
 	if method == http.MethodOptions && headerAllowMethod != "" {
 		rw := httptest.NewRecorder()
 		a.cors.HandlerFunc(rw, r.Std())
 		resp, _ := httpprot.NewResponse(rw.Result())
-		ctx.SetResponse(ctx.TargetResponseID(), resp)
+		ctx.SetOutputResponse(resp)
 		return resultPreflighted
 	}
 	return ""
 }
 
 func (a *CORSAdaptor) handleCORS(ctx *context.Context) string {
-	r := ctx.Request().(*httpprot.Request)
+	r := ctx.GetInputRequest().(*httpprot.Request)
 	method := r.Method()
 	isCorsRequest := r.Header().Get("Origin") != ""
 	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
@@ -141,7 +141,7 @@ func (a *CORSAdaptor) handleCORS(ctx *context.Context) string {
 	rw := httptest.NewRecorder()
 	a.cors.HandlerFunc(rw, r.Std())
 	resp, _ := httpprot.NewResponse(rw.Result())
-	ctx.SetResponse(ctx.TargetResponseID(), resp)
+	ctx.SetOutputResponse(resp)
 	if !isCorsRequest {
 		return "" // next filter
 	}

@@ -20,6 +20,7 @@ package httpbuilder
 import (
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -30,8 +31,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
 }
 
 func getRequestBuilder(spec *HTTPRequestBuilderSpec) *HTTPRequestBuilder {
@@ -60,7 +63,7 @@ func TestMethod(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -84,7 +87,7 @@ func TestMethod(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -129,7 +132,7 @@ func TestURL(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -154,7 +157,7 @@ func TestURL(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -187,7 +190,7 @@ func TestRequestHeader(t *testing.T) {
 		assert.Nil(err)
 		req1.Header.Add("X-Request", "from-request1")
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		resp1 := &http.Response{}
 		resp1.Header = http.Header{}
@@ -225,7 +228,7 @@ func TestRequestBody(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", nil)
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -252,7 +255,7 @@ func TestRequestBody(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -279,7 +282,7 @@ func TestRequestBody(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)
@@ -309,7 +312,7 @@ field2: value2
 `))
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
-		ctx.UseRequest("request1", "test")
+		ctx.UseNamespace("", "test")
 
 		res := rb.Handle(ctx)
 		assert.Empty(res)

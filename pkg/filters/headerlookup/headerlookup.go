@@ -257,7 +257,8 @@ func (hl *HeaderLookup) Close() {
 
 // Handle retrieves header values and sets request headers.
 func (hl *HeaderLookup) Handle(ctx *context.Context) string {
-	header := ctx.Request().(*httpprot.Request).HTTPHeader()
+	req := ctx.GetInputRequest().(*httpprot.Request)
+	header := req.HTTPHeader()
 	headerVal := header.Get(hl.headerKey)
 	if headerVal == "" {
 		logger.Warnf("request does not have header '%s'", hl.spec.HeaderKey)
@@ -266,12 +267,9 @@ func (hl *HeaderLookup) Handle(ctx *context.Context) string {
 	// TODO: now headerlookup need path which make it only support for http protocol!
 	// this may need update later
 	if hl.spec.PathRegExp != "" {
-		httpreq, ok := ctx.Request().(*httpprot.Request)
-		if ok {
-			path := httpreq.Path()
-			if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
-				headerVal = headerVal + "-" + match[1]
-			}
+		path := req.Path()
+		if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
+			headerVal = headerVal + "-" + match[1]
 		}
 	}
 	headersToAdd, err := hl.lookup(headerVal)

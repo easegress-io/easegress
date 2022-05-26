@@ -380,7 +380,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	spCtx := &serverPoolContext{
 		Context: ctx,
-		req:     ctx.Request().(*httpprot.Request),
+		req:     ctx.GetInputRequest().(*httpprot.Request),
 	}
 
 	if mirror {
@@ -557,7 +557,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 	}
 
 	spCtx.resp = resp
-	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
+	spCtx.SetOutputResponse(resp)
 	return nil
 }
 
@@ -577,7 +577,7 @@ func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
 	resp.SetPayload(ce.Body)
 
 	spCtx.resp = resp
-	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
+	spCtx.SetOutputResponse(resp)
 	return true
 }
 
@@ -585,7 +585,7 @@ func (sp *ServerPool) buildFailureResponse(spCtx *serverPoolContext, statusCode 
 	resp, _ := httpprot.NewResponse(nil)
 	resp.SetStatusCode(statusCode)
 	spCtx.resp = resp
-	spCtx.SetResponse(spCtx.TargetResponseID(), resp)
+	spCtx.SetOutputResponse(resp)
 }
 
 func (sp *ServerPool) close() {

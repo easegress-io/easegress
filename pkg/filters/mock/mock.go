@@ -118,7 +118,7 @@ func (m *Mock) reload() {
 	}
 }
 
-// Handle mocks HTTPContext.
+// Handle mocks Context.
 func (m *Mock) Handle(ctx *context.Context) string {
 	result := ""
 	if rule := m.match(ctx); rule != nil {
@@ -129,7 +129,7 @@ func (m *Mock) Handle(ctx *context.Context) string {
 }
 
 func (m *Mock) match(ctx *context.Context) *Rule {
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 	path := req.Path()
 	header := req.HTTPHeader()
 
@@ -204,13 +204,13 @@ func (m *Mock) mock(ctx *context.Context, rule *Rule) {
 		resp.Std().Header.Set(key, value)
 	}
 	resp.SetPayload([]byte(rule.Body))
-	ctx.SetResponse(ctx.TargetResponseID(), resp)
+	ctx.SetOutputResponse(resp)
 
 	if rule.delay <= 0 {
 		return
 	}
 
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 	logger.Debugf("delay for %v ...", rule.delay)
 	select {
 	case <-req.Context().Done():

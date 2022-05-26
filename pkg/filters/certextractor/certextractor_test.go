@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
 )
@@ -90,15 +91,14 @@ field: "CommonName"
 }
 
 func prepareCtxAndHeader(t *testing.T, connState *tls.ConnectionState) (*context.Context, http.Header) {
-	ctx := context.New(nil)
+	ctx := context.New(tracing.NoopSpan)
 	stdr := &http.Request{}
 	stdr.Header = http.Header{}
 	stdr.TLS = connState
 
-	httpreq, err := httpprot.NewRequest(stdr)
+	req, err := httpprot.NewRequest(stdr)
 	assert.Nil(t, err)
-	ctx.SetRequest(context.InitialRequestID, httpreq)
-	ctx.UseRequest(context.InitialRequestID, context.InitialRequestID)
+	ctx.SetRequest(context.DefaultNamespace, req)
 	return ctx, stdr.Header
 }
 

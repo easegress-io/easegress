@@ -158,13 +158,12 @@ func TestFindKeysToDelete(t *testing.T) {
 
 func prepareCtxAndHeader(t *testing.T) (*context.Context, http.Header) {
 	ctx := context.New(nil)
-	req, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
+	stdReq, err := http.NewRequest(http.MethodGet, "http://example.com/", nil)
 	assert.Nil(t, err)
-	httpreq, err := httpprot.NewRequest(req)
+	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
-	ctx.SetRequest("req1", httpreq)
-	ctx.UseRequest("req1", "req1")
-	header := req.Header
+	ctx.SetInputRequest(req)
+	header := stdReq.Header
 	return ctx, header
 }
 
@@ -302,7 +301,7 @@ extra-entry: "extra"
 	check(err)
 
 	ctx, header := prepareCtxAndHeader(t)
-	req := ctx.Request().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 	header.Set("X-AUTH-USER", "bob")
 	hl.Handle(ctx) // path does not match
 	if header.Get("user-ext-id") != "" {

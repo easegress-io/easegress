@@ -109,11 +109,12 @@ func (h *HeaderToJSON) Status() interface{} {
 	return nil
 }
 
-// Handle handle HTTPContext
+// Handle handle Context
 func (h *HeaderToJSON) Handle(ctx *context.Context) string {
+	req := ctx.GetInputRequest()
 	headerMap := make(map[string]interface{})
 	for header, json := range h.headerMap {
-		value := ctx.Request().Header().Get(header)
+		value := req.Header().Get(header)
 		if value != "" {
 			headerMap[json] = value
 		}
@@ -122,7 +123,6 @@ func (h *HeaderToJSON) Handle(ctx *context.Context) string {
 		return ""
 	}
 
-	req := ctx.Request()
 	if req.IsStream() {
 		return resultBodyReadErr
 	}
