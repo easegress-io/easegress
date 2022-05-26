@@ -93,9 +93,16 @@ type (
 	}
 )
 
+func (fn *FlowNode) filterAlias() string {
+	if fn.FilterAlias != "" {
+		return fn.FilterAlias
+	}
+	return fn.FilterName
+}
+
 // ValidateJumpIf validates whether the target of JumpIfs are valid or not.
 func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
-	validTargets := map[string]bool{BuiltInFilterEnd: true}
+	validTargets := map[string]int{BuiltInFilterEnd: 1}
 	for i := len(s.Flow) - 1; i >= 0; i-- {
 		node := &s.Flow[i]
 		if node.FilterName == BuiltInFilterEnd {
@@ -111,40 +118,38 @@ func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
 				msgFmt := "filter %s: result %s is not in %v"
 				panic(fmt.Errorf(msgFmt, node.FilterName, result, results))
 			}
-			if ok := validTargets[target]; !ok {
+			if count := validTargets[target]; count == 0 {
 				msgFmt := "filter %s: target filter %s not found"
 				panic(fmt.Errorf(msgFmt, node.FilterName, target))
+			} else if count > 1 {
+				panic(fmt.Errorf("duplicated filter name/alias: %s", target))
 			}
 		}
-		alias := node.FilterAlias
-		if alias == "" {
-			alias = node.FilterName
-		}
-		if validTargets[alias] {
-			panic(fmt.Errorf("duplicated filter name/alias: %s", alias))
-		}
-		validTargets[alias] = true
+		validTargets[node.filterAlias()]++
 	}
 }
 
-// ValidateRequest validates requests.
-func (s *Spec) ValidateRequest() {
-	/*
-		const errFmt = "filter %s: desired request %s not found"
+// ValidateInputAndOutput validates filter inputs and outputs.
+func (s *Spec) ValidateInputAndOutput() {
+	const errFmt = "filter %s: desired input %q not found"
 
-		validIDs := map[string]bool{context.InitialRequestID: true}
+	validInputs := map[string]bool{context.DefaultNamespace: true}
 
-		for i := 0; i < len(s.Flow); i++ {
-			node := &s.Flow[i]
-			if node.DefaultRequest != "" && !validIDs[node.DefaultRequest] {
-				panic(fmt.Errorf(errFmt, node.FilterName, node.DefaultRequest))
-			}
-
-			if node.TargetRequest != "" {
-				validIDs[node.TargetRequest] = true
-			}
+	for i := 0; i < len(s.Flow); i++ {
+		node := &s.Flow[i]
+		if node.Namespace != "" && !validInputs[node.Namespace] {
+			panic(fmt.Errorf(errFmt, node.filterAlias(), node.Namespace))
 		}
-	*/
+
+		output := node.OutputTo
+		if output == "" {
+			output = node.Namespace
+		}
+		if output == "" {
+			output = context.DefaultNamespace
+		}
+		validInputs[output] = true
+	}
 }
 
 // Validate validates Spec.
@@ -183,8 +188,8 @@ func (s *Spec) Validate() (err error) {
 	// 2.1: validate jumpIfs
 	s.ValidateJumpIf(specs)
 
-	// 2.2: validate requests
-	s.ValidateRequest()
+	// 2.2: validate inputs and outputs
+	s.ValidateInputAndOutput()
 
 	// 3: validate resilience
 	for _, r := range s.Resilience {
@@ -331,10 +336,7 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 
 	for i := range p.flow {
 		node := &p.flow[i]
-		alias := node.FilterAlias
-		if alias == "" {
-			alias = node.FilterName
-		}
+		alias := node.filterAlias()
 
 		if next != "" && next != alias {
 			continue
