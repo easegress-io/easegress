@@ -21,8 +21,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -91,4 +93,43 @@ func TestResponse(t *testing.T) {
 
 	resp.SetStatusCode(http.StatusBadRequest)
 	assert.Equal(http.StatusBadRequest, resp.StatusCode())
+}
+
+func TestResponse2(t *testing.T) {
+	assert := assert.New(t)
+	{
+		// when FetchPayload with -1, payload is stream
+		resp, err := NewResponse(nil)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(-1)
+		assert.Nil(err)
+		assert.True(resp.IsStream())
+		resp.Close()
+	}
+
+	{
+		// test set payload
+		resp, err := NewResponse(nil)
+		assert.Nil(err)
+
+		resp.SetPayload(nil)
+		assert.Nil(resp.RawPayload())
+
+		resp.SetPayload("")
+		assert.Equal(http.NoBody, resp.GetPayload())
+
+		resp.SetPayload("123")
+		assert.Equal([]byte("123"), resp.RawPayload())
+		assert.Equal(int64(3), resp.PayloadSize())
+
+		assert.Panics(func() { resp.SetPayload(123) })
+
+		resp.SetPayload(strings.NewReader("123"))
+		assert.True(resp.IsStream())
+
+		reader := readers.NewByteCountReader(strings.NewReader("123"))
+		resp.SetPayload(reader)
+		assert.Equal(reader, resp.GetPayload())
+	}
 }

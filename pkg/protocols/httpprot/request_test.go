@@ -25,7 +25,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequest(t *testing.T) {
@@ -96,4 +98,50 @@ func TestRequest(t *testing.T) {
 
 	request.SetPath("/foo/bar")
 	assert.Equal("/foo/bar", request.Path())
+}
+
+func getRequest(t *testing.T, method string, url string, body io.Reader) *Request {
+	stdReq, err := http.NewRequest(method, url, body)
+	require.Nil(t, err)
+	req, err := NewRequest(stdReq)
+	require.Nil(t, err)
+	return req
+
+}
+
+func TestRequest2(t *testing.T) {
+	assert := assert.New(t)
+	{
+		// when FetchPayload with -1, payload is stream
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader("123"))
+
+		err := req.FetchPayload(-1)
+		assert.Nil(err)
+		assert.True(req.IsStream())
+		req.Close()
+	}
+
+	{
+		// test set payload
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", nil)
+
+		req.SetPayload(nil)
+		assert.Nil(req.RawPayload())
+
+		req.SetPayload("")
+		assert.Equal(http.NoBody, req.GetPayload())
+
+		req.SetPayload("123")
+		assert.Equal([]byte("123"), req.RawPayload())
+		assert.Equal(int64(3), req.PayloadSize())
+
+		assert.Panics(func() { req.SetPayload(123) })
+
+		req.SetPayload(strings.NewReader("123"))
+		assert.True(req.IsStream())
+
+		reader := readers.NewByteCountReader(strings.NewReader("123"))
+		req.SetPayload(reader)
+		assert.Equal(reader, req.GetPayload())
+	}
 }

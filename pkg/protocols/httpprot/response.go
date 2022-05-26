@@ -82,7 +82,7 @@ func (r *Response) FetchPayload(maxPayloadSize int64) error {
 	}
 
 	if maxPayloadSize < 0 {
-		r.SetPayload(r.Request.Body)
+		r.SetPayload(r.Response.Body)
 		return nil
 	}
 
