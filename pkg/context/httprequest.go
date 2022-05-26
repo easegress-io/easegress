@@ -20,6 +20,7 @@ package context
 import (
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/tomasen/realip"
 
@@ -36,6 +37,11 @@ type (
 		metaSize  int
 		realIP    string
 	}
+)
+
+const (
+	xForwardedProto      = "X-Forwarded-Proto"
+	headerValueSeparator = ","
 )
 
 func newHTTPRequest(stdr *http.Request) *httpRequest {
@@ -96,8 +102,15 @@ func (r *httpRequest) Scheme() string {
 		return scheme
 	}
 
-	if scheme := r.std.Header.Get("X-Forwarded-Proto"); scheme != "" {
-		return scheme
+	if scheme := r.std.Header.Get(xForwardedProto); scheme != "" {
+		// note some proxy servers will append data in this format,
+		// and the last one is sent by the last proxy-server and should use for easegress's proxy
+		// header : {
+		//    some-key: "ele1, ele2, ele3"
+		// }
+		// https://github.com/spring-cloud/spring-cloud-gateway/ ProxyExchange.java#appendXForwarded()
+		schemes := strings.Split(scheme, headerValueSeparator)
+		return schemes[len(schemes)-1]
 	}
 
 	if r.std.TLS != nil {
