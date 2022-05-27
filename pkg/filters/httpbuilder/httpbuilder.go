@@ -47,11 +47,6 @@ type (
 		Template   string `yaml:"template" jsonschema:"required"`
 	}
 
-	builderData struct {
-		Requests  map[string]*request
-		Responses map[string]*response
-	}
-
 	request struct {
 		*http.Request
 		rawBody    []byte
@@ -161,6 +156,7 @@ func (r *response) JSONBody() (interface{}, error) {
 func (r *response) YAMLBody() (interface{}, error) {
 	if r.parsedBody == nil {
 		var v interface{}
+		fmt.Printf("rawbody %v", string(r.rawBody))
 		err := yaml.Unmarshal(r.rawBody, &v)
 		if err != nil {
 			return nil, err

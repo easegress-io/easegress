@@ -23,6 +23,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestStringTool(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal("123", Cat("1", "2", "3"))
+	assert.True(StrInSlice("123", []string{"000", "111", "123"}))
+	assert.False(StrInSlice("123", []string{"000", "111"}))
+	assert.Equal([]string{"123"}, DeleteStrInSlice([]string{"123", "456"}, "456"))
+}
+
 func TestIsAllEmpty(t *testing.T) {
 	assert := assert.New(t)
 

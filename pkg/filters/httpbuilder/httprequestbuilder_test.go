@@ -25,8 +25,10 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -321,4 +323,29 @@ field2: value2
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}
+}
+
+func TestHTTPRequestBuilder(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.Equal(&HTTPRequestBuilderSpec{}, httpRequestBuilderKind.DefaultSpec())
+	yamlStr := `
+name: requestBuilder 
+kind: HTTPRequestBuilder
+template: |
+  method: Delete
+`
+	rawSpec := map[string]interface{}{}
+	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
+	assert.Nil(err)
+	requestBuilder := httpRequestBuilderKind.CreateInstance(spec).(*HTTPRequestBuilder)
+	assert.Equal("requestBuilder", requestBuilder.Name())
+	assert.Equal(httpRequestBuilderKind, requestBuilder.Kind())
+	assert.Equal(spec, requestBuilder.Spec())
+	requestBuilder.Init()
+
+	newRequestBuilder := httpRequestBuilderKind.CreateInstance(spec)
+	newRequestBuilder.Inherit(requestBuilder)
+	assert.Nil(newRequestBuilder.Status())
 }
