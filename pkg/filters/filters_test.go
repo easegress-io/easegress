@@ -21,7 +21,21 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/stretchr/testify/assert"
 )
+
+type mockSpec struct {
+	BaseSpec `yaml:",inline"`
+	Field    string `yaml:"field" jsonschema:"required"`
+}
+
+var mockKind = &Kind{
+	Name:           "Mock",
+	Description:    "none",
+	Results:        []string{},
+	DefaultSpec:    func() Spec { return &mockSpec{} },
+	CreateInstance: func(spec Spec) Filter { return nil },
+}
 
 func TestSpecInherit(t *testing.T) {
 	type DerivedSpec struct {
@@ -58,4 +72,38 @@ field1: abc
 	if derived.Pipeline() != "pipeline1" {
 		t.Error("wrong pipeline")
 	}
+}
+
+func TestNewSpec(t *testing.T) {
+	assert := assert.New(t)
+
+	_, err := NewSpec(nil, "pipelin1", func() {})
+	assert.NotNil(err, "marshal func should return err")
+
+	_, err = NewSpec(nil, "pipeline1", "invalid spec")
+	assert.NotNil(err, "unmarshal 'invalid spec' to MetaSpec should return err")
+
+	yamlStr := `
+name: filter 
+kind: Filter 
+`
+	rawSpec := map[string]interface{}{}
+	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	_, err = NewSpec(nil, "pipeline1", rawSpec)
+	assert.NotNil(err, "kind Filter not exist")
+
+	// spec that work
+	kinds["Mock"] = mockKind
+	defer delete(kinds, "Mock")
+	yamlStr = `
+name: filter
+kind: Mock
+field: 123
+`
+	rawSpec = map[string]interface{}{}
+	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	spec, err := NewSpec(nil, "pipeline1", rawSpec)
+	assert.Nil(err)
+	assert.Nil(spec.Super())
+	assert.NotEmpty(spec.YAMLConfig())
 }

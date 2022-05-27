@@ -47,6 +47,8 @@ func TestExtraFuncs(t *testing.T) {
 	assert.Equal(float64(117), extraFuncs["subf"].(func(a, b interface{}) float64)(120, 3))
 	assert.Equal(float64(360), extraFuncs["mulf"].(func(a, b interface{}) float64)(120, 3))
 	assert.Equal(float64(40), extraFuncs["divf"].(func(a, b interface{}) float64)(120, 3))
+	assert.Panics(func() { extraFuncs["divf"].(func(a, b interface{}) float64)(120, 0) })
+
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("debug", "debug"))
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("info", "info"))
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("warn", "warn"))
