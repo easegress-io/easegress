@@ -19,15 +19,21 @@ package responseadaptor
 
 import (
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMain(m *testing.M) {
@@ -37,6 +43,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestResponseAdaptor(t *testing.T) {
+	assert := assert.New(t)
+
 	yamlSpec := `
 kind: ResponseAdaptor
 name: ra
@@ -44,9 +52,14 @@ header:
   del: ["X-Del"]
   add:
     "X-Mock": "mockedHeaderValue" 
+  set:
+    "X-Set": "setHeaderValue"
 body: "copyright"
 `
 	ra := doTest(t, yamlSpec, nil)
+	assert.Equal("ra", ra.Name())
+	assert.Equal(kind, ra.Kind())
+	assert.Equal("ResponseAdaptor", ra.Spec().Kind())
 
 	yamlSpec = `
 kind: ResponseAdaptor
@@ -55,9 +68,12 @@ header:
   del: ["X-Del"]
   add:
     "X-Mock": "mockedHeaderValue"
+  set:
+    "X-Set": "setHeaderValue"
 body: "copyright"
 `
-	doTest(t, yamlSpec, ra)
+	ra = doTest(t, yamlSpec, ra)
+	ra.Close()
 }
 
 func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdaptor {
@@ -87,6 +103,7 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 	ra.Handle(ctx)
 	assert.Equal("mockedHeaderValue", resp.Std().Header.Get("X-Mock"))
 	assert.Equal("", resp.Std().Header.Get("X-Del"))
+	assert.Equal("setHeaderValue", resp.Std().Header.Get("X-Set"))
 
 	body, err := io.ReadAll(resp.GetPayload())
 	assert.Nil(err)
@@ -94,4 +111,118 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 
 	ra.Status()
 	return ra.(*ResponseAdaptor)
+}
+
+func getCtx(t *testing.T, r *http.Response) *context.Context {
+	ctx := context.New(tracing.NoopSpan)
+	resp, err := httpprot.NewResponse(r)
+	require.Nil(t, err)
+	resp.FetchPayload(1024 * 1024)
+	ctx.SetInputResponse(resp)
+	return ctx
+}
+
+func TestCompressDecompress(t *testing.T) {
+	assert := assert.New(t)
+	{
+		// invalid decompress parameter
+		spec := &Spec{
+			Decompress: "invalid",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		assert.Panics(func() { ra.Init() })
+	}
+
+	{
+		// invalid compress parameter
+		spec := &Spec{
+			Compress: "invalid",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		assert.Panics(func() { ra.Init() })
+	}
+	{
+		// both set compress and decompress parameter
+		spec := &Spec{
+			Decompress: "gzip",
+			Compress:   "gzip",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		assert.Panics(func() { ra.Init() })
+	}
+
+	{
+		// test compress
+		spec := &Spec{
+			Compress: "gzip",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		ra.Init()
+
+		w := httptest.NewRecorder()
+		_, err := w.WriteString("hello")
+		assert.Nil(err)
+		resp := w.Result()
+		ctx := getCtx(t, resp)
+		ra.Handle(ctx)
+		zr, err := readers.NewGZipDecompressReader(ctx.GetInputResponse().GetPayload())
+		assert.Nil(err)
+		data, err := io.ReadAll(zr)
+		zr.Close()
+		assert.Nil(err)
+		assert.Equal("hello", string(data))
+	}
+	{
+		// test decompress
+		spec := &Spec{
+			Decompress: "gzip",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		ra.Init()
+
+		// set compressed data
+		w := httptest.NewRecorder()
+		zr := readers.NewGZipCompressReader(strings.NewReader("hello"))
+		data, err := io.ReadAll(zr)
+		assert.Nil(err)
+		zr.Close()
+		_, err = w.Write(data)
+		assert.Nil(err)
+		resp := w.Result()
+		resp.Header.Set(keyContentEncoding, "gzip")
+
+		ctx := getCtx(t, resp)
+		ra.Handle(ctx)
+		assert.Equal("hello", string(ctx.GetInputResponse().RawPayload()))
+	}
+	{
+		// test decompress fail
+		spec := &Spec{
+			Decompress: "gzip",
+		}
+		ra := &ResponseAdaptor{
+			spec: spec,
+		}
+		ra.Init()
+
+		w := httptest.NewRecorder()
+		_, err := w.WriteString("hello")
+		assert.Nil(err)
+		resp := w.Result()
+		resp.Header.Set(keyContentEncoding, "gzip")
+
+		ctx := getCtx(t, resp)
+		res := ra.Handle(ctx)
+		assert.Equal(resultDecompressFailed, res)
+	}
 }
