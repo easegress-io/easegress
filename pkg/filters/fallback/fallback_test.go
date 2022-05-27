@@ -49,6 +49,9 @@ mockBody: "mocked body"
 
 	fb := kind.CreateInstance(spec)
 	fb.Init()
+	assert.Equal("fallback", fb.Name())
+	assert.Equal(kind, fb.Kind())
+	assert.Equal(spec, fb.Spec())
 
 	ctx := context.New(tracing.NoopSpan)
 	resp, err := httpprot.NewResponse(nil)
