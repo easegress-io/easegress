@@ -108,6 +108,9 @@ func TestKafka(t *testing.T) {
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
+
+	newK := kind.CreateInstance(filterSpec)
+	assert.Panics(func() { newK.Inherit(k) })
 }
 
 func TestKafkaWithKVMap(t *testing.T) {

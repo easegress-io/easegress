@@ -19,6 +19,7 @@ package httpprot
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 	"net/url"
@@ -143,5 +144,67 @@ func TestRequest2(t *testing.T) {
 		reader := readers.NewByteCountReader(strings.NewReader("123"))
 		req.SetPayload(reader)
 		assert.Equal(reader, req.GetPayload())
+	}
+
+	{
+		// when FetchPayload with -1, payload is stream
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader("123"))
+
+		err := req.FetchPayload(0)
+		assert.Nil(err)
+		assert.False(req.IsStream())
+		req.Close()
+	}
+
+	{
+		// when ContentLength bigger than FetchPayload
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader("123"))
+		req.Std().ContentLength = 3
+
+		err := req.FetchPayload(1)
+		assert.Equal(ErrRequestEntityTooLarge, err)
+		req.Close()
+	}
+
+	{
+		// when ContentLength is zero
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", http.NoBody)
+		req.Std().ContentLength = 0
+
+		err := req.FetchPayload(100)
+		assert.Nil(err)
+		req.Close()
+	}
+
+	{
+		// unknown context length
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader("123123123123"))
+		req.Std().ContentLength = -1
+		err := req.FetchPayload(100)
+		assert.Nil(err)
+		req.Close()
+	}
+
+	{
+		// unknown context length and actual context length longer than FetchPayload
+		req := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader("123123123123"))
+		req.Std().ContentLength = -1
+		err := req.FetchPayload(2)
+		assert.Equal(ErrRequestEntityTooLarge, err)
+		req.Close()
+	}
+
+	{
+		stdReq, err := http.NewRequest(http.MethodGet, "/", nil)
+		assert.Nil(err)
+		assert.Empty(stdReq.URL.Scheme)
+		assert.Equal("http", RequestScheme(stdReq))
+
+		stdReq.Header.Add("X-Forwarded-Proto", "fakeProtocol")
+		assert.Equal("fakeProtocol", RequestScheme(stdReq))
+
+		stdReq.Header.Del("X-Forwarded-Proto")
+		stdReq.TLS = &tls.ConnectionState{}
+		assert.Equal("https", RequestScheme(stdReq))
 	}
 }

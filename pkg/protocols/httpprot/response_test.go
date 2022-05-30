@@ -132,4 +132,64 @@ func TestResponse2(t *testing.T) {
 		resp.SetPayload(reader)
 		assert.Equal(reader, resp.GetPayload())
 	}
+
+	{
+		// when FetchPayload with -1, payload is stream
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123"))}
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(0)
+		assert.Nil(err)
+		assert.False(resp.IsStream())
+		resp.Close()
+	}
+
+	{
+		// when ContentLength bigger than FetchPayload
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123"))}
+		stdResp.ContentLength = 3
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(1)
+		assert.Equal(ErrResponseEntityTooLarge, err)
+		resp.Close()
+	}
+
+	{
+		// when ContentLength is zero
+		stdResp := &http.Response{Body: http.NoBody}
+		stdResp.ContentLength = 0
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(100)
+		assert.Nil(err)
+		resp.Close()
+	}
+
+	{
+		// unknown context length
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123123123123"))}
+		stdResp.ContentLength = -1
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(100)
+		assert.Nil(err)
+		resp.Close()
+	}
+
+	{
+		// unknown context length and actual context length longer than FetchPayload
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123123123123"))}
+		stdResp.ContentLength = -1
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(2)
+		assert.Equal(ErrResponseEntityTooLarge, err)
+		resp.Close()
+	}
 }
