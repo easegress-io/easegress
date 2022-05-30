@@ -84,6 +84,9 @@ https: false
 	assert.NoError(err)
 	assert.True(r.needRestartServer(superSpec.ObjectSpec().(*Spec)))
 
+	res := r.Status().ToMetrics("mock")
+	assert.NotNil(res)
+
 	r.Close()
 	time.Sleep(100 * time.Millisecond)
 }
