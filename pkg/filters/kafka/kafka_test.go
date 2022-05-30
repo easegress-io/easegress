@@ -86,7 +86,12 @@ func TestKafka(t *testing.T) {
 	}
 	filterSpec := defaultFilterSpec(spec)
 	k := kind.CreateInstance(filterSpec)
+	assert.Equal(&Spec{}, kind.DefaultSpec())
 	assert.Panics(func() { k.Init() }, "kafka should panic for invalid backend")
+	assert.Equal(spec.BaseSpec.MetaSpec.Name, k.Name())
+	assert.Equal(kind, k.Kind())
+	assert.Equal(filterSpec, k.Spec())
+	assert.Nil(k.Status())
 
 	kafka := Kafka{
 		producer: newMockAsyncProducer(),

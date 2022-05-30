@@ -235,6 +235,23 @@ field2: value2
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}
+
+	// invalid status code
+	yml = `template: |
+  statusCode: 800
+`
+	{
+		spec := &HTTPResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+
+		ctx.UseNamespace("", "test")
+		res := rb.Handle(ctx)
+		assert.NotEmpty(res)
+	}
 }
 
 func TestHTTPResponseBuilder(t *testing.T) {

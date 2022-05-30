@@ -39,12 +39,12 @@ func Register(k *Kind) {
 	sort.Strings(k.Results)
 
 	// Checking results.
-	last := ""
+	resultMap := map[string]struct{}{}
 	for _, result := range k.Results {
-		if result == last {
+		if _, ok := resultMap[result]; ok {
 			panic(fmt.Errorf("duplicated result: %s", result))
 		}
-		last = result
+		resultMap[result] = struct{}{}
 	}
 
 	kinds[k.Name] = k

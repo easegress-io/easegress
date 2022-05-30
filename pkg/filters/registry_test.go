@@ -25,9 +25,9 @@ import (
 )
 
 var duplicatedResult = &Kind{
-	Name:           "Mock",
+	Name:           "DuplicatedResult",
 	Description:    "none",
-	Results:        []string{"1", "1"},
+	Results:        []string{"1", "2", "1"},
 	DefaultSpec:    func() Spec { return &mockSpec{} },
 	CreateInstance: func(spec Spec) Filter { return nil },
 }
@@ -63,4 +63,13 @@ func TestRegister(t *testing.T) {
 		assert.Equal(mockKind.Name, k.Name)
 		return false
 	})
+
+	k := &Kind{}
+	assert.Panics(func() { Register(k) })
+
+	assert.Nil(Create(&BaseSpec{
+		MetaSpec: supervisor.MetaSpec{
+			Kind: "UnRegistryKind",
+		},
+	}))
 }

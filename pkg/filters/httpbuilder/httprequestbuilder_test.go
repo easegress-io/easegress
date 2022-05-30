@@ -323,6 +323,62 @@ field2: value2
 		assert.Nil(err)
 		assert.Equal("body value1 value2", string(data))
 	}
+
+	// use default method
+	yml = `template: |
+  url:  http://www.facebook.com
+`
+	{
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("", "test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		assert.Equal(http.MethodGet, testReq.Std().Method)
+	}
+
+	// use default url
+	yml = `template: |
+  method: delete 
+`
+	{
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("", "test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		assert.Equal(http.MethodDelete, testReq.Std().Method)
+		assert.Equal("/", testReq.Std().URL.String())
+	}
+
+	// build request failed
+	yml = `template: |
+  url: http://192.168.0.%31:8080/
+`
+	{
+		spec := &HTTPRequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("", "test")
+
+		res := rb.Handle(ctx)
+		assert.NotEmpty(res)
+	}
 }
 
 func TestHTTPRequestBuilder(t *testing.T) {
