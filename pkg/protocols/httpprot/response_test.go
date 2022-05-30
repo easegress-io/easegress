@@ -21,8 +21,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -91,4 +93,103 @@ func TestResponse(t *testing.T) {
 
 	resp.SetStatusCode(http.StatusBadRequest)
 	assert.Equal(http.StatusBadRequest, resp.StatusCode())
+}
+
+func TestResponse2(t *testing.T) {
+	assert := assert.New(t)
+	{
+		// when FetchPayload with -1, payload is stream
+		resp, err := NewResponse(nil)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(-1)
+		assert.Nil(err)
+		assert.True(resp.IsStream())
+		resp.Close()
+	}
+
+	{
+		// test set payload
+		resp, err := NewResponse(nil)
+		assert.Nil(err)
+
+		resp.SetPayload(nil)
+		assert.Nil(resp.RawPayload())
+
+		resp.SetPayload("")
+		assert.Equal(http.NoBody, resp.GetPayload())
+
+		resp.SetPayload("123")
+		assert.Equal([]byte("123"), resp.RawPayload())
+		assert.Equal(int64(3), resp.PayloadSize())
+
+		assert.Panics(func() { resp.SetPayload(123) })
+
+		resp.SetPayload(strings.NewReader("123"))
+		assert.True(resp.IsStream())
+
+		reader := readers.NewByteCountReader(strings.NewReader("123"))
+		resp.SetPayload(reader)
+		assert.Equal(reader, resp.GetPayload())
+	}
+
+	{
+		// when FetchPayload with -1, payload is stream
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123"))}
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(0)
+		assert.Nil(err)
+		assert.False(resp.IsStream())
+		resp.Close()
+	}
+
+	{
+		// when ContentLength bigger than FetchPayload
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123"))}
+		stdResp.ContentLength = 3
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(1)
+		assert.Equal(ErrResponseEntityTooLarge, err)
+		resp.Close()
+	}
+
+	{
+		// when ContentLength is zero
+		stdResp := &http.Response{Body: http.NoBody}
+		stdResp.ContentLength = 0
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(100)
+		assert.Nil(err)
+		resp.Close()
+	}
+
+	{
+		// unknown context length
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123123123123"))}
+		stdResp.ContentLength = -1
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(100)
+		assert.Nil(err)
+		resp.Close()
+	}
+
+	{
+		// unknown context length and actual context length longer than FetchPayload
+		stdResp := &http.Response{Body: io.NopCloser(strings.NewReader("123123123123"))}
+		stdResp.ContentLength = -1
+		resp, err := NewResponse(stdResp)
+		assert.Nil(err)
+
+		err = resp.FetchPayload(2)
+		assert.Equal(ErrResponseEntityTooLarge, err)
+		resp.Close()
+	}
 }

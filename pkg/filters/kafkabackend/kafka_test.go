@@ -85,6 +85,9 @@ func TestKafka(t *testing.T) {
 
 	assert.Nil(k.Status())
 	assert.Panics(func() { k.Init() }, "no valid backend should panic")
+	assert.Equal(spec.Name(), k.Name())
+	assert.Equal(kind, k.Kind())
+	assert.Equal(spec, k.Spec())
 
 	newK := &Kafka{}
 	assert.Panics(func() { newK.Inherit(k) })

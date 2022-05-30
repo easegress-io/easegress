@@ -26,48 +26,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReaderAt(t *testing.T) {
+func TestGzipCompressDecompressReader(t *testing.T) {
 	assert := assert.New(t)
 
-	r := bytes.NewReader([]byte("abcdefghijklmnopqrstuvwxyz"))
-	ra := NewReaderAt(r)
-
-	r1 := NewReaderAtReader(ra, 0)
-
-	buf := make([]byte, 10)
-	n, err := r1.Read(buf)
+	var str string
+	for i := 0; i < 200; i++ {
+		str += "123123123124234asdjflasjflasfjlaksnvalknfaslkfnalkfnaslfjasfasfasfas"
+	}
+	compressReader := NewGZipCompressReader(strings.NewReader(str))
+	data, err := io.ReadAll(compressReader)
 	assert.Nil(err)
-	assert.Equal(10, n)
-
-	n, err = r1.Read(buf)
+	err = compressReader.Close()
 	assert.Nil(err)
-	assert.Equal(10, n)
 
-	n, err = r1.Read(buf)
+	assert.NotEqual(str, string(data))
+	assert.Less(10*len(string(data)), len(str))
+
+	decompressReader, err := NewGZipDecompressReader(bytes.NewReader(data))
 	assert.Nil(err)
-	assert.Equal(6, n)
-
-	n, err = r1.Read(buf)
-	assert.Equal(io.EOF, err)
-	assert.Equal(0, n)
-
-	r1 = NewReaderAtReader(ra, 7)
-	n, err = r1.Read(buf)
+	data, err = io.ReadAll(decompressReader)
 	assert.Nil(err)
-	assert.Equal(10, n)
-
-	n, err = r1.Read(buf)
-	assert.Equal(io.EOF, err)
-	assert.Equal(9, n)
-
-	n, err = r1.Read(buf)
-	assert.Equal(io.EOF, err)
-	assert.Equal(0, n)
-	ra.Close()
-
-	ra = NewReaderAt(nil)
-	assert.Nil(ra.Close())
-
-	ra = NewReaderAt(io.NopCloser(strings.NewReader("123")))
-	assert.Nil(ra.Close())
+	assert.Equal(str, string(data))
+	err = decompressReader.Close()
+	assert.Nil(err)
 }

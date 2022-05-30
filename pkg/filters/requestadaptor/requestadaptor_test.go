@@ -70,6 +70,8 @@ func TestRequestAdaptor(t *testing.T) {
 		ra.Init()
 		assert.Equal(Kind, ra.Kind().Name)
 		assert.Nil(ra.Status())
+		assert.Equal(spec.Name(), ra.Name())
+		assert.Equal(spec, ra.Spec())
 
 		newRA := kind.CreateInstance(spec)
 		newRA.Inherit(ra)

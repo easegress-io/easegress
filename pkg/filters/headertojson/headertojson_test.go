@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	json "github.com/goccy/go-json"
@@ -55,8 +56,18 @@ func TestHeaderToJSON(t *testing.T) {
 	spec := defaultFilterSpec(&Spec{})
 	h := kind.CreateInstance(spec)
 	h.Init()
-
+	assert.Equal(spec.Name(), h.Name())
+	assert.Equal(kind, h.Kind())
+	assert.Equal(spec, h.Spec())
 	assert.Nil(h.Status())
+
+	stdReq, err := http.NewRequest("", "/", nil)
+	assert.Nil(err)
+	req, err := httpprot.NewRequest(stdReq)
+	assert.Nil(err)
+	ctx := context.New(nil)
+	ctx.SetInputRequest(req)
+	assert.Equal("", h.Handle(ctx))
 
 	newh := kind.CreateInstance(spec)
 	newh.Inherit(h)
@@ -164,5 +175,23 @@ func TestHandleHTTP(t *testing.T) {
 				t.Error("wrong result")
 			}
 		}
+	}
+
+	{
+		// test http request with stream body
+		stdReq, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("123"))
+		assert.Nil(err)
+		stdReq.Header.Add("x-username", "clientA")
+
+		req, err := httpprot.NewRequest(stdReq)
+		assert.Nil(err)
+		req.FetchPayload(-1)
+		assert.True(req.IsStream())
+
+		ctx := context.New(nil)
+		ctx.SetInputRequest(req)
+
+		ans := h2j.Handle(ctx)
+		assert.Equal(resultBodyReadErr, ans)
 	}
 }
