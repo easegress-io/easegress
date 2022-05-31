@@ -101,7 +101,7 @@ type (
 		RespSize uint64 `yaml:"respSize"`
 	}
 
-	// StatusCodeMetrics is the metrics of http status code.
+	// StatusCodeMetric is the metrics of http status code.
 	StatusCodeMetric struct {
 		Code  int    `json:"code"`
 		Count uint64 `json:"cnt"`

@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
+	"text/template"
 
 	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
@@ -62,7 +62,7 @@ type (
 
 func (b *HTTPBuilder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
-	t.Funcs(sprig.FuncMap()).Funcs(extraFuncs)
+	t.Funcs(sprig.TxtFuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 

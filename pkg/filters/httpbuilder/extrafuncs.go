@@ -19,9 +19,9 @@ package httpbuilder
 
 import (
 	"fmt"
-	"html/template"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
