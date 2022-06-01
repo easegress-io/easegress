@@ -150,7 +150,11 @@ func (ctx *Context) Requests() map[string]protocols.Request {
 // be ready for the change and not to call GetInputRequest when
 // GetOutputRequest is desired, or vice versa.
 func (ctx *Context) GetOutputRequest() protocols.Request {
-	return ctx.requests[ctx.activeNs].req
+	ref := ctx.requests[ctx.activeNs]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetOutputRequest sets the request of the output namespace to req.
@@ -165,7 +169,11 @@ func (ctx *Context) SetOutputRequest(req protocols.Request) {
 
 // GetRequest set the request of namespace ns to req.
 func (ctx *Context) GetRequest(ns string) protocols.Request {
-	return ctx.requests[ns].req
+	ref := ctx.requests[ns]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetRequest set the request of namespace ns to req.
@@ -187,7 +195,11 @@ func (ctx *Context) SetRequest(ns string, req protocols.Request) {
 // be ready for the change and not to call GetOutputRequest when
 // GetInputRequest is desired, or vice versa.
 func (ctx *Context) GetInputRequest() protocols.Request {
-	return ctx.requests[ctx.activeNs].req
+	ref := ctx.requests[ctx.activeNs]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetInputRequest sets the request of the input namespace to req.
@@ -234,7 +246,11 @@ func (ctx *Context) Responses() map[string]protocols.Response {
 // be ready for the change and not to call GetInputResponse when
 // GetOutputResponse is desired, or vice versa.
 func (ctx *Context) GetOutputResponse() protocols.Response {
-	return ctx.responses[ctx.activeNs].resp
+	ref := ctx.responses[ctx.activeNs]
+	if ref != nil {
+		return ref.resp
+	}
+	return nil
 }
 
 // SetOutputResponse sets the response of the output namespace to resp.
@@ -249,7 +265,11 @@ func (ctx *Context) SetOutputResponse(resp protocols.Response) {
 
 // GetResponse returns the response of namespace ns.
 func (ctx *Context) GetResponse(ns string) protocols.Response {
-	return ctx.responses[ns].resp
+	ref := ctx.responses[ns]
+	if ref != nil {
+		return ref.resp
+	}
+	return nil
 }
 
 // SetResponse set the response of namespace ns to resp.
