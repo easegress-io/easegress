@@ -40,6 +40,30 @@ type MuxMapper interface {
 	GetHandler(name string) (Handler, bool)
 }
 
+type requestRef struct {
+	req     protocols.Request
+	counter int
+}
+
+func (rr *requestRef) release() {
+	rr.counter--
+	if rr.counter == 0 {
+		rr.req.Close()
+	}
+}
+
+type responseRef struct {
+	resp    protocols.Response
+	counter int
+}
+
+func (rr *responseRef) release() {
+	rr.counter--
+	if rr.counter == 0 {
+		rr.resp.Close()
+	}
+}
+
 // Context holds requests, responses and other data that need to be passed
 // through the pipeline.
 type Context struct {
@@ -48,8 +72,8 @@ type Context struct {
 
 	activeNs string
 
-	requests  map[string]protocols.Request
-	responses map[string]protocols.Response
+	requests  map[string]*requestRef
+	responses map[string]*responseRef
 
 	kv          map[interface{}]interface{}
 	finishFuncs []func()
@@ -60,8 +84,8 @@ func New(span tracing.Span) *Context {
 	ctx := &Context{
 		span:      span,
 		activeNs:  DefaultNamespace,
-		requests:  map[string]protocols.Request{},
-		responses: map[string]protocols.Response{},
+		requests:  map[string]*requestRef{},
+		responses: map[string]*responseRef{},
 		kv:        map[interface{}]interface{}{},
 	}
 	return ctx
@@ -91,10 +115,32 @@ func (ctx *Context) UseNamespace(ns string) {
 	}
 }
 
+// CopyRequest copies the request of namespace ns to the active namespace.
+// The copied request is a new reference of the original request, that's
+// they both point to the same underlying protocols.Request.
+func (ctx *Context) CopyRequest(ns string) {
+	if ns == "" {
+		ns = DefaultNamespace
+	}
+	if ns == ctx.activeNs {
+		return
+	}
+	req := ctx.requests[ns]
+	if req == nil {
+		return
+	}
+	req.counter++
+	ctx.requests[ctx.activeNs] = req
+}
+
 // Requests returns all requests, the caller should NOT modify the
 // return value.
 func (ctx *Context) Requests() map[string]protocols.Request {
-	return ctx.requests
+	m := make(map[string]protocols.Request, len(ctx.requests))
+	for k, v := range ctx.requests {
+		m[k] = v.req
+	}
+	return m
 }
 
 // GetOutputRequest returns the request of the output namespace.
@@ -104,7 +150,7 @@ func (ctx *Context) Requests() map[string]protocols.Request {
 // be ready for the change and not to call GetInputRequest when
 // GetOutputRequest is desired, or vice versa.
 func (ctx *Context) GetOutputRequest() protocols.Request {
-	return ctx.requests[ctx.activeNs]
+	return ctx.requests[ctx.activeNs].req
 }
 
 // SetOutputRequest sets the request of the output namespace to req.
@@ -119,16 +165,19 @@ func (ctx *Context) SetOutputRequest(req protocols.Request) {
 
 // GetRequest set the request of namespace ns to req.
 func (ctx *Context) GetRequest(ns string) protocols.Request {
-	return ctx.requests[ns]
+	return ctx.requests[ns].req
 }
 
 // SetRequest set the request of namespace ns to req.
 func (ctx *Context) SetRequest(ns string, req protocols.Request) {
 	prev := ctx.requests[ns]
-	if prev != nil && prev != req {
-		prev.Close()
+	if prev != nil {
+		if prev.req == req {
+			return
+		}
+		prev.release()
 	}
-	ctx.requests[ns] = req
+	ctx.requests[ns] = &requestRef{req, 1}
 }
 
 // GetInputRequest returns the request of the input namespace.
@@ -138,7 +187,7 @@ func (ctx *Context) SetRequest(ns string, req protocols.Request) {
 // be ready for the change and not to call GetOutputRequest when
 // GetInputRequest is desired, or vice versa.
 func (ctx *Context) GetInputRequest() protocols.Request {
-	return ctx.requests[ctx.activeNs]
+	return ctx.requests[ctx.activeNs].req
 }
 
 // SetInputRequest sets the request of the input namespace to req.
@@ -151,9 +200,31 @@ func (ctx *Context) SetInputRequest(req protocols.Request) {
 	ctx.SetRequest(ctx.activeNs, req)
 }
 
+// CopyResponse copies the response of namespace ns to the active namespace.
+// The copied response is a new reference of the original response, that's
+// they both point to the same underlying protocols.Response.
+func (ctx *Context) CopyResponse(ns string) {
+	if ns == "" {
+		ns = DefaultNamespace
+	}
+	if ns == ctx.activeNs {
+		return
+	}
+	resp := ctx.responses[ns]
+	if resp == nil {
+		return
+	}
+	resp.counter++
+	ctx.responses[ctx.activeNs] = resp
+}
+
 // Responses returns all responses.
 func (ctx *Context) Responses() map[string]protocols.Response {
-	return ctx.responses
+	m := make(map[string]protocols.Response, len(ctx.responses))
+	for k, v := range ctx.responses {
+		m[k] = v.resp
+	}
+	return m
 }
 
 // GetOutputResponse returns the response of the output namespace.
@@ -163,7 +234,7 @@ func (ctx *Context) Responses() map[string]protocols.Response {
 // be ready for the change and not to call GetInputResponse when
 // GetOutputResponse is desired, or vice versa.
 func (ctx *Context) GetOutputResponse() protocols.Response {
-	return ctx.responses[ctx.activeNs]
+	return ctx.responses[ctx.activeNs].resp
 }
 
 // SetOutputResponse sets the response of the output namespace to resp.
@@ -178,16 +249,19 @@ func (ctx *Context) SetOutputResponse(resp protocols.Response) {
 
 // GetResponse returns the response of namespace ns.
 func (ctx *Context) GetResponse(ns string) protocols.Response {
-	return ctx.responses[ns]
+	return ctx.responses[ns].resp
 }
 
 // SetResponse set the response of namespace ns to resp.
 func (ctx *Context) SetResponse(ns string, resp protocols.Response) {
 	prev := ctx.responses[ns]
-	if prev != nil && prev != resp {
-		prev.Close()
+	if prev != nil {
+		if prev.resp == resp {
+			return
+		}
+		prev.release()
 	}
-	ctx.responses[ns] = resp
+	ctx.responses[ns] = &responseRef{resp, 1}
 }
 
 // GetInputResponse returns the response of the input namespace.
@@ -243,12 +317,12 @@ func (ctx *Context) OnFinish(fn func()) {
 func (ctx *Context) Finish() {
 	const msgFmt = "failed to execute finish action: %v, stack trace: \n%s\n"
 
-	for _, req := range ctx.requests {
-		req.Close()
+	for _, rr := range ctx.requests {
+		rr.release()
 	}
 
-	for _, resp := range ctx.responses {
-		resp.Close()
+	for _, rr := range ctx.responses {
+		rr.release()
 	}
 
 	for _, fn := range ctx.finishFuncs {

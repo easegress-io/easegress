@@ -42,9 +42,10 @@ type (
 
 	// Spec is the spec of HTTPBuilder.
 	Spec struct {
-		LeftDelim  string `yaml:"leftDelim" jsonschema:"omitempty"`
-		RightDelim string `yaml:"rightDelim" jsonschema:"omitempty"`
-		Template   string `yaml:"template" jsonschema:"required"`
+		LeftDelim       string `yaml:"leftDelim" jsonschema:"omitempty"`
+		RightDelim      string `yaml:"rightDelim" jsonschema:"omitempty"`
+		SourceNamespace string `yaml:"sourceNamespace" jsonschema:"omitempty"`
+		Template        string `yaml:"template" jsonschema:"omitempty"`
 	}
 
 	request struct {
@@ -60,7 +61,24 @@ type (
 	}
 )
 
+// Validate validates the HTTPBuilder Spec.
+func (spec *Spec) Validate() error {
+	if spec.SourceNamespace == "" && spec.Template == "" {
+		return fmt.Errorf("sourceNamespace or template must be specified")
+	}
+
+	if spec.SourceNamespace != "" && spec.Template != "" {
+		return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
+	}
+
+	return nil
+}
+
 func (b *HTTPBuilder) reload(spec *Spec) {
+	if spec.SourceNamespace != "" {
+		return
+	}
+
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
 	t.Funcs(sprig.TxtFuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))

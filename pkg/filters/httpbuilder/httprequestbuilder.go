@@ -114,6 +114,11 @@ func (rb *HTTPRequestBuilder) reload() {
 
 // Handle builds request.
 func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
+	if rb.spec.SourceNamespace != "" {
+		ctx.CopyRequest(rb.spec.SourceNamespace)
+		return ""
+	}
+
 	defer func() {
 		if err := recover(); err != nil {
 			msgFmt := "panic: %s, stacktrace: %s\n"
