@@ -78,12 +78,6 @@ type Options struct {
 	ClusterRole           string         `yaml:"cluster-role"`
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
 	Cluster               ClusterOptions `yaml:"cluster"`
-	// Deprecated. Use ClusterOptions instead.
-	ClusterListenClientURLs         []string `yaml:"cluster-listen-client-urls"`
-	ClusterListenPeerURLs           []string `yaml:"cluster-listen-peer-urls"`
-	ClusterAdvertiseClientURLs      []string `yaml:"cluster-advertise-client-urls"`
-	ClusterInitialAdvertisePeerURLs []string `yaml:"cluster-initial-advertise-peer-urls"`
-	ClusterJoinURLs                 []string `yaml:"cluster-join-urls"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`
@@ -112,13 +106,6 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringVar(&opt.ClusterName, "cluster-name", "eg-cluster-default-name", "Human-readable name for the new cluster, ignored while joining an existed cluster.")
 	opt.flags.StringVar(&opt.ClusterRole, "cluster-role", "primary", "Cluster role for this member (primary, secondary).")
 	opt.flags.StringVar(&opt.ClusterRequestTimeout, "cluster-request-timeout", "10s", "Timeout to handle request in the cluster.")
-
-	// Deprecated: Use 'Cluster connection configuration' instead.
-	opt.flags.StringSliceVar(&opt.ClusterListenClientURLs, "cluster-listen-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.listen-client-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterListenPeerURLs, "cluster-listen-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.listen-peer-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterAdvertiseClientURLs, "cluster-advertise-client-urls", []string{"http://localhost:2379"}, "Deprecated. Use cluster.advertise-client-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterInitialAdvertisePeerURLs, "cluster-initial-advertise-peer-urls", []string{"http://localhost:2380"}, "Deprecated. Use cluster.initial-advertise-peer-urls instead.")
-	opt.flags.StringSliceVar(&opt.ClusterJoinURLs, "cluster-join-urls", nil, "Deprecated. Use cluster.initial-cluster instead.")
 
 	// Cluster connection configuration
 	opt.flags.StringSliceVar(&opt.Cluster.ListenClientURLs, "listen-client-urls", []string{"http://localhost:2379"}, "List of URLs to listen on for cluster client traffic.")
@@ -255,8 +242,6 @@ func (opt *Options) Parse() (string, error) {
 		return "", err
 	}
 
-	opt.adjust()
-
 	buff, err := yaml.Marshal(opt)
 	if err != nil {
 		return "", fmt.Errorf("marshal config to yaml failed: %v", err)
@@ -268,29 +253,6 @@ func (opt *Options) Parse() (string, error) {
 	}
 
 	return "", nil
-}
-
-// adjust adjusts the options to handle conflict
-// between user's config and internal component.
-func (opt *Options) adjust() {
-	if opt.ClusterRole != "primary" || opt.UseInitialCluster() {
-		return
-	}
-	if len(opt.ClusterJoinURLs) == 0 {
-		return
-	}
-
-	joinURL := opt.ClusterJoinURLs[0]
-
-	for _, peerURL := range opt.ClusterInitialAdvertisePeerURLs {
-		if strings.EqualFold(joinURL, peerURL) {
-			fmt.Printf("cluster-join-urls %v changed to empty because it tries to join itself\n",
-				opt.ClusterJoinURLs)
-			// NOTE: We hack it this way to make sure the internal embedded etcd would
-			// start a new cluster instead of joining existed one.
-			opt.ClusterJoinURLs = nil
-		}
-	}
 }
 
 // ParseURLs parses list of strings to url.URL objects.
@@ -306,70 +268,40 @@ func ParseURLs(urlStrings []string) ([]url.URL, error) {
 	return urls, nil
 }
 
-// checkNoOverlappingArguments checks that only one of Cluster.InitialCluster and ClusterJoinURLs is defined.
-func checkNoOverlappingArguments(opt *Options) error {
-	if !opt.UseInitialCluster() {
-		return nil
-	}
-	if len(opt.ClusterJoinURLs) == 0 {
-		return nil
-	}
-	hasYAMLConfig := len(opt.ConfigFile) > 0
-	if hasYAMLConfig {
-		errorMsg := `cluster.initial-cluster and cluster-join-urls are both defined. ` +
-			`Please provide only one of them. cluster.initial-cluster is the recommended way.`
-		return fmt.Errorf(errorMsg)
-	}
-	errorMsg := `--initial-cluster and --cluster-join-urls are both defined. ` +
-		`Please provide only one of them. --initial-cluster is the recommended way.`
-	return fmt.Errorf(errorMsg)
-}
-
 func (opt *Options) validate() error {
 	if opt.ClusterName == "" {
 		return fmt.Errorf("empty cluster-name")
 	} else if err := common.ValidateName(opt.ClusterName); err != nil {
 		return err
 	}
-	if len(opt.ClusterJoinURLs) != 0 {
-		if _, err := ParseURLs(opt.ClusterJoinURLs); err != nil {
-			return fmt.Errorf("invalid cluster-join-urls: %v", err)
-		}
-	}
+	// if len(opt.ClusterJoinURLs) != 0 {
+	// 	if _, err := ParseURLs(opt.ClusterJoinURLs); err != nil {
+	// 		return fmt.Errorf("invalid cluster-join-urls: %v", err)
+	// 	}
+	// }
 	switch opt.ClusterRole {
 	case "secondary":
 		if opt.ForceNewCluster {
 			return fmt.Errorf("secondary got force-new-cluster")
 		}
-		if len(opt.Cluster.PrimaryListenPeerURLs) == 0 && len(opt.ClusterJoinURLs) == 0 {
-			return fmt.Errorf("secondary got empty cluster.primary-listen-peer-urls and cluster-join-urls entries")
+		if len(opt.Cluster.PrimaryListenPeerURLs) == 0 {
+			return fmt.Errorf("secondary got empty cluster.primary-listen-peer-urls")
 		}
 	case "primary":
-		if err := checkNoOverlappingArguments(opt); err != nil {
-			return err
-		}
 		argumentsToValidate := map[string][]string{
-			"cluster-listen-client-urls":          opt.ClusterListenClientURLs,
-			"cluster-listen-peer-urls":            opt.ClusterListenPeerURLs,
-			"cluster-advertise-client-urls":       opt.ClusterAdvertiseClientURLs,
-			"cluster-initial-advertise-peer-urls": opt.ClusterInitialAdvertisePeerURLs,
+			"listen-client-urls":          opt.Cluster.ListenClientURLs,
+			"listen-peer-urls":            opt.Cluster.ListenPeerURLs,
+			"advertise-client-urls":       opt.Cluster.AdvertiseClientURLs,
+			"initial-advertise-peer-urls": opt.Cluster.InitialAdvertisePeerURLs,
+		}
+		initialClusterUrls := make([]string, 0, len(opt.Cluster.InitialCluster))
+		for _, value := range opt.Cluster.InitialCluster {
+			initialClusterUrls = append(initialClusterUrls, value)
+		}
+		if _, err := ParseURLs(initialClusterUrls); err != nil {
+			return fmt.Errorf("invalid initial-cluster: %v", err)
 		}
 
-		if opt.UseInitialCluster() {
-			argumentsToValidate = map[string][]string{
-				"listen-client-urls":          opt.Cluster.ListenClientURLs,
-				"listen-peer-urls":            opt.Cluster.ListenPeerURLs,
-				"advertise-client-urls":       opt.Cluster.AdvertiseClientURLs,
-				"initial-advertise-peer-urls": opt.Cluster.InitialAdvertisePeerURLs,
-			}
-			initialClusterUrls := make([]string, 0, len(opt.Cluster.InitialCluster))
-			for _, value := range opt.Cluster.InitialCluster {
-				initialClusterUrls = append(initialClusterUrls, value)
-			}
-			if _, err := ParseURLs(initialClusterUrls); err != nil {
-				return fmt.Errorf("invalid initial-cluster: %v", err)
-			}
-		}
 		for arg, urls := range argumentsToValidate {
 			if len(urls) == 0 {
 				return fmt.Errorf("empty %s", arg)
@@ -476,9 +408,6 @@ func (opt *Options) InitialClusterToString() string {
 // for secondary (a.k.a reader) the ones listed in cluster.primary-listen-peer-url.
 func (opt *Options) GetPeerURLs() []string {
 	if opt.ClusterRole == "secondary" {
-		if len(opt.ClusterJoinURLs) != 0 {
-			return opt.ClusterJoinURLs
-		}
 		return opt.Cluster.PrimaryListenPeerURLs
 	}
 	peerURLs := make([]string, 0)
@@ -490,16 +419,10 @@ func (opt *Options) GetPeerURLs() []string {
 
 // GetFirstAdvertiseClientURL returns the first advertised client url.
 func (opt *Options) GetFirstAdvertiseClientURL() (string, error) {
-	if opt.UseInitialCluster() {
-		if len(opt.Cluster.AdvertiseClientURLs) == 0 {
-			return "", fmt.Errorf("cluster.advertise-client-URLs is empty")
-		}
-		return opt.Cluster.AdvertiseClientURLs[0], nil
+	if len(opt.Cluster.AdvertiseClientURLs) == 0 {
+		return "", fmt.Errorf("cluster.advertise-client-URLs is empty")
 	}
-	if len(opt.ClusterAdvertiseClientURLs) == 0 {
-		return "", fmt.Errorf("cluster-advertise-client-URLs is empty")
-	}
-	return opt.ClusterAdvertiseClientURLs[0], nil
+	return opt.Cluster.AdvertiseClientURLs[0], nil
 }
 
 func generateMemberName(apiAddr string) (string, error) {
