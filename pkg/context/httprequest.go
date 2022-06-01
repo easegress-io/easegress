@@ -40,8 +40,7 @@ type (
 )
 
 const (
-	xForwardedProto      = "X-Forwarded-Proto"
-	headerValueSeparator = ","
+	xForwardedProto = "X-Forwarded-Proto"
 )
 
 func newHTTPRequest(stdr *http.Request) *httpRequest {
@@ -109,7 +108,7 @@ func (r *httpRequest) Scheme() string {
 		//    some-key: "ele1, ele2, ele3"
 		// }
 		// https://github.com/spring-cloud/spring-cloud-gateway/ ProxyExchange.java#appendXForwarded()
-		schemes := strings.Split(scheme, headerValueSeparator)
+		schemes := strings.Split(scheme, ",")
 		return schemes[len(schemes)-1]
 	}
 

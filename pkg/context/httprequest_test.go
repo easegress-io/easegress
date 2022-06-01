@@ -70,6 +70,6 @@ func TestMultipleScheme(t *testing.T) {
 	v = append(v, protocolHTTP)
 	v = append(v, protocolHTTPS)
 	v = append(v, protocolFTP)
-	req.std.Header.Set(xForwardedProto, strings.Join(v, headerValueSeparator))
+	req.std.Header.Set(xForwardedProto, strings.Join(v, ","))
 	assert.Equal(protocolFTP, req.Scheme())
 }
