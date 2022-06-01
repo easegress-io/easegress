@@ -100,6 +100,11 @@ func (rb *HTTPResponseBuilder) reload() {
 
 // Handle builds request.
 func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
+	if rb.spec.SourceNamespace != "" {
+		ctx.CopyResponse(rb.spec.SourceNamespace)
+		return ""
+	}
+
 	defer func() {
 		if err := recover(); err != nil {
 			msgFmt := "panic: %s, stacktrace: %s\n"

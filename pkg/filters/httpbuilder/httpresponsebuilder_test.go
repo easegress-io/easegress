@@ -64,7 +64,7 @@ func TestStatusCode(t *testing.T) {
 
 		ctx := context.New(nil)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -87,7 +87,7 @@ func TestStatusCode(t *testing.T) {
 		resp.SetStatusCode(http.StatusBadRequest)
 		ctx.SetResponse("response1", resp)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -124,7 +124,7 @@ func TestResponseHeader(t *testing.T) {
 		assert.Nil(err)
 		ctx.SetResponse("response1", httpresp1)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
@@ -149,7 +149,7 @@ func TestResponseBody(t *testing.T) {
 
 		ctx := context.New(nil)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testReq := ctx.GetResponse("test").(*httpprot.Response)
@@ -174,7 +174,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)
@@ -199,7 +199,7 @@ func TestResponseBody(t *testing.T) {
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)
@@ -227,7 +227,7 @@ field2: value2
 		assert.Nil(err)
 		setRequest(t, ctx, "request1", req1)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.Empty(res)
 		testResp := ctx.GetResponse("test").(*httpprot.Response)
@@ -248,7 +248,7 @@ field2: value2
 
 		ctx := context.New(nil)
 
-		ctx.UseNamespace("", "test")
+		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
 		assert.NotEmpty(res)
 	}

@@ -73,7 +73,6 @@ type (
 		FilterName  string            `yaml:"filter" jsonschema:"required,format=urlname"`
 		FilterAlias string            `yaml:"alias" jsonschema:"omitempty"`
 		Namespace   string            `yaml:"namespace" jsonshema:"omitempty"`
-		OutputTo    string            `yaml:"outputTo" jsonschema:"omitempty"`
 		JumpIf      map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
 		filter      filters.Filter
 	}
@@ -129,29 +128,6 @@ func (s *Spec) ValidateJumpIf(specs map[string]filters.Spec) {
 	}
 }
 
-// ValidateInputAndOutput validates filter inputs and outputs.
-func (s *Spec) ValidateInputAndOutput() {
-	const errFmt = "filter %s: desired input %q not found"
-
-	validInputs := map[string]bool{context.DefaultNamespace: true}
-
-	for i := 0; i < len(s.Flow); i++ {
-		node := &s.Flow[i]
-		if node.Namespace != "" && !validInputs[node.Namespace] {
-			panic(fmt.Errorf(errFmt, node.filterAlias(), node.Namespace))
-		}
-
-		output := node.OutputTo
-		if output == "" {
-			output = node.Namespace
-		}
-		if output == "" {
-			output = context.DefaultNamespace
-		}
-		validInputs[output] = true
-	}
-}
-
 // Validate validates Spec.
 func (s *Spec) Validate() (err error) {
 	errPrefix := "filters"
@@ -184,12 +160,7 @@ func (s *Spec) Validate() (err error) {
 
 	// 2: validate flow
 	errPrefix = "flow"
-
-	// 2.1: validate jumpIfs
 	s.ValidateJumpIf(specs)
-
-	// 2.2: validate inputs and outputs
-	s.ValidateInputAndOutput()
 
 	// 3: validate resilience
 	for _, r := range s.Resilience {
@@ -347,7 +318,7 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 		}
 
 		start := fasttime.Now()
-		ctx.UseNamespace(node.Namespace, node.OutputTo)
+		ctx.UseNamespace(node.Namespace)
 
 		result = node.filter.Handle(ctx)
 		stats = append(stats, FilterStat{

@@ -110,24 +110,24 @@ rules:
 	{
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/login/1", nil)
 		assert.Nil(err)
-		setRequest(t, ctx, "req1", req)
+		setRequest(t, ctx, "id1", req)
 
-		ctx.UseNamespace("req1", "resp1")
+		ctx.UseNamespace("id1")
 		m.Handle(ctx)
 
-		resp := ctx.GetResponse("resp1").(*httpprot.Response)
+		resp := ctx.GetResponse("id1").(*httpprot.Response)
 		assert.Equal(202, resp.StatusCode())
 	}
 
 	{
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/sales", nil)
 		assert.Nil(err)
-		setRequest(t, ctx, "req2", req)
+		setRequest(t, ctx, "id2", req)
 
-		ctx.UseNamespace("req2", "resp2")
+		ctx.UseNamespace("id2")
 		m.Handle(ctx)
 
-		resp := ctx.GetResponse("resp2").(*httpprot.Response)
+		resp := ctx.GetResponse("id2").(*httpprot.Response)
 		assert.Equal(203, resp.StatusCode())
 		body, err := io.ReadAll(resp.GetPayload())
 		assert.Nil(err)
@@ -139,19 +139,20 @@ rules:
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/pets", nil)
 		assert.Nil(err)
 		req.Header.Set("X-Mock", "mock")
-		setRequest(t, ctx, "req3", req)
+		setRequest(t, ctx, "id3", req)
 
-		ctx.UseNamespace("req3", "resp3")
+		ctx.UseNamespace("id3")
 		m.Handle(ctx)
 
-		resp := ctx.GetResponse("resp3").(*httpprot.Response)
+		resp := ctx.GetResponse("id3").(*httpprot.Response)
 		assert.Equal(205, resp.StatusCode())
 		body, err := io.ReadAll(resp.GetPayload())
+		assert.Nil(err)
 		assert.Equal("mocked body", string(body))
 
 		req.Header.Set("X-Mock", "mock1")
 		m.Handle(ctx)
-		resp = ctx.GetResponse("resp3").(*httpprot.Response)
+		resp = ctx.GetResponse("id3").(*httpprot.Response)
 		assert.Equal(204, resp.StatusCode())
 	}
 
@@ -161,13 +162,14 @@ rules:
 		req.Header = http.Header{
 			"X-Mock": []string{},
 		}
-		setRequest(t, ctx, "req4", req)
+		setRequest(t, ctx, "id4", req)
 
-		ctx.UseNamespace("req4", "resp4")
+		ctx.UseNamespace("id4")
 		m.Handle(ctx)
-		resp := ctx.GetResponse("resp4").(*httpprot.Response)
+		resp := ctx.GetResponse("id4").(*httpprot.Response)
 		assert.Equal(206, resp.StatusCode())
 		body, err := io.ReadAll(resp.GetPayload())
+		assert.Nil(err)
 		assert.Equal("mocked body", string(body))
 	}
 
@@ -175,38 +177,39 @@ rules:
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/vets", nil)
 		assert.Nil(err)
 		req.Header.Set("X-Mock", "mock")
-		setRequest(t, ctx, "req5", req)
+		setRequest(t, ctx, "id5", req)
 
-		ctx.UseNamespace("req5", "resp5")
+		ctx.UseNamespace("id5")
 		m.Handle(ctx)
 
-		resp := ctx.GetResponse("resp5").(*httpprot.Response)
+		resp := ctx.GetResponse("id5").(*httpprot.Response)
 		assert.Equal(207, resp.StatusCode())
 		body, err := io.ReadAll(resp.GetPayload())
+		assert.Nil(err)
 		assert.Equal("mocked body", string(body))
 
 		req.Header.Set("X-Mock", "mock1")
 
 		m.Handle(ctx)
 
-		resp = ctx.GetResponse("resp5").(*httpprot.Response)
+		resp = ctx.GetResponse("id5").(*httpprot.Response)
 		assert.Equal(204, resp.StatusCode())
 	}
 
 	{
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/customer", nil)
 		assert.Nil(err)
-		setRequest(t, ctx, "req6", req)
+		setRequest(t, ctx, "id6", req)
 
 		spec, _ = filters.NewSpec(nil, "", rawSpec)
 		newM := kind.CreateInstance(spec)
 		newM.Inherit(m)
 		m.Close()
 
-		ctx.UseNamespace("req6", "resp6")
+		ctx.UseNamespace("id6")
 		newM.Handle(ctx)
 
-		resp := ctx.GetResponse("resp6").(*httpprot.Response)
+		resp := ctx.GetResponse("id6").(*httpprot.Response)
 		assert.Equal(204, resp.StatusCode())
 	}
 }

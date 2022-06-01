@@ -40,17 +40,40 @@ type MuxMapper interface {
 	GetHandler(name string) (Handler, bool)
 }
 
+type requestRef struct {
+	req     protocols.Request
+	counter int
+}
+
+func (rr *requestRef) release() {
+	rr.counter--
+	if rr.counter == 0 {
+		rr.req.Close()
+	}
+}
+
+type responseRef struct {
+	resp    protocols.Response
+	counter int
+}
+
+func (rr *responseRef) release() {
+	rr.counter--
+	if rr.counter == 0 {
+		rr.resp.Close()
+	}
+}
+
 // Context holds requests, responses and other data that need to be passed
 // through the pipeline.
 type Context struct {
 	span     tracing.Span
 	lazyTags []func() string
 
-	inputNs  string
-	outputNs string
+	activeNs string
 
-	requests  map[string]protocols.Request
-	responses map[string]protocols.Response
+	requests  map[string]*requestRef
+	responses map[string]*responseRef
 
 	kv          map[interface{}]interface{}
 	finishFuncs []func()
@@ -60,10 +83,9 @@ type Context struct {
 func New(span tracing.Span) *Context {
 	ctx := &Context{
 		span:      span,
-		inputNs:   DefaultNamespace,
-		outputNs:  DefaultNamespace,
-		requests:  map[string]protocols.Request{},
-		responses: map[string]protocols.Response{},
+		activeNs:  DefaultNamespace,
+		requests:  map[string]*requestRef{},
+		responses: map[string]*responseRef{},
 		kv:        map[interface{}]interface{}{},
 	}
 	return ctx
@@ -84,97 +106,202 @@ func (ctx *Context) LazyAddTag(lazyTagFunc func() string) {
 	ctx.lazyTags = append(ctx.lazyTags, lazyTagFunc)
 }
 
-// UseNamespace sets the input and output namespace to input and output.
-func (ctx *Context) UseNamespace(input, output string) {
-	if input == "" {
-		input = DefaultNamespace
+// UseNamespace sets the active namespace.
+func (ctx *Context) UseNamespace(ns string) {
+	if ns == "" {
+		ctx.activeNs = DefaultNamespace
+	} else {
+		ctx.activeNs = ns
 	}
+}
 
-	if output == "" {
-		output = input
+// CopyRequest copies the request of namespace ns to the active namespace.
+// The copied request is a new reference of the original request, that's
+// they both point to the same underlying protocols.Request.
+func (ctx *Context) CopyRequest(ns string) {
+	if ns == "" {
+		ns = DefaultNamespace
 	}
-
-	ctx.inputNs = input
-	ctx.outputNs = output
+	if ns == ctx.activeNs {
+		return
+	}
+	req := ctx.requests[ns]
+	if req == nil {
+		return
+	}
+	req.counter++
+	ctx.requests[ctx.activeNs] = req
 }
 
 // Requests returns all requests, the caller should NOT modify the
 // return value.
 func (ctx *Context) Requests() map[string]protocols.Request {
-	return ctx.requests
+	m := make(map[string]protocols.Request, len(ctx.requests))
+	for k, v := range ctx.requests {
+		m[k] = v.req
+	}
+	return m
 }
 
 // GetOutputRequest returns the request of the output namespace.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call GetInputRequest when
+// GetOutputRequest is desired, or vice versa.
 func (ctx *Context) GetOutputRequest() protocols.Request {
-	return ctx.requests[ctx.outputNs]
+	ref := ctx.requests[ctx.activeNs]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetOutputRequest sets the request of the output namespace to req.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call SetInputRequest when
+// SetOutputRequest is desired, or vice versa.
 func (ctx *Context) SetOutputRequest(req protocols.Request) {
-	ctx.SetRequest(ctx.outputNs, req)
+	ctx.SetRequest(ctx.activeNs, req)
 }
 
 // GetRequest set the request of namespace ns to req.
 func (ctx *Context) GetRequest(ns string) protocols.Request {
-	return ctx.requests[ns]
+	ref := ctx.requests[ns]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetRequest set the request of namespace ns to req.
 func (ctx *Context) SetRequest(ns string, req protocols.Request) {
 	prev := ctx.requests[ns]
-	if prev != nil && prev != req {
-		prev.Close()
+	if prev != nil {
+		if prev.req == req {
+			return
+		}
+		prev.release()
 	}
-	ctx.requests[ns] = req
+	ctx.requests[ns] = &requestRef{req, 1}
 }
 
 // GetInputRequest returns the request of the input namespace.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call GetOutputRequest when
+// GetInputRequest is desired, or vice versa.
 func (ctx *Context) GetInputRequest() protocols.Request {
-	return ctx.requests[ctx.inputNs]
+	ref := ctx.requests[ctx.activeNs]
+	if ref != nil {
+		return ref.req
+	}
+	return nil
 }
 
 // SetInputRequest sets the request of the input namespace to req.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call SetOutputRequest when
+// SetInputRequest is desired, or vice versa.
 func (ctx *Context) SetInputRequest(req protocols.Request) {
-	ctx.SetRequest(ctx.inputNs, req)
+	ctx.SetRequest(ctx.activeNs, req)
+}
+
+// CopyResponse copies the response of namespace ns to the active namespace.
+// The copied response is a new reference of the original response, that's
+// they both point to the same underlying protocols.Response.
+func (ctx *Context) CopyResponse(ns string) {
+	if ns == "" {
+		ns = DefaultNamespace
+	}
+	if ns == ctx.activeNs {
+		return
+	}
+	resp := ctx.responses[ns]
+	if resp == nil {
+		return
+	}
+	resp.counter++
+	ctx.responses[ctx.activeNs] = resp
 }
 
 // Responses returns all responses.
 func (ctx *Context) Responses() map[string]protocols.Response {
-	return ctx.responses
+	m := make(map[string]protocols.Response, len(ctx.responses))
+	for k, v := range ctx.responses {
+		m[k] = v.resp
+	}
+	return m
 }
 
 // GetOutputResponse returns the response of the output namespace.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call GetInputResponse when
+// GetOutputResponse is desired, or vice versa.
 func (ctx *Context) GetOutputResponse() protocols.Response {
-	return ctx.responses[ctx.outputNs]
+	ref := ctx.responses[ctx.activeNs]
+	if ref != nil {
+		return ref.resp
+	}
+	return nil
 }
 
 // SetOutputResponse sets the response of the output namespace to resp.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call SetInputResponse when
+// SetOutputResponse is desired, or vice versa.
 func (ctx *Context) SetOutputResponse(resp protocols.Response) {
-	ctx.SetResponse(ctx.outputNs, resp)
+	ctx.SetResponse(ctx.activeNs, resp)
 }
 
 // GetResponse returns the response of namespace ns.
 func (ctx *Context) GetResponse(ns string) protocols.Response {
-	return ctx.responses[ns]
+	ref := ctx.responses[ns]
+	if ref != nil {
+		return ref.resp
+	}
+	return nil
 }
 
 // SetResponse set the response of namespace ns to resp.
 func (ctx *Context) SetResponse(ns string, resp protocols.Response) {
 	prev := ctx.responses[ns]
-	if prev != nil && prev != resp {
-		prev.Close()
+	if prev != nil {
+		if prev.resp == resp {
+			return
+		}
+		prev.release()
 	}
-	ctx.responses[ns] = resp
+	ctx.responses[ns] = &responseRef{resp, 1}
 }
 
 // GetInputResponse returns the response of the input namespace.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call GetOutputResponse when
+// GetInputResponse is desired, or vice versa.
 func (ctx *Context) GetInputResponse() protocols.Response {
-	return ctx.GetResponse(ctx.inputNs)
+	return ctx.GetResponse(ctx.activeNs)
 }
 
 // SetInputResponse sets the response of the input namespace to resp.
+//
+// Currently, the output namespace is the same as the input namespace,
+// but this may change in the future, code calling this function should
+// be ready for the change and not to call SetOutputResponse when
+// SetInputResponse is desired, or vice versa.
 func (ctx *Context) SetInputResponse(resp protocols.Response) {
-	ctx.SetResponse(ctx.inputNs, resp)
+	ctx.SetResponse(ctx.activeNs, resp)
 }
 
 // SetKV sets the value of key to val.
@@ -210,12 +337,12 @@ func (ctx *Context) OnFinish(fn func()) {
 func (ctx *Context) Finish() {
 	const msgFmt = "failed to execute finish action: %v, stack trace: \n%s\n"
 
-	for _, req := range ctx.requests {
-		req.Close()
+	for _, rr := range ctx.requests {
+		rr.release()
 	}
 
-	for _, resp := range ctx.responses {
-		resp.Close()
+	for _, rr := range ctx.responses {
+		rr.release()
 	}
 
 	for _, fn := range ctx.finishFuncs {
