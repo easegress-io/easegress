@@ -1,6 +1,17 @@
 name: primary-single
 cluster-name: cluster-test
 cluster-role: primary
+cluster:
+  listen-peer-urls:
+   - http://localhost:2380
+  listen-client-urls:
+   - http://localhost:2379
+  advertise-client-urls:
+   - http://localhost:2379
+  initial-advertise-peer-urls:
+   - http://localhost:2380
+  initial-cluster:
+   - primary-single: http://localhost:2380
 api-addr: 127.0.0.1:12381
 data-dir: ./data
 wal-dir: ""

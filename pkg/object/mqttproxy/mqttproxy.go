@@ -108,7 +108,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
-				egURLs := memberStatus.Options.ClusterInitialAdvertisePeerURLs
+				egURLs := memberStatus.Options.Cluster.InitialAdvertisePeerURLs
 				peerURLVariableName := "ClusterInitialAdvertisePeerURLs"
 				if memberStatus.Options.UseInitialCluster() {
 					egURLs = memberStatus.Options.Cluster.InitialAdvertisePeerURLs

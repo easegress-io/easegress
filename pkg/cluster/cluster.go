@@ -675,14 +675,8 @@ func (c *cluster) startServer() (done, timeout chan struct{}, err error) {
 		close(done)
 		return done, timeout, nil
 	}
-	var (
-		etcdConfig *embed.Config
-	)
-	if c.opt.UseInitialCluster() {
-		etcdConfig, err = CreateStaticClusterEtcdConfig(c.opt)
-	} else {
-		etcdConfig, err = CreateEtcdConfig(c.opt, c.members)
-	}
+
+	etcdConfig, err := CreateStaticClusterEtcdConfig(c.opt)
 	if err != nil {
 		return nil, nil, err
 	}
