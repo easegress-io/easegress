@@ -78,12 +78,6 @@ type Options struct {
 	ClusterRole           string         `yaml:"cluster-role"`
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
 	Cluster               ClusterOptions `yaml:"cluster"`
-	// Deprecated. Use ClusterOptions instead.
-	ClusterListenClientURLs         []string `yaml:"cluster-listen-client-urls"`
-	ClusterListenPeerURLs           []string `yaml:"cluster-listen-peer-urls"`
-	ClusterAdvertiseClientURLs      []string `yaml:"cluster-advertise-client-urls"`
-	ClusterInitialAdvertisePeerURLs []string `yaml:"cluster-initial-advertise-peer-urls"`
-	ClusterJoinURLs                 []string `yaml:"cluster-join-urls"`
 
 	// Path.
 	HomeDir   string `yaml:"home-dir"`

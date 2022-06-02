@@ -72,35 +72,12 @@ func newMembers(opt *option.Options) (*members, error) {
 		ClusterMembers: newMemberSlices(),
 		KnownMembers:   newMemberSlices(),
 	}
-	m.initializeMembers(opt)
+
 	err := m.load()
 	if err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-// initializeMembers adds first member to ClusterMembers and all members to KnownMembers.
-func (m *members) initializeMembers(opt *option.Options) {
-	initMS := make(membersSlice, 0)
-	if opt.ClusterRole == "primary" && len(opt.ClusterInitialAdvertisePeerURLs) != 0 {
-		// Cluster is started member by member --> start with cluster of size 1
-		initMS = append(initMS, &member{
-			Name:    opt.Name,
-			PeerURL: opt.ClusterInitialAdvertisePeerURLs[0],
-		})
-	}
-	m.ClusterMembers.update(initMS)
-
-	// Add all members to list of known members
-	if len(opt.ClusterJoinURLs) != 0 {
-		for _, peerURL := range opt.ClusterJoinURLs {
-			initMS = append(initMS, &member{
-				PeerURL: peerURL,
-			})
-		}
-	}
-	m.KnownMembers.update(initMS)
 }
 
 func (m *members) fileExist() bool {
@@ -184,8 +161,9 @@ func (m *members) _self() *member {
 	}
 
 	peerURL := ""
-	if len(m.opt.ClusterInitialAdvertisePeerURLs) != 0 {
-		peerURL = m.opt.ClusterInitialAdvertisePeerURLs[0]
+	if len(m.opt.Cluster.InitialAdvertisePeerURLs) != 0 {
+		peerURL = m.opt.Cluster.InitialAdvertisePeerURLs[0]
+
 	}
 
 	return &member{

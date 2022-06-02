@@ -246,16 +246,6 @@ func (c *cluster) getReady() error {
 		return nil
 	}
 
-	if !c.opt.UseInitialCluster() && !c.opt.ForceNewCluster && c.members != nil && c.members.knownMembersLen() > 1 {
-		client, _ := c.getClient()
-		if client != nil {
-			err := c.addSelfToCluster()
-			if err != nil {
-				logger.Errorf("add self to cluster failed: %v", err)
-			}
-		}
-	}
-
 	done, timeout, err := c.startServer()
 	if err != nil {
 		return fmt.Errorf("start server failed: %v", err)
@@ -279,81 +269,6 @@ func (c *cluster) getReady() error {
 	}
 
 	go c.keepAliveLease()
-
-	return nil
-}
-
-func (c *cluster) addSelfToCluster() error {
-	client, err := c.getClient()
-	if err != nil {
-		return err
-	}
-
-	respList, err := func() (*clientv3.MemberListResponse, error) {
-		ctx, cancel := c.requestContext()
-		defer cancel()
-		return client.MemberList(ctx)
-	}()
-	if err != nil {
-		return err
-	}
-
-	self := c.members.self()
-
-	found := false
-	for _, member := range respList.Members {
-		// Reference: https://github.com/etcd-io/etcd/blob/b7bf33bf5d1cbb1092b542fc4f3cdc911ccc3eaa/etcdctl/ctlv3/command/printer.go#L164-L167
-		if len(member.Name) == 0 {
-			_, err := func() (*clientv3.MemberRemoveResponse, error) {
-				ctx, cancel := c.requestContext()
-				defer cancel()
-				return client.MemberRemove(ctx, member.ID)
-			}()
-			if err != nil {
-				err = fmt.Errorf("remove unhealthy etcd member %x failed: %v",
-					member.ID, err)
-				panic(err)
-			} else {
-				logger.Warnf("remove unhealthy etcd member %x for adding self to cluster",
-					member.ID)
-			}
-		}
-
-		if self.Name == member.Name && self.ID == member.ID {
-			found = true
-			break
-		} else if self.Name == member.Name && self.ID != member.ID {
-			err := fmt.Errorf("conflict id with same name %s: local(%x) != existed(%x). "+
-				"purge this node, clean data directory, and rejoin it back",
-				self.Name, self.ID, member.ID)
-			logger.Errorf("%v", err)
-			panic(err)
-		} else if self.ID == member.ID && self.Name != member.Name {
-			err := fmt.Errorf("conflict name with same id %x: local(%s) != existed(%s). "+
-				"purge this node, clean data directory, and rejoin it back",
-				self.ID, self.Name, member.Name)
-			logger.Errorf("%v", err)
-			panic(err)
-		}
-	}
-
-	if !found {
-		err := c.checkClusterName()
-		if err != nil {
-			return err
-		}
-
-		respAdd, err := func() (*clientv3.MemberAddResponse, error) {
-			ctx, cancel := c.requestContext()
-			defer cancel()
-			return client.MemberAdd(ctx, c.opt.ClusterInitialAdvertisePeerURLs)
-		}()
-		if err != nil {
-			return fmt.Errorf("add member failed: %v", err)
-		}
-		logger.Infof("add %s to member list", self.Name)
-		c.members.updateClusterMembers(respAdd.Members)
-	}
 
 	return nil
 }
