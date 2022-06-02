@@ -53,6 +53,7 @@ func getRandomString(n int) string {
 
 func TestMain(m *testing.M) {
 	logger.InitNop()
+	// logger.InitMock()
 	tempDir = path.Join(tempDir, getRandomString(6))
 	code := m.Run()
 	os.Exit(code)
@@ -72,10 +73,10 @@ func mockTestOpt() *option.Options {
 	opt.ClusterName = "test-cluster"
 	opt.ClusterRole = "primary"
 	opt.ClusterRequestTimeout = "10s"
-	opt.ClusterListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
-	opt.ClusterAdvertiseClientURLs = opt.ClusterListenClientURLs
-	opt.ClusterListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
-	opt.ClusterInitialAdvertisePeerURLs = opt.ClusterListenPeerURLs
+	opt.Cluster.ListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
+	opt.Cluster.AdvertiseClientURLs = opt.Cluster.ListenClientURLs
+	opt.Cluster.ListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
+	opt.Cluster.InitialAdvertisePeerURLs = opt.Cluster.ListenPeerURLs
 	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
 	opt.HomeDir = filepath.Join(tempDir, name)
 	opt.DataDir = "data"
@@ -95,6 +96,7 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 	opts := make([]*option.Options, count)
 	members := make(membersSlice, count)
 	pbMembers := make([]*pb.Member, count)
+
 	for i := 0; i < count; i++ {
 		opt := mockTestOpt()
 
@@ -104,16 +106,28 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 		members[i] = &member{
 			ID:      id,
 			Name:    opt.Name,
-			PeerURL: opt.ClusterInitialAdvertisePeerURLs[0],
+			PeerURL: opt.Cluster.InitialAdvertisePeerURLs[0],
 		}
 		pbMembers[i] = &pb.Member{
 			ID:         id,
 			Name:       opt.Name,
-			PeerURLs:   []string{opt.ClusterInitialAdvertisePeerURLs[0]},
-			ClientURLs: []string{opt.ClusterAdvertiseClientURLs[0]},
+			PeerURLs:   []string{opt.Cluster.InitialAdvertisePeerURLs[0]},
+			ClientURLs: []string{opt.Cluster.AdvertiseClientURLs[0]},
 		}
 
 		env.InitServerDir(opt)
+	}
+
+	initCluster := map[string]string{}
+	for _, opt := range opts {
+		if opt.ClusterRole == "primary" {
+			initCluster[opt.Name] = opt.Cluster.ListenPeerURLs[0]
+		}
+	}
+	for _, opt := range opts {
+		if opt.ClusterRole == "primary" {
+			opt.Cluster.InitialCluster = initCluster
+		}
 	}
 
 	sort.Sort(members)

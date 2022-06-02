@@ -34,63 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func mockClusters(count int) []*cluster {
-	opts, _, _ := mockMembers(count)
-
-	clusters := make([]*cluster, count)
-
-	bootCluster, err := New(opts[0])
-	if err != nil {
-		panic(fmt.Errorf("new cluster failed: %v", err))
-	}
-	clusters[0] = bootCluster.(*cluster)
-
-	time.Sleep(HeartbeatInterval)
-
-	for i := 1; i < count; i++ {
-		opts[i].ClusterJoinURLs = opts[0].ClusterListenPeerURLs
-
-		cls, err := New(opts[i])
-
-		if err != nil {
-			totalRetryTime := time.After(60 * time.Second)
-		Loop:
-			for {
-				if err == nil {
-					break
-				}
-				select {
-				case <-totalRetryTime:
-					break Loop
-
-				case <-time.After(HeartbeatInterval):
-					cls, err = New(opts[i])
-				}
-			}
-
-		}
-		if err != nil {
-			panic(fmt.Errorf("new cluster failed: %v", err))
-		}
-
-		c := cls.(*cluster)
-
-		for {
-			_, err := c.getClient()
-			time.Sleep(HeartbeatInterval)
-			if err != nil {
-				continue
-			} else {
-				break
-			}
-		}
-
-		clusters[i] = c
-	}
-
-	return clusters
-}
-
 func mockStaticCluster(count int) []*cluster {
 	opts, _, _ := mockStaticClusterMembers(count)
 
@@ -160,20 +103,12 @@ func createSecondaryNode(clusterName string, primaryListenPeerURLs []string) *cl
 }
 
 func TestCluster(t *testing.T) {
-	t.Run("start cluster dynamically", func(t *testing.T) {
-		clusters := mockClusters(3)
-		defer closeClusters(clusters)
-		// for testing longRequestContext()
-		clusters[0].longRequestContext()
-	})
-	t.Run("start static sized cluster", func(t *testing.T) {
-		clusterNodes := mockStaticCluster(3)
-		primaryName := clusterNodes[0].opt.ClusterName
-		primaryAddress := clusterNodes[0].opt.Cluster.InitialAdvertisePeerURLs
-		secondaryNode := createSecondaryNode(primaryName, primaryAddress)
-		defer closeClusters(clusterNodes)
-		defer closeClusters([]*cluster{secondaryNode})
-	})
+	clusterNodes := mockStaticCluster(3)
+	primaryName := clusterNodes[0].opt.ClusterName
+	primaryAddress := clusterNodes[0].opt.Cluster.InitialAdvertisePeerURLs
+	secondaryNode := createSecondaryNode(primaryName, primaryAddress)
+	defer closeClusters(clusterNodes)
+	defer closeClusters([]*cluster{secondaryNode})
 }
 
 func TestLease(t *testing.T) {
@@ -202,26 +137,26 @@ func TestClusterStart(t *testing.T) {
 	c := cls.(*cluster)
 
 	_, _, err = c.StartServer()
-
 	if err != nil {
 		t.Errorf("start server failed, %v", err)
 	}
 }
 
 func TestClusterPurgeMember(t *testing.T) {
+	assert := assert.New(t)
 	opts, _, _ := mockMembers(2)
 
-	cls, err := New(opts[0])
+	go func() {
+		_, err := New(opts[1])
+		assert.Nil(err)
+	}()
 
-	if err != nil {
-		t.Errorf("init failed: %v", err)
-	}
+	cls, err := New(opts[0])
+	assert.Nil(err)
 
 	c := cls.(*cluster)
 	err = c.PurgeMember("no-member")
-	if err == nil {
-		t.Errorf("purge a none exit member, should be failed")
-	}
+	assert.NotNil(err)
 }
 
 func TestClusterSyncer(t *testing.T) {
