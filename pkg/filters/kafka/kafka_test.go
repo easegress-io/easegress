@@ -19,7 +19,9 @@ package kafka
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -36,17 +38,20 @@ func init() {
 }
 
 type mockAsyncProducer struct {
-	ch chan *sarama.ProducerMessage
+	ch      chan *sarama.ProducerMessage
+	errorCh chan *sarama.ProducerError
+	closed  int32
 }
 
 func (m *mockAsyncProducer) AsyncClose()                               {}
 func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
-func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return nil }
+func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return m.errorCh }
 
 func (m *mockAsyncProducer) Input() chan<- *sarama.ProducerMessage {
 	return m.ch
 }
 func (m *mockAsyncProducer) Close() error {
+	atomic.StoreInt32(&m.closed, 1)
 	return fmt.Errorf("mock producer close failed")
 }
 
@@ -54,7 +59,8 @@ var _ sarama.AsyncProducer = (*mockAsyncProducer)(nil)
 
 func newMockAsyncProducer() sarama.AsyncProducer {
 	return &mockAsyncProducer{
-		ch: make(chan *sarama.ProducerMessage, 100),
+		ch:      make(chan *sarama.ProducerMessage, 100),
+		errorCh: make(chan *sarama.ProducerError),
 	}
 }
 
@@ -142,4 +148,36 @@ func TestKafkaWithKVMap(t *testing.T) {
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
+}
+
+func TestKafka2(t *testing.T) {
+	assert := assert.New(t)
+
+	newAsyncProducer = func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+		return newMockAsyncProducer(), nil
+	}
+	spec := &Spec{
+		Backend: []string{"localhost:1234"},
+		KVMap: &KVMap{
+			TopicKey:  "topic",
+			HeaderKey: "headers",
+		},
+	}
+
+	kafka := Kafka{
+		spec: spec,
+	}
+	kafka.Init()
+	p := kafka.producer.(*mockAsyncProducer)
+	p.errorCh <- &sarama.ProducerError{}
+
+	kafka.Close()
+	for i := 0; i < 10; i++ {
+		closed := atomic.LoadInt32(&p.closed)
+		if closed == 1 {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Equal(int32(1), atomic.LoadInt32(&p.closed))
 }

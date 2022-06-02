@@ -93,11 +93,13 @@ func (k *Kafka) setKV() {
 	}
 }
 
+var newAsyncProducer = sarama.NewAsyncProducer
+
 func (k *Kafka) setProducer() {
 	config := sarama.NewConfig()
 	config.ClientID = k.spec.Name()
 	config.Version = sarama.V1_0_0_0
-	producer, err := sarama.NewAsyncProducer(k.spec.Backend, config)
+	producer, err := newAsyncProducer(k.spec.Backend, config)
 	if err != nil {
 		panic(fmt.Errorf("start sarama producer with address %v failed: %v", k.spec.Backend, err))
 	}
