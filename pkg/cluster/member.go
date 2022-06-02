@@ -178,12 +178,6 @@ func (m *members) _selfWithoutID() *member {
 	return s
 }
 
-func (m *members) clusterMembersLen() int {
-	m.RLock()
-	defer m.RUnlock()
-	return m.ClusterMembers.Len()
-}
-
 func (m *members) updateClusterMembers(pbMembers []*pb.Member) {
 	m.Lock()
 	defer m.Unlock()
@@ -211,24 +205,11 @@ func (m *members) updateClusterMembers(pbMembers []*pb.Member) {
 	m.store()
 }
 
-func (m *members) knownMembersLen() int {
-	m.RLock()
-	defer m.RUnlock()
-	return m.KnownMembers.Len()
-}
-
 func (m *members) knownPeerURLs() []string {
 	m.RLock()
 	defer m.RUnlock()
 
 	return m.KnownMembers.peerURLs()
-}
-
-func (m *members) initCluster() string {
-	m.RLock()
-	defer m.RUnlock()
-
-	return m.ClusterMembers.initCluster()
 }
 
 func pbMembersToMembersSlice(pbMembers []*pb.Member) membersSlice {
@@ -284,16 +265,6 @@ func (ms membersSlice) peerURLs() []string {
 		ss = append(ss, m.PeerURL)
 	}
 	return ss
-}
-
-func (ms membersSlice) initCluster() string {
-	ss := make([]string, 0)
-	for _, m := range ms {
-		if m.Name != "" {
-			ss = append(ss, fmt.Sprintf("%s=%s", m.Name, m.PeerURL))
-		}
-	}
-	return strings.Join(ss, ",")
 }
 
 // update adds the member if there is not the member.

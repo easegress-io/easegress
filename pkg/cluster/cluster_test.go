@@ -83,7 +83,7 @@ func closeClusters(clusters []*cluster) {
 func createSecondaryNode(clusterName string, primaryListenPeerURLs []string) *cluster {
 	ports, err := freeport.GetFreePorts(1)
 	check(err)
-	name := fmt.Sprintf("secondary-member-x")
+	name := "secondary-member-x"
 	opt := option.New()
 	opt.Name = name
 	opt.ClusterName = clusterName
