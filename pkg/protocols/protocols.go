@@ -49,7 +49,7 @@ type Request interface {
 	// the payload.
 	//
 	// If the previous payload is a stream, it is the caller's responsibility
-	// to close it, if required (that's, the previouse payload is also an
+	// to close it, if required (that's, the previous payload is also an
 	// io.Closer).
 	SetPayload(payload interface{})
 
