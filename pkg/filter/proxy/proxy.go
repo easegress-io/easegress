@@ -343,6 +343,23 @@ func (b *Proxy) fallbackForCodes(ctx context.HTTPContext) bool {
 }
 
 // Handle handles HTTPContext.
+// When we create new request for backend, we call http.NewRequestWithContext method and use context.Request().Body() as body.
+// Based on golang std lib comments:
+// https://github.com/golang/go/blob/95b68e1e02fa713719f02f6c59fb1532bd05e824/src/net/http/request.go#L856-L860
+// If body is of type *bytes.Buffer, *bytes.Reader, or
+// *strings.Reader, the returned request's ContentLength is set to its
+// exact value (instead of -1), GetBody is populated (so 307 and 308
+// redirects can replay the body), and Body is set to NoBody if the
+// ContentLength is 0.
+//
+// So in this way, http.Request.ContextLength will be 0, and when http.Client send this request, it will delete
+// "Context-Length" key in header. We solve this problem by set http.Request.ContextLength equal to
+// http.Request.Header["Context-Length"] (if it is presented).
+// Reading all context.Request().Body() and create new request with bytes.NewReader is another way, but it may cause performance loss.
+//
+// It is important "Context-Length" in Header is equal to length of Body. In easegress, when a filter change Request.Body,
+// it will delete the header of "Context-Length". So, you should not worry about this when using our filters.
+// But for customer filters, developer should make sure to delete or set "Context-Length" value in header when change Request.Body.
 func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	result = b.handle(ctx)
 	return ctx.CallNextHandler(result)

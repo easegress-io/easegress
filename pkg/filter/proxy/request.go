@@ -82,15 +82,7 @@ func (p *pool) newRequest(
 		stdr.Host = r.Host()
 	}
 
-	// Based on Golang std lib comment:
-	// https://github.com/golang/go/blob/master/src/net/http/request.go#L857
-	// If body is of type *bytes.Buffer, *bytes.Reader, or
-	// *strings.Reader, the returned request's ContentLength is set to its
-	// exact value (instead of -1), GetBody is populated (so 307 and 308
-	// redirects can replay the body), and Body is set to NoBody if the
-	// ContentLength is 0.
-	//
-	// Here we set ContextLength when "Context-Length" header is not empty.
+	// Based on comments in proxy.Handle, we update stdr.ContentLength here.
 	if val := stdr.Header.Get(httpheader.KeyContentLength); val != "" {
 		l, err := strconv.Atoi(val)
 		if err == nil {
