@@ -195,6 +195,10 @@ func (p *pool) handle(ctx context.HTTPContext, reqBody io.Reader, client *Client
 		setStatusCode(http.StatusServiceUnavailable)
 		return resultServerError
 	}
+	removeConnectionHeaders(resp.Header)
+	for _, h := range hopHeaders {
+		resp.Header.Del(h)
+	}
 
 	addLazyTag("code", "", resp.StatusCode)
 
