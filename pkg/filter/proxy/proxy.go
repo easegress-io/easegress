@@ -352,13 +352,13 @@ func (b *Proxy) fallbackForCodes(ctx context.HTTPContext) bool {
 // redirects can replay the body), and Body is set to NoBody if the
 // ContentLength is 0.
 //
-// So in this way, http.Request.ContextLength will be 0, and when http.Client send this request, it will delete
-// "Context-Length" key in header. We solve this problem by set http.Request.ContextLength equal to
-// http.Request.Header["Context-Length"] (if it is presented).
+// So in this way, http.Request.ContentLength will be 0, and when http.Client send this request, it will delete
+// "Content-Length" key in header. We solve this problem by set http.Request.ContentLength equal to
+// http.Request.Header["Content-Length"] (if it is presented).
 // Reading all context.Request().Body() and create new request with bytes.NewReader is another way, but it may cause performance loss.
 //
-// It is important "Context-Length" in Header is equal to length of Body. In easegress, when a filter change Request.Body,
-// it will delete the header of "Context-Length". So, you should not worry about this when using our filters.
+// It is important that "Content-Length" in the Header is equal to the length of the Body. In easegress, when a filter change Request.Body,
+// it will delete the header of "Content-Length". So, you should not worry about this when using our filters.
 // But for customer filters, developer should make sure to delete or set "Context-Length" value in header when change Request.Body.
 func (b *Proxy) Handle(ctx context.HTTPContext) (result string) {
 	result = b.handle(ctx)
