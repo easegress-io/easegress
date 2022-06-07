@@ -36,7 +36,7 @@ func check(e error) {
 func CreateOptionsForTest(tempDir string) *option.Options {
 	ports, err := freeport.GetFreePorts(3)
 	check(err)
-	name := fmt.Sprintf("test-member-x")
+	name := "test-member-x"
 	opt := option.New()
 	opt.Name = name
 	opt.ClusterName = "test-cluster"

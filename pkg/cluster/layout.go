@@ -47,8 +47,7 @@ const (
 type (
 	// Layout represents storage tree layout.
 	Layout struct {
-		memberName      string
-		statusMemberKey string
+		memberName string
 	}
 )
 
