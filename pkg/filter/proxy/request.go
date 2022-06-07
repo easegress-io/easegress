@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/httpheader"
 )
 
 type (
@@ -78,6 +80,14 @@ func (p *pool) newRequest(
 	// only set host when server address is not host name OR server is explicitly told to keep the host of the request.
 	if !server.addrIsHostName || server.KeepHost {
 		stdr.Host = r.Host()
+	}
+
+	// Based on comments in proxy.Handle, we update stdr.ContentLength here.
+	if val := stdr.Header.Get(httpheader.KeyContentLength); val != "" {
+		l, err := strconv.Atoi(val)
+		if err == nil {
+			stdr.ContentLength = int64(l)
+		}
 	}
 
 	req.std = stdr
