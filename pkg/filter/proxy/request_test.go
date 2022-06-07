@@ -20,6 +20,7 @@ package proxy
 import (
 	"bytes"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -57,8 +58,10 @@ func TestRequest(t *testing.T) {
 
 	p := pool{}
 	sr := strings.NewReader("this is the raw body")
+	ctx.Request().Header().Add(httpheader.KeyContentLength, strconv.Itoa(sr.Len()))
 	req, _ := p.newRequest(ctx, &server, sr, requestPool, httpStatResultPool)
 	defer requestPool.Put(req) // recycle request
+	assert.Equal(int64(sr.Len()), req.std.ContentLength)
 
 	req.start()
 	tm := req.startTime()
