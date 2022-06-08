@@ -22,11 +22,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/textproto"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	httpstat "github.com/tcnksm/go-httpstat"
+	"golang.org/x/net/http/httpguts"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -48,6 +51,49 @@ type (
 		buff *bytes.Buffer
 	}
 )
+
+// removeConnectionHeaders removes hop-by-hop headers listed in the "Connection" header of h.
+// See RFC 7230, section 6.1
+func removeConnectionHeaders(h http.Header) {
+	for _, f := range h["Connection"] {
+		for _, sf := range strings.Split(f, ",") {
+			if sf = textproto.TrimString(sf); sf != "" {
+				h.Del(sf)
+			}
+		}
+	}
+}
+
+// https://github.com/golang/go/blob/95b68e1e02fa713719f02f6c59fb1532bd05e824/src/net/http/httputil/reverseproxy.go#L171-L186
+// Hop-by-hop headers. These are removed when sent to the backend.
+// As of RFC 7230, hop-by-hop headers are required to appear in the
+// Connection header field. These are the headers defined by the
+// obsoleted RFC 2616 (section 13.5.1) and are used for backward
+// compatibility.
+var hopHeaders = []string{
+	"Connection",
+	"Proxy-Connection", // non-standard but still sent by libcurl and rejected by e.g. google
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te",      // canonicalized version of "TE"
+	"Trailer", // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
+	"Transfer-Encoding",
+	"Upgrade",
+}
+
+// info: https://github.com/golang/go/blob/95b68e1e02fa713719f02f6c59fb1532bd05e824/src/net/http/httputil/reverseproxy.go#L214
+func processHopHeaders(inReq, outReq *http.Request) {
+	removeConnectionHeaders(outReq.Header)
+
+	for _, h := range hopHeaders {
+		outReq.Header.Del(h)
+	}
+
+	if httpguts.HeaderValuesContainsToken(inReq.Header["Te"], "trailers") {
+		outReq.Header.Set("Te", "trailers")
+	}
+}
 
 func (p *pool) newRequest(
 	ctx context.HTTPContext,
@@ -76,7 +122,7 @@ func (p *pool) newRequest(
 		return nil, fmt.Errorf("BUG: new request failed: %v", err)
 	}
 
-	stdr.Header = r.Header().Std()
+	stdr.Header = r.Header().Std().Clone()
 	// only set host when server address is not host name OR server is explicitly told to keep the host of the request.
 	if !server.addrIsHostName || server.KeepHost {
 		stdr.Host = r.Host()
@@ -89,6 +135,7 @@ func (p *pool) newRequest(
 			stdr.ContentLength = int64(l)
 		}
 	}
+	processHopHeaders(r.Std(), stdr)
 
 	req.std = stdr
 
