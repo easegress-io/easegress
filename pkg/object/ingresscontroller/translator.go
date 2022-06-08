@@ -388,6 +388,22 @@ func (st *specTranslator) translate() error {
 		}
 		st.translateIngressRules(b, ingress)
 	}
+	// sort rules, rules with Host first, then rules with HostRegexp, finally others
+	sort.Slice(b.Rules, func(i, j int) bool {
+		ri := b.Rules[i]
+		rj := b.Rules[j]
+		if ri.Host != "" {
+			return true
+		} else if rj.Host != "" {
+			return false
+		} else if ri.HostRegexp != "" {
+			return true
+		} else if rj.HostRegexp != "" {
+			return false
+		} else {
+			return true
+		}
+	})
 
 	if p := st.pipelines[defaultPipelineName]; p != nil {
 		b.Rules = append(b.Rules, &httpserver.Rule{
