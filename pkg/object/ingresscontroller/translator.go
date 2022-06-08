@@ -62,6 +62,30 @@ type (
 	}
 )
 
+func (b *httpServerSpecBuilder) sortRules() {
+	hostRules := []*httpserver.Rule{}
+	hostRegRules := []*httpserver.Rule{}
+	noHostRules := []*httpserver.Rule{}
+	for _, rule := range b.Rules {
+		if rule.Host != "" {
+			hostRules = append(hostRules, rule)
+		} else if rule.HostRegexp != "" {
+			hostRegRules = append(hostRegRules, rule)
+		} else {
+			noHostRules = append(noHostRules, rule)
+		}
+	}
+	sort.Slice(hostRules, func(i, j int) bool {
+		return hostRules[i].Host < hostRules[j].Host
+	})
+	sort.Slice(hostRegRules, func(i, j int) bool {
+		return hostRegRules[i].HostRegexp < hostRegRules[j].HostRegexp
+	})
+	newRules := append(hostRules, hostRegRules...)
+	newRules = append(newRules, noHostRules...)
+	b.Rules = newRules
+}
+
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
 		Kind: httppipeline.Kind,
@@ -388,22 +412,7 @@ func (st *specTranslator) translate() error {
 		}
 		st.translateIngressRules(b, ingress)
 	}
-	// sort rules, rules with Host first, then rules with HostRegexp, finally others
-	sort.Slice(b.Rules, func(i, j int) bool {
-		ri := b.Rules[i]
-		rj := b.Rules[j]
-		if ri.Host != "" {
-			return true
-		} else if rj.Host != "" {
-			return false
-		} else if ri.HostRegexp != "" {
-			return true
-		} else if rj.HostRegexp != "" {
-			return false
-		} else {
-			return true
-		}
-	})
+	b.sortRules()
 
 	if p := st.pipelines[defaultPipelineName]; p != nil {
 		b.Rules = append(b.Rules, &httpserver.Rule{
