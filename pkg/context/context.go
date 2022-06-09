@@ -27,7 +27,7 @@ import (
 )
 
 // DefaultNamespace is the name of the default namespace.
-const DefaultNamespace = "PIPELINE"
+const DefaultNamespace = "DEFAULT"
 
 // Handler is the common interface for all traffic handlers,
 // which handle the traffic represented by ctx.
@@ -125,12 +125,19 @@ func (ctx *Context) CopyRequest(ns string) {
 	if ns == ctx.activeNs {
 		return
 	}
-	req := ctx.requests[ns]
-	if req == nil {
+	rr := ctx.requests[ns]
+	if rr == nil {
 		return
 	}
-	req.counter++
-	ctx.requests[ctx.activeNs] = req
+	prev := ctx.requests[ctx.activeNs]
+	if prev != nil {
+		if prev == rr {
+			return
+		}
+		prev.release()
+	}
+	rr.counter++
+	ctx.requests[ctx.activeNs] = rr
 }
 
 // Requests returns all requests, the caller should NOT modify the
@@ -222,12 +229,19 @@ func (ctx *Context) CopyResponse(ns string) {
 	if ns == ctx.activeNs {
 		return
 	}
-	resp := ctx.responses[ns]
-	if resp == nil {
+	rr := ctx.responses[ns]
+	if rr == nil {
 		return
 	}
-	resp.counter++
-	ctx.responses[ctx.activeNs] = resp
+	prev := ctx.responses[ctx.activeNs]
+	if prev != nil {
+		if prev == rr {
+			return
+		}
+		prev.release()
+	}
+	rr.counter++
+	ctx.responses[ctx.activeNs] = rr
 }
 
 // Responses returns all responses.
