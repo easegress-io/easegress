@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
+	"io"
 	"math/rand"
 	"net/http"
 	"net/textproto"
