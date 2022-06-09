@@ -98,7 +98,7 @@ build_docker:
 
 test:
 	cd ${MKFILE_DIR}
-	go mod tidy
+	go mod tidy -compat=1.17
 	git diff --exit-code go.mod go.sum
 	go mod verify
 	go test -v ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
