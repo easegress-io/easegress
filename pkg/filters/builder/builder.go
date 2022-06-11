@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"bytes"
@@ -35,12 +35,12 @@ const (
 )
 
 type (
-	// HTTPBuilder is the base HTTP builder.
-	HTTPBuilder struct {
+	// Builder is the base HTTP builder.
+	Builder struct {
 		template *template.Template
 	}
 
-	// Spec is the spec of HTTPBuilder.
+	// Spec is the spec of Builder.
 	Spec struct {
 		LeftDelim       string `yaml:"leftDelim" jsonschema:"omitempty"`
 		RightDelim      string `yaml:"rightDelim" jsonschema:"omitempty"`
@@ -61,7 +61,7 @@ type (
 	}
 )
 
-// Validate validates the HTTPBuilder Spec.
+// Validate validates the Builder Spec.
 func (spec *Spec) Validate() error {
 	if spec.SourceNamespace == "" && spec.Template == "" {
 		return fmt.Errorf("sourceNamespace or template must be specified")
@@ -74,7 +74,7 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-func (b *HTTPBuilder) reload(spec *Spec) {
+func (b *Builder) reload(spec *Spec) {
 	if spec.SourceNamespace != "" {
 		return
 	}
@@ -84,7 +84,7 @@ func (b *HTTPBuilder) reload(spec *Spec) {
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
-func (b *HTTPBuilder) build(data map[string]interface{}, v interface{}) error {
+func (b *Builder) build(data map[string]interface{}, v interface{}) error {
 	var result bytes.Buffer
 
 	if err := b.template.Execute(&result, data); err != nil {
@@ -99,12 +99,12 @@ func (b *HTTPBuilder) build(data map[string]interface{}, v interface{}) error {
 }
 
 // Status returns status.
-func (b *HTTPBuilder) Status() interface{} {
+func (b *Builder) Status() interface{} {
 	return nil
 }
 
-// Close closes HTTPBuilder.
-func (b *HTTPBuilder) Close() {
+// Close closes Builder.
+func (b *Builder) Close() {
 }
 
 // RawBody returns the body as raw bytes.

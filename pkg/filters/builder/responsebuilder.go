@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"net/http"
@@ -28,35 +28,35 @@ import (
 )
 
 const (
-	// HTTPResponseBuilderKind is the kind of HTTPResponseBuilder.
-	HTTPResponseBuilderKind = "HTTPResponseBuilder"
+	// ResponseBuilderKind is the kind of ResponseBuilder.
+	ResponseBuilderKind = "ResponseBuilder"
 )
 
-var httpResponseBuilderKind = &filters.Kind{
-	Name:        HTTPResponseBuilderKind,
-	Description: "HTTPResponseBuilder builds an HTTP response",
+var responseBuilderKind = &filters.Kind{
+	Name:        ResponseBuilderKind,
+	Description: "ResponseBuilder builds a response",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &HTTPResponseBuilderSpec{}
+		return &ResponseBuilderSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &HTTPResponseBuilder{spec: spec.(*HTTPResponseBuilderSpec)}
+		return &ResponseBuilder{spec: spec.(*ResponseBuilderSpec)}
 	},
 }
 
 func init() {
-	filters.Register(httpResponseBuilderKind)
+	filters.Register(responseBuilderKind)
 }
 
 type (
-	// HTTPResponseBuilder is filter HTTPResponseBuilder.
-	HTTPResponseBuilder struct {
-		spec *HTTPResponseBuilderSpec
-		HTTPBuilder
+	// ResponseBuilder is filter ResponseBuilder.
+	ResponseBuilder struct {
+		spec *ResponseBuilderSpec
+		Builder
 	}
 
-	// HTTPResponseBuilderSpec is HTTPResponseBuilder Spec.
-	HTTPResponseBuilderSpec struct {
+	// ResponseBuilderSpec is ResponseBuilder Spec.
+	ResponseBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
 	}
@@ -69,37 +69,37 @@ type (
 	}
 )
 
-// Name returns the name of the HTTPResponseBuilder filter instance.
-func (rb *HTTPResponseBuilder) Name() string {
+// Name returns the name of the ResponseBuilder filter instance.
+func (rb *ResponseBuilder) Name() string {
 	return rb.spec.Name()
 }
 
-// Kind returns the kind of HTTPResponseBuilder.
-func (rb *HTTPResponseBuilder) Kind() *filters.Kind {
-	return httpResponseBuilderKind
+// Kind returns the kind of ResponseBuilder.
+func (rb *ResponseBuilder) Kind() *filters.Kind {
+	return responseBuilderKind
 }
 
-// Spec returns the spec used by the HTTPResponseBuilder
-func (rb *HTTPResponseBuilder) Spec() filters.Spec {
+// Spec returns the spec used by the ResponseBuilder
+func (rb *ResponseBuilder) Spec() filters.Spec {
 	return rb.spec
 }
 
-// Init initializes HTTPResponseBuilder.
-func (rb *HTTPResponseBuilder) Init() {
+// Init initializes ResponseBuilder.
+func (rb *ResponseBuilder) Init() {
 	rb.reload()
 }
 
-// Inherit inherits previous generation of HTTPResponseBuilder.
-func (rb *HTTPResponseBuilder) Inherit(previousGeneration filters.Filter) {
+// Inherit inherits previous generation of ResponseBuilder.
+func (rb *ResponseBuilder) Inherit(previousGeneration filters.Filter) {
 	rb.Init()
 }
 
-func (rb *HTTPResponseBuilder) reload() {
-	rb.HTTPBuilder.reload(&rb.spec.Spec)
+func (rb *ResponseBuilder) reload() {
+	rb.Builder.reload(&rb.spec.Spec)
 }
 
 // Handle builds request.
-func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
+func (rb *ResponseBuilder) Handle(ctx *context.Context) (result string) {
 	if rb.spec.SourceNamespace != "" {
 		ctx.CopyResponse(rb.spec.SourceNamespace)
 		return ""
@@ -121,7 +121,7 @@ func (rb *HTTPResponseBuilder) Handle(ctx *context.Context) (result string) {
 
 	var ri ResponseInfo
 	if err = rb.build(data, &ri); err != nil {
-		msgFmt := "HTTPResponseBuilder(%s): failed to build response info: %v"
+		msgFmt := "ResponseBuilder(%s): failed to build response info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}

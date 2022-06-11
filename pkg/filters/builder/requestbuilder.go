@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"net/http"
@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	// HTTPRequestBuilderKind is the kind of HTTPRequestBuilder.
-	HTTPRequestBuilderKind = "HTTPRequestBuilder"
+	// RequestBuilderKind is the kind of RequestBuilder.
+	RequestBuilderKind = "RequestBuilder"
 )
 
 var methods = map[string]struct{}{
@@ -45,31 +45,31 @@ var methods = map[string]struct{}{
 	http.MethodTrace:   {},
 }
 
-var httpRequestBuilderKind = &filters.Kind{
-	Name:        HTTPRequestBuilderKind,
-	Description: "HTTPRequestBuilder builds an HTTP request",
+var requestBuilderKind = &filters.Kind{
+	Name:        RequestBuilderKind,
+	Description: "RequestBuilder builds a request",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &HTTPRequestBuilderSpec{}
+		return &RequestBuilderSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &HTTPRequestBuilder{spec: spec.(*HTTPRequestBuilderSpec)}
+		return &RequestBuilder{spec: spec.(*RequestBuilderSpec)}
 	},
 }
 
 func init() {
-	filters.Register(httpRequestBuilderKind)
+	filters.Register(requestBuilderKind)
 }
 
 type (
-	// HTTPRequestBuilder is filter HTTPRequestBuilder.
-	HTTPRequestBuilder struct {
-		spec *HTTPRequestBuilderSpec
-		HTTPBuilder
+	// RequestBuilder is filter RequestBuilder.
+	RequestBuilder struct {
+		spec *RequestBuilderSpec
+		Builder
 	}
 
-	// HTTPRequestBuilderSpec is HTTPRequestBuilder Spec.
-	HTTPRequestBuilderSpec struct {
+	// RequestBuilderSpec is RequestBuilder Spec.
+	RequestBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
 	}
@@ -83,37 +83,37 @@ type (
 	}
 )
 
-// Name returns the name of the HTTPRequestBuilder filter instance.
-func (rb *HTTPRequestBuilder) Name() string {
+// Name returns the name of the RequestBuilder filter instance.
+func (rb *RequestBuilder) Name() string {
 	return rb.spec.Name()
 }
 
-// Kind returns the kind of HTTPRequestBuilder.
-func (rb *HTTPRequestBuilder) Kind() *filters.Kind {
-	return httpRequestBuilderKind
+// Kind returns the kind of RequestBuilder.
+func (rb *RequestBuilder) Kind() *filters.Kind {
+	return requestBuilderKind
 }
 
-// Spec returns the spec used by the HTTPRequestBuilder
-func (rb *HTTPRequestBuilder) Spec() filters.Spec {
+// Spec returns the spec used by the RequestBuilder
+func (rb *RequestBuilder) Spec() filters.Spec {
 	return rb.spec
 }
 
-// Init initializes HTTPRequestBuilder.
-func (rb *HTTPRequestBuilder) Init() {
+// Init initializes RequestBuilder.
+func (rb *RequestBuilder) Init() {
 	rb.reload()
 }
 
-// Inherit inherits previous generation of HTTPRequestBuilder.
-func (rb *HTTPRequestBuilder) Inherit(previousGeneration filters.Filter) {
+// Inherit inherits previous generation of RequestBuilder.
+func (rb *RequestBuilder) Inherit(previousGeneration filters.Filter) {
 	rb.Init()
 }
 
-func (rb *HTTPRequestBuilder) reload() {
-	rb.HTTPBuilder.reload(&rb.spec.Spec)
+func (rb *RequestBuilder) reload() {
+	rb.Builder.reload(&rb.spec.Spec)
 }
 
 // Handle builds request.
-func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
+func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 	if rb.spec.SourceNamespace != "" {
 		ctx.CopyRequest(rb.spec.SourceNamespace)
 		return ""
@@ -135,7 +135,7 @@ func (rb *HTTPRequestBuilder) Handle(ctx *context.Context) (result string) {
 
 	var ri RequestInfo
 	if err = rb.build(data, &ri); err != nil {
-		msgFmt := "HTTPRequestBuilder(%s): failed to build request info: %v"
+		msgFmt := "RequestBuilder(%s): failed to build request info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}

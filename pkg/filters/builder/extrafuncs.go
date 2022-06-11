@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"fmt"
