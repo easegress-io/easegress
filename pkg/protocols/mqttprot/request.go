@@ -171,3 +171,19 @@ func (r *Request) PayloadSize() int64 {
 // Close closes the request.
 func (r *Request) Close() {
 }
+
+// ToBuilderRequest wraps the request and returns the wrapper, the
+// return value can be used in the template of the Builder filters.
+func (r *Request) ToBuilderRequest(name string) interface{} {
+	panic("not implemented")
+}
+
+// NewRequestInfo returns a new requestInfo.
+func (p *Protocol) NewRequestInfo() interface{} {
+	panic("not implemented")
+}
+
+// BuildRequest builds and returns a request according to the given reqInfo.
+func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) {
+	panic("not implemented")
+}

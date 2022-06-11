@@ -67,6 +67,10 @@ type Request interface {
 	// out.
 	PayloadSize() int64
 
+	// ToBuilderRequest wraps the request and returns the wrapper, the
+	// return value can be used in the template of the Builder filters.
+	ToBuilderRequest(name string) interface{}
+
 	// Close closes the request.
 	Close()
 }
@@ -105,6 +109,10 @@ type Response interface {
 	// out.
 	PayloadSize() int64
 
+	// ToBuilderResponse wraps the response and returns the wrapper, the
+	// return value can be used in the template of the Builder filters.
+	ToBuilderResponse(name string) interface{}
+
 	// Close closes the response.
 	Close()
 }
@@ -124,4 +132,10 @@ type Header interface {
 type Protocol interface {
 	CreateRequest(req interface{}) (Request, error)
 	CreateResponse(resp interface{}) (Response, error)
+
+	NewRequestInfo() interface{}
+	BuildRequest(reqInfo interface{}) (Request, error)
+
+	NewResponseInfo() interface{}
+	BuildResponse(respInfo interface{}) (Response, error)
 }

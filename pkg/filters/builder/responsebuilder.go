@@ -18,13 +18,13 @@
 package builder
 
 import (
-	"net/http"
+	"fmt"
 	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols"
 )
 
 const (
@@ -37,7 +37,7 @@ var responseBuilderKind = &filters.Kind{
 	Description: "ResponseBuilder builds a response",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &ResponseBuilderSpec{}
+		return &ResponseBuilderSpec{Protocol: "http"}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
 		return &ResponseBuilder{spec: spec.(*ResponseBuilderSpec)}
@@ -59,15 +59,17 @@ type (
 	ResponseBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
-	}
-
-	// ResponseInfo stores the information of a response.
-	ResponseInfo struct {
-		StatusCode int                 `yaml:"statusCode" jsonshema:"omitempty"`
-		Headers    map[string][]string `yaml:"headers" jsonschema:"omitempty"`
-		Body       string              `yaml:"body" jsonschema:"omitempty"`
+		Protocol         string `yaml:"protocol" jsonschema:"omitempty"`
 	}
 )
+
+// Validate validates the ResponseBuilder Spec.
+func (spec *ResponseBuilderSpec) Validate() error {
+	if protocols.Get(spec.Protocol) == nil {
+		return fmt.Errorf("unknown protocol: %s", spec.Protocol)
+	}
+	return spec.Spec.Validate()
+}
 
 // Name returns the name of the ResponseBuilder filter instance.
 func (rb *ResponseBuilder) Name() string {
@@ -119,32 +121,19 @@ func (rb *ResponseBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	var ri ResponseInfo
-	if err = rb.build(data, &ri); err != nil {
+	p := protocols.Get(rb.spec.Protocol)
+	ri := p.NewResponseInfo()
+	if err = rb.build(data, ri); err != nil {
 		msgFmt := "ResponseBuilder(%s): failed to build response info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}
 
-	if ri.StatusCode == 0 {
-		ri.StatusCode = http.StatusOK
-	} else if ri.StatusCode < 200 || ri.StatusCode >= 600 {
-		logger.Warnf("invalid status code: %d", ri.StatusCode)
+	resp, err := p.BuildResponse(ri)
+	if err != nil {
+		logger.Warnf(err.Error())
 		return resultBuildErr
 	}
-
-	stdResp := &http.Response{Header: http.Header{}, Body: http.NoBody}
-	stdResp.StatusCode = ri.StatusCode
-
-	for k, vs := range ri.Headers {
-		for _, v := range vs {
-			stdResp.Header.Add(k, v)
-		}
-	}
-
-	// build body
-	resp, _ := httpprot.NewResponse(stdResp)
-	resp.SetPayload([]byte(ri.Body))
 
 	ctx.SetOutputResponse(resp)
 	return ""

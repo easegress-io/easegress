@@ -18,14 +18,13 @@
 package builder
 
 import (
-	"net/http"
+	"fmt"
 	"runtime/debug"
-	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols"
 )
 
 const (
@@ -33,24 +32,12 @@ const (
 	RequestBuilderKind = "RequestBuilder"
 )
 
-var methods = map[string]struct{}{
-	http.MethodGet:     {},
-	http.MethodHead:    {},
-	http.MethodPost:    {},
-	http.MethodPut:     {},
-	http.MethodPatch:   {},
-	http.MethodDelete:  {},
-	http.MethodConnect: {},
-	http.MethodOptions: {},
-	http.MethodTrace:   {},
-}
-
 var requestBuilderKind = &filters.Kind{
 	Name:        RequestBuilderKind,
 	Description: "RequestBuilder builds a request",
 	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
-		return &RequestBuilderSpec{}
+		return &RequestBuilderSpec{Protocol: "http"}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
 		return &RequestBuilder{spec: spec.(*RequestBuilderSpec)}
@@ -72,16 +59,17 @@ type (
 	RequestBuilderSpec struct {
 		filters.BaseSpec `yaml:",inline"`
 		Spec             `yaml:",inline"`
-	}
-
-	// RequestInfo stores the information of a request.
-	RequestInfo struct {
-		Method  string              `json:"method" jsonschema:"omitempty"`
-		URL     string              `json:"url" jsonschema:"omitempty"`
-		Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
-		Body    string              `yaml:"body" jsonschema:"omitempty"`
+		Protocol         string `yaml:"protocol" jsonschema:"omitempty"`
 	}
 )
+
+// Validate validates the RequestBuilder Spec.
+func (spec *RequestBuilderSpec) Validate() error {
+	if protocols.Get(spec.Protocol) == nil {
+		return fmt.Errorf("unknown protocol: %s", spec.Protocol)
+	}
+	return spec.Spec.Validate()
+}
 
 // Name returns the name of the RequestBuilder filter instance.
 func (rb *RequestBuilder) Name() string {
@@ -133,41 +121,19 @@ func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	var ri RequestInfo
-	if err = rb.build(data, &ri); err != nil {
+	p := protocols.Get(rb.spec.Protocol)
+	ri := p.NewRequestInfo()
+	if err = rb.build(data, ri); err != nil {
 		msgFmt := "RequestBuilder(%s): failed to build request info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
 		return resultBuildErr
 	}
 
-	if ri.URL == "" {
-		ri.URL = "/"
-	}
-
-	if ri.Method == "" {
-		ri.Method = http.MethodGet
-	} else {
-		ri.Method = strings.ToUpper(ri.Method)
-	}
-	if _, ok := methods[ri.Method]; !ok {
-		logger.Warnf("invalid method: %s", ri.Method)
-		return resultBuildErr
-	}
-
-	stdReq, err := http.NewRequest(ri.Method, ri.URL, http.NoBody)
+	req, err := p.BuildRequest(ri)
 	if err != nil {
-		logger.Warnf("failed to create new request: %v", err)
+		logger.Warnf(err.Error())
 		return resultBuildErr
 	}
-
-	for k, vs := range ri.Headers {
-		for _, v := range vs {
-			stdReq.Header.Add(k, v)
-		}
-	}
-
-	req, _ := httpprot.NewRequest(stdReq)
-	req.SetPayload([]byte(ri.Body))
 
 	ctx.SetOutputRequest(req)
 	return ""

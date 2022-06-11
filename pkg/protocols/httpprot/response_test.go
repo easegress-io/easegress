@@ -193,3 +193,36 @@ func TestResponse2(t *testing.T) {
 		resp.Close()
 	}
 }
+
+func TestBuilderResponse(t *testing.T) {
+	assert := assert.New(t)
+	r := &builderResponse{
+		Response: nil,
+		rawBody:  []byte("abc"),
+	}
+	assert.Equal([]byte("abc"), r.RawBody())
+	assert.Equal("abc", r.Body())
+	_, err := r.JSONBody()
+	assert.NotNil(err)
+
+	r = &builderResponse{
+		Response: nil,
+		rawBody:  []byte("123"),
+	}
+	_, err = r.JSONBody()
+	assert.Nil(err)
+
+	r = &builderResponse{
+		Response: nil,
+		rawBody:  []byte("{{{{{}"),
+	}
+	_, err = r.YAMLBody()
+	assert.NotNil(err)
+
+	r = &builderResponse{
+		Response: nil,
+		rawBody:  []byte("123"),
+	}
+	_, err = r.YAMLBody()
+	assert.Nil(err)
+}

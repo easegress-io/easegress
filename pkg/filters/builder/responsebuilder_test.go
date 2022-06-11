@@ -37,6 +37,7 @@ func init() {
 }
 
 func getResponseBuilder(spec *ResponseBuilderSpec) *ResponseBuilder {
+	spec.Protocol = "http"
 	rb := &ResponseBuilder{spec: spec}
 	rb.Init()
 	return rb
@@ -257,7 +258,7 @@ field2: value2
 func TestResponseBuilder(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.Equal(&ResponseBuilderSpec{}, responseBuilderKind.DefaultSpec())
+	assert.Equal(&ResponseBuilderSpec{Protocol: "http"}, responseBuilderKind.DefaultSpec())
 	yamlStr := `
 name: responseBuilder 
 kind: ResponseBuilder 

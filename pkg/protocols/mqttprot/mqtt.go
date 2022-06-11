@@ -15,17 +15,26 @@
  * limitations under the License.
  */
 
-package builder
+package mqttprot
 
-import (
-	"os"
-	"testing"
+import "github.com/megaease/easegress/pkg/protocols"
 
-	"github.com/megaease/easegress/pkg/logger"
-)
+func init() {
+	protocols.Register("mqtt", &Protocol{})
+}
 
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
+// Protocol implements protocols.Protocol for MQTT.
+type Protocol struct {
+}
+
+var _ protocols.Protocol = (*Protocol)(nil)
+
+// CreateRequest creates a new MQTT request.
+func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
+	panic("not implemented")
+}
+
+// CreateResponse creates a new MQTT response.
+func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
+	panic("not implemented")
 }

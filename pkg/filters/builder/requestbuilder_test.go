@@ -20,26 +20,19 @@ package builder
 import (
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
-}
-
 func getRequestBuilder(spec *RequestBuilderSpec) *RequestBuilder {
+	spec.Protocol = "http"
 	rb := &RequestBuilder{spec: spec}
 	rb.Init()
 	return rb
@@ -384,7 +377,7 @@ field2: value2
 func TestRequestBuilder(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.Equal(&RequestBuilderSpec{}, requestBuilderKind.DefaultSpec())
+	assert.Equal(&RequestBuilderSpec{Protocol: "http"}, requestBuilderKind.DefaultSpec())
 	yamlStr := `
 name: requestBuilder 
 kind: RequestBuilder

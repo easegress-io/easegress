@@ -19,14 +19,11 @@ package builder
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"text/template"
 
 	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,18 +43,6 @@ type (
 		RightDelim      string `yaml:"rightDelim" jsonschema:"omitempty"`
 		SourceNamespace string `yaml:"sourceNamespace" jsonschema:"omitempty"`
 		Template        string `yaml:"template" jsonschema:"omitempty"`
-	}
-
-	request struct {
-		*http.Request
-		rawBody    []byte
-		parsedBody interface{}
-	}
-
-	response struct {
-		*http.Response
-		rawBody    []byte
-		parsedBody interface{}
 	}
 )
 
@@ -107,113 +92,16 @@ func (b *Builder) Status() interface{} {
 func (b *Builder) Close() {
 }
 
-// RawBody returns the body as raw bytes.
-func (r *request) RawBody() []byte {
-	return r.rawBody
-}
-
-// Body returns the body as a string.
-func (r *request) Body() string {
-	return string(r.rawBody)
-}
-
-// JSONBody parses the body as a JSON object and returns the result.
-// The function only parses the body if it is not already parsed.
-func (r *request) JSONBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		err := json.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
-	}
-	return r.parsedBody, nil
-}
-
-// YAMLBody parses the body as a YAML object and returns the result.
-// The function only parses the body if it is not already parsed.
-func (r *request) YAMLBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		err := yaml.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
-	}
-	return r.parsedBody, nil
-}
-
-// RawBody returns the body as raw bytes.
-func (r *response) RawBody() []byte {
-	return r.rawBody
-}
-
-// Body returns the body as a string.
-func (r *response) Body() string {
-	return string(r.rawBody)
-}
-
-// JSONBody parses the body as a JSON object and returns the result.
-// The function only parses the body if it is not already parsed.
-func (r *response) JSONBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		err := json.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
-	}
-	return r.parsedBody, nil
-}
-
-// YAMLBody parses the body as a YAML object and returns the result.
-// The function only parses the body if it is not already parsed.
-func (r *response) YAMLBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		fmt.Printf("rawbody %v", string(r.rawBody))
-		err := yaml.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
-	}
-	return r.parsedBody, nil
-}
-
 func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
-	var rawBody []byte
-
-	requests := make(map[string]*request)
-	responses := make(map[string]*response)
+	requests := make(map[string]interface{})
+	responses := make(map[string]interface{})
 
 	for k, v := range ctx.Requests() {
-		req := v.(*httpprot.Request)
-		if req.IsStream() {
-			rawBody = []byte(fmt.Sprintf("the body of request %s is a stream", k))
-		} else {
-			rawBody = req.RawPayload()
-		}
-		requests[k] = &request{
-			Request: req.Std(),
-			rawBody: rawBody,
-		}
+		requests[k] = v.ToBuilderRequest(k)
 	}
 
 	for k, v := range ctx.Responses() {
-		resp := v.(*httpprot.Response)
-		if resp.IsStream() {
-			rawBody = []byte(fmt.Sprintf("the body of response %s is a stream", k))
-		} else {
-			rawBody = resp.RawPayload()
-		}
-		responses[k] = &response{
-			Response: resp.Std(),
-			rawBody:  rawBody,
-		}
+		responses[k] = v.ToBuilderResponse(k)
 	}
 
 	return map[string]interface{}{
