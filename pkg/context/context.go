@@ -75,7 +75,7 @@ type Context struct {
 	requests  map[string]*requestRef
 	responses map[string]*responseRef
 
-	kv          map[interface{}]interface{}
+	data        map[string]interface{}
 	finishFuncs []func()
 }
 
@@ -86,7 +86,7 @@ func New(span tracing.Span) *Context {
 		activeNs:  DefaultNamespace,
 		requests:  map[string]*requestRef{},
 		responses: map[string]*responseRef{},
-		kv:        map[interface{}]interface{}{},
+		data:      map[string]interface{}{},
 	}
 	return ctx
 }
@@ -318,14 +318,19 @@ func (ctx *Context) SetInputResponse(resp protocols.Response) {
 	ctx.SetResponse(ctx.activeNs, resp)
 }
 
-// SetKV sets the value of key to val.
-func (ctx *Context) SetKV(key, val interface{}) {
-	ctx.kv[key] = val
+// Data returns all data that stored in the context.
+func (ctx *Context) Data() map[string]interface{} {
+	return ctx.data
 }
 
-// GetKV returns the value of key.
-func (ctx *Context) GetKV(key interface{}) interface{} {
-	return ctx.kv[key]
+// SetData sets the data of key to val.
+func (ctx *Context) SetData(key string, val interface{}) {
+	ctx.data[key] = val
+}
+
+// GetData returns the data of key.
+func (ctx *Context) GetData(key string) interface{} {
+	return ctx.data[key]
 }
 
 // Tags joins all tags into a string and returns it.

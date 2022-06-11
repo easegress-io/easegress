@@ -155,19 +155,19 @@ func (k *Kafka) Handle(ctx *context.Context) string {
 
 	// set data from kv map
 	if k.topicKey != "" {
-		topic, ok = ctx.GetKV(k.topicKey).(string)
+		topic, ok = ctx.GetData(k.topicKey).(string)
 		if !ok {
 			return resultGetDataFailed
 		}
 	}
 	if k.headerKey != "" {
-		headers, ok = ctx.GetKV(k.headerKey).(map[string]string)
+		headers, ok = ctx.GetData(k.headerKey).(map[string]string)
 		if !ok {
 			return resultGetDataFailed
 		}
 	}
 	if k.payloadKey != "" {
-		payload, ok = ctx.GetKV(k.payloadKey).([]byte)
+		payload, ok = ctx.GetData(k.payloadKey).([]byte)
 		if !ok {
 			return resultGetDataFailed
 		}
