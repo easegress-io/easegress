@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"io"
@@ -36,8 +36,9 @@ func init() {
 	logger.InitMock()
 }
 
-func getResponseBuilder(spec *HTTPResponseBuilderSpec) *HTTPResponseBuilder {
-	rb := &HTTPResponseBuilder{spec: spec}
+func getResponseBuilder(spec *ResponseBuilderSpec) *ResponseBuilder {
+	spec.Protocol = "http"
+	rb := &ResponseBuilder{spec: spec}
 	rb.Init()
 	return rb
 }
@@ -57,7 +58,7 @@ func TestStatusCode(t *testing.T) {
   statusCode: 200
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -76,7 +77,7 @@ func TestStatusCode(t *testing.T) {
   statusCode: {{.responses.response1.StatusCode}}
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -105,7 +106,7 @@ func TestResponseHeader(t *testing.T) {
     "X-Response": [{{index (index .responses.response1.Header "X-Response") 0}}]
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -142,7 +143,7 @@ func TestResponseBody(t *testing.T) {
   body: body
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -163,7 +164,7 @@ func TestResponseBody(t *testing.T) {
   body: body {{ .requests.request1.Body }}
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -188,7 +189,7 @@ func TestResponseBody(t *testing.T) {
   body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -213,7 +214,7 @@ func TestResponseBody(t *testing.T) {
   body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -241,7 +242,7 @@ field2: value2
   statusCode: 800
 `
 	{
-		spec := &HTTPResponseBuilderSpec{}
+		spec := &ResponseBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
@@ -254,13 +255,13 @@ field2: value2
 	}
 }
 
-func TestHTTPResponseBuilder(t *testing.T) {
+func TestResponseBuilder(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.Equal(&HTTPResponseBuilderSpec{}, httpResponseBuilderKind.DefaultSpec())
+	assert.Equal(&ResponseBuilderSpec{Protocol: "http"}, responseBuilderKind.DefaultSpec())
 	yamlStr := `
 name: responseBuilder 
-kind: HTTPResponseBuilder 
+kind: ResponseBuilder 
 template: |
   statusCode: 200 
 `
@@ -268,13 +269,13 @@ template: |
 	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
-	responseBuilder := httpResponseBuilderKind.CreateInstance(spec).(*HTTPResponseBuilder)
+	responseBuilder := responseBuilderKind.CreateInstance(spec).(*ResponseBuilder)
 	assert.Equal("responseBuilder", responseBuilder.Name())
-	assert.Equal(httpResponseBuilderKind, responseBuilder.Kind())
+	assert.Equal(responseBuilderKind, responseBuilder.Kind())
 	assert.Equal(spec, responseBuilder.Spec())
 	responseBuilder.Init()
 
-	newResponseBuilder := httpResponseBuilderKind.CreateInstance(spec)
+	newResponseBuilder := responseBuilderKind.CreateInstance(spec)
 	newResponseBuilder.Inherit(responseBuilder)
 	assert.Nil(newResponseBuilder.Status())
 }

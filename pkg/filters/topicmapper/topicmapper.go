@@ -108,7 +108,7 @@ func (k *TopicMapper) Handle(ctx *context.Context) string {
 
 		return resultMQTTTopicMapFailed
 	}
-	ctx.SetKV(k.spec.SetKV.Topic, topic)
-	ctx.SetKV(k.spec.SetKV.Headers, headers)
+	ctx.SetData(k.spec.SetKV.Topic, topic)
+	ctx.SetData(k.spec.SetKV.Headers, headers)
 	return ""
 }

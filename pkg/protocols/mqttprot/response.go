@@ -101,3 +101,19 @@ func (r *Response) PayloadSize() int64 {
 // Close closes the response.
 func (r *Response) Close() {
 }
+
+// ToBuilderResponse wraps the response and returns the wrapper, the
+// return value can be used in the template of the Builder filters.
+func (r *Response) ToBuilderResponse(name string) interface{} {
+	panic("not implemented")
+}
+
+// NewResponseInfo returns a new responseInfo.
+func (p *Protocol) NewResponseInfo() interface{} {
+	panic("not implemented")
+}
+
+// BuildResponse builds and returns a response according to the given respInfo.
+func (p *Protocol) BuildResponse(respInfo interface{}) (protocols.Response, error) {
+	panic("not implemented")
+}

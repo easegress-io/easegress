@@ -20,13 +20,13 @@ package registry
 import (
 
 	// Filters
+	_ "github.com/megaease/easegress/pkg/filters/builder"
 	_ "github.com/megaease/easegress/pkg/filters/certextractor"
 	_ "github.com/megaease/easegress/pkg/filters/connectcontrol"
 	_ "github.com/megaease/easegress/pkg/filters/corsadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/fallback"
 	_ "github.com/megaease/easegress/pkg/filters/headerlookup"
 	_ "github.com/megaease/easegress/pkg/filters/headertojson"
-	_ "github.com/megaease/easegress/pkg/filters/httpbuilder"
 
 	_ "github.com/megaease/easegress/pkg/filters/kafka"
 	_ "github.com/megaease/easegress/pkg/filters/kafkabackend"

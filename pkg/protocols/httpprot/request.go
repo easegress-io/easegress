@@ -20,14 +20,17 @@ package httpprot
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/tomasen/realip"
+	"gopkg.in/yaml.v3"
 )
 
 // Request wraps http.Request.
@@ -45,10 +48,24 @@ type Request struct {
 	realIP  string
 }
 
-// ErrRequestEntityTooLarge means the request entity is too large.
-var ErrRequestEntityTooLarge = fmt.Errorf("request entity too large")
+var (
+	// ErrRequestEntityTooLarge means the request entity is too large.
+	ErrRequestEntityTooLarge = fmt.Errorf("request entity too large")
 
-var _ protocols.Request = (*Request)(nil)
+	methods = map[string]struct{}{
+		http.MethodGet:     {},
+		http.MethodHead:    {},
+		http.MethodPost:    {},
+		http.MethodPut:     {},
+		http.MethodPatch:   {},
+		http.MethodDelete:  {},
+		http.MethodConnect: {},
+		http.MethodOptions: {},
+		http.MethodTrace:   {},
+	}
+
+	_ protocols.Request = (*Request)(nil)
+)
 
 // NewRequest creates a new request from a standard request. If stdr is not
 // nil, FetchPayload must be called before any read of the request body.
@@ -188,6 +205,23 @@ func (r *Request) PayloadSize() int64 {
 	return int64(r.stream.BytesRead())
 }
 
+// ToBuilderRequest wraps the request and returns the wrapper, the
+// return value can be used in the template of the Builder filters.
+func (r *Request) ToBuilderRequest(name string) interface{} {
+	var rawBody []byte
+
+	if r.IsStream() {
+		rawBody = []byte(fmt.Sprintf("the body of request %q is a stream", name))
+	} else {
+		rawBody = r.RawPayload()
+	}
+
+	return &builderRequest{
+		Request: r.Std(),
+		rawBody: rawBody,
+	}
+}
+
 // Close closes the request.
 func (r *Request) Close() {
 	if r.stream != nil {
@@ -325,4 +359,100 @@ func (r *Request) Path() string {
 // SetPath sets path of the request.
 func (r *Request) SetPath(path string) {
 	r.Std().URL.Path = path
+}
+
+// builderRequest is a wrapper of http.Request which can be used in the
+// template of the Builder filters.
+type builderRequest struct {
+	*http.Request
+	rawBody    []byte
+	parsedBody interface{}
+}
+
+// RawBody returns the body as raw bytes.
+func (r *builderRequest) RawBody() []byte {
+	return r.rawBody
+}
+
+// Body returns the body as a string.
+func (r *builderRequest) Body() string {
+	return string(r.rawBody)
+}
+
+// JSONBody parses the body as a JSON object and returns the result.
+// The function only parses the body if it is not already parsed.
+func (r *builderRequest) JSONBody() (interface{}, error) {
+	if r.parsedBody == nil {
+		var v interface{}
+		err := json.Unmarshal(r.rawBody, &v)
+		if err != nil {
+			return nil, err
+		}
+		r.parsedBody = v
+	}
+	return r.parsedBody, nil
+}
+
+// YAMLBody parses the body as a YAML object and returns the result.
+// The function only parses the body if it is not already parsed.
+func (r *builderRequest) YAMLBody() (interface{}, error) {
+	if r.parsedBody == nil {
+		var v interface{}
+		err := yaml.Unmarshal(r.rawBody, &v)
+		if err != nil {
+			return nil, err
+		}
+		r.parsedBody = v
+	}
+	return r.parsedBody, nil
+}
+
+// requestInfo stores the information of a request.
+type requestInfo struct {
+	Method  string              `json:"method" jsonschema:"omitempty"`
+	URL     string              `json:"url" jsonschema:"omitempty"`
+	Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
+	Body    string              `yaml:"body" jsonschema:"omitempty"`
+}
+
+// NewRequestInfo returns a new requestInfo.
+func (p *Protocol) NewRequestInfo() interface{} {
+	return &requestInfo{}
+}
+
+// BuildRequest builds and returns a request according to the given reqInfo.
+func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) {
+	ri, ok := reqInfo.(*requestInfo)
+	if !ok {
+		return nil, fmt.Errorf("invalid request info type: %T", reqInfo)
+	}
+
+	if ri.URL == "" {
+		ri.URL = "/"
+	}
+
+	if ri.Method == "" {
+		ri.Method = http.MethodGet
+	} else {
+		ri.Method = strings.ToUpper(ri.Method)
+	}
+	if _, ok := methods[ri.Method]; !ok {
+		return nil, fmt.Errorf("invalid method: %s", ri.Method)
+	}
+
+	stdReq, err := http.NewRequest(ri.Method, ri.URL, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new request: %v", err)
+	}
+
+	for k, vs := range ri.Headers {
+		for _, v := range vs {
+			stdReq.Header.Add(k, v)
+		}
+	}
+
+	req, _ := NewRequest(stdReq)
+	req.SetPayload([]byte(ri.Body))
+
+	return req, nil
 }

@@ -15,32 +15,25 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/yamltool"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
 
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
-}
-
-func getRequestBuilder(spec *HTTPRequestBuilderSpec) *HTTPRequestBuilder {
-	rb := &HTTPRequestBuilder{spec: spec}
+func getRequestBuilder(spec *RequestBuilderSpec) *RequestBuilder {
+	spec.Protocol = "http"
+	rb := &RequestBuilder{spec: spec}
 	rb.Init()
 	return rb
 }
@@ -55,7 +48,7 @@ func TestMethod(t *testing.T) {
   url: /
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -79,7 +72,7 @@ func TestMethod(t *testing.T) {
   url: /
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -104,7 +97,7 @@ func TestMethod(t *testing.T) {
 `
 	{
 
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -124,7 +117,7 @@ func TestURL(t *testing.T) {
   url:  http://www.facebook.com?field1={{index .requests.request1.URL.Query.field2 0}}
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -149,7 +142,7 @@ func TestURL(t *testing.T) {
   url:  http://www.facebook.com
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -181,7 +174,7 @@ func TestRequestHeader(t *testing.T) {
     "X-Response": [{{index (index .responses.response1.Header "X-Response") 0}}]
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -221,7 +214,7 @@ func TestRequestBody(t *testing.T) {
   body: body
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -247,7 +240,7 @@ func TestRequestBody(t *testing.T) {
   body: body {{ .requests.request1.Body }}
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -274,7 +267,7 @@ func TestRequestBody(t *testing.T) {
   body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -301,7 +294,7 @@ func TestRequestBody(t *testing.T) {
   body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -329,7 +322,7 @@ field2: value2
   url:  http://www.facebook.com
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -348,7 +341,7 @@ field2: value2
   method: delete 
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -368,7 +361,7 @@ field2: value2
   url: http://192.168.0.%31:8080/
 `
 	{
-		spec := &HTTPRequestBuilderSpec{}
+		spec := &RequestBuilderSpec{}
 		yaml.Unmarshal([]byte(yml), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
@@ -381,13 +374,13 @@ field2: value2
 	}
 }
 
-func TestHTTPRequestBuilder(t *testing.T) {
+func TestRequestBuilder(t *testing.T) {
 	assert := assert.New(t)
 
-	assert.Equal(&HTTPRequestBuilderSpec{}, httpRequestBuilderKind.DefaultSpec())
+	assert.Equal(&RequestBuilderSpec{Protocol: "http"}, requestBuilderKind.DefaultSpec())
 	yamlStr := `
 name: requestBuilder 
-kind: HTTPRequestBuilder
+kind: RequestBuilder
 template: |
   method: Delete
 `
@@ -395,13 +388,13 @@ template: |
 	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
-	requestBuilder := httpRequestBuilderKind.CreateInstance(spec).(*HTTPRequestBuilder)
+	requestBuilder := requestBuilderKind.CreateInstance(spec).(*RequestBuilder)
 	assert.Equal("requestBuilder", requestBuilder.Name())
-	assert.Equal(httpRequestBuilderKind, requestBuilder.Kind())
+	assert.Equal(requestBuilderKind, requestBuilder.Kind())
 	assert.Equal(spec, requestBuilder.Spec())
 	requestBuilder.Init()
 
-	newRequestBuilder := httpRequestBuilderKind.CreateInstance(spec)
+	newRequestBuilder := requestBuilderKind.CreateInstance(spec)
 	newRequestBuilder.Inherit(requestBuilder)
 	assert.Nil(newRequestBuilder.Status())
 }

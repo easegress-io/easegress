@@ -340,8 +340,14 @@ func TestCleanSession(t *testing.T) {
 	// client that not set cleanSession, getMQTTClient last parameter set to false
 	cid = "notCleanSessionClient"
 	client = getMQTTClient(t, cid, "test", "test", false)
+	if err := checkSessionStore(broker, cid, ""); err != nil {
+		t.Fatal(err)
+	}
 	if token := client.Subscribe("test/cleanSession/0", 0, nil); token.Wait() && token.Error() != nil {
 		t.Errorf("subscribe qos0 error %s", token.Error())
+	}
+	if err := checkSessionStore(broker, cid, "test/cleanSession/0"); err != nil {
+		t.Fatal(err)
 	}
 
 	// make sure before disconnect, session and subscribe topic has been stored in storage

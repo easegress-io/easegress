@@ -15,43 +15,17 @@
  * limitations under the License.
  */
 
-package httpbuilder
+package builder
 
 import (
+	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/megaease/easegress/pkg/logger"
 )
 
-func TestBuilderResponseBody(t *testing.T) {
-	assert := assert.New(t)
-	r := &response{
-		Response: nil,
-		rawBody:  []byte("abc"),
-	}
-	assert.Equal([]byte("abc"), r.RawBody())
-	assert.Equal("abc", r.Body())
-	_, err := r.JSONBody()
-	assert.NotNil(err)
-
-	r = &response{
-		Response: nil,
-		rawBody:  []byte("123"),
-	}
-	_, err = r.JSONBody()
-	assert.Nil(err)
-
-	r = &response{
-		Response: nil,
-		rawBody:  []byte("{{{{{}"),
-	}
-	_, err = r.YAMLBody()
-	assert.NotNil(err)
-
-	r = &response{
-		Response: nil,
-		rawBody:  []byte("123"),
-	}
-	_, err = r.YAMLBody()
-	assert.Nil(err)
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
 }

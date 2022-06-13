@@ -19,6 +19,7 @@ package httpprot
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
+	"gopkg.in/yaml.v3"
 )
 
 // Response wraps http.Response.
@@ -188,6 +190,23 @@ func (r *Response) PayloadSize() int64 {
 	return int64(r.stream.BytesRead())
 }
 
+// ToBuilderResponse wraps the response and returns the wrapper, the
+// return value can be used in the template of the Builder filters.
+func (r *Response) ToBuilderResponse(name string) interface{} {
+	var rawBody []byte
+
+	if r.IsStream() {
+		rawBody = []byte(fmt.Sprintf("the body of response %q is a stream", name))
+	} else {
+		rawBody = r.RawPayload()
+	}
+
+	return &builderResponse{
+		Response: r.Std(),
+		rawBody:  rawBody,
+	}
+}
+
 // Std returns the underlying http.Response.
 func (r *Response) Std() *http.Response {
 	return r.Response
@@ -266,4 +285,91 @@ func (r *Response) Close() {
 		r.stream.Close()
 	}
 	r.Std().Body.Close()
+}
+
+// builderResponse is a wrapper of http.Response which can be used in the
+// template of the Builder filters.
+type builderResponse struct {
+	*http.Response
+	rawBody    []byte
+	parsedBody interface{}
+}
+
+// RawBody returns the body as raw bytes.
+func (r *builderResponse) RawBody() []byte {
+	return r.rawBody
+}
+
+// Body returns the body as a string.
+func (r *builderResponse) Body() string {
+	return string(r.rawBody)
+}
+
+// JSONBody parses the body as a JSON object and returns the result.
+// The function only parses the body if it is not already parsed.
+func (r *builderResponse) JSONBody() (interface{}, error) {
+	if r.parsedBody == nil {
+		var v interface{}
+		err := json.Unmarshal(r.rawBody, &v)
+		if err != nil {
+			return nil, err
+		}
+		r.parsedBody = v
+	}
+	return r.parsedBody, nil
+}
+
+// YAMLBody parses the body as a YAML object and returns the result.
+// The function only parses the body if it is not already parsed.
+func (r *builderResponse) YAMLBody() (interface{}, error) {
+	if r.parsedBody == nil {
+		var v interface{}
+		err := yaml.Unmarshal(r.rawBody, &v)
+		if err != nil {
+			return nil, err
+		}
+		r.parsedBody = v
+	}
+	return r.parsedBody, nil
+}
+
+// responseInfo stores the information of a response.
+type responseInfo struct {
+	StatusCode int                 `yaml:"statusCode" jsonshema:"omitempty"`
+	Headers    map[string][]string `yaml:"headers" jsonschema:"omitempty"`
+	Body       string              `yaml:"body" jsonschema:"omitempty"`
+}
+
+// NewResponseInfo returns a new responseInfo.
+func (p *Protocol) NewResponseInfo() interface{} {
+	return &responseInfo{}
+}
+
+// BuildResponse builds and returns a response according to the given respInfo.
+func (p *Protocol) BuildResponse(respInfo interface{}) (protocols.Response, error) {
+	ri, ok := respInfo.(*responseInfo)
+	if !ok {
+		return nil, fmt.Errorf("invalid response info type: %T", respInfo)
+	}
+
+	if ri.StatusCode == 0 {
+		ri.StatusCode = http.StatusOK
+	} else if ri.StatusCode < 200 || ri.StatusCode >= 600 {
+		return nil, fmt.Errorf("invalid status code: %d", ri.StatusCode)
+	}
+
+	stdResp := &http.Response{Header: http.Header{}, Body: http.NoBody}
+	stdResp.StatusCode = ri.StatusCode
+
+	for k, vs := range ri.Headers {
+		for _, v := range vs {
+			stdResp.Header.Add(k, v)
+		}
+	}
+
+	// build body
+	resp, _ := NewResponse(stdResp)
+	resp.SetPayload([]byte(ri.Body))
+
+	return resp, nil
 }

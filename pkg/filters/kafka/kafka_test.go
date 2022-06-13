@@ -138,8 +138,8 @@ func TestKafkaWithKVMap(t *testing.T) {
 	defer kafka.Close()
 
 	mqttCtx := newContext("test", "a/b/c", []byte("text"))
-	mqttCtx.SetKV("topic", "123")
-	mqttCtx.SetKV("headers", map[string]string{"1": "a"})
+	mqttCtx.SetData("topic", "123")
+	mqttCtx.SetData("headers", map[string]string{"1": "a"})
 
 	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
