@@ -76,9 +76,9 @@ func TestLayout(t *testing.T) {
 	assert.True(strings.Contains(statusObjectName, "test-kind"))
 	assert.True(strings.Contains(statusObjectName, "test-name"))
 
-	statusNamespaceFormat := l.StatusNamespaceFormat("test-ns", "test-name")
-	assert.True(strings.Contains(statusNamespaceFormat, "test-ns"))
-	assert.True(strings.Contains(statusNamespaceFormat, "test-name"))
+	fullName := l.FullObjectName("test-ns", "test-name")
+	assert.True(strings.Contains(fullName, "test-ns"))
+	assert.True(strings.Contains(fullName, "test-name"))
 
 	assert.Equal(customDataPrefix, l.CustomDataPrefix())
 	assert.Equal(customDataKindPrefix, l.CustomDataKindPrefix())

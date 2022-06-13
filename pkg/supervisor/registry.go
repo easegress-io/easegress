@@ -148,6 +148,7 @@ func ObjectKinds() []string {
 	return kinds
 }
 
+// TrafficObjectKinds is a map that contains all kinds of TrafficObject.
 var TrafficObjectKinds = make(map[string]struct{})
 
 // Register registers object.

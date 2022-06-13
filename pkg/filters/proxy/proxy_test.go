@@ -138,7 +138,7 @@ compression:
 
 	// direct set fnSendRequest to different function will cause data race since we use goroutine
 	// for mirror.
-	var fnKind int32 = 0
+	var fnKind int32
 	fnSendRequest = func(r *http.Request, client *http.Client) (*http.Response, error) {
 		kind := atomic.LoadInt32(&fnKind)
 		switch kind {

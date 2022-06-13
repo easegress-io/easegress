@@ -298,8 +298,6 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 				return false
 			}
 		}
-
-		return true
 	} else {
 		for _, h := range mp.headers {
 			v := r.HTTPHeader().Get(h.Key)
@@ -311,9 +309,9 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 				return true
 			}
 		}
-
-		return false
 	}
+
+	return mp.mathAllHeader
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
