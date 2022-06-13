@@ -167,7 +167,7 @@ func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
 }
 
 func (s *Server) _getStatusObjectFromDefaultNamespace(name string) map[string]string {
-	key := s.cluster.Layout().StatusNamespaceFormat(rawconfigtrafficcontroller.DefaultNamespace, name)
+	key := s.cluster.Layout().FullObjectName(rawconfigtrafficcontroller.DefaultNamespace, name)
 	prefix := s.cluster.Layout().StatusObjectPrefix(key)
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {

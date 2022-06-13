@@ -18,7 +18,6 @@
 package registry
 
 import (
-
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filters/builder"
 	_ "github.com/megaease/easegress/pkg/filters/certextractor"
@@ -27,19 +26,16 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/fallback"
 	_ "github.com/megaease/easegress/pkg/filters/headerlookup"
 	_ "github.com/megaease/easegress/pkg/filters/headertojson"
-
 	_ "github.com/megaease/easegress/pkg/filters/kafka"
 	_ "github.com/megaease/easegress/pkg/filters/kafkabackend"
 	_ "github.com/megaease/easegress/pkg/filters/meshadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/mock"
-
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	_ "github.com/megaease/easegress/pkg/filters/proxy"
 	_ "github.com/megaease/easegress/pkg/filters/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filters/remotefilter"
 	_ "github.com/megaease/easegress/pkg/filters/requestadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/responseadaptor"
-
 	_ "github.com/megaease/easegress/pkg/filters/topicmapper"
 	_ "github.com/megaease/easegress/pkg/filters/validator"
 	_ "github.com/megaease/easegress/pkg/filters/wasmhost"
@@ -55,7 +51,6 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	_ "github.com/megaease/easegress/pkg/object/ingresscontroller"
 	_ "github.com/megaease/easegress/pkg/object/meshcontroller"
-
 	_ "github.com/megaease/easegress/pkg/object/mqttproxy"
 	_ "github.com/megaease/easegress/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/pkg/object/pipeline"

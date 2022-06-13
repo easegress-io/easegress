@@ -27,8 +27,7 @@ const (
 	statusMemberPrefix       = "/status/members/"
 	statusMemberFormat       = "/status/members/%s" // +memberName
 	statusObjectPrefix       = "/status/objects/"
-	statusObjectNameFormat   = "%s-%s"
-	statusNamespaceFormat    = "%s/%s"
+	statusObjectNameFormat   = "%s-%s"                 // +kind + name
 	statusObjectPrefixFormat = "/status/objects/%s/"   // +objectName
 	statusObjectFormat       = "/status/objects/%s/%s" // +objectName +memberName
 	configObjectPrefix       = "/config/objects/"
@@ -38,6 +37,7 @@ const (
 	wasmDataPrefixFormat     = "/wasm/data/%s/%s/" // + pipelineName + filterName
 	customDataKindPrefix     = "/custom-data-kinds/"
 	customDataPrefix         = "/custom-data/"
+	fullObjectNameFormat     = "%s/%s" // +namespace + name
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
@@ -103,12 +103,13 @@ func (l *Layout) StatusObjectPrefix(name string) string {
 }
 
 // StatusObjectName returns the name of the status object.
-func (l *Layout) StatusObjectName(kind string, specName string) string {
-	return fmt.Sprintf(statusObjectNameFormat, kind, specName)
+func (l *Layout) StatusObjectName(kind string, name string) string {
+	return fmt.Sprintf(statusObjectNameFormat, kind, name)
 }
 
-func (l *Layout) StatusNamespaceFormat(namespace string, specName string) string {
-	return fmt.Sprintf(statusNamespaceFormat, namespace, specName)
+// FullObjectName returns the full object name.
+func (l *Layout) FullObjectName(namespace string, name string) string {
+	return fmt.Sprintf(fullObjectNameFormat, namespace, name)
 }
 
 // StatusObjectKey returns the key of object status.
