@@ -387,14 +387,41 @@ func (st *specTranslator) translate() error {
 		st.translateIngressRules(b, ingress)
 	}
 
+	// sort rules by host
+	// * precise hosts first(in alphabetical order)
+	// * wildcard hosts next(in alphabetical order)
+	// * empty host last
+	sort.Slice(b.Rules, func(i, j int) bool {
+		r1, r2 := b.Rules[i], b.Rules[j]
+
+		if r1.Host != "" {
+			if r2.Host == "" {
+				return true
+			}
+			return r1.Host < r2.Host
+		}
+		if r2.Host != "" {
+			return false
+		}
+
+		if r1.HostRegexp == "" {
+			return false
+		}
+		if r2.HostRegexp == "" {
+			return true
+		}
+		return r1.HostRegexp < r2.HostRegexp
+	})
+
 	if p := st.pipelines[defaultPipelineName]; p != nil {
-		b.Rules = append(b.Rules, &httpserver.Rule{
-			Paths: []*httpserver.Path{
-				{
-					Backend:    defaultPipelineName,
-					PathPrefix: "/",
-				},
-			},
+		r := b.Rules[len(b.Rules)-1]
+		if r.Host != "" || r.HostRegexp != "" {
+			r = &httpserver.Rule{}
+			b.Rules = append(b.Rules, r)
+		}
+		r.Paths = append(r.Paths, &httpserver.Path{
+			Backend:    defaultPipelineName,
+			PathPrefix: "/",
 		})
 	}
 
