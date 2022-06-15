@@ -234,8 +234,8 @@ func (opt *Options) Parse() (string, error) {
 	if opt.UseStandaloneEtcd {
 		opt.ClusterRole = "secondary" // when using external standalone etcd, the cluster role cannot be "primary"
 	}
-	if len(opt.Cluster.InitialCluster) == 0 {
-		opt.Cluster.InitialCluster = map[string]string{"eg-default-name": "http://localhost:2380"}
+	if opt.ClusterRole == "primary" && len(opt.Cluster.InitialCluster) == 0 {
+		opt.Cluster.InitialCluster = map[string]string{opt.Name: opt.InitialAdvertisePeerURLs[0]} 
 	}
 
 	err = opt.validate()
