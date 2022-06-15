@@ -113,13 +113,9 @@ func addClusterVars(opt *Options) {
 	opt.flags.StringSliceVar(&opt.Cluster.ListenPeerURLs, "listen-peer-urls", []string{"http://localhost:2380"}, "List of URLs to listen on for cluster peer traffic.")
 	opt.flags.StringSliceVar(&opt.Cluster.AdvertiseClientURLs, "advertise-client-urls", []string{"http://localhost:2379"}, "List of this member's client URLs to advertise to the rest of the cluster.")
 	opt.flags.StringSliceVar(&opt.Cluster.InitialAdvertisePeerURLs, "initial-advertise-peer-urls", []string{"http://localhost:2380"}, "List of this member's peer URLs to advertise to the rest of the cluster.")
-	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil,
-		"List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380.")
+	opt.flags.StringToStringVarP(&opt.Cluster.InitialCluster, "initial-cluster", "", nil, "List of (member name, URL) pairs that will form the cluster. E.g. primary-1=http://localhost:2380.")
 	opt.flags.StringVar(&opt.Cluster.StateFlag, "state-flag", "new", "Cluster state (new, existing)")
-	opt.flags.StringSliceVar(&opt.Cluster.PrimaryListenPeerURLs,
-		"primary-listen-peer-urls",
-		[]string{"http://localhost:2380"},
-		"List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
+	opt.flags.StringSliceVar(&opt.Cluster.PrimaryListenPeerURLs, "primary-listen-peer-urls", []string{"http://localhost:2380"}, "List of peer URLs of primary members. Define this only, when cluster-role is secondary.")
 	opt.flags.IntVar(&opt.Cluster.MaxCallSendMsgSize, "max-call-send-msg-size", 10*1024*1024, "Maximum size in bytes for cluster synchronization messages.")
 }
 
@@ -237,6 +233,9 @@ func (opt *Options) Parse() (string, error) {
 
 	if opt.UseStandaloneEtcd {
 		opt.ClusterRole = "secondary" // when using external standalone etcd, the cluster role cannot be "primary"
+	}
+	if opt.ClusterRole == "primary" && len(opt.Cluster.InitialCluster) == 0 {
+		opt.Cluster.InitialCluster = map[string]string{opt.Name: opt.Cluster.InitialAdvertisePeerURLs[0]}
 	}
 
 	err = opt.validate()
