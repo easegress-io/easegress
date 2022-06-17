@@ -34,7 +34,6 @@ const (
 	// Kind is the kind of RequestAdaptor.
 	Kind = "RequestAdaptor"
 
-	resultReadBodyFailed   = "readBodyFailed"
 	resultDecompressFailed = "decompressFailed"
 	resultCompressFailed   = "compressFailed"
 )
@@ -45,7 +44,6 @@ var kind = &filters.Kind{
 	Results: []string{
 		resultDecompressFailed,
 		resultCompressFailed,
-		resultReadBodyFailed,
 	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}

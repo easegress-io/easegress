@@ -247,7 +247,6 @@ func (hl *HeaderLookup) watchChanges() {
 			}
 		}
 	}()
-	return
 }
 
 // Close closes HeaderLookup.
@@ -268,7 +267,7 @@ func (hl *HeaderLookup) Handle(ctx *context.Context) string {
 	// this may need update later
 	if hl.spec.PathRegExp != "" {
 		path := req.Path()
-		if match := hl.pathRegExp.FindStringSubmatch(path); match != nil && len(match) > 1 {
+		if match := hl.pathRegExp.FindStringSubmatch(path); len(match) > 1 {
 			headerVal = headerVal + "-" + match[1]
 		}
 	}
@@ -278,7 +277,7 @@ func (hl *HeaderLookup) Handle(ctx *context.Context) string {
 		return ""
 	}
 	for hk, hv := range headersToAdd {
-		header.Set(http.CanonicalHeaderKey(hk), hv)
+		header.Set(hk, hv)
 	}
 	return ""
 }

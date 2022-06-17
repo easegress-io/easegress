@@ -186,7 +186,7 @@ type ServerPoolSpec struct {
 	SpanName           string              `yaml:"spanName" jsonschema:"omitempty"`
 	Filter             *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
 	ServerMaxBodySize  int64               `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
-	ServersTags        []string            `yaml:"serversTags" jsonschema:"omitempty,uniqueItems=true"`
+	ServerTags         []string            `yaml:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
 	Servers            []*Server           `yaml:"servers" jsonschema:"omitempty"`
 	ServiceRegistry    string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName        string              `yaml:"serviceName" jsonschema:"omitempty"`
@@ -311,7 +311,7 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 	servers := make([]*Server, 0)
 
 	for _, instance := range instances {
-		for _, tag := range sp.spec.ServersTags {
+		for _, tag := range sp.spec.ServerTags {
 			if stringtool.StrInSlice(tag, instance.Tags) {
 				servers = append(servers, &Server{
 					URL:    instance.URL(),
@@ -325,7 +325,7 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 
 	if len(servers) == 0 {
 		msgFmt := "%s/%s: no service instance satisfy tags: %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, sp.spec.ServersTags)
+		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, sp.spec.ServerTags)
 		servers = sp.spec.Servers
 	}
 

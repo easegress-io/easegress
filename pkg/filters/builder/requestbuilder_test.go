@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
@@ -204,6 +205,70 @@ func TestRequestHeader(t *testing.T) {
 	}
 }
 
+func TestTemplateFuncs(t *testing.T) {
+	assert := assert.New(t)
+
+	// test functions in "github.com/go-task/slim-sprig"
+	{
+		yml := `
+template: |
+  body: {{ hello }} 
+`
+		spec := &RequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		assert.Equal(sprig.GenericFuncMap()["hello"].(func() string)(), string(testReq.RawPayload()))
+	}
+
+	{
+		yml := `
+template: |
+  body: {{ lower "HELLO" }} 
+`
+		spec := &RequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		assert.Equal(sprig.GenericFuncMap()["lower"].(func(s string) string)("HELLO"), string(testReq.RawPayload()))
+		assert.Equal("hello", string(testReq.RawPayload()))
+	}
+
+	// test functions in "github.com/go-task/slim-sprig"
+	{
+		yml := `
+template: |
+  body: '{{ hello }} W{{ lower "ORLD"}}!'
+`
+		spec := &RequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		ctx.UseNamespace("test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request)
+		assert.Equal("Hello! World!", string(testReq.RawPayload()))
+	}
+}
+
 func TestRequestBody(t *testing.T) {
 	assert := assert.New(t)
 
@@ -291,7 +356,7 @@ func TestRequestBody(t *testing.T) {
 	yml = `template: |
   method: Delete
   url:  http://www.facebook.com
-  body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
+  body: body {{ .requests.request1.YAMLBody.field1.subfield }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
 		spec := &RequestBuilderSpec{}
@@ -302,7 +367,8 @@ func TestRequestBody(t *testing.T) {
 		ctx := context.New(nil)
 
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`
-field1: value1
+field1: 
+  subfield: value1
 field2: value2
 `))
 		assert.Nil(err)
