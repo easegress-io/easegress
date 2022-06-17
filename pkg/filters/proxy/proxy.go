@@ -39,7 +39,6 @@ const (
 	// Kind is the kind of Proxy.
 	Kind = "Proxy"
 
-	resultFallback      = "fallback"
 	resultInternalError = "internalError"
 	resultClientError   = "clientError"
 	resultServerError   = "serverError"
@@ -54,7 +53,6 @@ var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "Proxy sets the proxy of proxy servers",
 	Results: []string{
-		resultFallback,
 		resultInternalError,
 		resultClientError,
 		resultServerError,

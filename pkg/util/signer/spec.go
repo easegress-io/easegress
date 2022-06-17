@@ -21,7 +21,7 @@ import "time"
 
 // Spec defines the configuration of a Signer
 type Spec struct {
-	Literal         *Literal          `yaml:"literial,omitempty" json:"literial,omitempty" jsonschema:"omitempty"`
+	Literal         *Literal          `yaml:"literal,omitempty" json:"literal,omitempty" jsonschema:"omitempty"`
 	HeaderHoisting  *HeaderHoisting   `yaml:"headerHoisting,omitempty" json:"headerHoisting,omitempty" jsonschema:"omitempty"`
 	IgnoredHeaders  []string          `yaml:"ignoredHeaders" json:"ignoredHeaders" jsonschema:"omitempty,uniqueItems=true"`
 	ExcludeBody     bool              `yaml:"excludeBody" json:"excludeBody" jsonschema:"omitempty"`

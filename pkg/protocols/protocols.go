@@ -19,18 +19,19 @@ package protocols
 
 import (
 	"io"
+	"strings"
 )
 
 var registry = map[string]Protocol{}
 
 // Register registers a new protocol with name.
 func Register(name string, p Protocol) {
-	registry[name] = p
+	registry[strings.ToUpper(name)] = p
 }
 
 // Get returns protocol by name.
 func Get(name string) Protocol {
-	return registry[name]
+	return registry[strings.ToUpper(name)]
 }
 
 // Request is the protocol independent interface of a request.

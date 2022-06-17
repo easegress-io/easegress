@@ -179,42 +179,33 @@ func (gm *generalMatcher) matchOneHeader(req *httpprot.Request) bool {
 			if rule.Match("") {
 				return true
 			}
-			continue
-		}
-
-		for _, v := range values {
-			if rule.Match(v) {
-				return true
+		} else {
+			for _, v := range values {
+				if rule.Match(v) {
+					return true
+				}
 			}
 		}
 	}
-
 	return false
 }
 
 func (gm *generalMatcher) matchAllHeader(req *httpprot.Request) bool {
 	h := req.HTTPHeader()
 
-OUTER_LOOP:
 	for key, rule := range gm.headers {
 		values := h.Values(key)
 
 		if len(values) == 0 {
-			if rule.Match("") {
-				continue
+			if !rule.Match("") {
+				return false
 			}
-			return false
-		}
-
-		for _, v := range values {
-			if rule.Match(v) {
-				continue OUTER_LOOP
+		} else {
+			if !rule.MatchAny(values) {
+				return false
 			}
 		}
-
-		return false
 	}
-
 	return true
 }
 
@@ -311,4 +302,14 @@ func (sm *StringMatcher) Match(value string) bool {
 	}
 
 	return sm.re.MatchString(value)
+}
+
+// MatchAny return true if any of the values matches.
+func (sm *StringMatcher) MatchAny(values []string) bool {
+	for _, v := range values {
+		if sm.Match(v) {
+			return true
+		}
+	}
+	return false
 }
