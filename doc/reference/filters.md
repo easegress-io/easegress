@@ -143,7 +143,7 @@ pools:
 ### Configuration
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| pools | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered as `mainPool`, other pools with `filter` are considered as `candidatePools`. When `Proxy` get a request, it first goes through the pools in `candidatePools`, and if one of the pools' filter matches the request, servers of this pool handle the request, otherwise, the request is passed to `mainPool` | Yes |  
+| pools | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes |  
 | mirrorPool | [proxy.ServerPoolSpec](#proxyserverpoolspec) | Define a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool | No |
 | compression | [proxy.CompressionSpec](#proxyCompressionSpec) | Response compression options | No |
 | mtls | [proxy.MTLS](#proxymtls) | mTLS configuration | No |
