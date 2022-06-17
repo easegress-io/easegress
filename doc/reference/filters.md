@@ -95,7 +95,7 @@ pools:
 ```
 
 
-A Pool without a `filter` is considered as the main pool, other pools with a `filter` are considered as candidate pools. Proxy first checks if one of the candidate pools can process a request. For example, the first candidate pool in the below configuration selects and processes requests with header `X-Candidate:candidate`, the second candidate pool randomly selects and processes 40% of requests, and the main pool processes the other 60% of requests. 
+Pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools. Proxy first checks if one of the candidate pools can process a request. For example, the first candidate pool in the below configuration selects and processes requests with the header `X-Candidate:candidate`, the second candidate pool randomly selects and processes 400‰ of requests, and the main pool processes the other 600‰ of requests. 
 
 ```yaml
 kind: Proxy
@@ -349,7 +349,7 @@ template: |
   body: "this is body" 
 ```
 
-Although `template` is a string, its content should be following YAML format. For example:
+Although `template` is a string, its content should follow the YAML format. For example:
 
 ```yaml 
 template: | 
@@ -521,8 +521,7 @@ template: |
 ```
 
 
-Although `template` is a string, its content should be following YAML format. For example:
-
+Although `template` is a string, its content should follow the YAML format. For example:
 
 ```yaml 
 template: | 
