@@ -78,11 +78,11 @@
     - [headertojson.HeaderMap](#headertojsonheadermap)
     - [headerlookup.HeaderSetterSpec](#headerlookupHeaderSetterSpec)
 
-A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter need to take extra action.
+A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter needs to take extra action.
 
 ## Proxy
 
-The Proxy filter is a proxy of backend service.
+The Proxy filter is a proxy of the backend service.
 
 Below is one of the simplest Proxy configurations, it forward requests to `http://127.0.0.1:9095`.
 
@@ -94,7 +94,8 @@ pools:
   - url: http://127.0.0.1:9095 
 ```
 
-Pool without `filter` is considered as the main pool, other pools with `filter` are considered as candidate pools. Proxy first checks if one of the candidate pools can process a request. For example, the first candidate pool in the below configuration selects and processes request with header `X-Candidate:candidate`, the second candidate pool randomly selects and processes 40% of requests, and the main pool processes the other 60% of requests. 
+
+A Pool without a `filter` is considered as the main pool, other pools with a `filter` are considered as candidate pools. Proxy first checks if one of the candidate pools can process a request. For example, the first candidate pool in the below configuration selects and processes requests with header `X-Candidate:candidate`, the second candidate pool randomly selects and processes 40% of requests, and the main pool processes the other 60% of requests. 
 
 ```yaml
 kind: Proxy
@@ -161,7 +162,7 @@ pools:
 
 ## CORSAdaptor
 
-The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for backend service.
+The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for the backend service.
 
 The below example configuration handles the preflight `GET` request from `*.megaease.com`.
 
@@ -191,7 +192,7 @@ allowedMethods: [GET]
 
 ## Fallback
 
-The Fallback filter mocks a response as fallback action of other filters. The below example configuration mocks the response with a specified status code, headers, and body.
+The Fallback filter mocks a response as the fallback action of other filters. The below example configuration mocks the response with a specified status code, headers, and body.
 
 ```yaml
 kind: Fallback
@@ -250,7 +251,7 @@ rules:
 
 ## RemoteFilter
 
-The RemoteFilter is a filter making remote service acting as an internal filter. It forwards original request & response information to the remote service and returns a result according to the response of the remote service.
+The RemoteFilter is a filter making remote service act as an internal filter. It forwards original request & response information to the remote service and returns a result according to the response of the remote service.
 
 The below example configuration forwards request & response information to `http://127.0.0.1:9096/verify`.
 
@@ -299,7 +300,7 @@ header:
   del: ["X-Version"]
 ```
 
-The example configuration below modifies request path using regular expressions.
+The example configuration below modifies the request path using regular expressions.
 
 ```yaml
 kind: RequestAdaptor
@@ -331,10 +332,9 @@ path:
 
 
 ## RequestBuilder
+The RequestBuilder creates new requests according to configuration. 
 
-The RequestBuilder create new requests according to configuration. 
-
-The example configuration below create a http request with method `GET`, url `http://127.0.0.1:8080`, headers `X-Mock-Header:mock-value` and body `this is body`.  
+The example configuration below creates an HTTP request with method `GET`, url `http://127.0.0.1:8080`, headers `X-Mock-Header:mock-value` and body `this is body`.  
 
 ```yaml 
 name: requestbuilder-example-1
@@ -349,7 +349,8 @@ template: |
   body: "this is body" 
 ```
 
-Although `template` is string, it content should be following yaml format. For example:
+Although `template` is a string, its content should be following YAML format. For example:
+
 ```yaml 
 template: | 
   method: <your template for method>
@@ -363,6 +364,8 @@ template: |
     - valueB
   body: <your template for body> 
 ```
+
+
 Default value for `method` is `GET`, default value for `url` is `/`, default value for `headers` and `body` is nil.
 
 We also support golang `text/template` syntax to create requests. Suppose we have following request and response:  
@@ -517,7 +520,10 @@ template: |
   body: "this is body" 
 ```
 
-Although `template` is string, it content should be following yaml format. For example:
+
+Although `template` is a string, its content should be following YAML format. For example:
+
+
 ```yaml 
 template: | 
   statusCode: <your status code> 
@@ -530,9 +536,11 @@ template: |
     - valueB
   body: <your template for body> 
 ```
-Default value for `statusCode` is `200`, default value for `headers` and `body` is nil. 
 
-We also support golang `text/template` syntax to create requests. Suppose we have following request and response:  
+
+The default value for `statusCode` is `200`, the default value for `headers` and `body` is nil. 
+
+We also support Golang `text/template` syntax to create requests. Suppose we have the following request and response:  
 ```yaml 
 req1:   
   method: get 
@@ -544,7 +552,7 @@ resp1:
   statusCode: 201
 ```
 
-Following yaml config will create response with status code `201` (from resp1), and header `X-Request:value1` (from req1). 
+Following YAML config will create a response with status code `201` (from resp1), and header `X-Request:value1` (from req1). 
 ```yaml 
 name: responsebuilder-example-2 
 kind: ResponseBuilder 
@@ -572,7 +580,7 @@ resp2:
 ```
 then `{{ .responses.resp1.JSONBody.field1 }}` returns `value1`, and `{{ .responses.resp2.YAMLBody.field3.subfield }}` returns `value3`.  
 
-We also add functions in `sprig` pkg to our templates. The yaml below generates request with body `Hello! World!`. See doc in [here](https://go-task.github.io/slim-sprig/) for the usage of these functions. 
+We also add functions in `sprig` pkg to our templates. The YAML below generates a request with the body `Hello! World!`. See doc [here](https://go-task.github.io/slim-sprig/) for the usage of these functions. 
 ```yaml
 name: responsebuilder-example-3 
 kind: ResponseBuilder
@@ -623,7 +631,7 @@ jwt:
   secret: 6d79736563726574
 ```
 
-Below is an example configuration for the `signature` validation method, note multiple access key id/secret pairs can be listed in `accessKeys`, but there's only one pair here as an example.
+Below is an example configuration for the `signature` validation method, note multiple access keys id/secret pairs can be listed in `accessKeys`, but there's only one pair here as an example.
 
 ```yaml
 kind: Validator
@@ -646,7 +654,7 @@ oauth2:
     insecureTls: false
 ```
 
-Here's an example for `basicAuth` validation method which uses [Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html) formatted encrypted password file for validation.
+Here's an example of `basicAuth` validation method which uses [Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html) formatted encrypted password file for validation.
 ```yaml
 kind: Validator
 name: basicAuth-validator-example
@@ -673,7 +681,7 @@ basicAuth:
 
 ## WasmHost
 
-The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file, and more details could be found at [this document](./wasmhost.md).
+The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file, and more details could be found in [this document](./wasmhost.md).
 
 ```yaml
 name: wasm-host-example
@@ -804,20 +812,20 @@ headerKey: "tls-cert-postalcode"
 | headerKey | string | Extracted value is added to this request header key. | Yes      |
 
 ### Results 
-The CertExtractor always success and return no results. 
+The CertExtractor is always success and returns no results. 
 
 ## HeaderLookup
 
-HeaderLookup check [custom data](customdata.md) stored in etcd and put them into http header.
+HeaderLookup checks [custom data](customdata.md) stored in etcd and put them into HTTP header.
 
-Suppose you create custom data kind of `client-info` and post a data key `client1` with value: 
+Suppose you create a custom data kind of `client-info` and post a data key `client1` with the value: 
 ```yaml 
 name: client1
 id: 123
 kind: vip 
 ```
 
-Then HeaderLookup with following configuration adds `X-Id:123` and `X-Kind:vip` to http request header. 
+Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` to HTTP request header. 
 ```yaml
 name: headerlookup-example-1
 kind: HeaderLookup
@@ -830,9 +838,9 @@ headerSetters:
   headerKey: X-Kind  
 ```
 
-You can also use `pathRegExp` to check different keys for different requests. When `pathRegExp` is defined, `pathRegExp` is used with `regexp.FindStringSubmatch` to identify a group from path. The first captured group is appended to the etcd key in following format: `{headerKey's value}-{regex group}` .
+You can also use `pathRegExp` to check different keys for different requests. When `pathRegExp` is defined, `pathRegExp` is used with `regexp.FindStringSubmatch` to identify a group from the path. The first captured group is appended to the etcd key in the following format: `{headerKey's value}-{regex group}`.
 
-Suppose you create custom data kind of `client-info` and post several data: 
+Suppose you create a custom data kind of `client-info` and post several data: 
 ```yaml 
 name: client-abc 
 id: 123
@@ -843,7 +851,7 @@ id: 124
 kind: vvip 
 ```
 
-Then HeaderLookup with following configuration adds `X-Id:123` and `X-Kind:vip` for requests with path `/api/abc`, adds `X-Id:124` and `X-Kind:vvip` for requests with path `/api/def`. 
+Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` for requests with path `/api/abc`, adds `X-Id:124` and `X-Kind:vvip` for requests with path `/api/def`. 
 ```yaml
 name: headerlookup-example-1
 kind: HeaderLookup
@@ -943,10 +951,10 @@ Rules to revise request header. Note that both header name and value can be a te
 ### proxy.RequestMatcherSpec 
 
 Polices: 
-- If policy is empty or `general`, matcher match requests with `headers` and `urls`. 
-- If policy is `ipHash`, matcher match requests if their ip hash value less than `permil`. 
-- If policy is `headerHash`, matcher match requests if their header hash value less than `permil`, use key of `headerHashKey`.
-- If policy is `random`, matcher match requests with probability `permil`/1000. 
+- If the policy is empty or `general`, matcher match requests with `headers` and `urls`. 
+- If the policy is `ipHash`, the matcher match requests if their IP hash value is less than `permil``. 
+- If the policy is `headerHash`, the matcher match requests if their header hash value is less than `permil`, use the key of `headerHashKey`.
+- If the policy is `random`, the matcher matches requests with probability `permil`/1000. 
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
