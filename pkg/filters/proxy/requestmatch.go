@@ -193,15 +193,6 @@ func (gm *generalMatcher) matchOneHeader(req *httpprot.Request) bool {
 func (gm *generalMatcher) matchAllHeader(req *httpprot.Request) bool {
 	h := req.HTTPHeader()
 
-	any := func(values []string, rule *StringMatcher) bool {
-		for _, v := range values {
-			if rule.Match(v) {
-				return true
-			}
-		}
-		return false
-	}
-
 	for key, rule := range gm.headers {
 		values := h.Values(key)
 
@@ -210,7 +201,7 @@ func (gm *generalMatcher) matchAllHeader(req *httpprot.Request) bool {
 				return false
 			}
 		} else {
-			if !any(values, rule) {
+			if !rule.MatchAny(values) {
 				return false
 			}
 		}
@@ -311,4 +302,14 @@ func (sm *StringMatcher) Match(value string) bool {
 	}
 
 	return sm.re.MatchString(value)
+}
+
+// MatchAny return true if any of the values matches.
+func (sm *StringMatcher) MatchAny(values []string) bool {
+	for _, v := range values {
+		if sm.Match(v) {
+			return true
+		}
+	}
+	return false
 }
