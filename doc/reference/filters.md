@@ -559,7 +559,7 @@ template: |
 
 The default value for `statusCode` is `200`, the default value for `headers` and `body` is nil. 
 
-We also support Golang `text/template` syntax to create requests. Suppose we have the following request and response:  
+We also support Golang [text/template](https://pkg.go.dev/text/template) syntax to create requests. Suppose we have the following request and response:  
 ```yaml 
 req1:   
   method: get 
