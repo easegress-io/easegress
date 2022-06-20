@@ -349,7 +349,9 @@ template: |
   body: "this is body" 
 ```
 
-Although `template` is a string, its content should follow the YAML format. For example:
+Although `template` is a string, its content should follow the YAML format. Every protocol has its template YAML format. For example, the HTTP protocol has the following format:
+
+> For now we only support the HTTP protocol. 
 
 ```yaml 
 template: | 
@@ -364,11 +366,19 @@ template: |
     - valueB
   body: <your template for body> 
 ```
+where 
+```yaml 
+template: |
+  method: string 
+  url: string 
+  headers: map[string][]string
+  body: string
+```
 
 
 Default value for `method` is `GET`, default value for `url` is `/`, default value for `headers` and `body` is nil.
 
-We also support golang `text/template` syntax to create requests. Suppose we have following request and response:  
+We also support golang [text/template](https://pkg.go.dev/text/template) syntax to create requests. Suppose we have following request and response:
 ```yaml 
 req1: 
   method: DELETE 
@@ -521,7 +531,10 @@ template: |
 ```
 
 
-Although `template` is a string, its content should follow the YAML format. For example:
+Although `template` is a string, its content should follow the YAML format. Every protocol has its template YAML format. For example, the HTTP protocol has the following format:
+
+> For now we only support the HTTP protocol. 
+
 
 ```yaml 
 template: | 
@@ -534,6 +547,13 @@ template: |
     - valueA
     - valueB
   body: <your template for body> 
+```
+where 
+```yaml
+template: |
+  statusCode: int
+  headers: map[string][]string
+  body: string
 ```
 
 
