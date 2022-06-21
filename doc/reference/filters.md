@@ -80,13 +80,19 @@
     - [Template Of RequestBuilder & ResponseBuilder](#template-of-requestbuilder--responsebuilder)
       - [HTTP Specific](#http-specific)
 
-A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter needs to take extra action.
+A Filter is a request/response processor. Multiple filters can be orchestrated
+together to form a pipeline, each filter returns a string result after it
+finishes processing the input request/response. An empty result means the
+input was successfully processed by the current filter and can go forward
+to the next filter in the pipeline, while a non-empty result means the pipeline
+or preceding filter needs to take extra action.
 
 ## Proxy
 
 The Proxy filter is a proxy of the backend service.
 
-Below is one of the simplest Proxy configurations, it forward requests to `http://127.0.0.1:9095`.
+Below is one of the simplest Proxy configurations, it forward requests
+to `http://127.0.0.1:9095`.
 
 ```yaml
 kind: Proxy
@@ -96,8 +102,13 @@ pools:
   - url: http://127.0.0.1:9095 
 ```
 
-
-Pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools. Proxy first checks if one of the candidate pools can process a request. For example, the first candidate pool in the below configuration selects and processes requests with the header `X-Candidate:candidate`, the second candidate pool randomly selects and processes 400‰ of requests, and the main pool processes the other 600‰ of requests. 
+Pool without `filter` is considered the main pool, other pools with `filter`
+are considered candidate pools. Proxy first checks if one of the candidate
+pools can process a request. For example, the first candidate pool in the
+below configuration selects and processes requests with the header
+`X-Candidate:candidate`, the second candidate pool randomly selects and
+processes 400‰ of requests, and the main pool processes the other 600‰
+of requests. 
 
 ```yaml
 kind: Proxy
@@ -118,7 +129,9 @@ pools:
   - url: http://127.0.0.1:9097
 ```
 
-Servers of a pool can also be dynamically configured via service discovery, the below configuration gets a list of servers by `serviceRegistry` & `serviceName`, and only servers that have tag `v2` are selected.
+Servers of a pool can also be dynamically configured via service discovery,
+the below configuration gets a list of servers by `serviceRegistry` &
+`serviceName`, and only servers that have tag `v2` are selected.
 
 ```yaml
 kind: Proxy
@@ -129,7 +142,8 @@ pools:
   serviceRegistry: eureka-service-registry-example
 ```
 
-When there are multiple servers in a pool, the Proxy can do a load balance between them:
+When there are multiple servers in a pool, the Proxy can do a load balance
+between them:
 
 ```yaml
 kind: Proxy
@@ -194,7 +208,9 @@ allowedMethods: [GET]
 
 ## Fallback
 
-The Fallback filter mocks a response as the fallback action of other filters. The below example configuration mocks the response with a specified status code, headers, and body.
+The Fallback filter mocks a response as the fallback action of other filters.
+The below example configuration mocks the response with a specified status
+code, headers, and body.
 
 ```yaml
 kind: Fallback
@@ -222,9 +238,12 @@ mockBody: '{"message": "The feature turned off, please try it later."}'
 
 ## Mock
 
-The Mock filter mocks responses according to configured rules, mainly for testing purposes.
+The Mock filter mocks responses according to configured rules, mainly for
+testing purposes.
 
-Below is an example configuration to mock response for requests to path `/users/1` with specified status code, headers, and body, also with a 100ms delay to mock the time for request processing.
+Below is an example configuration to mock response for requests to path
+`/users/1` with specified status code, headers, and body, also with a 100ms
+delay to mock the time for request processing.
 
 ```yaml
 kind: Mock
@@ -253,9 +272,12 @@ rules:
 
 ## RemoteFilter
 
-The RemoteFilter is a filter making remote service act as an internal filter. It forwards original request & response information to the remote service and returns a result according to the response of the remote service.
+The RemoteFilter is a filter making remote service act as an internal filter.
+It forwards original request & response information to the remote service and
+returns a result according to the response of the remote service.
 
-The below example configuration forwards request & response information to `http://127.0.0.1:9096/verify`.
+The below example configuration forwards request & response information to
+`http://127.0.0.1:9096/verify`.
 
 ```yaml
 kind: RemoteFilter
@@ -290,7 +312,6 @@ name: request-adaptor-example
 path:
   addPrefix: /v3
 ```
-
 
 The example configuration below removes header `X-Version` from all `GET` requests.
 
@@ -332,7 +353,6 @@ path:
 | decompressFail | the request body can not be decompressed |
 | compressFail   | the request body can not be compressed   |
 
-
 ## RequestBuilder
 
 The RequestBuilder creates a new request from existing requests/responses
@@ -350,8 +370,8 @@ sourceNamespace: DEFAULT
 ```
 
 The example configuration below creates an HTTP request with method `GET`,
-url `http://127.0.0.1:8080`, header `X-Mock-Header:mock-value` and body
-`this is body`.  
+url `http://127.0.0.1:8080`, header `X-Mock-Header:mock-value`, and body
+`this is the body`.  
 
 ```yaml 
 name: requestbuilder-example-1
@@ -363,7 +383,7 @@ template: |
   headers:
     X-Mock-Header: 
     - mock-value
-  body: "this is body" 
+  body: "this is the body" 
 ```
 
 ### Configuration
@@ -376,7 +396,7 @@ template: |
 | leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
 | rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
 
-**NOTE**: `sourceNamespace` and `template` are mutual exclusive, you must
+**NOTE**: `sourceNamespace` and `template` are mutually exclusive, you must
 set one and only one of them.
 
 ### Results
@@ -385,12 +405,15 @@ set one and only one of them.
 | -------------- | ---------------------------------------- |
 | resultBuildErr | error happens when build request         |
 
-
 ## RateLimiter
 
-RateLimiter protects backend service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
+RateLimiter protects backend service for high availability and reliability
+by limiting the number of requests sent to the service in a configured duration.
 
-Below example configuration limits `GET`, `POST`, `PUT`, `DELETE` requests to path which matches regular expression `^/pets/\d+$` to 50 per 10ms, and a request fails if it cannot be permitted in 100ms due to high concurrency requests count.
+Below example configuration limits `GET`, `POST`, `PUT`, `DELETE` requests
+to path which matches regular expression `^/pets/\d+$` to 50 per 10ms, and a
+request fails if it cannot be permitted in 100ms due to high concurrency
+requests count.
 
 ```yaml
 kind: RateLimiter
@@ -425,9 +448,10 @@ urls:
 
 ## ResponseAdaptor
 
-The ResponseAdaptor modifies the original response according to the configuration before passing it back.
+The ResponseAdaptor modifies the input response according to the configuration.
 
-Below is an example configuration that adds a header named `X-Response-Adaptor` with value `response-adaptor-example` to responses.
+Below is an example configuration that adds a header named `X-Response-Adaptor`
+with the value `response-adaptor-example` to the input response.
 
 ```yaml
 kind: ResponseAdaptor
@@ -439,10 +463,10 @@ header:
 
 ### Configuration
 
-| Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
-| ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body   | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
+| Name   | Type     | Description   | Required |
+| ------ | -------- |-------------- | -------- |
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
+| body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |
 | compress | string | compress body, currently only support gzip | No |
 | decompress | string | decompress body, currently only support gzip | No | 
 
@@ -471,7 +495,7 @@ sourceNamespace: DEFAULT
 ```
 
 The example configuration below creates an HTTP response with status code
-200, header `X-Mock-Header:mock-value` and body `this is body`.  
+200, header `X-Mock-Header:mock-value`, and body `this is the body`.  
 
 ```yaml 
 name: responsebuilder-example-1 
@@ -482,7 +506,7 @@ template: |
   headers:
     X-Mock-Header: 
     - mock-value
-  body: "this is body" 
+  body: "this is the body" 
 ```
 
 ### Configuration
@@ -495,7 +519,7 @@ template: |
 | leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
 | rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
 
-**NOTE**: `sourceNamespace` and `template` are mutual exclusive, you must
+**NOTE**: `sourceNamespace` and `template` are mutually exclusive, you must
 set one and only one of them.
 
 ### Results
@@ -505,9 +529,15 @@ set one and only one of them.
 
 ## Validator
 
-The Validator filter validates requests, forwards valid ones, and rejects invalid ones. Four validation methods (`headers`, `jwt`, `signature`, `oauth2` and `basicAuth`) are supported up to now, and these methods can either be used together or alone. When two or more methods are used together, a request needs to pass all of them to be forwarded.
+The Validator filter validates requests, forwards valid ones, and rejects
+invalid ones. Four validation methods (`headers`, `jwt`, `signature`, `oauth2`
+and `basicAuth`) are supported up to now, and these methods can either be
+used together or alone. When two or more methods are used together, a request
+needs to pass all of them to be forwarded.
 
-Below is an example configuration for the `headers` validation method. Requests which has a header named `Is-Valid` with value `abc` or `goodplan` or matches regular expression `^ok-.+$` are considered to be valid.
+Below is an example configuration for the `headers` validation method.
+Requests which has a header named `Is-Valid` with value `abc` or `goodplan`
+or matches regular expression `^ok-.+$` are considered to be valid.
 
 ```yaml
 kind: Validator
@@ -529,7 +559,9 @@ jwt:
   secret: 6d79736563726574
 ```
 
-Below is an example configuration for the `signature` validation method, note multiple access keys id/secret pairs can be listed in `accessKeys`, but there's only one pair here as an example.
+Below is an example configuration for the `signature` validation method,
+note multiple access keys id/secret pairs can be listed in `accessKeys`,
+but there's only one pair here as an example.
 
 ```yaml
 kind: Validator
@@ -539,7 +571,8 @@ signature:
     AKID: SECRET
 ```
 
-Below is an example configuration for the `oauth2` validation method which uses a token introspection server for validation.
+Below is an example configuration for the `oauth2` validation method which
+uses a token introspection server for validation.
 
 ```yaml
 kind: Validator
@@ -552,7 +585,10 @@ oauth2:
     insecureTls: false
 ```
 
-Here's an example of `basicAuth` validation method which uses [Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html) formatted encrypted password file for validation.
+Here's an example of `basicAuth` validation method which uses
+[Apache2 htpasswd](https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html)
+formatted encrypted password file for validation.
+
 ```yaml
 kind: Validator
 name: basicAuth-validator-example
@@ -579,7 +615,10 @@ basicAuth:
 
 ## WasmHost
 
-The WasmHost filter implements a host environment for user-developed [WebAssembly](https://webassembly.org/) code. Below is an example configuration that loads wasm code from a file, and more details could be found in [this document](./wasmhost.md).
+The WasmHost filter implements a host environment for user-developed
+[WebAssembly](https://webassembly.org/) code. Below is an example
+configuration that loads wasm code from a file, and more details could be
+found in [this document](./wasmhost.md).
 
 ```yaml
 name: wasm-host-example
@@ -589,7 +628,8 @@ code: /home/megaease/wasm/hello.wasm
 timeout: 200ms
 ```
 
-Note: this filter is disabled in the default build of `Easegress`, it can be enabled by:
+Note: this filter is disabled in the default build of `Easegress`, it can
+be enabled by:
 
 ```bash
 $ make GOTAGS=wasmhost
@@ -627,7 +667,10 @@ $ make wasm
 
 ## Kafka
 
-The Kafka filter converts HTTP Requests to Kafka messages and sends them to the Kafka backend. The topic of the Kafka message comes from the HTTP header, if not found, then the default topic will be used. The payload of the Kafka message comes from the body of the HTTP Request.
+The Kafka filter converts HTTP Requests to Kafka messages and sends them to
+the Kafka backend. The topic of the Kafka message comes from the HTTP header,
+if not found, then the default topic will be used. The payload of the Kafka
+message comes from the body of the HTTP Request.
 
 Below is an example configuration. 
 
@@ -657,7 +700,9 @@ topic:
 
 ## HeaderToJSON
 
-The HeaderToJSON converts HTTP headers to JSON and combines it with the HTTP request body. To use this filter, make sure your HTTP Request body is empty or JSON schema.
+The HeaderToJSON converts HTTP headers to JSON and combines it with the HTTP
+request body. To use this filter, make sure your HTTP Request body is empty
+or JSON schema.
 
 Below is an example configuration. 
 
@@ -687,9 +732,14 @@ headerMap:
 
 ## CertExtractor
 
-CertExtractor extracts a value from requests TLS certificates Subject or Issuer metadata (https://pkg.go.dev/crypto/x509/pkix#Name) and adds the value to headers. Request can contain zero or multiple certificates so the position (first, second, last, etc) of the certificate in the chain is required.
+CertExtractor extracts a value from requests TLS certificates Subject or
+Issuer metadata (https://pkg.go.dev/crypto/x509/pkix#Name) and adds the
+value to headers. Request can contain zero or multiple certificates so
+the position (first, second, last, etc) of the certificate in the chain
+is required.
 
-Here's an example configuration, that adds a new header `tls-cert-postalcode`, based on the PostalCode of the last TLS certificate's Subject:
+Here's an example configuration, that adds a new header `tls-cert-postalcode`,
+based on the PostalCode of the last TLS certificate's Subject:
 
 ```yaml
 kind: "CertExtractor"
@@ -1051,7 +1101,7 @@ package, and extra functions defined by Easegress:
 Easegress injects existing requests/responses of the current context into
 the template engine at runtime, so we can use `.requests.<namespace>.<field>`
 or `.responses.<namespace>.<field>` to read the information out (the
-available fields are vary from the protocol of the request or response,
+available fields vary from the protocol of the request or response,
 and please refer [Pipeline](controllers.md#pipeline) for what is `namespace`).
 For example, if the request of the `DEFAULT` namespace is an HTTP one, we
 can access its method via `.requests.DEFAULT.Method`. .
