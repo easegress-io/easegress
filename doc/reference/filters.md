@@ -19,7 +19,7 @@
   - [RequestAdaptor](#requestadaptor)
     - [Configuration](#configuration-5)
     - [Results](#results-5)
-  - [RequestBuilder](#requestbuilder) 
+  - [RequestBuilder](#requestbuilder)
     - [Configuration](#configuration-6)
     - [Results](#results-6)
   - [RateLimiter](#ratelimiter)
@@ -28,7 +28,7 @@
   - [ResponseAdaptor](#responseadaptor)
     - [Configuration](#configuration-8)
     - [Results](#results-8)
-  - [ResponseBuilder](#responsebuilder)  
+  - [ResponseBuilder](#responsebuilder)
     - [Configuration](#configuration-9)
     - [Results](#results-9)
   - [Validator](#validator)
@@ -45,22 +45,22 @@
     - [Results](#results-13)
   - [CertExtractor](#certextractor)
     - [Configuration](#configuration-14)
-    - [Results](#results-14) 
-  - [HeaderLookup](#headerlookup) 
+    - [Results](#results-14)
+  - [HeaderLookup](#headerlookup)
     - [Configuration](#configuration-15)
-    - [Results](#results-15) 
+    - [Results](#results-15)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
     - [httpheader.AdaptSpec](#httpheaderadaptspec)
-    - [proxy.ServerPoolSpec](#proxyServerPoolSpec)
+    - [proxy.ServerPoolSpec](#proxyserverpoolspec)
     - [proxy.Server](#proxyserver)
-    - [proxy.LoadBalanceSpec](#proxyLoadBalanceSpec)
-    - [proxy.MemoryCacheSpec](#proxyMemoryCacheSpec)
-    - [proxy.RequestMatcherSpec](#proxyRequestMatcherSpec)
-    - [proxy.StringMatcher](#proxyStringMatcher)
-    - [proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)
-    - [urlrule.URLRule](#urlruleURLRule)
+    - [proxy.LoadBalanceSpec](#proxyloadbalancespec)
+    - [proxy.MemoryCacheSpec](#proxymemorycachespec)
+    - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
+    - [proxy.StringMatcher](#proxystringmatcher)
+    - [proxy.MethodAndURLMatcher](#proxymethodandurlmatcher)
+    - [urlrule.URLRule](#urlruleurlrule)
     - [proxy.Compression](#proxycompression)
     - [proxy.MTLS](#proxymtls)
     - [mock.Rule](#mockrule)
@@ -69,14 +69,16 @@
     - [httpheader.ValueValidator](#httpheadervaluevalidator)
     - [validator.JWTValidatorSpec](#validatorjwtvalidatorspec)
     - [signer.Spec](#signerspec)
-    - [signer.HeaderHoisting](#signerHeaderHoisting)
+    - [signer.HeaderHoisting](#signerheaderhoisting)
     - [signer.Literal](#signerliteral)
     - [validator.OAuth2ValidatorSpec](#validatoroauth2validatorspec)
     - [validator.OAuth2TokenIntrospect](#validatoroauth2tokenintrospect)
     - [validator.OAuth2JWT](#validatoroauth2jwt)
     - [kafka.Topic](#kafkatopic)
     - [headertojson.HeaderMap](#headertojsonheadermap)
-    - [headerlookup.HeaderSetterSpec](#headerlookupHeaderSetterSpec)
+    - [headerlookup.HeaderSetterSpec](#headerlookupheadersetterspec)
+    - [Template Of RequestBuilder & ResponseBuilder](#template-of-requestbuilder--responsebuilder)
+      - [HTTP Specific](#http-specific)
 
 A Filter is a request/response processor. Multiple filters can be orchestrated together to form a pipeline, each filter returns a string result after it finishes processing the input request/response. An empty result means the input was successfully processed by the current filter and can go forward to the next filter in the pipeline, while a non-empty result means the pipeline or preceding filter needs to take extra action.
 
@@ -318,8 +320,8 @@ path:
 | method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
 | path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
 | header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body       | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
-| host       | string                                       | If provided the host of the original request is replaced by the value of this option. Note: the host can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option. | No       |
 | decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                                                                          | No       |
 | compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                                                              | No       |
 
@@ -332,9 +334,24 @@ path:
 
 
 ## RequestBuilder
-The RequestBuilder creates new requests according to configuration. 
 
-The example configuration below creates an HTTP request with method `GET`, url `http://127.0.0.1:8080`, headers `X-Mock-Header:mock-value` and body `this is body`.  
+The RequestBuilder creates a new request from existing requests/responses
+according to the configuration, and saves the new request into [the
+namespace it is bound](controllers.md#pipeline). 
+
+The example configuration below creates a reference to the request of
+namespace `DEFAULT`. 
+
+```yaml
+name: requestbuilder-example-1
+kind: RequestBuilder
+protocol: http
+sourceNamespace: DEFAULT
+```
+
+The example configuration below creates an HTTP request with method `GET`,
+url `http://127.0.0.1:8080`, header `X-Mock-Header:mock-value` and body
+`this is body`.  
 
 ```yaml 
 name: requestbuilder-example-1
@@ -349,96 +366,21 @@ template: |
   body: "this is body" 
 ```
 
-Although `template` is a string, its content should follow the YAML format. Every protocol has its template YAML format. For example, the HTTP protocol has the following format:
-
-> For now we only support the HTTP protocol. 
-
-```yaml 
-template: | 
-  method: <your template for method>
-  url: <your template for url>
-  headers: 
-    key1:
-    - value1
-    - value2 
-    key2:
-    - valueA
-    - valueB
-  body: <your template for body> 
-```
-where 
-```yaml 
-template: |
-  method: string 
-  url: string 
-  headers: map[string][]string
-  body: string
-```
-
-
-Default value for `method` is `GET`, default value for `url` is `/`, default value for `headers` and `body` is nil.
-
-We also support golang [text/template](https://pkg.go.dev/text/template) syntax to create requests. Suppose we have following request and response:
-```yaml 
-req1: 
-  method: DELETE 
-  header: 
-    X-Req1:
-    - value1
-
-req2:
-  method: GET
-  url: http://www.google.com?field1=value1&field2=value2
-```
-
-Following yaml config will create request with method `DELETE` (from req1), url `www.a.com?field1=value2`(value from req2) and header `X-Request:value1` (from req1). 
-```yaml 
-name: requestbuilder-example-2
-kind: RequestBuilder
-protocol: http
-template: |
-  method: {{ .requests.req1.Method }} 
-  url: www.a.com?field1={{index .requests.req2.URL.Query.field2 0}} 
-  headers:
-    "X-Request": [{{index (index .requests.req1.Header "X-Req1") 0}}] 
-```
-When you want to use a request, always call it `.requests.reqID`, for example `.requests.req1` returns req1 as `*http.Request` (golang std lib struct). So, `{{ .requests.req1.Method }}` returns method of req1. `{{index .requests.req2.URL.Query.field2 0}}` returns first value of query field2 for req2. Previous responses can also be used to create requests, `.responses.respID` returns response as `*http.Response`.
-
-We also provide several method to attach request body, `.requests.reqID.RawBody` returns body as bytes. `.requests.reqID.Body` returns body as string, `.requests.reqID.JSONBody` unmarshal body into json format and return, `.requests.reqID.YAMLBody` unmarshal body into yaml format and return.
-
-For example, given following requests: 
-```yaml
-req1: 
-  body: '{"field1":"value1", "field2": "value2"}'
-
-req2: 
-  body: |
-    field3: 
-      subfield: value3 
-    field4: value4 
-```
-then `{{ .requests.req1.JSONBody.field1 }}` returns `value1`, and `{{ .requests.req2.YAMLBody.field3.subfield }}` returns `value3`. 
-
-We also add functions in `sprig` pkg to our templates. The yaml below generates request with body `Hello! World!`. See doc in [here](https://go-task.github.io/slim-sprig/) for the usage of these functions. 
-```yaml
-name: requestbuilder-example-3
-kind: RequestBuilder
-protocol: http
-template: |
-  body: '{{ hello }} W{{ lower "ORLD"}}!'
-```
-Our extra functions are [here](https://github.com/megaease/easegress/tree/master/pkg/filters/builder/extrafuncs.go)
-
 ### Configuration
+
 | Name            | Type   | Description                                   | Required |
 |-----------------|--------|-----------------------------------------------|----------|
-| protocol        | string | protocol type of request to build, like http  | No       |
-| sourceNamespace | string | directly use request from source namespace    | No       | 
-| template        | string | template string used to create request        | No       | 
-| leftDelim       | string | set left action delimiter for template parse  | No       | 
-| rightDelim      | string | set right action delimiter for template parse | No       | 
+| protocol        | string | protocol of the request to build, default is `http`.  | No       |
+| sourceNamespace | string | add a reference to the request of the source namespace    | No       | 
+| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       | 
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
+
+**NOTE**: `sourceNamespace` and `template` are mutual exclusive, you must
+set one and only one of them.
 
 ### Results
+
 | Value          | Description                              |
 | -------------- | ---------------------------------------- |
 | resultBuildErr | error happens when build request         |
@@ -500,7 +442,7 @@ header:
 | Name   | Type                                         | Description                                                                                                                                                                                                         | Required |
 | ------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body   | string                                       | If provided the body of the original request is replaced by the value of this option. Note: the body can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values | No       |
+| body   | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
 | compress | string | compress body, currently only support gzip | No |
 | decompress | string | decompress body, currently only support gzip | No | 
 
@@ -514,9 +456,22 @@ header:
 
 ## ResponseBuilder
 
-The ResponseBuilder create new response according to configuration.  
+The ResponseBuilder creates a new response from existing requests/responses
+according to the configuration, and saves the new response into [the
+namespace it is bound](controllers.md#pipeline). 
 
-The example configuration below create a http response with status code `200`, headers `X-Mock-Header:mock-value` and body `this is body`.  
+The example configuration below creates a reference to the response of
+namespace `DEFAULT`. 
+
+```yaml
+name: responsebuilder-example-1
+kind: ResponseBuilder
+protocol: http
+sourceNamespace: DEFAULT
+```
+
+The example configuration below creates an HTTP response with status code
+200, header `X-Mock-Header:mock-value` and body `this is body`.  
 
 ```yaml 
 name: responsebuilder-example-1 
@@ -530,99 +485,23 @@ template: |
   body: "this is body" 
 ```
 
-
-Although `template` is a string, its content should follow the YAML format. Every protocol has its template YAML format. For example, the HTTP protocol has the following format:
-
-> For now we only support the HTTP protocol. 
-
-
-```yaml 
-template: | 
-  statusCode: <your status code> 
-  headers: 
-    key1:
-    - value1
-    - value2 
-    key2:
-    - valueA
-    - valueB
-  body: <your template for body> 
-```
-where 
-```yaml
-template: |
-  statusCode: int
-  headers: map[string][]string
-  body: string
-```
-
-
-The default value for `statusCode` is `200`, the default value for `headers` and `body` is nil. 
-
-We also support Golang [text/template](https://pkg.go.dev/text/template) syntax to create requests. Suppose we have the following request and response:  
-```yaml 
-req1:   
-  method: get 
-  header: 
-    X-Req1:
-    - value1
-
-resp1:
-  statusCode: 201
-```
-
-Following YAML config will create a response with status code `201` (from resp1), and header `X-Request:value1` (from req1). 
-```yaml 
-name: responsebuilder-example-2 
-kind: ResponseBuilder 
-protocol: http
-template: |
-  statusCode: {{ .responses.resp1.StatusCode }}  
-  headers:
-    "X-Request": [{{index (index .requests.req1.Header "X-Req1") 0}}]  
-```
-
-When you want to use a request, always call it `.requests.reqID`, for example `.requests.req1` returns req1 as `*http.Request` (golang std lib struct). So, `{{ .requests.req1.Method }}` returns method of req1. `.responses.respID` returns response as `*http.Response`. 
-
-We also provide several method to attach response body, `.responses.respID.RawBody` returns  body as bytes. `.responses.respID.Body` returns body as string, `.responses.respID.JSONBody` unmarshal body into json format and return, `.responses.respID.YAMLBody` unmarshal body into yaml format and return.
-
-For example, given following requests: 
-```yaml
-resp1: 
-  body: '{"field1":"value1", "field2": "value2"}'
-
-resp2: 
-  body: |
-    field3: 
-      subfield: value3 
-    field4: value4 
-```
-then `{{ .responses.resp1.JSONBody.field1 }}` returns `value1`, and `{{ .responses.resp2.YAMLBody.field3.subfield }}` returns `value3`.  
-
-We also add functions in `sprig` pkg to our templates. The YAML below generates a request with the body `Hello! World!`. See doc [here](https://go-task.github.io/slim-sprig/) for the usage of these functions. 
-```yaml
-name: responsebuilder-example-3 
-kind: ResponseBuilder
-protocol: http
-template: |
-  body: '{{ hello }} W{{ lower "ORLD"}}!'
-```
-Our extra functions are [here](https://github.com/megaease/easegress/tree/master/pkg/filters/builder/extrafuncs.go) 
-
 ### Configuration
+
 | Name            | Type   | Description                                   | Required |
 |-----------------|--------|-----------------------------------------------|----------|
-| protocol        | string | protocol type of request to build, like http  | No       |
-| sourceNamespace | string | directly use response from source namespace   | No       | 
-| template        | string | template string used to create response       | No       | 
-| leftDelim       | string | set left action delimiter for template parse  | No       | 
-| rightDelim      | string | set right action delimiter for template parse | No       | 
+| protocol        | string | protocol of the response to build, default is `http`.  | No       |
+| sourceNamespace | string | add a reference to the response of the source namespace    | No       | 
+| template        | string | template to create response, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       | 
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
+
+**NOTE**: `sourceNamespace` and `template` are mutual exclusive, you must
+set one and only one of them.
 
 ### Results
 | Value          | Description                              |
 | -------------- | ---------------------------------------- |
 | resultBuildErr | error happens when build request         |
-
 
 ## Validator
 
@@ -915,7 +794,7 @@ HeaderLookup has no results.
 
 ### httpheader.AdaptSpec
 
-Rules to revise request header. Note that both header name and value can be a template, which means runtime variables (enclosed by `[[` & `]]`) are replaced by their actual values.
+Rules to revise request header.
 
 | Name | Type              | Description                         | Required |
 | ---- | ----------------- | ----------------------------------- | -------- |
@@ -1151,3 +1030,62 @@ The relationship between `methods` and `url` is `AND`.
 |------|------|-------------|----------|
 | etcdKey | string | Key used to get data | No | 
 | headerKey | string | Key used to set data into http header | No | 
+
+### Template Of RequestBuilder & ResponseBuilder
+
+The content of the `template` field in `RequestBuilder` and `ResponseBuilder`
+spec is a template defined in Golang [text/template](https://pkg.go.dev/text/template),
+with extra functions from the [sprig](https://go-task.github.io/slim-sprig/)
+package, and extra functions defined by Easegress:
+
+* **addf**: calculate the sum of the input two numbers.
+* **subf**: calculate the difference of the two input numbers.
+* **mulf**: calculate the product of the two input numbers.
+* **divf**: calculate the quotient of the two input numbers.
+* **log**: write a log message to Easegress log, the first argument must be
+  `debug`, `info`, `warn` or `error`, and the second argument is the message.
+* **mergeObject**: merge two or more objects into one, the type of the input
+  objects must be `map[string]interface{}`, and if one of their field is
+  also an object, its type must also be `map[string]interface{}`.
+
+Easegress injects existing requests/responses of the current context into
+the template engine at runtime, so we can use `.requests.<namespace>.<field>`
+or `.responses.<namespace>.<field>` to read the information out (the
+available fields are vary from the protocol of the request or response,
+and please refer [Pipeline](controllers.md#pipeline) for what is `namespace`).
+For example, if the request of the `DEFAULT` namespace is an HTTP one, we
+can access its method via `.requests.DEFAULT.Method`. .
+
+The `template` should generate a string in YAML format, the schema of the
+result YAML varies from protocol.
+
+#### HTTP Specific
+
+* **Available fields of existing requests**
+
+  All exported fields of the [http.Request](https://pkg.go.dev/net/http#Request).
+  And `RawBody` is the body as bytes; `Body` is the body as string; `JSONBody`
+  is the body as a JSON object; `YAMLBody` is the body as a YAML object.
+
+* **Available fields of existing responses**
+  
+  All exported fields of the [http.Response](https://pkg.go.dev/net/http#Response).
+  And `RawBody` is the body as bytes; `Body` is the body as string; `JSONBody`
+  is the body as a JSON object; `YAMLBody` is the body as a YAML object.
+
+* **Schema of result request**
+
+  | Name | Type | Description | Required | 
+  |------|------|-------------|----------|
+  | method | string | HTTP Method of the result request, default is `GET`.  | No | 
+  | url | string | URL of the result request, default is `/`. | No | 
+  | headers | map[string][]string | Headers of the result request. | No | 
+  | body | string | Body of the result request. | No | 
+
+* **Schema of result response**
+
+  | Name | Type | Description | Required | 
+  |------|------|-------------|----------|
+  | statusCode | int | HTTP status code, default is 200.  | No | 
+  | headers | map[string][]string | Headers of the result request. | No | 
+  | body | string | Body of the result request. | No | 
