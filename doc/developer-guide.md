@@ -41,15 +41,16 @@ Easegress code structure follows the [go project layout standard](https://github
 │   ├── common				// some common utilies
 │   ├── context				// context for traffic gate and pipeline
 │   ├── env				// preparation for running environment
-│   ├── filter				// filters
+│   ├── filters				// filters
 │   ├── graceupdate			// graceful update
 │   ├── logger				// logger utilities
 │   ├── object				// controllers
 │   ├── option				// startup arguments utilities
 │   ├── pidfile				// handle file to record pid
 │   ├── profile				// dedicated pprof
-│   ├── protocol			// decoupling for protocol
+│   ├── protocols			// decoupling for protocol
 │   ├── registry			// registry for all dynamic registering component
+│   ├── resilience			// resilience handling
 │   ├── storage				// distributed storage wrapper
 │   ├── supervisor			// the supervisor to manage controllers
 │   ├── tracing				// distributed tracing
@@ -308,13 +309,12 @@ filters:
 
 ### Main Business Logic
 
-Put the filter package in `pkg/filter/headercounter`. You could implement the main logic counting the header in `pkg/filter/headercounter/headercounter.go`:
+Put the filter package in `pkg/filters/headercounter`. You could implement the main logic counting the header in `pkg/filters/headercounter/headercounter.go`:
 
 ```go
 
 type (
 	HeaderCounter struct {
-		pipeSpec *httppipeline.FilterSpec	// The filter spec in pipeline level, which has two more fiels: kind and name.
 		spec     *Spec						// The filter spec in its own level.
 
 		// The read and write for count must be locked, because the Handle is called concurrently.
@@ -327,58 +327,60 @@ type (
 	}
 )
 
-func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
+func (m *HeaderCounter) Handle(ctx *context.Context) (result string) {
 	for _, key := range m.spec.Headers {
-		value := ctx.Request().Header().Get(key)
+		// suppose this filter can only handle HTTP requests.
+		value := ctx.InputRequest().(*httpprot.Request).HTTPHeader().Get(key)
 		if value != "" {
 			m.countMutex.Lock()
 			m.count[key]++
 			m.countMutex.Unlock()
 		}
 	}
-
-	// NOTE: The filter must call the next handler to satisfy the Chain of Responsibility Pattern.
-	return ctx.CallNextHandler("")
+	return ""
 }
 ```
 
-`HeaderCounter` struct contains compulsory fields of type `*httppipeline.FilterSpec` and `*Spec`, mainly for configuring the filter. Fields `countMutex` and `count` are specific to this filter; the `Handle` function uses them to count the headers. Last but not least it's worth mentioning that `ctx.CallNextHandler` in the end of `Handle` is obligatory, even if the filter is designed to be the last filter of the Pipeline (chain of Filters), as it ensures that filters result is handled correctly.
+`HeaderCounter` struct contains a field of `*Spec`, mainly for configuring the filter. Fields `countMutex` and `count` are specific to this filter; the `Handle` function uses them to count the headers.
 
 ### Register Filter to Pipeline
 
-Our core logic is very simple, now let's add some non-business code to make our new filter conform with the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/httppipeline/registry.go`](https://github.com/megaease/easegress/blob/master/pkg/object/httppipeline/registry.go).
+Our core logic is very simple, now let's add some non-business code to make our new filter conform to the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/filters/filters.go`](https://github.com/megaease/easegress/blob/master/pkg/filters/filters.go).
 
 All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`. It is called when the pipeline is updated, without modifying the filter's identity (*name* and *kind*). In practice, this happens when the underlying machine reboots and restarts Easegress. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
 
 ```go
-// init registers itself to pipeline registry.
-func init() { httppipeline.Register(&HeaderCounter{}) }
+const (
+	// Kind is the kind of HeaderCounter.
+	Kind = "HeaderCounter"
+)
+
+var kind = &filters.Kind{
+	Name:        HeaderCounterKind,
+	Description: "HeaderCounter counts the number of requests which contain the specified header.",
+	Results:     []string{},
+	DefaultSpec: func() filters.Spec { return &Spec{} },
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &HeaderCounter{spec: spec.(*Spec)}
+	},
+}
+
+func init() { filters.Register(kind) }
+
+// Name returns the name of the HeaderCounter filter instance.
+func (hc *HeaderCounter) Name() string { return hc.spec.Name() }
 
 // Kind returns the kind of HeaderCounter.
-func (hc *HeaderCounter) Kind() string { return "HeaderCounter" }
+func (hc *HeaderCounter) Kind() *filters.Kind { return kind }
 
-// DefaultSpec returns default spec of HeaderCounter.
-func (hc *HeaderCounter) DefaultSpec() interface{} { return &Spec{} }
-
-// Description returns the description of HeaderCounter.
-func (hc *HeaderCounter) Description() string {
-	return "HeaderCounter counts the number of requests which contain the specified header."
-}
-
-// Results returns the results of HeaderCounter.
-func (hc *HeaderCounter) Results() []string { return nil }
+// Spec returns the spec used by the HeaderCounter.
+func (hc *HeaderCounter) Spec() filters.Spec { return hc.spec }
 
 // Init initializes HeaderCounter.
-func (hc *HeaderCounter) Init(pipeSpec *httppipeline.FilterSpec) {
-	hc.pipeSpec, hc.spec = pipeSpec, pipeSpec.FilterSpec().(*Spec)
-	hc.reload()
-}
+func (hc *HeaderCounter) Init() { hc.reload() }
 
 // Inherit inherits previous generation of HeaderCounter.
-func (hc *HeaderCounter) Inherit(pipeSpec *httppipeline.FilterSpec,
-	previousGeneration httppipeline.Filter) {
-
-	previousGeneration.Close()
+func (hc *HeaderCounter) Inherit(previousGeneration filters.Filter) {
 	hc.Init(pipeSpec)
 }
 
@@ -387,12 +389,7 @@ func (m *HeaderCounter) reload() {
 }
 
 // Status returns status.
-func (m *HeaderCounter) Status() interface{} {
-	m.countMutex.Lock()
-	defer m.countMutex.Unlock()
-
-	return m.count
-}
+func (m *HeaderCounter) Status() interface{} { return nil }
 
 // Close closes HeaderCounter.
 func (m *HeaderCounter) Close() {}
@@ -402,17 +399,17 @@ Then we need to add the import line in the `pkg/registry/registry.go`:
 
 ```go
 import (
-	_ "github.com/megaease/easegress/pkg/filter/headercounter
+	_ "github.com/megaease/easegress/pkg/filters/headercounter
 )
 ```
 
 ### JumpIf Mechanism in Pipeline
 
-The [Getting Started](../README.md#getting-started) part of the README uses briefly the `jumpIf` mechanism of the `HTTPPipeline`. Let's describe the concept of `jumpIf` using the example below:
+The [Getting Started](../README.md#getting-started) part of the README uses briefly the `jumpIf` mechanism of the `Pipeline`. Let's describe the concept of `jumpIf` using the example below:
 
 ```yaml
 name: pipeline-demo
-kind: HTTPPipeline
+kind: Pipeline
 flow:
 - filter: validator
   jumpIf: { invalid: END }
@@ -420,23 +417,33 @@ flow:
 - filter: proxy
 ```
 
-That `jumpIf` means the request will jump into the end of the `HTTPPipeline` without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. On the other hand, when `validator` returns empty string `""` the request proceeds to next filter as usual.
+That `jumpIf` means the flow will jump to the end of the `Pipeline` without going through `requestAdaptor` and `proxy` if the `validator` returns the result `invalid`. On the other hand, when `validator` returns an empty string `""` the request proceeds to the next filter as usual.
 
-So the purpose of the method `Results` in `Filter` interface is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. In order to use `jumpIf` to skip proceeding filters, `Results` function has to define output code for invalid execution. So if we want to prevent requests which haven't any counting headers from going forward to next filters, we could change it to:
+So the purpose of the field `Results` in the `filters.Kind` type is to register all possible results of the filter. In the example of `HeaderCounter`, the empty results mean `Handle` only returns the empty result. In order to use `jumpIf` to skip proceeding filters, `Results` has to define the output code for invalid execution. So if we want to prevent requests which haven't any counting headers from going forward to the next filters, we could change it to:
 
 ```go
 const resultInvalidHeader = "invalidHeader"
 
-// Results returns the results of HeaderCounter.
-func (hc *HeaderCounter) Results() []string {
-	return []string{resultInvalidHeader} // New code
+var kind = &filters.Kind{
+	Name:        HeaderCounterKind,
+	Description: "HeaderCounter counts the number of requests which contain the specified header.",
+	Results:     []string{resultInvalidHeader}, // add 'invalidHeader' to result.
+	DefaultSpec: func() filters.Spec { return &Spec{} },
+	CreateInstance: func(spec filters.Spec) filters.Filter {
+		return &HeaderCounter{spec: spec.(*Spec)}
+	},
 }
+```
 
+And we will also need to revise the `Handle` method of the `HeaderCounter` filter:
+
+```go
 // Handle counts the header of the requests.
-func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
+func (hc *HeaderCounter) Handle(ctx *context.Context) (result string) {
 	counted := false // New code
-	for _, key := range m.spec.Headers {
-		value := ctx.Request().Header().Get(key)
+
+	for _, key := range hc.spec.Headers {
+		value := ctx.InputRequest().(*httpprot.Request).HTTPHeader().Get(key)
 		if value != "" {
 			m.countMutex.Lock()
 			counted = true // New code
@@ -445,11 +452,11 @@ func (m *HeaderCounter) Handle(ctx context.HTTPContext) (result string) {
 		}
 	}
 
-	if !counted { // New code
-		// No headers counted; let's skip the rest of the pipeline
-		return ctx.CallNextHandler(resultInvalidHeader) // New code
-	} // New code
+	// New code, skip the rest of the pipeline if no header is counted.
+	if !counted {
+		return resultInvalidHeader
+	}
 
-	return ctx.CallNextHandler("")
+	return ""
 }
 ```

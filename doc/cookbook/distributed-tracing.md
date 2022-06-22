@@ -1,6 +1,6 @@
 # Distributed Tracing
 
-Easegress tracing is based on [OpenTracing API](https://opentracing.io/) and officially supports [Zipkin](https://zipkin.io/). We can enable tracing in `HTTPServer` by defining `tracing` entry. Tracing will create spans containing the pipeline name, tracing service name (`tracing.serviceName`), HTTP path and HTTP method. The matched pipeline will start a child span, and its internal filters will start children spans according to their implementation. For example, the `Proxy` filter has specific span implementation.
+Easegress tracing is based on [Zipkin](https://zipkin.io/). We can enable tracing in Traffic Gates, for example, in `HTTPServer`, we can do this by defining the `tracing` entry. Tracing creates spans containing the tracing service name (`tracing.serviceName`) and other information. The matched pipeline will start a child span, and its internal filters will start children spans according to their implementation and configuration. For example, the `Proxy` filter has a specific span implementation.
 
 ```yaml
 kind: HTTPServer
@@ -17,10 +17,11 @@ tracing:
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: http-pipeline-example
+      backend: pipeline-example
 ```
 
 ## Custom tags
+
 Custom tags can help to further filter and debug tracing spans. Here's an example with custom tag `customTagKey` with value `customTagValue`:
 
 ```yaml
@@ -40,5 +41,5 @@ tracing:
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: http-pipeline-example
+      backend: pipeline-example
 ```

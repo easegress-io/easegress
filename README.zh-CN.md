@@ -1,6 +1,12 @@
 # Easegress
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)    [![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/haoel/easegress/actions/workflows/test.yml)     [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)     [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)      [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/haoel/easegress/blob/main/go.mod)     [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)
+[![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
+[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
 
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
@@ -102,7 +108,7 @@
 
 下面的例子展示了如何在不同场景下使用 Easegress。
 
-- [API 聚合](./doc/cookbook/api-aggregator.md) - 将多个 API 聚合为一个。
+- [API 聚合](./doc/cookbook/api-aggregation.md) - 将多个 API 聚合为一个。
 - [Easegress 集群化部署](./doc/cookbook/multi-node-cluster.md) - Easegress 如何进行集群化多点部署。
 - [分布式调用链](./doc/cookbook/distributed-tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
@@ -212,14 +218,14 @@ rules:
 ```bash
 $ echo '
 name: pipeline-demo
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
@@ -261,7 +267,7 @@ Body  : Hello, Easegress
 ```bash
 $ cat pipeline-demo.yaml
 name: pipeline-demo
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: validator
     jumpIf: { invalid: END }
@@ -281,8 +287,8 @@ filters:
         X-Adapt-Key: goodplan
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097

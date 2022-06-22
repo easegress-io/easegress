@@ -56,7 +56,7 @@ For the full document, please check - [Controller Reference](./reference/control
 The following controllers are system level controllers.  One and only one instance of them are created in every Easegress node and they can't be deleted. 
 
 - [ServiceRegistry](./reference/controllers.md#serviceregistry) - The service hub for all service registries - Consul, Etcd, Eureka, Zookeeper, Nacos...
-- [TrafficController](./reference/controllers.md#trafficcontroller) - TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. 
+- [TrafficController](./reference/controllers.md#trafficcontroller) - TrafficController handles the lifecycle of TrafficGates(HTTPServer and etc.) and Pipeline and their relationship. 
 - [RawConfigTrafficController](./reference/controllers.md#rawconfigtrafficcontroller) - RawConfigTrafficController maps all traffic static configurations to TrafficController in the namespace `default`.
 
 #### 4.1.2 Business Controllers
@@ -76,17 +76,15 @@ It could be created, updated, deleted by admin operation. They control various r
 
 ### 4.2 Filters
 
-- [API Aggregator](./reference/filters.md#APIAggregator) - The API Aggregator forwards one request to multiple API HTTP Pipelines in the same namespace and aggregates responses.
 - [Proxy](./reference/filters.md#Proxy) - The Proxy filter is a proxy of backend service. 
 - [CORSAdaptor](./reference/filters.md#CORSAdaptor) - The CORSAdaptor handles the CORS preflight request for backend service.
 - [Fallback](./reference/filters.md#Fallback) - The Fallback filter mocks a response as fallback action of other filters. 
 - [Mock](./reference/filters.md#Mock) - The Mock filter mocks responses according to configured rules, mainly for testing purposes.
 - [RemoteFilter](./reference/filters.md#RemoteFilter) - The RemoteFilter is a filter making remote service acting as an internal filter. 
-- [RequestAdaptor](./reference/filters.md#RequestAdaptor) - The RequestAdaptor modifies the original request according to configuration.
-- [CircuitBreaker](./reference/filters.md#CircuitBreaker) - The CircuitBreaker is a finite state machine with three states: `CLOSED`, `OPEN`, and `HALF_OPEN`.
 - [RateLimiter](./reference/filters.md#RateLimiter) - The RateLimiter protects backend service for high availability and reliability by limiting the number of requests sent to the service in a configured duration.
-- [TimeLimiter](./reference/filters.md#TimeLimiter) - The TimeLimiter limits the time of requests, a request is canceled if it cannot get a response in configured duration.
-- [Retryer](./reference/filters.md#Retryer) - The Retryer retries failed requests according to configured policy.
+- [RequestBuilder](./reference/filters.md#RequestBuilder) - The RequestBuilder build a new request from existing requests/responses.
+- [ResponseBuilder](./reference/filters.md#ResponseBuilder) - The ResponseBuilder build a new response from existing requests/responses.
+- [RequestAdaptor](./reference/filters.md#RequestAdaptor) - The RequestAdaptor modifies the original request according to configuration.
 - [ResponseAdaptor](./reference/filters.md#ResponseAdaptor) - The ResponseAdaptor modifies the original response according to the configuration before passing it back.
 - [Validator](./reference/filters.md#Validator) - The Validator filter validates requests, forwards valid ones, and rejects invalid ones. 
 - [WasmHost](./reference/filters.md#WasmHost) - The WasmHost filter implements a host environment for user-developed WebAssembly code. 

@@ -1,12 +1,14 @@
 # MQTT Proxy
 
 - [MQTT Proxy](#mqtt-proxy)
-  - [Background](#background)
-  - [Design](#design)
-  - [Topic Mapping](#topic-mapping) 
-    - [Match different topic mapping policy](#match-different-topic-mapping-policy)
-    - [Detail of single policy](#detail-of-single-policy)
-  - [References](#references)
+- [Background](#background)
+- [Design](#design)
+- [Example](#example)
+- [Topic Mapping](#topic-mapping)
+  - [Match different topic mapping policy](#match-different-topic-mapping-policy)
+  - [Detail of single policy](#detail-of-single-policy)
+- [HTTP endpoint](#http-endpoint)
+- [References](#references)
 
 
 
@@ -19,7 +21,7 @@
 - `MQTTProxy` is now a `BusinessController` to Easegress. 
 - Use `github.com/eclipse/paho.mqtt.golang/packets` to parse MQTT packet. `paho.mqtt.golang` is a MQTT 3.1.1 go client introduced by Eclipse Foundation (who also introduced the most widely used MQTT broker mosquitto).
 - As a MQTT proxy, we support MQTT clients to `publish` messages to backend through publish packet pipeline. 
-- Just like `HTTPPipeline`, `Pipeline` in MQTTProxy can use filters to do things like user authentication or topic mapping (map MQTT multi-level topic into single topic and key-value headers).   
+- As `Pipeline` is protocol independent, it can use MQTT filters to do things like user authentication or topic mapping (map MQTT multi-level topic into single topic and key-value headers).   
 - We also support MQTT clients to `subscribe` topics (wildcard is supported) and send messages back to the MQTT clients through the HTTP endpoint.
 
 ```
