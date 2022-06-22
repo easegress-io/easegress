@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -50,14 +51,43 @@ func toFloat64(val interface{}) float64 {
 		return float64(v)
 	case uintptr:
 		return float64(v)
-	case string:
-		if f, e := strconv.ParseFloat(v, 64); e != nil {
-			panic(e)
-		} else {
+	case json.Number:
+		f, e := v.Float64()
+		if e == nil {
 			return f
 		}
+		panic(e)
+	case string:
+		f, e := strconv.ParseFloat(v, 64)
+		if e == nil {
+			return f
+		}
+		panic(e)
 	}
 	panic(fmt.Errorf("cannot convert %v to float64", val))
+}
+
+func mergeObject(objs ...map[string]interface{}) interface{} {
+	out := map[string]interface{}{}
+
+	var merge func(a, b map[string]interface{})
+	merge = func(a, b map[string]interface{}) {
+		for k, v := range b {
+			ma, oka := a[k].(map[string]interface{})
+			mb, okb := v.(map[string]interface{})
+			if oka && okb {
+				merge(ma, mb)
+			} else {
+				a[k] = v
+			}
+		}
+	}
+
+	for _, obj := range objs {
+		merge(out, obj)
+	}
+
+	return out
 }
 
 var extraFuncs = template.FuncMap{
@@ -97,4 +127,6 @@ var extraFuncs = template.FuncMap{
 		}
 		return ""
 	},
+
+	"mergeObject": mergeObject,
 }
