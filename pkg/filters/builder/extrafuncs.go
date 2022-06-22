@@ -52,17 +52,17 @@ func toFloat64(val interface{}) float64 {
 	case uintptr:
 		return float64(v)
 	case json.Number:
-		if f, e := v.Float64(); e == nil {
+		f, e := v.Float64()
+		if e == nil {
 			return f
-		} else {
-			panic(e)
 		}
+		panic(e)
 	case string:
-		if f, e := strconv.ParseFloat(v, 64); e == nil {
+		f, e := strconv.ParseFloat(v, 64)
+		if e == nil {
 			return f
-		} else {
-			panic(e)
 		}
+		panic(e)
 	}
 	panic(fmt.Errorf("cannot convert %v to float64", val))
 }
