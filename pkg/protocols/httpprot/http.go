@@ -18,9 +18,13 @@
 package httpprot
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/protocols"
+	"gopkg.in/yaml.v3"
 )
 
 // DefaultMaxPayloadSize is the default max allowed payload size.
@@ -101,4 +105,56 @@ func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
 func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
 	r, _ := resp.(*http.Response)
 	return NewResponse(r)
+}
+
+func parseJSONBody(body []byte) (interface{}, error) {
+	var v interface{}
+	d := json.NewDecoder(bytes.NewReader(body))
+	d.UseNumber()
+	if err := d.Decode(&v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// This function can only handle simple YAML objects, that is, the keys
+// of the YAML object must be strings.
+func parseYAMLBody(body []byte) (interface{}, error) {
+	var v interface{}
+	err := yaml.Unmarshal(body, &v)
+	if err != nil {
+		return nil, err
+	}
+
+	var convert func(o interface{}) (interface{}, error)
+	convert = func(o interface{}) (interface{}, error) {
+		switch x := o.(type) {
+		case []interface{}:
+			for i, v := range x {
+				v, err := convert(v)
+				if err != nil {
+					return nil, err
+				}
+				x[i] = v
+			}
+			return x, nil
+		case map[interface{}]interface{}:
+			x2 := make(map[string]interface{}, len(x))
+			for k, v := range x {
+				ks, ok := k.(string)
+				if !ok {
+					return nil, fmt.Errorf("unexpected key type %T", k)
+				}
+				v, err := convert(v)
+				if err != nil {
+					return nil, err
+				}
+				x2[ks] = v
+			}
+			return x2, nil
+		}
+		return o, nil
+	}
+
+	return convert(v)
 }

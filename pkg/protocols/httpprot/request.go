@@ -20,7 +20,6 @@ package httpprot
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,7 +29,6 @@ import (
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/tomasen/realip"
-	"gopkg.in/yaml.v3"
 )
 
 // Request wraps http.Request.
@@ -382,29 +380,27 @@ func (r *builderRequest) Body() string {
 // JSONBody parses the body as a JSON object and returns the result.
 // The function only parses the body if it is not already parsed.
 func (r *builderRequest) JSONBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		err := json.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
+	if r.parsedBody != nil {
+		return r.parsedBody, nil
 	}
-	return r.parsedBody, nil
+
+	v, err := parseJSONBody(r.rawBody)
+	r.parsedBody = v
+	return v, err
 }
 
 // YAMLBody parses the body as a YAML object and returns the result.
 // The function only parses the body if it is not already parsed.
+// The function can only handle simple YAML objects, that is, the keys
+// of the YAML object must be strings.
 func (r *builderRequest) YAMLBody() (interface{}, error) {
-	if r.parsedBody == nil {
-		var v interface{}
-		err := yaml.Unmarshal(r.rawBody, &v)
-		if err != nil {
-			return nil, err
-		}
-		r.parsedBody = v
+	if r.parsedBody != nil {
+		return r.parsedBody, nil
 	}
-	return r.parsedBody, nil
+
+	v, err := parseYAMLBody(r.rawBody)
+	r.parsedBody = v
+	return v, err
 }
 
 // requestInfo stores the information of a request.

@@ -54,3 +54,44 @@ func TestExtraFuncs(t *testing.T) {
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("warn", "warn"))
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("error", "error"))
 }
+
+func TestMergeObject(t *testing.T) {
+	assert := assert.New(t)
+
+	obj1 := map[string]interface{}{
+		"a": 1,
+		"b": 2,
+		"e": map[string]interface{}{
+			"e1": 10,
+			"e3": 5,
+		},
+		"f": map[string]interface{}{
+			"f1": 10,
+		},
+	}
+
+	obj2 := map[string]interface{}{
+		"b": 3,
+		"c": 4,
+		"d": 1.5,
+		"e": map[string]interface{}{
+			"e1": 3,
+			"e2": 4,
+		},
+		"f": "abcd",
+	}
+
+	result := mergeObject(obj1, obj2, nil)
+	m := result.(map[string]interface{})
+
+	assert.Equal(1, m["a"])
+	assert.Equal(3, m["b"])
+	assert.Equal(4, m["c"])
+	assert.Equal(1.5, m["d"])
+	assert.Equal("abcd", m["f"])
+
+	m = m["e"].(map[string]interface{})
+	assert.Equal(3, m["e1"])
+	assert.Equal(4, m["e2"])
+	assert.Equal(5, m["e3"])
+}
