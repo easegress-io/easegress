@@ -25,6 +25,8 @@ import (
 	"github.com/megaease/easegress/pkg/v"
 )
 
+const DefaultSpecVersion = "easegress.megaease.com/v2"
+
 type (
 	// Spec is the universal spec for all objects.
 	Spec struct {
@@ -38,8 +40,9 @@ type (
 
 	// MetaSpec is metadata for all specs.
 	MetaSpec struct {
-		Name string `yaml:"name" jsonschema:"required,format=urlname"`
-		Kind string `yaml:"kind" jsonschema:"required"`
+		Name    string `yaml:"name" jsonschema:"required,format=urlname"`
+		Kind    string `yaml:"kind" jsonschema:"required"`
+		Version string `yaml:"version" jsonschema:"required"`
 	}
 )
 
@@ -81,7 +84,7 @@ func (s *Supervisor) NewSpec(yamlConfig string) (spec *Spec, err error) {
 	yamlBuff := []byte(yamlConfig)
 
 	// Meta part.
-	meta := &MetaSpec{}
+	meta := &MetaSpec{Version: DefaultSpecVersion}
 	yamltool.Unmarshal(yamlBuff, meta)
 	verr := v.Validate(meta)
 	if !verr.Valid() {
@@ -128,6 +131,9 @@ func (s *Spec) Name() string { return s.meta.Name }
 
 // Kind returns kind.
 func (s *Spec) Kind() string { return s.meta.Kind }
+
+// Version returns version.
+func (s *Spec) Version() string { return s.meta.Version }
 
 // YAMLConfig returns the config in yaml format.
 func (s *Spec) YAMLConfig() string {

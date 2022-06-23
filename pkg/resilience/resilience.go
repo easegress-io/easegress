@@ -80,7 +80,7 @@ func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 	}
 
 	// Meta part.
-	meta := supervisor.MetaSpec{}
+	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
 	if err = yaml.Unmarshal(yamlBuff, &meta); err != nil {
 		return nil, err
 	}

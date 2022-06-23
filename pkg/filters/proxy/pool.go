@@ -142,7 +142,6 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 	}
 	stdr, err := http.NewRequestWithContext(ctx, req.Method(), url, payload)
 	if err != nil {
-		logger.Errorf("prepare request failed: %v", err)
 		return err
 	}
 
@@ -415,6 +414,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 
 	err := spCtx.prepareRequest(svr, spCtx.req.Context(), true)
 	if err != nil {
+		logger.Debugf("failed to prepare request: %v", err)
 		return
 	}
 
@@ -488,9 +488,8 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	// Circuit breaker is the most outside resiliencer, if the error
 	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
-		spCtx.LazyAddTag(func() string {
-			return "short circuited"
-		})
+		logger.Debugf("short circuited by circuit break policy")
+		spCtx.AddTag("short circuited")
 		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultShortCircuited
 	}
@@ -513,9 +512,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 
 	// if there's no available server.
 	if svr == nil {
-		spCtx.LazyAddTag(func() string {
-			return "no available server"
-		})
+		logger.Debugf("no available server")
 		return serverPoolError{http.StatusServiceUnavailable, resultInternalError}
 	}
 
@@ -523,17 +520,13 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	statResult := &gohttpstat.Result{}
 	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
 	if err := spCtx.prepareRequest(svr, stdctx, false); err != nil {
-		spCtx.LazyAddTag(func() string {
-			return "prepare request failed: " + err.Error()
-		})
+		logger.Debugf("failed to prepare request: %v", err)
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		spCtx.LazyAddTag(func() string {
-			return fmt.Sprintf("send request error: %v", err)
-		})
+		logger.Debugf("failed to send request: %v", err)
 
 		statResult.End(fasttime.Now())
 		spCtx.LazyAddTag(func() string {
@@ -546,8 +539,8 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 			return serverPoolError{http.StatusRequestTimeout, resultTimeout}
 		}
 
-		// NOTE: The HTTPContext will set 499 by itself if client is
-		// Disconnected. TODO: define a constant for 499
+		// NOTE: return 499 if client is Disconnected.
+		// TODO: define a constant for 499
 		return serverPoolError{499, resultClientError}
 	}
 
@@ -557,7 +550,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	}
 
 	spCtx.LazyAddTag(func() string {
-		return fmt.Sprintf("code: %d", resp.StatusCode)
+		return fmt.Sprintf("status code: %d", resp.StatusCode)
 	})
 
 	// If the status code is one of the failure codes, change result to
@@ -580,12 +573,15 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 	body := readers.NewCallbackReader(spCtx.stdResp.Body)
 	spCtx.stdResp.Body = body
 
-	if sp.proxy.compression != nil && sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
-		spCtx.AddTag("gzip")
+	if sp.proxy.compression != nil {
+		if sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
+			spCtx.AddTag("gzip")
+		}
 	}
 
 	resp, err := httpprot.NewResponse(spCtx.stdResp)
 	if err != nil {
+		logger.Debugf("NewResponse returns an error: %v", err)
 		body.Close()
 		return err
 	}
@@ -595,9 +591,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		maxBodySize = sp.proxy.spec.ServerMaxBodySize
 	}
 	if err = resp.FetchPayload(maxBodySize); err != nil {
-		spCtx.LazyAddTag(func() string {
-			return fmt.Sprintf("fetch response payload error: %v", err)
-		})
+		logger.Debugf("failed to fetch response payload: %v", err)
 		body.Close()
 		return err
 	}

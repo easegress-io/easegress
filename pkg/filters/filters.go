@@ -132,7 +132,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 	}
 
 	// Meta part.
-	meta := supervisor.MetaSpec{}
+	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
 	if err = yaml.Unmarshal(yamlBuff, &meta); err != nil {
 		return nil, err
 	}
