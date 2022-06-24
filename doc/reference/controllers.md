@@ -595,7 +595,7 @@ A retry policy configures how to retry a failed request.
 | backOffPolicy | string  | The back-off policy for wait duration, could be `EXPONENTIAL` or `RANDOM` and the default is `RANDOM`. If configured as `EXPONENTIAL`, the base wait duration becomes 1.5 times larger after each failed attempt | No |
 | randomizationFactor  | float64 | Randomization factor for actual wait duration, a number in interval `[0, 1]`, default is 0. The actual wait duration used is a random number in interval `[(base wait duration) * (1 - randomizationFactor),  (base wait duration) * (1 + randomizationFactor)]` | No |
 
-#### circuitBreaker
+#### Circuit Break Policy
 
 The CircuitBreaker is a finite state machine with three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through the CircuitBreaker normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and the CircuitBreaker short-circuiting all requests in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through the CircuitBreaker while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN` based on the results of the permitted requests.
 
