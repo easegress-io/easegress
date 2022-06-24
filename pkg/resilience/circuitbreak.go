@@ -27,7 +27,7 @@ import (
 )
 
 var circuitBreakKind = &Kind{
-	Name: "CircuitBreaker",
+	Name: "CircuitBreak",
 
 	DefaultPolicy: func() Policy {
 		return &CircuitBreakPolicy{

@@ -159,7 +159,6 @@ A filter can implement the `filters.Resiliencer` interface to support resilience
 ```yaml
 name: http-pipeline-example3
 kind: Pipeline
-# END is built in filter name, it stops execution of pipeline and returns. 
 flow:
 - filter: proxy 
 
@@ -608,14 +607,14 @@ Policy `circuit-breaker-example-time` short-circuits requests if more than 60% o
 > failed means that backend filter returns non-empty results. 
 
 ```yaml
-kind: CircuitBreaker
+kind: CircuitBreak
 name: circuit-breaker-example-count 
 slidingWindowType: COUNT_BASED
 failureRateThreshold: 50
 slidingWindowSize: 100
 
 ---
-kind: CircuitBreaker
+kind: CircuitBreak
 name: circuit-breaker-example-time 
 slidingWindowType: TIME_BASED
 failureRateThreshold: 60
@@ -634,3 +633,5 @@ slidingWindowSize: 100
 | minimumNumberOfCalls | uint32 | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No |
 | maxWaitDurationInHalfOpenState | string | The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means Circuit Breaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0| No |
 | waitDurationInOpenState | string | The time that the CircuitBreaker should wait before transitioning from `OPEN` to `HALF_OPEN`. Default is 60s | No |
+
+See more details about `Retry`, `CircuitBreak` or other resilience polcies in [here](../cookbook/resilience.md).
