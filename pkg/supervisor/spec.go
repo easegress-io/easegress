@@ -25,6 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/v"
 )
 
+// DefaultSpecVersion is the default value of the Version field in MetaSpec.
 const DefaultSpecVersion = "easegress.megaease.com/v2"
 
 type (
