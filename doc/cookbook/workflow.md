@@ -2,232 +2,184 @@
 
 - [Workflow](#workflow)
   - [Background](#background)
-  - [Sequence workflow with HTTPTextTemplate](#sequence-workflow-with-httptexttemplate)
   - [Example](#example)
-    - [Step 1: Create NBA API pipeline](#step-1-create-nba-api-pipeline)
-    - [Step 2: Create Fun translator API pipeline](#step-2-create-fun-translator-api-pipeline)
-    - [Step 3: Create orchestrion pipeline](#step-3-create-orchestrion-pipeline)
-    - [Step 4: Create HTTPServer for routing](#step-4-create-httpserver-for-routing)
-    - [Step 5: See the result](#step-5-see-the-result)
+    - [Step 1. Create a Slack Webhook](#step-1-create-a-slack-webhook)
+    - [Step 2. Create a pipeline for the workflow](#step-2-create-a-pipeline-for-the-workflow)
+    - [Step 3: Create an HTTPServer to receive client request](#step-3-create-an-httpserver-to-receive-client-request)
+    - [Step 4: See the result](#step-4-see-the-result)
   - [References](#references)
 
 ## Background
 
-* A workflow consists of an orchestrated and repeatable pattern of activity, enabled by the systematic organization of resources into processes that transform materials, provide services, or process information. It can be depicted as a sequence of operations, the work of a person or group, the work of an organization of staff, or one or more simple or complex mechanisms.[1]
-* Easegress currently has a build-in sequence workflow in Pipeline. Furthermore, we also provide a template mechanism for more advanced usage.
-
-## Sequence workflow with HTTPTextTemplate
-
-* Already executed filter's metadata can be the input for next filter.
-* Orchestrating pipeline with APIAggregator, RequestAdaptor, and ResponseAdaptor.
-
+A workflow consists of an orchestrated and repeatable pattern of activity, enabled by the systematic organization of resources into processes that transform materials, provide services, or process information. It can be depicted as a sequence of operations, the work of a person or group, the work of an organization of staff, or one or more simple or complex mechanisms.[1]
 
 ## Example
-* We use the free, fun, and open RESTful APIs to achieve this example.[2]
-* API1: NBA list, http://www.balldontlie.io/api/v1/players, its response is a list for all player's informactions.
-```
-{
-   "data":[
+
+Read an RSS feed, build the article list into a Slack message, and then send it to Slack.
+
+### Step 1. Create a Slack Webhook
+
+Please follow [this document](https://api.slack.com/messaging/webhooks) to create a new Slack WebHook, the URL of the Webhook will be like `https://hooks.slack.com/services/T0XXXXXXX/B0YYYYYYYYY/ZZZZZZZZZZZZZZZZZZZZZZZZ`.
+
+### Step 2. Create a pipeline for the workflow
+
+Save the below YAML to `rss-pipeline.yaml`, and make sure you have replaced the Slack Webhook URL with yours.
+
+```yaml
+name: rss-pipeline
+kind: Pipeline
+
+flow:
+# validate the request, a valid request must contain the 'X-Rss-Url' header, and its value must be a URL.
+- filter: validator
+
+# create the request for the RSS feed.
+- filter: buildRssRequest
+  namespace: rss
+
+# read the RSS feed, a 3rd party website is used to covert the feed from XML to JSON.
+- filter: sendRssRequest
+  namespace: rss
+
+# the RSS feed is gzipped, we need to decompress it.
+- filter: decompressResponse
+  namespace: rss
+
+# create the request to Slack (build the Slack message).
+- filter: buildSlackRequest
+  namespace: slack
+
+# send the message to Slack.
+- filter: sendSlackRequest
+  namespace: slack
+
+# build the response for the client.
+- filter: buildResponse
+
+filters:
+- name: validator
+  kind: Validator
+  headers:
+    "X-Rss-Url":
+       regexp: ^https?://.+$
+
+- name: buildRssRequest
+  kind: RequestBuilder
+  template: |
+    url: /developers/feed2json/convert?url={{index (index .requests.DEFAULT.Header "X-Rss-Url") 0 | urlquery}}
+
+- name: sendRssRequest
+  kind: Proxy
+  pools:
+  - loadBalance:
+      policy: roundRobin
+    servers:
+    - url: https://www.toptal.com
+  compression:
+    minLength: 4096
+
+- name: buildSlackRequest
+  kind: RequestBuilder
+  template: |
+    method: POST
+    url: /services/T0XXXXXXXXX/B0YYYYYYY/ZZZZZZZZZZZZZZZZZZZZ   # This the Slack webhook address, please change it to your own.
+    body: |
       {
-         "height_inches":null,
-         "last_name":"Anigbogu",
-         "position":"C",
-         "team":{
-            "id":12,
-            "abbreviation":"IND",
-            "city":"Indiana",
-            "conference":"East",
-            "division":"Central",
-            "full_name":"Indiana Pacers",
-            "name":"Pacers"
-         },
-         "weight_pounds":null,
-         "id":14,
-         "first_name":"Ike",
-         "height_feet":null
-      },
-      {
-         "last_name":"Baker",
-         "position":"G",
-         "team":{
-            "id":20,
-            "abbreviation":"NYK",
-            ...
-         },
-         ...
-      },
-   ]
-}
-```
-* API2: Fun translator, http://api.funtranslations.com/translate/minion.json, its response body will be liked:
-```json
-{
-    "success": {
-        "total": 1
-    },
-    "contents": {
-        "translated": "yo yo bada pik prompo",
-        "text": "yo yo check it now",
-        "translation": "minion"
-    }
-}%  
-```
-* Yes, we love Minions!
+         "text": "Recent posts - {{.responses.rss.JSONBody.title}}",
+         "blocks": [{
+            "type": "section",
+            "text": {
+              "type": "plain_text",
+              "text": "Recent posts - {{.responses.rss.JSONBody.title}}"
+            }
+         }, {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "{{range $index, $item := .responses.rss.JSONBody.items}}• <{{$item.url}}|{{$item.title}}>\n{{end}}"
+         }}]
+      }
 
-* We want to orchestrate these two APIs in one request, furthermore, we will take NBA API's response's fifth player's last name and combined it into a sentence for fun translater API's to translate into `minion` language.
+- name: sendSlackRequest
+  kind: Proxy
+  pools:
+  - loadBalance:
+      policy: roundRobin
+    servers:
+    - url: https://hooks.slack.com
+  compression:
+    minLength: 4096
 
-* In Easegress, a pipeline usually represents a particular HTTP service(maybe with several backends), APIAggregator can forward the request to a dedicated pipeline. And we can use HTTPTextTemplate syntax to extract the responses and turn them into the input for the next pipeline with Aggregator.
 
-### Step 1: Create NBA API pipeline 
+- name: decompressResponse
+  kind: ResponseAdaptor
+  decompress: gzip
 
-``` bash  
-echo '
-name: pipeline-nba
-kind: HTTPPipeline
-flow:
-  - filter: requestAdp
-  - filter: proxy
-filters:
-  - kind: RequestAdaptor
-    name: requestAdp
-    host: www.balldontlie.io
-    path:
-      replace: /api/v1/players
-  - name: proxy
-    kind: Proxy
-    mainPool:
-      servers:
-      - url: http://www.balldontlie.io
-      loadBalance:
-        policy: roundRobin' | egctl object create 
+
+- name: buildResponse
+  kind: ResponseBuilder
+  template: |
+    statusCode: {{.responses.slack.StatusCode}}
+    body: {{if eq .responses.slack.StatusCode 200}}RSS feed has been sent to Slack successfully.{{else}}Failed to send the RSS feed to Slack{{end}}
 ```
 
-### Step 2: Create Fun translator API pipeline 
+Then create the RSS pipeline with the command:
 
-* This pipeline uses a `requestAdaptor` to change the request method to `POST`, replace its path to `/translate/minion.json`, and add a `Content-Type` header.
-
-``` bash
-
-echo '
-name: pipeline-translate
-kind: HTTPPipeline
-flow:
-  - filter: requestAdp
-  - filter: proxy
-filters:
-  - kind: RequestAdaptor
-    name: requestAdp
-    host: api.funtranslations.com 
-    header:
-      del: []
-      set:
-      add:
-        Content-Type: application/x-www-form-urlencoded
-    method: "POST"
-    path:
-      replace: /translate/minion.json 
-  - name: proxy
-    kind: Proxy
-    mainPool:
-      servers:
-      - url: http://api.funtranslations.com
-      loadBalance:
-        policy: roundRobin' | egctl object create 
-
+```shell
+egctl object create -f rss-pipeline.yaml
 ```
 
-### Step 3: Create orchestrion pipeline 
+### Step 3: Create an HTTPServer to receive client request
 
-* This pipeline needs to get the fifth player's last name as the input body for the translator pipeline. It achieves this goal by using `requestAdaptor` and the build-in `HTTPTemplate` in the pipeline.
-* At last, this pipeline combines the output from NBA API and Fun translator API to form a new response.
+Save below YAML to `http-server.yaml`.
 
-``` bash 
-echo '
-name: pipeline-agg
-kind: HTTPPipeline
-flow:
-  - filter: agg-demo
-  - filter: req-adaptor1
-  - filter: agg-demo1
-  - filter: rsp-adaptor
-
-filters:
-  - pipelines:
-      - name: pipeline-nba
-    kind: APIAggregator
-    mergeResponse: true
-    name: agg-demo
-  - name: req-adaptor1
-    kind: RequestAdaptor
-    header:
-      del: [] 
-      set: 
-      add: 
-        Content-Type: application/x-www-form-urlencoded
-    body: "text=hi my name is [[filter.agg-demo.rsp.body.data.4.last_name]] yoyo check it now" 
-  - pipelines:
-      - name: pipeline-translate
-    kind: APIAggregator
-    name: agg-demo1
-    mergeResponse: true
-  - name: rsp-adaptor
-    kind: ResponseAdaptor
-    header:
-      del: [] 
-      set: 
-        last_name: "[[filter.agg-demo.rsp.body.data.4.last_name]]" 
-      add: 
-    body: "{\"name\": \"[[filter.agg-demo.rsp.body.data.4.last_name]]\",\"translated\":\"[[filter.agg-demo1.rsp.body.contents.translated]]\", \"origin\":\"[[filter.agg-demo1.rsp.body.contents.text]]\", \"language\":\"[[filter.agg-demo1.rsp.body.contents.translation]]\"}" ' | egctl  object create 
-
-```
-
-### Step 4: Create HTTPServer for routing
-
-``` bash
-echo '
+```yaml
 kind: HTTPServer
-name: server-demo
-certs:
-keys:
-port: 10080
-keepAlive: true
+name: http-server-example
+port: 8080
 https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
 rules:
   - paths:
-    - pathPrefix: /workflow
-      backend: pipeline-agg ' | egctl  object create 
-
+    - pathPrefix: /rss
+      backend: rss-pipeline
 ```
 
-### Step 5: See the result 
+Then create the HTTP server with command:
 
-``` bash
-$ curl http://127.0.0.1:10080/workflow -vv
-*   Trying 127.0.0.1...
+```shell
+egctl object create -f http-server.yaml
+```
+
+### Step 4: See the result 
+
+Execute the below command and your Slack will receive the article list if everything is correct.
+You may use another RSS feed, but please note the maximum message size Slack allowed is about 3K, so you will need to limit the number of articles returned by the RSS feed of some sites(e.g. Hack News)
+
+```shell
+$ curl -v http://127.0.0.1:8080/rss -H X-Rss-Url:https://www.coolshell.cn/rss
+*   Trying 127.0.0.1:8080...
 * TCP_NODELAY set
-* Connected to 127.0.0.1 (127.0.0.1) port 10080 (#0)
-> GET /workflow HTTP/1.1
-> Host: 127.0.0.1:10080
-> User-Agent: curl/7.64.1
+* Connected to 127.0.0.1 (127.0.0.1) port 8080 (#0)
+> GET /rss HTTP/1.1
+> Host: 127.0.0.1:8080
+> User-Agent: curl/7.68.0
 > Accept: */*
+> X-Rss-Url:https://www.coolshell.cn/rss
 > 
+* Mark bundle as not supporting multiuse
 < HTTP/1.1 200 OK
-< Last_name: Brown
-< Date: Wed, 04 Aug 2021 09:28:07 GMT
-< Content-Length: 144
+< Date: Fri, 17 Jun 2022 08:29:58 GMT
+< Content-Length: 45
 < Content-Type: text/plain; charset=utf-8
 < 
-{"name": "Brown","translated":"hi mi nomba tis nub yoyo bada pik prompo", "origin":"hi my name is Brown yoyo check it now", "language":"minion"}
-
+* Connection #0 to host 127.0.0.1 left intact
+RSS feed has been sent to Slack successfully.
 ```
-
-
-* `filter.agg-demo.rsp.body.data.4.last_name` in rsp-adaptor will extract fifth player's last name fron NBA API's response body.
-* `filter.agg-demo1.rsp.body.contents.translated` in rsp-adaptor will extract the translated result in minion language.
-* The template syntax above supports GJSON[3] in the last field.
 
 ## References
 
 1. https://en.wikipedia.org/wiki/Workflow
-2. https://learn.vonage.com/blog/2021/03/15/the-ultimate-list-of-fun-apis-for-your-next-coding-project/ 
-3. https://github.com/tidwall/gjson

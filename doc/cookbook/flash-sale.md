@@ -121,7 +121,7 @@ Create pipeline `flash-sale-pipeline` which includes a `WasmHost` filter:
 ```bash
 $ echo '
 name: flash-sale-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 flow:
 - filter: wasm
 - filter: mock
