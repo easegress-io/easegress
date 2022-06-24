@@ -23,6 +23,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [Kubernetes Ingress Controller](./cookbook/k8s-ingress-controller.md) - How to integrated with Kubernetes as ingress controller, and [K8s Ingress Controller](./reference/ingresscontroller.md) for full manual.
 - [LoadBalancer](./cookbook/load-balancer.md) - A number of strategy of load balancing
 - [MQTTProxy](./cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Migrate v1.x Filter To v2.x](./cookbook/migrate-v1-filter-to-v2.md) - How to migrate a v1.x filter to v2.x.
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
