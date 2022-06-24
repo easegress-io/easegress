@@ -345,14 +345,14 @@ func (m *HeaderCounter) Handle(ctx *context.Context) (result string) {
 
 ### Register Filter to Pipeline
 
-Our core logic is very simple, now let's add some non-business code to make our new filter conform to the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/filters/filters.go`](https://github.com/megaease/easegress/blob/master/pkg/filters/filters.go).
+Our core logic is very simple, now let's add some non-business code to make our new filter conform to the requirement of the Pipeline framework. All filters must satisfy the interface `Filter` in [`pkg/object/filters/filters.go`](https://github.com/megaease/easegress/blob/main/pkg/filters/filters.go).
 
 All of the methods with their names and comments are clean, the only one we need to emphasize is `Inherit`. It is called when the pipeline is updated, without modifying the filter's identity (*name* and *kind*). In practice, this happens when the underlying machine reboots and restarts Easegress. It's the filter's own responsibility to do hot-update in `Inherit` such as transferring meaningful consecutive data.
 
 ```go
 const (
 	// Kind is the kind of HeaderCounter.
-	Kind = "HeaderCounter"
+	HeaderCounterKind = "HeaderCounter"
 )
 
 var kind = &filters.Kind{

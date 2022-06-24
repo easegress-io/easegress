@@ -67,7 +67,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: '[{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]'
+    body: "[{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]"
 '  | egctl object create
 ```
 
@@ -146,7 +146,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: '{{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}'
+    body: "{{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}"
 '  | egctl object update
 ```
 
