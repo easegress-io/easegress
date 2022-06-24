@@ -147,7 +147,9 @@ resilience:
   permittedNumberOfCallsInHalfOpenState: 10
 ```
 
-For the full YAML, see [here](#circuit-break-1)
+For the full YAML, see [here](#circuit-break-1), and please refer
+[Circuit Break Policy](../reference/controllers.md#circuit-break-policy]
+for more information.
 
 ### RateLimiter
 
@@ -185,7 +187,7 @@ filters:
   kind: Proxy
 ```
 
-For the full YAML, see [here](#ratelimiter-1)
+For the full YAML, see [here](#ratelimiter-1).
 
 ### Retry
 
@@ -232,7 +234,8 @@ resilience:
   randomizationFactor: 0.5
 ```
 
-For the full YAML, see [here](#retry-1)
+For the full YAML, see [here](#retry-1), and please refer
+[Retry Policy](../reference/controllers.md#retry-policy] for more information.
 
 ### Time Limit
 

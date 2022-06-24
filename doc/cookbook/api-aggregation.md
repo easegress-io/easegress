@@ -13,7 +13,8 @@
 * API aggregation is a pattern to aggregate multiple individual requests into
   a single request. This pattern is useful when a client must make multiple
   calls to different backend systems to operate.[1]
-* Easegress provides filters `RequestBuilder` & `ResponseBuilder` for this
+* Easegress provides filters [RequestBuilder](../reference/filters.md#requestbuilder)
+  & [ResponseBuilder](../reference/filters.md#responsebuilder) for this
   powerful feature.
 
 ## Example
