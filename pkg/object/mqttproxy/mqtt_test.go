@@ -1386,6 +1386,7 @@ kind: MQTTProxy
 	assert.Nil(err)
 	f := memberURLFunc(superSpec)
 	assert.NotNil(f)
+	assert.Panics(func() { f("egName", "mqttName") })
 
 	mapper := &mockMuxMapper{
 		MockFunc: func(name string) (context.Handler, bool) {

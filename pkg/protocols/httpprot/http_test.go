@@ -171,3 +171,31 @@ func TestProtocol(t *testing.T) {
 		assert.NotNil(err)
 	}
 }
+
+func TestParseYAMLBody(t *testing.T) {
+	assert := assert.New(t)
+	{
+		body := `
+- name: 123
+- name: 234
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.Nil(err)
+	}
+
+	{
+		body := `
+123: 123
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.NotNil(err)
+	}
+
+	{
+		body := `
+name: 123
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.Nil(err)
+	}
+}
