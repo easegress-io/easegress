@@ -92,7 +92,7 @@ type (
 		backend           string
 		headers           []*Header
 		clientMaxBodySize int64
-		mathAllHeader     bool
+		matchAllHeader    bool
 	}
 
 	route struct {
@@ -232,7 +232,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		backend:           path.Backend,
 		headers:           path.Headers,
 		clientMaxBodySize: path.ClientMaxBodySize,
-		mathAllHeader:     path.MatchAllHeader,
+		matchAllHeader:    path.MatchAllHeader,
 	}
 }
 
@@ -287,7 +287,7 @@ func (mp *MuxPath) matchMethod(r *httpprot.Request) bool {
 }
 
 func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
-	if mp.mathAllHeader {
+	if mp.matchAllHeader {
 		for _, h := range mp.headers {
 			v := r.HTTPHeader().Get(h.Key)
 			if !stringtool.StrInSlice(v, h.Values) {
@@ -311,7 +311,7 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 		}
 	}
 
-	return mp.mathAllHeader
+	return mp.matchAllHeader
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
@@ -432,15 +432,15 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	topN := mi.topN.Stat(req.Path())
 
 	defer func() {
-		// Drain off the body if it has not been, so that we can get the
-		// correct body size.
-		io.Copy(io.Discard, body)
-
 		var resp *httpprot.Response
-		if v := ctx.GetResponse(context.DefaultNamespace); v != nil {
-			resp = v.(*httpprot.Response)
+		if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
+			logger.Errorf("response is nil")
+			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
+		} else if r, ok := v.(*httpprot.Response); !ok {
+			logger.Errorf("expect an HTTP response")
+			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		} else {
-			resp = buildFailureResponse(ctx, http.StatusInternalServerError)
+			resp = r
 		}
 
 		// Send the response.
@@ -452,6 +452,10 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		respBodySize, _ := io.Copy(stdw, resp.GetPayload())
 
 		ctx.Finish()
+
+		// Drain off the body if it has not been, so that we can get the
+		// correct body size.
+		io.Copy(io.Discard, body)
 
 		metric := httpstat.Metric{
 			StatusCode: resp.StatusCode(),
@@ -483,14 +487,14 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	route := mi.search(req)
 	if route.code != 0 {
-		ctx.AddTag(fmt.Sprintf("status code: %d", route.code))
+		logger.Debugf("status code of result route: %d", route.code)
 		buildFailureResponse(ctx, route.code)
 		return
 	}
 
 	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
 	if !ok {
-		ctx.AddTag(stringtool.Cat("backend ", route.path.backend, " not found"))
+		logger.Debugf("backend %q not found", route.path.backend)
 		buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		return
 	}
@@ -506,12 +510,12 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 	err := req.FetchPayload(maxBodySize)
 	if err == httpprot.ErrRequestEntityTooLarge {
-		ctx.AddTag(err.Error())
+		logger.Debugf(err.Error())
 		buildFailureResponse(ctx, http.StatusRequestEntityTooLarge)
 		return
 	}
 	if err != nil {
-		ctx.AddTag(fmt.Sprintf("failed to read request body: %v", err))
+		logger.Debugf("failed to read request body: %v", err)
 		buildFailureResponse(ctx, http.StatusBadRequest)
 		return
 	}
