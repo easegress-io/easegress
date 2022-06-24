@@ -202,7 +202,7 @@ filters:
   ...
 ... 
 ```
-In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `proxyFoo` sends `foo` request and puts the response into namespace `foo`. `requestBuilderBar` creates a request in namespace `bar` and `proxyBar` sends `bar` request and puts the response into namespace `bar`. Finally, `requestBuilder` create a response by using responses in namespace `foo` and `bar` and putting it into the default namespace. 
+In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `proxyFoo` sends `foo` request and puts the response into namespace `foo`. `requestBuilderBar` creates a request in namespace `bar` and `proxyBar` sends `bar` request and puts the response into namespace `bar`. Finally, `requestBuilder` creates a response and puts it into the default namespace. 
 
 > If not set, the filter works in the default namespace `DEFAULT`.
 
