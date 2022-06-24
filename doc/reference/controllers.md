@@ -154,7 +154,8 @@ In this case, if a request’s header doesn’t have the key `X-Id` or its value
 > `jumpIf` can only jump to filters behind the current filter.
 
 
-Resilience controls the behavior of backend filters, for now, it only works for filter `proxy`. There are two kinds of resilience, `Retry` and `CircuitBreak`. Check [resilience](#resilience) for more details. Following config adds retry resilience to pipeline: 
+The `resilience` field defines resilience policies, if a filter implements the `filters.Resiliencer` interface (for now, only the `Proxy` filter implements the interface), the pipeline injects the policies into the filter instance after creating it.
+A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreak`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter: 
 ```yaml
 name: http-pipeline-example3
 kind: Pipeline
