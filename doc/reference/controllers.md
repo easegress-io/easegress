@@ -596,11 +596,14 @@ A retry policy configures how to retry a failed request.
 
 #### Circuit Break Policy
 
-The CircuitBreaker is a finite state machine with three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through the CircuitBreaker normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and the CircuitBreaker short-circuiting all requests in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through the CircuitBreaker while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN` based on the results of the permitted requests.
+Circuit Break leverges a finite state machine to implement the processing logic, the state machine has three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and requests will be shor-circuited in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN`
+based on the results of the permitted requests.
 
-When `CLOSED`, the CircuitBreaker uses a sliding window to store and aggregate the result of recent requests, the window can either be `COUNT_BASED` or `TIME_BASED`. The `COUNT_BASED` window aggregates the last N requests and the `TIME_BASED` window aggregates requests in the last N seconds, where N is the window size.
+When `CLOSED`, it uses a sliding window to store and aggregate the result of recent requests, the window can either be `COUNT_BASED` or `TIME_BASED`. The `COUNT_BASED` window aggregates the last N requests and the `TIME_BASED` window aggregates requests in the last N seconds, where N is the window size.
 
-Below is an example configuration with both `COUNT_BASED` and `TIME_BASED` policies. Policy `circuit-breaker-example-count` short-circuits requests if more than half of recent requests failed.
+Below is an example configuration with both `COUNT_BASED` and `TIME_BASED` policies. 
+
+Policy `circuit-breaker-example-count` short-circuits requests if more than half of recent requests failed.
 
 Policy `circuit-breaker-example-time` short-circuits requests if more than 60% of recent requests failed.
 
