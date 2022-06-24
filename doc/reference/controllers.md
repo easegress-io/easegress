@@ -6,7 +6,7 @@
     - [TrafficController](#trafficcontroller)
     - [RawConfigTrafficController](#rawconfigtrafficcontroller)
       - [HTTPServer](#httpserver)
-      - [HTTPPipeline](#httppipeline)
+      - [Pipeline](#pipeline)
     - [StatusSyncController](#statussynccontroller)
   - [Business Controllers](#business-controllers)
     - [EaseMonitorMetrics](#easemonitormetrics)
@@ -26,14 +26,12 @@
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
     - [httpserver.Header](#httpserverheader)
-    - [httppipeline.Flow](#httppipelineflow)
-    - [httppipeline.Filter](#httppipelinefilter)
+    - [pipeline.FlowNode](#pipeline.FlowNode)
+    - [filters.Filter](#filtersFilter)
     - [easemonitormetrics.Kafka](#easemonitormetricskafka)
     - [nacos.ServerSpec](#nacosserverspec)
     - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
-    - [mesh.Security](#meshsecurity)
-    - [mesh.MonitorMTLS](#meshmonitormtls)
-    - [mesh.MonitorCert](#meshmonitorcert)
+    - [resilience.Policy](#resiliencePolicy)
 
 As the [architecture diagram](../imgs/architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -96,45 +94,183 @@ rules:
 | cacheSize        | uint32                             | The size of cache, 0 means no cache                                                      | No                   |
 | xForwardedFor    | bool                               | Whether to set X-Forwarded-For header by own ip                                          | No                   |
 | tracing          | [tracing.Spec](#tracingSpec)       | Distributed tracing settings                                                             | No                   |
-| certBaset64      | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
+| certBase64      | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
 | keyBase64        | string                             | Private key of PEM encoded data in base64 encoded format                                 | No                   |
 | certs            | map[string]string                  | Public keys of PEM encoded data, the key is the logic pair name, which must match keys   | No                   |
 | keys             | map[string]string                  | Private keys of PEM encoded data, the key is the logic pair name, which must match certs | No                   |
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
 | rules            | [httpserver.Rule](#httpserverRule) | Router rules                                                                             | No                   |
+| autoCert | bool | Do HTTP certification automatically | No |  
+| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case. | No | 
+| caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
+| globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No | 
 
-#### HTTPPipeline
 
-HTTPPipeline uses the Chain of Responsibility pattern to orchestrate filters. Its simplest config looks like:
+#### Pipeline
+
+Pipeline is used to orchestrate filters. Its simplest config looks like:
 
 ```yaml
-name: http-pipeline-example
-kind: HTTPPipeline
-
-# Built-in labels are `END` which can't be used by filters.
+name: http-pipeline-example1
+kind: Pipeline
 flow:
-  - filter: proxy
-    jumpIf: { fallback: END }
+- filter: proxy
+
 filters:
-  - name: proxy
-    kind: Proxy
-    mainPool:
-      servers:
-      - url: http://127.0.0.1:9095
-      loadBalance:
-        policy: roundRobin
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:9095   
 ```
 
-| Name    | Type                                         | Description                          | Required |
-| ------- | -------------------------------------------- | ------------------------------------ | -------- |
-| flow    | [httppipeline.Flow](#httppipelineFlow)       | Flow of http pipeline                | No       |
-| Filters | [][httppipeline.Filter](#httppipelineFilter) | Filters definitions of http pipeline | Yes      |
+The `flow` defines the execution order of filters. You can use `jumpIf` to change the order of execution if one filter returns unexpected `result`. For example: 
+
+```yaml 
+name: http-pipeline-example2
+kind: Pipeline
+# END is built in filter name, it stops execution of pipeline and returns. 
+flow:
+- filter: validator
+  jumpIf: 
+    invalid: END
+- filter: proxy 
+
+filters:
+- name: validator 
+  kind: Validator
+  headers: 
+    X-Id:
+      values: ["user1", "user2"] 
+- name: proxy
+  kind: Proxy 
+  pools:
+  - servers:
+    - url: http://127.0.0.1:9095 
+```
+In this case, if a request’s header doesn’t have the key `X-Id` or its value is not `user1` or `user2`, then the `validator` filter returns an `invalid` result and the pipeline jumps to `END`, the `proxy` filter does not execute. 
+
+
+> `jumpIf` can only jump to filters behind the current filter.
+
+
+The `resilience` field defines resilience policies, if a filter implements the `filters.Resiliencer` interface (for now, only the `Proxy` filter implements the interface), the pipeline injects the policies into the filter instance after creating it.
+A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreak`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter: 
+```yaml
+name: http-pipeline-example3
+kind: Pipeline
+flow:
+- filter: proxy 
+
+filters:
+- name: proxy
+  kind: Proxy 
+  pools:
+  - servers:
+    - url: http://127.0.0.1:9095
+    retryPolicy: retry
+    
+resilience:
+- name: retry
+  kind: Retry
+  maxAttempts: 3
+``` 
+In this case, if `proxy` returns non-empty results, then resilience retry reruns the `proxy` filter until `proxy` returns empty results or gets the max attempts. 
+
+The `flow` also supports `namespace`, so the pipeline can support workflows that contain multiple requests and responses. 
+```yaml
+name: http-pipeline-example4
+kind: Pipeline
+flow: 
+- filter: validator
+  jumpIf:
+    invalid: END 
+- filter: requestBuilderFoo 
+  namespace: foo 
+- filter: proxyFoo 
+  namespace: foo 
+- filter: requestBuilderBar 
+  namespace: bar 
+- filter: proxyBar
+  namespace: bar 
+- filter: responseBuilder 
+
+filters: 
+- name: requestBuilder
+  kind: RequestBuilder
+  ...
+... 
+```
+In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `proxyFoo` sends `foo` request and puts the response into namespace `foo`. `requestBuilderBar` creates a request in namespace `bar` and `proxyBar` sends `bar` request and puts the response into namespace `bar`. Finally, `requestBuilder` creates a response and puts it into the default namespace. 
+
+> If not set, the filter works in the default namespace `DEFAULT`.
+
+
+The `alias` in `flow` gives a filter an alias to help re-use the filter so that we can use the alias to distinguish each of its appearances in the flow.
+
+```yaml
+name: http-pipeline-example5 
+kind: Pipeline 
+flow:
+- filter: validator
+  jumpIf: 
+    invalid: proxy2 
+- filter: proxy 
+# when meeting filter END, the pipeline execution stops and returns. 
+- filter: END 
+- filter: proxy
+  alias: proxy2 
+- filter: responseAdaptor 
+
+filters: 
+- name: proxy 
+  kind: Proxy  
+  ...
+```
+In this case, we give second `proxy` alias `proxy2`, so request is invalid, it jumps to second proxy. 
+
+#### pipeline.Spec 
+| Name | Type | Description | Required | 
+|------|------|-------------|----------|
+| flow | [pipeline.FlowNode](#pipelineFlowNode) | Flow of pipeline | No |
+| filters | [][filters.Filter](#filters.Filter) | Filter definitions of pipeline  | Yes |
+| resilience | [][resilience.Policy](#resiliencePolicy) | Resilience policy for backend filters | No | 
 
 ### StatusSyncController
 
 No config.
 
 ## Business Controllers
+
+### GlobalFilter
+
+`GlobalFilter` is a special pipeline that can be executed before or/and after all pipelines in a server. For example:  
+
+```yaml
+name: globalFilter-example
+kind: GlobalFilter
+beforePipeline:
+  flow: 
+  - filter: validator
+
+  filters: 
+  - name: validator
+    kind: Validator 
+    ...
+---
+name: server-example 
+kind: HTTPServer
+globalFilter: globalFilter-example
+...
+```
+In this case, all requests in HTTPServer `server-example` go through GlobalFilter `globalFilter-example` before executing any other pipelines. 
+
+
+| Name | Type | Description | Required | 
+|------|------|-------------|----------|
+| beforePipeline | [pipeline.Spec](#pipelineSpec) | Spec for before pipeline | No |
+| afterPipeline | [pipeline.Spec](#pipelinespec) | Spec for after pipeline | No | 
+
 
 ### EaseMonitorMetrics
 
@@ -187,35 +323,6 @@ httpServer:
 
 **Note**: IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
 
-### MeshController
-
-MeshController contains the ingress controller (note this ingress controller is for mesh deployment, not the [Kubernetes ingress controller](#ingresscontroller) described above), master(control plane), worker/sidecar(data plane). The config looks like:
-
-```yaml
-name: mesh-controller-example
-kind: MeshController
-specUpdateInterval: 10s
-heartbeatInterval: 5s
-registryType: consul
-serviceName: service-001
-externalServiceRegistry: consul-service-registry-example
-```
-
-| Name                      | Type                                | Description                                                                      | Required              |
-|---------------------------|-------------------------------------|----------------------------------------------------------------------------------|-----------------------|
-| heartbeatInterval         | string                              | Interval for one service instance reporting its heartbeat                        | Yes (default: 5s)     |
-| registryType              | string                              | Protocol the registry center accepts, support `eureka`, `consul`, `nacos`        | Yes (default: eureka) |
-| apiPort                   | int                                 | Port listening on for worker's API server                                        | Yes (default: 13009)  |
-| ingressPort               | int                                 | Port listening on for for ingress traffic                                        | Yes (default: 13010)  |
-| externalServiceRegistry   | string                              | External service registry name                                                   | No                    |
-| cleanExternalRegistry     | bool                                | Clean external registry services while externalServiceRegistry changing to empty | No                    |
-| security                  | [mesh.Security](#meshSecurity)       | Security config for Mesh                                                         | No                    |
-| imageRegistryURL          | string                              | Image registry URL to inject                                                     | No                    |
-| imagePullPolicy           | string                              | Image pull policy to inject                                                      | No                    |
-| sidecarImageName          | string                              | Sidecar image name to inject                                                     | No                    |
-| agentInitializerImageName | string                              | Agent initializer image name to inject                                           | No                    |
-| log4jConfigName           | string                              | Log4j config name to inject                                                      | No                    |
-| monitorMTLS               | [mesh.MonitorMTLS](#meshMonitorMTLS) | Monitor mTLS config for Mesh                                                     | No                    |
 
 ### ConsulServiceRegistry
 
@@ -395,6 +502,9 @@ domains:
 | methods       | []string                                 | Methods to match, empty means to allow all methods                                                                                     | No       |
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |
+| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case. | No | 
+| matchAllHeader | bool | Match all headers that are defined in headers, default is `false`. | No |
+
 
 ### httpserver.Header
 
@@ -405,16 +515,18 @@ There must be at least one of `values` and `regexp`.
 | key     | string   | Header key to match                                                 | Yes      |
 | values  | []string | Header values to match                                              | No       |
 | regexp  | string   | Header value in regular expression to match                         | No       |
-| backend | string   | backend name (pipeline name in static config, service name in mesh) | Yes      |
 
-### httppipeline.Flow
+
+### pipeline.FlowNode
 
 | Name   | Type              | Description                                                                                                                                                                         | Required |
 | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | filter | string            | The filter name                                                                                                                                                                     | Yes      |
 | jumpIf | map[string]string | Jump to another filter conditionally, the key is the result of the current filter, the value is the jumping filter name. `END` is the built-in value for the ending of the pipeline | No       |
+| namespace | string | Namespace of the filter | No | 
+| alias | string | Alias name of the filter | No | 
 
-### httppipeline.Filter
+### filters.Filter
 
 The self-defining specification of each filter references to [filters](./filters.md).
 
@@ -463,31 +575,66 @@ Below table list other required fields for each supported DNS provider (Note: `g
 | route53           | accessKeyId, secretAccessKey, awsProfile                            |
 | vultr             | apiToken                                                            |
 
-### mesh.Security
 
-| Name         | Type   | Description                                       | Required |
-|--------------|--------|---------------------------------------------------|----------|
-| mtlsMode     | string | mTLS mode (support permissive, strict)            | Yes      |
-| certProvider | string | certificate provider (only support selfSign)      | Yes      |
-| rootCertTTL  | string | TTL of root certificate (format: duration)        | Yes      |
-| appCertTTL   | string | TTL of application certificate (format: duration) | Yes      |
+### resilience.Policy
 
+| Name                 | Type   | Description    | Required |
+| -------------------- | ------ | -------------- | -------- |
+| name                 | string | Name of filter | Yes      |
+| kind                 | string | Kind of filter | Yes      |
+| other kind specific fields of the policy kind | -      | -              | -        |
 
-### mesh.MonitorMTLS
+#### Retry Policy
+A retry policy configures how to retry a failed request.
 
-| Name         | Type                                 | Description                                     | Required |
-|--------------|--------------------------------------|-------------------------------------------------|----------|
-| enabled      | bool                                 | Enable monitor mTLS                             | Yes      |
-| url          | string                               | URL of monitor gateway to report metrics        | Yes      |
-| username     | string                               | Username for monitor gateway endpoint           | Yes      |
-| password     | string                               | Password for monitor gateway endpoint           | Yes      |
-| caCertBase64 | string                               | CA of PEM encoded data in base64 encoded format | Yes      |
-| certs        | [mesh.MonitorCert](#meshMonitorCert) | Certificate pairs of services                   | Yes      |
+| Name | Type | Description | Required |
+|------|------|-------------|----------|
+| maxAttempts | int | The maximum number of attempts (including the initial one). Default is 3 | No |
+| waitDuration | string | The base wait duration between attempts. Default is 500ms | No |
+| backOffPolicy | string  | The back-off policy for wait duration, could be `EXPONENTIAL` or `RANDOM` and the default is `RANDOM`. If configured as `EXPONENTIAL`, the base wait duration becomes 1.5 times larger after each failed attempt | No |
+| randomizationFactor  | float64 | Randomization factor for actual wait duration, a number in interval `[0, 1]`, default is 0. The actual wait duration used is a random number in interval `[(base wait duration) * (1 - randomizationFactor),  (base wait duration) * (1 + randomizationFactor)]` | No |
 
-### mesh.MonitorCert
+#### Circuit Break Policy
 
-| Name       | Type     | Description                                              | Required |
-|------------|----------|----------------------------------------------------------|----------|
-| certBase64 | string   | Public key of PEM encoded data in base64 encoded format  | Yes      |
-| keyBase64  | string   | Private key of PEM encoded data in base64 encoded format | Yes      |
-| services   | []string | Services that use the certificate pair                   | Yes      |
+Circuit Break leverges a finite state machine to implement the processing logic, the state machine has three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and requests will be shor-circuited in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN`
+based on the results of the permitted requests.
+
+When `CLOSED`, it uses a sliding window to store and aggregate the result of recent requests, the window can either be `COUNT_BASED` or `TIME_BASED`. The `COUNT_BASED` window aggregates the last N requests and the `TIME_BASED` window aggregates requests in the last N seconds, where N is the window size.
+
+Below is an example configuration with both `COUNT_BASED` and `TIME_BASED` policies. 
+
+Policy `circuit-breaker-example-count` short-circuits requests if more than half of recent requests failed.
+
+Policy `circuit-breaker-example-time` short-circuits requests if more than 60% of recent requests failed.
+
+> failed means that backend filter returns non-empty results. 
+
+```yaml
+kind: CircuitBreak
+name: circuit-breaker-example-count 
+slidingWindowType: COUNT_BASED
+failureRateThreshold: 50
+slidingWindowSize: 100
+
+---
+kind: CircuitBreak
+name: circuit-breaker-example-time 
+slidingWindowType: TIME_BASED
+failureRateThreshold: 60
+slidingWindowSize: 100
+```
+
+| Name | Type | Description | Required | 
+|------|------|-------------|----------| 
+| slidingWindowType | string | Type of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Sliding window can either be `COUNT_BASED` or `TIME_BASED`. If the sliding window is `COUNT_BASED`, the last `slidingWindowSize` requests are recorded and aggregated. If the sliding window is `TIME_BASED`, the requests of the last `slidingWindowSize` seconds are recorded and aggregated. Default is `COUNT_BASED` | No |
+| failureRateThreshold | int8 | Failure rate threshold in percentage. When the failure rate is equal to or greater than the threshold the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 50 | No | 
+| slowCallRateThreshold | int8 | Slow rate threshold in percentage. The CircuitBreaker considers a request as slow when its duration is greater than `slowCallDurationThreshold`. When the percentage of slow requests is equal to or greater than the threshold, the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 100 | No |
+| slowCallDurationThreshold | string | Duration threshold for slow call | No | 
+| countingNetworkError | bool | Counting network error as failure or not. Default is false | No |
+| slidingWindowSize | uint32 | The size of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Default is 100 | No |
+| permittedNumberOfCallsInHalfOpenState | uint32 | The number of permitted requests when the CircuitBreaker is `HALF_OPEN`. Default is 10 | No |
+| minimumNumberOfCalls | uint32 | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No |
+| maxWaitDurationInHalfOpenState | string | The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means Circuit Breaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0| No |
+| waitDurationInOpenState | string | The time that the CircuitBreaker should wait before transitioning from `OPEN` to `HALF_OPEN`. Default is 60s | No |
+
+See more details about `Retry`, `CircuitBreak` or other resilience polcies in [here](../cookbook/resilience.md).
