@@ -504,7 +504,7 @@ domains:
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case. | No | 
-| matchAllHeader | bool | Match all headers that are defined in headers. | No |
+| matchAllHeader | bool | Match all headers that are defined in headers, default is `false`. | No |
 
 
 ### httpserver.Header
