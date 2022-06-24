@@ -207,7 +207,7 @@ In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `pro
 > If not set, the filter works in the default namespace `DEFAULT`.
 
 
-The `alias` in `flow` can give the filter an alias name.  So you can easily create different filters with the same spec. For example: 
+The `alias` in `flow` gives a filter an alias to help re-use the filter so that we can use the alias to distinguish each of its appearances in the flow.
 
 ```yaml
 name: http-pipeline-example5 
