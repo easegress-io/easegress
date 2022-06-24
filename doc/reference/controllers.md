@@ -148,7 +148,7 @@ filters:
   - servers:
     - url: http://127.0.0.1:9095 
 ```
-In this case, if a request’s header doesn’t have the key `X-ID` or its value is not `user1` or `user2`, then the `validator` filter returns an` invalid` result and the pipeline jumps to `END`, the `proxy` filter does not execute. 
+In this case, if a request’s header doesn’t have the key `X-Id` or its value is not `user1` or `user2`, then the `validator` filter returns an `invalid` result and the pipeline jumps to `END`, the `proxy` filter does not execute. 
 
 
 > `jumpIf` can only jump to filters behind the current filter.
