@@ -585,8 +585,8 @@ Below table list other required fields for each supported DNS provider (Note: `g
 | kind                 | string | Kind of filter | Yes      |
 | other kind specific fields of the policy kind | -      | -              | -        |
 
-#### Retry 
-Retry retries failed requests according to configured policy.
+#### Retry Policy
+A retry policy configures how to retry a failed request.
 
 | Name | Type | Description | Required |
 |------|------|-------------|----------|
