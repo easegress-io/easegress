@@ -86,7 +86,7 @@ filters:
 
 resilience:
 - name: countBased
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   slidingWindowType: COUNT_BASED
   failureRateThreshold: 50
   slidingWindowSize: 100
@@ -98,7 +98,7 @@ if more than 60% of the requests within the last 200 seconds failed.
 ```yaml
 resilience:
 - name: time-based-policy
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   slidingWindowType: TIME_BASED
   failureRateThreshold: 60
   slidingWindowSize: 200
@@ -111,7 +111,7 @@ requests and short-circuits requests if 60% of recent requests are slow.
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   slowCallRateThreshold: 60
   slowCallDurationThreshold: 30s
 ```
@@ -123,7 +123,7 @@ cases, we can avoid it by specifying `minimumNumberOfCalls`.
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   minimumNumberOfCalls: 10
 ```
 
@@ -133,7 +133,7 @@ wait duration in the `half-open` state:
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   waitDurationInOpenState: 2m
   maxWaitDurationInHalfOpenState: 1m
 ```
@@ -143,7 +143,7 @@ In the `half-open` state, we can limit the number of permitted requests:
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   permittedNumberOfCallsInHalfOpenState: 10
 ```
 
@@ -216,7 +216,7 @@ filters:
     
 resilience:
 - name: retry3Times
-  kind: RetryPolicy
+  kind: Retry
   maxAttempts: 3
   waitDuration: 500ms
 ```
@@ -227,7 +227,7 @@ this can be changed by specifying `backOffPolicy` and `randomizationFactor`.
 ```yaml
 resilience:
 - name: retry3Times
-  kind: RetryPolicy
+  kind: Retry
   backOffPolicy: Exponential
   randomizationFactor: 0.5
 ```
@@ -287,7 +287,7 @@ filters:
 
 resilience:
 - name: countBasedPolicy
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   slidingWindowType: COUNT_BASED
   failureRateThreshold: 50
   slidingWindowSize: 100
@@ -298,7 +298,7 @@ resilience:
   maxWaitDurationInHalfOpenState: 1m
   permittedNumberOfCallsInHalfOpenState: 10
 - name: timeBasedPolicy
-  kind: CircuitBreakPolicy
+  kind: CircuitBreak
   slidingWindowType: TIME_BASED
   failureRateThreshold: 60
   slidingWindowSize: 200
@@ -364,7 +364,7 @@ filters:
 
 resilience:
 - name: retry3Times
-  kind: RetryPolicy
+  kind: Retry
   backOffPolicy: Exponential
   randomizationFactor: 0.5
   maxAttempts: 3
