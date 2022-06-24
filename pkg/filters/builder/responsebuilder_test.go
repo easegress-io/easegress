@@ -20,6 +20,7 @@ package builder
 import (
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -278,4 +279,31 @@ template: |
 	newResponseBuilder := responseBuilderKind.CreateInstance(spec)
 	newResponseBuilder.Inherit(responseBuilder)
 	assert.Nil(newResponseBuilder.Status())
+}
+
+func TestRespSourceNamespace(t *testing.T) {
+	assert := assert.New(t)
+
+	// set status code directly
+	yml := `
+sourceNamespace: response1 
+`
+	{
+		spec := &ResponseBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getResponseBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+		stdResp := httptest.NewRecorder().Result()
+		resp, err := httpprot.NewResponse(stdResp)
+		assert.Nil(err)
+		ctx.SetResponse("response1", resp)
+
+		ctx.UseNamespace("test")
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testResp := ctx.GetResponse("test").(*httpprot.Response).Std()
+		assert.Equal(stdResp, testResp)
+	}
 }

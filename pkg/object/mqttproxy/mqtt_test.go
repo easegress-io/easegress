@@ -40,6 +40,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 	"github.com/stretchr/testify/assert"
@@ -1361,6 +1362,7 @@ func TestBrokerHandleConn(t *testing.T) {
 }
 
 func TestMQTTProxy(t *testing.T) {
+	assert := assert.New(t)
 	mp := MQTTProxy{}
 	mp.Status()
 
@@ -1371,8 +1373,31 @@ func TestMQTTProxy(t *testing.T) {
 	mp.Close()
 
 	ans, err := updatePort("http://example.com:1234", "demo.com:2345")
-	assert.Nil(t, err)
-	assert.Equal(t, "http://example.com:2345", ans)
+	assert.Nil(err)
+	assert.Equal("http://example.com:2345", ans)
+
+	yamlStr := `
+name: mqtt-proxy
+kind: MQTTProxy
+`
+	super := supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil, nil, false, nil, nil)
+	super.Options()
+	superSpec, err := super.NewSpec(yamlStr)
+	assert.Nil(err)
+	f := memberURLFunc(superSpec)
+	assert.NotNil(f)
+	assert.Panics(func() { f("egName", "mqttName") })
+
+	mapper := &mockMuxMapper{
+		MockFunc: func(name string) (context.Handler, bool) {
+			return nil, false
+		},
+	}
+	mp.Init(superSpec, mapper)
+
+	newmp := MQTTProxy{}
+	newmp.Inherit(superSpec, &mp, mapper)
+	newmp.Close()
 }
 
 func TestPipeline(t *testing.T) {

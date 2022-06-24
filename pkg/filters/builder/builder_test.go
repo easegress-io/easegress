@@ -22,10 +22,26 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
 	logger.InitNop()
 	code := m.Run()
 	os.Exit(code)
+}
+
+func TestBuilderSpec(t *testing.T) {
+	assert := assert.New(t)
+
+	invalidSpec := Spec{}
+	err := invalidSpec.Validate()
+	assert.NotNil(err)
+
+	invalidSpec2 := Spec{
+		SourceNamespace: "DEFAULT",
+		Template:        "fake template",
+	}
+	err = invalidSpec2.Validate()
+	assert.NotNil(err)
 }

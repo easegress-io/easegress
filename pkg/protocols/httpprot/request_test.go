@@ -208,3 +208,60 @@ func TestRequest2(t *testing.T) {
 		assert.Equal("https", RequestScheme(stdReq))
 	}
 }
+
+func TestBuilderRequest(t *testing.T) {
+	assert := assert.New(t)
+
+	{
+		request := getRequest(t, http.MethodDelete, "http://127.0.0.1:8888", http.NoBody)
+		request.FetchPayload(10000)
+
+		builderReq := request.ToBuilderRequest("DEFAULT").(*builderRequest)
+		assert.NotNil(builderReq)
+		assert.Equal(http.MethodDelete, builderReq.Method)
+		assert.Equal("http://127.0.0.1:8888", builderReq.URL.String())
+	}
+
+	{
+		request := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader(
+			"string",
+		))
+		request.FetchPayload(10000)
+
+		builderReq := request.ToBuilderRequest("DEFAULT").(*builderRequest)
+		assert.NotNil(builderReq)
+		assert.Equal([]byte("string"), builderReq.RawBody())
+		assert.Equal("string", builderReq.Body())
+	}
+
+	{
+		request := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader(
+			`{"key":"value"}`,
+		))
+		request.FetchPayload(10000)
+
+		builderReq := request.ToBuilderRequest("DEFAULT").(*builderRequest)
+		assert.NotNil(builderReq)
+		jsonBody, err := builderReq.JSONBody()
+		assert.Nil(err)
+		jsonMap := jsonBody.(map[string]interface{})
+		assert.Equal("value", jsonMap["key"])
+	}
+
+	{
+		request := getRequest(t, http.MethodGet, "http://127.0.0.1:8888", strings.NewReader(`
+name: test
+kind: Test
+`,
+		))
+		request.FetchPayload(10000)
+
+		builderReq := request.ToBuilderRequest("DEFAULT").(*builderRequest)
+		assert.NotNil(builderReq)
+		yamlBody, err := builderReq.YAMLBody()
+		assert.Nil(err)
+		yamlMap := yamlBody.(map[string]interface{})
+		assert.Equal("test", yamlMap["name"])
+		assert.Equal("Test", yamlMap["kind"])
+	}
+}

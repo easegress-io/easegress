@@ -77,17 +77,125 @@ func TestHeader(t *testing.T) {
 func TestProtocol(t *testing.T) {
 	assert := assert.New(t)
 	p := &Protocol{}
-	stdReq, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080", nil)
-	assert.Nil(err)
 
-	req, err := p.CreateRequest(stdReq)
-	assert.Nil(err)
-	_, ok := req.(*Request)
-	assert.True(ok)
+	{
+		stdReq, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080", nil)
+		assert.Nil(err)
 
-	stdResp := httptest.NewRecorder().Result()
-	resp, err := p.CreateResponse(stdResp)
-	assert.Nil(err)
-	_, ok = resp.(*Response)
-	assert.True(ok)
+		req, err := p.CreateRequest(stdReq)
+		assert.Nil(err)
+		_, ok := req.(*Request)
+		assert.True(ok)
+
+		stdResp := httptest.NewRecorder().Result()
+		resp, err := p.CreateResponse(stdResp)
+		assert.Nil(err)
+		_, ok = resp.(*Response)
+		assert.True(ok)
+	}
+
+	{
+		// build request
+		info := p.NewRequestInfo().(*requestInfo)
+		info.Method = http.MethodDelete
+		info.Headers = make(map[string][]string)
+		info.Headers["X-Header"] = []string{"value"}
+		info.URL = "http://127.0.0.1:8888"
+
+		req, err := p.BuildRequest(info)
+		assert.Nil(err)
+		httpReq := req.(*Request)
+		assert.Equal(http.MethodDelete, httpReq.Std().Method)
+		assert.Equal(info.URL, httpReq.Std().URL.String())
+		assert.Equal("value", httpReq.Std().Header.Get("X-Header"))
+	}
+
+	{
+		// build request with wrong info
+		_, err := p.BuildRequest(struct{}{})
+		assert.NotNil(err)
+	}
+
+	{
+		// build request with empty info
+		req, err := p.BuildRequest(&requestInfo{})
+		assert.Nil(err)
+		httpReq := req.(*Request)
+		assert.Equal(http.MethodGet, httpReq.Std().Method)
+		assert.Equal("/", httpReq.Std().URL.String())
+	}
+
+	{
+		// build request with invalid method
+		info := p.NewRequestInfo().(*requestInfo)
+		info.Method = "FakeMethod"
+
+		_, err := p.BuildRequest(info)
+		assert.NotNil(err)
+	}
+
+	{
+		// build response
+		info := p.NewResponseInfo().(*responseInfo)
+		info.StatusCode = 503
+		info.Headers = map[string][]string{}
+		info.Headers["X-Header"] = []string{"value"}
+
+		resp, err := p.BuildResponse(info)
+		assert.Nil(err)
+		httpResp := resp.(*Response)
+		assert.Equal(503, httpResp.Std().StatusCode)
+		assert.Equal("value", httpResp.Std().Header.Get("X-Header"))
+	}
+
+	{
+		// build response with invalid info
+		_, err := p.BuildResponse(struct{}{})
+		assert.NotNil(err)
+	}
+
+	{
+		// build response with zero status code
+		resp, err := p.BuildResponse(&responseInfo{})
+		assert.Nil(err)
+		httpResp := resp.(*Response)
+		assert.Equal(200, httpResp.Std().StatusCode)
+	}
+
+	{
+		// build response with invalid status code
+		info := p.NewResponseInfo().(*responseInfo)
+		info.StatusCode = 1000
+
+		_, err := p.BuildResponse(info)
+		assert.NotNil(err)
+	}
+}
+
+func TestParseYAMLBody(t *testing.T) {
+	assert := assert.New(t)
+	{
+		body := `
+- name: 123
+- name: 234
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.Nil(err)
+	}
+
+	{
+		body := `
+123: 123
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.NotNil(err)
+	}
+
+	{
+		body := `
+name: 123
+`
+		_, err := parseYAMLBody([]byte(body))
+		assert.Nil(err)
+	}
 }

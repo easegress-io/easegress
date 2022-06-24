@@ -196,33 +196,43 @@ func TestResponse2(t *testing.T) {
 
 func TestBuilderResponse(t *testing.T) {
 	assert := assert.New(t)
-	r := &builderResponse{
-		Response: nil,
-		rawBody:  []byte("abc"),
-	}
-	assert.Equal([]byte("abc"), r.RawBody())
-	assert.Equal("abc", r.Body())
-	_, err := r.JSONBody()
-	assert.NotNil(err)
+	{
+		r := &builderResponse{
+			Response: nil,
+			rawBody:  []byte("abc"),
+		}
+		assert.Equal([]byte("abc"), r.RawBody())
+		assert.Equal("abc", r.Body())
+		_, err := r.JSONBody()
+		assert.NotNil(err)
 
-	r = &builderResponse{
-		Response: nil,
-		rawBody:  []byte("123"),
-	}
-	_, err = r.JSONBody()
-	assert.Nil(err)
+		r = &builderResponse{
+			Response: nil,
+			rawBody:  []byte("123"),
+		}
+		_, err = r.JSONBody()
+		assert.Nil(err)
 
-	r = &builderResponse{
-		Response: nil,
-		rawBody:  []byte("{{{{{}"),
-	}
-	_, err = r.YAMLBody()
-	assert.NotNil(err)
+		r = &builderResponse{
+			Response: nil,
+			rawBody:  []byte("{{{{{}"),
+		}
+		_, err = r.YAMLBody()
+		assert.NotNil(err)
 
-	r = &builderResponse{
-		Response: nil,
-		rawBody:  []byte("123"),
+		r = &builderResponse{
+			Response: nil,
+			rawBody:  []byte("123"),
+		}
+		_, err = r.YAMLBody()
+		assert.Nil(err)
 	}
-	_, err = r.YAMLBody()
-	assert.Nil(err)
+
+	{
+		resp := httptest.NewRecorder().Result()
+		response, err := NewResponse(resp)
+		assert.Nil(err)
+		builderResp := response.ToBuilderResponse("DEFAULT").(*builderResponse)
+		assert.NotNil(builderResp)
+	}
 }
