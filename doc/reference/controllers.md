@@ -140,7 +140,7 @@ filters:
 - name: validator 
   kind: Validator
   headers: 
-    X-ID:
+    X-Id:
       values: ["user1", "user2"] 
 - name: proxy
   kind: Proxy 
