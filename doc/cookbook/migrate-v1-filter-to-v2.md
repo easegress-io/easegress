@@ -1,11 +1,11 @@
 # Migrate v1.x Filter To v2.0
 
-Easegress v2.0 introduces exciting new features like protocol independent
-pipeline, multiple requests/responses support, and etc. But this also makes
-it incompatible with v1.x. We need to do some code modification to bring
+Easegress v2.0 introduces exciting new features like protocol-independent
+pipeline, multiple requests/responses support, etc. But this also makes
+it incompatible with v1.x. We need to do some code modifications to bring
 filters designed for v1.x to v2.0.
 
-This document is guide on how to do the migration, we will use the `Mock`
+This document is a guide on how to do the migration, we will use the `Mock`
 filter as an example.
 
 ## 1. Define a kind for the filter
@@ -125,8 +125,8 @@ has changed from `context.HTTPContext` to `*context.Context`:
 func (m *Mock) Handle(ctx *context.Context) string
 ```
 
-Then, because Easegress is not using chain of responsibility to call filters
-any more, we need to change the `return` statements from:
+Then, because Easegress is not using the chain of responsibility pattern to
+call filters any more, we need to change the `return` statements from:
 
 ```go
 return ctx.CallNextHandler(result)
@@ -157,6 +157,6 @@ assertion if you need a protocol specific request/response, like
 `ctx.GetInputRequest().(*httpprot.Request) if an HTTP request is desired.
 
 The above is all the general steps to migrate a filter from v1.x to v2.x,
-and you may need more works that specific to your implemention to complete
-the migration. We think most of the works would be trivial, but please feel
-free to contact us if you need help.
+and you may need more works that are specific to your implementation to
+complete the migration. We think most of the works would be trivial, but
+please feel free to contact us if you need help.
