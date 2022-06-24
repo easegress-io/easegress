@@ -77,17 +77,47 @@ func TestHeader(t *testing.T) {
 func TestProtocol(t *testing.T) {
 	assert := assert.New(t)
 	p := &Protocol{}
-	stdReq, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080", nil)
-	assert.Nil(err)
 
-	req, err := p.CreateRequest(stdReq)
-	assert.Nil(err)
-	_, ok := req.(*Request)
-	assert.True(ok)
+	{
+		stdReq, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080", nil)
+		assert.Nil(err)
 
-	stdResp := httptest.NewRecorder().Result()
-	resp, err := p.CreateResponse(stdResp)
-	assert.Nil(err)
-	_, ok = resp.(*Response)
-	assert.True(ok)
+		req, err := p.CreateRequest(stdReq)
+		assert.Nil(err)
+		_, ok := req.(*Request)
+		assert.True(ok)
+
+		stdResp := httptest.NewRecorder().Result()
+		resp, err := p.CreateResponse(stdResp)
+		assert.Nil(err)
+		_, ok = resp.(*Response)
+		assert.True(ok)
+	}
+
+	{
+		// build request
+		info := p.NewRequestInfo().(*requestInfo)
+		info.Method = http.MethodDelete
+		info.Headers = make(map[string][]string)
+		info.Headers["X-Header"] = []string{"value"}
+		info.URL = "http://127.0.0.1:8888"
+
+		req, err := p.BuildRequest(info)
+		assert.Nil(err)
+		httpReq := req.(*Request)
+		assert.Equal(http.MethodDelete, httpReq.Std().Method)
+		assert.Equal(info.URL, httpReq.Std().URL.String())
+		assert.Equal("value", httpReq.Std().Header.Get("X-Header"))
+	}
+
+	{
+		// build response
+		info := p.NewResponseInfo().(*responseInfo)
+		info.StatusCode = 503
+
+		resp, err := p.BuildResponse(info)
+		assert.Nil(err)
+		httpResp := resp.(*Response)
+		assert.Equal(503, httpResp.Std().StatusCode)
+	}
 }
