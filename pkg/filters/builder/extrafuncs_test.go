@@ -18,6 +18,7 @@
 package builder
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,9 +37,11 @@ func TestToFloat64(t *testing.T) {
 	assert.Equal(float64(1), toFloat64(uint64(1)))
 	assert.Equal(float64(1), toFloat64(uint(1)))
 	assert.Equal(float64(1), toFloat64(uintptr(1)))
+	assert.Equal(float64(123), toFloat64(json.Number("123")))
 	assert.Equal(float64(1), toFloat64("1"))
 	assert.Panics(func() { toFloat64("s") })
 	assert.Panics(func() { toFloat64(func() {}) })
+	assert.Panics(func() { toFloat64(json.Number("not a number")) })
 }
 
 func TestExtraFuncs(t *testing.T) {
