@@ -583,9 +583,7 @@ Below table list other required fields for each supported DNS provider (Note: `g
 | -------------------- | ------ | -------------- | -------- |
 | name                 | string | Name of filter | Yes      |
 | kind                 | string | Kind of filter | Yes      |
-| self-defining fields | -      | -              | -        |
-
-Self-defining fields see [Retry](#retry) or [CircuitBreaker](#circuitBreaker). 
+| other kind specific fields of the policy kind | -      | -              | -        |
 
 #### Retry 
 Retry retries failed requests according to configured policy.
