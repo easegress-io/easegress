@@ -464,3 +464,31 @@ template: |
 	newRequestBuilder.Inherit(requestBuilder)
 	assert.Nil(newRequestBuilder.Status())
 }
+
+func TestSourceNamespace(t *testing.T) {
+	assert := assert.New(t)
+
+	// get method from request
+	// directly set body
+	yml := `
+sourceNamespace: request1 
+`
+	{
+		spec := &RequestBuilderSpec{}
+		yaml.Unmarshal([]byte(yml), spec)
+		rb := getRequestBuilder(spec)
+		defer rb.Close()
+
+		ctx := context.New(nil)
+
+		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
+		assert.Nil(err)
+		setRequest(t, ctx, "request1", req1)
+		ctx.UseNamespace("test")
+
+		res := rb.Handle(ctx)
+		assert.Empty(res)
+		testReq := ctx.GetRequest("test").(*httpprot.Request).Std()
+		assert.Equal(req1, testReq)
+	}
+}
