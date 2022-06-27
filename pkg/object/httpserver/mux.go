@@ -434,10 +434,10 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	defer func() {
 		var resp *httpprot.Response
 		if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
-			logger.Errorf("response is nil")
+			logger.Errorf("%s: response is nil", mi.superSpec.Name())
 			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		} else if r, ok := v.(*httpprot.Response); !ok {
-			logger.Errorf("expect an HTTP response")
+			logger.Errorf("%s: expect an HTTP response", mi.superSpec.Name())
 			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		} else {
 			resp = r
@@ -487,14 +487,14 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	route := mi.search(req)
 	if route.code != 0 {
-		logger.Debugf("status code of result route: %d", route.code)
+		logger.Debugf("%s: status code of result route: %d", mi.superSpec.Name(), route.code)
 		buildFailureResponse(ctx, route.code)
 		return
 	}
 
 	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
 	if !ok {
-		logger.Debugf("backend %q not found", route.path.backend)
+		logger.Debugf("%s: backend %q not found", mi.superSpec.Name(), route.path.backend)
 		buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		return
 	}
@@ -510,12 +510,12 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 	err := req.FetchPayload(maxBodySize)
 	if err == httpprot.ErrRequestEntityTooLarge {
-		logger.Debugf(err.Error())
+		logger.Debugf("%s: %s", mi.superSpec.Name(), err.Error())
 		buildFailureResponse(ctx, http.StatusRequestEntityTooLarge)
 		return
 	}
 	if err != nil {
-		logger.Debugf("failed to read request body: %v", err)
+		logger.Debugf("%s: failed to read request body: %v", mi.superSpec.Name(), err)
 		buildFailureResponse(ctx, http.StatusBadRequest)
 		return
 	}
