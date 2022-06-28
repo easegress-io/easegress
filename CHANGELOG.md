@@ -7,9 +7,9 @@
 **Implemented enhancements:**
 - Remove HTTP hop headers [\#650](https://github.com/megaease/easegress/pull/650)
 - Optimize Kubernetes IngressController rule route policy [\#651](https://github.com/megaease/easegress/pull/651)
-- Adapt scheme header of HTTP request [\#634](https://github.com/megaease/easegress/pull/634)
 
 **Fixed bugs:**
+- Wrong HTTP request scheme if the `X-Forwarded-Proto` header contains two or more items[\#634](https://github.com/megaease/easegress/pull/634)
 - Fix request "Content-Length" header missing bug [\#649](https://github.com/megaease/easegress/pull/649)
 
 ## [v1.5.2](https://github.com/megaease/easegress/tree/v1.5.2) (2022-05-10)
