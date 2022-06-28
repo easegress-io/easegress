@@ -414,7 +414,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 
 	err := spCtx.prepareRequest(svr, spCtx.req.Context(), true)
 	if err != nil {
-		logger.Debugf("failed to prepare request: %v", err)
+		logger.Debugf("%s: failed to prepare request: %v", sp.name, err)
 		return
 	}
 
@@ -488,7 +488,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	// Circuit breaker is the most outside resiliencer, if the error
 	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
-		logger.Debugf("short circuited by circuit break policy")
+		logger.Debugf("%s: short circuited by circuit break policy", sp.name)
 		spCtx.AddTag("short circuited")
 		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultShortCircuited
@@ -512,7 +512,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 
 	// if there's no available server.
 	if svr == nil {
-		logger.Debugf("no available server")
+		logger.Debugf("%s: no available server", sp.name)
 		return serverPoolError{http.StatusServiceUnavailable, resultInternalError}
 	}
 
@@ -520,13 +520,13 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	statResult := &gohttpstat.Result{}
 	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
 	if err := spCtx.prepareRequest(svr, stdctx, false); err != nil {
-		logger.Debugf("failed to prepare request: %v", err)
+		logger.Debugf("%s: failed to prepare request: %v", sp.name, err)
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		logger.Debugf("failed to send request: %v", err)
+		logger.Debugf("%s: failed to send request: %v", sp.name, err)
 
 		statResult.End(fasttime.Now())
 		spCtx.LazyAddTag(func() string {
@@ -581,7 +581,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 
 	resp, err := httpprot.NewResponse(spCtx.stdResp)
 	if err != nil {
-		logger.Debugf("NewResponse returns an error: %v", err)
+		logger.Debugf("%s: NewResponse returns an error: %v", sp.name, err)
 		body.Close()
 		return err
 	}
@@ -591,7 +591,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		maxBodySize = sp.proxy.spec.ServerMaxBodySize
 	}
 	if err = resp.FetchPayload(maxBodySize); err != nil {
-		logger.Debugf("failed to fetch response payload: %v", err)
+		logger.Debugf("%s: failed to fetch response payload: %v", sp.name, err)
 		body.Close()
 		return err
 	}
