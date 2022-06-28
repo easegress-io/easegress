@@ -165,7 +165,7 @@ pools:
 | mtls | [proxy.MTLS](#proxymtls) | mTLS configuration | No |
 | maxIdleConns | int | Controls the maximum number of idle (keep-alive) connections across all hosts. Default is 10240 | No |
 | maxIdleConnsPerHost | int | Controls the maximum idle (keep-alive) connections to keep per-host. Default is 1024 | No |
-| serverMaxBodySize | int64 | Max size of response body. the default value is 4MB. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case. | No |
+| serverMaxBodySize | int64 | Max size of response body. the default value is 4MB. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 
 ### Results
 
@@ -864,7 +864,7 @@ Rules to revise request header.
 | loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                         | Yes      |
 | memoryCache     | [proxy.MemoryCacheSpec](#proxymemorycachespec)   | Options for response caching                                                                                 | No       |
 | filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                                           | No       |
-| serverMaxBodySize | int64 | Request max body size | No | 
+| serverMaxBodySize | int64 | Max size of response body, will use the option of the Proxy if not set. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | timeout | string | Request calceled when timeout | No | 
 | retryPolicy | string | Retry policy name | No |
 | circuitBreakPolicy | string | Circuit break policy name | No | 

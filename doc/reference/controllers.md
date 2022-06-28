@@ -9,10 +9,10 @@
       - [Pipeline](#pipeline)
     - [StatusSyncController](#statussynccontroller)
   - [Business Controllers](#business-controllers)
+    - [GlobalFilter](#globalfilter)
     - [EaseMonitorMetrics](#easemonitormetrics)
     - [FaaSController](#faascontroller)
     - [IngressController](#ingresscontroller)
-    - [MeshController](#meshcontroller)
     - [ConsulServiceRegistry](#consulserviceregistry)
     - [EtcdServiceRegistry](#etcdserviceregistry)
     - [EurekaServiceRegistry](#eurekaserviceregistry)
@@ -26,12 +26,15 @@
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
     - [httpserver.Header](#httpserverheader)
-    - [pipeline.FlowNode](#pipeline.FlowNode)
-    - [filters.Filter](#filtersFilter)
+    - [pipeline.Spec](#pipelinespec)
+    - [pipeline.FlowNode](#pipelineflownode)
+    - [filters.Filter](#filtersfilter)
     - [easemonitormetrics.Kafka](#easemonitormetricskafka)
     - [nacos.ServerSpec](#nacosserverspec)
     - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
-    - [resilience.Policy](#resiliencePolicy)
+    - [resilience.Policy](#resiliencepolicy)
+      - [Retry Policy](#retry-policy)
+      - [Circuit Break Policy](#circuit-break-policy)
 
 As the [architecture diagram](../imgs/architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -101,7 +104,7 @@ rules:
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
 | rules            | [httpserver.Rule](#httpserverRule) | Router rules                                                                             | No                   |
 | autoCert | bool | Do HTTP certification automatically | No |  
-| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case. | No | 
+| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No | 
 | caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
 | globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No | 
 
@@ -228,13 +231,6 @@ filters:
   ...
 ```
 In this case, we give second `proxy` alias `proxy2`, so request is invalid, it jumps to second proxy. 
-
-#### pipeline.Spec 
-| Name | Type | Description | Required | 
-|------|------|-------------|----------|
-| flow | [pipeline.FlowNode](#pipelineFlowNode) | Flow of pipeline | No |
-| filters | [][filters.Filter](#filters.Filter) | Filter definitions of pipeline  | Yes |
-| resilience | [][resilience.Policy](#resiliencePolicy) | Resilience policy for backend filters | No | 
 
 ### StatusSyncController
 
@@ -502,7 +498,7 @@ domains:
 | methods       | []string                                 | Methods to match, empty means to allow all methods                                                                                     | No       |
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |
-| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case. | No | 
+| clientMaxBodySize | int64 | Max size of request body, will use the option of the HTTP server if not set. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No | 
 | matchAllHeader | bool | Match all headers that are defined in headers, default is `false`. | No |
 
 
@@ -516,6 +512,12 @@ There must be at least one of `values` and `regexp`.
 | values  | []string | Header values to match                                              | No       |
 | regexp  | string   | Header value in regular expression to match                         | No       |
 
+### pipeline.Spec 
+| Name | Type | Description | Required | 
+|------|------|-------------|----------|
+| flow | [pipeline.FlowNode](#pipelineFlowNode) | Flow of pipeline | No |
+| filters | [][filters.Filter](#filters.Filter) | Filter definitions of pipeline  | Yes |
+| resilience | [][resilience.Policy](#resiliencePolicy) | Resilience policy for backend filters | No | 
 
 ### pipeline.FlowNode
 
