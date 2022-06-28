@@ -1,7 +1,18 @@
 # Changelog
 
+## [v1.5.3](https://github.com/megaease/easegress/tree/v1.5.3) (2022-06-28)
 
-## [v1.5.2](https://github.com/megaease/easegress/tree/v1.5.2) (2022-04-06)
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.2...v1.5.3)
+
+**Implemented enhancements:**
+- Remove HTTP hop headers [\#650](https://github.com/megaease/easegress/pull/650)
+- Optimize Kubernetes IngressController rule route policy [\#651](https://github.com/megaease/easegress/pull/651)
+
+**Fixed bugs:**
+- Wrong HTTP request scheme if the `X-Forwarded-Proto` header contains two or more items[\#634](https://github.com/megaease/easegress/pull/634)
+- Fix request "Content-Length" header missing bug [\#649](https://github.com/megaease/easegress/pull/649)
+
+## [v1.5.2](https://github.com/megaease/easegress/tree/v1.5.2) (2022-05-10)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.5.1...v1.5.2)
 

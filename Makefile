@@ -16,7 +16,7 @@ HTTPSERVER_TEST_PATH := build/test
 IMAGE_NAME?=megaease/easegress
 
 # Version
-RELEASE?=v1.5.2
+RELEASE?=v1.5.3
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
