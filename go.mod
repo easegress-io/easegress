@@ -30,7 +30,7 @@ require (
 	github.com/libdns/libdns v0.2.1
 	github.com/libdns/route53 v1.1.2
 	github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51
-	github.com/lucas-clemente/quic-go v0.25.0
+	github.com/lucas-clemente/quic-go v0.27.1
 	github.com/megaease/easemesh-api v1.3.5
 	github.com/megaease/grace v1.0.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -162,9 +162,9 @@ require (
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/marten-seemann/qpack v0.2.1 // indirect
-	github.com/marten-seemann/qtls-go1-16 v0.1.4 // indirect
-	github.com/marten-seemann/qtls-go1-17 v0.1.0 // indirect
-	github.com/marten-seemann/qtls-go1-18 v0.1.0-beta.1 // indirect
+	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
+	github.com/marten-seemann/qtls-go1-17 v0.1.1 // indirect
+	github.com/marten-seemann/qtls-go1-18 v0.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect

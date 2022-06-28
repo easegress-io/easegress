@@ -33,7 +33,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - name: Set up Go 1.x.y
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -46,7 +46,7 @@ jobs:
           make test TEST_FLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
 
       - name: Upload coverage to Codecov 
-        uses: codecov/codecov-action@v2.1.0
+        uses: codecov/codecov-action@v3.1.0
         with:
           file: ./coverage.txt
   test-win:
@@ -55,7 +55,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Set up Go 1.x.y
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -66,7 +66,7 @@ jobs:
         run: |
           go mod verify
           go mod download
-          go test -v ./...
+          go test -v ./pkg/...
   integration-test-ubuntu:
     needs: [test, test-win]
     runs-on: ubuntu-latest
@@ -74,7 +74,7 @@ jobs:
       fail-fast: false
     steps:
       - name: Set up Go 1.x.y
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: ${{ env.GO_VERSION }}
 
