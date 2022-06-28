@@ -51,6 +51,19 @@ jobs:
         uses: codecov/codecov-action@v3.1.0
         with:
           file: ./coverage.txt
+      
+      - name: Check code coverage
+        env:
+          THRESHOLD: 80
+        run: |
+          totalCoverage=`go tool cover -func=./coverage.txt | grep total | grep -Eo '[0-9]+\.[0-9]+'`
+          echo "Current test coverage: $totalCoverage %"
+          if (( $(echo "$totalCoverage $THRESHOLD" | awk '{print ($1 > $2)}') )); then 
+            echo "OK" 
+          else
+            echo "Current test coverage is below threshold of 80%"
+            exit 1
+          if 
   test-win:
     runs-on: windows-latest
     strategy:
