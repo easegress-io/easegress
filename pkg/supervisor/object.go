@@ -31,8 +31,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocol"
 )
 
 type (
@@ -378,7 +378,7 @@ func (e *ObjectEntity) Generation() uint64 {
 
 // InitWithRecovery initializes the object with built-in recovery.
 // muxMapper could be nil if the object is not TrafficGate and Pipeline.
-func (e *ObjectEntity) InitWithRecovery(muxMapper protocol.MuxMapper) {
+func (e *ObjectEntity) InitWithRecovery(muxMapper context.MuxMapper) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("%s: recover from Init, err: %v, stack trace:\n%s\n",
@@ -399,7 +399,7 @@ func (e *ObjectEntity) InitWithRecovery(muxMapper protocol.MuxMapper) {
 }
 
 // InheritWithRecovery inherits the object with built-in recovery.
-func (e *ObjectEntity) InheritWithRecovery(previousEntity *ObjectEntity, muxMapper protocol.MuxMapper) {
+func (e *ObjectEntity) InheritWithRecovery(previousEntity *ObjectEntity, muxMapper context.MuxMapper) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("%s: recover from Inherit, err: %v, stack trace:\n%s\n",

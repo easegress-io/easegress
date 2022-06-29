@@ -23,7 +23,6 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 )
 
@@ -91,11 +90,6 @@ func New(spec *Spec) *IPFilter {
 	}
 }
 
-// AllowHTTPContext is the wrapper of Allow for HTTPContext.
-func (f *IPFilter) AllowHTTPContext(ctx context.HTTPContext) bool {
-	return f.Allow(ctx.Request().RealIP())
-}
-
 // Allow return if IPFilter allows the incoming ip.
 func (f *IPFilter) Allow(ipstr string) bool {
 	defaultResult := !f.spec.BlockByDefault
@@ -140,11 +134,6 @@ func (f *IPFilters) Filters() []*IPFilter {
 // Append appends an IPFilter.
 func (f *IPFilters) Append(filter *IPFilter) {
 	f.filters = append(f.filters, filter)
-}
-
-// AllowHTTPContext is the wrapper of Allow for HTTPContext.
-func (f *IPFilters) AllowHTTPContext(ctx context.HTTPContext) bool {
-	return f.Allow(ctx.Request().RealIP())
 }
 
 // Allow return if IPFilters allows the incoming ip.

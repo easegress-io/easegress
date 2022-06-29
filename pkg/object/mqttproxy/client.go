@@ -18,7 +18,6 @@
 package mqttproxy
 
 import (
-	stdcontext "context"
 	"errors"
 	"net"
 	"reflect"
@@ -29,7 +28,7 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 )
 
 const (
@@ -102,7 +101,7 @@ type (
 	}
 )
 
-var _ context.MQTTClient = (*Client)(nil)
+var _ mqttprot.Client = (*Client)(nil)
 
 // ClientID return client id of Client
 func (c *Client) ClientID() string {
@@ -222,19 +221,20 @@ func (c *Client) runPipeline(packet packets.ControlPacket, packetType PacketType
 		return nil
 	}
 
-	pipe, err := pipeline.GetPipeline(pipelineName, context.MQTT)
-	if err != nil {
-		logger.SpanErrorf(nil, "get pipeline %v failed, %v", pipelineName, err)
+	pipe, ok := c.broker.muxMapper.GetHandler(pipelineName)
+	if !ok {
+		logger.SpanErrorf(nil, "get pipeline %v failed", pipelineName)
 		return nil
 	}
 
-	ctx := context.NewMQTTContext(stdcontext.Background(), c, packet)
-	pipe.HandleMQTT(ctx)
-	if ctx.Disconnect() {
+	ctx := newContext(packet, c)
+	pipe.Handle(ctx)
+	resp := ctx.GetResponse(context.DefaultNamespace).(*mqttprot.Response)
+	if resp.Disconnect() {
 		c.close()
 		return errors.New("pipeline set disconnect")
 	}
-	if ctx.Drop() {
+	if resp.Drop() {
 		return errors.New("pipeline set drop")
 	}
 	return nil
@@ -275,13 +275,13 @@ func (c *Client) close() {
 	if !ok {
 		return
 	}
-	pipe, err := pipeline.GetPipeline(pipelineName, context.MQTT)
-	if err != nil {
-		logger.SpanErrorf(nil, "get pipeline %v failed, %v", pipelineName, err)
+	pipe, ok := c.broker.muxMapper.GetHandler(pipelineName)
+	if !ok {
+		logger.SpanErrorf(nil, "get pipeline %v failed", pipelineName)
 	} else {
 		disconnect := packets.NewControlPacket(packets.Disconnect).(*packets.DisconnectPacket)
-		ctx := context.NewMQTTContext(stdcontext.Background(), c, disconnect)
-		pipe.HandleMQTT(ctx)
+		ctx := newContext(disconnect, c)
+		pipe.Handle(ctx)
 	}
 }
 

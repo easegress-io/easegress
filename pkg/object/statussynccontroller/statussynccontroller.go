@@ -175,20 +175,19 @@ func safeMarshal(value *supervisor.Status) (string, bool) {
 	return string(buff), true
 }
 
-func (ssc *StatusSyncController) splitRawconfigTrafficControllerStatus(
-	kind string,
-	status *trafficcontroller.StatusInSameNamespace,
-	statuses map[string]string,
-	statusesRecord *StatusesRecord) bool {
+// key: namespace/kind/objectName
+func (ssc *StatusSyncController) splitNamespaceStatus(status *trafficcontroller.StatusInSameNamespace,
+	targetStatuses map[string]string, targetStatusesRecord *StatusesRecord) bool {
+
 	for key, value := range status.ToSyncStatus() {
-		name := ssc.superSpec.Super().Cluster().Layout().StatusObjectName(kind, key)
-		statusesRecord.Statuses[name] = value
+		name := ssc.superSpec.Super().Cluster().Layout().FullObjectName(status.Namespace, key)
+		targetStatusesRecord.Statuses[name] = value
 
 		marshalledValue, ok := safeMarshal(value)
 		if !ok {
 			return false
 		}
-		statuses[name] = marshalledValue
+		targetStatuses[name] = marshalledValue
 	}
 	return true
 }
@@ -216,13 +215,13 @@ func (ssc *StatusSyncController) handleStatus(unixTimestamp int64) {
 		if trafficStatus, ok := status.ObjectStatus.(*trafficcontroller.Status); ok {
 			statusInNamespaces := trafficStatus.Specs
 			for _, statInNS := range statusInNamespaces {
-				if !ssc.splitRawconfigTrafficControllerStatus(name, statInNS, statuses, statusesRecord) {
+				if !ssc.splitNamespaceStatus(statInNS, statuses, statusesRecord) {
 					return false
 				}
 			}
 			return true
 		} else if rawTrafficStatus, ok := status.ObjectStatus.(*rawconfigtrafficcontroller.Status); ok {
-			return ssc.splitRawconfigTrafficControllerStatus(name, rawTrafficStatus, statuses, statusesRecord)
+			return ssc.splitNamespaceStatus(rawTrafficStatus, statuses, statusesRecord)
 		} else {
 			statusesRecord.Statuses[name] = status
 			marshalledValue, ok := safeMarshal(status)

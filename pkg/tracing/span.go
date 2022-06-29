@@ -18,80 +18,81 @@
 package tracing
 
 import (
-	"sync"
+	"net/http"
 	"time"
 
 	zipkingo "github.com/openzipkin/zipkin-go"
-	zipkinmodel "github.com/openzipkin/zipkin-go/model"
+	"github.com/openzipkin/zipkin-go/propagation/b3"
 
-	"github.com/megaease/easegress/pkg/tracing/base"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 )
 
 type (
 	// Span is the span of the Tracing.
 	Span interface {
+		zipkingo.Span
+
 		// Tracer returns the Tracer that created this Span.
-		Tracer() zipkingo.Tracer
-
-		// Context yields the SpanContext for this Span
-		Context() zipkinmodel.SpanContext
-
-		// Finish finishes the span.
-		Finish()
-		// Cancel cancels the span, it should be called before Finish called.
-		// It will cancel all descendent spans.
-		Cancel()
+		Tracer() *Tracer
 
 		// NewChild creates a child span.
 		NewChild(name string) Span
+
 		// NewChildWithStart creates a child span with start time.
 		NewChildWithStart(name string, startAt time.Time) Span
 
-		// SetName changes the span name.
-		SetName(name string)
-
-		// LogKV logs key:value for the span.
-		//
-		// The keys must all be strings. The values may be strings, numeric types,
-		// bools, Go error instances, or arbitrary structs.
-		//
-		// Example:
-		//
-		//    span.LogKV(
-		//        "event", "soft error",
-		//        "type", "cache timeout",
-		//        "waited.millis", 1500)
-		LogKV(kvs ...interface{})
-
-		// SetTag sets tag key and value.
-		SetTag(key string, value string)
-		// IsNoopSpan returns true if span is NoopSpan.
-		IsNoopSpan() bool
+		// InjectHTTP injects span context into an HTTP request.
+		InjectHTTP(r *http.Request)
 	}
 
 	span struct {
-		mutex    sync.Mutex
-		tracer   *Tracing
-		span     zipkingo.Span
-		children []*span
+		zipkingo.Span
+		tracer *Tracer
 	}
 )
 
-func (s *span) Tracer() *zipkingo.Tracer {
-	return s.tracer.Tracer
+// NoopSpan does nothing.
+var NoopSpan *span
+
+// IsNoop returns whether the span is a noop span.
+func (s *span) IsNoop() bool {
+	return s == NoopSpan
 }
 
-func (s *span) Context() zipkinmodel.SpanContext {
-	return s.span.Context()
+// Tracer returns the tracer of the span.
+func (s *span) Tracer() *Tracer {
+	return s.tracer
 }
 
-func (s *span) Finish() {
-	s.span.Finish()
-}
-
-func (s *span) Cancel() {
-	s.span.Tag(base.CancelTagKey, "yes")
-	for _, child := range s.children {
-		child.Cancel()
+// NewChild creates a new child span.
+func (s *span) NewChild(name string) Span {
+	if s.IsNoop() {
+		return s
 	}
+	return s.newChildWithStart(name, fasttime.Now())
+}
+
+// NewChildWithStart creates a new child span with specified start time.
+func (s *span) NewChildWithStart(name string, startAt time.Time) Span {
+	if s.IsNoop() {
+		return s
+	}
+	return s.newChildWithStart(name, startAt)
+}
+
+func (s *span) newChildWithStart(name string, startAt time.Time) Span {
+	child := s.tracer.tracer.StartSpan(name,
+		zipkingo.Parent(s.Context()),
+		zipkingo.StartTime(startAt))
+
+	return &span{
+		tracer: s.tracer,
+		Span:   child,
+	}
+}
+
+// InjectHTTP injects span context into an HTTP request.
+func (s *span) InjectHTTP(r *http.Request) {
+	inject := b3.InjectHTTP(r, b3.WithSingleHeaderOnly())
+	inject(s.Context())
 }

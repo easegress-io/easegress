@@ -18,7 +18,7 @@
 package httpserver
 
 import (
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -61,8 +61,7 @@ func (hs *HTTPServer) DefaultSpec() interface{} {
 }
 
 // Init initializes HTTPServer.
-func (hs *HTTPServer) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMapper) {
-
+func (hs *HTTPServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	hs.runtime = newRuntime(superSpec, muxMapper)
 
 	hs.runtime.eventChan <- &eventReload{
@@ -72,7 +71,7 @@ func (hs *HTTPServer) Init(superSpec *supervisor.Spec, muxMapper protocol.MuxMap
 }
 
 // Inherit inherits previous generation of HTTPServer.
-func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper protocol.MuxMapper) {
+func (hs *HTTPServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	hs.runtime = previousGeneration.(*HTTPServer).runtime
 
 	hs.runtime.eventChan <- &eventReload{

@@ -28,29 +28,6 @@ import (
 func TestCreateEtcdConfigFailures(t *testing.T) {
 	testData := make([]*option.Options, 0)
 	testData = append(testData, mockTestOpt())
-	testData[len(testData)-1].ClusterListenClientURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
-	testData[len(testData)-1].ClusterListenPeerURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
-	testData[len(testData)-1].ClusterAdvertiseClientURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
-	testData[len(testData)-1].ClusterInitialAdvertisePeerURLs = []string{"::::::"}
-
-	for i, opt := range testData {
-		t.Run(fmt.Sprintf("CreateEtcdConfig: options invalid url i=%d", i), func(t *testing.T) {
-			membersInstance, _ := newMembers(opt)
-			_, err := CreateEtcdConfig(opt, membersInstance)
-			if err == nil {
-				t.Error("There should be an error")
-			}
-			if !strings.Contains(err.Error(), "missing protocol scheme") {
-				t.Error("Error should contain missing protocol scheme")
-			}
-		})
-	}
-
-	testData = make([]*option.Options, 0)
-	testData = append(testData, mockTestOpt())
 	testData[len(testData)-1].Cluster.ListenClientURLs = []string{"::::::"}
 	testData = append(testData, mockTestOpt())
 	testData[len(testData)-1].Cluster.ListenPeerURLs = []string{"::::::"}

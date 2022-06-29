@@ -19,10 +19,10 @@ package urlrule
 
 import (
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -118,14 +118,14 @@ func (r *URLRule) Init() {
 }
 
 // Match matches a URL to the rule
-func (r *URLRule) Match(req context.HTTPRequest) bool {
+func (r *URLRule) Match(req *http.Request) bool {
 	if len(r.Methods) > 0 {
-		if !stringtool.StrInSlice(req.Method(), r.Methods) {
+		if !stringtool.StrInSlice(req.Method, r.Methods) {
 			return false
 		}
 	}
 
-	return r.URL.Match(req.Path())
+	return r.URL.Match(req.URL.Path)
 }
 
 // DeepEqual returns true if r deep equal with r1 and false otherwise

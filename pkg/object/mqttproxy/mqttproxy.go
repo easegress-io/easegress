@@ -23,6 +23,7 @@ import (
 	"net/url"
 
 	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
@@ -30,11 +31,13 @@ import (
 
 const (
 	// Category is the category of MQTTProxy.
-	Category = supervisor.CategoryBusinessController
+	Category = supervisor.CategoryTrafficGate
 
 	// Kind is the kind of MQTTProxy.
 	Kind = "MQTTProxy"
 )
+
+var _ supervisor.TrafficObject = (*MQTTProxy)(nil)
 
 func init() {
 	supervisor.Register(&MQTTProxy{})
@@ -105,7 +108,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				return []string{}, err
 			}
 			if memberStatus.Options.Name != egName {
-				egURLs := memberStatus.Options.ClusterInitialAdvertisePeerURLs
+				egURLs := memberStatus.Options.Cluster.InitialAdvertisePeerURLs
 				peerURLVariableName := "ClusterInitialAdvertisePeerURLs"
 				if memberStatus.Options.UseInitialCluster() {
 					egURLs = memberStatus.Options.Cluster.InitialAdvertisePeerURLs
@@ -130,14 +133,14 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 }
 
 // Init initializes Function.
-func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
+func (mp *MQTTProxy) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	spec := superSpec.ObjectSpec().(*Spec)
 	spec.Name = superSpec.Name()
 	spec.EGName = superSpec.Super().Options().Name
 	mp.superSpec, mp.spec = superSpec, spec
 
 	store := newStorage(superSpec.Super().Cluster())
-	mp.broker = newBroker(spec, store, memberURLFunc(superSpec))
+	mp.broker = newBroker(spec, store, muxMapper, memberURLFunc(superSpec))
 	if mp.broker == nil {
 		panic(fmt.Sprintf("broker %v start failed", spec.Name))
 	}
@@ -145,9 +148,9 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec) {
 }
 
 // Inherit inherits previous generation of WebSocketServer.
-func (mp *MQTTProxy) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+func (mp *MQTTProxy) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	previousGeneration.Close()
-	mp.Init(superSpec)
+	mp.Init(superSpec, muxMapper)
 }
 
 // Close closes MQTTProxy.

@@ -24,10 +24,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/filter/proxy"
+	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"gopkg.in/yaml.v2"
 	apicorev1 "k8s.io/api/core/v1"
@@ -50,9 +50,9 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind              string `yaml:"kind"`
-		Name              string `yaml:"name"`
-		httppipeline.Spec `yaml:",inline"`
+		Kind          string `yaml:"kind"`
+		Name          string `yaml:"name"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
@@ -62,52 +62,26 @@ type (
 	}
 )
 
-func (b *httpServerSpecBuilder) sortRules() {
-	hostRules := []*httpserver.Rule{}
-	hostRegRules := []*httpserver.Rule{}
-	noHostRules := []*httpserver.Rule{}
-	for _, rule := range b.Rules {
-		if rule.Host != "" {
-			hostRules = append(hostRules, rule)
-		} else if rule.HostRegexp != "" {
-			hostRegRules = append(hostRegRules, rule)
-		} else {
-			noHostRules = append(noHostRules, rule)
-		}
-	}
-	sort.Slice(hostRules, func(i, j int) bool {
-		return hostRules[i].Host < hostRules[j].Host
-	})
-	sort.Slice(hostRegRules, func(i, j int) bool {
-		return hostRegRules[i].HostRegexp < hostRegRules[j].HostRegexp
-	})
-	newRules := append(hostRules, hostRegRules...)
-	newRules = append(newRules, noHostRules...)
-	b.Rules = newRules
-}
-
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: name,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
 func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 	const name = "proxy"
 
-	pool := &proxy.PoolSpec{
-		LoadBalance: &proxy.LoadBalance{
-			Policy: proxy.PolicyRoundRobin,
-		},
+	pool := &proxy.ServerPoolSpec{
+		LoadBalance: &proxy.LoadBalanceSpec{},
 	}
 
 	for _, ep := range endpoints {
 		pool.Servers = append(pool.Servers, &proxy.Server{URL: ep})
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":     proxy.Kind,
 		"name":     name,
@@ -412,16 +386,42 @@ func (st *specTranslator) translate() error {
 		}
 		st.translateIngressRules(b, ingress)
 	}
-	b.sortRules()
+
+	// sort rules by host
+	// * precise hosts first(in alphabetical order)
+	// * wildcard hosts next(in alphabetical order)
+	// * empty host last
+	sort.Slice(b.Rules, func(i, j int) bool {
+		r1, r2 := b.Rules[i], b.Rules[j]
+
+		if r1.Host != "" {
+			if r2.Host == "" {
+				return true
+			}
+			return r1.Host < r2.Host
+		}
+		if r2.Host != "" {
+			return false
+		}
+
+		if r1.HostRegexp == "" {
+			return false
+		}
+		if r2.HostRegexp == "" {
+			return true
+		}
+		return r1.HostRegexp < r2.HostRegexp
+	})
 
 	if p := st.pipelines[defaultPipelineName]; p != nil {
-		b.Rules = append(b.Rules, &httpserver.Rule{
-			Paths: []*httpserver.Path{
-				{
-					Backend:    defaultPipelineName,
-					PathPrefix: "/",
-				},
-			},
+		r := b.Rules[len(b.Rules)-1]
+		if r.Host != "" || r.HostRegexp != "" {
+			r = &httpserver.Rule{}
+			b.Rules = append(b.Rules, r)
+		}
+		r.Paths = append(r.Paths, &httpserver.Path{
+			Backend:    defaultPipelineName,
+			PathPrefix: "/",
 		})
 	}
 

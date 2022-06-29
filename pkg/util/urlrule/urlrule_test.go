@@ -18,13 +18,8 @@
 package urlrule
 
 import (
-	"bytes"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/tracing"
 )
 
 func TestURLRULEMatch(t *testing.T) {
@@ -47,17 +42,11 @@ func TestURLRULEMatch(t *testing.T) {
 	}
 
 	u.Init()
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/user/api", bytes.NewReader(buff))
-	if err != nil {
-		return
-	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/user/api", nil)
 
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if !u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req is %#v, urlrule is %#v", ctx.Request(), u)
+	if !u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req is %#v, urlrule is %#v", req, u)
 	}
 }
 
@@ -77,18 +66,11 @@ func TestURLRegxMatch(t *testing.T) {
 	u.URL.Init()
 
 	u.Init()
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/app/api", bytes.NewReader(buff))
-	if err != nil {
-		t.Error("create http failed, err: ", err)
-		return
-	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/app/api", nil)
 
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if !u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is regEx: %s", ctx.Request().Path(), u.URL.RegEx)
+	if !u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is regEx: %s", req.URL.Path, u.URL.RegEx)
 	}
 }
 
@@ -107,18 +89,11 @@ func TestURLExactMatch(t *testing.T) {
 	}
 
 	u.Init()
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/app/v2/user", bytes.NewReader(buff))
-	if err != nil {
-		t.Error("create http failed, err: ", err)
-		return
-	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/app/v2/user", nil)
 
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if !u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", ctx.Request().Path(), u.URL.Exact)
+	if !u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", req.URL.Path, u.URL.Exact)
 	}
 }
 
@@ -137,18 +112,11 @@ func TestURLExactNotMatch(t *testing.T) {
 	}
 
 	u.Init()
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/app/v3/user", bytes.NewReader(buff))
-	if err != nil {
-		t.Error("create http failed, err: ", err)
-		return
-	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/app/v3/user", nil)
 
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", ctx.Request().Path(), u.URL.Exact)
+	if u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", req.URL.Path, u.URL.Exact)
 	}
 }
 
@@ -167,18 +135,11 @@ func TestURLPrefixNotMatch(t *testing.T) {
 	}
 
 	u.Init()
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/app/v2/user", bytes.NewReader(buff))
-	if err != nil {
-		t.Error("create http failed, err: ", err)
-		return
-	}
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/app/v2/user", nil)
 
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", ctx.Request().Path(), u.URL.Exact)
+	if u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule is exact : %s", req.URL.Path, u.URL.Exact)
 	}
 }
 
@@ -195,17 +156,10 @@ func TestURLRULENoMatchMethod(t *testing.T) {
 		t.Error(err)
 	}
 
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/user/api", nil)
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/user/api", bytes.NewReader(buff))
-	if err != nil {
-		return
-	}
-
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req mehtod is %#v, urlrule method is required: %v", ctx.Request().Method(), u.Methods)
+	if u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req mehtod is %#v, urlrule method is required: %v", req.Method, u.Methods)
 	}
 }
 
@@ -222,17 +176,10 @@ func TestURLRULENoMatchURL(t *testing.T) {
 		t.Error(err)
 	}
 
-	buff := []byte("ok")
-	w := httptest.NewRecorder()
+	req, _ := http.NewRequest(http.MethodPost, "http://localhost/user/api", nil)
 
-	request, err := http.NewRequest(http.MethodPost, "http://localhost/user/api", bytes.NewReader(buff))
-	if err != nil {
-		return
-	}
-
-	ctx := context.New(w, request, tracing.NoopTracing, "")
-	if u.Match(ctx.Request()) {
-		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule path is required exact : %s", ctx.Request().Path(), u.URL.Exact)
+	if u.Match(req) {
+		t.Errorf("match HTTP URL and Method failed, req path is %s, urlrule path is required exact : %s", req.URL.Path, u.URL.Exact)
 	}
 }
 

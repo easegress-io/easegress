@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/filter/wasmhost"
+	"github.com/megaease/easegress/pkg/filters/wasmhost"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"gopkg.in/yaml.v2"
 )

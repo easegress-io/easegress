@@ -23,12 +23,12 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/filter/proxy"
-	"github.com/megaease/easegress/pkg/filter/requestadaptor"
+	"github.com/megaease/easegress/pkg/filters/proxy"
+	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -54,9 +54,9 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind              string `yaml:"kind"`
-		Name              string `yaml:"name"`
-		httppipeline.Spec `yaml:",inline"`
+		Kind          string `yaml:"kind"`
+		Name          string `yaml:"name"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
@@ -90,9 +90,9 @@ func newIngressServer(superSpec *supervisor.Spec, controllerName string) *ingres
 
 func newPipelineSpecBuilder(funcName string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: funcName,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
@@ -134,7 +134,7 @@ func (b *pipelineSpecBuilder) yamlConfig() string {
 
 func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespace, faasHostSuffix string) *pipelineSpecBuilder {
 	adaptorName := "requestAdaptor"
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: adaptorName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: adaptorName})
 
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":   requestadaptor.Kind,
@@ -160,15 +160,13 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 
 	backendName := "faasBackend"
 
-	lb := &proxy.LoadBalance{
-		Policy: proxy.PolicyRoundRobin,
-	}
+	lb := &proxy.LoadBalanceSpec{}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
+		"mainPool": &proxy.ServerPoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
@@ -200,7 +198,7 @@ func (ings *ingressServer) Init() error {
 	}
 
 	ings.httpServerSpec = superSpec
-	entity, err := ings.tc.CreateHTTPServerForSpec(ings.namespace, superSpec)
+	entity, err := ings.tc.CreateTrafficGateForSpec(ings.namespace, superSpec)
 	if err != nil {
 		return fmt.Errorf("create http server %s failed: %v", superSpec.Name(), err)
 	}
@@ -217,7 +215,7 @@ func (ings *ingressServer) updateHTTPServer(spec *httpserver.Spec) error {
 	if err != nil {
 		return fmt.Errorf("BUG: new spec: %s failed: %v", builder.yamlConfig(), err)
 	}
-	_, err = ings.tc.ApplyHTTPServerForSpec(ings.namespace, ings.httpServerSpec)
+	_, err = ings.tc.ApplyTrafficGateForSpec(ings.namespace, ings.httpServerSpec)
 	if err != nil {
 		return fmt.Errorf("apply http server %s failed: %v", ings.httpServerSpec.Name(), err)
 	}
@@ -288,7 +286,7 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
 		return err
 	}
-	if _, err = ings.tc.CreateHTTPPipelineForSpec(ings.namespace, superSpec); err != nil {
+	if _, err = ings.tc.CreatePipelineForSpec(ings.namespace, superSpec); err != nil {
 		return fmt.Errorf("create http pipeline %s failed: %v", superSpec.Name(), err)
 	}
 	ings.add(funcSpec.Name)
@@ -360,8 +358,8 @@ func (ings *ingressServer) Close() {
 	ings.mutex.Lock()
 	defer ings.mutex.Unlock()
 
-	ings.tc.DeleteHTTPServer(ings.namespace, ings.httpServer.Spec().Name())
+	ings.tc.DeleteTrafficGate(ings.namespace, ings.httpServer.Spec().Name())
 	for name := range ings.pipelines {
-		ings.tc.DeleteHTTPPipeline(ings.namespace, name)
+		ings.tc.DeletePipeline(ings.namespace, name)
 	}
 }

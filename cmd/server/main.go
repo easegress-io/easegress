@@ -19,8 +19,10 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/cluster"
@@ -37,6 +39,8 @@ import (
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	opt := option.New()
 	msg, err := opt.Parse()
 	if err != nil {

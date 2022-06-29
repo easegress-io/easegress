@@ -17,15 +17,25 @@
 
 package dynamicobject
 
-// DynamicObject defines a dynamic object which is a map of string to interface{}.
-// The value of this map could also be a dynamic object, but in this case, its type
-// must be `map[string]interface{}`, and should not be `map[interface{}]interface{}`.
+// DynamicObject defines a dynamic object which is a map of string to
+// interface{}. The value of this map could also be a dynamic object,
+// but in this case, its type must be `map[string]interface{}`, and
+// should not be `map[interface{}]interface{}`.
 type DynamicObject map[string]interface{}
 
 // UnmarshalYAML implements yaml.Unmarshaler
-// the type of a DynamicObject field could be `map[interface{}]interface{}` if it is
-// unmarshaled from yaml, but some packages, like the standard json package could not
-// handle this type, so it must be converted to `map[string]interface{}`.
+//
+// the type of a DynamicObject field could be `map[interface{}]interface{}`
+// if it is unmarshaled from yaml, but some packages, like the standard
+// json package could not handle this type, so it must be converted to
+// `map[string]interface{}`.
+//
+// Note there's a bug with this function:
+//   do := DynamicObject{}
+//   yaml.Unmarshal([]byte(`{"a": 1}`), &do)
+//   yaml.Unmarshal([]byte(`{"b": 2}`), &do)
+// the result of above code should be `{"a": 1, "b": 2}`, but it is
+// `{"b": 2}`.
 func (do *DynamicObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	m := map[string]interface{}{}
 	if err := unmarshal(&m); err != nil {

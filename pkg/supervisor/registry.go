@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/megaease/easegress/pkg/protocol"
+	"github.com/megaease/easegress/pkg/context"
 )
 
 type (
@@ -62,13 +62,13 @@ type (
 		Object
 
 		// Init initializes the Object.
-		Init(superSpec *Spec, muxMapper protocol.MuxMapper)
+		Init(superSpec *Spec, muxMapper context.MuxMapper)
 
 		// Inherit also initializes the Object.
 		// But it needs to handle the lifecycle of the previous generation.
 		// So it's own responsibility for the object to inherit and clean the previous generation stuff.
 		// The supervisor won't call Close for the previous generation.
-		Inherit(superSpec *Spec, previousGeneration Object, muxMapper protocol.MuxMapper)
+		Inherit(superSpec *Spec, previousGeneration Object, muxMapper context.MuxMapper)
 	}
 
 	// TrafficGate is the object in category of TrafficGate.
@@ -148,6 +148,9 @@ func ObjectKinds() []string {
 	return kinds
 }
 
+// TrafficObjectKinds is a map that contains all kinds of TrafficObject.
+var TrafficObjectKinds = make(map[string]struct{})
+
 // Register registers object.
 func Register(o Object) {
 	if o.Kind() == "" {
@@ -165,6 +168,7 @@ func Register(o Object) {
 		if !ok {
 			panic(fmt.Errorf("%s: doesn't implement interface TrafficObject", o.Kind()))
 		}
+		TrafficObjectKinds[o.Kind()] = struct{}{}
 	}
 
 	existedObject, existed := objectRegistry[o.Kind()]

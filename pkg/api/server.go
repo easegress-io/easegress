@@ -80,7 +80,6 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 	dataPrefix := cls.Layout().CustomDataPrefix()
 	s.cds = customdata.NewStore(cls, kindPrefix, dataPrefix)
 
-	s.initMetadata()
 	s.registerAPIs()
 
 	go func() {

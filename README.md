@@ -1,6 +1,12 @@
 # Easegress
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)    [![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/megaease/easegress/actions/workflows/test.yml)     [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)     [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)      [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)     [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)
+[![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
+[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
 
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
@@ -47,10 +53,10 @@ The architecture of Easegress:
     - MQTT
   - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
   - **Resilience&Fault Tolerance**
-    - **Circuit breaker:** temporarily blocks possible failures.
-    - **Rate limiter:** limits the rate of incoming requests.
-    - **Retryer:** repeats failed executions.
-    - **Time limiter:** limits the duration of execution.
+    - **Circuit break:** temporarily blocks possible failures.
+    - **Rate limit:** limits the rate of incoming requests.
+    - **Retry:** repeats failed executions.
+    - **Time limit:** limits the duration of execution.
   - **Deployment Management**
     - **Blue-green Strategy:** switches traffic at one time.
     - **Canary Strategy:** schedules traffic slightly.
@@ -103,7 +109,7 @@ The architecture of Easegress:
 
 The following examples show how to use Easegress for different scenarios.
 
-- [API Aggregator](./doc/cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
+- [API Aggregation](./doc/cookbook/api-aggregation.md) - Aggregating many APIs into a single API.
 - [Cluster Deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
 - [Distributed Tracing](./doc/cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
@@ -113,7 +119,7 @@ The following examples show how to use Easegress for different scenarios.
 - [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
-- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
+- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Break, Rate Limit, Retry, Time Limit, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./doc/cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./doc/cookbook/service-proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
@@ -213,14 +219,14 @@ The rules of routers above mean that it will lead the traffic with the prefix `/
 ```bash
 $ echo '
 name: pipeline-demo
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
@@ -262,7 +268,7 @@ Now we want to add more features to the pipeline, then we could add kinds of fil
 ```bash
 $ cat pipeline-demo.yaml
 name: pipeline-demo
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: validator
     jumpIf: { invalid: END }
@@ -282,8 +288,8 @@ filters:
         X-Adapt-Key: goodplan
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097

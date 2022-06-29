@@ -18,10 +18,14 @@
 package cluster
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLayout(t *testing.T) {
+	assert := assert.New(t)
 	l := Layout{}
 
 	if len(l.OtherLease("member-1")) == 0 {
@@ -67,4 +71,15 @@ func TestLayout(t *testing.T) {
 	if len(l.WasmDataPrefix("pipeline", "wasm")) == 0 {
 		t.Error("WasmDataPrefix empty")
 	}
+
+	statusObjectName := l.StatusObjectName("test-kind", "test-name")
+	assert.True(strings.Contains(statusObjectName, "test-kind"))
+	assert.True(strings.Contains(statusObjectName, "test-name"))
+
+	fullName := l.FullObjectName("test-ns", "test-name")
+	assert.True(strings.Contains(fullName, "test-ns"))
+	assert.True(strings.Contains(fullName, "test-name"))
+
+	assert.Equal(customDataPrefix, l.CustomDataPrefix())
+	assert.Equal(customDataKindPrefix, l.CustomDataKindPrefix())
 }

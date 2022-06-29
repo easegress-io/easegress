@@ -11,21 +11,21 @@
     - [Proxy Caching](#proxy-caching)
     - [HTTPServer route rule caching](#httpserver-route-rule-caching)
 
-Easegress supports compression and caching in HTTPPipeline and HTTPServer for improving performance purposes as a revert proxy.
+Easegress supports compression and caching in Pipeline and HTTPServer for performance improvement as a reverse proxy.
 
 
 ## Basic: Load Balance
 
 ```yaml
 name: pipeline-reverse-proxy
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
@@ -41,7 +41,7 @@ filters:
 
 ```yaml
 name: pipeline-reverse-proxy
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
@@ -63,13 +63,13 @@ filters:
 
 ``` yaml
 name: pipeline-reverse-proxy
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
+    pools:
 #...
       memoryCache:
         expiration: 10s
@@ -110,35 +110,35 @@ cacheSize: 10240
 
 ```yaml
 name: pipeline-reverse-proxy
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
         policy: roundRobin
-     compression:
-       minLength: 1024
+      compression:
+        minLength: 1024
 ```
 
 ### Proxy Caching
 
 ```yaml
 name: pipeline-reverse-proxy
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: proxy
 filters:
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
@@ -188,5 +188,4 @@ rules:
         backend: remote-pipeline2
     - path: /func
       backend: func-mirror
-
 ```

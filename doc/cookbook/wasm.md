@@ -120,11 +120,10 @@ The AssemblyScript code of this example is just a noop. But this example include
 	```bash
 	$ echo '
 	name: wasm-pipeline
-	kind: HTTPPipeline
+	kind: Pipeline
 	flow:
 	- filter: wasm
 	- filter: proxy
-	  jumpIf: { fallback: END }
 
 	filters:
 	- name: wasm
@@ -134,8 +133,8 @@ The AssemblyScript code of this example is just a noop. But this example include
 	  timeout: 100ms
 	- name: proxy
 	  kind: Proxy
-	  mainPool:
-	    servers:
+	  pools:
+	  - servers:
 	    - url: http://127.0.0.1:9095
 	    loadBalance:
 	      policy: roundRobin' | egctl object create
@@ -325,7 +324,7 @@ Because we are mocking a response, we need to remove the `proxy` from pipeline:
 ```bash
 $ echo '
 name: wasm-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 flow:
 - filter: wasm
 filters:

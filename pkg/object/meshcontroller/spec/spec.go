@@ -25,18 +25,14 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/filter/circuitbreaker"
-	"github.com/megaease/easegress/pkg/filter/meshadaptor"
-	"github.com/megaease/easegress/pkg/filter/mock"
-	"github.com/megaease/easegress/pkg/filter/proxy"
-	"github.com/megaease/easegress/pkg/filter/ratelimiter"
-	"github.com/megaease/easegress/pkg/filter/retryer"
-	"github.com/megaease/easegress/pkg/filter/timelimiter"
+	"github.com/megaease/easegress/pkg/filters/meshadaptor"
+	"github.com/megaease/easegress/pkg/filters/mock"
+	"github.com/megaease/easegress/pkg/filters/proxy"
+	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httppipeline"
+	"github.com/megaease/easegress/pkg/object/pipeline"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/httpfilter"
-	"github.com/megaease/easegress/pkg/util/httpheader"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 )
 
@@ -212,10 +208,12 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter    *ratelimiter.Spec    `yaml:"rateLimiter" jsonschema:"omitempty"`
+		RateLimiter *ratelimiter.Spec `yaml:"rateLimiter" jsonschema:"omitempty"`
+		/* TODO:
 		CircuitBreaker *circuitbreaker.Spec `yaml:"circuitBreaker" jsonschema:"omitempty"`
 		Retryer        *retryer.Spec        `yaml:"retryer" jsonschema:"omitempty"`
 		TimeLimiter    *timelimiter.Spec    `yaml:"timeLimiter" jsonschema:"omitempty"`
+		*/
 	}
 
 	// Canary is the spec of service canary.
@@ -227,7 +225,7 @@ type (
 	// CanaryRule is one matching rule for canary.
 	CanaryRule struct {
 		ServiceInstanceLabels map[string]string               `yaml:"serviceInstanceLabels" jsonschema:"required"`
-		Headers               map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
+		Headers               map[string]*proxy.StringMatcher `yaml:"headers" jsonschema:"required"`
 		URLs                  []*urlrule.URLRule              `yaml:"urls" jsonschema:"required"`
 	}
 
@@ -244,7 +242,7 @@ type (
 
 	// TrafficRules is the rules of traffic.
 	TrafficRules struct {
-		Headers map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"required"`
+		Headers map[string]*proxy.StringMatcher `yaml:"headers" jsonschema:"required"`
 	}
 
 	// GlobalCanaryHeaders is the spec of global service
@@ -268,7 +266,7 @@ type (
 	}
 
 	// LoadBalance is the spec of service load balance.
-	LoadBalance = proxy.LoadBalance
+	LoadBalance = proxy.LoadBalanceSpec
 
 	// Sidecar is the spec of service sidecar.
 	Sidecar struct {
@@ -414,9 +412,9 @@ type (
 		Kind string `yaml:"kind"`
 		Name string `yaml:"name"`
 
-		// NOTE: Can't use *httppipeline.Spec here.
+		// NOTE: Can't use *pipeline.Spec here.
 		// Reference: https://github.com/go-yaml/yaml/issues/356
-		httppipeline.Spec `yaml:",inline"`
+		pipeline.Spec `yaml:",inline"`
 	}
 
 	// CustomResourceKind defines the spec of a custom resource kind
@@ -504,7 +502,7 @@ func (sc ServiceCanary) Validate() error {
 
 // Clone clones TrafficRules.
 func (tr *TrafficRules) Clone() *TrafficRules {
-	headers := map[string]*urlrule.StringMatch{}
+	headers := map[string]*proxy.StringMatcher{}
 	for k, v := range tr.Headers {
 		stringMatch := *v
 		headers[k] = &stringMatch
@@ -584,9 +582,9 @@ func (s *ServiceInstanceSpec) Key() string {
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: httppipeline.Kind,
+		Kind: pipeline.Kind,
 		Name: name,
-		Spec: httppipeline.Spec{},
+		Spec: pipeline.Spec{},
 	}
 }
 
@@ -605,7 +603,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineS
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             ratelimiter.Kind,
 		"name":             name,
@@ -616,6 +614,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineS
 	return b
 }
 
+/* TODO:
 func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pipelineSpecBuilder {
 	const name = "circuitBreaker"
 
@@ -623,7 +622,7 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pip
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             circuitbreaker.Kind,
 		"name":             name,
@@ -641,7 +640,7 @@ func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilde
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":             retryer.Kind,
 		"name":             name,
@@ -652,13 +651,31 @@ func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilde
 	return b
 }
 
+func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineSpecBuilder {
+	const name = "timeLimiter"
+
+	if tl == nil || len(tl.URLs) == 0 {
+		return b
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":           timelimiter.Kind,
+		"name":           name,
+		"defaultTimeout": tl.DefaultTimeoutDuration,
+		"urls":           tl.URLs,
+	})
+	return b
+}
+*/
+
 func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
 	const name = "mock"
 	if len(m) == 0 {
 		return b
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind":  mock.Kind,
 		"name":  name,
@@ -668,31 +685,12 @@ func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineSpecBuilder {
-	const name = "timeLimiter"
-
-	if tl == nil || len(tl.URLs) == 0 {
-		return b
-	}
-
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":           timelimiter.Kind,
-		"name":           name,
-		"defaultTimeout": tl.DefaultTimeoutDuration,
-		"urls":           tl.URLs,
-	})
-	return b
-}
-
 func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec,
-	canaries []*ServiceCanary, lb *proxy.LoadBalance, cert, rootCert *Certificate) *pipelineSpecBuilder {
+	canaries []*ServiceCanary, lb *proxy.LoadBalanceSpec, cert, rootCert *Certificate) *pipelineSpecBuilder {
 
 	filterName := "backend"
 	if lb == nil {
-		lb = &proxy.LoadBalance{
-			Policy: proxy.PolicyRoundRobin,
-		}
+		lb = &proxy.LoadBalanceSpec{}
 	}
 
 	needMTLS := false
@@ -700,10 +698,10 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		needMTLS = true
 	}
 
-	mainPool := &proxy.PoolSpec{
+	mainPool := &proxy.ServerPoolSpec{
 		LoadBalance: lb,
 	}
-	candidatePools := make([]*proxy.PoolSpec, len(canaries))
+	candidatePools := make([]*proxy.ServerPoolSpec, len(canaries))
 
 	filter := map[string]interface{}{
 		"kind":     proxy.Kind,
@@ -746,11 +744,11 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 
 			if candidatePools[i] == nil {
 				headers := canary.TrafficRules.Clone().Headers
-				headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+				headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
 					Exact: canary.Name,
 				}
-				candidatePools[i] = &proxy.PoolSpec{
-					Filter: &httpfilter.Spec{
+				candidatePools[i] = &proxy.ServerPoolSpec{
+					Filter: &proxy.RequestMatcherSpec{
 						MatchAllHeaders: true,
 						Headers:         headers,
 					},
@@ -768,7 +766,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
-	candidates := []*proxy.PoolSpec{}
+	candidates := []*proxy.ServerPoolSpec{}
 	for _, candidate := range candidatePools {
 		if candidate == nil || len(candidate.Servers) == 0 {
 			continue
@@ -782,7 +780,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 	}
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
 
 	return b
 }
@@ -803,11 +801,11 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
 		// if `X-Mesh-Service-Canary` does not exist and other headers are matching.
 		headers := canary.TrafficRules.Clone().Headers
-		headers[ServiceCanaryHeaderKey] = &urlrule.StringMatch{
+		headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
 			Empty: true,
 		}
 		adaptors[i] = &meshadaptor.ServiceCanaryAdaptor{
-			Filter: &httpfilter.Spec{
+			Filter: &proxy.RequestMatcherSpec{
 				MatchAllHeaders: true,
 				Headers:         headers,
 			},
@@ -822,25 +820,23 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 	filter["serviceCanaries"] = adaptors
 
 	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: filterName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
 
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalance) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalanceSpec) *pipelineSpecBuilder {
 	backendName := "backend"
 
 	if lb == nil {
-		lb = &proxy.LoadBalance{
-			Policy: proxy.PolicyRoundRobin,
-		}
+		lb = &proxy.LoadBalanceSpec{}
 	}
 
-	b.Flow = append(b.Flow, httppipeline.Flow{Filter: backendName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: backendName})
 	b.Filters = append(b.Filters, map[string]interface{}{
 		"kind": proxy.Kind,
 		"name": backendName,
-		"mainPool": &proxy.PoolSpec{
+		"mainPool": &proxy.ServerPoolSpec{
 			Servers:     mainServers,
 			LoadBalance: lb,
 		},
@@ -1086,9 +1082,11 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 	}
 
 	if s.Resilience != nil {
+		/* TODO:
 		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
 		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
 		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
+		*/
 	}
 
 	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)

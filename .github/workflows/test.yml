@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - pipeline
     paths:
       - "**/*.go"
       - "**/*.yaml"
@@ -15,6 +16,7 @@ on:
     types: [opened, synchronize, reopened]
     branches:
       - main
+      - pipeline
     paths:
       - "**/*.go"
       - "go.mod"
@@ -66,9 +68,8 @@ jobs:
         run: |
           go mod verify
           go mod download
-          go test -v ./...
+          go test -v ./pkg/...
   integration-test-ubuntu:
-    needs: [test, test-win]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -83,5 +84,4 @@ jobs:
 
       - name: Test
         run: |
-          make httpserver_test
-
+          make integration_test
