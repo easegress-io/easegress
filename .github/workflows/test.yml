@@ -85,3 +85,20 @@ jobs:
       - name: Test
         run: |
           make integration_test
+
+  test-build-wasmhost:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Set up Go 1.x.y
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout codebase
+        uses: actions/checkout@v3
+
+      - name: Test
+        run: |
+          make wasm
