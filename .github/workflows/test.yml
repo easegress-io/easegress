@@ -3,7 +3,7 @@ name: Test
 on:
   push:
     branches:
-      - main
+      - v1.5
     paths:
       - "**/*.go"
       - "**/*.yaml"
@@ -14,7 +14,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - main
+      - v1.5
     paths:
       - "**/*.go"
       - "go.mod"
@@ -67,6 +67,7 @@ jobs:
           go mod verify
           go mod download
           go test -v ./...
+
   integration-test-ubuntu:
     needs: [test, test-win]
     runs-on: ubuntu-latest
@@ -85,3 +86,19 @@ jobs:
         run: |
           make httpserver_test
 
+  test-build-wasmhost:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Set up Go 1.x.y
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout codebase
+        uses: actions/checkout@v3
+
+      - name: Test
+        run: |
+          make wasm

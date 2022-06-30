@@ -192,7 +192,7 @@ func (wh *WasmHost) loadWasmCode() error {
 func (wh *WasmHost) watchWasmCode() {
 	var (
 		chWasm <-chan *string
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 	)
 
@@ -232,7 +232,7 @@ func (wh *WasmHost) watchWasmCode() {
 func (wh *WasmHost) watchWasmData() {
 	var (
 		chWasm <-chan map[string]*mvccpb.KeyValue
-		syncer *cluster.Syncer
+		syncer cluster.Syncer
 		err    error
 	)
 

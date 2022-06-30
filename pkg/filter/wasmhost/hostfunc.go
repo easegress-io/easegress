@@ -273,14 +273,14 @@ func (vm *WasmVM) hostRequestGetBody() int32 {
 	if e != nil {
 		panic(e)
 	}
-	r.SetBody(bytes.NewReader(body))
+	r.SetBody(bytes.NewReader(body), true)
 
 	return vm.writeDataToWasm(body)
 }
 
 func (vm *WasmVM) hostRequestSetBody(addr int32) {
 	body := vm.readDataFromWasm(addr)
-	vm.ctx.Request().SetBody(bytes.NewReader(body))
+	vm.ctx.Request().SetBody(bytes.NewReader(body), true)
 }
 
 // response functions
