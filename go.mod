@@ -43,7 +43,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.12.0
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.8.0
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
 	github.com/tg123/go-htpasswd v1.2.0
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
@@ -58,7 +58,7 @@ require (
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0
+	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
