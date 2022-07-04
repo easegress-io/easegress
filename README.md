@@ -133,7 +133,7 @@ For full list, see [Cookbook](./doc/README.md#1-cookbook--how-to-guide).
 
 ## Getting Started
 
-The basic usage of Easegress is to quickly set up a reverse proxy for backend
+The basic usage of Easegress is to quickly set up a proxy for the backend
 servers. In this section, we will first set up a reverse proxy, and then
 demonstrate the API orchestration feature by including more components in the
 configuration, we will also show the essential concepts and operations of
@@ -191,8 +191,8 @@ client-side binary. We could add it to the `$PATH` to simplify the following
 commands.
 
 We could run `easegress-server` without specifying any arguments, which launch
-itself by opening default ports 2379, 2380, 2381. We can change them in the
-configuration file or command line arguments that are explained well in
+itself by opening default ports 2379, 2380, and 2381. We can change them in the
+configuration file or command-line arguments that are explained well in
 `easegress-server --help`.
 
 ```bash
@@ -228,8 +228,8 @@ rules:
       backend: pipeline-demo' | egctl object create
 ```
 
-The rules above mean it will forward the traffic with prefix `/pipeline` to
-the `pipeline-demo` pipeline, because the pipeline haven't be created yet,
+The rules above mean it will forward the traffic with the prefix `/pipeline` to
+the `pipeline-demo` pipeline because the pipeline hasn't been created yet,
 we will get 503 if we `curl` it now. Next, let's create the pipeline.
 
 ```bash
@@ -277,7 +277,7 @@ Body  : Hello, Easegress
 
 ### Add Another Pipeline
 
-Now let's add another pipeline, it will get the address of a RSS feed from the
+Now let's add another pipeline, it will get the address of an RSS feed from the
 request, read the RSS feed, build the article list into a Slack message, and
 then send it to Slack. But before creating the pipeline, please follow [this
 document](https://api.slack.com/messaging/webhooks) to create your own Slack
