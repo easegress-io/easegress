@@ -21,7 +21,9 @@
     - [安装 Easegress](#安装-easegress)
     - [创建 HTTPServer 和 Pipeline](#创建-httpserver-和-pipeline)
     - [测试](#测试)
-    - [使用更多过滤器](#使用更多过滤器)
+    - [添加一条新的 Pipeline](#添加一条新的-pipeline)
+    - [更新 HTTPServer](#更新-httpserver)
+    - [测试 RSS Pipeline](#测试-rss-pipeline)
   - [文档](#文档)
   - [路线图](#路线图)
   - [社区](#社区)
@@ -130,7 +132,7 @@
 
 ## 入门
 
-Easegress 的基本用法是做为后端服务器的代理。下面分步说明相关基本概念和操作方法。
+Easegress 的基本用法是做为后端服务器的代理。本节，我们会先从最简单的反向代理开始，然后逐步添加组件来实现复杂的 API 编排，并同步介绍相关基本概念和操作方法。
 
 ### 安装 Easegress
 
@@ -160,22 +162,20 @@ make
 ```bash
 $ export PATH=${PATH}:$(pwd)/bin/
 $ easegress-server
-2021-11-26T16:10:08.419+08:00	INFO	cluster/config.go:172	etcd config: init-cluster:eg-default-name=http://localhost:2380 cluster-state:new force-new-cluster:false
-2021-11-26T16:10:09.515+08:00	INFO	cluster/cluster.go:400	client connect with endpoints: [http://localhost:2380]
-2021-11-26T16:10:09.516+08:00	INFO	cluster/cluster.go:413	client is ready
-2021-11-26T16:10:09.608+08:00	INFO	cluster/cluster.go:692	server is ready
-2021-11-26T16:10:09.649+08:00	INFO	cluster/cluster.go:546	lease is ready (grant new one: b6a7d5b4b68ff07)
-2021-11-26T16:10:09.649+08:00	INFO	cluster/cluster.go:219	cluster is ready
-2021-11-26T16:10:09.669+08:00	INFO	supervisor/supervisor.go:137	create TrafficController
-2021-11-26T16:10:09.67+08:00	INFO	supervisor/supervisor.go:137	create RawConfigTrafficController
-2021-11-26T16:10:09.67+08:00	INFO	supervisor/supervisor.go:137	create ServiceRegistry
-2021-11-26T16:10:09.671+08:00	INFO	supervisor/supervisor.go:137	create StatusSyncController
-2021-11-26T16:10:09.671+08:00	INFO	cluster/cluster.go:586	session is ready
-2021-11-26T16:10:09.671+08:00	INFO	api/api.go:73	register api group admin
-2021-11-26T16:10:09.671+08:00	INFO	api/server.go:78	api server running in localhost:2381
-2021-11-26T16:10:14.673+08:00	INFO	cluster/member.go:223	self ID changed from 0 to 689e371e88f78b6a
-2021-11-26T16:10:14.674+08:00	INFO	cluster/member.go:157	store clusterMembers: eg-default-name(689e371e88f78b6a)=http://localhost:2380
-2021-11-26T16:10:14.674+08:00	INFO	cluster/member.go:158	store knownMembers  : eg-default-name(689e371e88f78b6a)=http://localhost:2380
+2022-07-04T13:47:36.579+08:00   INFO    cluster/config.go:106   etcd config: advertise-client-urls: [{Scheme:http Opaque: User: Host:localhost:2379 Path: RawPath: ForceQuery:false RawQuery: Fragment: RawFragment:}] advertise-peer-urls: [{Scheme:http Opaque: User: Host:localhost:2380 Path: RawPath: ForceQuery:false RawQuery: Fragment: RawFragment:}] init-cluster: eg-default-name=http://localhost:2380 cluster-state: new force-new-cluster: false
+2022-07-04T13:47:37.516+08:00   INFO    cluster/cluster.go:332  client connect with endpoints: [http://localhost:2380]
+2022-07-04T13:47:37.521+08:00   INFO    cluster/cluster.go:346  client is ready
+2022-07-04T13:47:37.529+08:00   INFO    cluster/cluster.go:638  server is ready
+2022-07-04T13:47:37.534+08:00   INFO    cluster/cluster.go:498  lease is ready (grant new one: b6a81c7bffb1a07)
+2022-07-04T13:47:37.534+08:00   INFO    cluster/cluster.go:218  cluster is ready
+2022-07-04T13:47:37.541+08:00   INFO    supervisor/supervisor.go:137    create TrafficController
+2022-07-04T13:47:37.542+08:00   INFO    supervisor/supervisor.go:137    create RawConfigTrafficController
+2022-07-04T13:47:37.544+08:00   INFO    supervisor/supervisor.go:137    create ServiceRegistry
+2022-07-04T13:47:37.544+08:00   INFO    supervisor/supervisor.go:137    create StatusSyncController
+2022-07-04T13:47:37.544+08:00   INFO    statussynccontroller/statussynccontroller.go:139        StatusUpdateMaxBatchSize is 20
+2022-07-04T13:47:37.544+08:00   INFO    cluster/cluster.go:538  session is ready
+2022-07-04T13:47:37.545+08:00   INFO    api/api.go:73   register api group admin
+2022-07-04T13:47:37.545+08:00   INFO    api/server.go:86        api server running in localhost:2381
 ```
 
 Makefile 默认会将两个二进制文件编译到 `bin/` 目录中。`bin/easegress-server` 是服务器端的二进制文件，`bin/egctl` 是客户端的二进制文件。我们可以把它添加到 `$PATH` 中，以便于执行后续命令。
@@ -256,61 +256,126 @@ Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/x-www-
 Body  : Hello, Easegress
 ```
 
-### 使用更多过滤器
+### 添加一条新的 Pipeline
 
-现在我们可以给 Pipeline 添加其它过滤器来实现更多的功能，例如，如果希望对 `pipeline-demo` 可以验证和改写请求，可以这样做：
+现在我们添加一条新的 Pipeline，它会从请求中提取出一个 RSS feed 的地址，并将其中的文章列表组织成一条 Slack 消息发送到 Slack。在执行下面的命令之前，请务必按照[这个文档](https://api.slack.com/messaging/webhooks)创建你自己的 Slack WebHook URL，并用它替换掉下面命令中的那个。 
 
 <p align="center">
-  <img src="./doc/imgs/pipeline-demo.png" width=240>
+  <img src="./doc/imgs/rss-pipeline.png" width=480>
 </p>
 
 ```bash
-$ cat pipeline-demo.yaml
-name: pipeline-demo
+$ echo '
+name: rss-pipeline
 kind: Pipeline
-flow:
-  - filter: validator
-    jumpIf: { invalid: END }
-  - filter: requestAdaptor
-  - filter: proxy
-filters:
-  - name: validator
-    kind: Validator
-    headers:
-      Content-Type:
-        values:
-        - application/json
-  - name: requestAdaptor
-    kind: RequestAdaptor
-    header:
-      set:
-        X-Adapt-Key: goodplan
-  - name: proxy
-    kind: Proxy
-    pools:
-    - servers:
-      - url: http://127.0.0.1:9095
-      - url: http://127.0.0.1:9096
-      - url: http://127.0.0.1:9097
-      loadBalance:
-        policy: roundRobin
 
-$ egctl object update -f pipeline-demo.yaml
+flow:
+- filter: validator
+- filter: buildRssRequest
+  namespace: rss
+- filter: sendRssRequest
+  namespace: rss
+- filter: decompressResponse
+  namespace: rss
+- filter: buildSlackRequest
+  namespace: slack
+- filter: sendSlackRequest
+  namespace: slack
+- filter: buildResponse
+
+filters:
+- name: validator
+  kind: Validator
+  headers:
+    "X-Rss-Url":
+       regexp: ^https?://.+$
+
+- name: buildRssRequest
+  kind: RequestBuilder
+  template: |
+    url: /developers/feed2json/convert?url={{index (index .requests.DEFAULT.Header "X-Rss-Url") 0 | urlquery}}
+
+- name: sendRssRequest
+  kind: Proxy
+  pools:
+  - loadBalance:
+      policy: roundRobin
+    servers:
+    - url: https://www.toptal.com
+  compression:
+    minLength: 4096
+
+- name: buildSlackRequest
+  kind: RequestBuilder
+  template: |
+    method: POST
+    url: /services/T0XXXXXXXXX/B0YYYYYYY/ZZZZZZZZZZZZZZZZZZZZ   # 替换此 URL
+    body: |
+      {
+         "text": "Recent posts - {{.responses.rss.JSONBody.title}}",
+         "blocks": [{
+            "type": "section",
+            "text": {
+              "type": "plain_text",
+              "text": "Recent posts - {{.responses.rss.JSONBody.title}}"
+            }
+         }, {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "{{range $index, $item := .responses.rss.JSONBody.items}}• <{{$item.url}}|{{$item.title}}>\n{{end}}"
+         }}]
+      }
+
+- name: sendSlackRequest
+  kind: Proxy
+  pools:
+  - loadBalance:
+      policy: roundRobin
+    servers:
+    - url: https://hooks.slack.com
+  compression:
+    minLength: 4096
+
+- name: decompressResponse
+  kind: ResponseAdaptor
+  decompress: gzip
+
+- name: buildResponse
+  kind: ResponseBuilder
+  template: |
+    statusCode: 200
+    body: RSS feed has been sent to Slack successfully.' | egctl object create
 ```
 
-更新 Pipeline 后，再次执行的 `curl -v http://127.0.0.1:10080/pipeline` 会因为验证失败而得到 400。下面我们修改请求来通过验证：
+### 更新 HTTPServer
+
+更新 HTTPServer 让它将前缀 `/rss` 的请求转发到新创建的 pipeline。
 
 ```bash
-$ curl http://127.0.0.1:10080/pipeline -H 'Content-Type: application/json' -d '{"message": "Hello, Easegress"}'
-Your Request
-===============
-Method: POST
-URL   : /pipeline
-Header: map[Accept:[*/*] Accept-Encoding:[gzip] Content-Type:[application/json] User-Agent:[curl/7.64.1] X-Adapt-Key:[goodplan]]
-Body  : {"message": "Hello, Easegress"}
+$ echo '
+kind: HTTPServer
+name: server-demo
+port: 10080
+keepAlive: true
+https: false
+rules:
+  - paths:
+    - pathPrefix: /rss          # +
+      backend: rss-pipeline     # +
+    - pathPrefix: /pipeline
+      backend: pipeline-demo' | egctl object update
 ```
 
-我们可以看到，除了原有的标头，Easegress 还向后台服务发送了标头 `X-Adapt-Key: goodplan`。
+### 测试 RSS Pipeline
+
+执行下面的命令，你的 Slack 会收到 RSS feed 中的文章列表。
+
+```bash
+$ curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:8080/rss
+```
+
+请注意，Slack 允许的最大消息长度大约是 3K, 所以，需要限制某些网站（例如 Hack News）的 RSS feed 返回的文章数量。
 
 ## 文档
 
