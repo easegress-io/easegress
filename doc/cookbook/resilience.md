@@ -6,7 +6,7 @@
     - [CircuitBreaker](#circuitbreaker)
     - [RateLimiter](#ratelimiter)
     - [Retry](#retry)
-    - [Time Limit](#time-limit)
+    - [TimeLimiter](#timelimiter)
   - [References](#references)
     - [CircuitBreaker](#circuitbreaker-1)
     - [RateLimiter](#ratelimiter-1)
@@ -237,9 +237,9 @@ resilience:
 For the full YAML, see [here](#retry-1), and please refer
 [Retry Policy](../reference/controllers.md#retry-policy] for more information.
 
-### Time Limit
+### TimeLimiter
 
-Time limit limits the time of requests, a request is canceled if it cannot
+TimeLimiter limits the time of requests, a request is canceled if it cannot
 get a response in configured duration. As this resilience type only requires
 config a timeout duration, it is implemented directly on filters like `Proxy`.
 

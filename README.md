@@ -53,10 +53,10 @@ The architecture of Easegress:
     - MQTT
   - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
   - **Resilience&Fault Tolerance**
-    - **Circuit break:** temporarily blocks possible failures.
-    - **Rate limit:** limits the rate of incoming requests.
+    - **CircuitBreaker:** temporarily blocks possible failures.
+    - **RateLimiter:** limits the rate of incoming requests.
     - **Retry:** repeats failed executions.
-    - **Time limit:** limits the duration of execution.
+    - **TimeLimiter:** limits the duration of execution.
   - **Deployment Management**
     - **Blue-green Strategy:** switches traffic at one time.
     - **Canary Strategy:** schedules traffic slightly.
@@ -119,7 +119,7 @@ The following examples show how to use Easegress for different scenarios.
 - [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
-- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - Circuit Break, Rate Limit, Retry, Time Limit, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
+- [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./doc/cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./doc/cookbook/service-proxy.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
