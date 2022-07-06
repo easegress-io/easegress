@@ -34,7 +34,7 @@
     - [autocertmanager.DomainSpec](#autocertmanagerdomainspec)
     - [resilience.Policy](#resiliencepolicy)
       - [Retry Policy](#retry-policy)
-      - [Circuit Break Policy](#circuit-break-policy)
+      - [CircuitBreaker Policy](#circuitbreaker-policy)
 
 As the [architecture diagram](../imgs/architecture.png) shows, the controller is the core entity to control kinds of working. There are two kinds of controllers overall:
 
@@ -158,7 +158,7 @@ In this case, if a request’s header doesn’t have the key `X-Id` or its value
 
 
 The `resilience` field defines resilience policies, if a filter implements the `filters.Resiliencer` interface (for now, only the `Proxy` filter implements the interface), the pipeline injects the policies into the filter instance after creating it.
-A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreak`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter: 
+A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreaker`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter: 
 ```yaml
 name: http-pipeline-example3
 kind: Pipeline
@@ -596,9 +596,9 @@ A retry policy configures how to retry a failed request.
 | backOffPolicy | string  | The back-off policy for wait duration, could be `EXPONENTIAL` or `RANDOM` and the default is `RANDOM`. If configured as `EXPONENTIAL`, the base wait duration becomes 1.5 times larger after each failed attempt | No |
 | randomizationFactor  | float64 | Randomization factor for actual wait duration, a number in interval `[0, 1]`, default is 0. The actual wait duration used is a random number in interval `[(base wait duration) * (1 - randomizationFactor),  (base wait duration) * (1 + randomizationFactor)]` | No |
 
-#### Circuit Break Policy
+#### CircuitBreaker Policy
 
-Circuit Break leverges a finite state machine to implement the processing logic, the state machine has three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and requests will be shor-circuited in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN`
+CircuitBreaker leverges a finite state machine to implement the processing logic, the state machine has three states: `CLOSED`, `OPEN`, and `HALF_OPEN`. When the state is `CLOSED`, requests pass through normally, state transits to `OPEN` if request failure rate or slow request rate reach a configured threshold and requests will be shor-circuited in this state. After a configured duration, state transits from `OPEN` to `HALF_OPEN`, in which a limited number of requests are permitted to pass through while other requests are still short-circuited, and state transit to `CLOSED` or `OPEN`
 based on the results of the permitted requests.
 
 When `CLOSED`, it uses a sliding window to store and aggregate the result of recent requests, the window can either be `COUNT_BASED` or `TIME_BASED`. The `COUNT_BASED` window aggregates the last N requests and the `TIME_BASED` window aggregates requests in the last N seconds, where N is the window size.
@@ -612,14 +612,14 @@ Policy `circuit-breaker-example-time` short-circuits requests if more than 60% o
 > failed means that backend filter returns non-empty results. 
 
 ```yaml
-kind: CircuitBreak
+kind: CircuitBreaker
 name: circuit-breaker-example-count 
 slidingWindowType: COUNT_BASED
 failureRateThreshold: 50
 slidingWindowSize: 100
 
 ---
-kind: CircuitBreak
+kind: CircuitBreaker
 name: circuit-breaker-example-time 
 slidingWindowType: TIME_BASED
 failureRateThreshold: 60
@@ -636,7 +636,7 @@ slidingWindowSize: 100
 | slidingWindowSize | uint32 | The size of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Default is 100 | No |
 | permittedNumberOfCallsInHalfOpenState | uint32 | The number of permitted requests when the CircuitBreaker is `HALF_OPEN`. Default is 10 | No |
 | minimumNumberOfCalls | uint32 | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No |
-| maxWaitDurationInHalfOpenState | string | The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means Circuit Breaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0| No |
+| maxWaitDurationInHalfOpenState | string | The maximum wait duration which controls the longest amount of time a CircuitBreaker could stay in `HALF_OPEN` state before it switches to `OPEN`. Value 0 means CircuitBreaker would wait infinitely in `HALF_OPEN` State until all permitted requests have been completed. Default is 0| No |
 | waitDurationInOpenState | string | The time that the CircuitBreaker should wait before transitioning from `OPEN` to `HALF_OPEN`. Default is 60s | No |
 
-See more details about `Retry`, `CircuitBreak` or other resilience polcies in [here](../cookbook/resilience.md).
+See more details about `Retry`, `CircuitBreaker` or other resilience polcies in [here](../cookbook/resilience.md).

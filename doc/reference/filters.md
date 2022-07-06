@@ -867,7 +867,7 @@ Rules to revise request header.
 | serverMaxBodySize | int64 | Max size of response body, will use the option of the Proxy if not set. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | timeout | string | Request calceled when timeout | No | 
 | retryPolicy | string | Retry policy name | No |
-| circuitBreakPolicy | string | Circuit break policy name | No | 
+| circuitBreakerPolicy | string | CircuitBreaker policy name | No | 
 | failureCodes | []int | Proxy return result of failureCode when backend resposne's status code in failureCodes | No | 
 
 

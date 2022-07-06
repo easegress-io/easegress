@@ -170,11 +170,11 @@ type ServerPool struct {
 	name         string
 	failureCodes map[int]struct{}
 
-	filter              RequestMatcher
-	loadBalancer        atomic.Value
-	timeout             time.Duration
-	retryWrapper        resilience.Wrapper
-	circuitbreakWrapper resilience.Wrapper
+	filter                RequestMatcher
+	loadBalancer          atomic.Value
+	timeout               time.Duration
+	retryWrapper          resilience.Wrapper
+	circuitbreakerWrapper resilience.Wrapper
 
 	httpStat    *httpstat.HTTPStat
 	memoryCache *MemoryCache
@@ -182,19 +182,19 @@ type ServerPool struct {
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
-	SpanName           string              `yaml:"spanName" jsonschema:"omitempty"`
-	Filter             *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
-	ServerMaxBodySize  int64               `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
-	ServerTags         []string            `yaml:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers            []*Server           `yaml:"servers" jsonschema:"omitempty"`
-	ServiceRegistry    string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName        string              `yaml:"serviceName" jsonschema:"omitempty"`
-	LoadBalance        *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
-	Timeout            string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
-	RetryPolicy        string              `yaml:"retryPolicy" jsonschema:"omitempty"`
-	CircuitBreakPolicy string              `yaml:"circuitBreakPolicy" jsonschema:"omitempty"`
-	FailureCodes       []int               `yaml:"failureCodes" jsonschema:"omitempty"`
-	MemoryCache        *MemoryCacheSpec    `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+	SpanName             string              `yaml:"spanName" jsonschema:"omitempty"`
+	Filter               *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
+	ServerMaxBodySize    int64               `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
+	ServerTags           []string            `yaml:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
+	Servers              []*Server           `yaml:"servers" jsonschema:"omitempty"`
+	ServiceRegistry      string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
+	ServiceName          string              `yaml:"serviceName" jsonschema:"omitempty"`
+	LoadBalance          *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
+	Timeout              string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+	RetryPolicy          string              `yaml:"retryPolicy" jsonschema:"omitempty"`
+	CircuitBreakerPolicy string              `yaml:"circuitBreakerPolicy" jsonschema:"omitempty"`
+	FailureCodes         []int               `yaml:"failureCodes" jsonschema:"omitempty"`
+	MemoryCache          *MemoryCacheSpec    `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -351,17 +351,17 @@ func (sp *ServerPool) InjectResiliencePolicy(policies map[string]resilience.Poli
 		sp.retryWrapper = policy.CreateWrapper()
 	}
 
-	name = sp.spec.CircuitBreakPolicy
+	name = sp.spec.CircuitBreakerPolicy
 	if name != "" {
 		p := policies[name]
 		if p == nil {
-			panic(fmt.Errorf("circuit break policy %s not found", name))
+			panic(fmt.Errorf("circuitbreaker policy %s not found", name))
 		}
-		policy, ok := p.(*resilience.CircuitBreakPolicy)
+		policy, ok := p.(*resilience.CircuitBreakerPolicy)
 		if !ok {
-			panic(fmt.Errorf("policy %s is not a circuit break policy", name))
+			panic(fmt.Errorf("policy %s is not a circuitBreaker policy", name))
 		}
-		sp.circuitbreakWrapper = policy.CreateWrapper()
+		sp.circuitbreakerWrapper = policy.CreateWrapper()
 	}
 }
 
@@ -475,8 +475,8 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	if sp.retryWrapper != nil && !spCtx.req.IsStream() {
 		handler = sp.retryWrapper.Wrap(handler)
 	}
-	if sp.circuitbreakWrapper != nil {
-		handler = sp.circuitbreakWrapper.Wrap(handler)
+	if sp.circuitbreakerWrapper != nil {
+		handler = sp.circuitbreakerWrapper.Wrap(handler)
 	}
 
 	// call the handler.
@@ -485,7 +485,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		return ""
 	}
 
-	// Circuit breaker is the most outside resiliencer, if the error
+	// CircuitBreaker is the most outside resiliencer, if the error
 	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
 		logger.Debugf("%s: short circuited by circuit break policy", sp.name)

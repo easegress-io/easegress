@@ -80,7 +80,7 @@ func TestInjectResilience(t *testing.T) {
 
 	yamlSpec := `spanName: test
 retryPolicy: retry
-circuitBreakPolicy: circuitBreak
+circuitBreakerPolicy: circuitBreaker
 servers:
 - url: http://192.168.1.1
 `
@@ -94,20 +94,20 @@ servers:
 
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
 
-	policies["retry"] = &resilience.CircuitBreakPolicy{}
+	policies["retry"] = &resilience.CircuitBreakerPolicy{}
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
 
 	policies["retry"] = &resilience.RetryPolicy{}
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
 
-	policies["circuitBreak"] = &resilience.RetryPolicy{}
+	policies["circuitBreaker"] = &resilience.RetryPolicy{}
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
 
-	policies["circuitBreak"] = &resilience.CircuitBreakPolicy{}
+	policies["circuitBreaker"] = &resilience.CircuitBreakerPolicy{}
 	assert.NotPanics(func() { sp.InjectResiliencePolicy(policies) })
 
 	assert.NotNil(sp.retryWrapper)
-	assert.NotNil(sp.circuitbreakWrapper)
+	assert.NotNil(sp.circuitbreakerWrapper)
 }
 
 func TestBuildResponseFromCache(t *testing.T) {
