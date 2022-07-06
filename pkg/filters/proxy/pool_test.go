@@ -107,7 +107,7 @@ servers:
 	assert.NotPanics(func() { sp.InjectResiliencePolicy(policies) })
 
 	assert.NotNil(sp.retryWrapper)
-	assert.NotNil(sp.circuitbreakerWrapper)
+	assert.NotNil(sp.circuitBreakerWrapper)
 }
 
 func TestBuildResponseFromCache(t *testing.T) {

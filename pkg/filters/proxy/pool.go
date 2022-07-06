@@ -174,7 +174,7 @@ type ServerPool struct {
 	loadBalancer          atomic.Value
 	timeout               time.Duration
 	retryWrapper          resilience.Wrapper
-	circuitbreakerWrapper resilience.Wrapper
+	circuitBreakerWrapper resilience.Wrapper
 
 	httpStat    *httpstat.HTTPStat
 	memoryCache *MemoryCache
@@ -361,7 +361,7 @@ func (sp *ServerPool) InjectResiliencePolicy(policies map[string]resilience.Poli
 		if !ok {
 			panic(fmt.Errorf("policy %s is not a circuitBreaker policy", name))
 		}
-		sp.circuitbreakerWrapper = policy.CreateWrapper()
+		sp.circuitBreakerWrapper = policy.CreateWrapper()
 	}
 }
 
@@ -475,8 +475,8 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	if sp.retryWrapper != nil && !spCtx.req.IsStream() {
 		handler = sp.retryWrapper.Wrap(handler)
 	}
-	if sp.circuitbreakerWrapper != nil {
-		handler = sp.circuitbreakerWrapper.Wrap(handler)
+	if sp.circuitBreakerWrapper != nil {
+		handler = sp.circuitBreakerWrapper.Wrap(handler)
 	}
 
 	// call the handler.
