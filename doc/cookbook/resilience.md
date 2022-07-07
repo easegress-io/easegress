@@ -3,12 +3,12 @@
 - [Resilience](#resilience)
   - [Basic: Load Balance](#basic-load-balance)
   - [More Livingness: Resilience of Service](#more-livingness-resilience-of-service)
-    - [Circuit Break](#circuit-break)
+    - [CircuitBreaker](#circuitbreaker)
     - [RateLimiter](#ratelimiter)
     - [Retry](#retry)
-    - [Time Limit](#time-limit)
+    - [TimeLimiter](#timelimiter)
   - [References](#references)
-    - [Circuit Break](#circuit-break-1)
+    - [CircuitBreaker](#circuitbreaker-1)
     - [RateLimiter](#ratelimiter-1)
     - [Retry](#retry-1)
     - [Concepts](#concepts)
@@ -42,9 +42,9 @@ filters:
 
 ## More Livingness: Resilience of Service
 
-### Circuit Break
+### CircuitBreaker
 
-Circuit Break leverges a finite state machine to implement the processing
+CircuitBreaker leverges a finite state machine to implement the processing
 logic, the state machine has three states: `CLOSED`, `OPEN`, and `HALF_OPEN`.
 When the state is `CLOSED`, requests pass through normally, state transits
 to `OPEN` if request failure rate or slow request rate reach a configured
@@ -81,12 +81,12 @@ filters:
     - url: http://127.0.0.1:9097
     loadBalance:
       policy: roundRobin
-    circuitBreakPolicy: countBased
+    circuitBreakerPolicy: countBased
     failureCodes: [500, 503, 504]
 
 resilience:
 - name: countBased
-  kind: CircuitBreak
+  kind: CircuitBreaker
   slidingWindowType: COUNT_BASED
   failureRateThreshold: 50
   slidingWindowSize: 100
@@ -98,7 +98,7 @@ if more than 60% of the requests within the last 200 seconds failed.
 ```yaml
 resilience:
 - name: time-based-policy
-  kind: CircuitBreak
+  kind: CircuitBreaker
   slidingWindowType: TIME_BASED
   failureRateThreshold: 60
   slidingWindowSize: 200
@@ -111,7 +111,7 @@ requests and short-circuits requests if 60% of recent requests are slow.
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreak
+  kind: CircuitBreaker
   slowCallRateThreshold: 60
   slowCallDurationThreshold: 30s
 ```
@@ -123,7 +123,7 @@ cases, we can avoid it by specifying `minimumNumberOfCalls`.
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreak
+  kind: CircuitBreaker
   minimumNumberOfCalls: 10
 ```
 
@@ -133,7 +133,7 @@ wait duration in the `half-open` state:
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreak
+  kind: CircuitBreaker
   waitDurationInOpenState: 2m
   maxWaitDurationInHalfOpenState: 1m
 ```
@@ -143,12 +143,12 @@ In the `half-open` state, we can limit the number of permitted requests:
 ```yaml
 resilience:
 - name: countBased
-  kind: CircuitBreak
+  kind: CircuitBreaker
   permittedNumberOfCallsInHalfOpenState: 10
 ```
 
-For the full YAML, see [here](#circuit-break-1), and please refer
-[Circuit Break Policy](../reference/controllers.md#circuit-break-policy]
+For the full YAML, see [here](#circuitbreaker-1), and please refer
+[CircuitBreaker Policy](../reference/controllers.md#circuitbreaker-policy]
 for more information.
 
 ### RateLimiter
@@ -237,9 +237,9 @@ resilience:
 For the full YAML, see [here](#retry-1), and please refer
 [Retry Policy](../reference/controllers.md#retry-policy] for more information.
 
-### Time Limit
+### TimeLimiter
 
-Time limit limits the time of requests, a request is canceled if it cannot
+TimeLimiter limits the time of requests, a request is canceled if it cannot
 get a response in configured duration. As this resilience type only requires
 config a timeout duration, it is implemented directly on filters like `Proxy`.
 
@@ -266,7 +266,7 @@ filters:
 
 ## References
 
-### Circuit Break
+### CircuitBreaker
 
 ```yaml
 name: pipeline-reverse-proxy
@@ -285,12 +285,12 @@ filters:
     - url: http://127.0.0.1:9097
     loadBalance:
       policy: roundRobin
-    circuitBreakPolicy: countBasedPolicy
+    circuitBreakerPolicy: countBasedPolicy
     failureCodes: [500, 503, 504]
 
 resilience:
 - name: countBasedPolicy
-  kind: CircuitBreak
+  kind: CircuitBreaker
   slidingWindowType: COUNT_BASED
   failureRateThreshold: 50
   slidingWindowSize: 100
@@ -301,7 +301,7 @@ resilience:
   maxWaitDurationInHalfOpenState: 1m
   permittedNumberOfCallsInHalfOpenState: 10
 - name: timeBasedPolicy
-  kind: CircuitBreak
+  kind: CircuitBreaker
   slidingWindowType: TIME_BASED
   failureRateThreshold: 60
   slidingWindowSize: 200

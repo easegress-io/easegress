@@ -26,11 +26,11 @@ import (
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 )
 
-var circuitBreakKind = &Kind{
-	Name: "CircuitBreak",
+var circuitBreakerKind = &Kind{
+	Name: "CircuitBreaker",
 
 	DefaultPolicy: func() Policy {
-		return &CircuitBreakPolicy{
+		return &CircuitBreakerPolicy{
 			FailureRateThreshold:             50,
 			SlowCallRateThreshold:            100,
 			SlidingWindowType:                "COUNT_BASED",
@@ -43,14 +43,14 @@ var circuitBreakKind = &Kind{
 	},
 }
 
-var _ Policy = (*CircuitBreakPolicy)(nil)
+var _ Policy = (*CircuitBreakerPolicy)(nil)
 
 // ErrShortCircuited is the error returned by a circuit breaker when the
 // circuit was short circuited.
 var ErrShortCircuited = errors.New("the call was short circuited")
 
-// CircuitBreakPolicy defines the circuit break policy.
-type CircuitBreakPolicy struct {
+// CircuitBreakerPolicy defines the circuit break policy.
+type CircuitBreakerPolicy struct {
 	BaseSpec                         `yaml:",inline"`
 	SlidingWindowType                string `yaml:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
 	FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
@@ -65,13 +65,13 @@ type CircuitBreakPolicy struct {
 }
 
 // Validate validates the CircuitBreakPolicy.
-func (p *CircuitBreakPolicy) Validate() error {
+func (p *CircuitBreakerPolicy) Validate() error {
 	// TODO
 	return nil
 }
 
 // CreateWrapper creates a Wrapper.
-func (p *CircuitBreakPolicy) CreateWrapper() Wrapper {
+func (p *CircuitBreakerPolicy) CreateWrapper() Wrapper {
 	policy := &libcb.Policy{
 		FailureRateThreshold:             p.FailureRateThreshold,
 		SlowCallRateThreshold:            p.SlowCallRateThreshold,
@@ -101,15 +101,15 @@ func (p *CircuitBreakPolicy) CreateWrapper() Wrapper {
 		policy.WaitDurationInOpen = time.Minute
 	}
 
-	return circuitBreakWrapper{CircuitBreaker: libcb.New(policy)}
+	return circuitBreakerWrapper{CircuitBreaker: libcb.New(policy)}
 }
 
-type circuitBreakWrapper struct {
+type circuitBreakerWrapper struct {
 	*libcb.CircuitBreaker
 }
 
 // Wrap wraps the handler function.
-func (w circuitBreakWrapper) Wrap(handler HandlerFunc) HandlerFunc {
+func (w circuitBreakerWrapper) Wrap(handler HandlerFunc) HandlerFunc {
 	return func(ctx context.Context) error {
 		var err error
 

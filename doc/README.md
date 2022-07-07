@@ -26,7 +26,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [Migrate v1.x Filter To v2.x](./cookbook/migrate-v1-filter-to-v2.md) - How to migrate a v1.x filter to v2.x.
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
-- [Resilience and Fault Tolerance](./cookbook/resilience.md) - Circuit Breaker, Rate Limiter, Retryer, Time limiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
+- [Resilience and Fault Tolerance](./cookbook/resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
 - [Security](./cookbook/security.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Proxy](./cookbook/service-proxy.md) - Supporting the Microservice  registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](./cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
