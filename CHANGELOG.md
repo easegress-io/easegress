@@ -2,7 +2,7 @@
 
 ## [v2.0.0](https://github.com/megaease/easegress/tree/v2.0.0) (2022-07-07)
 
-[Full Changelog](https://github.com/megaease/easegress/compare/v2.0.0...v1.5.3)
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.3...v2.0.0)
 
 **Significant changes:**
 
