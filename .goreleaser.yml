@@ -1,7 +1,7 @@
 before:
   hooks:
     # You may remove this if you don't use go modules.
-    - go mod tidy
+    - go mod tidy -compat=1.17
     # you may remove this if you don't need go generate
     - go generate ./...
 
