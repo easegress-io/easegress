@@ -1,5 +1,27 @@
 # Changelog
 
+## [v2.0.0](https://github.com/megaease/easegress/tree/v2.0.0) (2022-07-07)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v1.5.3...v2.0.0)
+
+**Significant changes:**
+
+- Pipeline
+  * Pipeline is protocol-independent now.
+  * Add `RequestBuilder` filter, `ResponseBuilder` filter and built-in filter `END`.
+  * Add the support of `namespace`.
+  * Add the support of filter alias.
+  * Filter `Retryer`, `CircuitBreaker` and `TimeLimiter` are removed, resilience
+    policies are now defined on pipeline and injected into filters that support
+    resilience. 
+  * Filter `APIAggregator` is removed.
+
+**Implemented enhancements:**
+- Tracing is now using Zipkin B3 format.
+- Cluster
+  * Drop the support of dynamic cluster management.
+  * Depreciated configuration method is removed.
+
 ## [v1.5.3](https://github.com/megaease/easegress/tree/v1.5.3) (2022-06-28)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.5.2...v1.5.3)
