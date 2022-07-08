@@ -19,13 +19,12 @@ package test
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
@@ -241,13 +240,8 @@ filters:
 	assert.Equal("hello from backend", string(data))
 }
 
-func sha256Sum(data []byte) string {
-	sha256Bytes := sha256.Sum256(data)
-	return hex.EncodeToString(sha256Bytes[:])
-}
-
-func getMQTTClient(port int, clientID, userName, password string) (paho.Client, error) {
-	opts := paho.NewClientOptions().AddBroker(fmt.Sprintf("tcp://0.0.0.0:%d", port)).SetClientID(clientID).SetUsername(userName).SetPassword(password)
+func getMQTTClient(clientID, userName, password string) (paho.Client, error) {
+	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password)
 	c := paho.NewClient(opts)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		return nil, token.Error()
@@ -258,38 +252,17 @@ func getMQTTClient(port int, clientID, userName, password string) (paho.Client, 
 func TestMQTTProxy(t *testing.T) {
 	assert := assert.New(t)
 
-	// create httpserver
 	yamlStr := `
 kind: MQTTProxy
 name: mqttproxy-test
 port: 1883
-rules:
-- when:
-    packetType: Connect
-  pipeline: pipeline-mqtt-auth
 `
 	ok, msg := createObject(t, yamlStr)
 	assert.True(ok, msg)
 	defer deleteObject(t, "mqttproxy-test")
 
-	yamlStr = `
-kind: Pipeline
-name: pipeline-mqtt-auth
-filters:
-- name: mqtt-auth
-  kind: MQTTClientAuth
-  auth:
-  - username: test
-    saltedSha256Pass: %v
-`
-	yamlStr = fmt.Sprintf(yamlStr, sha256Sum([]byte("test")))
-	ok, msg = createObject(t, yamlStr)
-	assert.True(ok, msg)
-	defer deleteObject(t, "pipeline-mqtt-auth")
+	time.Sleep(time.Second * 2)
 
-	_, err := getMQTTClient(1883, "client1", "test", "test")
+	_, err := getMQTTClient("client1", "test", "test")
 	assert.Nil(err)
-
-	_, err = getMQTTClient(1883, "client2", "test", "wrongPassword")
-	assert.NotNil(err, "wrong password should be rejected")
 }
