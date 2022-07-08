@@ -247,9 +247,7 @@ func sha256Sum(data []byte) string {
 }
 
 func getMQTTClient(port int, clientID, userName, password string) (paho.Client, error) {
-	opts := paho.NewClientOptions().AddBroker(fmt.Sprintf("tcp://0.0.0.0:%d", port)).SetClientID(
-		clientID).SetUsername(userName).SetPassword(password)
-
+	opts := paho.NewClientOptions().AddBroker(fmt.Sprintf("tcp://0.0.0.0:%d", port)).SetClientID(clientID).SetUsername(userName).SetPassword(password)
 	c := paho.NewClient(opts)
 	if token := c.Connect(); token.Wait() && token.Error() != nil {
 		return nil, token.Error()
