@@ -261,8 +261,13 @@ port: 1883
 	assert.True(ok, msg)
 	defer deleteObject(t, "mqttproxy-test")
 
-	time.Sleep(time.Second * 2)
-
-	_, err := getMQTTClient("client1", "test", "test")
+	var err error
+	for i := 0; i < 10; i++ {
+		_, err = getMQTTClient("client1", "test", "test")
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	assert.Nil(err)
 }
