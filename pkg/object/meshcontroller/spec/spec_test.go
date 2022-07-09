@@ -28,6 +28,8 @@ import (
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v1alpha1 "github.com/megaease/easemesh-api/v1alpha1"
 	"gopkg.in/yaml.v2"
@@ -114,7 +116,6 @@ func TestAdminValidatmTLS(t *testing.T) {
 	}
 
 	err := a.Validate()
-
 	if err != nil {
 		t.Errorf("admin mTLS should valid, err: %v", err)
 	}
@@ -187,7 +188,6 @@ func TestAdminValidat(t *testing.T) {
 	}
 
 	err := a.Validate()
-
 	if err != nil {
 		t.Errorf("registry type is valid, err: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "delivery-mesh",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -260,7 +260,7 @@ func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -492,7 +492,7 @@ func TestSidecarEgressPipelneNotLoadBalancer(t *testing.T) {
 
 	superSpec, err := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
 	if err != nil {
-		t.Errorf("sidecar egress pipeline spec gen failed: %v", err)
+		t.Fatalf("sidecar egress pipeline spec gen failed: %v", err)
 	}
 	fmt.Println(superSpec.YAMLConfig())
 }
@@ -501,7 +501,7 @@ func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -596,7 +596,7 @@ func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-004-canary-no-instance",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -670,7 +670,7 @@ func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 	s := &Service{
 		Name: "order-005-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -756,17 +756,16 @@ func TestIngressHTTPServerSpec(t *testing.T) {
 	}
 
 	_, err := IngressHTTPServerSpec(1233, rule)
-
 	if err != nil {
 		t.Errorf("ingress http server spec failed: %v", err)
 	}
-
 }
+
 func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -807,7 +806,7 @@ func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -818,72 +817,38 @@ func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 
 		Resilience: &Resilience{
-			CircuitBreaker: &circuitbreaker.Spec{
-				Policies: []*circuitbreaker.Policy{{
-					Name:                             "default",
-					SlidingWindowType:                "COUNT_BASED",
-					FailureRateThreshold:             50,
-					SlowCallRateThreshold:            100,
-					SlidingWindowSize:                100,
-					PermittedNumberOfCallsInHalfOpen: 10,
-					MinimumNumberOfCalls:             20,
-					SlowCallDurationThreshold:        "100ms",
-					MaxWaitDurationInHalfOpen:        "60s",
-					WaitDurationInOpen:               "60s",
-					CountingNetworkError:             false,
-					FailureStatusCodes:               []int{500, 501},
-				}},
-				DefaultPolicyRef: "default",
-				URLs: []*circuitbreaker.URLRule{{
-					URLRule: urlrule.URLRule{
-						Methods: []string{"GET"},
-						URL: urlrule.StringMatch{
-							Exact:  "/path1",
-							Prefix: "/path2/",
-							RegEx:  "^/path3/[0-9]+$",
-						},
-						PolicyRef: "default",
+			CircuitBreaker: &resilience.CircuitBreakerPolicy{
+				BaseSpec: resilience.BaseSpec{
+					MetaSpec: supervisor.MetaSpec{
+						Name: "default",
 					},
-				}},
+				},
+				SlidingWindowType:                "COUNT_BASED",
+				FailureRateThreshold:             50,
+				SlowCallRateThreshold:            100,
+				SlidingWindowSize:                100,
+				PermittedNumberOfCallsInHalfOpen: 10,
+				MinimumNumberOfCalls:             20,
+				SlowCallDurationThreshold:        "100ms",
+				MaxWaitDurationInHalfOpen:        "60s",
+				WaitDurationInOpen:               "60s",
+				CountingNetworkError:             false,
 			},
 
-			Retryer: &retryer.Spec{
-				Policies: []*retryer.Policy{{
-					Name:                 "default",
-					MaxAttempts:          3,
-					WaitDuration:         "500ms",
-					BackOffPolicy:        "random",
-					RandomizationFactor:  0.5,
-					CountingNetworkError: false,
-					FailureStatusCodes:   []int{500, 501},
-				}},
-				DefaultPolicyRef: "default",
-				URLs: []*retryer.URLRule{{
-					URLRule: urlrule.URLRule{
-						Methods: []string{"GET"},
-						URL: urlrule.StringMatch{
-							Exact:  "/path1",
-							Prefix: "/path2/",
-							RegEx:  "^/path3/[0-9]+$",
-						},
-						PolicyRef: "default",
+			Retryer: &resilience.RetryPolicy{
+				BaseSpec: resilience.BaseSpec{
+					MetaSpec: supervisor.MetaSpec{
+						Name: "default",
 					},
-				}},
+				},
+				MaxAttempts:         3,
+				WaitDuration:        "500ms",
+				BackOffPolicy:       "random",
+				RandomizationFactor: 0.5,
 			},
 
-			TimeLimiter: &timelimiter.Spec{
-				DefaultTimeoutDuration: "500ms",
-				URLs: []*timelimiter.URLRule{{
-					URLRule: urlrule.URLRule{
-						Methods: []string{"GET"},
-						URL: urlrule.StringMatch{
-							Exact:  "/path1",
-							Prefix: "/path2/",
-							RegEx:  "^/path3/[0-9]+$",
-						},
-					},
-					TimeoutDuration: "500ms",
-				}},
+			TimeLimiter: &TimeLimiterPolicy{
+				Timeout: "500ms",
 			},
 		},
 	}
@@ -916,9 +881,7 @@ func TestPipelineBuilderFailed(t *testing.T) {
 
 	builder.appendCircuitBreaker(nil)
 
-	builder.appendRetryer(nil)
-
-	builder.appendTimeLimiter(nil)
+	builder.appendRetry(nil)
 
 	yamlStr := builder.yamlConfig()
 	if len(yamlStr) == 0 {
@@ -956,14 +919,13 @@ func TestPipelineBuilder(t *testing.T) {
 	if len(yaml) == 0 {
 		t.Errorf("pipeline builder yamlconfig failed")
 	}
-
 }
 
 func TestIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1005,7 +967,6 @@ func TestIngressPipelineSpec(t *testing.T) {
 		SignTime:    "2021-10-13 12:33:10",
 	}
 	superSpec, err := s.IngressControllerPipelineSpec(instanceSpecs, nil, cert, rootCert)
-
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
@@ -1016,7 +977,7 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1043,7 +1004,6 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 	}
 
 	superSpec, err := s.SidecarIngressHTTPServerSpec(false, defaultKeepAliveTimeout, cert, rootCert)
-
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
@@ -1057,11 +1017,12 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 
 	fmt.Println(superSpec.YAMLConfig())
 }
+
 func TestSidecarIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1073,7 +1034,6 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 	}
 
 	superSpec, err := s.SidecarIngressHTTPServerSpec(true, "", nil, nil)
-
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
@@ -1092,7 +1052,7 @@ func TestUniqueCanaryHeadersEmpty(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1107,14 +1067,13 @@ func TestUniqueCanaryHeadersEmpty(t *testing.T) {
 	if len(val) > 0 {
 		t.Errorf("canary header should be none")
 	}
-
 }
 
 func TestUniqueCanaryHeaders(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyIPHash,
+			Policy: proxy.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1161,7 +1120,7 @@ func TestEgressName(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.PolicyRandom,
+			Policy: proxy.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -1267,7 +1226,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 		},
 	}
 
-	b.appendProxyWithCanary(instances, canaries, nil, nil, nil)
+	b.appendProxyWithCanary(instances, canaries, nil, nil, nil, "")
 	buff, _ := yaml.Marshal(b.Spec)
 	t.Logf("%s", buff)
 }

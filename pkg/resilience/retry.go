@@ -23,7 +23,8 @@ import (
 	"time"
 )
 
-var retryKind = &Kind{
+// RetryKind is the kind of Retry.
+var RetryKind = &Kind{
 	Name: "Retry",
 
 	DefaultPolicy: func() Policy {

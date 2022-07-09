@@ -27,6 +27,19 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
+const (
+	// LoadBalancePolicyRoundRobin is the load balance policy of round robin.
+	LoadBalancePolicyRoundRobin = "roundRobin"
+	// LoadBalancePolicyRandom is the load balance policy of random.
+	LoadBalancePolicyRandom = "random"
+	// LoadBalancePolicyWeightedRandom is the load balance policy of weighted random.
+	LoadBalancePolicyWeightedRandom = "weightedRandom"
+	// LoadBalancePolicyIPHash is the load balance policy of IP hash.
+	LoadBalancePolicyIPHash = "ipHash"
+	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
+	LoadBalancePolicyHeaderHash = "headerHash"
+)
+
 // LoadBalancer is the interface of an HTTP load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
@@ -34,22 +47,22 @@ type LoadBalancer interface {
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string `yaml:"policy" jsonschema:"enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	Policy        string `yaml:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
 	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
 func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	switch spec.Policy {
-	case "roundRobin", "":
+	case LoadBalancePolicyRoundRobin, "":
 		return newRoundRobinLoadBalancer(servers)
-	case "random":
+	case LoadBalancePolicyRandom:
 		return newRandomLoadBalancer(servers)
-	case "weightedRandom":
+	case LoadBalancePolicyWeightedRandom:
 		return newWeightedRandomLoadBalancer(servers)
-	case "ipHash":
+	case LoadBalancePolicyIPHash:
 		return newIPHashLoadBalancer(servers)
-	case "headerHash":
+	case LoadBalancePolicyHeaderHash:
 		return newHeaderHashLoadBalancer(servers, spec.HeaderHashKey)
 	default:
 		logger.Errorf("unsupported load balancing policy: %s", spec.Policy)

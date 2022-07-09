@@ -25,6 +25,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster/customdata"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/meshadaptor"
 	"github.com/megaease/easegress/pkg/filters/mock"
 	"github.com/megaease/easegress/pkg/filters/proxy"
@@ -32,8 +33,10 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/urlrule"
+	"github.com/megaease/easegress/pkg/util/yamltool"
 )
 
 const (
@@ -208,12 +211,15 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter *ratelimiter.Spec `yaml:"rateLimiter" jsonschema:"omitempty"`
-		/* TODO:
-		CircuitBreaker *circuitbreaker.Spec `yaml:"circuitBreaker" jsonschema:"omitempty"`
-		Retryer        *retryer.Spec        `yaml:"retryer" jsonschema:"omitempty"`
-		TimeLimiter    *timelimiter.Spec    `yaml:"timeLimiter" jsonschema:"omitempty"`
-		*/
+		RateLimiter    *ratelimiter.Spec                `yaml:"rateLimiter" jsonschema:"omitempty"`
+		CircuitBreaker *resilience.CircuitBreakerPolicy `yaml:"circuitBreaker" jsonschema:"omitempty"`
+		Retryer        *resilience.RetryPolicy          `yaml:"retryer" jsonschema:"omitempty"`
+		TimeLimiter    *TimeLimiterPolicy               `yaml:"timeLimiter" jsonschema:"omitempty"`
+	}
+
+	// TimeLimiterPolicy is the policy of TimeLimiter.
+	TimeLimiterPolicy struct {
+		Timeout string `yaml:"timeout" jsonschema:"required,format=duration"`
 	}
 
 	// Canary is the spec of service canary.
@@ -412,6 +418,13 @@ type (
 		Kind string `yaml:"kind"`
 		Name string `yaml:"name"`
 
+		mockName           string
+		rateLimiterName    string
+		circuitBreakerName string
+		retryName          string
+		meshAdaptorName    string
+		proxyName          string
+
 		// NOTE: Can't use *pipeline.Spec here.
 		// Reference: https://github.com/go-yaml/yaml/issues/356
 		pipeline.Spec `yaml:",inline"`
@@ -584,6 +597,14 @@ func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
 		Kind: pipeline.Kind,
 		Name: name,
+
+		mockName:           "mock",
+		rateLimiterName:    "rateLimiter",
+		circuitBreakerName: "circuitBreaker",
+		retryName:          "retry",
+		meshAdaptorName:    "meshAdaptor",
+		proxyName:          "proxy",
+
 		Spec: pipeline.Spec{},
 	}
 }
@@ -597,119 +618,113 @@ func (b *pipelineSpecBuilder) yamlConfig() string {
 }
 
 func (b *pipelineSpecBuilder) appendRateLimiter(rl *ratelimiter.Spec) *pipelineSpecBuilder {
-	const name = "rateLimiter"
-
 	if rl == nil || len(rl.Policies) == 0 || len(rl.URLs) == 0 {
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":             ratelimiter.Kind,
-		"name":             name,
-		"policies":         rl.Policies,
-		"defaultPolicyRef": rl.DefaultPolicyRef,
-		"urls":             rl.URLs,
-	})
-	return b
-}
+	rl.MetaSpec.Name = b.rateLimiterName
+	rl.MetaSpec.Kind = ratelimiter.Kind
 
-/* TODO:
-func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *circuitbreaker.Spec) *pipelineSpecBuilder {
-	const name = "circuitBreaker"
-
-	if cb == nil || len(cb.Policies) == 0 || len(cb.URLs) == 0 {
+	m, err := yamltool.StructToMap(rl)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", rl, err)
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":             circuitbreaker.Kind,
-		"name":             name,
-		"policies":         cb.Policies,
-		"defaultPolicyRef": cb.DefaultPolicyRef,
-		"urls":             cb.URLs,
-	})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.rateLimiterName})
+	b.Filters = append(b.Filters, m)
+
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendRetryer(r *retryer.Spec) *pipelineSpecBuilder {
-	const name = "retryer"
-
-	if r == nil || len(r.Policies) == 0 || len(r.URLs) == 0 {
+func (b *pipelineSpecBuilder) appendCircuitBreaker(cb *resilience.CircuitBreakerPolicy) *pipelineSpecBuilder {
+	if cb == nil {
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":             retryer.Kind,
-		"name":             name,
-		"policies":         r.Policies,
-		"defaultPolicyRef": r.DefaultPolicyRef,
-		"urls":             r.URLs,
-	})
+	cb.MetaSpec.Name = b.circuitBreakerName
+	cb.MetaSpec.Kind = resilience.CircuitBreakerKind.Name
+
+	m, err := yamltool.StructToMap(cb)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", cb, err)
+		return b
+	}
+
+	b.Resilience = append(b.Resilience, m)
+
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendTimeLimiter(tl *timelimiter.Spec) *pipelineSpecBuilder {
-	const name = "timeLimiter"
-
-	if tl == nil || len(tl.URLs) == 0 {
+func (b *pipelineSpecBuilder) appendRetry(r *resilience.RetryPolicy) *pipelineSpecBuilder {
+	if r == nil {
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{Filter: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":           timelimiter.Kind,
-		"name":           name,
-		"defaultTimeout": tl.DefaultTimeoutDuration,
-		"urls":           tl.URLs,
-	})
+	r.MetaSpec.Name = b.retryName
+	r.MetaSpec.Kind = resilience.RetryKind.Name
+
+	m, err := yamltool.StructToMap(r)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", r, err)
+		return b
+	}
+
+	b.Resilience = append(b.Resilience, m)
+
 	return b
 }
-*/
 
-func (b *pipelineSpecBuilder) appendMock(m []*mock.Rule) *pipelineSpecBuilder {
-	const name = "mock"
-	if len(m) == 0 {
+func (b *pipelineSpecBuilder) appendMock(rules []*mock.Rule) *pipelineSpecBuilder {
+	if len(rules) == 0 {
 		return b
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":  mock.Kind,
-		"name":  name,
-		"rules": m,
-	})
+	mockSpec := &mock.Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: b.mockName,
+				Kind: mock.Kind,
+			},
+		},
+		Rules: rules,
+	}
+
+	m, err := yamltool.StructToMap(mockSpec)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", mockSpec, err)
+		return b
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.mockName})
+	b.Filters = append(b.Filters, m)
 
 	return b
 }
 
 func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInstanceSpec,
-	canaries []*ServiceCanary, lb *proxy.LoadBalanceSpec, cert, rootCert *Certificate) *pipelineSpecBuilder {
-
-	filterName := "backend"
+	canaries []*ServiceCanary, lb *proxy.LoadBalanceSpec, cert, rootCert *Certificate,
+	timeout string,
+) *pipelineSpecBuilder {
 	if lb == nil {
 		lb = &proxy.LoadBalanceSpec{}
+	}
+
+	proxySpec := &proxy.Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: b.proxyName,
+				Kind: proxy.Kind,
+			},
+		},
 	}
 
 	needMTLS := false
 	if cert != nil && rootCert != nil {
 		needMTLS = true
 	}
-
-	mainPool := &proxy.ServerPoolSpec{
-		LoadBalance: lb,
-	}
-	candidatePools := make([]*proxy.ServerPoolSpec, len(canaries))
-
-	filter := map[string]interface{}{
-		"kind":     proxy.Kind,
-		"name":     filterName,
-		"mainPool": mainPool,
-	}
 	if needMTLS {
-		filter["mtls"] = &proxy.MTLS{
+		proxySpec.MTLS = &proxy.MTLS{
 			CertBase64:     cert.CertBase64,
 			KeyBase64:      cert.KeyBase64,
 			RootCertBase64: rootCert.CertBase64,
@@ -727,6 +742,11 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 			URL: fmt.Sprintf("%s://%s:%d", protocol, instance.IP, instance.Port),
 		}
 	}
+
+	mainPool := &proxy.ServerPoolSpec{
+		LoadBalance: lb,
+	}
+	candidatePools := make([]*proxy.ServerPoolSpec, len(canaries))
 
 	for _, instance := range instanceSpecs {
 		if instance.Status != ServiceStatusUp {
@@ -766,21 +786,24 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 		}
 	}
 
-	candidates := []*proxy.ServerPoolSpec{}
+	proxySpec.Pools = append(proxySpec.Pools, mainPool)
+
 	for _, candidate := range candidatePools {
 		if candidate == nil || len(candidate.Servers) == 0 {
 			continue
 		}
 
-		candidates = append(candidates, candidate)
+		proxySpec.Pools = append(proxySpec.Pools, candidate)
 	}
 
-	if len(candidates) != 0 {
-		filter["candidatePools"] = candidates
+	m, err := yamltool.StructToMap(proxySpec)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", proxySpec, err)
+		return b
 	}
 
-	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.proxyName})
+	b.Filters = append(b.Filters, m)
 
 	return b
 }
@@ -790,12 +813,15 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		return b
 	}
 
-	filterName := "meshAdaptor"
-
-	filter := map[string]interface{}{
-		"kind": meshadaptor.Kind,
-		"name": filterName,
+	meshAdaptorSpec := &meshadaptor.Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: b.meshAdaptorName,
+				Kind: meshadaptor.Kind,
+			},
+		},
 	}
+
 	adaptors := make([]*meshadaptor.ServiceCanaryAdaptor, len(canaries))
 	for i, canary := range canaries {
 		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
@@ -817,30 +843,50 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		}
 	}
 
-	filter["serviceCanaries"] = adaptors
+	meshAdaptorSpec.ServiceCanaries = adaptors
 
-	b.Filters = append(b.Filters, filter)
-	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: filterName})
+	m, err := yamltool.StructToMap(meshAdaptorSpec)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", meshAdaptorSpec, err)
+		return b
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.meshAdaptorName})
+	b.Filters = append(b.Filters, m)
 
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server, lb *proxy.LoadBalanceSpec) *pipelineSpecBuilder {
-	backendName := "backend"
-
+func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server,
+	lb *proxy.LoadBalanceSpec, timeout string,
+) *pipelineSpecBuilder {
 	if lb == nil {
 		lb = &proxy.LoadBalanceSpec{}
 	}
 
-	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: backendName})
-	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind": proxy.Kind,
-		"name": backendName,
-		"mainPool": &proxy.ServerPoolSpec{
-			Servers:     mainServers,
-			LoadBalance: lb,
+	proxySpec := &proxy.Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: b.proxyName,
+				Kind: proxy.Kind,
+			},
 		},
-	})
+		Pools: []*proxy.ServerPoolSpec{
+			{
+				Servers:     mainServers,
+				LoadBalance: lb,
+			},
+		},
+	}
+
+	m, err := yamltool.StructToMap(proxySpec)
+	if err != nil {
+		logger.Errorf("BUG: convert %#v to map failed: %v", proxySpec, err)
+		return b
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.proxyName})
+	b.Filters = append(b.Filters, m)
 
 	return b
 }
@@ -892,12 +938,13 @@ rules:`
 
 // IngressControllerPipelineSpec generates a spec for ingress controller pipeline spec.
 func (s *Service) IngressControllerPipelineSpec(instanceSpecs []*ServiceInstanceSpec,
-	canaries []*ServiceCanary, cert, rootCert *Certificate) (*supervisor.Spec, error) {
-
+	canaries []*ServiceCanary, cert, rootCert *Certificate,
+) (*supervisor.Spec, error) {
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.IngressControllerPipelineName())
 
 	pipelineSpecBuilder.appendMeshAdaptor(canaries)
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, cert, rootCert)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries,
+		s.LoadBalance, cert, rootCert, "" /* timeout */)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -1049,11 +1096,15 @@ func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*superviso
 
 	pipelineSpecBuilder := newPipelineSpecBuilder(s.SidecarIngressPipelineName())
 
+	var timeout string
 	if s.Resilience != nil {
 		pipelineSpecBuilder.appendRateLimiter(s.Resilience.RateLimiter)
+		if s.Resilience.TimeLimiter != nil {
+			timeout = s.Resilience.TimeLimiter.Timeout
+		}
 	}
 
-	pipelineSpecBuilder.appendProxy(mainServers, s.LoadBalance)
+	pipelineSpecBuilder.appendProxy(mainServers, s.LoadBalance, timeout)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -1067,8 +1118,8 @@ func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*superviso
 
 // SidecarEgressPipelineSpec returns a spec for sidecar egress pipeline
 func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec,
-	canaries []*ServiceCanary, appCert, rootCert *Certificate) (*supervisor.Spec, error) {
-
+	canaries []*ServiceCanary, appCert, rootCert *Certificate,
+) (*supervisor.Spec, error) {
 	if len(instanceSpecs) == 0 {
 		return nil, fmt.Errorf("no instance")
 	}
@@ -1081,15 +1132,17 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 		pipelineSpecBuilder.appendMock(s.Mock.Rules)
 	}
 
+	var timeout string
 	if s.Resilience != nil {
-		/* TODO:
-		pipelineSpecBuilder.appendTimeLimiter(s.Resilience.TimeLimiter)
-		pipelineSpecBuilder.appendRetryer(s.Resilience.Retryer)
+		pipelineSpecBuilder.appendRetry(s.Resilience.Retryer)
 		pipelineSpecBuilder.appendCircuitBreaker(s.Resilience.CircuitBreaker)
-		*/
+		if s.Resilience.TimeLimiter != nil {
+			timeout = s.Resilience.TimeLimiter.Timeout
+		}
 	}
 
-	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance, appCert, rootCert)
+	pipelineSpecBuilder.appendProxyWithCanary(instanceSpecs, canaries, s.LoadBalance,
+		appCert, rootCert, timeout)
 
 	yamlConfig := pipelineSpecBuilder.yamlConfig()
 	superSpec, err := supervisor.NewSpec(yamlConfig)
