@@ -24,7 +24,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,4 +238,36 @@ filters:
 	data, err := io.ReadAll(resp.Body)
 	assert.Nil(err)
 	assert.Equal("hello from backend", string(data))
+}
+
+func getMQTTClient(clientID, userName, password string) (paho.Client, error) {
+	opts := paho.NewClientOptions().AddBroker("tcp://0.0.0.0:1883").SetClientID(clientID).SetUsername(userName).SetPassword(password)
+	c := paho.NewClient(opts)
+	if token := c.Connect(); token.Wait() && token.Error() != nil {
+		return nil, token.Error()
+	}
+	return c, nil
+}
+
+func TestMQTTProxy(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlStr := `
+kind: MQTTProxy
+name: mqttproxy-test
+port: 1883
+`
+	ok, msg := createObject(t, yamlStr)
+	assert.True(ok, msg)
+	defer deleteObject(t, "mqttproxy-test")
+
+	var err error
+	for i := 0; i < 10; i++ {
+		_, err = getMQTTClient("client1", "test", "test")
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	assert.Nil(err)
 }

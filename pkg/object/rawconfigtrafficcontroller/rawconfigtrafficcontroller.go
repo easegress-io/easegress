@@ -22,7 +22,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -138,12 +137,11 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		var err error
 
 		kind := entity.Spec().Kind()
-		switch kind {
-		case httpserver.Kind:
-			err = rctc.tc.DeleteTrafficGate(DefaultNamespace, name)
-		case pipeline.Kind:
+		if kind == pipeline.Kind {
 			err = rctc.tc.DeletePipeline(DefaultNamespace, name)
-		default:
+		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
+			err = rctc.tc.DeleteTrafficGate(DefaultNamespace, name)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 
@@ -156,12 +154,11 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		var err error
 
 		kind := entity.Spec().Kind()
-		switch kind {
-		case httpserver.Kind:
-			_, err = rctc.tc.CreateTrafficGate(DefaultNamespace, entity)
-		case pipeline.Kind:
+		if kind == pipeline.Kind {
 			_, err = rctc.tc.CreatePipeline(DefaultNamespace, entity)
-		default:
+		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
+			_, err = rctc.tc.CreateTrafficGate(DefaultNamespace, entity)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 
@@ -174,12 +171,11 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 		var err error
 
 		kind := entity.Instance().Kind()
-		switch kind {
-		case httpserver.Kind:
-			_, err = rctc.tc.UpdateTrafficGate(DefaultNamespace, entity)
-		case pipeline.Kind:
+		if kind == pipeline.Kind {
 			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, entity)
-		default:
+		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
+			_, err = rctc.tc.UpdateTrafficGate(DefaultNamespace, entity)
+		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
 
