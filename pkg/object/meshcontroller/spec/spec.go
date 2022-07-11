@@ -745,6 +745,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 
 	mainPool := &proxy.ServerPoolSpec{
 		LoadBalance: lb,
+		Timeout:     timeout,
 	}
 	candidatePools := make([]*proxy.ServerPoolSpec, len(canaries))
 
@@ -773,6 +774,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(instanceSpecs []*ServiceInst
 						Headers:         headers,
 					},
 					LoadBalance: lb,
+					Timeout:     timeout,
 				}
 			}
 
@@ -875,6 +877,7 @@ func (b *pipelineSpecBuilder) appendProxy(mainServers []*proxy.Server,
 			{
 				Servers:     mainServers,
 				LoadBalance: lb,
+				Timeout:     timeout,
 			},
 		},
 	}
