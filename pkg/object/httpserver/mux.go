@@ -290,8 +290,8 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 	if mp.matchAllHeader {
 		for _, h := range mp.headers {
 			v := r.HTTPHeader().Get(h.Key)
-			if !stringtool.StrInSlice(v, h.Values) {
-				return false
+			if stringtool.StrInSlice(v, h.Values) {
+				continue
 			}
 
 			if h.Regexp != "" && !h.headerRE.MatchString(v) {
