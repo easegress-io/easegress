@@ -392,6 +392,15 @@ rules:
       regexp: "^true$"
     matchAllHeader: true
     backend: 123-pipeline
+  - path: /headerAllMatch2
+    methods: [GET]
+    headers:
+    - key: "X-Test"
+      values: [test1, test2]
+    - key: "AllMatch"
+      values: ["true"]
+    matchAllHeader: true
+    backend: 123-pipeline
 `
 
 	superSpec, err := supervisor.NewSpec(yamlSpec)
@@ -466,6 +475,13 @@ rules:
 
 	// header all matched
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/headerAllMatch", http.NoBody)
+	stdr.Header.Set("X-Test", "test1")
+	stdr.Header.Set("AllMatch", "false")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// header all matched
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/headerAllMatch2", http.NoBody)
 	stdr.Header.Set("X-Test", "test1")
 	stdr.Header.Set("AllMatch", "false")
 	req, _ = httpprot.NewRequest(stdr)
