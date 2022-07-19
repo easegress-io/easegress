@@ -86,11 +86,10 @@ And then create the pipeline `wasm-pipeline` which includes a `WasmHost` filter:
 ```bash
 $ echo '
 name: wasm-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 flow:
   - filter: wasm
   - filter: proxy
-    jumpIf: { fallback: END }
 
 filters:
   - name: wasm
@@ -100,8 +99,8 @@ filters:
     timeout: 100ms
   - name: proxy
     kind: Proxy
-    mainPool:
-      servers:
+    pools:
+    - servers:
       - url: http://127.0.0.1:9095
       loadBalance:
         policy: roundRobin' | egctl object create
@@ -109,8 +108,11 @@ filters:
 
 Note we are using the path of the Wasm file as the value of `code` in the spec of `WasmHost`, but the value of `code` can also be a URL (HTTP/HTTPS) or the base64 encoded Wasm code.
 
-Then, we need to set up the backend service by following [the steps in README.md](../README.md#test).
+Then, we need to set up the backend service by following command.
 
+```bash
+go run easegress/example/backend-service/echo/echo.go
+```
 ## Test
 
 Now, let's send some requests to the HTTP server, we can see request header and body are set as desired.
