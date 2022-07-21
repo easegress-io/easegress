@@ -151,9 +151,10 @@ import (
 
 ## 9. Update Other Code
 
-`ctx.Request()` need to be updated to `ctx.GetInputRequest()` or
-`ctx.GetOutputRequest()`, same for `ctx.Response()`. And please make a type
-assertion if you need a protocol specific request/response, like
+`ctx.Request()` need to be updated to `ctx.GetInputRequest()`,
+`ctx.GetOutputRequest()`, `ctx.SetInputRequest()` or `ctx.SetOutputRequest()`,
+same for `ctx.Response()`. And please make a type assertion if you need a
+protocol specific request/response, like
 `ctx.GetInputRequest().(*httpprot.Request) if an HTTP request is desired.
 
 The above is all the general steps to migrate a filter from v1.x to v2.x,
