@@ -157,41 +157,20 @@ func (gf *GlobalFilter) Inherit(superSpec *supervisor.Spec, previousGeneration s
 
 // Handle `beforePipeline` and `afterPipeline` before and after the handler is executed.
 func (gf *GlobalFilter) Handle(ctx *context.Context, handler context.Handler) {
-	result := gf.beforeHandle(ctx)
-	if result == pipeline.BuiltInFilterEnd {
-		return
-	}
-	result = handler.Handle(ctx)
-	if result == pipeline.BuiltInFilterEnd {
-		return
-	}
-	gf.afterHandle(ctx)
-}
-
-// BeforeHandle before handler logic for beforePipeline spec.
-func (gf *GlobalFilter) beforeHandle(ctx *context.Context) string {
-	value := gf.beforePipeline.Load()
-	if value == nil {
-		return ""
-	}
-	handler, ok := value.(*pipeline.Pipeline)
+	p, ok := handler.(*pipeline.Pipeline)
 	if !ok {
-		return ""
+		panic("handler is not a pipeline")
 	}
-	return handler.Handle(ctx)
-}
 
-// AfterHandle after handler logic for afterPipeline spec.
-func (gf *GlobalFilter) afterHandle(ctx *context.Context) string {
-	value := gf.afterPipeline.Load()
-	if value == nil {
-		return ""
+	var before, after *pipeline.Pipeline
+	if v := gf.beforePipeline.Load(); v != nil {
+		before, _ = v.(*pipeline.Pipeline)
 	}
-	handler, ok := value.(*pipeline.Pipeline)
-	if !ok {
-		return ""
+	if v := gf.afterPipeline.Load(); v != nil {
+		after, _ = v.(*pipeline.Pipeline)
 	}
-	return handler.Handle(ctx)
+
+	p.HandleWithBeforeAfter(ctx, before, after)
 }
 
 // Close closes GlobalFilter itself.

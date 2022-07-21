@@ -401,3 +401,90 @@ filters:
 	assert.Equal(2, len(status.Filters))
 	assert.Empty(status.ToMetrics("123"), "no metrics")
 }
+
+func TestHandleWithBeforeAfter(t *testing.T) {
+	assert := assert.New(t)
+
+	stdReq, err := http.NewRequest(http.MethodGet, "http://localhost:9095", nil)
+	assert.Nil(err)
+	req, err := httpprot.NewRequest(stdReq)
+	assert.Nil(err)
+
+	filters.Register(MockFilterKind("Filter1", nil))
+	defer cleanup()
+
+	yamlSpec := `
+name: http-pipeline-test
+kind: Pipeline
+flow:
+  - filter: filter2
+filters:
+  - name: filter2 
+    kind: Filter1 
+`
+	spec, err := supervisor.NewSpec(yamlSpec)
+	assert.Nil(err)
+
+	pipeline := &Pipeline{}
+	pipeline.Init(spec, nil)
+	defer pipeline.Close()
+
+	ctx := context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.DefaultNamespace, req)
+
+	pipeline.HandleWithBeforeAfter(ctx, nil, nil)
+	tags := ctx.Tags()
+	assert.NotContains(tags, "filter1")
+	assert.Contains(tags, "filter2")
+	assert.NotContains(tags, "filter3")
+
+	yamlSpec = `
+name: http-pipeline-after
+kind: Pipeline
+flow:
+  - filter: filter3
+filters:
+  - name: filter3 
+    kind: Filter1 
+`
+
+	spec, err = supervisor.NewSpec(yamlSpec)
+	assert.Nil(err)
+
+	after := &Pipeline{}
+	after.Init(spec, nil)
+	defer after.Close()
+
+	ctx = context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.DefaultNamespace, req)
+	pipeline.HandleWithBeforeAfter(ctx, nil, after)
+	tags = ctx.Tags()
+	assert.NotContains(tags, "filter1")
+	assert.Contains(tags, "filter2")
+	assert.Contains(tags, "filter3")
+
+	yamlSpec = `
+name: http-pipeline-before
+kind: Pipeline
+flow:
+  - filter: filter1
+  - filter: END
+filters:
+  - name: filter1 
+    kind: Filter1 
+`
+	spec, err = supervisor.NewSpec(yamlSpec)
+	assert.Nil(err)
+
+	before := &Pipeline{}
+	before.Init(spec, nil)
+	defer before.Close()
+
+	ctx = context.New(tracing.NoopSpan)
+	ctx.SetRequest(context.DefaultNamespace, req)
+	pipeline.HandleWithBeforeAfter(ctx, before, after)
+	tags = ctx.Tags()
+	assert.Contains(tags, "filter1")
+	assert.NotContains(tags, "filter2")
+	assert.NotContains(tags, "filter3")
+}
