@@ -26,7 +26,8 @@ import (
 	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
 )
 
-var circuitBreakerKind = &Kind{
+// CircuitBreakerKind is the kind of CircuitBreaker.
+var CircuitBreakerKind = &Kind{
 	Name: "CircuitBreaker",
 
 	DefaultPolicy: func() Policy {

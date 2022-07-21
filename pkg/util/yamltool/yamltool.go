@@ -40,3 +40,20 @@ func Unmarshal(in []byte, out interface{}) {
 			in, out, err))
 	}
 }
+
+// StructToMap converts a struct to a map based on yaml marshal.
+func StructToMap(s interface{}) (map[string]interface{}, error) {
+	buff, err := yaml.Marshal(s)
+	if err != nil {
+		return nil, fmt.Errorf("marshal %s to yaml string failed: %v", s, err)
+	}
+
+	var m map[string]interface{}
+	err = yaml.Unmarshal(buff, &m)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal yaml string %s to %#v failed: %v",
+			buff, m, err)
+	}
+
+	return m, nil
+}
