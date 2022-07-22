@@ -133,34 +133,24 @@ func (s *Server) _getStatusObject(name string) map[string]string {
 	return status
 }
 
-func (s *Server) _listStatusObjects() map[string]map[string]interface{} {
+func (s *Server) _listStatusObjects() map[string]interface{} {
 	prefix := s.cluster.Layout().StatusObjectsPrefix()
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		ClusterPanic(err)
 	}
 
-	status := make(map[string]map[string]interface{})
+	status := make(map[string]interface{})
 	for k, v := range kvs {
 		k = strings.TrimPrefix(k, prefix)
 
-		om := strings.Split(k, "/")
-		if len(om) != 2 {
-			ClusterPanic(fmt.Errorf("the key %s can't be split into two fields by /", k))
-		}
-		objectName, memberName := om[0], om[1]
-		_, exists := status[objectName]
-		if !exists {
-			status[objectName] = make(map[string]interface{})
-		}
-
 		// NOTE: This needs top-level of the status to be a map.
-		i := map[string]interface{}{}
-		err = yaml.Unmarshal([]byte(v), &i)
+		m := map[string]interface{}{}
+		err = yaml.Unmarshal([]byte(v), &m)
 		if err != nil {
 			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
 		}
-		status[objectName][memberName] = i
+		status[k] = m
 	}
 
 	return status

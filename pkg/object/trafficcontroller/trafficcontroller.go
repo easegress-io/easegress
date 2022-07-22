@@ -78,6 +78,7 @@ type (
 		Namespace    string                      `yaml:"namespace"`
 		TrafficGates map[string]interface{}      `yaml:"trafficGates"`
 		Pipelines    map[string]*pipeline.Status `yaml:"pipelines"`
+		Specs        map[string]interface{}      `yaml:"specs"`
 	}
 )
 
@@ -642,12 +643,17 @@ func (tc *TrafficController) Status() *supervisor.Status {
 
 	statuses := []*StatusInSameNamespace{}
 
+	specs := map[string]interface{}{}
+
 	for namespace, namespaceSpec := range tc.namespaces {
 		trafficGates := make(map[string]interface{})
 		namespaceSpec.trafficGates.Range(func(key, value interface{}) bool {
 			k := key.(string)
 			v := value.(*supervisor.ObjectEntity)
 			trafficGates[k] = v.Instance().Status().ObjectStatus
+
+			specs[k] = v.Spec().ObjectSpec()
+
 			return true
 		})
 
@@ -657,6 +663,9 @@ func (tc *TrafficController) Status() *supervisor.Status {
 			v := value.(*supervisor.ObjectEntity)
 
 			pipelines[k] = v.Instance().Status().ObjectStatus.(*pipeline.Status)
+
+			specs[k] = v.Spec().ObjectSpec()
+
 			return true
 		})
 
@@ -664,6 +673,7 @@ func (tc *TrafficController) Status() *supervisor.Status {
 			Namespace:    namespace,
 			TrafficGates: trafficGates,
 			Pipelines:    pipelines,
+			Specs:        specs,
 		})
 	}
 

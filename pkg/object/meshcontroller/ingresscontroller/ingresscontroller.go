@@ -87,7 +87,7 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		informer:  informer.NewInformer(store, ""),
 		service:   service.New(superSpec),
 		tc:        tc,
-		namespace: fmt.Sprintf("%s/%s", superSpec.Name(), "ingresscontroller"),
+		namespace: superSpec.Name(),
 
 		backendPipelines: make(map[string]*supervisor.ObjectEntity),
 		ingressBackends:  make(map[string]struct{}),
@@ -278,7 +278,7 @@ func (ic *IngressController) _reloadPipelines() {
 }
 
 func (ic *IngressController) _reloadHTTPServer() {
-	superSpec, err := spec.IngressHTTPServerSpec(ic.spec.IngressPort, ic.ingressRules)
+	superSpec, err := spec.IngressControllerHTTPServerSpec(ic.spec.IngressPort, ic.ingressRules)
 	if err != nil {
 		logger.Errorf("get ingress http server spec failed: %v", err)
 		return
