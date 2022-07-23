@@ -585,7 +585,13 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		body.Close()
 		return err
 	}
-
+	
+	if preHttpResp := spCtx.GetOutputResponse().(*httpprot.Response); preHttpResp != nil {
+		for k, v := range preHttpResp.HTTPHeader() {
+			resp.Header().Add(k, v[0])
+		}
+	}
+	
 	maxBodySize := sp.spec.ServerMaxBodySize
 	if maxBodySize == 0 {
 		maxBodySize = sp.proxy.spec.ServerMaxBodySize
