@@ -24,7 +24,6 @@ import (
 
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
@@ -153,21 +152,5 @@ func (s *Server) _listStatusObjects() map[string]interface{} {
 		status[k] = m
 	}
 
-	return status
-}
-
-func (s *Server) _getStatusObjectFromDefaultNamespace(name string) map[string]string {
-	key := s.cluster.Layout().FullObjectName(rawconfigtrafficcontroller.DefaultNamespace, name)
-	prefix := s.cluster.Layout().StatusObjectPrefix(key)
-	kvs, err := s.cluster.GetPrefix(prefix)
-	if err != nil {
-		ClusterPanic(err)
-	}
-
-	status := make(map[string]string)
-	for k, v := range kvs {
-		// NOTE: Here omitting the step yaml.Unmarshal in _listStatusObjects.
-		status[strings.TrimPrefix(k, prefix)] = v
-	}
 	return status
 }

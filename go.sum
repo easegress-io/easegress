@@ -746,6 +746,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182aff
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
 github.com/megaease/easemesh-api v1.4.0 h1:vj9G0NPU2bLVd+EQCbapiWOxsriQdhvnblCTsFUP18Y=
 github.com/megaease/easemesh-api v1.4.0/go.mod h1:2deFUaGV1rDkVJk5yyU8PCIROqOyeFVb0e3oRcqHRZ8=
+github.com/megaease/easemesh-api v1.4.1 h1:jsavr7plcucLxeyPCqK5yXAmk48a8mClXEzZ0LjUGno=
+github.com/megaease/easemesh-api v1.4.1/go.mod h1:Q2oPAsxkpAE/Gc6pH3Rc2HZotB1doYFO/Pvw7XYWu3I=
 github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
 github.com/megaease/grace v1.0.0/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
 github.com/microcosm-cc/bluemonday v1.0.1/go.mod h1:hsXNsILzKxV+sX77C5b8FSuKF00vh2OMYv+xgHpAMF4=

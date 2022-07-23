@@ -115,7 +115,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rule *ratelimiter.Rule) *pipelin
 	return b
 }
 
-func (b *pipelineSpecBuilder) appendCircuitBreaker(rule *CircuitBreakerRule) *pipelineSpecBuilder {
+func (b *pipelineSpecBuilder) appendCircuitBreaker(rule *resilience.CircuitBreakerRule) *pipelineSpecBuilder {
 	if rule == nil {
 		return b
 	}
@@ -127,7 +127,7 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker(rule *CircuitBreakerRule) *pi
 				Kind: resilience.CircuitBreakerKind.Name,
 			},
 		},
-		CircuitBreakerRule: rule.CircuitBreakerRule,
+		CircuitBreakerRule: *rule,
 	}
 
 	m, err := yamltool.StructToMap(spec)

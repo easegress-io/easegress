@@ -642,18 +642,16 @@ func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 		},
 
 		Resilience: &Resilience{
-			CircuitBreaker: &CircuitBreakerRule{
-				CircuitBreakerRule: resilience.CircuitBreakerRule{
-					SlidingWindowType:                "COUNT_BASED",
-					FailureRateThreshold:             50,
-					SlowCallRateThreshold:            100,
-					SlidingWindowSize:                100,
-					PermittedNumberOfCallsInHalfOpen: 10,
-					MinimumNumberOfCalls:             20,
-					SlowCallDurationThreshold:        "100ms",
-					MaxWaitDurationInHalfOpen:        "60s",
-					WaitDurationInOpen:               "60s",
-				},
+			CircuitBreaker: &resilience.CircuitBreakerRule{
+				SlidingWindowType:                "COUNT_BASED",
+				FailureRateThreshold:             50,
+				SlowCallRateThreshold:            100,
+				SlidingWindowSize:                100,
+				PermittedNumberOfCallsInHalfOpen: 10,
+				MinimumNumberOfCalls:             20,
+				SlowCallDurationThreshold:        "100ms",
+				MaxWaitDurationInHalfOpen:        "60s",
+				WaitDurationInOpen:               "60s",
 			},
 
 			Retry: &resilience.RetryRule{

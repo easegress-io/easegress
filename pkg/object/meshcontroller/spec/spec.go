@@ -103,6 +103,7 @@ type (
 	Admin struct {
 		// HeartbeatInterval is the interval for one service instance reporting its heartbeat.
 		HeartbeatInterval string `yaml:"heartbeatInterval" jsonschema:"required,format=duration"`
+
 		// RegistryTime indicates which protocol the registry center accepts.
 		RegistryType string `yaml:"registryType" jsonschema:"required"`
 
@@ -200,16 +201,11 @@ type (
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter    *ratelimiter.Rule     `yaml:"rateLimiter" jsonschema:"omitempty"`
-		CircuitBreaker *CircuitBreakerRule   `yaml:"circuitBreaker" jsonschema:"omitempty"`
-		Retry          *resilience.RetryRule `yaml:"retry" jsonschema:"omitempty"`
-		TimeLimiter    *TimeLimiterRule      `yaml:"timeLimiter" jsonschema:"omitempty"`
-	}
-
-	// CircuitBreakerRule is the spec of circuit breaker.
-	CircuitBreakerRule struct {
-		resilience.CircuitBreakerRule `yaml:",inline"`
-		FailureCodes                  []int `yaml:"failureCodes" jsonschema:"required,uniqueItems=true"`
+		RateLimiter    *ratelimiter.Rule              `yaml:"rateLimiter" jsonschema:"omitempty"`
+		CircuitBreaker *resilience.CircuitBreakerRule `yaml:"circuitBreaker" jsonschema:"omitempty"`
+		Retry          *resilience.RetryRule          `yaml:"retry" jsonschema:"omitempty"`
+		TimeLimiter    *TimeLimiterRule               `yaml:"timeLimiter" jsonschema:"omitempty"`
+		FailureCodes   []int                          `yaml:"failureCodes" jsonschema:"required,uniqueItems=true"`
 	}
 
 	// TimeLimiterRule is the spec of TimeLimiter.

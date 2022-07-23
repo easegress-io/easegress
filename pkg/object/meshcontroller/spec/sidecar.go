@@ -112,8 +112,9 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 		}
 		if s.Resilience.CircuitBreaker != nil {
 			circuitBreakerPolicy = pipelineSpecBuilder.circuitBreakerName
-			failureCodes = s.Resilience.CircuitBreaker.FailureCodes
 		}
+
+		failureCodes = s.Resilience.FailureCodes
 	}
 
 	pipelineSpecBuilder.appendProxyWithCanary(&proxyParam{

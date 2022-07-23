@@ -45,7 +45,7 @@ func IngressControllerHTTPServerSpec(port int, rules []*IngressRule) (*superviso
 kind: HTTPServer
 name: %s
 port: %d
-keepAlive: false
+keepAlive: true
 https: false
 rules:`
 
