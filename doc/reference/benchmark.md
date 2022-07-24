@@ -229,7 +229,7 @@ filters:
 
 **Traefik**
 1. Running binary directly with command `./traefik -c ./traefik.yml` [1]
-2. Static lonfig: traefik.yaml
+2. Static config: traefik.yaml
 ``` yaml 
 log:
   level: INFO
