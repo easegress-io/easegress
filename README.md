@@ -397,7 +397,7 @@ Execute the below command, your slack will receive the article list of the RSS
 feed.
 
 ```bash
-$ curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:8080/rss
+$ curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:10080/rss
 ```
 
 Please note the maximum message size Slack allowed is about 3K, so you will
