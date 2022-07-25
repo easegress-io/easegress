@@ -310,15 +310,21 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 	servers := make([]*Server, 0)
 
 	for _, instance := range instances {
+		// default to true in case of sp.spec.ServerTags is empty
+		match := true
+
 		for _, tag := range sp.spec.ServerTags {
-			if stringtool.StrInSlice(tag, instance.Tags) {
-				servers = append(servers, &Server{
-					URL:    instance.URL(),
-					Tags:   instance.Tags,
-					Weight: instance.Weight,
-				})
+			if match = stringtool.StrInSlice(tag, instance.Tags); match {
 				break
 			}
+		}
+
+		if match {
+			servers = append(servers, &Server{
+				URL:    instance.URL(),
+				Tags:   instance.Tags,
+				Weight: instance.Weight,
+			})
 		}
 	}
 
