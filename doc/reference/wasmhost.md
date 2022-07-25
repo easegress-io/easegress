@@ -285,7 +285,7 @@ The `wasm-pipeline` configuration is (we will adjust the value of `maxConcurrenc
 ```bash
 $ echo '
 name: wasm-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 flow:
 - filter: wasm
 filters:
@@ -301,7 +301,7 @@ The `mock-pipeline` configuration is:
 ```bash
 $ echo '
 name: mock-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 flow:
 - filter: mock
 filters:
