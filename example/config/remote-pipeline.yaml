@@ -1,5 +1,5 @@
 name: remote-pipeline
-kind: HTTPPipeline
+kind: Pipeline
 
 filters:
   - name: remoteFilter

@@ -1,15 +1,14 @@
 name: http-pipeline-example
-kind: HTTPPipeline
+kind: Pipeline
 
 # Built-in labels are `END` which can't be used by filters.
 flow:
   - filter: validator
     jumpIf: { invalid: END }
-  # - filter: fallback
   - filter: rateLimiter
   - filter: requestAdaptor
   - filter: proxy
-    jumpIf: { fallback: END }
+    jumpIf: { clientError: END }
   - filter: responseAdaptor
 
 filters:
@@ -70,13 +69,6 @@ filters:
       add: {}
   - name: proxy
     kind: Proxy
-    failureCodes: [500, 501]
-    fallback:
-      forCodes: true
-      forCircuitBreaker: false
-      mockCode: 200
-      mockHeader: {X-Fallback: yes}
-      mockBody: '{"message": "Backend failed, try it later."}'
     mirrorPool:
       servers:
       - url: http://127.0.0.1:9091
@@ -88,20 +80,19 @@ filters:
         headers:
           X-Filter:
             exact: mirror
-    candidatePools:
-      - servers:
-        - url: http://127.0.0.1:9093
-        - url: http://127.0.0.1:9094
-        loadBalance:
-          policy: random
-          headerHashKey: ""
-        memoryCache: null
-        filter:
-          headers:
-            X-Filter:
-              exact: candidate
-    mainPool:
-      serviceRegistry: nacos-service-registry-example
+    pools:
+    - servers:
+      - url: http://127.0.0.1:9093
+      - url: http://127.0.0.1:9094
+      loadBalance:
+        policy: random
+        headerHashKey: ""
+      memoryCache: null
+      filter:
+        headers:
+          X-Filter:
+            exact: candidate
+    - serviceRegistry: nacos-service-registry-example
       serviceName: service-001
       serversTags: ["v2"]
       servers:
@@ -116,16 +107,6 @@ filters:
       loadBalance:
         policy: roundRobin
         headerHashKey: X-User-Id
-      # memoryCache:
-      #   expiration: 10s
-      #   maxEntryBytes: 4096
-      #   size: 100
-      #   codes:
-      #   - 200
-      #   - 201
-      #   methods:
-      #   - GET
-      #   - HEAD
     compression:
       minLength: 1024
   - name: responseAdaptor

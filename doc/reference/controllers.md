@@ -66,7 +66,7 @@ The drivers need to offer notifying change periodically, and operations to the e
 
 ### TrafficController
 
-TrafficController handles the lifecycle of HTTPServer and HTTPPipeline and their relationship. It manages the resource in a namespaced way. HTTPServer accepts incoming traffic and routes it to HTTPPipelines in the same namespace. Most other controllers could handle traffic by leverage the ability of TrafficController..
+TrafficController handles the lifecycle of Traffic Gates (like HTTPServer) and Pipeline and their relationship. It manages the resource in a namespaced way. Traffic gates accepts incoming traffic and routes it to Pipelines in the same namespace. Most other controllers could handle traffic by leverage the ability of TrafficController..
 
 ### RawConfigTrafficController
 
