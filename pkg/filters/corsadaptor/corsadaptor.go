@@ -39,7 +39,7 @@ const (
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "CORSAdaptor adapts CORS stuff.",
-	Results:     []string{resultPreflighted},
+	Results:     []string{resultPreflighted, resultRejected},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
