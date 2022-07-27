@@ -19,9 +19,11 @@ package proxy
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
@@ -145,4 +147,73 @@ servers:
 
 	sp.memoryCache.Store(req, resp)
 	assert.True(sp.buildResponseFromCache(spCtx))
+
+	req.HTTPHeader().Set("Origin", "http://megaease.com")
+	assert.True(sp.buildResponseFromCache(spCtx))
+}
+
+func TestCopyCORSHeaders(t *testing.T) {
+	assert := assert.New(t)
+
+	var (
+		src = http.Header{}
+		dst = http.Header{}
+	)
+
+	result := copyCORSHeaders(dst, src)
+	assert.False(result)
+
+	src.Set("Access-Control-Allow-Origin", "http://megaease.com")
+	result = copyCORSHeaders(dst, src)
+	assert.True(result)
+	assert.Equal("http://megaease.com", dst.Get("Access-Control-Allow-Origin"))
+	assert.Equal(1, strings.Count(dst.Get("Vary"), "Origin"))
+
+	src.Set("Access-Control-Expose-Headers", "X-Foo")
+	src.Set("Access-Control-Allow-Credentials", "true")
+	result = copyCORSHeaders(dst, src)
+	assert.True(result)
+	assert.Equal("X-Foo", dst.Get("Access-Control-Expose-Headers"))
+	assert.Equal("true", dst.Get("Access-Control-Allow-Credentials"))
+
+	assert.Equal(1, strings.Count(dst.Get("Vary"), "Origin"))
+}
+
+func TestUseService(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlSpec := `spanName: test
+serverTags: [a1, a2]
+servers:
+- url: http://192.168.1.1
+`
+
+	spec := &ServerPoolSpec{}
+	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	assert.NoError(err)
+	assert.NoError(spec.Validate())
+
+	sp := NewServerPool(nil, spec, "test")
+	svr := sp.LoadBalancer().ChooseServer(nil)
+	assert.Equal("http://192.168.1.1", svr.URL)
+
+	sp.useService(nil)
+	assert.Equal("http://192.168.1.1", svr.URL)
+
+	sp.useService(map[string]*serviceregistry.ServiceInstanceSpec{
+		"2": {
+			Address: "192.168.1.2",
+			Tags:    []string{"a2"},
+			Port:    80,
+		},
+		"3": {
+			Address: "192.168.1.3",
+			Tags:    []string{"a3"},
+			Port:    80,
+		},
+	})
+	svr = sp.LoadBalancer().ChooseServer(nil)
+	assert.Equal("http://192.168.1.2:80", svr.URL)
+	svr = sp.LoadBalancer().ChooseServer(nil)
+	assert.Equal("http://192.168.1.2:80", svr.URL)
 }

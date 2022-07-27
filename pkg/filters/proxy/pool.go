@@ -580,8 +580,8 @@ func copyCORSHeaders(dst, src http.Header) bool {
 		dst.Set("Access-Control-Expose-Headers", value)
 	}
 
-	if src.Get("Access-Control-Allow-Credentials"); value != "" {
-		dst.Set("Access-Control-Allow-Credential", value)
+	if value = src.Get("Access-Control-Allow-Credentials"); value != "" {
+		dst.Set("Access-Control-Allow-Credentials", value)
 	}
 
 	if !stringtool.StrInSlice("Origin", dst.Values("Vary")) {
