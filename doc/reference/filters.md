@@ -202,9 +202,10 @@ allowedMethods: [GET]
 
 ### Results
 
-| Value       | Description                                                        |
-| ----------- | ------------------------------------------------------------------ |
-| preflighted | The request is a preflight one and has been processed successfully |
+| Value       | Description                                                         |
+| ----------- | ------------------------------------------------------------------- |
+| preflighted | The request is a preflight one and has been processed successfully. |
+| rejected    | The request was rejected by CORS checking. |
 
 ## Fallback
 
