@@ -255,12 +255,17 @@ func (rl *RateLimiter) Handle(ctx *context.Context) string {
 
 		permitted, d := u.rl.AcquirePermission()
 		if !permitted {
-			resp, _ := httpprot.NewResponse(nil)
-			ctx.SetOutputResponse(resp)
 			ctx.AddTag("rateLimiter: too many requests")
 
+			resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+			if resp == nil {
+				resp, _ = httpprot.NewResponse(nil)
+			}
+
 			resp.SetStatusCode(http.StatusTooManyRequests)
-			resp.Std().Header.Set("X-EG-Rate-Limiter", "too-many-requests")
+			resp.HTTPHeader().Set("X-EG-Rate-Limiter", "too-many-requests")
+
+			ctx.SetOutputResponse(resp)
 			return resultRateLimited
 		}
 
