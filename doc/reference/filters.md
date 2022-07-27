@@ -178,9 +178,9 @@ pools:
 
 ## CORSAdaptor
 
-The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight request for the backend service.
+The CORSAdaptor handles the [CORS](https://en.wikipedia.org/wiki/Cross-origin_resource_sharing) preflight, simple and not so simple request for the backend service.
 
-The below example configuration handles the preflight `GET` request from `*.megaease.com`.
+The below example configuration handles the CORS `GET` request from `*.megaease.com`.
 
 ```yaml
 kind: CORSAdaptor
@@ -202,9 +202,10 @@ allowedMethods: [GET]
 
 ### Results
 
-| Value       | Description                                                        |
-| ----------- | ------------------------------------------------------------------ |
-| preflighted | The request is a preflight one and has been processed successfully |
+| Value       | Description                                                         |
+| ----------- | ------------------------------------------------------------------- |
+| preflighted | The request is a preflight one and has been processed successfully. |
+| rejected    | The request was rejected by CORS checking. |
 
 ## Fallback
 

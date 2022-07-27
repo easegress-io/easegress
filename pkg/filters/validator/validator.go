@@ -133,7 +133,11 @@ func (v *Validator) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 
 	prepareErrorResponse := func(status int, tagPrefix string, err error) {
-		resp, _ := httpprot.NewResponse(nil)
+		resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+		if resp == nil {
+			resp, _ = httpprot.NewResponse(nil)
+		}
+
 		resp.SetStatusCode(status)
 		ctx.SetOutputResponse(resp)
 		ctx.AddTag(stringtool.Cat(tagPrefix, err.Error()))

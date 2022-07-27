@@ -55,6 +55,7 @@ name: cors
 
 		ctx := context.New(nil)
 		req, err := http.NewRequest(http.MethodOptions, "http://example.com/", nil)
+		req.Header.Set("Origin", "http://example.com")
 		assert.Nil(err)
 		setRequest(t, ctx, req)
 
@@ -106,10 +107,11 @@ allowedOrigins:
 		setRequest(t, ctx, req)
 
 		result := cors.Handle(ctx)
-		if result == resultPreflighted {
-			t.Error("request should not be preflighted")
+		if result != "" {
+			t.Error("request should not be processed")
 		}
-		req.Header.Add("Origin", "test.orig.test")
+
+		req.Header.Set("Origin", "test.orig.test")
 		req.Header.Add("Access-Control-Request-Method", "get")
 		result = cors.Handle(ctx)
 		if result != resultPreflighted {
@@ -117,10 +119,16 @@ allowedOrigins:
 		}
 
 		req.Method = http.MethodGet
-		req.Header.Add("Origin", "test.orig.test")
+		req.Header.Set("Origin", "test.orig.test")
 		result = cors.Handle(ctx)
 		if result == resultPreflighted {
 			t.Error("request should not be preflighted")
+		}
+
+		req.Header.Set("Origin", "test1.orig.test")
+		result = cors.Handle(ctx)
+		if result != resultRejected {
+			t.Error("request should be rejected")
 		}
 	})
 }

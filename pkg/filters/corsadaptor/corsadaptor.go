@@ -33,6 +33,7 @@ const (
 	Kind = "CORSAdaptor"
 
 	resultPreflighted = "preflighted"
+	resultRejected    = "rejected"
 )
 
 var kind = &filters.Kind{
@@ -110,45 +111,36 @@ func (a *CORSAdaptor) reload() {
 	})
 }
 
-// Handle handles simple cross-origin requests or directs.
+// Handle handles cross-origin requests.
 func (a *CORSAdaptor) Handle(ctx *context.Context) string {
-	if a.spec.SupportCORSRequest {
-		return a.handleCORS(ctx)
-	}
-	return a.handle(ctx)
-}
-
-func (a *CORSAdaptor) handle(ctx *context.Context) string {
 	r := ctx.GetInputRequest().(*httpprot.Request)
-	method := r.Method()
-	headerAllowMethod := r.Header().Get("Access-Control-Request-Method")
-	if method == http.MethodOptions && headerAllowMethod != "" {
-		rw := httptest.NewRecorder()
-		a.cors.HandlerFunc(rw, r.Std())
-		resp, _ := httpprot.NewResponse(rw.Result())
-		ctx.SetOutputResponse(resp)
+
+	// not a CORS request
+	if r.HTTPHeader().Get("Origin") == "" {
+		return ""
+	}
+
+	isPreflight := r.HTTPHeader().Get("Access-Control-Request-Method") != ""
+	isPreflight = isPreflight && (r.Method() == http.MethodOptions)
+	if !a.spec.SupportCORSRequest && !isPreflight {
+		return ""
+	}
+
+	w := httptest.NewRecorder()
+	a.cors.HandlerFunc(w, r.Std())
+	resp, _ := httpprot.NewResponse(w.Result())
+	ctx.SetOutputResponse(resp)
+
+	if isPreflight {
 		return resultPreflighted
 	}
-	return ""
-}
 
-func (a *CORSAdaptor) handleCORS(ctx *context.Context) string {
-	r := ctx.GetInputRequest().(*httpprot.Request)
-	method := r.Method()
-	isCorsRequest := r.Header().Get("Origin") != ""
-	isPreflight := method == http.MethodOptions && r.Header().Get("Access-Control-Request-Method") != ""
-	// set CORS headers to response
-	rw := httptest.NewRecorder()
-	a.cors.HandlerFunc(rw, r.Std())
-	resp, _ := httpprot.NewResponse(rw.Result())
-	ctx.SetOutputResponse(resp)
-	if !isCorsRequest {
-		return "" // next filter
+	// rejected by CORS
+	if w.Header().Get("Access-Control-Allow-Origin") == "" {
+		return resultRejected
 	}
-	if isPreflight {
-		return resultPreflighted // pipeline jumpIf skips following filters
-	}
-	return "" // next filter
+
+	return ""
 }
 
 // Status return status.
@@ -157,4 +149,5 @@ func (a *CORSAdaptor) Status() interface{} {
 }
 
 // Close closes CORSAdaptor.
-func (a *CORSAdaptor) Close() {}
+func (a *CORSAdaptor) Close() {
+}

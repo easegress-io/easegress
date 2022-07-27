@@ -389,7 +389,7 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 	}
 
 	// Now, the body must be a CallbackReader.
-	body, _ := spCtx.stdResp.Body.(*readers.CallbackReader)
+	body := spCtx.stdResp.Body.(*readers.CallbackReader)
 
 	// Collect when reach EOF or meet an error.
 	body.OnAfter(func(total int, p []byte, err error) {
@@ -442,6 +442,9 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	defer sp.collectMetrics(spCtx)
 
 	if sp.buildResponseFromCache(spCtx) {
+		if _, ok := sp.failureCodes[spCtx.resp.StatusCode()]; ok {
+			return resultFailureCode
+		}
 		return ""
 	}
 
@@ -562,11 +565,30 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 		return serverPoolError{resp.StatusCode, resultFailureCode}
 	}
 
-	if sp.memoryCache != nil {
-		sp.memoryCache.Store(spCtx.req, spCtx.resp)
+	return nil
+}
+
+func copyCORSHeaders(dst, src http.Header) bool {
+	value := src.Get("Access-Control-Allow-Origin")
+	if value == "" {
+		return false
 	}
 
-	return nil
+	dst.Set("Access-Control-Allow-Origin", value)
+
+	if value = src.Get("Access-Control-Expose-Headers"); value != "" {
+		dst.Set("Access-Control-Expose-Headers", value)
+	}
+
+	if value = src.Get("Access-Control-Allow-Credentials"); value != "" {
+		dst.Set("Access-Control-Allow-Credentials", value)
+	}
+
+	if !stringtool.StrInSlice("Origin", dst.Values("Vary")) {
+		dst.Add("Vary", "Origin")
+	}
+
+	return true
 }
 
 func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
@@ -600,6 +622,19 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		body.Close()
 	}
 
+	if sp.memoryCache != nil {
+		sp.memoryCache.Store(spCtx.req, resp)
+	}
+
+	if r, _ := spCtx.GetOutputResponse().(*httpprot.Response); r != nil {
+		copyCORSHeaders(resp.HTTPHeader(), r.HTTPHeader())
+
+		// reuse the existing output response, this is to align with
+		// buildResponseFromCache and buildFailureResponse and other filters.
+		*r = *resp
+		resp = r
+	}
+
 	spCtx.resp = resp
 	spCtx.SetOutputResponse(resp)
 	return nil
@@ -614,10 +649,38 @@ func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
 	if ce == nil {
 		return false
 	}
+	header := ce.Header.Clone()
 
-	resp, _ := httpprot.NewResponse(nil)
+	corsHeadersCopied := false
+	resp, _ := spCtx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	} else {
+		corsHeadersCopied = copyCORSHeaders(header, resp.HTTPHeader())
+	}
+
+	if !corsHeadersCopied {
+		if spCtx.req.HTTPHeader().Get("Origin") == "" {
+			// remove these headers as the request is not a CORS request.
+			header.Del("Access-Control-Allow-Origin")
+			header.Del("Access-Control-Expose-Headers")
+			header.Del("Access-Control-Allow-Credentials")
+		} else {
+			// There are 3 cases here:
+			// 1. the cached response fully matches the request: we have
+			//    nothing to do in this case.
+			// 2. the cached response does not match the request, because
+			//    the Origin is not the same: we need to update the
+			//    MemoryCache.Load function to make it return false.
+			// 3. the cached response does not have CORS headers: the user
+			//    need to add a CORSAdaptor into the pipeline.
+			//
+			// So, we do nothing for now.
+		}
+	}
+
+	resp.Std().Header = header
 	resp.SetStatusCode(ce.StatusCode)
-	resp.Std().Header = ce.Header.Clone()
 	resp.SetPayload(ce.Body)
 
 	spCtx.resp = resp
@@ -626,7 +689,11 @@ func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
 }
 
 func (sp *ServerPool) buildFailureResponse(spCtx *serverPoolContext, statusCode int) {
-	resp, _ := httpprot.NewResponse(nil)
+	resp, _ := spCtx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+
 	resp.SetStatusCode(statusCode)
 	spCtx.resp = resp
 	spCtx.SetOutputResponse(resp)
