@@ -66,7 +66,7 @@ When contributing to Easegress, it’s good idea to follow these steps:
 2. Fork the repository and clone your fork:
    1. `git clone https://github.com/<yourusername>/easegress.git`
 3. Track the upstream remote
-   1. `git remote add upstream https://github.com/megease/easegress.git`
+   1. `git remote add upstream https://github.com/megaease/easegress.git`
 4. Create your branch, for example
    1. `git checkout -b fix/<micro-title>-<issue-number>`
 5. Do your changes and commit them
