@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -91,6 +92,19 @@ pools:
   loadBalance:
     policy: roundRobin
   timeout: 10ms
+- filter:
+    headers:
+      "X-Test":
+        exact: stream
+  servers:
+  - url: http://127.0.0.2:9095
+  - url: http://127.0.0.2:9096
+  - url: http://127.0.0.2:9097
+  - url: http://127.0.0.2:9098
+  loadBalance:
+    policy: roundRobin
+  timeout: 10ms
+  serverMaxBodySize: -1
 mirrorPool:
   filter:
     headers:
@@ -107,7 +121,7 @@ compression:
 	proxy := newTestProxy(yamlSpec, assert)
 	proxy.InjectResiliencePolicy(make(map[string]resilience.Policy))
 
-	assert.Equal(1, len(proxy.candidatePools))
+	assert.Equal(2, len(proxy.candidatePools))
 	assert.Equal(2, len(proxy.mirrorPool.spec.Servers))
 
 	assert.NotNil(proxy.Status())
@@ -136,6 +150,12 @@ compression:
 		}, nil
 	}
 
+	fnSendRequest3 := func(r *http.Request, client *http.Client) (*http.Response, error) {
+		rw := httptest.NewRecorder()
+		rw.WriteString("this is a body longer than 20 bytes")
+		return rw.Result(), nil
+	}
+
 	// direct set fnSendRequest to different function will cause data race since we use goroutine
 	// for mirror.
 	var fnKind int32
@@ -148,6 +168,8 @@ compression:
 			return fnSendRequest1(r, client)
 		case 2:
 			return fnSendRequest2(r, client)
+		case 3:
+			return fnSendRequest3(r, client)
 		}
 		return nil, fmt.Errorf("unknown kind")
 	}
@@ -187,6 +209,19 @@ compression:
 		stdr.Header.Set("X-Test", "testheader")
 		ctx := getCtx(stdr)
 		assert.NotEqual("", proxy.Handle(ctx))
+	}
+
+	atomic.StoreInt32(&fnKind, 3)
+	{
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr.Header.Set("X-Test", "stream")
+		ctx := getCtx(stdr)
+		resp, _ := httpprot.NewResponse(nil)
+		resp.HTTPHeader().Set("X-Foo", "foo")
+		ctx.SetResponse(context.DefaultNamespace, resp)
+		assert.Equal("", proxy.Handle(ctx))
+		ctx.Finish()
+		assert.NotEmpty(ctx.Tags())
 	}
 
 	proxy.Close()

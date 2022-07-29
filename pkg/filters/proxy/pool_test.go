@@ -19,7 +19,6 @@ package proxy
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -144,39 +143,47 @@ servers:
 
 	resp, _ := httpprot.NewResponse(nil)
 	resp.SetPayload([]byte("0123456789A"))
+	resp.HTTPHeader().Set("X-Foo", "Bar")
 
 	sp.memoryCache.Store(req, resp)
 	assert.True(sp.buildResponseFromCache(spCtx))
 
 	req.HTTPHeader().Set("Origin", "http://megaease.com")
+	assert.False(sp.buildResponseFromCache(spCtx))
+
+	resp.HTTPHeader().Set("Access-Control-Allow-Origin", "*")
+	sp.memoryCache.Store(req, resp)
 	assert.True(sp.buildResponseFromCache(spCtx))
 }
 
 func TestCopyCORSHeaders(t *testing.T) {
 	assert := assert.New(t)
 
-	var (
-		src = http.Header{}
-		dst = http.Header{}
-	)
+	src, dst := http.Header{}, http.Header{}
+	src.Add("Access-Control-Allow-Origin", "http://megaease.com")
+	dst.Add("Access-Control-Allow-Origin", "http://megaease.net")
 
-	result := copyCORSHeaders(dst, src)
-	assert.False(result)
+	src.Add("X-Foo", "srcbar")
+	dst.Add("X-Foo", "dstbar")
 
-	src.Set("Access-Control-Allow-Origin", "http://megaease.com")
-	result = copyCORSHeaders(dst, src)
-	assert.True(result)
+	src.Add("X-Src", "src")
+	dst.Add("X-Dst", "dst")
+
+	sp := NewServerPool(nil, &ServerPoolSpec{}, "test")
+	dst = sp.mergeResponseHeader(dst, src)
+
+	assert.Equal(1, len(dst.Values("Access-Control-Allow-Origin")))
 	assert.Equal("http://megaease.com", dst.Get("Access-Control-Allow-Origin"))
-	assert.Equal(1, strings.Count(dst.Get("Vary"), "Origin"))
 
-	src.Set("Access-Control-Expose-Headers", "X-Foo")
-	src.Set("Access-Control-Allow-Credentials", "true")
-	result = copyCORSHeaders(dst, src)
-	assert.True(result)
-	assert.Equal("X-Foo", dst.Get("Access-Control-Expose-Headers"))
-	assert.Equal("true", dst.Get("Access-Control-Allow-Credentials"))
+	assert.Equal(2, len(dst.Values("X-Foo")))
+	assert.Equal("dstbar", dst.Values("X-Foo")[0])
+	assert.Equal("srcbar", dst.Values("X-Foo")[1])
 
-	assert.Equal(1, strings.Count(dst.Get("Vary"), "Origin"))
+	assert.Equal(1, len(dst.Values("X-Src")))
+	assert.Equal("src", dst.Values("X-Src")[0])
+
+	assert.Equal(1, len(dst.Values("X-Dst")))
+	assert.Equal("dst", dst.Values("X-Dst")[0])
 }
 
 func TestUseService(t *testing.T) {
@@ -216,4 +223,18 @@ servers:
 	assert.Equal("http://192.168.1.2:80", svr.URL)
 	svr = sp.LoadBalancer().ChooseServer(nil)
 	assert.Equal("http://192.168.1.2:80", svr.URL)
+}
+
+func TestRemoveHopByHopHeader(t *testing.T) {
+	assert := assert.New(t)
+
+	h := http.Header{}
+	h.Add("Connection", "X-Foo, X-Bar")
+	h.Add("X-Foo", "foo")
+	h.Add("X-Bar", "bar")
+	h.Add("X-Foo-Bar", "foo-bar")
+
+	removeHopByHopHeaders(h)
+	assert.Equal(1, len(h))
+	assert.Equal("foo-bar", h.Get("X-Foo-Bar"))
 }
