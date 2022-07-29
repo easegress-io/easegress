@@ -143,6 +143,10 @@ func (mc *MemoryCache) Store(req *httpprot.Request, resp *httpprot.Response) {
 		return
 	}
 
+	if o := resp.HTTPHeader().Get("Access-Control-Allow-Origin"); o != "" && o != "*" {
+		return
+	}
+
 	for _, value := range req.HTTPHeader().Values(keyCacheControl) {
 		if strings.Contains(value, "no-store") ||
 			strings.Contains(value, "no-cache") {

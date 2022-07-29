@@ -82,7 +82,7 @@ type serverPoolContext struct {
 // Connection header field. These are the headers defined by the
 // obsoleted RFC 2616 (section 13.5.1) and are used for backward
 // compatibility.
-var hopHeaders = []string{
+var hopByHopHeaders = []string{
 	"Connection",
 	"Proxy-Connection", // non-standard but still sent by libcurl and rejected by e.g. google
 	"Keep-Alive",
@@ -94,21 +94,19 @@ var hopHeaders = []string{
 	"Upgrade",
 }
 
-func cloneHeader(in http.Header) http.Header {
-	out := in.Clone()
-
-	// removeConnectionHeaders removes hop-by-hop headers listed in the
-	// "Connection" header of h. See RFC 7230, section 6.1
-	for _, f := range out["Connection"] {
+func removeHopByHopHeaders(h http.Header) {
+	// removes hop-by-hop headers listed in the "Connection" header of h.
+	// See RFC 7230, section 6.1
+	for _, f := range h["Connection"] {
 		for _, sf := range strings.Split(f, ",") {
 			if sf = textproto.TrimString(sf); sf != "" {
-				out.Del(sf)
+				h.Del(sf)
 			}
 		}
 	}
 
-	for _, h := range hopHeaders {
-		out.Del(h)
+	for _, hbh := range hopByHopHeaders {
+		h.Del(hbh)
 	}
 
 	// TODO: trailer support
@@ -122,8 +120,6 @@ func cloneHeader(in http.Header) http.Header {
 			out.Set("Te", "trailers")
 		}
 	*/
-
-	return out
 }
 
 func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context, mirror bool) error {
@@ -145,7 +141,8 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 		return err
 	}
 
-	stdr.Header = cloneHeader(req.HTTPHeader())
+	stdr.Header = req.HTTPHeader().Clone()
+	removeHopByHopHeaders(stdr.Header)
 
 	// only set host when server address is not host name OR
 	// server is explicitly told to keep the host of the request.
@@ -574,30 +571,21 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	return nil
 }
 
-func copyCORSHeaders(dst, src http.Header) bool {
-	value := src.Get("Access-Control-Allow-Origin")
-	if value == "" {
-		return false
+func (sp *ServerPool) mergeResponseHeader(dst, src http.Header) http.Header {
+	for k, v := range src {
+		// CORS Headers
+		if strings.HasPrefix(k, "Access-Control-") {
+			dst[k] = v
+		} else {
+			dst[k] = append(dst[k], v...)
+		}
 	}
-
-	dst.Set("Access-Control-Allow-Origin", value)
-
-	if value = src.Get("Access-Control-Expose-Headers"); value != "" {
-		dst.Set("Access-Control-Expose-Headers", value)
-	}
-
-	if value = src.Get("Access-Control-Allow-Credentials"); value != "" {
-		dst.Set("Access-Control-Allow-Credentials", value)
-	}
-
-	if !stringtool.StrInSlice("Origin", dst.Values("Vary")) {
-		dst.Add("Vary", "Origin")
-	}
-
-	return true
+	return dst
 }
 
 func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
+	removeHopByHopHeaders(spCtx.stdResp.Header)
+
 	body := readers.NewCallbackReader(spCtx.stdResp.Body)
 	spCtx.stdResp.Body = body
 
@@ -633,7 +621,8 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 	}
 
 	if r, _ := spCtx.GetOutputResponse().(*httpprot.Response); r != nil {
-		copyCORSHeaders(resp.HTTPHeader(), r.HTTPHeader())
+		header := sp.mergeResponseHeader(r.HTTPHeader(), resp.HTTPHeader())
+		resp.Std().Header = header
 
 		// reuse the existing output response, this is to align with
 		// buildResponseFromCache and buildFailureResponse and other filters.
@@ -655,37 +644,37 @@ func (sp *ServerPool) buildResponseFromCache(spCtx *serverPoolContext) bool {
 	if ce == nil {
 		return false
 	}
-	header := ce.Header.Clone()
 
-	corsHeadersCopied := false
 	resp, _ := spCtx.GetOutputResponse().(*httpprot.Response)
-	if resp == nil {
-		resp, _ = httpprot.NewResponse(nil)
-	} else {
-		corsHeadersCopied = copyCORSHeaders(header, resp.HTTPHeader())
+	reqHasOrigin := spCtx.req.HTTPHeader().Get("Origin") != ""
+	respHasCORS := (resp != nil) && (resp.HTTPHeader().Get("Access-Control-Allow-Origin") != "")
+	cacheHasCORS := ce.Header.Get("Access-Control-Allow-Origin") != ""
+
+	// This is a CORS request, but we don't have the required response headers.
+	if reqHasOrigin && !respHasCORS && !cacheHasCORS {
+		return false
 	}
 
-	if !corsHeadersCopied {
-		if spCtx.req.HTTPHeader().Get("Origin") == "" {
-			// remove these headers as the request is not a CORS request.
-			header.Del("Access-Control-Allow-Origin")
-			header.Del("Access-Control-Expose-Headers")
-			header.Del("Access-Control-Allow-Credentials")
-		} else {
-			// There are 3 cases here:
-			// 1. the cached response fully matches the request: we have
-			//    nothing to do in this case.
-			// 2. the cached response does not match the request, because
-			//    the Origin is not the same: we need to update the
-			//    MemoryCache.Load function to make it return false.
-			// 3. the cached response does not have CORS headers: the user
-			//    need to add a CORSAdaptor into the pipeline.
-			//
-			// So, we do nothing for now.
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+
+	header := resp.HTTPHeader()
+	// 1. If existing response has CORS headers, we keep them and discard the
+	//    ones from the cache (if exists).
+	// 2. If existing response doesn't have CORS headers:
+	//    2.1. If the request is a CORS one, we use the CORS headers from the
+	//         cache.
+	//    2.2. If the request is not a CORS one, we discard the CORS headers
+	//         from the cache (if exists).
+	for k, v := range ce.Header {
+		if !strings.HasPrefix(k, "Access-Control-") {
+			header[k] = append(header[k], v...)
+		} else if reqHasOrigin && !respHasCORS {
+			header[k] = v
 		}
 	}
 
-	resp.Std().Header = header
 	resp.SetStatusCode(ce.StatusCode)
 	resp.SetPayload(ce.Body)
 
