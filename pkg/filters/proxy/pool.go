@@ -75,6 +75,8 @@ type serverPoolContext struct {
 	stdReq  *http.Request
 	resp    *httpprot.Response
 	stdResp *http.Response
+
+	respCallbackBody *readers.CallbackReader
 }
 
 // Hop-by-hop headers. These are removed when sent to the backend.
@@ -391,8 +393,7 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 		return
 	}
 
-	// Now, the body must be a CallbackReader.
-	body := spCtx.stdResp.Body.(*readers.CallbackReader)
+	body := spCtx.respCallbackBody
 
 	// Collect when reach EOF or meet an error.
 	body.OnAfter(func(total int, p []byte, err error) {
@@ -465,6 +466,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 		spCtx.stdReq = nil
 		spCtx.resp = nil
 		spCtx.stdResp = nil
+		spCtx.respCallbackBody = nil
 
 		spanName := sp.spec.SpanName
 		if spanName == "" {
@@ -588,6 +590,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 
 	body := readers.NewCallbackReader(spCtx.stdResp.Body)
 	spCtx.stdResp.Body = body
+	spCtx.respCallbackBody = body
 
 	if sp.proxy.compression != nil {
 		if sp.proxy.compression.compress(spCtx.stdReq, spCtx.stdResp) {
