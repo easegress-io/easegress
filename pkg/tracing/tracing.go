@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
+
 	zipkingo "github.com/openzipkin/zipkin-go"
+	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	zipkingohttp "github.com/openzipkin/zipkin-go/reporter/http"
 )
 
@@ -36,11 +38,12 @@ type (
 
 	// ZipkinSpec describes Zipkin.
 	ZipkinSpec struct {
-		Hostport   string  `yaml:"hostport" jsonschema:"omitempty"`
-		ServerURL  string  `yaml:"serverURL" jsonschema:"required,format=url"`
-		SampleRate float64 `yaml:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
-		SameSpan   bool    `yaml:"sameSpan" jsonschema:"omitempty"`
-		ID128Bit   bool    `yaml:"id128Bit" jsonschema:"omitempty"`
+		Hostport      string  `yaml:"hostport" jsonschema:"omitempty"`
+		ServerURL     string  `yaml:"serverURL" jsonschema:"required,format=url"`
+		DisableReport bool    `yaml:"disableReport" jsonschema:"omitempty"`
+		SampleRate    float64 `yaml:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
+		SameSpan      bool    `yaml:"sameSpan" jsonschema:"omitempty"`
+		ID128Bit      bool    `yaml:"id128Bit" jsonschema:"omitempty"`
 	}
 
 	// Tracer is the tracer.
@@ -90,8 +93,10 @@ func New(spec *Spec) (*Tracer, error) {
 		return nil, err
 	}
 
-	reporter := zipkingohttp.NewReporter(spec.Zipkin.ServerURL)
-
+	var reporter zipkinreporter.Reporter
+	if !spec.Zipkin.DisableReport {
+		reporter = zipkingohttp.NewReporter(spec.Zipkin.ServerURL)
+	}
 	tracer, err := zipkingo.NewTracer(
 		reporter,
 		zipkingo.WithLocalEndpoint(endpoint),
