@@ -94,7 +94,9 @@ func New(spec *Spec) (*Tracer, error) {
 	}
 
 	var reporter zipkinreporter.Reporter
-	if !spec.Zipkin.DisableReport {
+	if spec.Zipkin.DisableReport {
+		reporter = zipkinreporter.NewNoopReporter()
+	} else {
 		reporter = zipkingohttp.NewReporter(spec.Zipkin.ServerURL)
 	}
 	tracer, err := zipkingo.NewTracer(
