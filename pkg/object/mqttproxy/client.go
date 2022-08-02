@@ -268,7 +268,6 @@ func (c *Client) close() {
 	logger.SpanDebugf(nil, "client %v connection close", c.info.cid)
 	atomic.StoreInt32(&c.statusFlag, Disconnected)
 	close(c.done)
-	c.conn.Close()
 	c.Unlock()
 
 	// pipeline
