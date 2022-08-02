@@ -461,13 +461,14 @@ domains:
 
 ### zipkin.Spec
 
-| Name       | Type    | Description                                                                                        | Required |
-| ---------- | ------- | -------------------------------------------------------------------------------------------------- | -------- |
-| hostPort   | string  | The host:port of the service                                                                       | No       |
-| serverURL  | string  | The zipkin server URL                                                                              | Yes      |
-| sampleRate | float64 | The sample rate for collecting metrics, the range is [0, 1]                                        | Yes      |
-| sameSpan   | bool    | Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No       |
-| id128Bit   | bool    | Whether to start traces with 128-bit trace id                                                      | No       |
+| Name          | Type    | Description                                                                                        | Required |
+|---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
+| hostPort      | string  | The host:port of the service                                                                       | No       |
+| serverURL     | string  | The zipkin server URL                                                                              | Yes      |
+| sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]                                        | Yes      |
+| disableReport | bool    | Whether to report span model data to zipkin server                                                 | No       |
+| sameSpan      | bool    | Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No       |
+| id128Bit      | bool    | Whether to start traces with 128-bit trace id                                                      | No       |
 
 ### ipfilter.Spec
 
