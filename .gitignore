@@ -31,3 +31,6 @@ build/bin
 easegress.pid
 
 *.exe
+
+running_objects.yaml
+nacos/
