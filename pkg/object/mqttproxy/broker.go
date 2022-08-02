@@ -381,8 +381,7 @@ func (b *Broker) handleConn(conn net.Conn) {
 		}
 	}
 	go client.writeLoop()
-	go client.readLoop()
-	<-client.done
+	client.readLoop()
 }
 
 func (b *Broker) setSession(client *Client, connect *packets.ConnectPacket) {
