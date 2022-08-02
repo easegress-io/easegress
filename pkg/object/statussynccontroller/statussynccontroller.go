@@ -234,10 +234,10 @@ func (ssc *StatusSyncController) syncStatusToCluster(statusUnits map[string]*sta
 	// Delete statuses which disappeared in current status.
 	if ssc.lastSyncStatusUnits != nil {
 		kvs := make(map[string]*string)
-		for k := range ssc.lastSyncStatusUnits {
-			if su, exists := statusUnits[k]; !exists {
-				k = su.clusterKey(ssc.superSpec.Super().Cluster().Layout())
-				kvs[k] = nil
+		for k, su := range ssc.lastSyncStatusUnits {
+			if _, exists := statusUnits[k]; !exists {
+				key := su.clusterKey(ssc.superSpec.Super().Cluster().Layout())
+				kvs[key] = nil
 			}
 		}
 		err := ssc.superSpec.Super().Cluster().PutAndDeleteUnderLease(kvs)
