@@ -1,6 +1,6 @@
 module github.com/megaease/easegress
 
-go 1.17
+go 1.18
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
@@ -30,7 +30,7 @@ require (
 	github.com/libdns/libdns v0.2.1
 	github.com/libdns/route53 v1.1.2
 	github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51
-	github.com/lucas-clemente/quic-go v0.27.2
+	github.com/lucas-clemente/quic-go v0.28.1
 	github.com/megaease/easemesh-api v1.4.1
 	github.com/megaease/grace v1.0.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -54,7 +54,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.4
 	go.uber.org/zap v1.21.0
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d
-	golang.org/x/net v0.0.0-20220520000938-2e3eb7b945c2
+	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
 	gopkg.in/yaml.v2 v2.4.0
@@ -165,6 +165,7 @@ require (
 	github.com/marten-seemann/qtls-go1-16 v0.1.5 // indirect
 	github.com/marten-seemann/qtls-go1-17 v0.1.2 // indirect
 	github.com/marten-seemann/qtls-go1-18 v0.1.2 // indirect
+	github.com/marten-seemann/qtls-go1-19 v0.1.0-beta.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect

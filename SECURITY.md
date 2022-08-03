@@ -7,9 +7,9 @@ Supported [Go versions](https://go.dev/dl/):
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 1.19.x   | :white_check_mark: |
 | 1.18.x   | :white_check_mark: |
-| 1.17.x   | :white_check_mark: |
-| < 1.17   | :x:                |
+| < 1.18   | :x:                |
 
 # Reporting a Vulnerability
 

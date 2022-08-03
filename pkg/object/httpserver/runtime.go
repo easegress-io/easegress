@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/http3"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -241,76 +242,98 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 }
 
 func (r *runtime) startServer() {
-	keepAliveTimeout := defaultKeepAliveTimeout
-	if r.spec.KeepAliveTimeout != "" {
-		t, _ := time.ParseDuration(r.spec.KeepAliveTimeout)
-		keepAliveTimeout = t
-	}
-
-	fw := filterwriter.New(os.Stderr, func(p []byte) bool {
-		return !bytes.Contains(p, []byte("TLS handshake error"))
-	})
-	srv := &http.Server{
-		Addr:        fmt.Sprintf(":%d", r.spec.Port),
-		Handler:     r.mux,
-		IdleTimeout: keepAliveTimeout,
-		ErrorLog:    log.New(fw, "", log.LstdFlags),
-	}
-	srv.SetKeepAlivesEnabled(r.spec.KeepAlive)
-
-	if r.spec.HTTPS {
-		tlsConfig, _ := r.spec.tlsConfig()
-		srv.TLSConfig = tlsConfig
-	}
-
-	r.server = srv
 	r.startNum++
 	r.setState(stateRunning)
 	r.setError(nil)
 
 	if r.spec.HTTP3 {
-		r.server3 = &http3.Server{
-			Server: r.server,
-		}
-		go r.runHTTP3Server(r.startNum)
+		r.startHTTP3Server()
 	} else {
-		listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
-		if err != nil {
-			r.setState(stateFailed)
-			r.setError(err)
-
-			return
-		}
-
-		limitListener := limitlistener.NewLimitListener(listener, r.spec.MaxConnections)
-		r.limitListener = limitListener
-		go r.runHTTP1And2Server(limitListener, r.spec.HTTPS, r.startNum)
+		r.startHTTP1And2Server()
 	}
 }
 
-func (r *runtime) runHTTP3Server(startNum uint64) {
-	err := r.server3.ListenAndServe()
-	if err != http.ErrServerClosed {
-		r.eventChan <- &eventServeFailed{
-			err:      err,
-			startNum: startNum,
-		}
+func (r *runtime) startHTTP3Server() {
+	tlsConfig, _ := r.spec.tlsConfig()
+
+	keepAliveTimeout := defaultKeepAliveTimeout
+	if r.spec.KeepAliveTimeout != "" {
+		keepAliveTimeout, _ = time.ParseDuration(r.spec.KeepAliveTimeout)
 	}
+
+	r.server3 = &http3.Server{
+		Addr:      fmt.Sprintf(":%d", r.spec.Port),
+		Handler:   r.mux,
+		TLSConfig: tlsConfig,
+		QuicConfig: &quic.Config{
+			MaxIdleTimeout: keepAliveTimeout,
+		},
+	}
+	if r.spec.KeepAlive {
+		r.server3.QuicConfig.KeepAlivePeriod = keepAliveTimeout
+	}
+
+	// to avoid data race
+	startNum := r.startNum
+	srv := r.server3
+
+	go func() {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			r.eventChan <- &eventServeFailed{
+				err:      err,
+				startNum: startNum,
+			}
+		}
+	}()
 }
 
-func (r *runtime) runHTTP1And2Server(limitListener *limitlistener.LimitListener, https bool, startNum uint64) {
-	var err error
-	if https {
-		err = r.server.ServeTLS(limitListener, "", "")
-	} else {
-		err = r.server.Serve(limitListener)
+func (r *runtime) startHTTP1And2Server() {
+	keepAliveTimeout := defaultKeepAliveTimeout
+	if r.spec.KeepAliveTimeout != "" {
+		keepAliveTimeout, _ = time.ParseDuration(r.spec.KeepAliveTimeout)
 	}
-	if err != http.ErrServerClosed {
-		r.eventChan <- &eventServeFailed{
-			err:      err,
-			startNum: startNum,
+
+	fw := filterwriter.New(os.Stderr, func(p []byte) bool {
+		return !bytes.Contains(p, []byte("TLS handshake error"))
+	})
+	r.server = &http.Server{
+		Addr:        fmt.Sprintf(":%d", r.spec.Port),
+		Handler:     r.mux,
+		IdleTimeout: keepAliveTimeout,
+		ErrorLog:    log.New(fw, "", log.LstdFlags),
+	}
+	r.server.SetKeepAlivesEnabled(r.spec.KeepAlive)
+
+	listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
+	if err != nil {
+		r.setState(stateFailed)
+		r.setError(err)
+		return
+	}
+	limitListener := limitlistener.NewLimitListener(listener, r.spec.MaxConnections)
+	r.limitListener = limitListener
+
+	// to avoid data race
+	spec := r.spec
+	startNum := r.startNum
+	srv := r.server
+
+	go func() {
+		var err error
+		if spec.HTTPS {
+			tlsConfig, _ := spec.tlsConfig()
+			srv.TLSConfig = tlsConfig
+			err = srv.ServeTLS(limitListener, "", "")
+		} else {
+			err = r.server.Serve(limitListener)
 		}
-	}
+		if err != http.ErrServerClosed {
+			r.eventChan <- &eventServeFailed{
+				err:      err,
+				startNum: startNum,
+			}
+		}
+	}()
 }
 
 func (r *runtime) closeServer() {
