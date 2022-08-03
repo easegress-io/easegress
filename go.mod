@@ -63,7 +63,7 @@ require (
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
 	knative.dev/client v0.32.0
-	knative.dev/serving v0.32.0
+	knative.dev/serving v0.33.0
 )
 
 require (
@@ -242,14 +242,14 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gotest.tools/v3 v3.1.0 // indirect
-	k8s.io/apiextensions-apiserver v0.23.4 // indirect
+	k8s.io/apiextensions-apiserver v0.23.8 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
 	k8s.io/klog/v2 v2.60.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	knative.dev/eventing v0.32.0 // indirect
-	knative.dev/networking v0.0.0-20220524205304-22d1b933cf73 // indirect
-	knative.dev/pkg v0.0.0-20220524202603-19adf798efb8 // indirect
+	knative.dev/networking v0.0.0-20220705142707-f087178076e4 // indirect
+	knative.dev/pkg v0.0.0-20220705130606-e60d250dc637 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/kustomize/api v0.11.4 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
