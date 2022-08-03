@@ -19,7 +19,6 @@ package cluster
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -98,7 +97,7 @@ func strToLease(s string) (*clientv3.LeaseID, error) {
 
 func newEtcdStats(buff []byte) (*etcdStats, error) {
 	stats := etcdStats{}
-	err := json.Unmarshal(buff, &stats)
+	err := spectool.Unmarshal(buff, &stats)
 	if err != nil {
 		return nil, err
 	}

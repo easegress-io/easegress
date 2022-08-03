@@ -18,7 +18,6 @@
 package jmxtool
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -83,7 +82,7 @@ func (ac *AgentConfig) marshal() ([]byte, error) {
 		return nil, fmt.Errorf("json to kv failed: %v", err)
 	}
 
-	result, err := json.Marshal(kvMap)
+	result, err := spectool.MarshalJSON(kvMap)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
 	}

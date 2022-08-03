@@ -28,7 +28,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"html/template"
@@ -48,6 +47,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"golang.org/x/crypto/acme"
 )
 
@@ -309,14 +309,14 @@ var discoTmpl = template.Must(template.New("disco").Parse(`{
 // https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L170
 func decodePayload(v interface{}, r io.Reader) error {
 	var req struct{ Payload string }
-	if err := json.NewDecoder(r).Decode(&req); err != nil {
+	if err := spectool.DecodeJSON(r, &req); err != nil {
 		return err
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(req.Payload)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(payload, v)
+	return spectool.UnmarshalJSON(payload, v)
 }
 
 // Copied from https://github.com/golang/crypto/blob/5e0467b6c7cee3ce8969a8b584d9e6ab01d074f7/acme/autocert/autocert_test.go#L146
@@ -433,7 +433,7 @@ func startACMEServerStub(
 			}
 			resp := createChallenges(ca.URL)
 			resp["status"] = status
-			body, _ := json.Marshal(resp)
+			body, _ := spectool.MarshalJSON(resp)
 			w.Write(body)
 			if !acceptAuth {
 				wg.Done()

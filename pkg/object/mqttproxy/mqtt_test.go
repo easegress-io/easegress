@@ -21,7 +21,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -780,7 +779,7 @@ func (ts *testServer) shutdown() {
 }
 
 func topicsPublish(t *testing.T, data HTTPJsonData) int {
-	jsonData, err := json.Marshal(data)
+	jsonData, err := spectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("json marshal error")
 	}
@@ -970,7 +969,7 @@ func TestHTTPTransfer(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := json.Marshal(data)
+	jsonData, _ := spectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8889/mqtt", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1710,7 +1709,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 		}
 		if ok {
 			sessions := &HTTPSessions{}
-			json.NewDecoder(resp.Body).Decode(sessions)
+			spectool.MustDecodeJSON(resp.Body, sessions)
 			if len(sessions.Sessions) != test.ansLen {
 				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
 				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
@@ -1752,7 +1751,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 			{SessionID: "2"},
 		},
 	}
-	jsonData, err := json.Marshal(data)
+	jsonData, err := spectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("marshal http session %v failed, %v", data, err)
 	}
@@ -1811,7 +1810,7 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := json.Marshal(data)
+	jsonData, _ := spectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
 	req.Header.Add(b3.TraceID, "123")
 	resp, err := http.DefaultClient.Do(req)

@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -37,6 +36,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/mqttprot"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/openzipkin/zipkin-go/model"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 )
@@ -407,7 +407,7 @@ func (b *Broker) requestTransfer(span *model.SpanContext, egName, name string, d
 		logger.SpanErrorf(span, "eg %v find urls for other egs failed:%v", b.egName, err)
 		return
 	}
-	jsonData, err := json.Marshal(data)
+	jsonData, err := spectool.MarshalJSON(data)
 	if err != nil {
 		logger.SpanErrorf(span, "json data marshal failed: %v", err)
 		return
@@ -475,7 +475,7 @@ func (b *Broker) httpTopicsPublishHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var data HTTPJsonData
-	err := json.NewDecoder(r.Body).Decode(&data)
+	err := spectool.DecodeJSON(r.Body, &data)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
 		return
@@ -552,7 +552,7 @@ func (b *Broker) httpGetAllSessionHandler(w http.ResponseWriter, r *http.Request
 
 	res := b.queryAllSessions(allSession, len(query) != 0, page, pageSize, topic)
 
-	jsonData, err := json.Marshal(res)
+	jsonData, err := spectool.MarshalJSON(res)
 	if err != nil {
 		logger.SpanErrorf(span, "all session data json marshal failed, %v", err)
 		api.HandleAPIError(w, r, http.StatusInternalServerError, fmt.Errorf("all sessions json marshal failed, %v", err))
@@ -610,7 +610,7 @@ func (b *Broker) httpDeleteSessionHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	var data HTTPSessions
-	err := json.NewDecoder(r.Body).Decode(&data)
+	err := spectool.DecodeJSON(r.Body, &data)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid json data from request body"))
 		return

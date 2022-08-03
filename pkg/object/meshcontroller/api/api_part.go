@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -26,6 +25,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 type (
@@ -218,13 +218,8 @@ func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 			panic(err)
 		}
 
-		buff, err := json.Marshal(partPB)
-		if err != nil {
-			panic(err)
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(buff)
+		buff := spectool.MustMarshalJSON(partPB)
+		a.writeJSONBody(w, buff)
 	})
 }
 

@@ -18,7 +18,6 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 func (worker *Worker) consulAPIs() []*apiEntry {
@@ -114,15 +114,8 @@ func (worker *Worker) healthService(w http.ResponseWriter, r *http.Request) {
 
 	serviceEntry := worker.registryServer.ToConsulHealthService(serviceInfo)
 
-	buff, err := json.Marshal(serviceEntry)
-	if err != nil {
-		logger.Errorf("json marshal serviceEntry: %#v err: %v", serviceEntry, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(serviceEntry)
+	worker.writeJSONBody(w, buff)
 }
 
 func (worker *Worker) catalogService(w http.ResponseWriter, r *http.Request) {
@@ -144,15 +137,8 @@ func (worker *Worker) catalogService(w http.ResponseWriter, r *http.Request) {
 
 	catalogService := worker.registryServer.ToConsulCatalogService(serviceInfo)
 
-	buff, err := json.Marshal(catalogService)
-	if err != nil {
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		logger.Errorf("json marshal catalogService: %#v err: %v", catalogService, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(catalogService)
+	worker.writeJSONBody(w, buff)
 }
 
 func (worker *Worker) catalogServices(w http.ResponseWriter, r *http.Request) {
@@ -167,13 +153,6 @@ func (worker *Worker) catalogServices(w http.ResponseWriter, r *http.Request) {
 	}
 	catalogServices := worker.registryServer.ToConsulServices(serviceInfos)
 
-	buff, err := json.Marshal(catalogServices)
-	if err != nil {
-		logger.Errorf("json marshal catalogServices: %#v err: %v", catalogServices, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(catalogServices)
+	worker.writeJSONBody(w, buff)
 }

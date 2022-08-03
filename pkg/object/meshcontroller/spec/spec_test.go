@@ -18,7 +18,6 @@
 package spec
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -356,12 +355,12 @@ func TestMockPBConvert(t *testing.T) {
 	}
 
 	spec := &Mock{}
-	buf, err := json.Marshal(pbSpec)
+	buf, err := spectool.MarshalJSON(pbSpec)
 	if err != nil {
 		t.Fatalf("marshal %#v to json: %v", pbSpec, err)
 	}
 
-	err = json.Unmarshal(buf, spec)
+	err = spectool.UnmarshalJSON(buf, spec)
 	if err != nil {
 		t.Fatalf("unmarshal %#v to spec: %v", spec, err)
 	}

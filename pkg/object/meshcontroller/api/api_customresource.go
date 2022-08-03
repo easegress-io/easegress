@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -27,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easemesh-api/v2alpha1"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -56,11 +56,8 @@ func (a *API) listCustomResourceKinds(w http.ResponseWriter, r *http.Request) {
 		pbKinds = append(pbKinds, kind)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(pbKinds)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", kinds, err))
-	}
+	buff := spectool.MustMarshalJSON(pbKinds)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
@@ -82,11 +79,8 @@ func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", kind, err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(pbKind)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", pbKind, err))
-	}
+	buff := spectool.MustMarshalJSON(pbKind)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) saveCustomResourceKind(w http.ResponseWriter, r *http.Request, update bool) error {
@@ -173,11 +167,8 @@ func (a *API) listAllCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(resources)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
-	}
+	buff := spectool.MustMarshalJSON(resources)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
@@ -197,11 +188,8 @@ func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(resources)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", resources, err))
-	}
+	buff := spectool.MustMarshalJSON(resources)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
@@ -227,16 +215,13 @@ func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(resource)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", resource, err))
-	}
+	buff := spectool.MustMarshalJSON(resource)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update bool) error {
 	resource := spec.CustomResource{}
-	err := json.NewDecoder(r.Body).Decode(&resource)
+	err := spectool.DecodeJSON(r.Body, &resource)
 	if err != nil {
 		err = fmt.Errorf("unmarshal custom resource failed: %v", err)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -343,7 +328,7 @@ func (a *API) watchCustomResources(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "application/octet-stream")
 	a.service.WatchCustomResource(r.Context(), kind, func(resources []spec.CustomResource) {
-		err = json.NewEncoder(w).Encode(resources)
+		err = spectool.EncodeJSON(w, resources)
 		if err != nil {
 			logger.Errorf("marshal custom resource failed: %v", err)
 		}

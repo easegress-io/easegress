@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"github.com/golang-jwt/jwt"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 type (
@@ -127,7 +127,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 		ErrorDesc string `json:"error_description"`
 	}
 
-	if e = json.NewDecoder(resp.Body).Decode(&ti); e != nil {
+	if e = spectool.DecodeJSON(resp.Body, &ti); e != nil {
 		return nil, e
 	}
 	if ti.Error != "" {

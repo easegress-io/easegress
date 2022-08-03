@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"path"
@@ -29,6 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 func (a *API) readServiceCanaryName(r *http.Request) (string, error) {
@@ -54,13 +54,9 @@ func (a *API) listServiceCanaries(w http.ResponseWriter, r *http.Request) {
 		}
 		apiSpecs = append(apiSpecs, serviceCanary)
 	}
-	buff, err := json.Marshal(apiSpecs)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
-	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(apiSpecs)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) createServiceCanary(w http.ResponseWriter, r *http.Request) {
@@ -110,13 +106,8 @@ func (a *API) getServiceCanary(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", serviceCanarySpec, err))
 	}
 
-	buff, err := json.Marshal(pbServiceCanarySpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", pbServiceCanarySpec, err))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(pbServiceCanarySpec)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) updateServiceCanary(w http.ResponseWriter, r *http.Request) {

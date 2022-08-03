@@ -49,9 +49,32 @@ func MustUnmarshal(data []byte, v interface{}) {
 	}
 }
 
-// MarshalJSON wraps json.MarshalJSON.
+// MarshalJSON wraps json.Marshal.
 func MarshalJSON(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
+}
+
+// UnmarshalJSON wraps json.Unmarshal.
+func UnmarshalJSON(data []byte, v interface{}) error {
+	return json.Unmarshal(data, v)
+}
+
+// MustEncodeJSON encodes a value into a json stream.
+// It panics if an error occurs.
+func MustEncodeJSON(w io.Writer, v interface{}) {
+	err := EncodeJSON(w, v)
+	if err != nil {
+		panic(err)
+	}
+}
+
+// MustDecodeJSON decodes a json stream into a value of the given type.
+// It panics if an error occurs.
+func MustDecodeJSON(r io.Reader, v interface{}) {
+	err := DecodeJSON(r, v)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Unmarshal wraps json.Unmarshal.
@@ -77,15 +100,6 @@ func MustDecode(r io.Reader, v interface{}) {
 	}
 }
 
-// MustEncodeJSON encodes a value into a json stream.
-// It panics if an error occurs.
-func MustEncodeJSON(w io.Writer, v interface{}) {
-	err := EncodeJSON(w, v)
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Decode decodes a json stream into a value of the given type.
 // It converts yaml to json before decoding by leveraging Unmarshal.
 func Decode(r io.Reader, v interface{}) error {
@@ -94,6 +108,11 @@ func Decode(r io.Reader, v interface{}) error {
 		return fmt.Errorf("read failed: %v", err)
 	}
 	return Unmarshal(data, v)
+}
+
+// DecodeJSON decodes a json stream into a value of the given type.
+func DecodeJSON(r io.Reader, v interface{}) error {
+	return json.NewDecoder(r).Decode(v)
 }
 
 // EncodeJSON encodes a value into a json stream.
