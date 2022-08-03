@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 
 func TestSpecValidate(t *testing.T) {
 	t.Run("no enabled challenge", func(t *testing.T) {
-		yaml := `
+		yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -70,14 +70,14 @@ enableTLSALPN01: false
 domains:
   - name: "*.megaease.com"
 `
-		_, err := supervisor.NewSpec(yaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 
 	t.Run("invalid characters", func(t *testing.T) {
-		yaml := `
+		yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -89,14 +89,14 @@ domains:
       name: alidns
       zone: megaease.com
 `
-		_, err := supervisor.NewSpec(yaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 
 	t.Run("wildcard without DNS01", func(t *testing.T) {
-		yaml := `
+		yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -108,14 +108,14 @@ domains:
       name: alidns
       zone: megaease.com
 `
-		_, err := supervisor.NewSpec(yaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 
 	t.Run("unknow DNS provider", func(t *testing.T) {
-		yaml := `
+		yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -126,14 +126,14 @@ domains:
       name: unknown
       zone: megaease.com
 `
-		_, err := supervisor.NewSpec(yaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
 	})
 
 	t.Run("normal", func(t *testing.T) {
-		yaml := `
+		yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -141,7 +141,7 @@ renewBefore: 720h
 domains:
   - name: "www.megaease.com"
 `
-		_, err := supervisor.NewSpec(yaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err != nil {
 			t.Errorf("spec creation should have succeeded: %v", err)
 		}
@@ -380,7 +380,8 @@ func startACMEServerStub(
 	domain string,
 	wg *sync.WaitGroup,
 	acceptChallenge bool,
-	acceptAuth bool) (url string, finish func()) {
+	acceptAuth bool,
+) (url string, finish func()) {
 	csrContainer := make([]byte, 0)
 	challengeAccepted := false
 	challengeStatus := "accepted"
@@ -499,12 +500,15 @@ type dnsProvideMock struct{}
 func (dpm *dnsProvideMock) GetRecords(ctx context.Context, zone string) ([]libdns.Record, error) {
 	return nil, nil
 }
+
 func (dpm *dnsProvideMock) AppendRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	return nil, fmt.Errorf("append error")
 }
+
 func (dpm *dnsProvideMock) SetRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	return nil, nil
 }
+
 func (dpm *dnsProvideMock) DeleteRecords(ctx context.Context, zone string, recs []libdns.Record) ([]libdns.Record, error) {
 	return nil, nil
 }
@@ -527,7 +531,7 @@ func TestAutoCertManager(t *testing.T) {
 	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, true, true)
 	defer finish()
 
-	yaml := `
+	yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -547,7 +551,7 @@ directoryURL: ` + url
 
 	cls := cluster.CreateClusterForTest(etcdDirName)
 	supervisor.MustNew(&option.Options{}, cls)
-	spec, err := supervisor.NewSpec(yaml)
+	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		t.Errorf("spec creation should have succeeded: %v", err)
 	}
@@ -661,7 +665,7 @@ func TestAutoCertManagerChallengeFailures(t *testing.T) {
 	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, false, true)
 	defer finish()
 
-	yaml := `
+	yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -681,7 +685,7 @@ directoryURL: ` + url
 
 	cls := cluster.CreateClusterForTest(etcdDirName)
 	supervisor.MustNew(&option.Options{}, cls)
-	spec, err := supervisor.NewSpec(yaml)
+	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		t.Errorf("spec creation should have succeeded: %v", err)
 	}
@@ -709,7 +713,7 @@ func TestAutoCertManagerNoAuthz(t *testing.T) {
 	url, finish := startACMEServerStub(t, "www.megaease.com", acmWg, false, false)
 	defer finish()
 
-	yaml := `
+	yamlConfig := `
 name: autocert
 kind: AutoCertManager
 email: someone@megaease.com
@@ -730,7 +734,7 @@ directoryURL: ` + url
 	cls := cluster.CreateClusterForTest(etcdDirName)
 	supervisor.MustNew(&option.Options{}, cls)
 
-	spec, err := supervisor.NewSpec(yaml)
+	spec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		t.Errorf("spec creation should have succeeded: %v", err)
 	}

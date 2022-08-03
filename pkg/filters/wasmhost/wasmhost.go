@@ -86,12 +86,12 @@ func init() {
 type (
 	// Spec is the spec for WasmHost
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		MaxConcurrency int32             `yaml:"maxConcurrency" jsonschema:"required,minimum=1"`
-		Code           string            `yaml:"code" jsonschema:"required"`
-		Timeout        string            `yaml:"timeout" jsonschema:"required,format=duration"`
-		Parameters     map[string]string `yaml:"parameters" jsonschema:"omitempty"`
+		MaxConcurrency int32             `json:"maxConcurrency" jsonschema:"required,minimum=1"`
+		Code           string            `json:"code" jsonschema:"required"`
+		Timeout        string            `json:"timeout" jsonschema:"required,format=duration"`
+		Parameters     map[string]string `json:"parameters" jsonschema:"omitempty"`
 		timeout        time.Duration
 	}
 
@@ -111,9 +111,9 @@ type (
 
 	// Status is the status of WasmHost
 	Status struct {
-		Health         string `yaml:"health"`
-		NumOfRequest   int64  `yaml:"numOfRequest"`
-		NumOfWasmError int64  `yaml:"numOfWasmError"`
+		Health         string `json:"health"`
+		NumOfRequest   int64  `json:"numOfRequest"`
+		NumOfWasmError int64  `json:"numOfWasmError"`
 	}
 )
 

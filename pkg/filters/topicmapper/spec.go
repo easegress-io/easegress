@@ -22,37 +22,37 @@ import "github.com/megaease/easegress/pkg/filters"
 type (
 	// Spec is spec of Kafka
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		MatchIndex int         `yaml:"matchIndex" jsonschema:"required"`
-		Route      []*PolicyRe `yaml:"route" jsonschema:"required"`
-		Policies   []*Policy   `yaml:"policies" jsonschema:"required"`
-		SetKV      *SetKV      `yaml:"setKV" jsonschema:"required"`
+		MatchIndex int         `json:"matchIndex" jsonschema:"required"`
+		Route      []*PolicyRe `json:"route" jsonschema:"required"`
+		Policies   []*Policy   `json:"policies" jsonschema:"required"`
+		SetKV      *SetKV      `json:"setKV" jsonschema:"required"`
 	}
 
 	// SetKV set topic mapper result to MQTT context kv map
 	SetKV struct {
-		Topic   string `yaml:"topic" jsonschema:"topic"`
-		Headers string `yaml:"headers" jsonschema:"headers"`
+		Topic   string `json:"topic" jsonschema:"topic"`
+		Headers string `json:"headers" jsonschema:"headers"`
 	}
 
 	// PolicyRe to match right policy to do topic map
 	PolicyRe struct {
-		Name      string `yaml:"name" jsonschema:"required"`
-		MatchExpr string `yaml:"matchExpr" jsonschema:"required"`
+		Name      string `json:"name" jsonschema:"required"`
+		MatchExpr string `json:"matchExpr" jsonschema:"required"`
 	}
 
 	// Policy describes topic map between MQTT topic and Backend MQ topic
 	Policy struct {
-		Name       string         `yaml:"name" jsonschema:"required"`
-		TopicIndex int            `yaml:"topicIndex" jsonschema:"required"`
-		Route      []TopicRe      `yaml:"route" jsonschema:"required"`
-		Headers    map[int]string `yaml:"headers" jsonschema:"required"`
+		Name       string         `json:"name" jsonschema:"required"`
+		TopicIndex int            `json:"topicIndex" jsonschema:"required"`
+		Route      []TopicRe      `json:"route" jsonschema:"required"`
+		Headers    map[int]string `json:"headers" jsonschema:"required"`
 	}
 
 	// TopicRe to match right topic in given policy
 	TopicRe struct {
-		Topic string   `yaml:"topic" jsonschema:"required"`
-		Exprs []string `yaml:"exprs" jsonschema:"required"`
+		Topic string   `json:"topic" jsonschema:"required"`
+		Exprs []string `json:"exprs" jsonschema:"required"`
 	}
 )

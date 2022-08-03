@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 const egressRPCKey = "X-Mesh-Rpc-Service"
@@ -57,10 +57,10 @@ type (
 	}
 
 	httpServerSpecBuilder struct {
-		Kind            string `yaml:"kind"`
-		Name            string `yaml:"name"`
-		httpserver.Spec `yaml:",inline"`
-		Cert            *spec.Certificate `yaml:"-"`
+		Kind            string `json:"kind"`
+		Name            string `json:"name"`
+		httpserver.Spec `json:",inline"`
+		Cert            *spec.Certificate `json:"-"`
 	}
 )
 
@@ -104,10 +104,10 @@ func newHTTPServerSpecBuilder(httpServerName string, spec *httpserver.Spec) *htt
 	}
 }
 
-func (b *httpServerSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *httpServerSpecBuilder) jsonConfig() string {
+	buff, err := spectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
@@ -521,7 +521,7 @@ func (egs *EgressServer) reload() {
 	}
 
 	builder := newHTTPServerSpecBuilder(egs.egressServerName, httpServerSpec)
-	superSpec, err := supervisor.NewSpec(builder.yamlConfig())
+	superSpec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
 		logger.Errorf("new spec for %s failed: %v", err)
 		return

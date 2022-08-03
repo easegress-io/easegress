@@ -62,30 +62,30 @@ type (
 
 	// Spec describes AutoCertManager.
 	Spec struct {
-		DirectoryURL    string       `yaml:"directoryURL" jsonschema:"required,format=url"`
-		Email           string       `yaml:"email" jsonschema:"required,format=email"`
-		RenewBefore     string       `yaml:"renewBefore" jsonschema:"required,format=duration"`
-		EnableHTTP01    bool         `yaml:"enableHTTP01"`
-		EnableTLSALPN01 bool         `yaml:"enableTLSALPN01"`
-		EnableDNS01     bool         `yaml:"enableDNS01"`
-		Domains         []DomainSpec `yaml:"domains" jsonschema:"required"`
+		DirectoryURL    string       `json:"directoryURL" jsonschema:"required,format=url"`
+		Email           string       `json:"email" jsonschema:"required,format=email"`
+		RenewBefore     string       `json:"renewBefore" jsonschema:"required,format=duration"`
+		EnableHTTP01    bool         `json:"enableHTTP01"`
+		EnableTLSALPN01 bool         `json:"enableTLSALPN01"`
+		EnableDNS01     bool         `json:"enableDNS01"`
+		Domains         []DomainSpec `json:"domains" jsonschema:"required"`
 	}
 
 	// DomainSpec is the automated certificate management spec for a domain.
 	DomainSpec struct {
-		Name        string            `yaml:"name" jsonschema:"required"`
-		DNSProvider map[string]string `yaml:"dnsProvider" jsonschema:"omitempty"`
+		Name        string            `json:"name" jsonschema:"required"`
+		DNSProvider map[string]string `json:"dnsProvider" jsonschema:"omitempty"`
 	}
 
 	// CertificateStatus is the certificate status of a domain.
 	CertificateStatus struct {
-		Name       string    `yaml:"name"`
-		ExpireTime time.Time `yaml:"expireTime"`
+		Name       string    `json:"name"`
+		ExpireTime time.Time `json:"expireTime"`
 	}
 
 	// Status is the status of AutoCertManager.
 	Status struct {
-		Domains []CertificateStatus `yaml:"domains"`
+		Domains []CertificateStatus `json:"domains"`
 	}
 )
 

@@ -202,7 +202,7 @@ type MockKafka struct {
 }
 
 type MockKafkaSpec struct {
-	filters.BaseSpec `yaml:",inline"`
+	filters.BaseSpec `json:",inline"`
 }
 
 var mockKafkaKind = &filters.Kind{
@@ -273,14 +273,14 @@ type MockMQTTFilter struct {
 
 // MockMQTTSpec is spec of MockMQTTFilter
 type MockMQTTSpec struct {
-	filters.BaseSpec `yaml:",inline"`
-	UserName         string   `yaml:"userName" jsonschema:"required"`
-	Password         string   `yaml:"password" jsonschema:"required"`
-	Port             uint16   `yaml:"port" jsonschema:"required"`
-	BackendType      string   `yaml:"backendType" jsonschema:"required"`
-	EarlyStop        bool     `yaml:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore      []string `yaml:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey       string   `yaml:"connectKey" jsonschema:"omitempty"`
+	filters.BaseSpec `json:",inline"`
+	UserName         string   `json:"userName" jsonschema:"required"`
+	Password         string   `json:"password" jsonschema:"required"`
+	Port             uint16   `json:"port" jsonschema:"required"`
+	BackendType      string   `json:"backendType" jsonschema:"required"`
+	EarlyStop        bool     `json:"earlyStop" jsonschema:"omitempty"`
+	KeysToStore      []string `json:"keysToStore" jsonschema:"omitempty"`
+	ConnectKey       string   `json:"connectKey" jsonschema:"omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter

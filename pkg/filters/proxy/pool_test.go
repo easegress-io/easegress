@@ -27,8 +27,8 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
 )
 
 func TestServerPoolError(t *testing.T) {
@@ -43,14 +43,14 @@ func TestServerPoolSpecValidate(t *testing.T) {
 	assert := assert.New(t)
 
 	// no servers and not service discovery
-	yamlSpec := `spanName: test`
+	yamlConfig := `spanName: test`
 	spec := &ServerPoolSpec{}
-	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	err := spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// not all server got weight
-	yamlSpec = `spanName: test
+	yamlConfig = `spanName: test
 servers:
 - url: http://192.168.1.1
   weight: 10
@@ -58,12 +58,12 @@ servers:
   weight: 0
 `
 	spec = &ServerPoolSpec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// valid spec
-	yamlSpec = `spanName: test
+	yamlConfig = `spanName: test
 failureCodes: [500, 503]
 servers:
 - url: http://192.168.1.1
@@ -72,7 +72,7 @@ servers:
   weight: 10
 `
 	spec = &ServerPoolSpec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 }
@@ -80,14 +80,14 @@ servers:
 func TestInjectResilience(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `spanName: test
+	yamlConfig := `spanName: test
 retryPolicy: retry
 circuitBreakerPolicy: circuitBreaker
 servers:
 - url: http://192.168.1.1
 `
 	spec := &ServerPoolSpec{}
-	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	err := spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
@@ -115,7 +115,7 @@ servers:
 func TestBuildResponseFromCache(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `spanName: test
+	yamlConfig := `spanName: test
 memoryCache:
   expiration: 1m
   maxEntryBytes: 100
@@ -126,7 +126,7 @@ servers:
 `
 
 	spec := &ServerPoolSpec{}
-	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	err := spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
@@ -182,14 +182,14 @@ func TestCopyCORSHeaders(t *testing.T) {
 func TestUseService(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `spanName: test
+	yamlConfig := `spanName: test
 serverTags: [a1, a2]
 servers:
 - url: http://192.168.1.1
 `
 
 	spec := &ServerPoolSpec{}
-	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	err := spectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 

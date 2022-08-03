@@ -34,25 +34,25 @@ import (
 type (
 	// OAuth2TokenIntrospect defines the validator configuration for OAuth2 token introspection
 	OAuth2TokenIntrospect struct {
-		EndPoint     string `yaml:"endPoint" jsonschema:"required"`
-		BasicAuth    string `yaml:"basicAuth" jsonschema:"omitempty"`
-		ClientID     string `yaml:"clientId" jsonschema:"omitempty"`
-		ClientSecret string `yaml:"clientSecret" jsonschema:"omitempty"`
-		InsecureTLS  bool   `yaml:"insecureTls"`
+		EndPoint     string `json:"endPoint" jsonschema:"required"`
+		BasicAuth    string `json:"basicAuth" jsonschema:"omitempty"`
+		ClientID     string `json:"clientId" jsonschema:"omitempty"`
+		ClientSecret string `json:"clientSecret" jsonschema:"omitempty"`
+		InsecureTLS  bool   `json:"insecureTls"`
 	}
 
 	// OAuth2JWT defines the validator configuration for OAuth2 self encoded access token
 	OAuth2JWT struct {
-		Algorithm string `yaml:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512"`
+		Algorithm string `json:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512"`
 		// Secret is in hex encoding
-		Secret      string `yaml:"secret" jsonschema:"required,pattern=^[A-Fa-f0-9]+$"`
+		Secret      string `json:"secret" jsonschema:"required,pattern=^[A-Fa-f0-9]+$"`
 		secretBytes []byte
 	}
 
 	// OAuth2ValidatorSpec defines the configuration of OAuth2 validator
 	OAuth2ValidatorSpec struct {
-		TokenIntrospect *OAuth2TokenIntrospect `yaml:"tokenIntrospect" jsonschema:"omitempty"`
-		JWT             *OAuth2JWT             `yaml:"jwt" jsonschema:"omitempty"`
+		TokenIntrospect *OAuth2TokenIntrospect `json:"tokenIntrospect" jsonschema:"omitempty"`
+		JWT             *OAuth2JWT             `json:"jwt" jsonschema:"omitempty"`
 	}
 
 	// OAuth2Validator defines the OAuth2 validator

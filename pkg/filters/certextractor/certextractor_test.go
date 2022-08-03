@@ -32,7 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,9 +43,10 @@ func TestMain(m *testing.M) {
 }
 
 func createCertExtractor(
-	yamlSpec string, prev *CertExtractor, supervisor *supervisor.Supervisor) (*CertExtractor, error) {
+	yamlConfig string, prev *CertExtractor, supervisor *supervisor.Supervisor,
+) (*CertExtractor, error) {
 	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		return nil, err
@@ -162,7 +163,8 @@ func TestHandle(t *testing.T) {
 
 		t.Run("test all fields", func(t *testing.T) {
 			ctx, header := prepareCtxAndHeader(t, connState)
-			fields := []string{"Country", "Organization", "OrganizationalUnit", "Locality",
+			fields := []string{
+				"Country", "Organization", "OrganizationalUnit", "Locality",
 				"Province", "StreetAddress", "PostalCode", "SerialNumber",
 			}
 			for _, fieldName := range fields {
@@ -182,7 +184,6 @@ func TestHandle(t *testing.T) {
 						Province: []string{val},
 					},
 				})
-
 			}
 			connState := &tls.ConnectionState{PeerCertificates: peerCertificates}
 			ctx, header := prepareCtxAndHeader(t, connState)

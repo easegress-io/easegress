@@ -49,43 +49,43 @@ type (
 	Literal struct {
 		// ScopeSuffix is the last part when build the credential scope.
 		// Default: megaease_request
-		ScopeSuffix string `yaml:"scopeSuffix" json:"scopeSuffix" jsonschema:"required"`
+		ScopeSuffix string `json:"scopeSuffix" json:"scopeSuffix" jsonschema:"required"`
 
 		// AlgorithmName is the query name of the signature algorithm
 		// Default: X-Me-Algorithm
-		AlgorithmName string `yaml:"algorithmName" json:"algorithmName" jsonschema:"required"`
+		AlgorithmName string `json:"algorithmName" json:"algorithmName" jsonschema:"required"`
 
 		// AlgorithmName is the header/query value of the signature algorithm
 		// Default: ME-HMAC-SHA256
-		AlgorithmValue string `yaml:"algorithmValue" json:"alrithmValue" jsonschema:"required"`
+		AlgorithmValue string `json:"algorithmValue" json:"alrithmValue" jsonschema:"required"`
 
 		// SignedHeaders is the header/query headers of the signed headers
 		// Default: X-Me-SignedHeaders
-		SignedHeaders string `yaml:"signedHeaders" json:"signedHeaders" jsonschema:"required"`
+		SignedHeaders string `json:"signedHeaders" json:"signedHeaders" jsonschema:"required"`
 
 		// Signature is the query name of the signature
 		// Default: X-Me-Signature
-		Signature string `yaml:"signature" json:"signature" jsonschema:"required"`
+		Signature string `json:"signature" json:"signature" jsonschema:"required"`
 
 		// Date is the header/query name of request time
 		// Default: X-Me-Date
-		Date string `yaml:"date" json:"date" jsonschema:"required"`
+		Date string `json:"date" json:"date" jsonschema:"required"`
 
 		// Expires is the query name of expire duration
 		// Default: X-Me-Expires
-		Expires string `yaml:"expires" json:"expires" jsonschema:"required"`
+		Expires string `json:"expires" json:"expires" jsonschema:"required"`
 
 		// Credential is the query name of credential
 		// Default: X-Me-Credential
-		Credential string `yaml:"credential" json:"credential" jsonschema:"required"`
+		Credential string `json:"credential" json:"credential" jsonschema:"required"`
 
 		// ContentSHA256 is the header name of body/payload hash
 		// Default: X-Me-Content-Sha256
-		ContentSHA256 string `yaml:"contentSha256" json:"contentSha256" jsonschema:"required"`
+		ContentSHA256 string `json:"contentSha256" json:"contentSha256" jsonschema:"required"`
 
 		// SigningKeyPrefix is prepend to access key secret when derive the signing key
 		// Default: ME
-		SigningKeyPrefix string `yaml:"signingKeyPrefix" json:"signingKeyPrefix" jsonschema:"omitempty"`
+		SigningKeyPrefix string `json:"signingKeyPrefix" json:"signingKeyPrefix" jsonschema:"omitempty"`
 	}
 
 	// HeaderHoisting defines which headers are allowed to be moved from header to query
@@ -93,9 +93,9 @@ type (
 	// disallowed prefixes and doesn't match any of disallowed names are allowed to be
 	// hoisted
 	HeaderHoisting struct {
-		AllowedPrefix    []string `yaml:"allowedPrefix" json:"allowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		DisallowedPrefix []string `yaml:"disallowedPrefix" json:"disallowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		Disallowed       []string `yaml:"disallowed" json:"disallowed" jsonschema:"omitempty,uniqueItems=true"`
+		AllowedPrefix    []string `json:"allowedPrefix" json:"allowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
+		DisallowedPrefix []string `json:"disallowedPrefix" json:"disallowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
+		Disallowed       []string `json:"disallowed" json:"disallowed" jsonschema:"omitempty,uniqueItems=true"`
 		disallowed       map[string]bool
 	}
 

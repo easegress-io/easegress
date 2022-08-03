@@ -43,17 +43,17 @@ var _ Policy = (*RetryPolicy)(nil)
 type (
 	// RetryPolicy defines the retry policy.
 	RetryPolicy struct {
-		BaseSpec  `yaml:",inline"`
-		RetryRule `yaml:",inline"`
+		BaseSpec  `json:",inline"`
+		RetryRule `json:",inline"`
 	}
 
 	// RetryRule is the detailed config of retry
 	RetryRule struct {
-		MaxAttempts         int    `yaml:"maxAttempts" jsonschema:"omitempty,minimum=1"`
-		WaitDuration        string `yaml:"waitDuration" jsonschema:"omitempty,format=duration"`
+		MaxAttempts         int    `json:"maxAttempts" jsonschema:"omitempty,minimum=1"`
+		WaitDuration        string `json:"waitDuration" jsonschema:"omitempty,format=duration"`
 		waitDuration        time.Duration
-		BackOffPolicy       string  `yaml:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
-		RandomizationFactor float64 `yaml:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
+		BackOffPolicy       string  `json:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
+		RandomizationFactor float64 `json:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
 	}
 )
 

@@ -35,7 +35,7 @@ func init() {
 
 func TestValidate(t *testing.T) {
 	assert := assert.New(t)
-	superSpecYaml := `
+	yamlConfig := `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -45,11 +45,11 @@ rules:
     - pathPrefix: /api
 `
 
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.Nil(err)
 	assert.NotNil(superSpec.ObjectSpec())
 
-	superSpecYaml = `
+	yamlConfig = `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -59,11 +59,11 @@ rules:
     - rewriteTarget: /api
 `
 
-	superSpec, err = supervisor.NewSpec(superSpecYaml)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.True(strings.Contains(err.Error(), "rewriteTarget is specified but path is empty"))
 	assert.Nil(superSpec)
 
-	superSpecYaml = `
+	yamlConfig = `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -72,7 +72,7 @@ cacheSize: 200
 rules:
   - paths:
     - pathPrefix: /api`
-	superSpec, err = supervisor.NewSpec(superSpecYaml)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.True(strings.Contains(err.Error(), "keepAliveTimeout: invalid duration"))
 	assert.Nil(superSpec)
 }
@@ -81,15 +81,15 @@ func TestTlsConfig(t *testing.T) {
 	assert := assert.New(t)
 
 	type TLSConfigTestCase struct {
-		superSpecYaml string
-		validSpec     bool
-		mTLSExpected  bool
+		yamlConfig   string
+		validSpec    bool
+		mTLSExpected bool
 	}
 
 	tests := []TLSConfigTestCase{
 		// single cert base
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -101,7 +101,7 @@ rules: []`, validSpec: true, mTLSExpected: false,
 		},
 		// certs by domain
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -115,7 +115,7 @@ rules: []`, validSpec: true, mTLSExpected: false,
 		},
 		// invalid cert
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -127,7 +127,7 @@ rules: []`, validSpec: false, mTLSExpected: false,
 		},
 		// invalid certs
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -141,7 +141,7 @@ rules: []`, validSpec: false, mTLSExpected: false,
 		},
 		// domain mismatch
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -155,7 +155,7 @@ keepAlive: true
 rules: []`, validSpec: false, mTLSExpected: false,
 		},
 		{
-			superSpecYaml: `
+			yamlConfig: `
 name: http-server-test
 kind: HTTPServer
 port: 10080
@@ -173,7 +173,7 @@ rules: []`, validSpec: true, mTLSExpected: true,
 	for i := 0; i < len(tests); i++ {
 		t.Run("test case "+fmt.Sprint(i), func(t *testing.T) {
 			testcase := tests[i]
-			superSpec, err := supervisor.NewSpec(testcase.superSpecYaml)
+			superSpec, err := supervisor.NewSpec(testcase.yamlConfig)
 			if !testcase.validSpec {
 				assert.NotNil(err)
 				return

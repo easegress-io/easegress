@@ -30,11 +30,11 @@ type (
 
 	// AdaptSpec describes rules for adapting.
 	AdaptSpec struct {
-		Del []string `yaml:"del" jsonschema:"omitempty,uniqueItems=true"`
+		Del []string `json:"del" jsonschema:"omitempty,uniqueItems=true"`
 
 		// NOTE: Set and Add allow empty value.
-		Set map[string]string `yaml:"set" jsonschema:"omitempty"`
-		Add map[string]string `yaml:"add" jsonschema:"omitempty"`
+		Set map[string]string `json:"set" jsonschema:"omitempty"`
+		Add map[string]string `json:"add" jsonschema:"omitempty"`
 	}
 )
 

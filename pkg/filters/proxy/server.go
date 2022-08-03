@@ -26,10 +26,10 @@ import (
 
 // Server is proxy server.
 type Server struct {
-	URL            string   `yaml:"url" jsonschema:"required,format=url"`
-	Tags           []string `yaml:"tags" jsonschema:"omitempty,uniqueItems=true"`
-	Weight         int      `yaml:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
-	KeepHost       bool     `yaml:"keepHost" jsonschema:"omitempty,default=false"`
+	URL            string   `json:"url" jsonschema:"required,format=url"`
+	Tags           []string `json:"tags" jsonschema:"omitempty,uniqueItems=true"`
+	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
 }
 

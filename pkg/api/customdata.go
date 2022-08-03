@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 const (
@@ -35,9 +35,9 @@ const (
 
 // ChangeRequest represents a change request to custom data
 type ChangeRequest struct {
-	Rebuild bool              `yaml:"rebuild"`
-	Delete  []string          `yaml:"delete"`
-	List    []customdata.Data `yaml:"list"`
+	Rebuild bool              `json:"rebuild"`
+	Delete  []string          `json:"delete"`
+	List    []customdata.Data `json:"list"`
 }
 
 func (s *Server) customDataAPIEntries() []*Entry {
@@ -108,11 +108,8 @@ func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	err = yaml.NewEncoder(w).Encode(result)
-	if err != nil {
-		panic(err)
-	}
+	buff := spectool.MustMarshalJSON(result)
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
@@ -122,20 +119,15 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	err = yaml.NewEncoder(w).Encode(k)
-	if err != nil {
-		panic(err)
-	}
+	buff := spectool.MustMarshalJSON(k)
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	k := customdata.Kind{}
-	err := yaml.NewDecoder(r.Body).Decode(&k)
-	if err != nil {
-		panic(err)
-	}
-	err = s.cds.PutKind(&k, false)
+	spectool.MustDecode(r.Body, &k)
+
+	err := s.cds.PutKind(&k, false)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -147,11 +139,9 @@ func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	k := customdata.Kind{}
-	err := yaml.NewDecoder(r.Body).Decode(&k)
-	if err != nil {
-		panic(err)
-	}
-	err = s.cds.PutKind(&k, true)
+	spectool.MustDecode(r.Body, &k)
+
+	err := s.cds.PutKind(&k, true)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -173,11 +163,12 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	err = yaml.NewEncoder(w).Encode(result)
+	buff, err := spectool.MarshalJSON(result)
 	if err != nil {
 		panic(err)
 	}
+
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
@@ -189,21 +180,20 @@ func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	err = yaml.NewEncoder(w).Encode(data)
+	buff, err := spectool.MarshalJSON(data)
 	if err != nil {
 		panic(err)
 	}
+
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	data := customdata.Data{}
-	err := yaml.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		panic(err)
-	}
+	spectool.MustDecode(r.Body, &data)
+
 	id, err := s.cds.PutData(kind, data, false)
 	if err != nil {
 		ClusterPanic(err)
@@ -218,11 +208,9 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	data := customdata.Data{}
-	err := yaml.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		panic(err)
-	}
-	_, err = s.cds.PutData(kind, data, true)
+	spectool.MustDecode(r.Body, &data)
+
+	_, err := s.cds.PutData(kind, data, true)
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -241,19 +229,16 @@ func (s *Server) batchUpdateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	var cr ChangeRequest
-	err := yaml.NewDecoder(r.Body).Decode(&cr)
-	if err != nil {
-		panic(err)
-	}
+	spectool.MustDecode(r.Body, &cr)
 
 	if cr.Rebuild {
-		err = s.cds.DeleteAllData(kind)
+		err := s.cds.DeleteAllData(kind)
 		if err != nil {
 			ClusterPanic(err)
 		}
 	}
 
-	err = s.cds.BatchUpdateData(kind, cr.Delete, cr.List)
+	err := s.cds.BatchUpdateData(kind, cr.Delete, cr.List)
 	if err != nil {
 		ClusterPanic(err)
 	}

@@ -23,12 +23,12 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -124,9 +124,9 @@ func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec i
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}
-	err = yaml.Unmarshal(body, spec)
+	err = spectool.Unmarshal(body, spec)
 	if err != nil {
-		return fmt.Errorf("unmarshal failed: %v", err)
+		return fmt.Errorf("unmarshal to json failed: %v", err)
 	}
 
 	vr := v.Validate(spec)
@@ -242,13 +242,13 @@ func (worker *Worker) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buff, err := yaml.Marshal(functions)
+	buff, err := spectool.MarshalJSON(functions)
 	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to yaml failed: %v", functions, err))
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to json failed: %v", functions, err))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(buff)
 }
 
@@ -320,14 +320,16 @@ func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
 		logger.Errorf("create function with bad request: %v", err)
 		return
 	}
+
 	// no display
 	function.Fsm = nil
-	buff, err := yaml.Marshal(function)
+
+	buff, err := spectool.MarshalJSON(function)
 	if err != nil {
-		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to yaml failed: %v", function, err))
+		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to json failed: %v", function, err))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(buff)
 }

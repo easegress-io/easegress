@@ -30,8 +30,8 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -45,7 +45,7 @@ type MockedFilter struct {
 }
 
 type MockedSpec struct {
-	filters.BaseSpec `yaml:",inline"`
+	filters.BaseSpec `json:",inline"`
 }
 
 type MockedStatus struct {
@@ -116,9 +116,9 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		superSpecYaml, err := yaml.Marshal(spec)
+		jsonConfig, err := spectool.MarshalJSON(spec)
 		assert.Nil(t, err)
-		_, err = supervisor.NewSpec(string(superSpecYaml))
+		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.NotNil(t, err, "filter-1 not found")
 	})
 	cleanup()
@@ -144,9 +144,9 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		superSpecYaml, err := yaml.Marshal(spec)
+		jsonConfig, err := spectool.MarshalJSON(spec)
 		assert.Nil(t, err)
-		_, err = supervisor.NewSpec(string(superSpecYaml))
+		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.Nil(t, err, "valid spec")
 	})
 	cleanup()
@@ -169,9 +169,9 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		superSpecYaml, err := yaml.Marshal(spec)
+		jsonConfig, err := spectool.MarshalJSON(spec)
 		assert.Nil(t, err)
-		_, err = supervisor.NewSpec(string(superSpecYaml))
+		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.Nil(t, err, "valid spec")
 	})
 	cleanup()
@@ -185,9 +185,9 @@ func TestSpecValidate(t *testing.T) {
 				{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
-		superSpecYaml, err := yaml.Marshal(spec)
+		jsonConfig, err := spectool.MarshalJSON(spec)
 		assert.Nil(t, err)
-		_, err = supervisor.NewSpec(string(superSpecYaml))
+		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.NotNil(t, err, "invalid spec")
 	})
 	cleanup()
@@ -239,7 +239,7 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestHTTPPipeline(t *testing.T) {
-	superSpecYaml := `
+	yamlConfig := `
 name: http-pipeline-test
 kind: Pipeline
 flow:
@@ -273,7 +273,7 @@ filters:
 	t.Run("missing filter results", func(t *testing.T) {
 		filters.Register(MockFilterKind("Validator", nil))
 		filters.Register(MockFilterKind("RequestAdaptor", nil))
-		_, err := supervisor.NewSpec(superSpecYaml)
+		_, err := supervisor.NewSpec(yamlConfig)
 		if err == nil {
 			t.Errorf("spec creation should have failed")
 		}
@@ -282,7 +282,7 @@ filters:
 	})
 	filters.Register(MockFilterKind("Validator", []string{"invalid", "END"}))
 	filters.Register(MockFilterKind("RequestAdaptor", []string{"specialCase"}))
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
@@ -302,7 +302,7 @@ filters:
 }
 
 func TestHTTPPipelineNoFlow(t *testing.T) {
-	superSpecYaml := `
+	yamlConfig := `
 name: http-pipeline-test
 kind: Pipeline
 filters:
@@ -330,7 +330,7 @@ filters:
 	filters.Register(MockFilterKind("Validator", nil))
 	filters.Register(MockFilterKind("RequestAdaptor", nil))
 
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	if err != nil {
 		t.Errorf("failed to create spec %s", err)
 	}
@@ -354,21 +354,21 @@ filters:
 
 func TestHandle(t *testing.T) {
 	assert := assert.New(t)
-	superSpecYaml := `
+	yamlConfig := `
 name: http-pipeline-test
 kind: Pipeline
 flow:
   - filter: filter1
-  - filter: filter2 
+  - filter: filter2
 filters:
-  - name: filter1 
-    kind: Filter1 
+  - name: filter1
+    kind: Filter1
   - name: filter2
-    kind: Filter2 
+    kind: Filter2
 `
 	filters.Register(MockFilterKind("Filter1", nil))
 	filters.Register(MockFilterKind("Filter2", nil))
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.Nil(err)
 
 	pipeline := &Pipeline{}
@@ -413,16 +413,16 @@ func TestHandleWithBeforeAfter(t *testing.T) {
 	filters.Register(MockFilterKind("Filter1", nil))
 	defer cleanup()
 
-	yamlSpec := `
+	yamlConfig := `
 name: http-pipeline-test
 kind: Pipeline
 flow:
   - filter: filter2
 filters:
-  - name: filter2 
-    kind: Filter1 
+  - name: filter2
+    kind: Filter1
 `
-	spec, err := supervisor.NewSpec(yamlSpec)
+	spec, err := supervisor.NewSpec(yamlConfig)
 	assert.Nil(err)
 
 	pipeline := &Pipeline{}
@@ -438,17 +438,17 @@ filters:
 	assert.Contains(tags, "filter2")
 	assert.NotContains(tags, "filter3")
 
-	yamlSpec = `
+	yamlConfig = `
 name: http-pipeline-after
 kind: Pipeline
 flow:
   - filter: filter3
 filters:
-  - name: filter3 
-    kind: Filter1 
+  - name: filter3
+    kind: Filter1
 `
 
-	spec, err = supervisor.NewSpec(yamlSpec)
+	spec, err = supervisor.NewSpec(yamlConfig)
 	assert.Nil(err)
 
 	after := &Pipeline{}
@@ -463,17 +463,17 @@ filters:
 	assert.Contains(tags, "filter2")
 	assert.Contains(tags, "filter3")
 
-	yamlSpec = `
+	yamlConfig = `
 name: http-pipeline-before
 kind: Pipeline
 flow:
   - filter: filter1
   - filter: END
 filters:
-  - name: filter1 
-    kind: Filter1 
+  - name: filter1
+    kind: Filter1
 `
-	spec, err = supervisor.NewSpec(yamlSpec)
+	spec, err = supervisor.NewSpec(yamlConfig)
 	assert.Nil(err)
 
 	before := &Pipeline{}

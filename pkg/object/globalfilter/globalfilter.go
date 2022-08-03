@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 const (
@@ -49,15 +49,15 @@ type (
 
 	// Spec describes the GlobalFilter.
 	Spec struct {
-		BeforePipeline pipeline.Spec `yaml:"beforePipeline" jsonschema:"omitempty"`
-		AfterPipeline  pipeline.Spec `yaml:"afterPipeline" jsonschema:"omitempty"`
+		BeforePipeline pipeline.Spec `json:"beforePipeline" jsonschema:"omitempty"`
+		AfterPipeline  pipeline.Spec `json:"afterPipeline" jsonschema:"omitempty"`
 	}
 
 	// pipelineSpec defines pipeline spec to create an pipeline entity.
 	pipelineSpec struct {
-		Kind          string `yaml:"kind" jsonschema:"omitempty"`
-		Name          string `yaml:"name" jsonschema:"omitempty"`
-		pipeline.Spec `yaml:",inline"`
+		Kind          string `json:"kind" jsonschema:"omitempty"`
+		Name          string `json:"name" jsonschema:"omitempty"`
+		pipeline.Spec `json:",inline"`
 	}
 )
 
@@ -103,15 +103,15 @@ func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previous
 
 // CreateAndUpdatePipeline creates and updates GlobalFilter's pipelines.
 func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *pipeline.Pipeline) (*pipeline.Pipeline, error) {
-	// init config
-	config := yamltool.Marshal(spec)
-	specs, err := supervisor.NewSpec(string(config))
+	// init jsonConfig
+	jsonConfig := spectool.MustMarshalJSON(spec)
+	specs, err := supervisor.NewSpec(string(jsonConfig))
 	if err != nil {
 		return nil, err
 	}
 
 	// init or update pipeline
-	var pipeline = new(pipeline.Pipeline)
+	pipeline := new(pipeline.Pipeline)
 	if previousGeneration != nil {
 		pipeline.Inherit(specs, previousGeneration, nil)
 	} else {
@@ -175,12 +175,10 @@ func (gf *GlobalFilter) Handle(ctx *context.Context, handler context.Handler) {
 
 // Close closes GlobalFilter itself.
 func (gf *GlobalFilter) Close() {
-
 }
 
 // Validate validates Spec.
 func (s *Spec) Validate() (err error) {
-
 	err = s.BeforePipeline.Validate()
 	if err != nil {
 		return fmt.Errorf("before pipeline is invalid: %v", err)
@@ -208,7 +206,7 @@ func (gf *GlobalFilter) reload(previousGeneration *GlobalFilter) {
 			panic(fmt.Errorf("create before pipeline failed: %v", err))
 		}
 	}
-	//create and update afterPipeline entity
+	// create and update afterPipeline entity
 	if len(gf.spec.AfterPipeline.Flow) != 0 {
 		if previousGeneration != nil {
 			previous := previousGeneration.afterPipeline.Load()

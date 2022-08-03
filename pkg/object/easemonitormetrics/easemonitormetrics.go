@@ -67,13 +67,13 @@ type (
 
 	// Spec describes the EaseMonitorMetrics.
 	Spec struct {
-		Kafka *KafkaSpec `yaml:"kafka" jsonschema:"required"`
+		Kafka *KafkaSpec `json:"kafka" jsonschema:"required"`
 	}
 
 	// KafkaSpec is the spec for kafka producer.
 	KafkaSpec struct {
-		Brokers []string `yaml:"brokers" jsonschema:"required,uniqueItems=true"`
-		Topic   string   `yaml:"topic" jsonschema:"required"`
+		Brokers []string `json:"brokers" jsonschema:"required,uniqueItems=true"`
+		Topic   string   `json:"topic" jsonschema:"required"`
 	}
 
 	// Status is the status of EaseMonitorMetrics.

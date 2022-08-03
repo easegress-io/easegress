@@ -53,7 +53,14 @@ func defaultFilterSpec(spec *Spec) filters.Spec {
 
 func TestHeaderToJSON(t *testing.T) {
 	assert := assert.New(t)
-	spec := defaultFilterSpec(&Spec{})
+	spec := defaultFilterSpec(&Spec{
+		HeaderMap: []*HeaderMap{
+			{
+				Header: "X-Header-1",
+				JSON:   "header1",
+			},
+		},
+	})
 	h := kind.CreateInstance(spec)
 	h.Init()
 	assert.Equal(spec.Name(), h.Name())
@@ -86,7 +93,7 @@ func TestHandleHTTP(t *testing.T) {
 	h2j.Init()
 
 	{
-		//test http request with body
+		// test http request with body
 		bodyMap := map[string]interface{}{
 			"topic": "log",
 			"id":    "abc123",

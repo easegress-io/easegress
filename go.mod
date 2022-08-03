@@ -5,12 +5,10 @@ go 1.18
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Shopify/sarama v1.34.0
-	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/bytecodealliance/wasmtime-go v0.33.1
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/fatih/color v1.13.0
 	github.com/fsnotify/fsnotify v1.5.4
-	github.com/ghodss/yaml v1.0.0
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 	github.com/go-zookeeper/zk v1.0.2
@@ -20,6 +18,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/consul/api v1.13.0
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/invopop/yaml v0.2.0
 	github.com/libdns/alidns v1.0.2-x2
 	github.com/libdns/azure v0.2.0
 	github.com/libdns/cloudflare v0.1.0
@@ -33,6 +32,7 @@ require (
 	github.com/lucas-clemente/quic-go v0.28.1
 	github.com/megaease/easemesh-api v1.4.1
 	github.com/megaease/grace v1.0.0
+	github.com/megaease/jsonschema v0.5.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.0
 	github.com/openzipkin/zipkin-go v0.4.0
@@ -82,6 +82,7 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
+	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211221011931-643d94fcab96 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
@@ -144,9 +145,10 @@ require (
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/serf v0.9.7 // indirect
-	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
+	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
+	github.com/invopop/jsonschema v0.5.0 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect

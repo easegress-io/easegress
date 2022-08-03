@@ -29,20 +29,20 @@ import (
 func TestNewRuntim(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 38081
 keepAlive: true
 https: false
 `
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 
 	r := newRuntime(superSpec, &contexttest.MockedMuxMapper{})
 	assert.NotNil(r)
 
-	yamlSpec = `
+	yamlConfig = `
 kind: HTTPServer
 name: test
 port: 8080
@@ -64,7 +64,7 @@ rules:
   - pathPrefix: /xyz
     backend: xyz-pipeline
 `
-	superSpec, err = supervisor.NewSpec(yamlSpec)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 
 	r.reload(superSpec, &contexttest.MockedMuxMapper{})
@@ -73,14 +73,14 @@ rules:
 
 	assert.NotNil(r.Status())
 
-	yamlSpec = `
+	yamlConfig = `
 kind: HTTPServer
 name: test
 port: 38082
 keepAlive: true
 https: false
 `
-	superSpec, err = supervisor.NewSpec(yamlSpec)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.True(r.needRestartServer(superSpec.ObjectSpec().(*Spec)))
 

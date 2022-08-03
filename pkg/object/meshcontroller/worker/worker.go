@@ -29,8 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/label"
@@ -41,6 +39,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/jmxtool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -389,9 +388,9 @@ func (worker *Worker) updateHeartbeat() error {
 		InstanceID:  worker.instanceID,
 	}
 	if value != nil {
-		err := yaml.Unmarshal([]byte(*value), status)
+		err := spectool.Unmarshal([]byte(*value), status)
 		if err != nil {
-			logger.Errorf("BUG: unmarshal %s to yaml failed: %v", *value, err)
+			logger.Errorf("BUG: unmarshal %s to json failed: %v", *value, err)
 
 			// NOTE: This is a little strict, maybe we could use the brand new status to update.
 			return err
@@ -399,9 +398,9 @@ func (worker *Worker) updateHeartbeat() error {
 	}
 
 	status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
-	buff, err := yaml.Marshal(status)
+	buff, err := spectool.MarshalJSON(status)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", status, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", status, err)
 		return err
 	}
 

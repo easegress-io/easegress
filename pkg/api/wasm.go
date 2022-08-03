@@ -27,9 +27,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/filters/wasmhost"
 	"go.etcd.io/etcd/client/v3/concurrency"
-	"gopkg.in/yaml.v2"
+
+	"github.com/megaease/easegress/pkg/filters/wasmhost"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 func (s *Server) isFilterExist(pipeline, filter, kind string) bool {
@@ -100,13 +101,9 @@ func (s *Server) wasmListData(w http.ResponseWriter, r *http.Request) {
 		data[k] = v
 	}
 
-	buf, e := yaml.Marshal(data)
-	if e != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", data, e))
-	}
+	buff := spectool.MustMarshal(data)
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	w.Write(buf)
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
@@ -117,14 +114,8 @@ func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, e := io.ReadAll(r.Body)
-	if e != nil {
-		HandleAPIError(w, r, http.StatusBadRequest, e)
-		return
-	}
-
 	data := make(map[string]string)
-	if e = yaml.Unmarshal(body, data); e != nil {
+	if e = spectool.Decode(r.body, data); e != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, e)
 		return
 	}

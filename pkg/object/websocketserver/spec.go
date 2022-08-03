@@ -28,15 +28,15 @@ import (
 type (
 	// Spec describes the WebSocketServer.
 	Spec struct {
-		Port    uint16 `yaml:"port" jsonschema:"required,minimum=1"`
-		HTTPS   bool   `yaml:"https" jsonschema:"required"`
-		Backend string `yaml:"backend" jsonschema:"required"`
+		Port    uint16 `json:"port" jsonschema:"required,minimum=1"`
+		HTTPS   bool   `json:"https" jsonschema:"required"`
+		Backend string `json:"backend" jsonschema:"required"`
 
-		CertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+		CertBase64 string `json:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64  string `json:"keyBase64" jsonschema:"omitempty,format=base64"`
 
-		WssCertBase64 string `yaml:"wssCertBase64" jsonschema:"omitempty,format=base64"`
-		WssKeyBase64  string `yaml:"wssKeyBase64" jsonschema:"omitempty,format=base64"`
+		WssCertBase64 string `json:"wssCertBase64" jsonschema:"omitempty,format=base64"`
+		WssKeyBase64  string `json:"wssKeyBase64" jsonschema:"omitempty,format=base64"`
 	}
 )
 

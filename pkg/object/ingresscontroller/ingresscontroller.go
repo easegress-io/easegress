@@ -56,11 +56,11 @@ type (
 
 	// Spec is the ingress controller spec
 	Spec struct {
-		HTTPServer   *httpserver.Spec `yaml:"httpServer" jsonschema:"required"`
-		KubeConfig   string           `yaml:"kubeConfig" jsonschema:"omitempty"`
-		MasterURL    string           `yaml:"masterURL" jsonschema:"omitempty"`
-		Namespaces   []string         `yaml:"namespaces" jsonschema:"omitempty"`
-		IngressClass string           `yaml:"ingressClass" jsonschema:"omitempty"`
+		HTTPServer   *httpserver.Spec `json:"httpServer" jsonschema:"required"`
+		KubeConfig   string           `json:"kubeConfig" jsonschema:"omitempty"`
+		MasterURL    string           `json:"masterURL" jsonschema:"omitempty"`
+		Namespaces   []string         `json:"namespaces" jsonschema:"omitempty"`
+		IngressClass string           `json:"ingressClass" jsonschema:"omitempty"`
 	}
 )
 

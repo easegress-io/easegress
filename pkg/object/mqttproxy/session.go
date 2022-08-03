@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/spectool"
+
 	"github.com/openzipkin/zipkin-go/model"
 )
 
@@ -33,11 +33,11 @@ type (
 	// SessionInfo is info about session that will be put into etcd for persistency
 	SessionInfo struct {
 		// map subscribe topic to qos
-		EGName    string         `yaml:"egName"`
-		Name      string         `yaml:"name"`
-		Topics    map[string]int `yaml:"topics"`
-		ClientID  string         `yaml:"clientID"`
-		CleanFlag bool           `yaml:"cleanFlag"`
+		EGName    string         `json:"egName"`
+		Name      string         `json:"name"`
+		Topics    map[string]int `json:"topics"`
+		ClientID  string         `json:"clientID"`
+		CleanFlag bool           `json:"cleanFlag"`
 	}
 
 	// Session includes the information about the connect between client and broker,
@@ -55,9 +55,9 @@ type (
 
 	// Message is the message send from broker to client
 	Message struct {
-		Topic      string `yaml:"topic"`
-		B64Payload string `yaml:"b64Payload"`
-		QoS        int    `yaml:"qos"`
+		Topic      string `json:"topic"`
+		B64Payload string `json:"b64Payload"`
+		QoS        int    `json:"qos"`
 	}
 )
 
@@ -87,7 +87,7 @@ func (s *Session) store() {
 }
 
 func (s *Session) encode() (string, error) {
-	b, err := yaml.Marshal(s.info)
+	b, err := spectool.MarshalJSON(s.info)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +95,7 @@ func (s *Session) encode() (string, error) {
 }
 
 func (s *Session) decode(str string) error {
-	return yaml.Unmarshal([]byte(str), s.info)
+	return spectool.Unmarshal([]byte(str), s.info)
 }
 
 func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPacket) error {

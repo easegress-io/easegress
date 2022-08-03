@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -51,9 +51,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func createValidator(yamlSpec string, prev *Validator, supervisor *supervisor.Supervisor) *Validator {
+func createValidator(yamlConfig string, prev *Validator, supervisor *supervisor.Supervisor) *Validator {
 	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		panic(err.Error())
@@ -82,7 +82,7 @@ func createClusterAndSyncer() (*clustertest.MockedCluster, chan map[string]strin
 
 func TestHeaders(t *testing.T) {
 	assert := assert.New(t)
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Validator
 name: validator
 headers:
@@ -91,7 +91,7 @@ headers:
     regexp: "^ok-.+$"
 `
 
-	v := createValidator(yamlSpec, nil, nil)
+	v := createValidator(yamlConfig, nil, nil)
 
 	ctx := context.New(nil)
 
@@ -117,15 +117,15 @@ headers:
 
 func TestJWT(t *testing.T) {
 	assert := assert.New(t)
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Validator
 name: validator
 jwt:
   cookieName: auth
   algorithm: HS256
-  secret: 313233343536
+  secret: "313233343536"
 `
-	v := createValidator(yamlSpec, nil, nil)
+	v := createValidator(yamlConfig, nil, nil)
 
 	ctx := context.New(nil)
 
@@ -166,7 +166,7 @@ jwt:
 		t.Errorf("the jwt token in cookie should be valid")
 	}
 
-	v = createValidator(yamlSpec, v, nil)
+	v = createValidator(yamlConfig, v, nil)
 	result = v.Handle(ctx)
 	if result == resultInvalid {
 		t.Errorf("the jwt token in cookie should be valid")
@@ -180,15 +180,15 @@ jwt:
 func TestOAuth2JWT(t *testing.T) {
 	assert := assert.New(t)
 
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Validator
 name: validator
 oauth2:
   jwt:
     algorithm: HS256
-    secret: 313233343536
+    secret: "313233343536"
 `
-	v := createValidator(yamlSpec, nil, nil)
+	v := createValidator(yamlConfig, nil, nil)
 
 	ctx := context.New(nil)
 
@@ -225,7 +225,7 @@ oauth2:
 
 func TestOAuth2TokenIntrospect(t *testing.T) {
 	assert := assert.New(t)
-	yamlSpec := `
+	yamlConfig := `
 kind: Validator
 name: validator
 oauth2:
@@ -235,7 +235,7 @@ oauth2:
     clientId: megaease
     clientSecret: secret
 `
-	v := createValidator(yamlSpec, nil, nil)
+	v := createValidator(yamlConfig, nil, nil)
 	ctx := context.New(nil)
 
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -261,7 +261,7 @@ oauth2:
 		t.Errorf("OAuth/2 Authorization should fail")
 	}
 
-	yamlSpec = `
+	yamlConfig = `
 kind: Validator
 name: validator
 oauth2:
@@ -271,7 +271,7 @@ oauth2:
     clientSecret: secret
     basicAuth: megaease@megaease
 `
-	v = createValidator(yamlSpec, nil, nil)
+	v = createValidator(yamlConfig, nil, nil)
 
 	body = `{
 			"subject":"megaease.com",
@@ -287,14 +287,14 @@ oauth2:
 func TestSignature(t *testing.T) {
 	// This test is almost covered by signer
 
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Validator
 name: validator
 signature:
   accessKeys:
     AKID: SECRET
 `
-	v := createValidator(yamlSpec, nil, nil)
+	v := createValidator(yamlConfig, nil, nil)
 
 	ctx := context.New(nil)
 	req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -348,13 +348,13 @@ func TestBasicAuth(t *testing.T) {
 	}
 
 	t.Run("unexisting userFile", func(t *testing.T) {
-		yamlSpec := `
+		yamlConfig := `
 kind: Validator
 name: validator
 basicAuth:
   mode: FILE
   userFile: unexisting-file`
-		v := createValidator(yamlSpec, nil, nil)
+		v := createValidator(yamlConfig, nil, nil)
 		ctx, _ := prepareCtxAndHeader()
 		if v.Handle(ctx) != resultInvalid {
 			t.Errorf("should be invalid")
@@ -364,7 +364,7 @@ basicAuth:
 		userFile, err := os.CreateTemp("", "apache2-htpasswd")
 		check(err)
 
-		yamlSpec := `
+		yamlConfig := `
 kind: Validator
 name: validator
 basicAuth:
@@ -373,7 +373,7 @@ basicAuth:
 
 		// test invalid format
 		userFile.Write([]byte("keypass"))
-		v := createValidator(yamlSpec, nil, nil)
+		v := createValidator(yamlConfig, nil, nil)
 		ctx, _ := prepareCtxAndHeader()
 		if v.Handle(ctx) != resultInvalid {
 			t.Errorf("should be invalid")
@@ -385,7 +385,7 @@ basicAuth:
 			[]byte(userIds[0] + ":" + encryptedPasswords[0] + "\n" + userIds[1] + ":" + encryptedPasswords[1]))
 		expectedValid := []bool{true, true, false}
 
-		v = createValidator(yamlSpec, nil, nil)
+		v = createValidator(yamlConfig, nil, nil)
 
 		t.Run("invalid headers", func(t *testing.T) {
 			ctx, header := prepareCtxAndHeader()
@@ -472,7 +472,7 @@ basicAuth:
 		supervisor := supervisor.NewMock(
 			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 
-		yamlSpec := `
+		yamlConfig := `
 kind: Validator
 name: validator
 basicAuth:
@@ -480,7 +480,7 @@ basicAuth:
   etcdPrefix: credentials/
 `
 		expectedValid := []bool{true, false, true}
-		v := createValidator(yamlSpec, nil, supervisor)
+		v := createValidator(yamlConfig, nil, supervisor)
 		for i := 0; i < 3; i++ {
 			ctx, header := prepareCtxAndHeader()
 			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))

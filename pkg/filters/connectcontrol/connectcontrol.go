@@ -65,20 +65,20 @@ type (
 
 	// Spec describes the ConnectControl
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		BannedClientRe string   `yaml:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClients  []string `yaml:"bannedClients" jsonschema:"omitempty"`
-		BannedTopicRe  string   `yaml:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopics   []string `yaml:"bannedTopics" jsonschema:"omitempty"`
+		BannedClientRe string   `json:"bannedClientRe" jsonschema:"omitempty"`
+		BannedClients  []string `json:"bannedClients" jsonschema:"omitempty"`
+		BannedTopicRe  string   `json:"bannedTopicRe" jsonschema:"omitempty"`
+		BannedTopics   []string `json:"bannedTopics" jsonschema:"omitempty"`
 	}
 
 	// Status is ConnectControl filter status
 	Status struct {
-		BannedClientRe  string `yaml:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClientNum int    `yaml:"bannedClientNum" jsonschema:"omitempty"`
-		BannedTopicRe   string `yaml:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopicNum  int    `yaml:"bannedTopicNum" jsonschema:"omitempty"`
+		BannedClientRe  string `json:"bannedClientRe" jsonschema:"omitempty"`
+		BannedClientNum int    `json:"bannedClientNum" jsonschema:"omitempty"`
+		BannedTopicRe   string `json:"bannedTopicRe" jsonschema:"omitempty"`
+		BannedTopicNum  int    `json:"bannedTopicNum" jsonschema:"omitempty"`
 	}
 )
 

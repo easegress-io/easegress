@@ -115,10 +115,10 @@ type (
 
 	// Spec describes RemoteFilter.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		URL     string `yaml:"url" jsonschema:"required,format=uri"`
-		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+		URL     string `json:"url" jsonschema:"required,format=uri"`
+		Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
 
 		timeout time.Duration
 	}

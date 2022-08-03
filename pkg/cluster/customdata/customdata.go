@@ -24,9 +24,9 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/util/dynamicobject"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/xeipuuv/gojsonschema"
 	"go.etcd.io/etcd/client/v3/concurrency"
-	yaml "gopkg.in/yaml.v2"
 )
 
 // Data represents a custom data
@@ -35,12 +35,12 @@ type Data = dynamicobject.DynamicObject
 // Kind defines the spec of a custom data kind
 type Kind struct {
 	// Name is the name of the Kind
-	Name string `yaml:"name" jsonschema:"required"`
+	Name string `json:"name" jsonschema:"required"`
 	// IDField is a field name of custom data of this kind, this field is the ID
 	// of the data, that's unique among the same kind, the default value is 'name'.
-	IDField string `yaml:"idField" jsonschema:"omitempty"`
+	IDField string `json:"idField" jsonschema:"omitempty"`
 	// JSONSchema is JSON schema to validate a custom data of this kind
-	JSONSchema dynamicobject.DynamicObject `yaml:"jsonSchema" jsonschema:"omitempty"`
+	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema" jsonschema:"omitempty"`
 }
 
 func (k *Kind) dataID(data Data) string {
@@ -69,11 +69,11 @@ func NewStore(cls cluster.Cluster, kindPrefix string, dataPrefix string) *Store 
 	}
 }
 
-func unmarshalKind(in []byte) (*Kind, error) {
+func unmarshalKind(yamlConfig []byte) (*Kind, error) {
 	kind := &Kind{}
-	err := yaml.Unmarshal(in, kind)
+	err := spectool.Unmarshal(yamlConfig, kind)
 	if err != nil {
-		return nil, fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(in), err)
+		return nil, fmt.Errorf("BUG: unmarshal %s to json failed: %v", string(yamlConfig), err)
 	}
 	return kind, nil
 }
@@ -136,9 +136,9 @@ func (s *Store) PutKind(kind *Kind, update bool) error {
 		return fmt.Errorf("%s existed", kind.Name)
 	}
 
-	buf, err := yaml.Marshal(kind)
+	buf, err := spectool.MarshalJSON(kind)
 	if err != nil {
-		return fmt.Errorf("BUG: marshal %#v to yaml failed: %v", kind, err)
+		return fmt.Errorf("BUG: marshal %#v to json failed: %v", kind, err)
 	}
 
 	key := s.kindKey(kind.Name)
@@ -168,11 +168,11 @@ func (s *Store) dataKey(kind string, id string) string {
 	return s.dataPrefix(kind) + id
 }
 
-func unmarshalData(in []byte) (Data, error) {
+func unmarshalData(yamlConfig []byte) (Data, error) {
 	data := Data{}
-	err := yaml.Unmarshal(in, &data)
+	err := spectool.Unmarshal(yamlConfig, &data)
 	if err != nil {
-		return nil, fmt.Errorf("BUG: unmarshal %s to yaml failed: %v", string(in), err)
+		return nil, fmt.Errorf("BUG: unmarshal %s to json failed: %v", string(yamlConfig), err)
 	}
 	return data, nil
 }
@@ -253,9 +253,9 @@ func (s *Store) PutData(kind string, data Data, update bool) (string, error) {
 		return "", fmt.Errorf("%s/%s existed", kind, id)
 	}
 
-	buf, err := yaml.Marshal(data)
+	buf, err := spectool.MarshalJSON(data)
 	if err != nil {
-		return "", fmt.Errorf("BUG: marshal %#v to yaml failed: %v", data, err)
+		return "", fmt.Errorf("BUG: marshal %#v to json failed: %v", data, err)
 	}
 
 	key := s.dataKey(kind, id)
@@ -305,9 +305,9 @@ func (s *Store) BatchUpdateData(kind string, del []string, update []Data) error 
 
 		for _, data := range update {
 			id := k.dataID(data)
-			buf, err := yaml.Marshal(data)
+			buf, err := spectool.MarshalJSON(data)
 			if err != nil {
-				return fmt.Errorf("BUG: marshal %#v to yaml failed: %v", data, err)
+				return fmt.Errorf("BUG: marshal %#v to json failed: %v", data, err)
 			}
 			key := s.dataKey(kind, id)
 			stm.Put(key, string(buf))

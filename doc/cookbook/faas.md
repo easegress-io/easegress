@@ -20,7 +20,7 @@
 
 ## Easegress works with FaaS
 
-* Isolation: separate Control logic and Business logic 
+* Isolation: separate Control logic and Business logic
 * Traffic originated: Original near traffic, easier to integrate
 * Resource saving: reusing Easegress+K8s machine resources.
 * Pay what you used: reducing small customize features' developing and maintenance cost.
@@ -62,11 +62,11 @@ autoScaleType:  "concurrency"
 autoScaleValue: "100"
 minReplica:     0
 maxReplica:     1
-limitCPU:       "1000m"         
-limitMemory:    "1000Mi"        
-requestCPU:     "80m"          
-requestMemory:  "20Mi"         
-requestAdaptor:                       
+limitCPU:       "1000m"
+limitMemory:    "1000Mi"
+requestCPU:     "80m"
+requestMemory:  "20Mi"
+requestAdaptor:
   header:
     set:
       X-Func: demo
@@ -75,7 +75,7 @@ requestAdaptor:
 * Save it into `/home/easegress/function.yaml`, using command to deploy it in Easegress:
 
 ``` bash
-$ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v1/faas/faascontroller
+$ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v2/faas/faascontroller
 ```
 **Note** this command should be run in Easegress' instance environment and 2381 is the default admin traffic port. If your Easegress instance uses different port, please change 2381 to the correct port.
 
@@ -83,7 +83,7 @@ $ curl --data-binary @/home/easegress/function.yaml -X POST -H 'Content-Type: te
 1. Get the function's status, make sure it is in `active` status
 
 ``` bash
-$ curl http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo
+$ curl http://127.0.0.1:2381/apis/v2/faas/faascontroller/demo
 spec:
   name: demo
   image: gcr.io/knative-samples/helloworld-go
@@ -146,7 +146,7 @@ maxReplica: 50
 1. Stop the function execution by using command
 
 ``` bash
-$ curl http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo/stop -X PUT
+$ curl http://127.0.0.1:2381/apis/v2/faas/faascontroller/demo/stop -X PUT
 ```
 
 * The function will become `inactive` then we can update the resource limitation safely.
@@ -154,7 +154,7 @@ $ curl http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo/stop -X PUT
 2. Update the function's spec
 
 ``` bash
-$ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v1/faas/faascontroller/demo
+$ curl --data-binary @/home/easegress/function.yaml -X PUT -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:2381/apis/v2/faas/faascontroller/demo
 ```
 
 3. Verify the update
@@ -228,7 +228,7 @@ limitedMemory: "200Mi"
 limitedCPU:    "180m"
 requireMemory: "100Mi"
 requireCPU:    "100m"
-minReplica:    1 
+minReplica:    1
 maxReplica:    50
 ```
 
@@ -244,6 +244,6 @@ limitedMemory: "200Mi"
 limitedCPU:    "180m"
 requireMemory: "100Mi"
 requireCPU:    "100m"
-minReplica:    0 
+minReplica:    0
 maxReplica:    50
 ```

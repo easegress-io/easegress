@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 
 func TestMock(t *testing.T) {
 	assert := assert.New(t)
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Mock
 name: mock
 rules:
@@ -96,7 +96,7 @@ rules:
     X-Test: test3
 `
 	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {

@@ -188,18 +188,18 @@ func TestMuxReload(t *testing.T) {
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 8080
 keepAlive: true
 https: false
 `
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotPanics(func() { m.reload(superSpec, nil) })
 
-	yamlSpec = `
+	yamlConfig = `
 kind: HTTPServer
 name: test
 port: 8080
@@ -221,7 +221,7 @@ rules:
   - pathPrefix: /xyz
     backend: xyz-pipeline
 `
-	superSpec, err = supervisor.NewSpec(yamlSpec)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotPanics(func() { m.reload(superSpec, nil) })
 	m.close()
@@ -261,14 +261,14 @@ func TestServerACME(t *testing.T) {
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 8080
 keepAlive: true
 https: false
 `
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotPanics(func() { m.reload(superSpec, nil) })
 
@@ -293,7 +293,7 @@ func TestServeHTTP(t *testing.T) {
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 8080
@@ -312,7 +312,7 @@ rules:
   - pathPrefix: /xyz
     backend: xyz-pipeline
 `
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotPanics(func() { m.reload(superSpec, mm) })
 
@@ -355,7 +355,7 @@ func TestMuxInstanceSearch(t *testing.T) {
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 8080
@@ -403,7 +403,7 @@ rules:
     backend: 123-pipeline
 `
 
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotPanics(func() { m.reload(superSpec, nil) })
 	mi := m.inst.Load().(*muxInstance)

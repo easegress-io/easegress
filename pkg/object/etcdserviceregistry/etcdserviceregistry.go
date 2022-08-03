@@ -27,9 +27,9 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -68,15 +68,15 @@ type (
 
 	// Spec describes the EtcdServiceRegistry.
 	Spec struct {
-		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
-		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`
-		CacheTimeout string   `yaml:"cacheTimeout" jsonschema:"required,format=duration"`
+		Endpoints    []string `json:"endpoints" jsonschema:"required,uniqueItems=true"`
+		Prefix       string   `json:"prefix" jsonschema:"required,pattern=^/"`
+		CacheTimeout string   `json:"cacheTimeout" jsonschema:"required,format=duration"`
 	}
 
 	// Status is the status of EtcdServiceRegistry.
 	Status struct {
-		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
+		Health              string         `json:"health"`
+		ServiceInstancesNum map[string]int `json:"instancesNum"`
 	}
 )
 
@@ -294,9 +294,9 @@ func (e *EtcdServiceRegistry) ApplyServiceInstances(instances map[string]*servic
 			return fmt.Errorf("%+v is invalid: %v", instance, err)
 		}
 
-		buff, err := yaml.Marshal(instance)
+		buff, err := spectool.MarshalJSON(instance)
 		if err != nil {
-			return fmt.Errorf("marshal %+v to yaml failed: %v", instance, err)
+			return fmt.Errorf("marshal %+v to json failed: %v", instance, err)
 		}
 
 		key := e.serviceInstanceEtcdKey(instance)
@@ -341,9 +341,9 @@ func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string)
 	}
 
 	instance := &serviceregistry.ServiceInstanceSpec{}
-	err = yaml.Unmarshal(resp.Kvs[0].Value, instance)
+	err = spectool.Unmarshal(resp.Kvs[0].Value, instance)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", resp.Kvs[0].Value, err)
+		return nil, fmt.Errorf("unmarshal %s to json failed: %v", resp.Kvs[0].Value, err)
 	}
 
 	err = instance.Validate()
@@ -377,9 +377,9 @@ func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[stri
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
 	for _, kv := range resp.Kvs {
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = yaml.Unmarshal(kv.Value, instance)
+		err = spectool.Unmarshal(kv.Value, instance)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", kv.Value, err)
+			return nil, fmt.Errorf("unmarshal %s to json failed: %v", kv.Value, err)
 		}
 
 		err = instance.Validate()
@@ -403,9 +403,9 @@ func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregi
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
 	for _, kv := range resp.Kvs {
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = yaml.Unmarshal(kv.Value, instance)
+		err = spectool.Unmarshal(kv.Value, instance)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v", kv.Value, err)
+			return nil, fmt.Errorf("unmarshal %s to spectool failed: %v", kv.Value, err)
 		}
 
 		err = instance.Validate()

@@ -27,9 +27,8 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 func getRequestBuilder(spec *RequestBuilderSpec) *RequestBuilder {
@@ -44,13 +43,13 @@ func TestMethod(t *testing.T) {
 
 	// get method from request
 	// directly set body
-	yml := `template: |
+	yamlConfig := `template: |
   method: {{ .requests.request1.Method }}
   url: /
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -68,13 +67,13 @@ func TestMethod(t *testing.T) {
 	}
 
 	// set method directly
-	yml = `template: |
+	yamlConfig = `template: |
   method: get
   url: /
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -92,14 +91,14 @@ func TestMethod(t *testing.T) {
 	}
 
 	// invalid method
-	yml = `template: |
+	yamlConfig = `template: |
   method: what
   url: /
 `
 	{
 
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -113,13 +112,13 @@ func TestURL(t *testing.T) {
 	assert := assert.New(t)
 
 	// get url from request
-	yml := `template: |
+	yamlConfig := `template: |
   method: Delete
   url:  http://www.facebook.com?field1={{index .requests.request1.URL.Query.field2 0}}
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -138,13 +137,13 @@ func TestURL(t *testing.T) {
 	}
 
 	// set url directly
-	yml = `template: |
+	yamlConfig = `template: |
   method: Put
   url:  http://www.facebook.com
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -167,7 +166,7 @@ func TestRequestHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	// get header from request and response
-	yml := `template: |
+	yamlConfig := `template: |
   method: Delete
   url:  http://www.facebook.com
   headers:
@@ -176,7 +175,7 @@ func TestRequestHeader(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -210,12 +209,12 @@ func TestTemplateFuncs(t *testing.T) {
 
 	// test functions in "github.com/go-task/slim-sprig"
 	{
-		yml := `
+		yamlConfig := `
 template: |
-  body: {{ hello }} 
+  body: {{ hello }}
 `
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -229,12 +228,12 @@ template: |
 	}
 
 	{
-		yml := `
+		yamlConfig := `
 template: |
-  body: {{ lower "HELLO" }} 
+  body: {{ lower "HELLO" }}
 `
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -250,12 +249,12 @@ template: |
 
 	// test functions in "github.com/go-task/slim-sprig"
 	{
-		yml := `
+		yamlConfig := `
 template: |
   body: '{{ hello }} W{{ lower "ORLD"}}!'
 `
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -273,14 +272,14 @@ func TestRequestBody(t *testing.T) {
 	assert := assert.New(t)
 
 	// directly set body
-	yml := `template: |
+	yamlConfig := `template: |
   method: Delete
   url:  http://www.facebook.com
   body: body
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -299,14 +298,14 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using other body
-	yml = `template: |
+	yamlConfig = `template: |
   method: Delete
   url:  http://www.facebook.com
   body: body {{ .requests.request1.Body }}
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -326,14 +325,14 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using json map
-	yml = `template: |
+	yamlConfig = `template: |
   method: Delete
   url:  http://www.facebook.com
   body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -353,21 +352,21 @@ func TestRequestBody(t *testing.T) {
 	}
 
 	// set body by using yaml map
-	yml = `template: |
+	yamlConfig = `template: |
   method: Delete
   url:  http://www.facebook.com
   body: body {{ .requests.request1.YAMLBody.field1.subfield }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
 		ctx := context.New(nil)
 
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`
-field1: 
+field1:
   subfield: value1
 field2: value2
 `))
@@ -384,12 +383,12 @@ field2: value2
 	}
 
 	// use default method
-	yml = `template: |
+	yamlConfig = `template: |
   url:  http://www.facebook.com
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -403,12 +402,12 @@ field2: value2
 	}
 
 	// use default url
-	yml = `template: |
-  method: delete 
+	yamlConfig = `template: |
+  method: delete
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -423,12 +422,12 @@ field2: value2
 	}
 
 	// build request failed
-	yml = `template: |
+	yamlConfig = `template: |
   url: http://192.168.0.%31:8080/
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -444,14 +443,14 @@ func TestRequestBuilder(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(&RequestBuilderSpec{Protocol: "http"}, requestBuilderKind.DefaultSpec())
-	yamlStr := `
-name: requestBuilder 
+	yamlConfig := `
+name: requestBuilder
 kind: RequestBuilder
 template: |
   method: Delete
 `
 	rawSpec := map[string]interface{}{}
-	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	requestBuilder := requestBuilderKind.CreateInstance(spec).(*RequestBuilder)
@@ -470,12 +469,12 @@ func TestSourceNamespace(t *testing.T) {
 
 	// get method from request
 	// directly set body
-	yml := `
-sourceNamespace: request1 
+	yamlConfig := `
+sourceNamespace: request1
 `
 	{
 		spec := &RequestBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		spectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 

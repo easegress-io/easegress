@@ -59,28 +59,28 @@ type (
 
 	// Spec describes the Mock.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Rules []*Rule `yaml:"rules"`
+		Rules []*Rule `json:"rules"`
 	}
 
 	// Rule is the mock rule.
 	Rule struct {
-		Match   MatchRule         `yaml:"match" jsonschema:"required"`
-		Code    int               `yaml:"code" jsonschema:"required,format=httpcode"`
-		Headers map[string]string `yaml:"headers" jsonschema:"omitempty"`
-		Body    string            `yaml:"body" jsonschema:"omitempty"`
-		Delay   string            `yaml:"delay" jsonschema:"omitempty,format=duration"`
+		Match   MatchRule         `json:"match" jsonschema:"required"`
+		Code    int               `json:"code" jsonschema:"required,format=httpcode"`
+		Headers map[string]string `json:"headers" jsonschema:"omitempty"`
+		Body    string            `json:"body" jsonschema:"omitempty"`
+		Delay   string            `json:"delay" jsonschema:"omitempty,format=duration"`
 
 		delay time.Duration
 	}
 
 	// MatchRule is the rule to match a request
 	MatchRule struct {
-		Path            string                          `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix      string                          `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		Headers         map[string]*urlrule.StringMatch `yaml:"headers" jsonschema:"omitempty"`
-		MatchAllHeaders bool                            `yaml:"matchAllHeaders" jsonschema:"omitempty"`
+		Path            string                          `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix      string                          `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		Headers         map[string]*urlrule.StringMatch `json:"headers" jsonschema:"omitempty"`
+		MatchAllHeaders bool                            `json:"matchAllHeaders" jsonschema:"omitempty"`
 	}
 )
 

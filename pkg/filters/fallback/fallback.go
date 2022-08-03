@@ -60,11 +60,11 @@ type (
 
 	// Spec describes the Fallback.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		MockCode    int               `yaml:"mockCode" jsonschema:"required,format=httpcode"`
-		MockHeaders map[string]string `yaml:"mockHeaders" jsonschema:"omitempty"`
-		MockBody    string            `yaml:"mockBody" jsonschema:"omitempty"`
+		MockCode    int               `json:"mockCode" jsonschema:"required,format=httpcode"`
+		MockHeaders map[string]string `json:"mockHeaders" jsonschema:"omitempty"`
+		MockBody    string            `json:"mockBody" jsonschema:"omitempty"`
 	}
 )
 

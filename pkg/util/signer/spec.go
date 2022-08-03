@@ -21,14 +21,14 @@ import "time"
 
 // Spec defines the configuration of a Signer
 type Spec struct {
-	Literal         *Literal          `yaml:"literal,omitempty" json:"literal,omitempty" jsonschema:"omitempty"`
-	HeaderHoisting  *HeaderHoisting   `yaml:"headerHoisting,omitempty" json:"headerHoisting,omitempty" jsonschema:"omitempty"`
-	IgnoredHeaders  []string          `yaml:"ignoredHeaders" json:"ignoredHeaders" jsonschema:"omitempty,uniqueItems=true"`
-	ExcludeBody     bool              `yaml:"excludeBody" json:"excludeBody" jsonschema:"omitempty"`
-	TTL             string            `yaml:"ttl" json:"ttl" jsonschema:"omitempty,format=duration"`
-	AccessKeyID     string            `yaml:"accessKeyId" json:"accessKeyId" jsonschema:"omitempty"`
-	AccessKeySecret string            `yaml:"accessKeySecret" json:"accessKeySecret" jsonschema:"omitempty"`
-	AccessKeys      map[string]string `yaml:"accessKeys" json:"accessKeys" jsonschema:"omitempty"`
+	Literal         *Literal          `json:"literal,omitempty" json:"literal,omitempty" jsonschema:"omitempty"`
+	HeaderHoisting  *HeaderHoisting   `json:"headerHoisting,omitempty" json:"headerHoisting,omitempty" jsonschema:"omitempty"`
+	IgnoredHeaders  []string          `json:"ignoredHeaders" json:"ignoredHeaders" jsonschema:"omitempty,uniqueItems=true"`
+	ExcludeBody     bool              `json:"excludeBody" json:"excludeBody" jsonschema:"omitempty"`
+	TTL             string            `json:"ttl" json:"ttl" jsonschema:"omitempty,format=duration"`
+	AccessKeyID     string            `json:"accessKeyId" json:"accessKeyId" jsonschema:"omitempty"`
+	AccessKeySecret string            `json:"accessKeySecret" json:"accessKeySecret" jsonschema:"omitempty"`
+	AccessKeys      map[string]string `json:"accessKeys" json:"accessKeys" jsonschema:"omitempty"`
 	// TODO: AccessKeys is used as an internal access key store, but an external store is also needed
 }
 

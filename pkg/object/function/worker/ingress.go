@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"sync"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
@@ -31,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 const ingressFunctionKey = "X-FaaS-Func-Name"
@@ -54,15 +53,15 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind          string `yaml:"kind"`
-		Name          string `yaml:"name"`
-		pipeline.Spec `yaml:",inline"`
+		Kind          string `json:"kind"`
+		Name          string `json:"name"`
+		pipeline.Spec `json:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
-		Kind            string `yaml:"kind"`
-		Name            string `yaml:"name"`
-		httpserver.Spec `yaml:",inline"`
+		Kind            string `json:"kind"`
+		Name            string `json:"name"`
+		httpserver.Spec `json:",inline"`
 	}
 )
 
@@ -116,18 +115,18 @@ func (b *httpServerSpecBuilder) buildWithRules(spec *httpserver.Spec) *httpServe
 	return b
 }
 
-func (b *httpServerSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *httpServerSpecBuilder) jsonConfig() string {
+	buff, err := spectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
 
-func (b *pipelineSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *pipelineSpecBuilder) jsonConfig() string {
+	buff, err := spectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
@@ -191,9 +190,9 @@ func (ings *ingressServer) Init() error {
 
 	builder := newHTTPServerSpecBuilder(ings.superSpec.Name())
 	builder.buildWithOutRules(spec.HTTPServer)
-	superSpec, err := supervisor.NewSpec(builder.yamlConfig())
+	superSpec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
-		logger.Errorf("new spec for %s failed: %v", builder.yamlConfig(), err)
+		logger.Errorf("new spec for %s failed: %v", builder.jsonConfig(), err)
 		return err
 	}
 
@@ -211,9 +210,9 @@ func (ings *ingressServer) updateHTTPServer(spec *httpserver.Spec) error {
 	builder.buildWithRules(spec)
 
 	var err error
-	ings.httpServerSpec, err = supervisor.NewSpec(builder.yamlConfig())
+	ings.httpServerSpec, err = supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
-		return fmt.Errorf("BUG: new spec: %s failed: %v", builder.yamlConfig(), err)
+		return fmt.Errorf("BUG: new spec: %s failed: %v", builder.jsonConfig(), err)
 	}
 	_, err = ings.tc.ApplyTrafficGateForSpec(ings.namespace, ings.httpServerSpec)
 	if err != nil {
@@ -280,10 +279,10 @@ func (ings *ingressServer) Put(funcSpec *spec.Spec) error {
 	builder.appendReqAdaptor(funcSpec, ings.faasNamespace, ings.faasHostSuffix)
 	builder.appendProxy(ings.faasNetworkLayerURL)
 
-	yamlConfig := builder.yamlConfig()
-	superSpec, err := supervisor.NewSpec(yamlConfig)
+	jsonConfig := builder.jsonConfig()
+	superSpec, err := supervisor.NewSpec(jsonConfig)
 	if err != nil {
-		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", jsonConfig, err)
 		return err
 	}
 	if _, err = ings.tc.CreatePipelineForSpec(ings.namespace, superSpec); err != nil {

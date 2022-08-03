@@ -46,6 +46,7 @@ func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return 
 func (m *mockAsyncProducer) Input() chan<- *sarama.ProducerMessage {
 	return m.ch
 }
+
 func (m *mockAsyncProducer) Close() error {
 	return fmt.Errorf("mock producer close failed")
 }
@@ -61,6 +62,7 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 func defaultFilterSpec(t *testing.T, spec *Spec) filters.Spec {
 	spec.BaseSpec.MetaSpec.Kind = Kind
 	spec.BaseSpec.MetaSpec.Name = "kafka"
+	spec.Backend = []string{"backend"}
 	result, err := filters.NewSpec(nil, "pipeline-demo", spec)
 	assert.Nil(t, err)
 	return result

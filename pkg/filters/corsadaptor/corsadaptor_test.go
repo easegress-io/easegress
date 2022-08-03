@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,12 +38,12 @@ func TestCORSAdaptor(t *testing.T) {
 	assert := assert.New(t)
 
 	t.Run("CORS preflight-request", func(t *testing.T) {
-		const yamlSpec = `
+		const yamlConfig = `
 kind: CORSAdaptor
 name: cors
 `
 		rawSpec := make(map[string]interface{})
-		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+		spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {
@@ -82,7 +82,7 @@ name: cors
 	})
 
 	t.Run("CORS request", func(t *testing.T) {
-		const yamlSpec = `
+		const yamlConfig = `
 kind: CORSAdaptor
 name: cors
 supportCORSRequest: true
@@ -90,7 +90,7 @@ allowedOrigins:
   - test.orig.test
 `
 		rawSpec := make(map[string]interface{})
-		yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+		spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {

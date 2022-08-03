@@ -29,9 +29,9 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -252,7 +252,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generate sidecar egress pipeline failed: %v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
@@ -301,7 +301,7 @@ func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
 	}
 
 	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressPipelineSpecWithMock(t *testing.T) {
@@ -416,7 +416,7 @@ func TestSidecarEgressPipelneNotLoadBalancer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sidecar egress pipeline spec gen failed: %v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
@@ -465,7 +465,7 @@ func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	}
 
 	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
@@ -514,7 +514,7 @@ func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	}
 
 	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) {
@@ -564,7 +564,7 @@ func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 	}
 
 	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestIngressHTTPServerSpec(t *testing.T) {
@@ -624,7 +624,7 @@ func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 	}
 
 	superSpec, _ := s.SidecarIngressPipelineSpec(443)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
@@ -685,7 +685,7 @@ func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 	}
 
 	superSpec, _ := s.SidecarEgressPipelineSpec(instanceSpecs, nil, nil, nil)
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestPipelineBuilderFailed(t *testing.T) {
@@ -697,8 +697,8 @@ func TestPipelineBuilderFailed(t *testing.T) {
 
 	builder.appendRetry(nil)
 
-	yamlStr := builder.yamlConfig()
-	if len(yamlStr) == 0 {
+	jsonConfig := builder.jsonConfig()
+	if len(jsonConfig) == 0 {
 		t.Errorf("builder append nil resilience filter failed")
 	}
 }
@@ -728,9 +728,9 @@ func TestPipelineBuilder(t *testing.T) {
 	}
 
 	builder.appendRateLimiter(rateLimiter)
-	yaml := builder.yamlConfig()
+	jsonConfig := builder.jsonConfig()
 
-	if len(yaml) == 0 {
+	if len(jsonConfig) == 0 {
 		t.Errorf("pipeline builder yamlconfig failed")
 	}
 }
@@ -784,7 +784,7 @@ func TestIngressPipelineSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarIngressPipelineSpecCert(t *testing.T) {
@@ -821,7 +821,7 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 
 	superSpec, err = s.SidecarEgressHTTPServerSpec(true, defaultKeepAliveTimeout)
 
@@ -829,7 +829,7 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 		t.Fatalf("egress http server spec failed: %v", err)
 	}
 
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestSidecarIngressPipelineSpec(t *testing.T) {
@@ -851,7 +851,7 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ingress http server spec failed: %v", err)
 	}
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 
 	superSpec, err = s.SidecarEgressHTTPServerSpec(false, "")
 
@@ -859,7 +859,7 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 		t.Fatalf("egress http server spec failed: %v", err)
 	}
 
-	fmt.Println(superSpec.YAMLConfig())
+	fmt.Println(superSpec.JSONConfig())
 }
 
 func TestEgressName(t *testing.T) {
@@ -899,14 +899,14 @@ func TestCustomResource(t *testing.T) {
 		"sub1", "sub2",
 	}
 
-	data, err := yaml.Marshal(r)
+	data, err := spectool.MarshalJSON(r)
 	if err != nil {
-		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+		t.Errorf("marshal should succeed: %v", err.Error())
 	}
 
-	err = yaml.Unmarshal(data, &r)
+	err = spectool.Unmarshal(data, &r)
 	if err != nil {
-		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
+		t.Errorf("marshal should succeed: %v", err.Error())
 	}
 
 	if _, ok := r["field1"].(map[string]interface{}); !ok {
@@ -960,7 +960,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 		instanceSpecs: instances,
 		canaries:      canaries,
 	})
-	buff, _ := yaml.Marshal(b.Spec)
+	buff, _ := spectool.MarshalJSON(b.Spec)
 	t.Logf("%s", buff)
 }
 
@@ -987,6 +987,6 @@ func TestAppendMeshAdaptor(t *testing.T) {
 	}
 
 	b.appendMeshAdaptor(canaries)
-	buff, _ := yaml.Marshal(b.Spec)
+	buff, _ := spectool.MarshalJSON(b.Spec)
 	t.Logf("%s", buff)
 }

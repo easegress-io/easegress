@@ -24,9 +24,8 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 func aboutText() string {
@@ -37,7 +36,7 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 
 const (
 	// APIPrefix is the prefix of api.
-	APIPrefix = "/apis/v1"
+	APIPrefix = "/apis/v2"
 
 	lockKey = "/config/lock"
 
@@ -156,10 +155,12 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(apisByOrder(apiGroups))
 
-	buff, err := yaml.Marshal(apiGroups)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", apiGroups, err))
-	}
-	w.Header().Set("Content-Type", "text/vnd.yaml")
+	buff := spectool.MustMarshalJSON(apiGroups)
+
+	s.writeJSONBody(w, buff)
+}
+
+func (s *Server) writeJSONBody(w http.ResponseWriter, buff []byte) {
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(buff)
 }

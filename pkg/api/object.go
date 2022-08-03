@@ -24,9 +24,9 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 const (
@@ -162,10 +162,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reference: https://mailarchive.ietf.org/arch/msg/media-types/e9ZNC0hDXKXeFlAVRWxLCCaG9GI
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-
-	w.Write([]byte(spec.YAMLConfig()))
+	s.writeJSONBody(w, []byte(spec.JSONConfig()))
 }
 
 func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
@@ -208,9 +205,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-
-	w.Write(buff)
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
@@ -225,14 +220,9 @@ func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
 
 	status := s._getStatusObject(name)
 
-	buff, err := yaml.Marshal(status)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
-	}
+	buff := spectool.MustMarshalJSON(status)
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-
-	w.Write(buff)
+	s.writeJSONBody(w, buff)
 }
 
 func (s *Server) listStatusObjects(w http.ResponseWriter, r *http.Request) {
@@ -240,14 +230,9 @@ func (s *Server) listStatusObjects(w http.ResponseWriter, r *http.Request) {
 
 	status := s._listStatusObjects()
 
-	buff, err := yaml.Marshal(status)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", status, err))
-	}
+	buff := spectool.MustMarshalJSON(status)
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-
-	w.Write(buff)
+	s.writeJSONBody(w, buff)
 }
 
 type specList []*supervisor.Spec
@@ -259,17 +244,17 @@ func (s specList) Marshal() ([]byte, error) {
 	specs := []map[string]interface{}{}
 	for _, spec := range s {
 		var m map[string]interface{}
-		err := yaml.Unmarshal([]byte(spec.YAMLConfig()), &m)
+		err := spectool.Unmarshal([]byte(spec.JSONConfig()), &m)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal %s to yaml failed: %v",
-				spec.YAMLConfig(), err)
+			return nil, fmt.Errorf("unmarshal %s to json failed: %v",
+				spec.JSONConfig(), err)
 		}
 		specs = append(specs, m)
 	}
 
-	buff, err := yaml.Marshal(specs)
+	buff, err := spectool.MarshalJSON(specs)
 	if err != nil {
-		return nil, fmt.Errorf("marshal %#v to yaml failed: %v", specs, err)
+		return nil, fmt.Errorf("marshal %#v to json failed: %v", specs, err)
 	}
 
 	return buff, nil
@@ -277,10 +262,8 @@ func (s specList) Marshal() ([]byte, error) {
 
 func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	kinds := supervisor.ObjectKinds()
-	buff, err := yaml.Marshal(kinds)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", kinds, err))
-	}
 
-	w.Write(buff)
+	buff := spectool.MustMarshalJSON(kinds)
+
+	s.writeJSONBody(w, buff)
 }

@@ -26,23 +26,23 @@ type (
 	// ServiceInstanceSpec is the service instance spec in Easegress.
 	ServiceInstanceSpec struct {
 		// RegistryName is required.
-		RegistryName string `yaml:"registryName"`
+		RegistryName string `json:"registryName"`
 		// ServiceName is required.
-		ServiceName string `yaml:"serviceName"`
+		ServiceName string `json:"serviceName"`
 		// InstanceID is required.
-		InstanceID string `yaml:"instanceID"`
+		InstanceID string `json:"instanceID"`
 
 		// Address is required.
-		Address string `yaml:"address"`
+		Address string `json:"address"`
 		// Port is required.
-		Port uint16 `yaml:"port"`
+		Port uint16 `json:"port"`
 
 		// Scheme is optional.
-		Scheme string `yaml:"scheme"`
+		Scheme string `json:"scheme"`
 		// Tags is optional.
-		Tags []string `yaml:"tags"`
+		Tags []string `json:"tags"`
 		// Weight is optional.
-		Weight int `yaml:"weight"`
+		Weight int `json:"weight"`
 	}
 )
 

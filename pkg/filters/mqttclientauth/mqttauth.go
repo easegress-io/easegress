@@ -60,19 +60,19 @@ type (
 	}
 
 	// Spec is spec for MQTTClientAuth.
-	// For security of password, passwords in yaml file should be salted SHA256 checksum.
+	// For security of password, passwords in json file should be salted SHA256 checksum.
 	// password = sha256sum(connect.password + salt)
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Salt string  `yaml:"salt" jsonschema:"omitempty"`
-		Auth []*Auth `yaml:"auth" jsonschema:"required"`
+		Salt string  `json:"salt" jsonschema:"omitempty"`
+		Auth []*Auth `json:"auth" jsonschema:"required"`
 	}
 
 	// Auth describes username and password for MQTTProxy
 	Auth struct {
-		Username         string `yaml:"username" jsonschema:"required"`
-		SaltedSha256Pass string `yaml:"saltedSha256Pass" jsonschema:"required"`
+		Username         string `json:"username" jsonschema:"required"`
+		SaltedSha256Pass string `json:"saltedSha256Pass" jsonschema:"required"`
 	}
 )
 

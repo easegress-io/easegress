@@ -186,7 +186,7 @@ func (ings *IngressServer) reloadHTTPServer(event informer.Event, value *spec.Ce
 	superSpec, err := serviceSpec.SidecarIngressHTTPServerSpec(admSpec.WorkerSpec.Ingress.KeepAlive, admSpec.WorkerSpec.Ingress.KeepAliveTimeout, value, rootCert)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
-			superSpec.YAMLConfig(), err)
+			superSpec.JSONConfig(), err)
 		return true
 	}
 
@@ -214,7 +214,7 @@ func (ings *IngressServer) reloadPipeline(event informer.Event, serviceSpec *spe
 	superSpec, err := serviceSpec.SidecarIngressPipelineSpec(ings.applicationPort)
 	if err != nil {
 		logger.Errorf("BUG: update ingress pipeline spec: %s new super spec failed: %v",
-			superSpec.YAMLConfig(), err)
+			superSpec.JSONConfig(), err)
 		return true
 	}
 

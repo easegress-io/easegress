@@ -55,21 +55,21 @@ var ErrShortCircuited = errors.New("the call was short circuited")
 type (
 	// CircuitBreakerPolicy defines the circuit break policy.
 	CircuitBreakerPolicy struct {
-		BaseSpec           `yaml:",inline"`
-		CircuitBreakerRule `yaml:",inline"`
+		BaseSpec           `json:",inline"`
+		CircuitBreakerRule `json:",inline"`
 	}
 
 	// CircuitBreakerRule is the detailed config of circuit breaker.
 	CircuitBreakerRule struct {
-		SlidingWindowType                string `yaml:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
-		FailureRateThreshold             uint8  `yaml:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlowCallRateThreshold            uint8  `yaml:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlidingWindowSize                uint32 `yaml:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
-		PermittedNumberOfCallsInHalfOpen uint32 `yaml:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
-		MinimumNumberOfCalls             uint32 `yaml:"minimumNumberOfCalls" jsonschema:"omitempty"`
-		SlowCallDurationThreshold        string `yaml:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
-		MaxWaitDurationInHalfOpen        string `yaml:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
-		WaitDurationInOpen               string `yaml:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
+		SlidingWindowType                string `json:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
+		FailureRateThreshold             uint8  `json:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		SlowCallRateThreshold            uint8  `json:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
+		SlidingWindowSize                uint32 `json:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
+		PermittedNumberOfCallsInHalfOpen uint32 `json:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
+		MinimumNumberOfCalls             uint32 `json:"minimumNumberOfCalls" jsonschema:"omitempty"`
+		SlowCallDurationThreshold        string `json:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
+		MaxWaitDurationInHalfOpen        string `json:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
+		WaitDurationInOpen               string `json:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
 	}
 )
 

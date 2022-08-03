@@ -22,22 +22,22 @@ import "github.com/megaease/easegress/pkg/filters"
 type (
 	// Spec is spec of Kafka
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
-		Topic   *Topic   `yaml:"topic" jsonschema:"required"`
-		KVMap   *KVMap   `yaml:"mqtt" jsonschema:"required"`
+		Backend []string `json:"backend" jsonschema:"required,uniqueItems=true"`
+		Topic   *Topic   `json:"topic" jsonschema:"required"`
+		KVMap   *KVMap   `json:"mqtt" jsonschema:"required"`
 	}
 
 	// Topic defined ways to get Kafka topic
 	Topic struct {
-		Default string `yaml:"default" jsonschema:"required"`
+		Default string `json:"default" jsonschema:"required"`
 	}
 
 	// KVMap defines ways to get kafka data from MQTTContext kv map
 	KVMap struct {
-		TopicKey   string `yaml:"topicKey" jsonschema:"required"`
-		HeaderKey  string `yaml:"headerKey" jsonschema:"required"`
-		PayloadKey string `yaml:"payloadKey" jsonschema:"required"`
+		TopicKey   string `json:"topicKey" jsonschema:"required"`
+		HeaderKey  string `json:"headerKey" jsonschema:"required"`
+		PayloadKey string `json:"payloadKey" jsonschema:"required"`
 	}
 )

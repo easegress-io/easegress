@@ -22,9 +22,8 @@ import (
 	"strconv"
 	"strings"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 func (s *Server) _purgeMember(memberName string) {
@@ -77,7 +76,7 @@ func (s *Server) _getObject(name string) *supervisor.Spec {
 
 	spec, err := s.super.NewSpec(*value)
 	if err != nil {
-		panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, *value))
+		panic(fmt.Errorf("bad spec(err: %v) from json: %s", err, *value))
 	}
 
 	return spec
@@ -93,7 +92,7 @@ func (s *Server) _listObjects() []*supervisor.Spec {
 	for _, v := range kvs {
 		spec, err := s.super.NewSpec(v)
 		if err != nil {
-			panic(fmt.Errorf("bad spec(err: %v) from yaml: %s", err, v))
+			panic(fmt.Errorf("bad spec(err: %v) from json: %s", err, v))
 		}
 		specs = append(specs, spec)
 	}
@@ -103,7 +102,7 @@ func (s *Server) _listObjects() []*supervisor.Spec {
 
 func (s *Server) _putObject(spec *supervisor.Spec) {
 	err := s.cluster.Put(s.cluster.Layout().ConfigObjectKey(spec.Name()),
-		spec.YAMLConfig())
+		spec.JSONConfig())
 	if err != nil {
 		ClusterPanic(err)
 	}
@@ -125,7 +124,7 @@ func (s *Server) _getStatusObject(name string) map[string]string {
 
 	status := make(map[string]string)
 	for k, v := range kvs {
-		// NOTE: Here omitting the step yaml.Unmarshal in _listStatusObjects.
+		// NOTE: Here omitting the step json.Unmarshal in _listStatusObjects.
 		status[strings.TrimPrefix(k, prefix)] = v
 	}
 
@@ -145,9 +144,9 @@ func (s *Server) _listStatusObjects() map[string]interface{} {
 
 		// NOTE: This needs top-level of the status to be a map.
 		m := map[string]interface{}{}
-		err = yaml.Unmarshal([]byte(v), &m)
+		err = spectool.Unmarshal([]byte(v), &m)
 		if err != nil {
-			ClusterPanic(fmt.Errorf("unmarshal %s to yaml failed: %v", v, err))
+			ClusterPanic(fmt.Errorf("unmarshal %s to json failed: %v", v, err))
 		}
 		status[k] = m
 	}

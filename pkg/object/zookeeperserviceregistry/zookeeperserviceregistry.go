@@ -26,9 +26,9 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 
 	zookeeper "github.com/go-zookeeper/zk"
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -67,16 +67,16 @@ type (
 
 	// Spec describes the ZookeeperServiceRegistry.
 	Spec struct {
-		ConnTimeout  string   `yaml:"conntimeout" jsonschema:"required,format=duration"`
-		ZKServices   []string `yaml:"zkservices" jsonschema:"required,uniqueItems=true"`
-		Prefix       string   `yaml:"prefix" jsonschema:"required,pattern=^/"`
-		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`
+		ConnTimeout  string   `json:"conntimeout" jsonschema:"required,format=duration"`
+		ZKServices   []string `json:"zkservices" jsonschema:"required,uniqueItems=true"`
+		Prefix       string   `json:"prefix" jsonschema:"required,pattern=^/"`
+		SyncInterval string   `json:"syncInterval" jsonschema:"required,format=duration"`
 	}
 
 	// Status is the status of ZookeeperServiceRegistry.
 	Status struct {
-		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"serviceInstancesNum"`
+		Health              string         `json:"health"`
+		ServiceInstancesNum map[string]int `json:"serviceInstancesNum"`
 	}
 )
 
@@ -303,9 +303,9 @@ func (zk *ZookeeperServiceRegistry) ApplyServiceInstances(serviceInstances map[s
 	}
 
 	for _, instance := range serviceInstances {
-		buff, err := yaml.Marshal(instance)
+		buff, err := spectool.MarshalJSON(instance)
 		if err != nil {
-			return fmt.Errorf("marshal %+v to yaml failed: %v", instance, err)
+			return fmt.Errorf("marshal %+v to json failed: %v", instance, err)
 		}
 
 		path := zk.serviceInstanceZookeeperPath(instance)
@@ -375,9 +375,9 @@ func (zk *ZookeeperServiceRegistry) ListServiceInstances(serviceName string) (ma
 		}
 
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = yaml.Unmarshal(data, instance)
+		err = spectool.Unmarshal(data, instance)
 		if err != nil {
-			return nil, fmt.Errorf("%s unmarshal fullpath %s to yaml failed: %v", zk.superSpec.Name(), fullPath, err)
+			return nil, fmt.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
 		}
 
 		err = instance.Validate()
@@ -413,9 +413,9 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 		}
 
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = yaml.Unmarshal(data, instance)
+		err = spectool.Unmarshal(data, instance)
 		if err != nil {
-			return nil, fmt.Errorf("%s unmarshal fullpath %s to yaml failed: %v", zk.superSpec.Name(), fullPath, err)
+			return nil, fmt.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
 		}
 
 		err = instance.Validate()

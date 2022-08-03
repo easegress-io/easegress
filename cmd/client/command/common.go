@@ -23,9 +23,8 @@ import (
 	"io"
 	"net/http"
 
-	yamljsontool "github.com/ghodss/yaml"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 )
 
 type (
@@ -37,8 +36,8 @@ type (
 
 	// APIErr is the standard return of error.
 	APIErr struct {
-		Code    int    `yaml:"code"`
-		Message string `yaml:"message"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
 	}
 )
 
@@ -46,7 +45,7 @@ type (
 var CommandlineGlobalFlags GlobalFlags
 
 const (
-	apiURL = "/apis/v1"
+	apiURL = "/apis/v2"
 
 	healthURL = apiURL + "/healthz"
 
@@ -123,8 +122,17 @@ func successfulStatusCode(code int) bool {
 	return code >= 200 && code < 300
 }
 
-func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Command) {
-	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(reqBody))
+func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) {
+	var jsonBody []byte
+	if yamlBody != nil {
+		var err error
+		jsonBody, err = spectool.YAMLToJSON(yamlBody)
+		if err != nil {
+			ExitWithErrorf("yaml %s to json failed: %v", yamlBody, err)
+		}
+	}
+
+	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
 	if err != nil {
 		ExitWithError(err)
 	}
@@ -143,7 +151,7 @@ func handleRequest(httpMethod string, url string, reqBody []byte, cmd *cobra.Com
 	if !successfulStatusCode(resp.StatusCode) {
 		msg := string(body)
 		apiErr := &APIErr{}
-		err = yaml.Unmarshal(body, apiErr)
+		err = spectool.Unmarshal(body, apiErr)
 		if err == nil {
 			msg = apiErr.Message
 		}
@@ -159,13 +167,13 @@ func printBody(body []byte) {
 	var output []byte
 	switch CommandlineGlobalFlags.OutputFormat {
 	case "yaml":
-		output = body
-	case "json":
 		var err error
-		output, err = yamljsontool.YAMLToJSON(body)
+		output, err = spectool.JSONToYAML(body)
 		if err != nil {
-			ExitWithErrorf("yaml %s to json failed: %v", body, err)
+			ExitWithErrorf("json %s to yaml failed: %v", body, err)
 		}
+	case "json":
+		output = body
 	}
 
 	fmt.Printf("%s", output)

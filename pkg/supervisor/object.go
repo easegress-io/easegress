@@ -28,11 +28,10 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 type (
@@ -85,7 +84,7 @@ type (
 
 const (
 	syncInternal   = 1 * time.Minute
-	configFileName = "running_objects.yaml"
+	configFileName = "running_objects.json"
 )
 
 // FilterCategory returns a bool function to check if the object entity is filtered by category or not
@@ -197,8 +196,8 @@ func (or *ObjectRegistry) applyConfig(config map[string]string) {
 		}
 	}
 
-	for name, yamlConfig := range config {
-		entity, err := or.super.NewObjectEntityFromConfig(yamlConfig)
+	for name, jsonConfig := range config {
+		entity, err := or.super.NewObjectEntityFromConfig(jsonConfig)
 		if err != nil {
 			logger.Errorf("BUG: %s: %v", name, err)
 			continue
@@ -293,9 +292,9 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
 
-	configBuff, err := yaml.Marshal(config)
+	configBuff, err := spectool.MarshalJSON(config)
 	if err != nil {
-		logger.Errorf("marshal %s to yaml failed: %v", buff, err)
+		logger.Errorf("marshal %s to json failed: %v", buff, err)
 		return
 	}
 	buff.Write(configBuff)
@@ -331,10 +330,10 @@ func (w *ObjectEntityWatcher) Entities() map[string]*ObjectEntity {
 }
 
 // NewObjectEntityFromConfig creates an object entity from configuration
-func (s *Supervisor) NewObjectEntityFromConfig(config string) (*ObjectEntity, error) {
-	spec, err := s.NewSpec(config)
+func (s *Supervisor) NewObjectEntityFromConfig(jsonConfig string) (*ObjectEntity, error) {
+	spec, err := s.NewSpec(jsonConfig)
 	if err != nil {
-		return nil, fmt.Errorf("create spec failed: %s: %v", config, err)
+		return nil, fmt.Errorf("create spec failed: %s: %v", jsonConfig, err)
 	}
 
 	return s.NewObjectEntityFromSpec(spec)

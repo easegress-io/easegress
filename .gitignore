@@ -29,8 +29,8 @@ build/cache
 build/bin
 
 easegress.pid
+running_objects.json
 
 *.exe
 
-running_objects.yaml
 nacos/

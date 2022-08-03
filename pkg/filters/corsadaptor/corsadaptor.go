@@ -61,17 +61,17 @@ type (
 
 	// Spec describes of CORSAdaptor.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		AllowedOrigins   []string `yaml:"allowedOrigins" jsonschema:"omitempty"`
-		AllowedMethods   []string `yaml:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		AllowedHeaders   []string `yaml:"allowedHeaders" jsonschema:"omitempty"`
-		AllowCredentials bool     `yaml:"allowCredentials" jsonschema:"omitempty"`
-		ExposedHeaders   []string `yaml:"exposedHeaders" jsonschema:"omitempty"`
-		MaxAge           int      `yaml:"maxAge" jsonschema:"omitempty"`
+		AllowedOrigins   []string `json:"allowedOrigins" jsonschema:"omitempty"`
+		AllowedMethods   []string `json:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		AllowedHeaders   []string `json:"allowedHeaders" jsonschema:"omitempty"`
+		AllowCredentials bool     `json:"allowCredentials" jsonschema:"omitempty"`
+		ExposedHeaders   []string `json:"exposedHeaders" jsonschema:"omitempty"`
+		MaxAge           int      `json:"maxAge" jsonschema:"omitempty"`
 		// If true, handle requests with 'Origin' header. https://fetch.spec.whatwg.org/#http-requests
 		// By default, only CORS-preflight requests are handled.
-		SupportCORSRequest bool `yaml:"supportCORSRequest" jsonschema:"omitempty"`
+		SupportCORSRequest bool `json:"supportCORSRequest" jsonschema:"omitempty"`
 	}
 )
 

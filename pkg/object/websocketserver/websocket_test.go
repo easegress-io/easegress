@@ -33,9 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	testUpgrader = &websocket.Upgrader{}
-)
+var testUpgrader = &websocket.Upgrader{}
 
 func init() {
 	logger.InitNop()
@@ -87,9 +85,9 @@ func getTestServer(t *testing.T, addr string) *http.Server {
 	return server
 }
 
-func getWebSocket(t *testing.T, yamlStr string, checkURL string) *WebSocketServer {
+func getWebSocket(t *testing.T, yamlConfig string, checkURL string) *WebSocketServer {
 	super := supervisor.NewDefaultMock()
-	superSpec, err := super.NewSpec(yamlStr)
+	superSpec, err := super.NewSpec(yamlConfig)
 	ws := &WebSocketServer{}
 	require.Nil(t, err)
 	ws.Init(superSpec)
@@ -132,13 +130,13 @@ func TestWebSocket(t *testing.T) {
 	testSrv := getTestServer(t, "127.0.0.1:8000")
 	defer testSrv.Close()
 
-	wsYaml := `
+	yamlConfig := `
 kind: WebSocketServer
 name: websocket-demo
 port: 10081
 https: false
 backend: ws://127.0.0.1:8000`
-	ws := getWebSocket(t, wsYaml, "ws://127.0.0.1:10081")
+	ws := getWebSocket(t, yamlConfig, "ws://127.0.0.1:10081")
 
 	clientNum := 50
 	wg := &sync.WaitGroup{}
@@ -189,19 +187,19 @@ func TestWebSocketEmptyTLS(t *testing.T) {
 	testSrv := getTestServer(t, "127.0.0.1:8000")
 	defer testSrv.Close()
 
-	wsYaml := `
+	yamlConfig := `
 kind: WebSocketServer
 name: websocket-demo
 port: 10081
 https: true
 backend: wss://127.0.0.1:8000
-certBase64: 1234
-keyBase64: 2234
-wssCertBase64: 3234
-wssKeyBase64: 4234
+certBase64: "1234"
+keyBase64: "2234"
+wssCertBase64: "3234"
+wssKeyBase64: "4234"
 `
 	super := supervisor.NewDefaultMock()
-	superSpec, err := super.NewSpec(wsYaml)
+	superSpec, err := super.NewSpec(yamlConfig)
 	require.Nil(t, err)
 
 	_, err = superSpec.ObjectSpec().(*Spec).tlsConfig()

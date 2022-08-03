@@ -22,8 +22,8 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easegress/pkg/v"
-	"gopkg.in/yaml.v2"
 )
 
 type (
@@ -61,7 +61,7 @@ type (
 
 	// BaseSpec is the universal spec for all resilience policies.
 	BaseSpec struct {
-		supervisor.MetaSpec `yaml:",inline"`
+		supervisor.MetaSpec `json:",inline"`
 	}
 )
 
@@ -74,14 +74,14 @@ func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 		}
 	}()
 
-	yamlBuff, err := yaml.Marshal(rawSpec)
+	jsonBuff, err := spectool.MarshalJSON(rawSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	// Meta part.
 	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
-	if err = yaml.Unmarshal(yamlBuff, &meta); err != nil {
+	if err = spectool.Unmarshal(jsonBuff, &meta); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(&meta); !vr.Valid() {
@@ -94,7 +94,7 @@ func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 	policy = kind.DefaultPolicy()
-	if err = yaml.Unmarshal(yamlBuff, policy); err != nil {
+	if err = spectool.Unmarshal(jsonBuff, policy); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(policy); !vr.Valid() {

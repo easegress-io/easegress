@@ -30,25 +30,24 @@ import (
 	"github.com/tg123/go-htpasswd"
 	"golang.org/x/crypto/bcrypt"
 
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 type (
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
 	// There are 'file' and 'etcd' modes.
 	BasicAuthValidatorSpec struct {
-		Mode string `yaml:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD"`
+		Mode string `json:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD"`
 		// Required for 'FILE' mode.
 		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
 		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
 		// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
-		UserFile string `yaml:"userFile" jsonschema:"omitempty"`
+		UserFile string `json:"userFile" jsonschema:"omitempty"`
 		// Required for 'ETCD' mode.
 		// When EtcdPrefix is specified, verify user credentials from etcd. Etcd should store them:
 		// key: /custom-data/{etcdPrefix}/{$key}
@@ -58,7 +57,7 @@ type (
 		//   password: "$password"
 		// Username and password are used for Basic Authentication. If "username" is empty, the value of "key"
 		// entry is used as username for Basic Auth.
-		EtcdPrefix string `yaml:"etcdPrefix" jsonschema:"omitempty"`
+		EtcdPrefix string `json:"etcdPrefix" jsonschema:"omitempty"`
 	}
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
@@ -94,9 +93,9 @@ type (
 
 	// etcdCredentials defines the format for credentials in etcd
 	etcdCredentials struct {
-		Key  string `yaml:"key" jsonschema:"omitempty"`
-		User string `yaml:"username" jsonschema:"omitempty"`
-		Pass string `yaml:"password" jsonschema:"required"`
+		Key  string `json:"key" jsonschema:"omitempty"`
+		User string `json:"username" jsonschema:"omitempty"`
+		Pass string `json:"password" jsonschema:"required"`
 	}
 )
 
@@ -232,7 +231,7 @@ func kvsToReader(kvs map[string]string) io.Reader {
 	pwStrSlice := make([]string, 0, len(kvs))
 	for _, item := range kvs {
 		creds := &etcdCredentials{}
-		err := yaml.Unmarshal([]byte(item), creds)
+		err := spectool.Unmarshal([]byte(item), creds)
 		if err != nil {
 			logger.Errorf(err.Error())
 			continue

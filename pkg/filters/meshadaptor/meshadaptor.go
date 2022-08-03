@@ -57,14 +57,14 @@ type (
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
-		ServiceCanaries  []*ServiceCanaryAdaptor `yaml:"serviceCanaries" jsonschema:"omitempty"`
+		filters.BaseSpec `json:",inline"`
+		ServiceCanaries  []*ServiceCanaryAdaptor `json:"serviceCanaries" jsonschema:"omitempty"`
 	}
 
 	// ServiceCanaryAdaptor is the service canary adaptor.
 	ServiceCanaryAdaptor struct {
-		Header *httpheader.AdaptSpec     `yaml:"header,omitempty" jsonschema:"required"`
-		Filter *proxy.RequestMatcherSpec `yaml:"filter" jsonschema:"required"`
+		Header *httpheader.AdaptSpec     `json:"header,omitempty" jsonschema:"required"`
+		Filter *proxy.RequestMatcherSpec `json:"filter" jsonschema:"required"`
 
 		filter proxy.RequestMatcher
 	}

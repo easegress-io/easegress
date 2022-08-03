@@ -56,17 +56,17 @@ type (
 
 	// Spec describes the CertExtractor.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		CertIndex int16  `yaml:"certIndex" jsonschema:"required"`
-		Target    string `yaml:"target" jsonschema:"required,enum=subject,enum=issuer"`
+		CertIndex int16  `json:"certIndex" jsonschema:"required"`
+		Target    string `json:"target" jsonschema:"required,enum=subject,enum=issuer"`
 		// Different field options listed here https://pkg.go.dev/crypto/x509/pkix#Name
-		Field     string `yaml:"field" jsonschema:"required,enum=Country,enum=Organization,enum=OrganizationalUnit,enum=Locality,enum=Province,enum=StreetAddress,enum=PostalCode,enum=SerialNumber,enum=CommonName"`
-		HeaderKey string `yaml:"headerKey" jsonschema:"required"`
+		Field     string `json:"field" jsonschema:"required,enum=Country,enum=Organization,enum=OrganizationalUnit,enum=Locality,enum=Province,enum=StreetAddress,enum=PostalCode,enum=SerialNumber,enum=CommonName"`
+		HeaderKey string `json:"headerKey" jsonschema:"required"`
 	}
 )
 
-// Validate is dummy as yaml rules already validate Spec.
+// Validate is dummy as jsonschema has already validated Spec.
 func (spec *Spec) Validate() error { return nil }
 
 // Name returns the name of the CertExtractor filter instance.

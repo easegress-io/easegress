@@ -19,20 +19,19 @@ package jmxtool
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 // JSONToKVMap converts JSON string to key value pairs
 func JSONToKVMap(jsonStr string) (map[string]string, error) {
 	m := map[string]interface{}{}
-	err := json.Unmarshal([]byte(jsonStr), &m)
+	err := spectool.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {
 		return nil, err
 	}
@@ -86,13 +85,12 @@ func join(prefix string, current string) string {
 		return current
 	}
 	return strings.Join([]string{prefix, current}, ".")
-
 }
 
 // APIErr is the error struct for API
 type APIErr struct {
-	Code    int    `yaml:"code"`
-	Message string `yaml:"message"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 func handleRequest(httpMethod string, url string, reqBody []byte) ([]byte, error) {
@@ -118,7 +116,7 @@ func handleRequest(httpMethod string, url string, reqBody []byte) ([]byte, error
 
 	msg := string(body)
 	apiErr := &APIErr{}
-	err = yaml.Unmarshal(body, apiErr)
+	err = spectool.Unmarshal(body, apiErr)
 	if err == nil {
 		msg = apiErr.Message
 	}
