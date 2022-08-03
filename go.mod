@@ -57,7 +57,6 @@ require (
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
-	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
@@ -82,7 +81,6 @@ require (
 	github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211221011931-643d94fcab96 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
@@ -148,7 +146,6 @@ require (
 	github.com/iancoleman/orderedmap v0.2.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
-	github.com/invopop/jsonschema v0.5.0 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
@@ -243,6 +240,7 @@ require (
 	gopkg.in/ini.v1 v1.66.4 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.1.0 // indirect
 	k8s.io/apiextensions-apiserver v0.23.4 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
