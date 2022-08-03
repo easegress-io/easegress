@@ -325,7 +325,7 @@ func (r *runtime) startHTTP1And2Server() {
 			srv.TLSConfig = tlsConfig
 			err = srv.ServeTLS(limitListener, "", "")
 		} else {
-			err = r.server.Serve(limitListener)
+			err = srv.Serve(limitListener)
 		}
 		if err != http.ErrServerClosed {
 			r.eventChan <- &eventServeFailed{
