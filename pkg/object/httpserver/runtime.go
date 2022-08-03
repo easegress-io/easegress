@@ -273,9 +273,12 @@ func (r *runtime) startHTTP3Server() {
 		r.server3.QuicConfig.KeepAlivePeriod = keepAliveTimeout
 	}
 
+	// to avoid data race
+	startNum := r.startNum
+	srv := r.server3
+
 	go func() {
-		startNum := r.startNum
-		if err := r.server3.ListenAndServe(); err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			r.eventChan <- &eventServeFailed{
 				err:      err,
 				startNum: startNum,
@@ -310,13 +313,17 @@ func (r *runtime) startHTTP1And2Server() {
 	limitListener := limitlistener.NewLimitListener(listener, r.spec.MaxConnections)
 	r.limitListener = limitListener
 
+	// to avoid data race
+	spec := r.spec
+	startNum := r.startNum
+	srv := r.server
+
 	go func() {
-		startNum := r.startNum
 		var err error
-		if r.spec.HTTPS {
-			tlsConfig, _ := r.spec.tlsConfig()
-			r.server.TLSConfig = tlsConfig
-			err = r.server.ServeTLS(limitListener, "", "")
+		if spec.HTTPS {
+			tlsConfig, _ := spec.tlsConfig()
+			srv.TLSConfig = tlsConfig
+			err = srv.ServeTLS(limitListener, "", "")
 		} else {
 			err = r.server.Serve(limitListener)
 		}
