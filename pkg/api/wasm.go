@@ -22,7 +22,6 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -101,7 +100,7 @@ func (s *Server) wasmListData(w http.ResponseWriter, r *http.Request) {
 		data[k] = v
 	}
 
-	buff := spectool.MustMarshal(data)
+	buff := spectool.MustMarshalJSON(data)
 
 	s.writeJSONBody(w, buff)
 }
@@ -115,7 +114,7 @@ func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := make(map[string]string)
-	if e = spectool.Decode(r.body, data); e != nil {
+	if e := spectool.Decode(r.Body, &data); e != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, e)
 		return
 	}
