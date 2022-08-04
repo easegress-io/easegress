@@ -108,8 +108,7 @@ func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	buff := spectool.MustMarshalJSON(result)
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, result)
 }
 
 func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
@@ -119,8 +118,7 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	buff := spectool.MustMarshalJSON(k)
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, k)
 }
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
@@ -163,12 +161,7 @@ func (s *Server) listCustomData(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	buff, err := spectool.MarshalJSON(result)
-	if err != nil {
-		panic(err)
-	}
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, result)
 }
 
 func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
@@ -180,12 +173,7 @@ func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	buff, err := spectool.MarshalJSON(data)
-	if err != nil {
-		panic(err)
-	}
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, data)
 }
 
 func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {

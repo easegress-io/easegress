@@ -65,6 +65,16 @@ func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
 	return sm.jsonFormat, nil
 }
 
+// GetSchema returns the json schema of t.
+func GetSchema(t reflect.Type) (*genjs.Schema, error) {
+	sm, err := getSchemaMeta(t)
+	if err != nil {
+		return nil, err
+	}
+
+	return sm.genSchema, nil
+}
+
 // Validate validates by json schema rules, custom formats and general methods.
 func Validate(v interface{}) *ValidateRecorder {
 	vr := &ValidateRecorder{}

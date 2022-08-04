@@ -162,7 +162,7 @@ func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.writeJSONBody(w, []byte(spec.JSONConfig()))
+	WriteBody(w, r, spec)
 }
 
 func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
@@ -200,12 +200,7 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 	// NOTE: Keep it consistent.
 	sort.Sort(specs)
 
-	buff, err := specs.Marshal()
-	if err != nil {
-		panic(err)
-	}
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, specs)
 }
 
 func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
@@ -220,9 +215,7 @@ func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
 
 	status := s._getStatusObject(name)
 
-	buff := spectool.MustMarshalJSON(status)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, status)
 }
 
 func (s *Server) listStatusObjects(w http.ResponseWriter, r *http.Request) {
@@ -230,9 +223,7 @@ func (s *Server) listStatusObjects(w http.ResponseWriter, r *http.Request) {
 
 	status := s._listStatusObjects()
 
-	buff := spectool.MustMarshalJSON(status)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, status)
 }
 
 type specList []*supervisor.Spec
@@ -263,7 +254,5 @@ func (s specList) Marshal() ([]byte, error) {
 func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	kinds := supervisor.ObjectKinds()
 
-	buff := spectool.MustMarshalJSON(kinds)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, kinds)
 }

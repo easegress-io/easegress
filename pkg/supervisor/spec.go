@@ -128,6 +128,11 @@ func (s *Spec) Super() *Supervisor {
 	return s.super
 }
 
+// MarshalJSON marshals the spec to json.
+func (s *Spec) MarshalJSON() ([]byte, error) {
+	return []byte(s.jsonConfig), nil
+}
+
 // Name returns name.
 func (s *Spec) Name() string { return s.meta.Name }
 

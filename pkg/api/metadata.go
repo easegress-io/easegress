@@ -26,7 +26,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/util/spectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -74,9 +73,7 @@ func (s *Server) listFilters(w http.ResponseWriter, r *http.Request) {
 	})
 	sort.Strings(kinds)
 
-	buff := spectool.MustMarshalJSON(kinds)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, kinds)
 }
 
 func (s *Server) getFilterDescription(w http.ResponseWriter, r *http.Request) {
@@ -100,12 +97,12 @@ func (s *Server) getFilterSchema(w http.ResponseWriter, r *http.Request) {
 	}
 	specType := reflect.TypeOf(k.DefaultSpec())
 
-	buff, err := v.GetSchemaInJSON(specType)
+	schema, err := v.GetSchema(specType)
 	if err != nil {
 		panic(fmt.Errorf("get schema for %v failed: %v", kind, err))
 	}
 
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, schema)
 }
 
 func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +114,5 @@ func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buff := spectool.MustMarshalJSON(k.Results)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, k.Results)
 }

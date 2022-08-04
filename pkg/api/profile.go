@@ -77,8 +77,7 @@ func (s *Server) getProfileStatus(w http.ResponseWriter, r *http.Request) {
 
 	result := &ProfileStatusResponse{CPUPath: cpuFile, MemoryPath: memFile}
 
-	buff := spectool.MustMarshalJSON(result)
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, result)
 }
 
 func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {

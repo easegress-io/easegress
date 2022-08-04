@@ -120,6 +120,26 @@ func EncodeJSON(w io.Writer, v interface{}) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
+// MustJSONToYAML converts a json stream into a yaml stream.
+// It panics if an error occurs.
+func MustJSONToYAML(in []byte) []byte {
+	buff, err := JSONToYAML(in)
+	if err != nil {
+		panic(fmt.Errorf("json %s to yaml failed: %v", in, err))
+	}
+	return buff
+}
+
+// MustYAMLToJSON converts a json stream into a yaml stream.
+// It panics if an error occurs.
+func MustYAMLToJSON(in []byte) []byte {
+	buff, err := YAMLToJSON(in)
+	if err != nil {
+		panic(fmt.Errorf("yaml %s to json failed: %v", in, err))
+	}
+	return buff
+}
+
 // JSONToYAML converts a json stream into a yaml stream.
 func JSONToYAML(in []byte) ([]byte, error) {
 	return yamljsontool.JSONToYAML(in)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,12 +156,20 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(apisByOrder(apiGroups))
 
-	buff := spectool.MustMarshalJSON(apiGroups)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, apiGroups)
 }
 
-func (s *Server) writeJSONBody(w http.ResponseWriter, buff []byte) {
-	w.Header().Set("Content-Type", "application/json")
+// WriteBody writes the body to the response writer in proper format.
+func WriteBody(w http.ResponseWriter, r *http.Request, body interface{}) {
+	buff := spectool.MustMarshalJSON(body)
+	contentType := "application/json"
+
+	accpetHeader := r.Header.Get("Accept")
+	if strings.Contains(accpetHeader, "yaml") {
+		buff = spectool.MustJSONToYAML(buff)
+		contentType = "text/x-yaml"
+	}
+
+	w.Header().Set("Content-Type", contentType)
 	w.Write(buff)
 }
