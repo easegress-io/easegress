@@ -33,6 +33,7 @@ require (
 	github.com/megaease/easemesh-api v1.4.1
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.5.1
+	github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.0
 	github.com/openzipkin/zipkin-go v0.4.0
@@ -57,7 +58,6 @@ require (
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e
 	golang.org/x/sync v0.0.0-20220513210516-0976fa681c29
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a
-	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.24.1
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
@@ -241,6 +241,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.1.0 // indirect
 	k8s.io/apiextensions-apiserver v0.23.4 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
