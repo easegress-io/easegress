@@ -149,7 +149,7 @@ type (
 	// SignerSpec is the spec of the request signer.
 	SignerSpec struct {
 		signer.Spec `json:",inline"`
-		For         string   `json:"for" jsonschema:"omitempty,enum=,enum=aws4"`
+		APIProvider string   `json:"apiProvider" jsonschema:"omitempty,enum=,enum=aws4"`
 		Scopes      []string `json:"scopes" jsonschema:"omitempty"`
 	}
 
@@ -177,9 +177,9 @@ func (spec *Spec) Validate() error {
 		return nil
 	}
 	s := spec.Sign
-	if s.For != "" {
-		if _, ok := signerConfigs[s.For]; !ok {
-			return fmt.Errorf("%q is not a predefined signer configuration", s.For)
+	if s.APIProvider != "" {
+		if _, ok := signerConfigs[s.APIProvider]; !ok {
+			return fmt.Errorf("%q is not a supported API provider", s.APIProvider)
 		}
 	}
 
@@ -216,7 +216,7 @@ func (ra *RequestAdaptor) reload() {
 		ra.pa = pathadaptor.New(ra.spec.Path)
 	}
 	if s := ra.spec.Sign; s != nil {
-		sc, ok := signerConfigs[s.For]
+		sc, ok := signerConfigs[s.APIProvider]
 		if ok {
 			s.Literal = sc.literal
 			s.HeaderHoisting = sc.headerHoisting

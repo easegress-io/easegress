@@ -109,10 +109,10 @@ func TestRequestAdaptor(t *testing.T) {
 	}
 
 	{
-		// unknown predefined signer config
+		// unknown API provider
 		spec := defaultFilterSpec(&Spec{
 			Sign: &SignerSpec{
-				For: "aws3",
+				APIProvider: "aws3",
 			},
 		})
 		assert.Nil(spec)
@@ -274,7 +274,7 @@ func TestHandle(t *testing.T) {
 		Path: &pathadaptor.Spec{
 			Replace: "/path",
 		},
-		Sign: &SignerSpec{For: "aws4"},
+		Sign: &SignerSpec{APIProvider: "aws4"},
 	})
 	ra := kind.CreateInstance(spec)
 	ra.Init()

@@ -1104,7 +1104,7 @@ two more fields.
 
 | Name | Type | Description | Required | 
 |------|------|-------------|----------|
-| for | string | The name of a predefined [Literal](#signerliteral) and [HeaderHoisting](#signerheaderhoisting) configuration, only `aws4` is supported at present. | No | 
+| apiProvider | string | The RequestAdaptor pre-defines the [Literal](#signerliteral) and [HeaderHoisting](#signerheaderhoisting) configuration for some API providers, specify the provider name in this field to use one of them, only `aws4` is supported at present. | No | 
 | scopes | []string | Scopes of the input request | No | 
 
 ### Template Of RequestBuilder & ResponseBuilder
