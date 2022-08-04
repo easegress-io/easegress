@@ -95,7 +95,11 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec.MaxRequestBytes = maxRequestBytes
 	ec.SnapshotCount = snapshotCount
 	ec.Logger = "zap"
-	ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
+
+	ec.LogOutputs = []string{"stdout"}
+	if opt.AbsLogDir != "" {
+		ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
+	}
 
 	ec.ClusterState = embed.ClusterStateFlagNew
 	if opt.Cluster.StateFlag == "existing" {
