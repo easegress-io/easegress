@@ -66,14 +66,14 @@ type (
 
 	// Spec describes the EurekaServiceRegistry.
 	Spec struct {
-		Endpoints    []string `yaml:"endpoints" jsonschema:"required,uniqueItems=true"`
-		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`
+		Endpoints    []string `json:"endpoints" jsonschema:"required,uniqueItems=true"`
+		SyncInterval string   `json:"syncInterval" jsonschema:"required,format=duration"`
 	}
 
 	// Status is the status of EurekaServiceRegistry.
 	Status struct {
-		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
+		Health              string         `json:"health"`
+		ServiceInstancesNum map[string]int `json:"instancesNum"`
 	}
 )
 

@@ -21,8 +21,8 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -64,7 +64,7 @@ policies:
       4: type
 `
 	got := Spec{}
-	err := yaml.Unmarshal([]byte(topicYaml), &got)
+	err := codectool.Unmarshal([]byte(topicYaml), &got)
 	assert.Nil(t, err)
 
 	want := Spec{

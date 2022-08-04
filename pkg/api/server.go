@@ -54,9 +54,9 @@ type (
 
 	// Entry is the entry of API.
 	Entry struct {
-		Path    string           `yaml:"path"`
-		Method  string           `yaml:"method"`
-		Handler http.HandlerFunc `yaml:"-"`
+		Path    string           `json:"path"`
+		Method  string           `json:"method"`
+		Handler http.HandlerFunc `json:"-"`
 	}
 )
 

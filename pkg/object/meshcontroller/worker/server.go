@@ -27,10 +27,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -48,14 +48,14 @@ type (
 	}
 
 	apiEntry struct {
-		Path    string           `yaml:"path"`
-		Method  string           `yaml:"method"`
-		Handler http.HandlerFunc `yaml:"-"`
+		Path    string           `json:"path"`
+		Method  string           `json:"method"`
+		Handler http.HandlerFunc `json:"-"`
 	}
 
 	apiErr struct {
-		Code    int    `yaml:"code"`
-		Message string `yaml:"message"`
+		Code    int    `json:"code"`
+		Message string `json:"message"`
 	}
 )
 
@@ -110,12 +110,9 @@ func (s *apiServer) listAPIs(w http.ResponseWriter, r *http.Request) {
 	s.apisMutex.RLock()
 	defer s.apisMutex.RUnlock()
 
-	buff, err := yaml.Marshal(s.apis)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", s.apis, err))
-	}
+	buff := codectool.MustMarshalJSON(s.apis)
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
+	w.Header().Set("Content-Type", "application/json")
 	w.Write(buff)
 }
 
@@ -150,14 +147,14 @@ func (s *apiServer) registerAPIs(apis []*apiEntry) {
 }
 
 func handleAPIError(w http.ResponseWriter, r *http.Request, code int, err error) {
-	w.WriteHeader(code)
-	buff, err := yaml.Marshal(apiErr{
+	body := apiErr{
 		Code:    code,
 		Message: err.Error(),
-	})
-	if err != nil {
-		panic(err)
 	}
+	buff := codectool.MustMarshalJSON(body)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	w.Write(buff)
 }
 

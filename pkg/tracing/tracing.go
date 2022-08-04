@@ -31,19 +31,19 @@ import (
 type (
 	// Spec describes Tracer.
 	Spec struct {
-		ServiceName string            `yaml:"serviceName" jsonschema:"required"`
-		Tags        map[string]string `yaml:"tags" jsonschema:"omitempty"`
-		Zipkin      *ZipkinSpec       `yaml:"zipkin" jsonschema:"required"`
+		ServiceName string            `json:"serviceName" jsonschema:"required"`
+		Tags        map[string]string `json:"tags" jsonschema:"omitempty"`
+		Zipkin      *ZipkinSpec       `json:"zipkin" jsonschema:"required"`
 	}
 
 	// ZipkinSpec describes Zipkin.
 	ZipkinSpec struct {
-		Hostport      string  `yaml:"hostport" jsonschema:"omitempty"`
-		ServerURL     string  `yaml:"serverURL" jsonschema:"required,format=url"`
-		DisableReport bool    `yaml:"disableReport" jsonschema:"omitempty"`
-		SampleRate    float64 `yaml:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
-		SameSpan      bool    `yaml:"sameSpan" jsonschema:"omitempty"`
-		ID128Bit      bool    `yaml:"id128Bit" jsonschema:"omitempty"`
+		Hostport      string  `json:"hostport" jsonschema:"omitempty"`
+		ServerURL     string  `json:"serverURL" jsonschema:"required,format=url"`
+		DisableReport bool    `json:"disableReport" jsonschema:"omitempty"`
+		SampleRate    float64 `json:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
+		SameSpan      bool    `json:"sameSpan" jsonschema:"omitempty"`
+		ID128Bit      bool    `json:"id128Bit" jsonschema:"omitempty"`
 	}
 
 	// Tracer is the tracer.

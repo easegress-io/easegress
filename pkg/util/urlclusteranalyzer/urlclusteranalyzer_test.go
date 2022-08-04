@@ -97,9 +97,6 @@ func TestURLClusterAnalyzer(t *testing.T) {
 	duration := time.Since(begin)
 	fmt.Println(duration)
 
-	// bytes, _ := yaml.Marshal(urlClusterAnalyzer)
-	// fmt.Println(string(bytes))
-
 	p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant/other/other/%d/details", 30))
 	fmt.Println(p)
 	if p != "/abc/com/merchant/*/other/30/details" {

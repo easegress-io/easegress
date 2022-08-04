@@ -56,30 +56,30 @@ func init() {
 type (
 	// Policy defines the policy of a rate limiter
 	Policy struct {
-		Name               string `yaml:"name" jsonschema:"required"`
-		TimeoutDuration    string `yaml:"timeoutDuration" jsonschema:"omitempty,format=duration"`
-		LimitRefreshPeriod string `yaml:"limitRefreshPeriod" jsonschema:"omitempty,format=duration"`
-		LimitForPeriod     int    `yaml:"limitForPeriod" jsonschema:"omitempty,minimum=1"`
+		Name               string `json:"name" jsonschema:"required"`
+		TimeoutDuration    string `json:"timeoutDuration" jsonschema:"omitempty,format=duration"`
+		LimitRefreshPeriod string `json:"limitRefreshPeriod" jsonschema:"omitempty,format=duration"`
+		LimitForPeriod     int    `json:"limitForPeriod" jsonschema:"omitempty,minimum=1"`
 	}
 
 	// URLRule defines the rate limiter rule for a URL pattern
 	URLRule struct {
-		urlrule.URLRule `yaml:",inline"`
+		urlrule.URLRule `json:",inline"`
 		policy          *Policy
 		rl              *librl.RateLimiter
 	}
 
 	// Spec is the configuration of a rate limiter
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
-		Rule             `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
+		Rule             `json:",inline"`
 	}
 
 	// Rule is the detailed config of RateLimiter.
 	Rule struct {
-		Policies         []*Policy  `yaml:"policies" jsonschema:"required"`
-		DefaultPolicyRef string     `yaml:"defaultPolicyRef" jsonschema:"omitempty"`
-		URLs             []*URLRule `yaml:"urls" jsonschema:"required"`
+		Policies         []*Policy  `json:"policies" jsonschema:"required"`
+		DefaultPolicyRef string     `json:"defaultPolicyRef" jsonschema:"omitempty"`
+		URLs             []*URLRule `json:"urls" jsonschema:"required"`
 	}
 
 	// RateLimiter defines the rate limiter

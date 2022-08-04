@@ -26,13 +26,13 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -76,8 +76,8 @@ type (
 
 	// HeaderSetterSpec defines etcd source key and request destination header.
 	HeaderSetterSpec struct {
-		EtcdKey   string `yaml:"etcdKey,omitempty" jsonschema:"omitempty"`
-		HeaderKey string `yaml:"headerKey,omitempty" jsonschema:"omitempty"`
+		EtcdKey   string `json:"etcdKey,omitempty" jsonschema:"omitempty"`
+		HeaderKey string `json:"headerKey,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
@@ -89,12 +89,12 @@ type (
 	// "/api/bananas/33" and pathRegExp: "^/api/([a-z]+)/[0-9]*", the group "bananas" is extracted and etcd key is
 	// /custom-data/{etcdPrefix}/{headerKey's value}-bananas.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		HeaderKey     string              `yaml:"headerKey" jsonschema:"required"`
-		EtcdPrefix    string              `yaml:"etcdPrefix" jsonschema:"required"`
-		PathRegExp    string              `yaml:"pathRegExp" jsonschema:"omitempty"`
-		HeaderSetters []*HeaderSetterSpec `yaml:"headerSetters" jsonschema:"required"`
+		HeaderKey     string              `json:"headerKey" jsonschema:"required"`
+		EtcdPrefix    string              `json:"etcdPrefix" jsonschema:"required"`
+		PathRegExp    string              `json:"pathRegExp" jsonschema:"omitempty"`
+		HeaderSetters []*HeaderSetterSpec `json:"headerSetters" jsonschema:"required"`
 	}
 )
 
@@ -172,7 +172,7 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 	}
 	result := make(map[string]string, len(hl.spec.HeaderSetters))
 	etcdValues := make(map[string]string)
-	err = yaml.Unmarshal([]byte(*etcdVal), etcdValues)
+	err = codectool.Unmarshal([]byte(*etcdVal), &etcdValues)
 	if err != nil {
 		return nil, err
 	}

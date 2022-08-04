@@ -30,15 +30,13 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/yamltool"
-
-	"gopkg.in/yaml.v3"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
 	pipelineSpecBuilder struct {
-		Kind string `yaml:"kind"`
-		Name string `yaml:"name"`
+		Kind string `json:"kind"`
+		Name string `json:"name"`
 
 		mockName           string
 		rateLimiterName    string
@@ -47,9 +45,7 @@ type (
 		meshAdaptorName    string
 		proxyName          string
 
-		// NOTE: Can't use *pipeline.Spec here.
-		// Reference: https://github.com/go-yaml/yaml/issues/356
-		pipeline.Spec `yaml:",inline"`
+		pipeline.Spec `json:",inline"`
 	}
 
 	proxyParam struct {
@@ -81,10 +77,10 @@ func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	}
 }
 
-func (b *pipelineSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *pipelineSpecBuilder) jsonConfig() string {
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
@@ -101,9 +97,10 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rule *ratelimiter.Rule) *pipelin
 				Kind: ratelimiter.Kind,
 			},
 		},
+		Rule: *rule,
 	}
 
-	m, err := yamltool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -130,7 +127,7 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker(rule *resilience.CircuitBreak
 		CircuitBreakerRule: *rule,
 	}
 
-	m, err := yamltool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -156,7 +153,7 @@ func (b *pipelineSpecBuilder) appendRetry(rule *resilience.RetryRule) *pipelineS
 		RetryRule: *rule,
 	}
 
-	m, err := yamltool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -182,7 +179,7 @@ func (b *pipelineSpecBuilder) appendMock(rules []*mock.Rule) *pipelineSpecBuilde
 		Rules: rules,
 	}
 
-	m, err := yamltool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -293,7 +290,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 		proxySpec.Pools = append(proxySpec.Pools, candidate)
 	}
 
-	m, err := yamltool.StructToMap(proxySpec)
+	m, err := codectool.StructToMap(proxySpec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", proxySpec, err)
 		return b
@@ -342,7 +339,7 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 
 	meshAdaptorSpec.ServiceCanaries = adaptors
 
-	m, err := yamltool.StructToMap(meshAdaptorSpec)
+	m, err := codectool.StructToMap(meshAdaptorSpec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", meshAdaptorSpec, err)
 		return b

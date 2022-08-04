@@ -76,25 +76,25 @@ type (
 
 	// Spec describes the NacosServiceRegistry.
 	Spec struct {
-		Servers      []*ServerSpec `yaml:"servers" jsonschema:"required"`
-		SyncInterval string        `yaml:"syncInterval" jsonschema:"required,format=duration"`
-		Namespace    string        `yaml:"namespace" jsonschema:"omitempty"`
-		Username     string        `yaml:"username" jsonschema:"omitempty"`
-		Password     string        `yaml:"password" jsonschema:"omitempty"`
+		Servers      []*ServerSpec `json:"servers" jsonschema:"required"`
+		SyncInterval string        `json:"syncInterval" jsonschema:"required,format=duration"`
+		Namespace    string        `json:"namespace" jsonschema:"omitempty"`
+		Username     string        `json:"username" jsonschema:"omitempty"`
+		Password     string        `json:"password" jsonschema:"omitempty"`
 	}
 
 	// ServerSpec is the server config of Nacos.
 	ServerSpec struct {
-		Scheme      string `yaml:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
-		ContextPath string `yaml:"contextPath" jsonschema:"omitempty"`
-		IPAddr      string `yaml:"ipAddr" jsonschema:"required"`
-		Port        uint16 `yaml:"port" jsonschema:"required"`
+		Scheme      string `json:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
+		ContextPath string `json:"contextPath" jsonschema:"omitempty"`
+		IPAddr      string `json:"ipAddr" jsonschema:"required"`
+		Port        uint16 `json:"port" jsonschema:"required"`
 	}
 
 	// Status is the status of NacosServiceRegistry.
 	Status struct {
-		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
+		Health              string         `json:"health"`
+		ServiceInstancesNum map[string]int `json:"instancesNum"`
 	}
 )
 

@@ -36,12 +36,12 @@ type RequestMatcher interface {
 
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
-	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
-	MatchAllHeaders bool                      `yaml:"matchAllHeaders" jsonschema:"omitempty"`
-	Headers         map[string]*StringMatcher `yaml:"headers" jsonschema:"omitempty"`
-	URLs            []*MethodAndURLMatcher    `yaml:"urls" jsonschema:"omitempty"`
-	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
-	HeaderHashKey   string                    `yaml:"headerHashKey" jsonschema:"omitempty"`
+	Policy          string                    `json:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	MatchAllHeaders bool                      `json:"matchAllHeaders" jsonschema:"omitempty"`
+	Headers         map[string]*StringMatcher `json:"headers" jsonschema:"omitempty"`
+	URLs            []*MethodAndURLMatcher    `json:"urls" jsonschema:"omitempty"`
+	Permil          uint32                    `json:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
+	HeaderHashKey   string                    `json:"headerHashKey" jsonschema:"omitempty"`
 }
 
 // Validate validtes the RequestMatcherSpec.
@@ -220,8 +220,8 @@ func (gm *generalMatcher) matchURL(req *httpprot.Request) bool {
 
 // MethodAndURLMatcher defines the match rule of a http request
 type MethodAndURLMatcher struct {
-	Methods []string       `yaml:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-	URL     *StringMatcher `yaml:"url" jsonschema:"required"`
+	Methods []string       `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+	URL     *StringMatcher `json:"url" jsonschema:"required"`
 }
 
 // Validate validates the MethodAndURLMatcher.
@@ -246,10 +246,10 @@ func (r *MethodAndURLMatcher) Match(req *httpprot.Request) bool {
 
 // StringMatcher defines the match rule of a string
 type StringMatcher struct {
-	Exact  string `yaml:"exact" jsonschema:"omitempty"`
-	Prefix string `yaml:"prefix" jsonschema:"omitempty"`
-	RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
-	Empty  bool   `yaml:"empty" jsonschema:"omitempty"`
+	Exact  string `json:"exact" jsonschema:"omitempty"`
+	Prefix string `json:"prefix" jsonschema:"omitempty"`
+	RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
+	Empty  bool   `json:"empty" jsonschema:"omitempty"`
 	re     *regexp.Regexp
 }
 

@@ -34,7 +34,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,9 +45,10 @@ func TestMain(m *testing.M) {
 }
 
 func createHeaderLookup(
-	yamlSpec string, prev *HeaderLookup, supervisor *supervisor.Supervisor) (*HeaderLookup, error) {
+	yamlConfig string, prev *HeaderLookup, supervisor *supervisor.Supervisor,
+) (*HeaderLookup, error) {
 	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		return nil, err
@@ -196,7 +197,7 @@ headerSetters:
 
 	// let's put data to 'foobar'
 	foobar := `
-ext-id: 123456789
+ext-id: "123456789"
 extra-entry: "extra"
 `
 	clusterInstance.MockedGet = func(key string) (*string, error) {
@@ -228,7 +229,7 @@ extra-entry: "extra"
 
 	// update key-value store
 	foobar = `
-ext-id: 77341
+ext-id: "77341"
 extra-entry: "extra"
 `
 	clusterInstance.MockedGet = func(key string) (*string, error) {
@@ -277,11 +278,11 @@ headerSetters:
 	supervisor := supervisor.NewMock(
 		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
 	bobbanana := `
-ext-id: 333
+ext-id: "333"
 extra-entry: "extra"
 `
 	bobpearl := `
-ext-id: 4444
+ext-id: "4444"
 extra-entry: "extra"
 `
 

@@ -182,24 +182,24 @@ type ServerPool struct {
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
-	SpanName             string              `yaml:"spanName" jsonschema:"omitempty"`
-	Filter               *RequestMatcherSpec `yaml:"filter" jsonschema:"omitempty"`
-	ServerMaxBodySize    int64               `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
-	ServerTags           []string            `yaml:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers              []*Server           `yaml:"servers" jsonschema:"omitempty"`
-	ServiceRegistry      string              `yaml:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName          string              `yaml:"serviceName" jsonschema:"omitempty"`
-	LoadBalance          *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
-	Timeout              string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
-	RetryPolicy          string              `yaml:"retryPolicy" jsonschema:"omitempty"`
-	CircuitBreakerPolicy string              `yaml:"circuitBreakerPolicy" jsonschema:"omitempty"`
-	FailureCodes         []int               `yaml:"failureCodes" jsonschema:"omitempty"`
-	MemoryCache          *MemoryCacheSpec    `yaml:"memoryCache,omitempty" jsonschema:"omitempty"`
+	SpanName             string              `json:"spanName" jsonschema:"omitempty"`
+	Filter               *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
+	ServerMaxBodySize    int64               `json:"serverMaxBodySize" jsonschema:"omitempty"`
+	ServerTags           []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
+	Servers              []*Server           `json:"servers" jsonschema:"omitempty"`
+	ServiceRegistry      string              `json:"serviceRegistry" jsonschema:"omitempty"`
+	ServiceName          string              `json:"serviceName" jsonschema:"omitempty"`
+	LoadBalance          *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
+	Timeout              string              `json:"timeout" jsonschema:"omitempty,format=duration"`
+	RetryPolicy          string              `json:"retryPolicy" jsonschema:"omitempty"`
+	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
+	FailureCodes         []int               `json:"failureCodes" jsonschema:"omitempty"`
+	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty" jsonschema:"omitempty"`
 }
 
 // ServerPoolStatus is the status of Pool.
 type ServerPoolStatus struct {
-	Stat *httpstat.Status `yaml:"stat"`
+	Stat *httpstat.Status `json:"stat"`
 }
 
 // Validate validates ServerPoolSpec.

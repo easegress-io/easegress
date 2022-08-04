@@ -24,7 +24,7 @@ import (
 
 	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
-	"gopkg.in/yaml.v3"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -39,10 +39,10 @@ type (
 
 	// Spec is the spec of Builder.
 	Spec struct {
-		LeftDelim       string `yaml:"leftDelim" jsonschema:"omitempty"`
-		RightDelim      string `yaml:"rightDelim" jsonschema:"omitempty"`
-		SourceNamespace string `yaml:"sourceNamespace" jsonschema:"omitempty"`
-		Template        string `yaml:"template" jsonschema:"omitempty"`
+		LeftDelim       string `json:"leftDelim" jsonschema:"omitempty"`
+		RightDelim      string `json:"rightDelim" jsonschema:"omitempty"`
+		SourceNamespace string `json:"sourceNamespace" jsonschema:"omitempty"`
+		Template        string `json:"template" jsonschema:"omitempty"`
 	}
 )
 
@@ -76,11 +76,7 @@ func (b *Builder) build(data map[string]interface{}, v interface{}) error {
 		return err
 	}
 
-	if err := yaml.NewDecoder(&result).Decode(v); err != nil {
-		return err
-	}
-
-	return nil
+	return codectool.Decode(&result, v)
 }
 
 // Status returns status.

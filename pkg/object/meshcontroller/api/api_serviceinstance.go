@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -28,6 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 )
 
@@ -69,13 +69,8 @@ func (a *API) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, instance)
 	}
 
-	buff, err := json.Marshal(apiSpecs)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(apiSpecs)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
@@ -97,13 +92,8 @@ func (a *API) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", instanceSpec, err))
 	}
 
-	buff, err := json.Marshal(pbInstanceSpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", instanceSpec, err))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(pbInstanceSpec)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) offlineServiceInstance(w http.ResponseWriter, r *http.Request) {

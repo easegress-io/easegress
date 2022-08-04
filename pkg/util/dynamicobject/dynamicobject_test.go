@@ -20,7 +20,7 @@ package dynamicobject
 import (
 	"testing"
 
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func TestDynamicObject(t *testing.T) {
@@ -48,12 +48,12 @@ func TestDynamicObject(t *testing.T) {
 
 	do.Set("field2", []interface{}{"sub1", "sub2"})
 
-	data, err := yaml.Marshal(do)
+	data, err := codectool.MarshalYAML(do)
 	if err != nil {
 		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
 	}
 
-	err = yaml.Unmarshal(data, &do)
+	err = codectool.UnmarshalYAML(data, &do)
 	if err != nil {
 		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
 	}

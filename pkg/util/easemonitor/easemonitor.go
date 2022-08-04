@@ -17,7 +17,9 @@
 
 package easemonitor
 
-import "encoding/json"
+import (
+	"github.com/megaease/easegress/pkg/util/codectool"
+)
 
 type (
 	// CommonFields is the common fields of all EaseMonitor metrics.
@@ -47,12 +49,12 @@ type (
 
 // MarshalJSON implements json.Marshaler
 func (m *Metrics) MarshalJSON() ([]byte, error) {
-	result, err := json.Marshal(&m.CommonFields)
+	result, err := codectool.MarshalJSON(&m.CommonFields)
 	if err != nil {
 		return nil, err
 	}
 
-	other, err := json.Marshal(m.OtherFields)
+	other, err := codectool.MarshalJSON(m.OtherFields)
 	if err != nil {
 		return nil, err
 	}

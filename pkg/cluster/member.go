@@ -27,20 +27,20 @@ import (
 	"sync"
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
-	membersFilename       = "members.yaml"
-	membersBackupFilename = "members.bak.yaml"
+	membersFilename       = "members.json"
+	membersBackupFilename = "members.bak.json"
 )
 
 type (
 	members struct {
-		sync.RWMutex `yaml:"-"`
+		sync.RWMutex `json:"-"`
 
 		opt        *option.Options
 		file       string
@@ -49,17 +49,17 @@ type (
 
 		selfIDChanged bool
 
-		ClusterMembers *membersSlice `yaml:"clusterMembers"`
-		KnownMembers   *membersSlice `yaml:"knownMembers"`
+		ClusterMembers *membersSlice `json:"clusterMembers"`
+		KnownMembers   *membersSlice `json:"knownMembers"`
 	}
 
 	// membersSlice carries unique members whose PeerURL is the primary id.
 	membersSlice []*member
 
 	member struct {
-		ID      uint64 `yaml:"id"`
-		Name    string `yaml:"name"`
-		PeerURL string `yaml:"peerURL"`
+		ID      uint64 `json:"id"`
+		Name    string `json:"name"`
+		PeerURL string `json:"peerURL"`
 	}
 )
 
@@ -96,7 +96,7 @@ func (m *members) load() error {
 	}
 
 	membersToLoad := &members{}
-	err = yaml.Unmarshal(buff, membersToLoad)
+	err = codectool.Unmarshal(buff, membersToLoad)
 	if err != nil {
 		return err
 	}
@@ -109,9 +109,9 @@ func (m *members) load() error {
 
 // store protected by callers.
 func (m *members) store() {
-	buff, err := yaml.Marshal(m)
+	buff, err := codectool.MarshalJSON(m)
 	if err != nil {
-		logger.Errorf("BUG: get yaml of %#v failed: %v", m.KnownMembers, err)
+		logger.Errorf("BUG: get json of %#v failed: %v", m.KnownMembers, err)
 	}
 	if bytes.Equal(m.lastBuff, buff) {
 		return
@@ -163,7 +163,6 @@ func (m *members) _self() *member {
 	peerURL := ""
 	if len(m.opt.Cluster.InitialAdvertisePeerURLs) != 0 {
 		peerURL = m.opt.Cluster.InitialAdvertisePeerURLs[0]
-
 	}
 
 	return &member{

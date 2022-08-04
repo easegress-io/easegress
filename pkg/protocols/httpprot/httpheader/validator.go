@@ -32,8 +32,8 @@ type (
 	// ValueValidator is the entity to validate value.
 	ValueValidator struct {
 		// NOTE: It allows empty value.
-		Values []string `yaml:"values" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp string   `yaml:"regexp" jsonschema:"omitempty,format=regexp"`
+		Values []string `json:"values" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `json:"regexp" jsonschema:"omitempty,format=regexp"`
 		re     *regexp.Regexp
 	}
 

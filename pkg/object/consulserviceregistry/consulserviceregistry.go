@@ -68,19 +68,19 @@ type (
 
 	// Spec describes the ConsulServiceRegistry.
 	Spec struct {
-		Address      string   `yaml:"address" jsonschema:"required"`
-		Scheme       string   `yaml:"scheme" jsonschema:"required,enum=http,enum=https"`
-		Datacenter   string   `yaml:"datacenter" jsonschema:"omitempty"`
-		Token        string   `yaml:"token" jsonschema:"omitempty"`
-		Namespace    string   `yaml:"namespace" jsonschema:"omitempty"`
-		SyncInterval string   `yaml:"syncInterval" jsonschema:"required,format=duration"`
-		ServiceTags  []string `yaml:"serviceTags" jsonschema:"omitempty"`
+		Address      string   `json:"address" jsonschema:"required"`
+		Scheme       string   `json:"scheme" jsonschema:"required,enum=http,enum=https"`
+		Datacenter   string   `json:"datacenter" jsonschema:"omitempty"`
+		Token        string   `json:"token" jsonschema:"omitempty"`
+		Namespace    string   `json:"namespace" jsonschema:"omitempty"`
+		SyncInterval string   `json:"syncInterval" jsonschema:"required,format=duration"`
+		ServiceTags  []string `json:"serviceTags" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of ConsulServiceRegistry.
 	Status struct {
-		Health              string         `yaml:"health"`
-		ServiceInstancesNum map[string]int `yaml:"instancesNum"`
+		Health              string         `json:"health"`
+		ServiceInstancesNum map[string]int `json:"instancesNum"`
 	}
 )
 

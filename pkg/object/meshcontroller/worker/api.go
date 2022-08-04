@@ -50,3 +50,8 @@ func (worker *Worker) emptyHandler(w http.ResponseWriter, r *http.Request) {
 	// EaseMesh does not need to implement some APIS like
 	// delete, heartbeat of Eureka/Consul/Nacos.
 }
+
+func (worker *Worker) writeJSONBody(w http.ResponseWriter, buff []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(buff)
+}

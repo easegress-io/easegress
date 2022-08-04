@@ -20,11 +20,10 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/timetool"
 
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
@@ -96,13 +95,13 @@ func (s *statusUnit) id() string {
 }
 
 func (s *statusUnit) marshal() ([]byte, error) {
-	buff, err := yaml.Marshal(s.status)
+	buff, err := codectool.MarshalJSON(s.status)
 	if err != nil {
 		return nil, err
 	}
 
 	m := map[string]interface{}{}
-	err = yaml.Unmarshal(buff, &m)
+	err = codectool.Unmarshal(buff, &m)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +112,7 @@ func (s *statusUnit) marshal() ([]byte, error) {
 
 	m["timestamp"] = s.timestamp
 
-	buff, err = yaml.Marshal(m)
+	buff, err = codectool.MarshalJSON(m)
 	if err != nil {
 		return nil, err
 	}

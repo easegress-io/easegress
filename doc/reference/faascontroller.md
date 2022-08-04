@@ -1,4 +1,4 @@
-# FaaSController 
+# FaaSController
 - [FaaSController](#faascontroller)
   - [Prerequisites](#prerequisites)
   - [Configuration](#configuration)
@@ -43,20 +43,20 @@
 
 ```yaml
 name: faascontroller
-kind: FaaSController           
+kind: FaaSController
 provider: knative             # FaaS provider kind, currently we only support Knative
 
-syncInterval: 10s              
+syncInterval: 10s
 
 httpServer:
-    http3: false               
-    port: 10083                
-    keepAlive: true            
-    keepAliveTimeout: 60s      
+    http3: false
+    port: 10083
+    keepAlive: true
+    keepAliveTimeout: 60s
     https: false
     certBase64:
     keyBase64:
-    maxConnections: 10240      
+    maxConnections: 10240
 
 knative:
    networkLayerURL: http://{knative_kourier_clusterIP} # or http://{knative_kourier_externalIP}
@@ -70,21 +70,21 @@ knative:
 * The `requestAdaptor` is for customizing the way how HTTP request content will be routed to `Knative`'s `kourier` gateway.
 
 ```yaml
-name:           "demo10"                                                                                                                                   
-image:          "dev.local/colordeploy:17.0"    
+name:           "demo10"
+image:          "dev.local/colordeploy:17.0"
 port:           8089
-autoScaleType:  "rps"          
-autoScaleValue: "111"          
+autoScaleType:  "rps"
+autoScaleValue: "111"
 minReplica:     1
 maxReplica:     3
-limitCPU:       "180m"         
-limitMemory:    "100Mi"        
-requestCPU:     "80m"          
-requestMemory:  "20Mi"         
-requestAdaptor:                       
+limitCPU:       "180m"
+limitMemory:    "100Mi"
+requestCPU:     "80m"
+requestMemory:  "20Mi"
+requestAdaptor:
   header:
     set:
-      X-Func1: func-demo-10              # add one HTTP header  
+      X-Func1: func-demo-10              # add one HTTP header
 ```
 
 ### Lifecycle
@@ -98,7 +98,7 @@ There four types of function state: Initial, Active, InActive, and Failed[4]. Ba
 
 * `Failed`: The function will be turned into `failed` states during the runtime checking. If it's about some configuration error, e.g., wrong docker image URL, we can detect this failure by function's `status` message and then update the function's spec by calling RESTful API. If it's about some temporal failure caused by FaaSProvider, the function will turn into the `initial` state after FaaSProvider is recovered.
 
-```                                                      
+```
                   Provision
 
                       │
@@ -158,16 +158,16 @@ The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}
 
 | Operation         | URL                                                                 | Method | Body          | Description                                                                                                                                 |
 | ----------------- | ------------------------------------------------------------------- | ------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Create a function | http://eg-host/apis/v1/faas/{controller_name}                       | POST   | function spec | When there is not such a function in Easegress                                                                                              |
-| Start a function  | http://eg-host/apis/v1/faas/{controller_name}/{function_name}/start | PUT    | empty         | When function is in `inactive` state only, it will turn-on accepting traffic for this function                                              |
-| Stop a function   | http://eg-host/apis/v1/faas/{controller_name}/demo1/stop            | PUT    | empty         | When function is in `active` state only, it will turn-off accpeting traffic for this function                                               |
-| Update a function | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | PUT    | function spec | When function is in `initial`, `inactive` or `failed` state. It can used to update your function or fix your function's deployment problem. |
-| Delete a function | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | DELETE | empty         | When function is in `initial`, `inactive` or `failed` states.                                                                               |
-| Get a function    | http://eg-host/apis/v1/faas/{controller_name}/{function_name}       | GET    | empty         | No timing limitation.                                                                                                                       |
-| Get function list | http://eg-host/apis/v1/faas/{controller_name}                       | GET    | empty         | No timing limitation.                                                                                                                       |
+| Create a function | http://eg-host/apis/v2/faas/{controller_name}                       | POST   | function spec | When there is not such a function in Easegress                                                                                              |
+| Start a function  | http://eg-host/apis/v2/faas/{controller_name}/{function_name}/start | PUT    | empty         | When function is in `inactive` state only, it will turn-on accepting traffic for this function                                              |
+| Stop a function   | http://eg-host/apis/v2/faas/{controller_name}/demo1/stop            | PUT    | empty         | When function is in `active` state only, it will turn-off accpeting traffic for this function                                               |
+| Update a function | http://eg-host/apis/v2/faas/{controller_name}/{function_name}       | PUT    | function spec | When function is in `initial`, `inactive` or `failed` state. It can used to update your function or fix your function's deployment problem. |
+| Delete a function | http://eg-host/apis/v2/faas/{controller_name}/{function_name}       | DELETE | empty         | When function is in `initial`, `inactive` or `failed` states.                                                                               |
+| Get a function    | http://eg-host/apis/v2/faas/{controller_name}/{function_name}       | GET    | empty         | No timing limitation.                                                                                                                       |
+| Get function list | http://eg-host/apis/v2/faas/{controller_name}                       | GET    | empty         | No timing limitation.                                                                                                                       |
 
 
-## Demoing 
+## Demoing
 1. Creating the FaasController in Easegress
 
 ```bash
@@ -177,13 +177,13 @@ $ ./egctl.sh object create -f ./faascontroller.yaml
 
 $ ./egctl.sh object get faascontroller
 name: faascontroller
-kind: FaaSController 
+kind: FaaSController
 provider: knative             # FaaS provider kind, currently we only support Knative
 
 syncInterval: 10s
 
 httpServer:
-    http3: false 
+    http3: false
     port: 10083
     keepAlive: true
     keepAliveTimeout: 60s
@@ -194,19 +194,19 @@ httpServer:
 
 knative:
    networkLayerURL: http://10.109.159.129
-   hostSuffix: example.com  
+   hostSuffix: example.com
 ```
 2. Creating the function
 
 ```bash
 
-$ curl --data-binary @./function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:12381/apis/v1/faas/faascontroller
+$ curl --data-binary @./function.yaml -X POST -H 'Content-Type: text/vnd.yaml' http://127.0.0.1:12381/apis/v2/faas/faascontroller
 ```
 
 3. Waiting for the function provisioned successfully. Confirmed by using `Get` API for checking the `state` field
 
 ```bash
-$ curl http://127.0.0.1:12381/apis/v1/faas/faascontroller/demo10
+$ curl http://127.0.0.1:12381/apis/v2/faas/faascontroller/demo10
 spec:
   name: demo10
   image: dev.local/colordeploy:17.0
@@ -232,7 +232,7 @@ spec:
 status:
   name: demo10
   state: active
-  event: ready 
+  event: ready
   extData: {}
 fsm: null
 ```
@@ -240,13 +240,13 @@ fsm: null
 4. Visiting function by HTTP traffic gate with `X-FaaS-Func-Name: demo10` in HTTP header.
 
 ```bash
-$ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X POST -d ‘{"megaease":"Hello Easegress+Knative"}’ 
-V3 Body is 
-‘{megaease:Hello Easegress+Knative}’%  
+$ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X POST -d ‘{"megaease":"Hello Easegress+Knative"}’
+V3 Body is
+‘{megaease:Hello Easegress+Knative}’%
 
-$ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X POST -d ‘{"FaaS":"Cool"}’ 
-V3 Body is 
-‘{FaaS:Cool}’%  
+$ curl http://127.0.0.1:10083/tomcat/job/api -H "X-FaaS-Func-Name: demo10" -X POST -d ‘{"FaaS":"Cool"}’
+V3 Body is
+‘{FaaS:Cool}’%
 ```
 The function's API is serving in `/tomcat/job/api` path and its logic is displaying "V3 body is" with the contents u post.
 

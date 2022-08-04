@@ -19,8 +19,9 @@ package api
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"net/http"
+
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -35,13 +36,13 @@ const (
 type (
 	// ProfileStatusResponse contains cpu and memory profile file paths
 	ProfileStatusResponse struct {
-		CPUPath    string `yaml:"cpuPath"`
-		MemoryPath string `yaml:"memoryPath"`
+		CPUPath    string `json:"cpuPath"`
+		MemoryPath string `json:"memoryPath"`
 	}
 
 	// StartProfilingRequest contains file path to profile file
 	StartProfilingRequest struct {
-		Path string `yaml:"path"`
+		Path string `json:"path"`
 	}
 )
 
@@ -75,16 +76,13 @@ func (s *Server) getProfileStatus(w http.ResponseWriter, r *http.Request) {
 	memFile := s.profile.MemoryFileName()
 
 	result := &ProfileStatusResponse{CPUPath: cpuFile, MemoryPath: memFile}
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	err := yaml.NewEncoder(w).Encode(result)
-	if err != nil {
-		panic(err)
-	}
+
+	WriteBody(w, r, result)
 }
 
 func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
-	err := yaml.NewDecoder(r.Body).Decode(&spr)
+	err := codectool.Decode(r.Body, &spr)
 	if err != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
 		return
@@ -107,7 +105,7 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
-	err := yaml.NewDecoder(r.Body).Decode(&spr)
+	err := codectool.Decode(r.Body, &spr)
 	if err != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
 		return

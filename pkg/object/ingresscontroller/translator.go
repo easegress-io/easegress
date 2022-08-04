@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	apicorev1 "k8s.io/api/core/v1"
 	apinetv1 "k8s.io/api/networking/v1"
 )
@@ -50,15 +50,15 @@ type (
 	}
 
 	pipelineSpecBuilder struct {
-		Kind          string `yaml:"kind"`
-		Name          string `yaml:"name"`
-		pipeline.Spec `yaml:",inline"`
+		Kind          string `json:"kind"`
+		Name          string `json:"name"`
+		pipeline.Spec `json:",inline"`
 	}
 
 	httpServerSpecBuilder struct {
-		Kind            string `yaml:"kind"`
-		Name            string `yaml:"name"`
-		httpserver.Spec `yaml:",inline"`
+		Kind            string `json:"kind"`
+		Name            string `json:"name"`
+		httpserver.Spec `json:",inline"`
 	}
 )
 
@@ -90,10 +90,10 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 	)
 }
 
-func (b *pipelineSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *pipelineSpecBuilder) jsonConfig() string {
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
@@ -112,10 +112,10 @@ func newHTTPServerSpecBuilder(template *httpserver.Spec) *httpServerSpecBuilder 
 	}
 }
 
-func (b *httpServerSpecBuilder) yamlConfig() string {
-	buff, err := yaml.Marshal(b)
+func (b *httpServerSpecBuilder) jsonConfig() string {
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
-		logger.Errorf("BUG: marshal %#v to yaml failed: %v", b, err)
+		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buff)
 }
@@ -140,9 +140,9 @@ func (st *specTranslator) pipelineSpecs() map[string]*supervisor.Spec {
 func generatePipelineSpec(name string, endpoints []string) (*supervisor.Spec, error) {
 	b := newPipelineSpecBuilder(name)
 	b.addProxy(endpoints)
-	yamlCfg := b.yamlConfig()
-	logger.Debugf("pipeline spec generated:\n%s", yamlCfg)
-	return supervisor.NewSpec(yamlCfg)
+	jsonConfig := b.jsonConfig()
+
+	return supervisor.NewSpec(jsonConfig)
 }
 
 func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.IngressServiceBackend) ([]string, error) {
@@ -444,9 +444,8 @@ func (st *specTranslator) translate() error {
 		})
 	}
 
-	yamlCfg := b.yamlConfig()
-	logger.Debugf("http server spec:\n%s", yamlCfg)
-	spec, e := supervisor.NewSpec(yamlCfg)
+	jsonConfig := b.jsonConfig()
+	spec, e := supervisor.NewSpec(jsonConfig)
 	if e != nil {
 		return e
 	}

@@ -23,8 +23,8 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
-	"gopkg.in/yaml.v2"
 )
 
 type (
@@ -100,8 +100,8 @@ type (
 		// Pipeline returns the name of the pipeline this filter belongs to.
 		Pipeline() string
 
-		// YAMLConfig returns the config in yaml format.
-		YAMLConfig() string
+		// JSONConfig returns the config in json format.
+		JSONConfig() string
 
 		// baseSpec returns the pointer to the BaseSpec of the spec instance,
 		// it is an internal function.
@@ -110,10 +110,10 @@ type (
 
 	// BaseSpec is the universal spec for all filters.
 	BaseSpec struct {
-		supervisor.MetaSpec `yaml:",inline"`
+		supervisor.MetaSpec `json:",inline"`
 		super               *supervisor.Supervisor
 		pipeline            string
-		yamlConfig          string
+		jsonConfig          string
 	}
 )
 
@@ -126,14 +126,14 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		}
 	}()
 
-	yamlBuff, err := yaml.Marshal(rawSpec)
+	jsonConfig, err := codectool.MarshalJSON(rawSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	// Meta part.
 	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
-	if err = yaml.Unmarshal(yamlBuff, &meta); err != nil {
+	if err = codectool.Unmarshal(jsonConfig, &meta); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(&meta); !vr.Valid() {
@@ -146,7 +146,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 	spec = kind.DefaultSpec()
-	if err = yaml.Unmarshal(yamlBuff, spec); err != nil {
+	if err = codectool.Unmarshal(jsonConfig, spec); err != nil {
 		return nil, err
 	}
 	// TODO: Make the invalid part more accurate. e,g:
@@ -159,7 +159,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("%v", vr)
 	}
 
-	yamlBuff, err = yaml.Marshal(spec)
+	jsonConfig, err = codectool.MarshalJSON(spec)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 	baseSpec := spec.baseSpec()
 	baseSpec.super = super
 	baseSpec.pipeline = pipeline
-	baseSpec.yamlConfig = string(yamlBuff)
+	baseSpec.jsonConfig = string(jsonConfig)
 	return
 }
 
@@ -191,9 +191,9 @@ func (s *BaseSpec) Pipeline() string {
 	return s.pipeline
 }
 
-// YAMLConfig returns the config in yaml format.
-func (s *BaseSpec) YAMLConfig() string {
-	return s.yamlConfig
+// JSONConfig returns the config in json format.
+func (s *BaseSpec) JSONConfig() string {
+	return s.jsonConfig
 }
 
 // baseSpec returns the pointer to the BaseSpec of the spec instance, it is an

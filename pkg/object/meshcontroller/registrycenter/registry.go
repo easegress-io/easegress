@@ -18,8 +18,6 @@
 package registrycenter
 
 import (
-	"bytes"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -36,6 +34,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -73,7 +72,8 @@ type (
 
 // NewRegistryCenterServer creates an initialized registry center server.
 func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
-	serviceLabels map[string]string, service *service.Service, informer informer.Informer) *Server {
+	serviceLabels map[string]string, service *service.Service, informer informer.Informer,
+) *Server {
 	return &Server{
 		RegistryType:  registryType,
 		registryName:  registryName,
@@ -223,8 +223,8 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 		reg consul.AgentServiceRegistration
 	)
 
-	dec := json.NewDecoder(bytes.NewReader(body))
-	if err = dec.Decode(&reg); err != nil {
+	err = codectool.UnmarshalJSON(body, &reg)
+	if err != nil {
 		return err
 	}
 
@@ -240,8 +240,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 
 	switch contentType {
 	case ContentTypeJSON:
-		dec := json.NewDecoder(bytes.NewReader(body))
-		if err = dec.Decode(&eurekaIns); err != nil {
+		if err = codectool.UnmarshalJSON(body, &eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}

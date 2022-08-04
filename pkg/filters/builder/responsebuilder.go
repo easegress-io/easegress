@@ -57,9 +57,9 @@ type (
 
 	// ResponseBuilderSpec is ResponseBuilder Spec.
 	ResponseBuilderSpec struct {
-		filters.BaseSpec `yaml:",inline"`
-		Spec             `yaml:",inline"`
-		Protocol         string `yaml:"protocol" jsonschema:"omitempty"`
+		filters.BaseSpec `json:",inline"`
+		Spec             `json:",inline"`
+		Protocol         string `json:"protocol" jsonschema:"omitempty"`
 	}
 )
 

@@ -24,7 +24,7 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/protocols"
-	"gopkg.in/yaml.v3"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 // DefaultMaxPayloadSize is the default max allowed payload size.
@@ -78,8 +78,7 @@ func (h *Header) Walk(fn func(key string, value interface{}) bool) {
 }
 
 // Protocol implements protocols.Protocol for HTTP.
-type Protocol struct {
-}
+type Protocol struct{}
 
 var _ protocols.Protocol = (*Protocol)(nil)
 
@@ -121,7 +120,7 @@ func parseJSONBody(body []byte) (interface{}, error) {
 // of the YAML object must be strings.
 func parseYAMLBody(body []byte) (interface{}, error) {
 	var v interface{}
-	err := yaml.Unmarshal(body, &v)
+	err := codectool.UnmarshalYAML(body, &v)
 	if err != nil {
 		return nil, err
 	}

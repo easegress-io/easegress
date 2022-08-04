@@ -33,71 +33,71 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		HTTP3             bool          `yaml:"http3" jsonschema:"omitempty"`
-		KeepAlive         bool          `yaml:"keepAlive" jsonschema:"required"`
-		HTTPS             bool          `yaml:"https" jsonschema:"required"`
-		AutoCert          bool          `yaml:"autoCert" jsonschema:"omitempty"`
-		XForwardedFor     bool          `yaml:"xForwardedFor" jsonschema:"omitempty"`
-		Port              uint16        `yaml:"port" jsonschema:"required,minimum=1"`
-		ClientMaxBodySize int64         `yaml:"clientMaxBodySize" jsonschema:"omitempty"`
-		KeepAliveTimeout  string        `yaml:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnections    uint32        `yaml:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		CacheSize         uint32        `yaml:"cacheSize" jsonschema:"omitempty"`
-		Tracing           *tracing.Spec `yaml:"tracing" jsonschema:"omitempty"`
-		CaCertBase64      string        `yaml:"caCertBase64" jsonschema:"omitempty,format=base64"`
+		HTTP3             bool          `json:"http3" jsonschema:"omitempty"`
+		KeepAlive         bool          `json:"keepAlive" jsonschema:"required"`
+		HTTPS             bool          `json:"https" jsonschema:"required"`
+		AutoCert          bool          `json:"autoCert" jsonschema:"omitempty"`
+		XForwardedFor     bool          `json:"xForwardedFor" jsonschema:"omitempty"`
+		Port              uint16        `json:"port" jsonschema:"required,minimum=1"`
+		ClientMaxBodySize int64         `json:"clientMaxBodySize" jsonschema:"omitempty"`
+		KeepAliveTimeout  string        `json:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		MaxConnections    uint32        `json:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		CacheSize         uint32        `json:"cacheSize" jsonschema:"omitempty"`
+		Tracing           *tracing.Spec `json:"tracing,omitempty" jsonschema:"omitempty"`
+		CaCertBase64      string        `json:"caCertBase64" jsonschema:"omitempty,format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
-		CertBase64 string `yaml:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64  string `yaml:"keyBase64" jsonschema:"omitempty,format=base64"`
+		CertBase64 string `json:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64  string `json:"keyBase64" jsonschema:"omitempty,format=base64"`
 
 		// Certs saved as map, key is domain name, value is cert
-		Certs map[string]string `yaml:"certs" jsonschema:"omitempty"`
+		Certs map[string]string `json:"certs" jsonschema:"omitempty"`
 		// Keys saved as map, key is domain name, value is secret
-		Keys map[string]string `yaml:"keys" jsonschema:"omitempty"`
+		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
 
-		IPFilter *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules    []*Rule        `yaml:"rules" jsonschema:"omitempty"`
+		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Rules    []*Rule        `json:"rules" jsonschema:"omitempty"`
 
-		GlobalFilter string `yaml:"globalFilter,omitempty" jsonschema:"omitempty"`
+		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Rule is first level entry of router.
 	Rule struct {
-		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `yaml`
+		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
 		// when it has `omitempty` in tag `jsonschema`.
 		// Otherwise it will output null value, which is invalid in json schema (the type is object).
 		// the original reason is the jsonscheme(genjs) has not support multiple types.
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
 		// In the future if we have the scenario where we need marshal the field, but omitempty
 		// in the schema, we are suppose to support multiple types on our own.
-		IPFilter   *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Host       string         `yaml:"host" jsonschema:"omitempty"`
-		HostRegexp string         `yaml:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      []*Path        `yaml:"paths" jsonschema:"omitempty"`
+		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Host       string         `json:"host" jsonschema:"omitempty"`
+		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
+		Paths      []*Path        `json:"paths" jsonschema:"omitempty"`
 	}
 
 	// Path is second level entry of router.
 	Path struct {
-		IPFilter          *ipfilter.Spec `yaml:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Path              string         `yaml:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix        string         `yaml:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathRegexp        string         `yaml:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		RewriteTarget     string         `yaml:"rewriteTarget" jsonschema:"omitempty"`
-		Methods           []string       `yaml:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		Backend           string         `yaml:"backend" jsonschema:"required"`
-		Headers           []*Header      `yaml:"headers" jsonschema:"omitempty"`
-		ClientMaxBodySize int64          `yaml:"clientMaxBodySize" jsonschema:"omitempty"`
-		MatchAllHeader    bool           `yaml:"matchAllHeader" jsonschema:"omitempty"`
+		IPFilter          *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Path              string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix        string         `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathRegexp        string         `json:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		RewriteTarget     string         `json:"rewriteTarget" jsonschema:"omitempty"`
+		Methods           []string       `json:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		Backend           string         `json:"backend" jsonschema:"required"`
+		Headers           []*Header      `json:"headers" jsonschema:"omitempty"`
+		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
+		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
 	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
 	// than the path entry itself.
 	Header struct {
-		Key    string   `yaml:"key" jsonschema:"required"`
-		Values []string `yaml:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp string   `yaml:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Key    string   `json:"key" jsonschema:"required"`
+		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
 		headerRE *regexp.Regexp
 	}

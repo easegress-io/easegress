@@ -63,17 +63,17 @@ type (
 
 	// Spec describes the Pipeline.
 	Spec struct {
-		Flow       []FlowNode               `yaml:"flow" jsonschema:"omitempty"`
-		Filters    []map[string]interface{} `yaml:"filters" jsonschema:"required"`
-		Resilience []map[string]interface{} `yaml:"resilience" jsonschema:"omitempty"`
+		Flow       []FlowNode               `json:"flow" jsonschema:"omitempty"`
+		Filters    []map[string]interface{} `json:"filters" jsonschema:"required"`
+		Resilience []map[string]interface{} `json:"resilience" jsonschema:"omitempty"`
 	}
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
-		FilterName  string            `yaml:"filter" jsonschema:"required,format=urlname"`
-		FilterAlias string            `yaml:"alias" jsonschema:"omitempty"`
-		Namespace   string            `yaml:"namespace" jsonshema:"omitempty"`
-		JumpIf      map[string]string `yaml:"jumpIf" jsonschema:"omitempty"`
+		FilterName  string            `json:"filter" jsonschema:"required,format=urlname"`
+		FilterAlias string            `json:"alias" jsonschema:"omitempty"`
+		Namespace   string            `json:"namespace" jsonshema:"omitempty"`
+		JumpIf      map[string]string `json:"jumpIf" jsonschema:"omitempty"`
 		filter      filters.Filter
 	}
 
@@ -87,8 +87,8 @@ type (
 
 	// Status is the status of Pipeline.
 	Status struct {
-		Health  string                 `yaml:"health"`
-		Filters map[string]interface{} `yaml:"filters"`
+		Health  string                 `json:"health"`
+		Filters map[string]interface{} `json:"filters"`
 	}
 )
 

@@ -89,7 +89,7 @@ field1: 123
 		t.Errorf("name should be 'data1' instead of %q", name)
 	}
 
-	if v := d.Get("field1"); v != 123 {
+	if v := d.Get("field1"); int(v.(float64)) != 123 {
 		t.Errorf("field1 should be 123 instead of %v", v)
 	}
 }
@@ -182,7 +182,8 @@ func TestListKinds(t *testing.T) {
 	cls.MockedGetRawPrefix = func(prefix string) (map[string]*mvccpb.KeyValue, error) {
 		return map[string]*mvccpb.KeyValue{
 			"kind1": {Value: []byte(`name: kind1`)},
-			"kind2": {Value: []byte(`name: kind2
+			"kind2": {
+				Value: []byte(`name: kind2
 idField: key`),
 			},
 		}, nil
@@ -338,7 +339,8 @@ func TestListData(t *testing.T) {
 	cls.MockedGetRawPrefix = func(prefix string) (map[string]*mvccpb.KeyValue, error) {
 		return map[string]*mvccpb.KeyValue{
 			"data1": {Value: []byte(`name: data1`)},
-			"data2": {Value: []byte(`name: data2
+			"data2": {
+				Value: []byte(`name: data2
 field1: 123`),
 			},
 		}, nil
@@ -385,7 +387,8 @@ jsonSchema:
     field1:
       type: string
       required: true
-`)}, nil
+`),
+		}, nil
 	}
 	d := Data{}
 	_, err = s.PutData("kind1", d, true)
@@ -491,7 +494,8 @@ jsonSchema:
     field1:
       type: string
       required: true
-`)}, nil
+`),
+		}, nil
 	}
 	err = s.BatchUpdateData("kind1", nil, data)
 	if err == nil {

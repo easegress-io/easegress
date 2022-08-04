@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -26,6 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easemesh-api/v2alpha1"
 )
 
@@ -46,11 +46,8 @@ func (a *API) listHTTPRouteGroups(w http.ResponseWriter, r *http.Request) {
 		pbGroups = append(pbGroups, group)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(pbGroups)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", groups, err))
-	}
+	buff := codectool.MustMarshalJSON(pbGroups)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) getHTTPRouteGroup(w http.ResponseWriter, r *http.Request) {
@@ -72,11 +69,8 @@ func (a *API) getHTTPRouteGroup(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", group, err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(pbGroup)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", pbGroup, err))
-	}
+	buff := codectool.MustMarshalJSON(pbGroup)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) saveHTTPRouteGroup(w http.ResponseWriter, r *http.Request, update bool) error {
@@ -158,11 +152,8 @@ func (a *API) listTrafficTargets(w http.ResponseWriter, r *http.Request) {
 		pbTrafficTargets = append(pbTrafficTargets, tt)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(pbTrafficTargets)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", tts, err))
-	}
+	buff := codectool.MustMarshalJSON(pbTrafficTargets)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) getTrafficTarget(w http.ResponseWriter, r *http.Request) {
@@ -184,11 +175,8 @@ func (a *API) getTrafficTarget(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tt, err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(pbTrafficTarget)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", pbTrafficTarget, err))
-	}
+	buff := codectool.MustMarshalJSON(pbTrafficTarget)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) saveTrafficTarget(w http.ResponseWriter, r *http.Request, update bool) error {

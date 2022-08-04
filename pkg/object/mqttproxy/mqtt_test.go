@@ -21,7 +21,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -42,10 +41,10 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
 )
 
 func init() {
@@ -535,7 +534,7 @@ func TestSpec(t *testing.T) {
         key: bar
 `
 	got := Spec{}
-	err := yaml.Unmarshal([]byte(yamlStr), &got)
+	err := codectool.Unmarshal([]byte(yamlStr), &got)
 	if err != nil {
 		t.Errorf("yaml unmarshal failed, err:%v", err)
 	}
@@ -732,11 +731,11 @@ func TestYamlEncodeDecode(t *testing.T) {
 		info: &SessionInfo{},
 	}
 	if err := newS.decode(str); err != nil {
-		t.Errorf("yaml Decode error")
+		t.Errorf("decode error")
 	}
 
 	if !reflect.DeepEqual(newS.info.Topics, s.info.Topics) || newS.info.ClientID != s.info.ClientID || newS.info.CleanFlag != s.info.CleanFlag {
-		t.Errorf("yaml encode decode error")
+		t.Errorf("encode decode error")
 	}
 }
 
@@ -780,7 +779,7 @@ func (ts *testServer) shutdown() {
 }
 
 func topicsPublish(t *testing.T, data HTTPJsonData) int {
-	jsonData, err := json.Marshal(data)
+	jsonData, err := codectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("json marshal error")
 	}
@@ -911,7 +910,6 @@ func TestHTTPPublish(t *testing.T) {
 				}
 			}(data)
 		}
-
 	}()
 
 	ans := map[string]struct{}{}
@@ -971,7 +969,7 @@ func TestHTTPTransfer(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := json.Marshal(data)
+	jsonData, _ := codectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8889/mqtt", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1153,6 +1151,7 @@ Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
 6MF9+Yw1Yy0t
 -----END CERTIFICATE-----
 `
+
 const keyPem = `
 -----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
@@ -1208,7 +1207,7 @@ func TestSessMgr(t *testing.T) {
 	if err != nil {
 		t.Errorf("session encode failed, err:%v", err)
 	}
-	newSess := sessMgr.newSessionFromYaml(&sessStr)
+	newSess := sessMgr.newSessionFromJSON(&sessStr)
 	if !reflect.DeepEqual(sess.info, newSess.info) {
 		t.Errorf("sessMgr produce wrong session")
 	}
@@ -1422,7 +1421,7 @@ filters:
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
-		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Errorf("supervisor new spec failed, %s", err)
 		t.Skip()
 	}
 	pipe := &pipeline.Pipeline{}
@@ -1528,7 +1527,7 @@ filters:
 	super := supervisor.NewDefaultMock()
 	superSpec, err := super.NewSpec(yamlStr)
 	if err != nil {
-		t.Errorf("supervisor unmarshal yaml failed, %s", err)
+		t.Errorf("supervisor new spec failed, %s", err)
 		t.Skip()
 	}
 	pipe := &pipeline.Pipeline{}
@@ -1710,7 +1709,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 		}
 		if ok {
 			sessions := &HTTPSessions{}
-			json.NewDecoder(resp.Body).Decode(sessions)
+			codectool.MustDecodeJSON(resp.Body, sessions)
 			if len(sessions.Sessions) != test.ansLen {
 				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
 				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
@@ -1752,7 +1751,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 			{SessionID: "2"},
 		},
 	}
-	jsonData, err := json.Marshal(data)
+	jsonData, err := codectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("marshal http session %v failed, %v", data, err)
 	}
@@ -1811,7 +1810,7 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := json.Marshal(data)
+	jsonData, _ := codectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
 	req.Header.Add(b3.TraceID, "123")
 	resp, err := http.DefaultClient.Do(req)

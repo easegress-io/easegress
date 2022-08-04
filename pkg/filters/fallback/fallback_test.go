@@ -25,22 +25,22 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestFallback(t *testing.T) {
 	assert := assert.New(t)
-	const yamlSpec = `
+	const yamlConfig = `
 kind: Fallback
 name: fallback
 mockCode: 203
 mockHeaders:
-  X-Mocked: true
+  X-Mocked: yes
 mockBody: "mocked body"
 `
 	rawSpec := make(map[string]interface{})
-	yamltool.Unmarshal([]byte(yamlSpec), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {
@@ -67,7 +67,7 @@ mockBody: "mocked body"
 	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if resp.Header().Get("X-Mocked") != "true" {
+	if resp.Header().Get("X-Mocked") != "yes" {
 		t.Error("header is not correct")
 	}
 
@@ -94,7 +94,7 @@ mockBody: "mocked body"
 	if string(payload) != "mocked body" {
 		t.Error("body is not correct")
 	}
-	if resp.Header().Get("X-Mocked") != "true" {
+	if resp.Header().Get("X-Mocked") != "yes" {
 		t.Error("header is not correct")
 	}
 }

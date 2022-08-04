@@ -407,8 +407,8 @@ func (r *builderRequest) YAMLBody() (interface{}, error) {
 type requestInfo struct {
 	Method  string              `json:"method" jsonschema:"omitempty"`
 	URL     string              `json:"url" jsonschema:"omitempty"`
-	Headers map[string][]string `yaml:"headers" jsonschema:"omitempty"`
-	Body    string              `yaml:"body" jsonschema:"omitempty"`
+	Headers map[string][]string `json:"headers" jsonschema:"omitempty"`
+	Body    string              `json:"body" jsonschema:"omitempty"`
 }
 
 // NewRequestInfo returns a new requestInfo.

@@ -34,7 +34,7 @@ type (
 
 	// Item is the item of status.
 	Item struct {
-		Path string `yaml:"path"`
+		Path string `json:"path"`
 		*Status
 	}
 )

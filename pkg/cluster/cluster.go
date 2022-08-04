@@ -19,7 +19,6 @@ package cluster
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,10 +28,10 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
 	"go.etcd.io/etcd/server/v3/embed"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -60,23 +59,23 @@ const (
 type (
 	// MemberStatus is the member status.
 	MemberStatus struct {
-		Options option.Options `yaml:"options"`
+		Options option.Options `json:"options"`
 
 		// RFC3339 format
-		LastHeartbeatTime string `yaml:"lastHeartbeatTime"`
+		LastHeartbeatTime string `json:"lastHeartbeatTime"`
 
-		LastDefragTime string `yaml:"lastDefragTime,omitempty"`
+		LastDefragTime string `json:"lastDefragTime,omitempty"`
 
 		// Etcd is non-nil only if it's cluster status is primary.
-		Etcd *EtcdStatus `yaml:"etcd,omitempty"`
+		Etcd *EtcdStatus `json:"etcd,omitempty"`
 	}
 
 	// EtcdStatus is the etcd status,
 	// and extracts fields from server.Server.SelfStats.
 	EtcdStatus struct {
-		ID        string `yaml:"id"`
-		StartTime string `yaml:"startTime"`
-		State     string `yaml:"state"`
+		ID        string `json:"id"`
+		StartTime string `json:"startTime"`
+		State     string `json:"state"`
 	}
 
 	// etcdStats aims to extract fields from server.Server.SelfStats.
@@ -98,7 +97,7 @@ func strToLease(s string) (*clientv3.LeaseID, error) {
 
 func newEtcdStats(buff []byte) (*etcdStats, error) {
 	stats := etcdStats{}
-	err := json.Unmarshal(buff, &stats)
+	err := codectool.Unmarshal(buff, &stats)
 	if err != nil {
 		return nil, err
 	}
@@ -744,7 +743,7 @@ func (c *cluster) syncStatus() error {
 
 	status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
 
-	buff, err := yaml.Marshal(status)
+	buff, err := codectool.MarshalJSON(status)
 	if err != nil {
 		return err
 	}

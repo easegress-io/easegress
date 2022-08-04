@@ -18,7 +18,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"path"
@@ -31,6 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type tenantsByOrder []*spec.Tenant
@@ -64,13 +64,8 @@ func (a *API) listTenants(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, tenant)
 	}
 
-	buff, err := json.Marshal(apiSpecs)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", specs, err))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(apiSpecs)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) createTenant(w http.ResponseWriter, r *http.Request) {
@@ -124,13 +119,8 @@ func (a *API) getTenant(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tenantSpec, err))
 	}
 
-	buff, err := json.Marshal(pbTenantSpec)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to json failed: %v", pbTenantSpec, err))
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(pbTenantSpec)
+	a.writeJSONBody(w, buff)
 }
 
 func (a *API) updateTenant(w http.ResponseWriter, r *http.Request) {

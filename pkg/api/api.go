@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func aboutText() string {
@@ -37,7 +37,7 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 
 const (
 	// APIPrefix is the prefix of api.
-	APIPrefix = "/apis/v1"
+	APIPrefix = "/apis/v2"
 
 	lockKey = "/config/lock"
 
@@ -156,10 +156,20 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(apisByOrder(apiGroups))
 
-	buff, err := yaml.Marshal(apiGroups)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", apiGroups, err))
+	WriteBody(w, r, apiGroups)
+}
+
+// WriteBody writes the body to the response writer in proper format.
+func WriteBody(w http.ResponseWriter, r *http.Request, body interface{}) {
+	buff := codectool.MustMarshalJSON(body)
+	contentType := "application/json"
+
+	accpetHeader := r.Header.Get("Accept")
+	if strings.Contains(accpetHeader, "yaml") {
+		buff = codectool.MustJSONToYAML(buff)
+		contentType = "text/x-yaml"
 	}
-	w.Header().Set("Content-Type", "text/vnd.yaml")
+
+	w.Header().Set("Content-Type", contentType)
 	w.Write(buff)
 }

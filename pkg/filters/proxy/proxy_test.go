@@ -33,8 +33,8 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
 )
 
 func TestMain(m *testing.M) {
@@ -43,9 +43,9 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
+func newTestProxy(yamlConfig string, assert *assert.Assertions) *Proxy {
 	rawSpec := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(yamlSpec), &rawSpec)
+	err := codectool.Unmarshal([]byte(yamlConfig), &rawSpec)
 	assert.NoError(err)
 
 	spec, err := filters.NewSpec(nil, "", rawSpec)
@@ -69,7 +69,7 @@ func getCtx(stdr *http.Request) *context.Context {
 func TestProxy(t *testing.T) {
 	assert := assert.New(t)
 
-	const yamlSpec = `
+	const yamlConfig = `
 name: proxy
 kind: Proxy
 pools:
@@ -104,7 +104,7 @@ mirrorPool:
 compression:
   minLength: 1024
 `
-	proxy := newTestProxy(yamlSpec, assert)
+	proxy := newTestProxy(yamlConfig, assert)
 	proxy.InjectResiliencePolicy(make(map[string]resilience.Policy))
 
 	assert.Equal(1, len(proxy.candidatePools))
@@ -196,7 +196,7 @@ func TestSpecValidate(t *testing.T) {
 	assert := assert.New(t)
 
 	// no main pool
-	yamlSpec := `
+	yamlConfig := `
 name: proxy
 kind: Proxy
 pools:
@@ -208,24 +208,24 @@ pools:
   - url: http://127.0.0.1:9095
 `
 	spec := &Spec{}
-	err := yaml.Unmarshal([]byte(yamlSpec), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// no servers and service discovery
-	yamlSpec = `
+	yamlConfig = `
 name: proxy
 kind: Proxy
 pools:
 - spanName: test
 `
 	spec = &Spec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// two main pools
-	yamlSpec = `
+	yamlConfig = `
 name: proxy
 kind: Proxy
 pools:
@@ -235,12 +235,12 @@ pools:
   - url: http://127.0.0.2:9096
 `
 	spec = &Spec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// mirror pool: no filter
-	yamlSpec = `
+	yamlConfig = `
 name: proxy
 kind: Proxy
 pools:
@@ -251,12 +251,12 @@ mirrorPool:
   - url: http://127.0.0.3:9095
 `
 	spec = &Spec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
 	// mirror pool: has cache
-	yamlSpec = `
+	yamlConfig = `
 name: proxy
 kind: Proxy
 pools:
@@ -273,7 +273,7 @@ mirrorPool:
     Methods: [Get]
 `
 	spec = &Spec{}
-	err = yaml.Unmarshal([]byte(yamlSpec), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 }
@@ -281,7 +281,7 @@ mirrorPool:
 func TestTLSConfig(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `
+	yamlConfig := `
 name: proxy
 kind: Proxy
 mtls:
@@ -293,11 +293,11 @@ pools:
   - url: http://127.0.0.1:9095
 `
 
-	proxy := newTestProxy(yamlSpec, assert)
+	proxy := newTestProxy(yamlConfig, assert)
 	_, err := proxy.tlsConfig()
 	assert.Error(err)
 
-	yamlSpec = `
+	yamlConfig = `
 name: proxy
 kind: Proxy
 mtls:
@@ -308,7 +308,7 @@ pools:
 - servers:
   - url: http://127.0.0.1:9095
 `
-	proxy = newTestProxy(yamlSpec, assert)
+	proxy = newTestProxy(yamlConfig, assert)
 	_, err = proxy.tlsConfig()
 	assert.NoError(err)
 }

@@ -41,57 +41,57 @@ field3: [1, 2, 3, 4]
 ## API
 
 * **Create a CustomDataKind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdatakinds
-	* **Method**: POST
-	* **Body**: CustomDataKind definition is YAML.
+        * **URL**: http://{ip}:{port}/apis/v2/customdatakinds
+        * **Method**: POST
+        * **Body**: CustomDataKind definition is YAML.
 
 * **Update a CustomDataKind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdatakinds
-	* **Method**: PUT
-	* **Body**: CustomDataKind definition is YAML.
+        * **URL**: http://{ip}:{port}/apis/v2/customdatakinds
+        * **Method**: PUT
+        * **Body**: CustomDataKind definition is YAML.
 
 * **Query the definition of a CustomDataKind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdatakinds/{kind name}
-	* **Method**: GET
-  
+        * **URL**: http://{ip}:{port}/apis/v2/customdatakinds/{kind name}
+        * **Method**: GET
+
 * **List the definition of all CustomDataKind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdatakinds
-	* **Method**: GET
+        * **URL**: http://{ip}:{port}/apis/v2/customdatakinds
+        * **Method**: GET
 
 * **Delete a CustomDataKind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdatakinds/{kind name}
-	* **Method**: DELETE
+        * **URL**: http://{ip}:{port}/apis/v2/customdatakinds/{kind name}
+        * **Method**: DELETE
 
 * **Create a CustomData**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}
-	* **Method**: POST
-	* **Body**: CustomData definition is YAML.
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}
+        * **Method**: POST
+        * **Body**: CustomData definition is YAML.
 
 * **Update a CustomData**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}
-	* **Method**: PUT
-	* **Body**: CustomData definition is YAML.
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}
+        * **Method**: PUT
+        * **Body**: CustomData definition is YAML.
 
 * **Query the definition of a CustomData**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}/{data id}
-	* **Method**: GET
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}/{data id}
+        * **Method**: GET
 
 * **List the definition of all CustomData of a kind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}
-	* **Method**: GET
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}
+        * **Method**: GET
 
 * **Delete a CustomData**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}/{data id}
-	* **Method**: DELETE
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}/{data id}
+        * **Method**: DELETE
 
 * **Delete all CustomData of a kind**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}
-	* **Method**: DELETE
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}
+        * **Method**: DELETE
 
 * **Bulk update**
-	* **URL**: http://{ip}:{port}/apis/v1/customdata/{kind name}/items
-	* **Method**: POST
-	* **Body**: A change request in YAML, as defined below.
+        * **URL**: http://{ip}:{port}/apis/v2/customdata/{kind name}/items
+        * **Method**: POST
+        * **Body**: A change request in YAML, as defined below.
 
 ```yaml
 rebuild: false

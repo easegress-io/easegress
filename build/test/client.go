@@ -28,7 +28,7 @@ import (
 )
 
 func makeURL(template string, a ...interface{}) string {
-	return "http://127.0.0.1:12381/apis/v1" + fmt.Sprintf(template, a...)
+	return "http://127.0.0.1:12381/apis/v2" + fmt.Sprintf(template, a...)
 }
 
 func successfulStatusCode(code int) bool {

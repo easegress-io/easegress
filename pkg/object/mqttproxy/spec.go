@@ -61,27 +61,27 @@ var pipelinePacketTypes = map[PacketType]struct{}{
 type (
 	// Spec describes the MQTTProxy.
 	Spec struct {
-		EGName               string        `yaml:"-"`
-		Name                 string        `yaml:"-"`
-		Port                 uint16        `yaml:"port" jsonschema:"required"`
-		UseTLS               bool          `yaml:"useTLS" jsonschema:"omitempty"`
-		Certificate          []Certificate `yaml:"certificate" jsonschema:"omitempty"`
-		TopicCacheSize       int           `yaml:"topicCacheSize" jsonschema:"omitempty"`
-		MaxAllowedConnection int           `yaml:"maxAllowedConnection" jsonschema:"omitempty"`
-		ConnectionLimit      *RateLimit    `yaml:"connectionLimit" jsonschema:"omitempty"`
-		ClientPublishLimit   *RateLimit    `yaml:"clientPublishLimit" jsonschema:"omitempty"`
-		Rules                []*Rule       `yaml:"rules" jsonschema:"omitempty"`
+		EGName               string        `json:"-"`
+		Name                 string        `json:"-"`
+		Port                 uint16        `json:"port" jsonschema:"required"`
+		UseTLS               bool          `json:"useTLS" jsonschema:"omitempty"`
+		Certificate          []Certificate `json:"certificate" jsonschema:"omitempty"`
+		TopicCacheSize       int           `json:"topicCacheSize" jsonschema:"omitempty"`
+		MaxAllowedConnection int           `json:"maxAllowedConnection" jsonschema:"omitempty"`
+		ConnectionLimit      *RateLimit    `json:"connectionLimit" jsonschema:"omitempty"`
+		ClientPublishLimit   *RateLimit    `json:"clientPublishLimit" jsonschema:"omitempty"`
+		Rules                []*Rule       `json:"rules" jsonschema:"omitempty"`
 	}
 
 	// Rule used to route MQTT packets to different pipelines
 	Rule struct {
-		When     *When  `yaml:"when" jsonschema:"omitempty"`
-		Pipeline string `yaml:"pipeline" jsonschema:"omitempty"`
+		When     *When  `json:"when" jsonschema:"omitempty"`
+		Pipeline string `json:"pipeline" jsonschema:"omitempty"`
 	}
 
 	// When is used to check if MQTT packet match this pipeline
 	When struct {
-		PacketType PacketType `yaml:"packetType" jsonschema:"omitempty"`
+		PacketType PacketType `json:"packetType" jsonschema:"omitempty"`
 	}
 
 	// RateLimit describes rate limit for connection or publish.
@@ -89,16 +89,16 @@ type (
 	// timePeriod: max allowed bytes in time period
 	// timePeriod: time of seconds to count requestRate and bytesRate, default 1 second
 	RateLimit struct {
-		RequestRate int `yaml:"requestRate" jsonschema:"omitempty"`
-		BytesRate   int `yaml:"bytesRate" jsonschema:"omitempty"`
-		TimePeriod  int `yaml:"timePeriod" jsonschema:"omitempty"`
+		RequestRate int `json:"requestRate" jsonschema:"omitempty"`
+		BytesRate   int `json:"bytesRate" jsonschema:"omitempty"`
+		TimePeriod  int `json:"timePeriod" jsonschema:"omitempty"`
 	}
 
 	// Certificate describes TLS certifications.
 	Certificate struct {
-		Name string `yaml:"name" jsonschema:"required"`
-		Cert string `yaml:"cert" jsonschema:"required"`
-		Key  string `yaml:"key" jsonschema:"required"`
+		Name string `json:"name" jsonschema:"required"`
+		Cert string `json:"cert" jsonschema:"required"`
+		Key  string `json:"key" jsonschema:"required"`
 	}
 )
 

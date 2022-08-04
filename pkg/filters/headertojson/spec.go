@@ -22,13 +22,13 @@ import "github.com/megaease/easegress/pkg/filters"
 type (
 	// Spec is spec of HeaderToJson
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
-		HeaderMap        []*HeaderMap `yaml:"headerMap" jsonschema:"required"`
+		filters.BaseSpec `json:",inline"`
+		HeaderMap        []*HeaderMap `json:"headerMap" jsonschema:"required"`
 	}
 
 	// HeaderMap defines relationship between http header and json
 	HeaderMap struct {
-		Header string `yaml:"header" jsonschema:"required"`
-		JSON   string `yaml:"json" jsonschema:"required"`
+		Header string `json:"header" jsonschema:"required"`
+		JSON   string `json:"json" jsonschema:"required"`
 	}
 )

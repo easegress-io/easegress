@@ -23,8 +23,8 @@ type (
 	// ServiceSelector is to select service instances
 	// according to service names and labels.
 	ServiceSelector struct {
-		MatchServices       []string          `yaml:"matchServices" jsonschema:"required,uniqueItems=true"`
-		MatchInstanceLabels map[string]string `yaml:"matchInstanceLabels" jsonschema:"required"`
+		MatchServices       []string          `json:"matchServices" jsonschema:"required,uniqueItems=true"`
+		MatchInstanceLabels map[string]string `json:"matchInstanceLabels" jsonschema:"required"`
 	}
 )
 

@@ -34,7 +34,7 @@ type (
 
 	// CompressionSpec describes the compression.
 	CompressionSpec struct {
-		MinLength uint32 `yaml:"minLength"`
+		MinLength uint32 `json:"minLength"`
 	}
 )
 

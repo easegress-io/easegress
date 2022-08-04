@@ -29,19 +29,19 @@ import (
 type (
 	// StringMatch defines the match rule of a string
 	StringMatch struct {
-		Exact  string `yaml:"exact" jsonschema:"omitempty"`
-		Prefix string `yaml:"prefix" jsonschema:"omitempty"`
-		RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
-		Empty  bool   `yaml:"empty" jsonschema:"omitempty"`
+		Exact  string `json:"exact" jsonschema:"omitempty"`
+		Prefix string `json:"prefix" jsonschema:"omitempty"`
+		RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
+		Empty  bool   `json:"empty" jsonschema:"omitempty"`
 		re     *regexp.Regexp
 	}
 
 	// URLRule defines the match rule of a http request
 	URLRule struct {
 		id        string
-		Methods   []string    `yaml:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		URL       StringMatch `yaml:"url" jsonschema:"required"`
-		PolicyRef string      `yaml:"policyRef" jsonschema:"omitempty"`
+		Methods   []string    `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		URL       StringMatch `json:"url" jsonschema:"required"`
+		PolicyRef string      `json:"policyRef" jsonschema:"omitempty"`
 	}
 )
 

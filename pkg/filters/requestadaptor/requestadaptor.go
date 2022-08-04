@@ -67,15 +67,15 @@ type (
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Host       string                `yaml:"host" jsonschema:"omitempty"`
-		Method     string                `yaml:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path       *pathadaptor.Spec     `yaml:"path,omitempty" jsonschema:"omitempty"`
-		Header     *httpheader.AdaptSpec `yaml:"header,omitempty" jsonschema:"omitempty"`
-		Body       string                `yaml:"body" jsonschema:"omitempty"`
-		Compress   string                `yaml:"compress" jsonschema:"omitempty"`
-		Decompress string                `yaml:"decompress" jsonschema:"omitempty"`
+		Host       string                `json:"host" jsonschema:"omitempty"`
+		Method     string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path       *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
+		Header     *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
+		Body       string                `json:"body" jsonschema:"omitempty"`
+		Compress   string                `json:"compress" jsonschema:"omitempty"`
+		Decompress string                `json:"decompress" jsonschema:"omitempty"`
 	}
 )
 

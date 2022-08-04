@@ -29,9 +29,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/common"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/version"
 )
 
@@ -248,7 +248,7 @@ func (opt *Options) Parse() (string, error) {
 		return "", err
 	}
 
-	buff, err := yaml.Marshal(opt)
+	buff, err := codectool.MarshalYAML(opt)
 	if err != nil {
 		return "", fmt.Errorf("marshal config to yaml failed: %v", err)
 	}
@@ -353,11 +353,8 @@ func (opt *Options) validate() error {
 		}
 		opt.Name = name
 	}
-	if err := common.ValidateName(opt.Name); err != nil {
-		return err
-	}
 
-	return nil
+	return common.ValidateName(opt.Name)
 }
 
 func (opt *Options) prepare() error {

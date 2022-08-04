@@ -69,25 +69,25 @@ type (
 
 	// Status is the status of namespaces
 	Status struct {
-		Namespaces []*NamespacesStatus `yaml:"namespaces"`
+		Namespaces []*NamespacesStatus `json:"namespaces"`
 	}
 
 	// NamespacesStatus is the universal status in one namespace.
 	NamespacesStatus struct {
-		Namespace      string           `yaml:"namespace"`
-		TrafficObjects []*TrafficObject `yaml:"trafficObjects"`
+		Namespace      string           `json:"namespace"`
+		TrafficObjects []*TrafficObject `json:"trafficObjects"`
 	}
 
 	// TrafficObject is the traffic object.
 	TrafficObject struct {
-		Name                string `yaml:"name"`
-		TrafficObjectStatus `yaml:",inline"`
+		Name                string `json:"name"`
+		TrafficObjectStatus `json:",inline"`
 	}
 
 	// TrafficObjectStatus is the status of traffic object.
 	TrafficObjectStatus struct {
-		Spec   interface{} `yaml:"spec"`
-		Status interface{} `yaml:"status"`
+		Spec   interface{} `json:"spec"`
+		Status interface{} `json:"status"`
 	}
 )
 

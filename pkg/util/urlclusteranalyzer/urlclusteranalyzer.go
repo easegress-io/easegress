@@ -31,17 +31,17 @@ const (
 
 // URLClusterAnalyzer is url cluster analyzer.
 type URLClusterAnalyzer struct {
-	slots []*field `yaml:"slots"`
+	slots []*field `json:"slots"`
 	mutex *sync.Mutex
 	cache *lru.Cache
 }
 
 type field struct {
-	constant        string   `yaml:"constant"`
-	subFields       []*field `yaml:"subFields"`
-	variableField   *field   `yaml:"variableField"`
-	isVariableField bool     `yaml:"isVariableField"`
-	pattern         string   `yaml:"pattern"`
+	constant        string   `json:"constant"`
+	subFields       []*field `json:"subFields"`
+	variableField   *field   `json:"variableField"`
+	isVariableField bool     `json:"isVariableField"`
+	pattern         string   `json:"pattern"`
 }
 
 func newField(name string) *field {

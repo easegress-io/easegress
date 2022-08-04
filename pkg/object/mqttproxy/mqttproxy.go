@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"gopkg.in/yaml.v2"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -102,7 +102,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 		urls := []string{}
 		for _, v := range kv {
 			memberStatus := cluster.MemberStatus{}
-			err := yaml.Unmarshal([]byte(v), &memberStatus)
+			err := codectool.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
 				logger.SpanErrorf(nil, "cluster status unmarshal failed: %v", err)
 				return []string{}, err
@@ -123,7 +123,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 				if err != nil {
 					return nil, fmt.Errorf("get url for %v failed: %v", memberStatus.Options.Name, err)
 				}
-				urls = append(urls, newURL+"/apis/v1"+fmt.Sprintf(mqttAPITopicPublishPrefix, name))
+				urls = append(urls, newURL+"/apis/v2"+fmt.Sprintf(mqttAPITopicPublishPrefix, name))
 			}
 		}
 		logger.SpanDebugf(nil, "eg %v %v get urls %v", egName, name, urls)

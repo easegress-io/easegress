@@ -21,7 +21,6 @@ import (
 	"bytes"
 	stdcontext "context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -32,6 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -115,10 +115,10 @@ type (
 
 	// Spec describes RemoteFilter.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		URL     string `yaml:"url" jsonschema:"required,format=uri"`
-		Timeout string `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+		URL     string `json:"url" jsonschema:"required,format=uri"`
+		Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
 
 		timeout time.Duration
 	}
@@ -294,7 +294,7 @@ func (rf *RemoteFilter) marshalHTTPContext(r *httpprot.Request, w *httpprot.Resp
 		},
 	}
 
-	buff, err := json.Marshal(ctxEntity)
+	buff, err := codectool.MarshalJSON(ctxEntity)
 	if err != nil {
 		panic(err)
 	}
@@ -305,7 +305,7 @@ func (rf *RemoteFilter) marshalHTTPContext(r *httpprot.Request, w *httpprot.Resp
 func (rf *RemoteFilter) unmarshalHTTPContext(r *httpprot.Request, w *httpprot.Response, buff []byte) {
 	ctxEntity := &contextEntity{}
 
-	err := json.Unmarshal(buff, ctxEntity)
+	err := codectool.Unmarshal(buff, ctxEntity)
 	if err != nil {
 		panic(err)
 	}

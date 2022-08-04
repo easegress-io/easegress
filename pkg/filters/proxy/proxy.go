@@ -102,29 +102,29 @@ type (
 
 	// Spec describes the Proxy.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Pools               []*ServerPoolSpec `yaml:"pools" jsonschema:"required"`
-		MirrorPool          *ServerPoolSpec   `yaml:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		Compression         *CompressionSpec  `yaml:"compression,omitempty" jsonschema:"omitempty"`
-		MTLS                *MTLS             `yaml:"mtls,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int               `yaml:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int               `yaml:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-		ServerMaxBodySize   int64             `yaml:"serverMaxBodySize" jsonschema:"omitempty"`
+		Pools               []*ServerPoolSpec `json:"pools" jsonschema:"required"`
+		MirrorPool          *ServerPoolSpec   `json:"mirrorPool,omitempty" jsonschema:"omitempty"`
+		Compression         *CompressionSpec  `json:"compression,omitempty" jsonschema:"omitempty"`
+		MTLS                *MTLS             `json:"mtls,omitempty" jsonschema:"omitempty"`
+		MaxIdleConns        int               `json:"maxIdleConns" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		ServerMaxBodySize   int64             `json:"serverMaxBodySize" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of Proxy.
 	Status struct {
-		MainPool       *ServerPoolStatus   `yaml:"mainPool"`
-		CandidatePools []*ServerPoolStatus `yaml:"candidatePools,omitempty"`
-		MirrorPool     *ServerPoolStatus   `yaml:"mirrorPool,omitempty"`
+		MainPool       *ServerPoolStatus   `json:"mainPool"`
+		CandidatePools []*ServerPoolStatus `json:"candidatePools,omitempty"`
+		MirrorPool     *ServerPoolStatus   `json:"mirrorPool,omitempty"`
 	}
 
 	// MTLS is the configuration for client side mTLS.
 	MTLS struct {
-		CertBase64     string `yaml:"certBase64" jsonschema:"required,format=base64"`
-		KeyBase64      string `yaml:"keyBase64" jsonschema:"required,format=base64"`
-		RootCertBase64 string `yaml:"rootCertBase64" jsonschema:"required,format=base64"`
+		CertBase64     string `json:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64      string `json:"keyBase64" jsonschema:"required,format=base64"`
+		RootCertBase64 string `json:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
 )
 

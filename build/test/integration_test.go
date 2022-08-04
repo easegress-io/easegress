@@ -36,13 +36,13 @@ func TestPipeline(t *testing.T) {
 
 	// fail to create Pipeline because of invalid yaml
 	yamlStr := `
-name: pipeline-fail  
-kind: Pipeline 
+name: pipeline-fail
+kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 filters:
-- name: proxy 
-  kind: Proxy 
+- name: proxy
+  kind: Proxy
   pools:
   - servers:
     - url: 127.0.0.1:8888
@@ -54,27 +54,27 @@ filters:
 	// pipeline-success1 and pipeline-success2
 	yamlStr = `
 name: pipeline-success1
-kind: Pipeline 
+kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 filters:
-- name: proxy 
-  kind: Proxy 
+- name: proxy
+  kind: Proxy
   pools:
   - servers:
-    - url: http://127.0.0.1:8888 
+    - url: http://127.0.0.1:8888
 `
 	ok, msg = createObject(t, yamlStr)
 	assert.True(ok, msg)
 
 	yamlStr = `
-name: pipeline-success2  
-kind: Pipeline 
+name: pipeline-success2
+kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 filters:
-- name: proxy 
-  kind: Proxy 
+- name: proxy
+  kind: Proxy
   pools:
   - servers:
     - url: http://127.0.0.1:8888
@@ -84,22 +84,23 @@ filters:
 
 	// list Pipeline and find them by using name
 	ok, msg = listObject(t)
+	fmt.Printf("ok %v, msg %s\n", ok, msg)
 	assert.True(ok)
-	assert.True(strings.Contains(msg, "name: pipeline-success2"))
-	assert.True(strings.Contains(msg, "name: pipeline-success1"))
+	assert.True(strings.Contains(msg, `"name":"pipeline-success2"`))
+	assert.True(strings.Contains(msg, `"name":"pipeline-success1"`))
 
 	// update Pipeline and use list to find it
 	yamlStr = `
-name: pipeline-success2  
-kind: Pipeline 
+name: pipeline-success2
+kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 filters:
-- name: proxy 
-  kind: Proxy 
+- name: proxy
+  kind: Proxy
   pools:
   - servers:
-    - url: http://update-pipeline-success2:8888 
+    - url: http://update-pipeline-success2:8888
 `
 	ok, msg = updateObject(t, "pipeline-success2", yamlStr)
 	assert.True(ok, msg)
@@ -116,8 +117,8 @@ filters:
 
 	ok, msg = listObject(t)
 	assert.True(ok)
-	assert.False(strings.Contains(msg, "name: pipeline-success1"))
-	assert.False(strings.Contains(msg, "name: pipeline-success2"))
+	assert.False(strings.Contains(msg, `"name":"pipeline-success1"`))
+	assert.False(strings.Contains(msg, `"name":"pipeline-success2"`))
 }
 
 func TestHTTPServer(t *testing.T) {
@@ -125,7 +126,7 @@ func TestHTTPServer(t *testing.T) {
 
 	// fail to create HTTPServer because of invalid yaml
 	yamlStr := `
-name: httpserver-fail    
+name: httpserver-fail
 kind: HTTPServer
 `
 	ok, msg := createObject(t, yamlStr)
@@ -148,7 +149,7 @@ rules:
 	// list HTTPServer and find it by name
 	ok, msg = listObject(t)
 	assert.True(ok)
-	assert.True(strings.Contains(msg, "name: httpserver-success"))
+	assert.True(strings.Contains(msg, `"name":"httpserver-success"`))
 
 	// update HTTPServer and use list to find it
 	yamlStr = `
@@ -158,14 +159,14 @@ port: 10080
 rules:
   - paths:
     - pathPrefix: /api
-      backend: update-httpserver-success 
+      backend: update-httpserver-success
 `
 	ok, msg = updateObject(t, "httpserver-success", yamlStr)
 	assert.True(ok, msg)
 
 	ok, msg = listObject(t)
 	assert.True(ok)
-	assert.True(strings.Contains(msg, "backend: update-httpserver-success"))
+	assert.True(strings.Contains(msg, `"backend":"update-httpserver-success"`))
 
 	// delete all HTTPServer
 	ok, msg = deleteObject(t, "httpserver-success")
@@ -173,7 +174,7 @@ rules:
 
 	ok, msg = listObject(t)
 	assert.True(ok)
-	assert.False(strings.Contains(msg, "name: httpserver-success"))
+	assert.False(strings.Contains(msg, `"name":"httpserver-success"`))
 }
 
 func TestHTTPServerAndPipeline(t *testing.T) {
@@ -200,15 +201,15 @@ rules:
 	// create pipeline
 	yamlStr = `
 name: pipeline-test
-kind: Pipeline 
+kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 filters:
-- name: proxy 
-  kind: Proxy 
+- name: proxy
+  kind: Proxy
   pools:
   - servers:
-    - url: http://127.0.0.1:8888 
+    - url: http://127.0.0.1:8888
 `
 	ok, msg = createObject(t, yamlStr)
 	assert.True(ok, msg)

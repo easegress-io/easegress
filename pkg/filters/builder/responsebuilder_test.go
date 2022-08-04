@@ -28,9 +28,8 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 func init() {
@@ -55,12 +54,12 @@ func TestStatusCode(t *testing.T) {
 	assert := assert.New(t)
 
 	// set status code directly
-	yml := `template: |
+	yamlConfig := `template: |
   statusCode: 200
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -74,12 +73,12 @@ func TestStatusCode(t *testing.T) {
 	}
 
 	// set status code from other response
-	yml = `template: |
+	yamlConfig = `template: |
   statusCode: {{.responses.response1.StatusCode}}
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -101,14 +100,14 @@ func TestResponseHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	// get header from request and response
-	yml := `template: |
+	yamlConfig := `template: |
   headers:
     "X-Request": [{{index (index .requests.request1.Header "X-Request") 0}}]
     "X-Response": [{{index (index .responses.response1.Header "X-Response") 0}}]
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -140,12 +139,12 @@ func TestResponseBody(t *testing.T) {
 	assert := assert.New(t)
 
 	// directly set body
-	yml := `template: |
+	yamlConfig := `template: |
   body: body
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -161,12 +160,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body
-	yml = `template: |
+	yamlConfig = `template: |
   body: body {{ .requests.request1.Body }}
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -186,12 +185,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body json map
-	yml = `template: |
+	yamlConfig = `template: |
   body: body {{ .requests.request1.JSONBody.field1 }} {{ .requests.request1.JSONBody.field2 }}
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -211,12 +210,12 @@ func TestResponseBody(t *testing.T) {
 	}
 
 	// set body by using other body yaml map
-	yml = `template: |
+	yamlConfig = `template: |
   body: body {{ .requests.request1.YAMLBody.field1 }} {{ .requests.request1.YAMLBody.field2 }}
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -239,12 +238,12 @@ field2: value2
 	}
 
 	// invalid status code
-	yml = `template: |
+	yamlConfig = `template: |
   statusCode: 800
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -260,14 +259,14 @@ func TestResponseBuilder(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(&ResponseBuilderSpec{Protocol: "http"}, responseBuilderKind.DefaultSpec())
-	yamlStr := `
-name: responseBuilder 
-kind: ResponseBuilder 
+	yamlConfig := `
+name: responseBuilder
+kind: ResponseBuilder
 template: |
-  statusCode: 200 
+  statusCode: 200
 `
 	rawSpec := map[string]interface{}{}
-	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	responseBuilder := responseBuilderKind.CreateInstance(spec).(*ResponseBuilder)
@@ -285,12 +284,12 @@ func TestRespSourceNamespace(t *testing.T) {
 	assert := assert.New(t)
 
 	// set status code directly
-	yml := `
-sourceNamespace: response1 
+	yamlConfig := `
+sourceNamespace: response1
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		yaml.Unmarshal([]byte(yml), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 

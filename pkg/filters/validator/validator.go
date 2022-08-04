@@ -67,13 +67,13 @@ type (
 
 	// Spec describes the Validator.
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Headers   *httpheader.ValidatorSpec `yaml:"headers,omitempty" jsonschema:"omitempty"`
-		JWT       *JWTValidatorSpec         `yaml:"jwt,omitempty" jsonschema:"omitempty"`
-		Signature *signer.Spec              `yaml:"signature,omitempty" jsonschema:"omitempty"`
-		OAuth2    *OAuth2ValidatorSpec      `yaml:"oauth2,omitempty" jsonschema:"omitempty"`
-		BasicAuth *BasicAuthValidatorSpec   `yaml:"basicAuth,omitempty" jsonschema:"omitempty"`
+		Headers   *httpheader.ValidatorSpec `json:"headers,omitempty" jsonschema:"omitempty"`
+		JWT       *JWTValidatorSpec         `json:"jwt,omitempty" jsonschema:"omitempty"`
+		Signature *signer.Spec              `json:"signature,omitempty" jsonschema:"omitempty"`
+		OAuth2    *OAuth2ValidatorSpec      `json:"oauth2,omitempty" jsonschema:"omitempty"`
+		BasicAuth *BasicAuthValidatorSpec   `json:"basicAuth,omitempty" jsonschema:"omitempty"`
 	}
 )
 

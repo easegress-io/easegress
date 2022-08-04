@@ -47,8 +47,8 @@ type LoadBalancer interface {
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string `yaml:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
-	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
+	Policy        string `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	HeaderHashKey string `json:"headerHashKey" jsonschema:"omitempty"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.

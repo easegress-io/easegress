@@ -20,13 +20,13 @@ package filters
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/yamltool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
 type mockSpec struct {
-	BaseSpec `yaml:",inline"`
-	Field    string `yaml:"field" jsonschema:"required"`
+	BaseSpec `json:",inline"`
+	Field    string `json:"field" jsonschema:"required"`
 }
 
 var mockKind = &Kind{
@@ -39,8 +39,8 @@ var mockKind = &Kind{
 
 func TestSpecInherit(t *testing.T) {
 	type DerivedSpec struct {
-		BaseSpec `yaml:",inline"`
-		Field1   string `yaml:"field1"`
+		BaseSpec `json:",inline"`
+		Field1   string `json:"field1"`
 	}
 
 	text := []byte(`
@@ -52,7 +52,7 @@ field1: abc
 	var spec Spec
 	derived := &DerivedSpec{}
 	spec = derived
-	yamltool.Unmarshal(text, spec)
+	codectool.MustUnmarshal(text, spec)
 
 	baseSpec := spec.baseSpec()
 	baseSpec.pipeline = "pipeline1"
@@ -83,27 +83,27 @@ func TestNewSpec(t *testing.T) {
 	_, err = NewSpec(nil, "pipeline1", "invalid spec")
 	assert.NotNil(err, "unmarshal 'invalid spec' to MetaSpec should return err")
 
-	yamlStr := `
-name: filter 
-kind: Filter 
+	yamlConfig := `
+name: filter
+kind: Filter
 `
 	rawSpec := map[string]interface{}{}
-	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	_, err = NewSpec(nil, "pipeline1", rawSpec)
 	assert.NotNil(err, "kind Filter not exist")
 
 	// spec that work
 	kinds["Mock"] = mockKind
 	defer delete(kinds, "Mock")
-	yamlStr = `
+	yamlConfig = `
 name: filter
 kind: Mock
-field: 123
+field: "abc"
 `
 	rawSpec = map[string]interface{}{}
-	yamltool.Unmarshal([]byte(yamlStr), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	assert.Nil(spec.Super())
-	assert.NotEmpty(spec.YAMLConfig())
+	assert.NotEmpty(spec.JSONConfig())
 }

@@ -37,27 +37,27 @@ func TestMain(m *testing.M) {
 func TestHTTPServer(t *testing.T) {
 	assert := assert.New(t)
 
-	yamlSpec := `
+	yamlConfig := `
 kind: HTTPServer
 name: test
 port: 38081
 keepAlive: true
 https: false
 `
-	superSpec, err := supervisor.NewSpec(yamlSpec)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 
 	svr := &HTTPServer{}
 	svr.Init(superSpec, &contexttest.MockedMuxMapper{})
 
-	yamlSpec = `
+	yamlConfig = `
 kind: HTTPServer
 name: test
 port: 38082
 keepAlive: true
 https: false
 `
-	superSpec, err = supervisor.NewSpec(yamlSpec)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	svr2 := &HTTPServer{}
 	svr2.Inherit(superSpec, svr, &contexttest.MockedMuxMapper{})

@@ -44,10 +44,10 @@ type (
 
 	// MemoryCacheSpec describes the MemoryCache.
 	MemoryCacheSpec struct {
-		Expiration    string   `yaml:"expiration" jsonschema:"required,format=duration"`
-		MaxEntryBytes uint32   `yaml:"maxEntryBytes" jsonschema:"required,minimum=1"`
-		Codes         []int    `yaml:"codes" jsonschema:"required,minItems=1,uniqueItems=true,format=httpcode-array"`
-		Methods       []string `yaml:"methods" jsonschema:"required,minItems=1,uniqueItems=true,format=httpmethod-array"`
+		Expiration    string   `json:"expiration" jsonschema:"required,format=duration"`
+		MaxEntryBytes uint32   `json:"maxEntryBytes" jsonschema:"required,minimum=1"`
+		Codes         []int    `json:"codes" jsonschema:"required,minItems=1,uniqueItems=true,format=httpcode-array"`
+		Methods       []string `json:"methods" jsonschema:"required,minItems=1,uniqueItems=true,format=httpmethod-array"`
 	}
 
 	// CacheEntry is an item of the memory cache.

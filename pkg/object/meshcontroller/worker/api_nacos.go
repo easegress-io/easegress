@@ -18,7 +18,6 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (worker *Worker) nacosAPIs() []*apiEntry {
@@ -117,15 +117,8 @@ func (worker *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) 
 
 	nacosSvc := worker.registryServer.ToNacosService(serviceInfo)
 
-	buff, err := json.Marshal(nacosSvc)
-	if err != nil {
-		logger.Errorf("json marshal nacosService: %#v err: %v", nacosSvc, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(nacosSvc)
+	worker.writeJSONBody(w, buff)
 }
 
 func (worker *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
@@ -151,15 +144,8 @@ func (worker *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
 
 	nacosIns := worker.registryServer.ToNacosInstanceInfo(serviceInfo)
 
-	buff, err := json.Marshal(nacosIns)
-	if err != nil {
-		logger.Errorf("json marshal nacosInstance: %#v err: %v", nacosIns, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(nacosIns)
+	worker.writeJSONBody(w, buff)
 }
 
 func (worker *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
@@ -174,15 +160,8 @@ func (worker *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
 	}
 	serviceList := worker.registryServer.ToNacosServiceList(serviceInfos)
 
-	buff, err := json.Marshal(serviceList)
-	if err != nil {
-		logger.Errorf("json marshal serviceList: %#v err: %v", serviceList, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(serviceList)
+	worker.writeJSONBody(w, buff)
 }
 
 func (worker *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
@@ -208,13 +187,6 @@ func (worker *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
 
 	nacosSvcDetail := worker.registryServer.ToNacosServiceDetail(serviceInfo)
 
-	buff, err := json.Marshal(nacosSvcDetail)
-	if err != nil {
-		logger.Errorf("json marshal nacosSvcDetail: %#v err: %v", nacosSvcDetail, err)
-		api.HandleAPIError(w, r, http.StatusInternalServerError, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", registrycenter.ContentTypeJSON)
-	w.Write(buff)
+	buff := codectool.MustMarshalJSON(nacosSvcDetail)
+	worker.writeJSONBody(w, buff)
 }

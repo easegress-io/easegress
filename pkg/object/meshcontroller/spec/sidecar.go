@@ -129,10 +129,10 @@ func (s *Service) SidecarEgressPipelineSpec(instanceSpecs []*ServiceInstanceSpec
 		failureCodes:         failureCodes,
 	})
 
-	yamlConfig := pipelineSpecBuilder.yamlConfig()
-	superSpec, err := supervisor.NewSpec(yamlConfig)
+	jsonConfig := pipelineSpecBuilder.jsonConfig()
+	superSpec, err := supervisor.NewSpec(jsonConfig)
 	if err != nil {
-		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", jsonConfig, err)
 		return nil, err
 	}
 
@@ -201,10 +201,10 @@ func (s *Service) SidecarIngressPipelineSpec(applicationPort uint32) (*superviso
 		timeout:       timeout,
 	})
 
-	yamlConfig := pipelineSpecBuilder.yamlConfig()
-	superSpec, err := supervisor.NewSpec(yamlConfig)
+	jsonConfig := pipelineSpecBuilder.jsonConfig()
+	superSpec, err := supervisor.NewSpec(jsonConfig)
 	if err != nil {
-		logger.Errorf("new spec for %s failed: %v", yamlConfig, err)
+		logger.Errorf("new spec for %s failed: %v", jsonConfig, err)
 		return nil, err
 	}
 

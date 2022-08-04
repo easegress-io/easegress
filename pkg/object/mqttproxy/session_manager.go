@@ -34,7 +34,7 @@ type (
 		done       chan struct{}
 	}
 
-	// SessionStore for session store, key is session clientID, value is session yaml marshal value
+	// SessionStore for session store, key is session clientID, value is session json marshal value
 	SessionStore struct {
 		key   string
 		value string
@@ -79,7 +79,7 @@ func (sm *SessionManager) newSessionFromConn(connect *packets.ConnectPacket) *Se
 	return s
 }
 
-func (sm *SessionManager) newSessionFromYaml(str *string) *Session {
+func (sm *SessionManager) newSessionFromJSON(str *string) *Session {
 	sess := &Session{}
 	sess.broker = sm.broker
 	sess.storeCh = sm.storeCh
@@ -106,7 +106,7 @@ func (sm *SessionManager) get(clientID string) *Session {
 		return nil
 	}
 
-	sess := sm.newSessionFromYaml(str)
+	sess := sm.newSessionFromJSON(str)
 	if sess != nil {
 		sm.sessionMap.Store(sess.info.ClientID, sess)
 	}

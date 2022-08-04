@@ -18,7 +18,6 @@
 package easemonitormetrics
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"sync"
@@ -30,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/easemonitor"
 )
 
@@ -67,13 +67,13 @@ type (
 
 	// Spec describes the EaseMonitorMetrics.
 	Spec struct {
-		Kafka *KafkaSpec `yaml:"kafka" jsonschema:"required"`
+		Kafka *KafkaSpec `json:"kafka" jsonschema:"required"`
 	}
 
 	// KafkaSpec is the spec for kafka producer.
 	KafkaSpec struct {
-		Brokers []string `yaml:"brokers" jsonschema:"required,uniqueItems=true"`
-		Topic   string   `yaml:"topic" jsonschema:"required"`
+		Brokers []string `json:"brokers" jsonschema:"required,uniqueItems=true"`
+		Topic   string   `json:"topic" jsonschema:"required"`
 	}
 
 	// Status is the status of EaseMonitorMetrics.
@@ -229,7 +229,7 @@ func (emm *EaseMonitorMetrics) sendMetrics(latestTimestamp int64) int64 {
 				m.System = emm.super.Options().ClusterName
 				m.Timestamp = latestTimestamp * 1000
 
-				data, err := json.Marshal(m)
+				data, err := codectool.MarshalJSON(m)
 				if err != nil {
 					logger.Errorf("marshal %#v to json failed: %v", m, err)
 				}

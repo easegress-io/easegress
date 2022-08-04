@@ -54,9 +54,7 @@ type (
 	WalkFunc func(entity *ObjectEntity) bool
 )
 
-var (
-	globalSuper *Supervisor
-)
+var globalSuper *Supervisor
 
 func loadInitialObjects(s *Supervisor, paths []string) map[string]string {
 	objs := map[string]string{}
@@ -71,7 +69,7 @@ func loadInitialObjects(s *Supervisor, paths []string) map[string]string {
 			logger.Errorf("failed to create spec for initial object, path: %s, error: %v", path, e)
 			continue
 		}
-		objs[spec.Name()] = spec.YAMLConfig()
+		objs[spec.Name()] = spec.JSONConfig()
 	}
 	return objs
 }

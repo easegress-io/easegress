@@ -22,20 +22,20 @@ import "github.com/megaease/easegress/pkg/filters"
 type (
 	// Spec is spec of Kafka
 	Spec struct {
-		filters.BaseSpec `yaml:",inline"`
+		filters.BaseSpec `json:",inline"`
 
-		Backend []string `yaml:"backend" jsonschema:"required,uniqueItems=true"`
-		Topic   *Topic   `yaml:"topic" jsonschema:"required"`
+		Backend []string `json:"backend" jsonschema:"required,uniqueItems=true"`
+		Topic   *Topic   `json:"topic" jsonschema:"required"`
 	}
 
 	// Topic defined ways to get Kafka topic
 	Topic struct {
-		Default string   `yaml:"default" jsonschema:"required"`
-		Dynamic *Dynamic `yaml:"dynamic" jsonschema:"omitempty"`
+		Default string   `json:"default" jsonschema:"required"`
+		Dynamic *Dynamic `json:"dynamic" jsonschema:"omitempty"`
 	}
 
 	// Dynamic defines dynamic ways to get Kafka topic from http request
 	Dynamic struct {
-		Header string `yaml:"header" jsonschema:"omitempty"`
+		Header string `json:"header" jsonschema:"omitempty"`
 	}
 )

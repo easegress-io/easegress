@@ -24,7 +24,6 @@ import (
 	"sort"
 
 	"github.com/go-chi/chi/v5"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/v"
@@ -74,13 +73,7 @@ func (s *Server) listFilters(w http.ResponseWriter, r *http.Request) {
 	})
 	sort.Strings(kinds)
 
-	buff, err := yaml.Marshal(kinds)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", kinds, err))
-	}
-
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	w.Write(buff)
+	WriteBody(w, r, kinds)
 }
 
 func (s *Server) getFilterDescription(w http.ResponseWriter, r *http.Request) {
@@ -104,13 +97,12 @@ func (s *Server) getFilterSchema(w http.ResponseWriter, r *http.Request) {
 	}
 	specType := reflect.TypeOf(k.DefaultSpec())
 
-	buff, err := v.GetSchemaInYAML(specType)
+	schema, err := v.GetSchema(specType)
 	if err != nil {
 		panic(fmt.Errorf("get schema for %v failed: %v", kind, err))
 	}
 
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	w.Write(buff)
+	WriteBody(w, r, schema)
 }
 
 func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
@@ -122,11 +114,5 @@ func (s *Server) getFilterResults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buff, err := yaml.Marshal(k.Results)
-	if err != nil {
-		panic(fmt.Errorf("marshal %#v to yaml failed: %v", k.Results, err))
-	}
-
-	w.Header().Set("Content-Type", "text/vnd.yaml")
-	w.Write(buff)
+	WriteBody(w, r, k.Results)
 }
