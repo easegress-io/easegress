@@ -100,9 +100,7 @@ func (s *Server) wasmListData(w http.ResponseWriter, r *http.Request) {
 		data[k] = v
 	}
 
-	buff := codectool.MustMarshalJSON(data)
-
-	s.writeJSONBody(w, buff)
+	WriteBody(w, r, data)
 }
 
 func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
