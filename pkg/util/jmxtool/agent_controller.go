@@ -23,7 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -73,7 +73,7 @@ func newAgentConfig() {
 }
 
 func (ac *AgentConfig) marshal() ([]byte, error) {
-	jsonBuff, err := spectool.MarshalJSON(ac)
+	jsonBuff, err := codectool.MarshalJSON(ac)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %#v to json failed: %v", ac, err)
 	}
@@ -82,7 +82,7 @@ func (ac *AgentConfig) marshal() ([]byte, error) {
 		return nil, fmt.Errorf("json to kv failed: %v", err)
 	}
 
-	result, err := spectool.MarshalJSON(kvMap)
+	result, err := codectool.MarshalJSON(kvMap)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %s to json failed: %v", kvMap, err)
 	}

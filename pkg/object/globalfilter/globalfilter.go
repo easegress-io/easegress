@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -104,7 +104,7 @@ func (gf *GlobalFilter) CreateAndUpdateAfterPipelineForSpec(spec *Spec, previous
 // CreateAndUpdatePipeline creates and updates GlobalFilter's pipelines.
 func (gf *GlobalFilter) CreateAndUpdatePipeline(spec *pipelineSpec, previousGeneration *pipeline.Pipeline) (*pipeline.Pipeline, error) {
 	// init jsonConfig
-	jsonConfig := spectool.MustMarshalJSON(spec)
+	jsonConfig := codectool.MustMarshalJSON(spec)
 	specs, err := supervisor.NewSpec(string(jsonConfig))
 	if err != nil {
 		return nil, err

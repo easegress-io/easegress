@@ -25,7 +25,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -218,7 +218,7 @@ func (a *API) getPartOfService(meta *partMeta) http.HandlerFunc {
 			panic(err)
 		}
 
-		buff := spectool.MustMarshalJSON(partPB)
+		buff := codectool.MustMarshalJSON(partPB)
 		a.writeJSONBody(w, buff)
 	})
 }

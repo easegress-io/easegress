@@ -34,7 +34,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -223,7 +223,7 @@ func (rcs *Server) decodeByConsulFormat(body []byte) error {
 		reg consul.AgentServiceRegistration
 	)
 
-	err = spectool.UnmarshalJSON(body, &reg)
+	err = codectool.UnmarshalJSON(body, &reg)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 
 	switch contentType {
 	case ContentTypeJSON:
-		if err = spectool.UnmarshalJSON(body, &eurekaIns); err != nil {
+		if err = codectool.UnmarshalJSON(body, &eurekaIns); err != nil {
 			logger.Errorf("decode eureka contentType: %s body: %s failed: %v", contentType, string(body), err)
 			return err
 		}

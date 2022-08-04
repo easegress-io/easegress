@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -96,7 +96,7 @@ rules:
     X-Test: test3
 `
 	rawSpec := make(map[string]interface{})
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {

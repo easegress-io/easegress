@@ -26,7 +26,7 @@ import (
 	loadjs "github.com/xeipuuv/gojsonschema"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -83,7 +83,7 @@ func Validate(v interface{}) *ValidateRecorder {
 		vr.recordSystem(fmt.Errorf("nil value"))
 	}
 
-	jsonBuff, err := spectool.MarshalJSON(v)
+	jsonBuff, err := codectool.MarshalJSON(v)
 	if err != nil {
 		vr.recordSystem(fmt.Errorf("marshal %#v to json failed: %v", v, err))
 		return vr
@@ -130,7 +130,7 @@ func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
 		}
 	}
 
-	sm.jsonFormat, err = spectool.MarshalJSON(sm.genSchema)
+	sm.jsonFormat, err = codectool.MarshalJSON(sm.genSchema)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %#v to json failed: %v", sm.loadSchema, err)
 	}

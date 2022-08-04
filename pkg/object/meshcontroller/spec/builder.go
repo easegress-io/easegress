@@ -30,7 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -78,7 +78,7 @@ func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
@@ -100,7 +100,7 @@ func (b *pipelineSpecBuilder) appendRateLimiter(rule *ratelimiter.Rule) *pipelin
 		Rule: *rule,
 	}
 
-	m, err := spectool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -127,7 +127,7 @@ func (b *pipelineSpecBuilder) appendCircuitBreaker(rule *resilience.CircuitBreak
 		CircuitBreakerRule: *rule,
 	}
 
-	m, err := spectool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -153,7 +153,7 @@ func (b *pipelineSpecBuilder) appendRetry(rule *resilience.RetryRule) *pipelineS
 		RetryRule: *rule,
 	}
 
-	m, err := spectool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -179,7 +179,7 @@ func (b *pipelineSpecBuilder) appendMock(rules []*mock.Rule) *pipelineSpecBuilde
 		Rules: rules,
 	}
 
-	m, err := spectool.StructToMap(spec)
+	m, err := codectool.StructToMap(spec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", spec, err)
 		return b
@@ -290,7 +290,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 		proxySpec.Pools = append(proxySpec.Pools, candidate)
 	}
 
-	m, err := spectool.StructToMap(proxySpec)
+	m, err := codectool.StructToMap(proxySpec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", proxySpec, err)
 		return b
@@ -339,7 +339,7 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 
 	meshAdaptorSpec.ServiceCanaries = adaptors
 
-	m, err := spectool.StructToMap(meshAdaptorSpec)
+	m, err := codectool.StructToMap(meshAdaptorSpec)
 	if err != nil {
 		logger.Errorf("BUG: convert %#v to map failed: %v", meshAdaptorSpec, err)
 		return b

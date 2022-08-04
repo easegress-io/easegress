@@ -21,12 +21,12 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 // put puts a function spec and status into store.
 func (worker *Worker) put(funcSpec *spec.Spec) error {
-	buf, err := spectool.MarshalJSON(funcSpec)
+	buf, err := codectool.MarshalJSON(funcSpec)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (worker *Worker) put(funcSpec *spec.Spec) error {
 		State: spec.InitState(),
 		Event: spec.CreateEvent,
 	}
-	buf, err = spectool.MarshalJSON(status)
+	buf, err = codectool.MarshalJSON(status)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (worker *Worker) get(functionName string) (*spec.Function, error) {
 }
 
 func (worker *Worker) updateFunctionStatus(status *spec.Status) error {
-	buff, err := spectool.MarshalJSON(status)
+	buff, err := codectool.MarshalJSON(status)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", status, err)
 		return err
@@ -131,7 +131,7 @@ func (worker *Worker) updateFunctionStatus(status *spec.Status) error {
 }
 
 func (worker *Worker) updateFunctionSpec(funcSpec *spec.Spec) error {
-	buff, err := spectool.MarshalJSON(funcSpec)
+	buff, err := codectool.MarshalJSON(funcSpec)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", funcSpec, err)
 		return err
@@ -178,7 +178,7 @@ func (worker *Worker) listFunctionStatus(all bool, functionName string) ([]*spec
 
 	for _, v := range kvs {
 		_status := &spec.Status{}
-		if err = spectool.Unmarshal([]byte(v), _status); err != nil {
+		if err = codectool.Unmarshal([]byte(v), _status); err != nil {
 			logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 			continue
 		}
@@ -221,7 +221,7 @@ func (worker *Worker) listFunctionSpecs(all bool, functionName string) ([]*spec.
 
 	for _, v := range kvs {
 		_spec := &spec.Spec{}
-		if err = spectool.Unmarshal([]byte(v), _spec); err != nil {
+		if err = codectool.Unmarshal([]byte(v), _spec); err != nil {
 			logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 			continue
 		}

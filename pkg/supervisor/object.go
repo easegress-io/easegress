@@ -31,7 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -292,7 +292,7 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
 
-	configBuff, err := spectool.MarshalJSON(config)
+	configBuff, err := codectool.MarshalJSON(config)
 	if err != nil {
 		logger.Errorf("marshal %s to json failed: %v", buff, err)
 		return

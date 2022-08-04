@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	apicorev1 "k8s.io/api/core/v1"
 	apinetv1 "k8s.io/api/networking/v1"
 )
@@ -91,7 +91,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
@@ -113,7 +113,7 @@ func newHTTPServerSpecBuilder(template *httpserver.Spec) *httpServerSpecBuilder 
 }
 
 func (b *httpServerSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}

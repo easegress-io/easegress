@@ -18,7 +18,7 @@
 package easemonitor
 
 import (
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -49,12 +49,12 @@ type (
 
 // MarshalJSON implements json.Marshaler
 func (m *Metrics) MarshalJSON() ([]byte, error) {
-	result, err := spectool.MarshalJSON(&m.CommonFields)
+	result, err := codectool.MarshalJSON(&m.CommonFields)
 	if err != nil {
 		return nil, err
 	}
 
-	other, err := spectool.MarshalJSON(m.OtherFields)
+	other, err := codectool.MarshalJSON(m.OtherFields)
 	if err != nil {
 		return nil, err
 	}

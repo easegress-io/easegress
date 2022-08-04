@@ -41,7 +41,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/openzipkin/zipkin-go/propagation/b3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -534,7 +534,7 @@ func TestSpec(t *testing.T) {
         key: bar
 `
 	got := Spec{}
-	err := spectool.Unmarshal([]byte(yamlStr), &got)
+	err := codectool.Unmarshal([]byte(yamlStr), &got)
 	if err != nil {
 		t.Errorf("yaml unmarshal failed, err:%v", err)
 	}
@@ -779,7 +779,7 @@ func (ts *testServer) shutdown() {
 }
 
 func topicsPublish(t *testing.T, data HTTPJsonData) int {
-	jsonData, err := spectool.MarshalJSON(data)
+	jsonData, err := codectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("json marshal error")
 	}
@@ -969,7 +969,7 @@ func TestHTTPTransfer(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := spectool.MarshalJSON(data)
+	jsonData, _ := codectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8889/mqtt", bytes.NewBuffer(jsonData))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1709,7 +1709,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 		}
 		if ok {
 			sessions := &HTTPSessions{}
-			spectool.MustDecodeJSON(resp.Body, sessions)
+			codectool.MustDecodeJSON(resp.Body, sessions)
 			if len(sessions.Sessions) != test.ansLen {
 				t.Errorf("get wrong session number wanted %v, got %v", test.ansLen, len(sessions.Sessions))
 				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
@@ -1751,7 +1751,7 @@ func TestHTTPDeleteSession(t *testing.T) {
 			{SessionID: "2"},
 		},
 	}
-	jsonData, err := spectool.MarshalJSON(data)
+	jsonData, err := codectool.MarshalJSON(data)
 	if err != nil {
 		t.Errorf("marshal http session %v failed, %v", data, err)
 	}
@@ -1810,7 +1810,7 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 		Payload: "data",
 		Base64:  false,
 	}
-	jsonData, _ := spectool.MarshalJSON(data)
+	jsonData, _ := codectool.MarshalJSON(data)
 	req, _ := http.NewRequest(http.MethodPost, "http://localhost:8888/mqtt", bytes.NewBuffer(jsonData))
 	req.Header.Add(b3.TraceID, "123")
 	resp, err := http.DefaultClient.Do(req)

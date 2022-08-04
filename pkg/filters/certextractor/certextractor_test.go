@@ -32,7 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,7 +46,7 @@ func createCertExtractor(
 	yamlConfig string, prev *CertExtractor, supervisor *supervisor.Supervisor,
 ) (*CertExtractor, error) {
 	rawSpec := make(map[string]interface{})
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		return nil, err

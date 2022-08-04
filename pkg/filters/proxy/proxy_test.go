@@ -33,7 +33,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 
 func newTestProxy(yamlConfig string, assert *assert.Assertions) *Proxy {
 	rawSpec := make(map[string]interface{})
-	err := spectool.Unmarshal([]byte(yamlConfig), &rawSpec)
+	err := codectool.Unmarshal([]byte(yamlConfig), &rawSpec)
 	assert.NoError(err)
 
 	spec, err := filters.NewSpec(nil, "", rawSpec)
@@ -208,7 +208,7 @@ pools:
   - url: http://127.0.0.1:9095
 `
 	spec := &Spec{}
-	err := spectool.Unmarshal([]byte(yamlConfig), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -220,7 +220,7 @@ pools:
 - spanName: test
 `
 	spec = &Spec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -235,7 +235,7 @@ pools:
   - url: http://127.0.0.2:9096
 `
 	spec = &Spec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -251,7 +251,7 @@ mirrorPool:
   - url: http://127.0.0.3:9095
 `
 	spec = &Spec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -273,7 +273,7 @@ mirrorPool:
     Methods: [Get]
 `
 	spec = &Spec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 }

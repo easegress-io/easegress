@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -82,7 +82,7 @@ func (s *Server) getProfileStatus(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
-	err := spectool.Decode(r.Body, &spr)
+	err := codectool.Decode(r.Body, &spr)
 	if err != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
 		return
@@ -105,7 +105,7 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) startMemoryProfile(w http.ResponseWriter, r *http.Request) {
 	spr := StartProfilingRequest{}
-	err := spectool.Decode(r.Body, &spr)
+	err := codectool.Decode(r.Body, &spr)
 	if err != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("bad request"))
 		return

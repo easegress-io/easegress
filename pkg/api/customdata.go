@@ -23,7 +23,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -123,7 +123,7 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	k := customdata.Kind{}
-	spectool.MustDecode(r.Body, &k)
+	codectool.MustDecode(r.Body, &k)
 
 	err := s.cds.PutKind(&k, false)
 	if err != nil {
@@ -137,7 +137,7 @@ func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateCustomDataKind(w http.ResponseWriter, r *http.Request) {
 	k := customdata.Kind{}
-	spectool.MustDecode(r.Body, &k)
+	codectool.MustDecode(r.Body, &k)
 
 	err := s.cds.PutKind(&k, true)
 	if err != nil {
@@ -180,7 +180,7 @@ func (s *Server) createCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	data := customdata.Data{}
-	spectool.MustDecode(r.Body, &data)
+	codectool.MustDecode(r.Body, &data)
 
 	id, err := s.cds.PutData(kind, data, false)
 	if err != nil {
@@ -196,7 +196,7 @@ func (s *Server) updateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	data := customdata.Data{}
-	spectool.MustDecode(r.Body, &data)
+	codectool.MustDecode(r.Body, &data)
 
 	_, err := s.cds.PutData(kind, data, true)
 	if err != nil {
@@ -217,7 +217,7 @@ func (s *Server) batchUpdateCustomData(w http.ResponseWriter, r *http.Request) {
 	kind := chi.URLParam(r, "kind")
 
 	var cr ChangeRequest
-	spectool.MustDecode(r.Body, &cr)
+	codectool.MustDecode(r.Body, &cr)
 
 	if cr.Rebuild {
 		err := s.cds.DeleteAllData(kind)

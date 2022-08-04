@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easemesh-api/v2alpha1"
 	"github.com/xeipuuv/gojsonschema"
 )
@@ -56,7 +56,7 @@ func (a *API) listCustomResourceKinds(w http.ResponseWriter, r *http.Request) {
 		pbKinds = append(pbKinds, kind)
 	}
 
-	buff := spectool.MustMarshalJSON(pbKinds)
+	buff := codectool.MustMarshalJSON(pbKinds)
 	a.writeJSONBody(w, buff)
 }
 
@@ -79,7 +79,7 @@ func (a *API) getCustomResourceKind(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", kind, err))
 	}
 
-	buff := spectool.MustMarshalJSON(pbKind)
+	buff := codectool.MustMarshalJSON(pbKind)
 	a.writeJSONBody(w, buff)
 }
 
@@ -167,7 +167,7 @@ func (a *API) listAllCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
-	buff := spectool.MustMarshalJSON(resources)
+	buff := codectool.MustMarshalJSON(resources)
 	a.writeJSONBody(w, buff)
 }
 
@@ -188,7 +188,7 @@ func (a *API) listCustomResources(w http.ResponseWriter, r *http.Request) {
 		return resources[i].GetString("name") < resources[j].GetString("name")
 	})
 
-	buff := spectool.MustMarshalJSON(resources)
+	buff := codectool.MustMarshalJSON(resources)
 	a.writeJSONBody(w, buff)
 }
 
@@ -215,13 +215,13 @@ func (a *API) getCustomResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buff := spectool.MustMarshalJSON(resource)
+	buff := codectool.MustMarshalJSON(resource)
 	a.writeJSONBody(w, buff)
 }
 
 func (a *API) saveCustomResource(w http.ResponseWriter, r *http.Request, update bool) error {
 	resource := spec.CustomResource{}
-	err := spectool.DecodeJSON(r.Body, &resource)
+	err := codectool.DecodeJSON(r.Body, &resource)
 	if err != nil {
 		err = fmt.Errorf("unmarshal custom resource failed: %v", err)
 		api.HandleAPIError(w, r, http.StatusBadRequest, err)
@@ -328,7 +328,7 @@ func (a *API) watchCustomResources(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-type", "application/octet-stream")
 	a.service.WatchCustomResource(r.Context(), kind, func(resources []spec.CustomResource) {
-		err = spectool.EncodeJSON(w, resources)
+		err = codectool.EncodeJSON(w, resources)
 		if err != nil {
 			logger.Errorf("marshal custom resource failed: %v", err)
 		}

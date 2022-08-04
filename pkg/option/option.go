@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/version"
 )
 
@@ -248,7 +248,7 @@ func (opt *Options) Parse() (string, error) {
 		return "", err
 	}
 
-	buff, err := spectool.MarshalYAML(opt)
+	buff, err := codectool.MarshalYAML(opt)
 	if err != nil {
 		return "", fmt.Errorf("marshal config to yaml failed: %v", err)
 	}

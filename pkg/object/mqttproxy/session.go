@@ -24,7 +24,7 @@ import (
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 
 	"github.com/openzipkin/zipkin-go/model"
 )
@@ -87,7 +87,7 @@ func (s *Session) store() {
 }
 
 func (s *Session) encode() (string, error) {
-	b, err := spectool.MarshalJSON(s.info)
+	b, err := codectool.MarshalJSON(s.info)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +95,7 @@ func (s *Session) encode() (string, error) {
 }
 
 func (s *Session) decode(str string) error {
-	return spectool.Unmarshal([]byte(str), s.info)
+	return codectool.Unmarshal([]byte(str), s.info)
 }
 
 func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPacket) error {

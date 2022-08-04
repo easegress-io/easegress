@@ -39,7 +39,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/jmxtool"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -388,7 +388,7 @@ func (worker *Worker) updateHeartbeat() error {
 		InstanceID:  worker.instanceID,
 	}
 	if value != nil {
-		err := spectool.Unmarshal([]byte(*value), status)
+		err := codectool.Unmarshal([]byte(*value), status)
 		if err != nil {
 			logger.Errorf("BUG: unmarshal %s to json failed: %v", *value, err)
 
@@ -398,7 +398,7 @@ func (worker *Worker) updateHeartbeat() error {
 	}
 
 	status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
-	buff, err := spectool.MarshalJSON(status)
+	buff, err := codectool.MarshalJSON(status)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", status, err)
 		return err

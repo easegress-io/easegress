@@ -31,7 +31,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -97,7 +97,7 @@ func strToLease(s string) (*clientv3.LeaseID, error) {
 
 func newEtcdStats(buff []byte) (*etcdStats, error) {
 	stats := etcdStats{}
-	err := spectool.Unmarshal(buff, &stats)
+	err := codectool.Unmarshal(buff, &stats)
 	if err != nil {
 		return nil, err
 	}
@@ -743,7 +743,7 @@ func (c *cluster) syncStatus() error {
 
 	status.LastHeartbeatTime = time.Now().Format(time.RFC3339)
 
-	buff, err := spectool.MarshalJSON(status)
+	buff, err := codectool.MarshalJSON(status)
 	if err != nil {
 		return err
 	}

@@ -26,7 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -235,7 +235,7 @@ func (s specList) Marshal() ([]byte, error) {
 	specs := []map[string]interface{}{}
 	for _, spec := range s {
 		var m map[string]interface{}
-		err := spectool.Unmarshal([]byte(spec.JSONConfig()), &m)
+		err := codectool.Unmarshal([]byte(spec.JSONConfig()), &m)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal %s to json failed: %v",
 				spec.JSONConfig(), err)
@@ -243,7 +243,7 @@ func (s specList) Marshal() ([]byte, error) {
 		specs = append(specs, m)
 	}
 
-	buff, err := spectool.MarshalJSON(specs)
+	buff, err := codectool.MarshalJSON(specs)
 	if err != nil {
 		return nil, fmt.Errorf("marshal %#v to json failed: %v", specs, err)
 	}

@@ -29,7 +29,7 @@ import (
 	"go.etcd.io/etcd/client/v3/concurrency"
 
 	"github.com/megaease/easegress/pkg/filters/wasmhost"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (s *Server) isFilterExist(pipeline, filter, kind string) bool {
@@ -100,7 +100,7 @@ func (s *Server) wasmListData(w http.ResponseWriter, r *http.Request) {
 		data[k] = v
 	}
 
-	buff := spectool.MustMarshalJSON(data)
+	buff := codectool.MustMarshalJSON(data)
 
 	s.writeJSONBody(w, buff)
 }
@@ -114,7 +114,7 @@ func (s *Server) wasmApplyData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := make(map[string]string)
-	if e := spectool.Decode(r.Body, &data); e != nil {
+	if e := codectool.Decode(r.Body, &data); e != nil {
 		HandleAPIError(w, r, http.StatusBadRequest, e)
 		return
 	}

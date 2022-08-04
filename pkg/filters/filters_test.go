@@ -20,7 +20,7 @@ package filters
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +52,7 @@ field1: abc
 	var spec Spec
 	derived := &DerivedSpec{}
 	spec = derived
-	spectool.MustUnmarshal(text, spec)
+	codectool.MustUnmarshal(text, spec)
 
 	baseSpec := spec.baseSpec()
 	baseSpec.pipeline = "pipeline1"
@@ -88,7 +88,7 @@ name: filter
 kind: Filter
 `
 	rawSpec := map[string]interface{}{}
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	_, err = NewSpec(nil, "pipeline1", rawSpec)
 	assert.NotNil(err, "kind Filter not exist")
 
@@ -101,7 +101,7 @@ kind: Mock
 field: "abc"
 `
 	rawSpec = map[string]interface{}{}
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	assert.Nil(spec.Super())

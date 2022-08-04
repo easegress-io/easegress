@@ -21,7 +21,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -64,7 +64,7 @@ policies:
       4: type
 `
 	got := Spec{}
-	err := spectool.Unmarshal([]byte(topicYaml), &got)
+	err := codectool.Unmarshal([]byte(topicYaml), &got)
 	assert.Nil(t, err)
 
 	want := Spec{

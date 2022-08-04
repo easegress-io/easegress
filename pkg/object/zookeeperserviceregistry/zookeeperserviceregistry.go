@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 
 	zookeeper "github.com/go-zookeeper/zk"
 )
@@ -303,7 +303,7 @@ func (zk *ZookeeperServiceRegistry) ApplyServiceInstances(serviceInstances map[s
 	}
 
 	for _, instance := range serviceInstances {
-		buff, err := spectool.MarshalJSON(instance)
+		buff, err := codectool.MarshalJSON(instance)
 		if err != nil {
 			return fmt.Errorf("marshal %+v to json failed: %v", instance, err)
 		}
@@ -375,7 +375,7 @@ func (zk *ZookeeperServiceRegistry) ListServiceInstances(serviceName string) (ma
 		}
 
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = spectool.Unmarshal(data, instance)
+		err = codectool.Unmarshal(data, instance)
 		if err != nil {
 			return nil, fmt.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
 		}
@@ -413,7 +413,7 @@ func (zk *ZookeeperServiceRegistry) ListAllServiceInstances() (map[string]*servi
 		}
 
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = spectool.Unmarshal(data, instance)
+		err = codectool.Unmarshal(data, instance)
 		if err != nil {
 			return nil, fmt.Errorf("%s unmarshal fullpath %s to json failed: %v", zk.superSpec.Name(), fullPath, err)
 		}

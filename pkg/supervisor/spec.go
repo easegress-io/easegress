@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -48,14 +48,14 @@ type (
 )
 
 func (s *Supervisor) newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
-	objectBuff := spectool.MustMarshalJSON(objectSpec)
-	metaBuff := spectool.MustMarshalJSON(meta)
+	objectBuff := codectool.MustMarshalJSON(objectSpec)
+	metaBuff := codectool.MustMarshalJSON(meta)
 
 	var rawSpec map[string]interface{}
-	spectool.MustUnmarshal(objectBuff, &rawSpec)
-	spectool.MustUnmarshal(metaBuff, &rawSpec)
+	codectool.MustUnmarshal(objectBuff, &rawSpec)
+	codectool.MustUnmarshal(metaBuff, &rawSpec)
 
-	buff := spectool.MustMarshalJSON(rawSpec)
+	buff := codectool.MustMarshalJSON(rawSpec)
 	spec, err := s.NewSpec(string(buff))
 	if err != nil {
 		panic(fmt.Errorf("new spec for %s failed: %v", buff, err))
@@ -87,7 +87,7 @@ func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
 
 	// Meta part.
 	meta := &MetaSpec{Version: DefaultSpecVersion}
-	spectool.MustUnmarshal(buff, meta)
+	codectool.MustUnmarshal(buff, meta)
 	verr := v.Validate(meta)
 	if !verr.Valid() {
 		panic(verr)
@@ -99,7 +99,7 @@ func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
 		panic(fmt.Errorf("kind %s not found", meta.Kind))
 	}
 	objectSpec := rootObject.DefaultSpec()
-	spectool.MustUnmarshal(buff, objectSpec)
+	codectool.MustUnmarshal(buff, objectSpec)
 	verr = v.Validate(objectSpec)
 	if !verr.Valid() {
 		panic(verr)
@@ -107,13 +107,13 @@ func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
 
 	// Build final json config and raw spec.
 	var rawSpec map[string]interface{}
-	objectBuff := spectool.MustMarshalJSON(objectSpec)
-	spectool.MustUnmarshal(objectBuff, &rawSpec)
+	objectBuff := codectool.MustMarshalJSON(objectSpec)
+	codectool.MustUnmarshal(objectBuff, &rawSpec)
 
-	metaBuff := spectool.MustMarshalJSON(meta)
-	spectool.MustUnmarshal(metaBuff, &rawSpec)
+	metaBuff := codectool.MustMarshalJSON(meta)
+	codectool.MustUnmarshal(metaBuff, &rawSpec)
 
-	jsonConfig := string(spectool.MustMarshalJSON(rawSpec))
+	jsonConfig := string(codectool.MustMarshalJSON(rawSpec))
 
 	spec.meta = meta
 	spec.objectSpec = objectSpec

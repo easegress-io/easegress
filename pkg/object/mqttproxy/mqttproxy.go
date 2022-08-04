@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -102,7 +102,7 @@ func memberURLFunc(superSpec *supervisor.Spec) func(string, string) ([]string, e
 		urls := []string{}
 		for _, v := range kv {
 			memberStatus := cluster.MemberStatus{}
-			err := spectool.Unmarshal([]byte(v), &memberStatus)
+			err := codectool.Unmarshal([]byte(v), &memberStatus)
 			if err != nil {
 				logger.SpanErrorf(nil, "cluster status unmarshal failed: %v", err)
 				return []string{}, err

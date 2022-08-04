@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -74,14 +74,14 @@ func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 		}
 	}()
 
-	jsonBuff, err := spectool.MarshalJSON(rawSpec)
+	jsonBuff, err := codectool.MarshalJSON(rawSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	// Meta part.
 	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
-	if err = spectool.Unmarshal(jsonBuff, &meta); err != nil {
+	if err = codectool.Unmarshal(jsonBuff, &meta); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(&meta); !vr.Valid() {
@@ -94,7 +94,7 @@ func NewPolicy(rawSpec interface{}) (policy Policy, err error) {
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 	policy = kind.DefaultPolicy()
-	if err = spectool.Unmarshal(jsonBuff, policy); err != nil {
+	if err = codectool.Unmarshal(jsonBuff, policy); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(policy); !vr.Valid() {

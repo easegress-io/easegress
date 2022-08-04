@@ -24,7 +24,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/util/dynamicobject"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/xeipuuv/gojsonschema"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
@@ -71,7 +71,7 @@ func NewStore(cls cluster.Cluster, kindPrefix string, dataPrefix string) *Store 
 
 func unmarshalKind(yamlConfig []byte) (*Kind, error) {
 	kind := &Kind{}
-	err := spectool.Unmarshal(yamlConfig, kind)
+	err := codectool.Unmarshal(yamlConfig, kind)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unmarshal %s to json failed: %v", string(yamlConfig), err)
 	}
@@ -136,7 +136,7 @@ func (s *Store) PutKind(kind *Kind, update bool) error {
 		return fmt.Errorf("%s existed", kind.Name)
 	}
 
-	buf, err := spectool.MarshalJSON(kind)
+	buf, err := codectool.MarshalJSON(kind)
 	if err != nil {
 		return fmt.Errorf("BUG: marshal %#v to json failed: %v", kind, err)
 	}
@@ -170,7 +170,7 @@ func (s *Store) dataKey(kind string, id string) string {
 
 func unmarshalData(yamlConfig []byte) (Data, error) {
 	data := Data{}
-	err := spectool.Unmarshal(yamlConfig, &data)
+	err := codectool.Unmarshal(yamlConfig, &data)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unmarshal %s to json failed: %v", string(yamlConfig), err)
 	}
@@ -253,7 +253,7 @@ func (s *Store) PutData(kind string, data Data, update bool) (string, error) {
 		return "", fmt.Errorf("%s/%s existed", kind, id)
 	}
 
-	buf, err := spectool.MarshalJSON(data)
+	buf, err := codectool.MarshalJSON(data)
 	if err != nil {
 		return "", fmt.Errorf("BUG: marshal %#v to json failed: %v", data, err)
 	}
@@ -305,7 +305,7 @@ func (s *Store) BatchUpdateData(kind string, del []string, update []Data) error 
 
 		for _, data := range update {
 			id := k.dataID(data)
-			buf, err := spectool.MarshalJSON(data)
+			buf, err := codectool.MarshalJSON(data)
 			if err != nil {
 				return fmt.Errorf("BUG: marshal %#v to json failed: %v", data, err)
 			}

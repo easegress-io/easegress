@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (worker *Worker) nacosAPIs() []*apiEntry {
@@ -117,7 +117,7 @@ func (worker *Worker) nacosInstanceList(w http.ResponseWriter, r *http.Request) 
 
 	nacosSvc := worker.registryServer.ToNacosService(serviceInfo)
 
-	buff := spectool.MustMarshalJSON(nacosSvc)
+	buff := codectool.MustMarshalJSON(nacosSvc)
 	worker.writeJSONBody(w, buff)
 }
 
@@ -144,7 +144,7 @@ func (worker *Worker) nacosInstance(w http.ResponseWriter, r *http.Request) {
 
 	nacosIns := worker.registryServer.ToNacosInstanceInfo(serviceInfo)
 
-	buff := spectool.MustMarshalJSON(nacosIns)
+	buff := codectool.MustMarshalJSON(nacosIns)
 	worker.writeJSONBody(w, buff)
 }
 
@@ -160,7 +160,7 @@ func (worker *Worker) nacosServiceList(w http.ResponseWriter, r *http.Request) {
 	}
 	serviceList := worker.registryServer.ToNacosServiceList(serviceInfos)
 
-	buff := spectool.MustMarshalJSON(serviceList)
+	buff := codectool.MustMarshalJSON(serviceList)
 	worker.writeJSONBody(w, buff)
 }
 
@@ -187,6 +187,6 @@ func (worker *Worker) nacosService(w http.ResponseWriter, r *http.Request) {
 
 	nacosSvcDetail := worker.registryServer.ToNacosServiceDetail(serviceInfo)
 
-	buff := spectool.MustMarshalJSON(nacosSvcDetail)
+	buff := codectool.MustMarshalJSON(nacosSvcDetail)
 	worker.writeJSONBody(w, buff)
 }

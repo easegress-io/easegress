@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -53,7 +53,7 @@ func TestMain(m *testing.M) {
 
 func createValidator(yamlConfig string, prev *Validator, supervisor *supervisor.Supervisor) *Validator {
 	rawSpec := make(map[string]interface{})
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(supervisor, "", rawSpec)
 	if err != nil {
 		panic(err.Error())

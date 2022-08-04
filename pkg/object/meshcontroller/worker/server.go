@@ -30,7 +30,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -110,7 +110,7 @@ func (s *apiServer) listAPIs(w http.ResponseWriter, r *http.Request) {
 	s.apisMutex.RLock()
 	defer s.apisMutex.RUnlock()
 
-	buff := spectool.MustMarshalJSON(s.apis)
+	buff := codectool.MustMarshalJSON(s.apis)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(buff)
@@ -151,7 +151,7 @@ func handleAPIError(w http.ResponseWriter, r *http.Request, code int, err error)
 		Code:    code,
 		Message: err.Error(),
 	}
-	buff := spectool.MustMarshalJSON(body)
+	buff := codectool.MustMarshalJSON(body)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

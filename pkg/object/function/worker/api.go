@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/function/storage"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -124,7 +124,7 @@ func (worker *Worker) readAPISpec(w http.ResponseWriter, r *http.Request, spec i
 	if err != nil {
 		return fmt.Errorf("read body failed: %v", err)
 	}
-	err = spectool.Unmarshal(body, spec)
+	err = codectool.Unmarshal(body, spec)
 	if err != nil {
 		return fmt.Errorf("unmarshal to json failed: %v", err)
 	}
@@ -242,7 +242,7 @@ func (worker *Worker) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buff, err := spectool.MarshalJSON(functions)
+	buff, err := codectool.MarshalJSON(functions)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to json failed: %v", functions, err))
 		return
@@ -324,7 +324,7 @@ func (worker *Worker) Get(w http.ResponseWriter, r *http.Request) {
 	// no display
 	function.Fsm = nil
 
-	buff, err := spectool.MarshalJSON(function)
+	buff, err := codectool.MarshalJSON(function)
 	if err != nil {
 		api.HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("marshal %#v to json failed: %v", function, err))
 		return

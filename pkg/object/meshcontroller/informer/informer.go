@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -222,7 +222,7 @@ func (inf *meshInformer) updateGlobalServices(kvs map[string]string) bool {
 	var tenant *spec.Tenant
 	for _, v := range kvs {
 		t := &spec.Tenant{}
-		if err := spectool.Unmarshal([]byte(v), t); err != nil {
+		if err := codectool.Unmarshal([]byte(v), t); err != nil {
 			logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 			continue
 		}
@@ -250,7 +250,7 @@ func (inf *meshInformer) buildServiceToTenantMap(kvs map[string]string) bool {
 	s2t := make(map[string]string, len(kvs))
 	for _, v := range kvs {
 		service := &spec.Service{}
-		if err := spectool.Unmarshal([]byte(v), service); err != nil {
+		if err := codectool.Unmarshal([]byte(v), service); err != nil {
 			logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 			continue
 		}
@@ -289,7 +289,7 @@ func (inf *meshInformer) OnPartOfServiceSpec(serviceName string, fn ServiceSpecF
 	specFunc := func(event Event, value string) bool {
 		serviceSpec := &spec.Service{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), serviceSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), serviceSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -313,7 +313,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceSpec(serviceName, instanceID str
 	specFunc := func(event Event, value string) bool {
 		instanceSpec := &spec.ServiceInstanceSpec{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), instanceSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), instanceSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -332,7 +332,7 @@ func (inf *meshInformer) OnPartOfServiceInstanceStatus(serviceName, instanceID s
 	specFunc := func(event Event, value string) bool {
 		instanceStatus := &spec.ServiceInstanceStatus{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), instanceStatus); err != nil {
+			if err := codectool.Unmarshal([]byte(value), instanceStatus); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -351,7 +351,7 @@ func (inf *meshInformer) OnPartOfTenantSpec(tenant string, fn TenantSpecFunc) er
 	specFunc := func(event Event, value string) bool {
 		tenantSpec := &spec.Tenant{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), tenantSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), tenantSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -370,7 +370,7 @@ func (inf *meshInformer) OnPartOfIngressSpec(ingress string, fn IngressSpecFunc)
 	specFunc := func(event Event, value string) bool {
 		ingressSpec := &spec.Ingress{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), ingressSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), ingressSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -389,7 +389,7 @@ func (inf *meshInformer) OnPartOfHTTPRouteGroupSpec(group string, fn HTTPRouteGr
 	specFunc := func(event Event, value string) bool {
 		groupSpec := &spec.HTTPRouteGroup{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), groupSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), groupSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -408,7 +408,7 @@ func (inf *meshInformer) OnPartOfTrafficTargetSpec(tt string, fn TrafficTargetSp
 	specFunc := func(event Event, value string) bool {
 		ttSpec := &spec.TrafficTarget{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), ttSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(value), ttSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -427,7 +427,7 @@ func (inf *meshInformer) OnPartOfServiceCanary(servicecanaryName string, fn Serv
 	specFunc := func(event Event, value string) bool {
 		serviceCanary := &spec.ServiceCanary{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), serviceCanary); err != nil {
+			if err := codectool.Unmarshal([]byte(value), serviceCanary); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -457,7 +457,7 @@ func (inf *meshInformer) OnAllServiceSpecs(fn ServiceSpecsFunc) error {
 		services := make(map[string]*spec.Service)
 		for k, v := range kvs {
 			service := &spec.Service{}
-			if err := spectool.Unmarshal([]byte(v), service); err != nil {
+			if err := codectool.Unmarshal([]byte(v), service); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -491,7 +491,7 @@ func (inf *meshInformer) onServiceInstanceSpecs(storeKey, syncerKey string, fn S
 		instanceSpecs := make(map[string]*spec.ServiceInstanceSpec)
 		for k, v := range kvs {
 			instanceSpec := &spec.ServiceInstanceSpec{}
-			if err := spectool.Unmarshal([]byte(v), instanceSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), instanceSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -540,7 +540,7 @@ func (inf *meshInformer) onServiceInstanceStatuses(storeKey, syncerKey string, f
 		instanceStatuses := make(map[string]*spec.ServiceInstanceStatus)
 		for k, v := range kvs {
 			instanceStatus := &spec.ServiceInstanceStatus{}
-			if err := spectool.Unmarshal([]byte(v), instanceStatus); err != nil {
+			if err := codectool.Unmarshal([]byte(v), instanceStatus); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -578,7 +578,7 @@ func (inf *meshInformer) OnAllTenantSpecs(fn TenantSpecsFunc) error {
 		tenants := make(map[string]*spec.Tenant)
 		for k, v := range kvs {
 			tenantSpec := &spec.Tenant{}
-			if err := spectool.Unmarshal([]byte(v), tenantSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), tenantSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -600,7 +600,7 @@ func (inf *meshInformer) OnAllIngressSpecs(fn IngressSpecsFunc) error {
 		ingresss := make(map[string]*spec.Ingress)
 		for k, v := range kvs {
 			ingressSpec := &spec.Ingress{}
-			if err := spectool.Unmarshal([]byte(v), ingressSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), ingressSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -617,7 +617,7 @@ func (inf *meshInformer) onCert(storeKey, syncerKey string, fn CertFunc) error {
 	specFunc := func(event Event, value string) bool {
 		cert := &spec.Certificate{}
 		if event.EventType != EventDelete {
-			if err := spectool.Unmarshal([]byte(value), cert); err != nil {
+			if err := codectool.Unmarshal([]byte(value), cert); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", value, err)
 				return true
 			}
@@ -649,7 +649,7 @@ func (inf *meshInformer) OnAllServerCert(fn ServiceCertsFunc) error {
 		cert := make(map[string]*spec.Certificate)
 		for k, v := range kvs {
 			certSpec := &spec.Certificate{}
-			if err := spectool.Unmarshal([]byte(v), certSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), certSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -671,7 +671,7 @@ func (inf *meshInformer) OnAllHTTPRouteGroupSpecs(fn HTTPRouteGroupSpecsFunc) er
 		groups := make(map[string]*spec.HTTPRouteGroup)
 		for k, v := range kvs {
 			groupSpec := &spec.HTTPRouteGroup{}
-			if err := spectool.Unmarshal([]byte(v), groupSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), groupSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -693,7 +693,7 @@ func (inf *meshInformer) OnAllTrafficTargetSpecs(fn TrafficTargetSpecsFunc) erro
 		tts := make(map[string]*spec.TrafficTarget)
 		for k, v := range kvs {
 			ttSpec := &spec.TrafficTarget{}
-			if err := spectool.Unmarshal([]byte(v), ttSpec); err != nil {
+			if err := codectool.Unmarshal([]byte(v), ttSpec); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}
@@ -715,7 +715,7 @@ func (inf *meshInformer) OnAllServiceCanaries(fn ServiceCanariesFunc) error {
 		serviceCanaries := make(map[string]*spec.ServiceCanary)
 		for k, v := range kvs {
 			serviceCanary := &spec.ServiceCanary{}
-			if err := spectool.Unmarshal([]byte(v), serviceCanary); err != nil {
+			if err := codectool.Unmarshal([]byte(v), serviceCanary); err != nil {
 				logger.Errorf("BUG: unmarshal %s to json failed: %v", v, err)
 				continue
 			}

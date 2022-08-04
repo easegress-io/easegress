@@ -28,7 +28,7 @@ import (
 	"github.com/golang-jwt/jwt"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -127,7 +127,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 		ErrorDesc string `json:"error_description"`
 	}
 
-	if e = spectool.DecodeJSON(resp.Body, &ti); e != nil {
+	if e = codectool.DecodeJSON(resp.Body, &ti); e != nil {
 		return nil, e
 	}
 	if ti.Error != "" {

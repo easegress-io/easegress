@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 )
@@ -355,12 +355,12 @@ func TestMockPBConvert(t *testing.T) {
 	}
 
 	spec := &Mock{}
-	buf, err := spectool.MarshalJSON(pbSpec)
+	buf, err := codectool.MarshalJSON(pbSpec)
 	if err != nil {
 		t.Fatalf("marshal %#v to json: %v", pbSpec, err)
 	}
 
-	err = spectool.UnmarshalJSON(buf, spec)
+	err = codectool.UnmarshalJSON(buf, spec)
 	if err != nil {
 		t.Fatalf("unmarshal %#v to spec: %v", spec, err)
 	}
@@ -898,12 +898,12 @@ func TestCustomResource(t *testing.T) {
 		"sub1", "sub2",
 	}
 
-	data, err := spectool.MarshalJSON(r)
+	data, err := codectool.MarshalJSON(r)
 	if err != nil {
 		t.Errorf("marshal should succeed: %v", err.Error())
 	}
 
-	err = spectool.Unmarshal(data, &r)
+	err = codectool.Unmarshal(data, &r)
 	if err != nil {
 		t.Errorf("marshal should succeed: %v", err.Error())
 	}
@@ -959,7 +959,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 		instanceSpecs: instances,
 		canaries:      canaries,
 	})
-	buff, _ := spectool.MarshalJSON(b.Spec)
+	buff, _ := codectool.MarshalJSON(b.Spec)
 	t.Logf("%s", buff)
 }
 
@@ -986,6 +986,6 @@ func TestAppendMeshAdaptor(t *testing.T) {
 	}
 
 	b.appendMeshAdaptor(canaries)
-	buff, _ := spectool.MarshalJSON(b.Spec)
+	buff, _ := codectool.MarshalJSON(b.Spec)
 	t.Logf("%s", buff)
 }

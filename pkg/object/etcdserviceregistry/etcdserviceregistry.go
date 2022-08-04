@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
@@ -294,7 +294,7 @@ func (e *EtcdServiceRegistry) ApplyServiceInstances(instances map[string]*servic
 			return fmt.Errorf("%+v is invalid: %v", instance, err)
 		}
 
-		buff, err := spectool.MarshalJSON(instance)
+		buff, err := codectool.MarshalJSON(instance)
 		if err != nil {
 			return fmt.Errorf("marshal %+v to json failed: %v", instance, err)
 		}
@@ -341,7 +341,7 @@ func (e *EtcdServiceRegistry) GetServiceInstance(serviceName, instanceID string)
 	}
 
 	instance := &serviceregistry.ServiceInstanceSpec{}
-	err = spectool.Unmarshal(resp.Kvs[0].Value, instance)
+	err = codectool.Unmarshal(resp.Kvs[0].Value, instance)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal %s to json failed: %v", resp.Kvs[0].Value, err)
 	}
@@ -377,7 +377,7 @@ func (e *EtcdServiceRegistry) ListServiceInstances(serviceName string) (map[stri
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
 	for _, kv := range resp.Kvs {
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = spectool.Unmarshal(kv.Value, instance)
+		err = codectool.Unmarshal(kv.Value, instance)
 		if err != nil {
 			return nil, fmt.Errorf("unmarshal %s to json failed: %v", kv.Value, err)
 		}
@@ -403,9 +403,9 @@ func (e *EtcdServiceRegistry) ListAllServiceInstances() (map[string]*serviceregi
 	instances := make(map[string]*serviceregistry.ServiceInstanceSpec)
 	for _, kv := range resp.Kvs {
 		instance := &serviceregistry.ServiceInstanceSpec{}
-		err = spectool.Unmarshal(kv.Value, instance)
+		err = codectool.Unmarshal(kv.Value, instance)
 		if err != nil {
-			return nil, fmt.Errorf("unmarshal %s to spectool failed: %v", kv.Value, err)
+			return nil, fmt.Errorf("unmarshal %s to codectool failed: %v", kv.Value, err)
 		}
 
 		err = instance.Validate()

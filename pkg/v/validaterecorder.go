@@ -27,7 +27,7 @@ import (
 	loadjs "github.com/xeipuuv/gojsonschema"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -171,7 +171,7 @@ func (vr *ValidateRecorder) Error() string {
 }
 
 func (vr *ValidateRecorder) String() string {
-	buff, err := spectool.MarshalJSON(vr)
+	buff, err := codectool.MarshalJSON(vr)
 	if err != nil {
 		log.Printf("BUG: marshal %#v to json failed: %v", vr, err)
 	}

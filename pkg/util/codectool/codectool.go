@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package spectool
+package codectool
 
 import (
 	"encoding/json"

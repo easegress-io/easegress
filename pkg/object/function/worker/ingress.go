@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const ingressFunctionKey = "X-FaaS-Func-Name"
@@ -116,7 +116,7 @@ func (b *httpServerSpecBuilder) buildWithRules(spec *httpserver.Spec) *httpServe
 }
 
 func (b *httpServerSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
@@ -124,7 +124,7 @@ func (b *httpServerSpecBuilder) jsonConfig() string {
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}

@@ -24,7 +24,7 @@ import (
 
 	sprig "github.com/go-task/slim-sprig"
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -76,7 +76,7 @@ func (b *Builder) build(data map[string]interface{}, v interface{}) error {
 		return err
 	}
 
-	return spectool.Decode(&result, v)
+	return codectool.Decode(&result, v)
 }
 
 // Status returns status.

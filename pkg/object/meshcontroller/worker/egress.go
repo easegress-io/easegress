@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const egressRPCKey = "X-Mesh-Rpc-Service"
@@ -105,7 +105,7 @@ func newHTTPServerSpecBuilder(httpServerName string, spec *httpserver.Spec) *htt
 }
 
 func (b *httpServerSpecBuilder) jsonConfig() string {
-	buff, err := spectool.MarshalJSON(b)
+	buff, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}

@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type ingressesByOrder []*spec.Ingress
@@ -62,7 +62,7 @@ func (a *API) listIngresses(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, ingress)
 	}
 
-	buff := spectool.MustMarshalJSON(apiSpecs)
+	buff := codectool.MustMarshalJSON(apiSpecs)
 	a.writeJSONBody(w, buff)
 }
 
@@ -109,7 +109,7 @@ func (a *API) getIngress(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", ingressSpec, err))
 	}
 
-	buff := spectool.MustMarshalJSON(pbIngressSpec)
+	buff := codectool.MustMarshalJSON(pbIngressSpec)
 	a.writeJSONBody(w, buff)
 }
 

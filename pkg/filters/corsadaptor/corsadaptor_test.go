@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,7 +43,7 @@ kind: CORSAdaptor
 name: cors
 `
 		rawSpec := make(map[string]interface{})
-		spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+		codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {
@@ -90,7 +90,7 @@ allowedOrigins:
   - test.orig.test
 `
 		rawSpec := make(map[string]interface{})
-		spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+		codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 
 		spec, e := filters.NewSpec(nil, "", rawSpec)
 		if e != nil {

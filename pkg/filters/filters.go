@@ -23,7 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -126,14 +126,14 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		}
 	}()
 
-	jsonConfig, err := spectool.MarshalJSON(rawSpec)
+	jsonConfig, err := codectool.MarshalJSON(rawSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	// Meta part.
 	meta := supervisor.MetaSpec{Version: supervisor.DefaultSpecVersion}
-	if err = spectool.Unmarshal(jsonConfig, &meta); err != nil {
+	if err = codectool.Unmarshal(jsonConfig, &meta); err != nil {
 		return nil, err
 	}
 	if vr := v.Validate(&meta); !vr.Valid() {
@@ -146,7 +146,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("kind %s not found", meta.Kind)
 	}
 	spec = kind.DefaultSpec()
-	if err = spectool.Unmarshal(jsonConfig, spec); err != nil {
+	if err = codectool.Unmarshal(jsonConfig, spec); err != nil {
 		return nil, err
 	}
 	// TODO: Make the invalid part more accurate. e,g:
@@ -159,7 +159,7 @@ func NewSpec(super *supervisor.Supervisor, pipeline string, rawSpec interface{})
 		return nil, fmt.Errorf("%v", vr)
 	}
 
-	jsonConfig, err = spectool.MarshalJSON(spec)
+	jsonConfig, err = codectool.MarshalJSON(spec)
 	if err != nil {
 		return nil, err
 	}

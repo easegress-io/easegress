@@ -19,10 +19,9 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
-
-	"github.com/megaease/easegress/pkg/util/spectool"
 )
 
 type (
@@ -69,7 +68,7 @@ func main() {
 		}
 
 		ctxEntity := &contextEntity{}
-		err = spectool.UnmarshalJSON(body, ctxEntity)
+		err = json.Unmarshal(body, ctxEntity)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
@@ -79,7 +78,7 @@ func main() {
 		ctxEntity.Response.Header.Add("X-Remote-Name", "G.O.O.D")
 		ctxEntity.Response.Body = largeBody
 
-		buff, err := spectool.MarshalJSON(ctxEntity)
+		buff, err := json.Marshal(ctxEntity)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return

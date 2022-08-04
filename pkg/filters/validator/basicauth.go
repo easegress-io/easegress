@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -231,7 +231,7 @@ func kvsToReader(kvs map[string]string) io.Reader {
 	pwStrSlice := make([]string, 0, len(kvs))
 	for _, item := range kvs {
 		creds := &etcdCredentials{}
-		err := spectool.Unmarshal([]byte(item), creds)
+		err := codectool.Unmarshal([]byte(item), creds)
 		if err != nil {
 			logger.Errorf(err.Error())
 			continue

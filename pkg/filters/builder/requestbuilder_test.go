@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,7 +49,7 @@ func TestMethod(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -73,7 +73,7 @@ func TestMethod(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -98,7 +98,7 @@ func TestMethod(t *testing.T) {
 	{
 
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -118,7 +118,7 @@ func TestURL(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -143,7 +143,7 @@ func TestURL(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -175,7 +175,7 @@ func TestRequestHeader(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -214,7 +214,7 @@ template: |
   body: {{ hello }}
 `
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -233,7 +233,7 @@ template: |
   body: {{ lower "HELLO" }}
 `
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -254,7 +254,7 @@ template: |
   body: '{{ hello }} W{{ lower "ORLD"}}!'
 `
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -279,7 +279,7 @@ func TestRequestBody(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -305,7 +305,7 @@ func TestRequestBody(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -332,7 +332,7 @@ func TestRequestBody(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -359,7 +359,7 @@ func TestRequestBody(t *testing.T) {
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -388,7 +388,7 @@ field2: value2
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -407,7 +407,7 @@ field2: value2
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -427,7 +427,7 @@ field2: value2
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 
@@ -450,7 +450,7 @@ template: |
   method: Delete
 `
 	rawSpec := map[string]interface{}{}
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	requestBuilder := requestBuilderKind.CreateInstance(spec).(*RequestBuilder)
@@ -474,7 +474,7 @@ sourceNamespace: request1
 `
 	{
 		spec := &RequestBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getRequestBuilder(spec)
 		defer rb.Close()
 

@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func aboutText() string {
@@ -161,12 +161,12 @@ func (s *Server) listAPIs(w http.ResponseWriter, r *http.Request) {
 
 // WriteBody writes the body to the response writer in proper format.
 func WriteBody(w http.ResponseWriter, r *http.Request, body interface{}) {
-	buff := spectool.MustMarshalJSON(body)
+	buff := codectool.MustMarshalJSON(body)
 	contentType := "application/json"
 
 	accpetHeader := r.Header.Get("Accept")
 	if strings.Contains(accpetHeader, "yaml") {
-		buff = spectool.MustJSONToYAML(buff)
+		buff = codectool.MustJSONToYAML(buff)
 		contentType = "text/x-yaml"
 	}
 

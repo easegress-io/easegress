@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,7 +59,7 @@ func TestStatusCode(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -78,7 +78,7 @@ func TestStatusCode(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -107,7 +107,7 @@ func TestResponseHeader(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -144,7 +144,7 @@ func TestResponseBody(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -165,7 +165,7 @@ func TestResponseBody(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -190,7 +190,7 @@ func TestResponseBody(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -215,7 +215,7 @@ func TestResponseBody(t *testing.T) {
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -243,7 +243,7 @@ field2: value2
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 
@@ -266,7 +266,7 @@ template: |
   statusCode: 200
 `
 	rawSpec := map[string]interface{}{}
-	spectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
 	spec, err := filters.NewSpec(nil, "pipeline1", rawSpec)
 	assert.Nil(err)
 	responseBuilder := responseBuilderKind.CreateInstance(spec).(*ResponseBuilder)
@@ -289,7 +289,7 @@ sourceNamespace: response1
 `
 	{
 		spec := &ResponseBuilderSpec{}
-		spectool.MustUnmarshal([]byte(yamlConfig), spec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := getResponseBuilder(spec)
 		defer rb.Close()
 

@@ -23,7 +23,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 
@@ -126,7 +126,7 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	var jsonBody []byte
 	if yamlBody != nil {
 		var err error
-		jsonBody, err = spectool.YAMLToJSON(yamlBody)
+		jsonBody, err = codectool.YAMLToJSON(yamlBody)
 		if err != nil {
 			ExitWithErrorf("yaml %s to json failed: %v", yamlBody, err)
 		}
@@ -151,7 +151,7 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	if !successfulStatusCode(resp.StatusCode) {
 		msg := string(body)
 		apiErr := &APIErr{}
-		err = spectool.Unmarshal(body, apiErr)
+		err = codectool.Unmarshal(body, apiErr)
 		if err == nil {
 			msg = apiErr.Message
 		}
@@ -168,7 +168,7 @@ func printBody(body []byte) {
 	switch CommandlineGlobalFlags.OutputFormat {
 	case "yaml":
 		var err error
-		output, err = spectool.JSONToYAML(body)
+		output, err = codectool.JSONToYAML(body)
 		if err != nil {
 			ExitWithErrorf("json %s to yaml failed: %v", body, err)
 		}

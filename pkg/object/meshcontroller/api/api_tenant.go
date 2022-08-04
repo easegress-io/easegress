@@ -30,7 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type tenantsByOrder []*spec.Tenant
@@ -64,7 +64,7 @@ func (a *API) listTenants(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, tenant)
 	}
 
-	buff := spectool.MustMarshalJSON(apiSpecs)
+	buff := codectool.MustMarshalJSON(apiSpecs)
 	a.writeJSONBody(w, buff)
 }
 
@@ -119,7 +119,7 @@ func (a *API) getTenant(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", tenantSpec, err))
 	}
 
-	buff := spectool.MustMarshalJSON(pbTenantSpec)
+	buff := codectool.MustMarshalJSON(pbTenantSpec)
 	a.writeJSONBody(w, buff)
 }
 

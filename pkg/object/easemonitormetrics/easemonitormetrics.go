@@ -30,7 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/easemonitor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -229,7 +229,7 @@ func (emm *EaseMonitorMetrics) sendMetrics(latestTimestamp int64) int64 {
 				m.System = emm.super.Options().ClusterName
 				m.Timestamp = latestTimestamp * 1000
 
-				data, err := spectool.MarshalJSON(m)
+				data, err := codectool.MarshalJSON(m)
 				if err != nil {
 					logger.Errorf("marshal %#v to json failed: %v", m, err)
 				}

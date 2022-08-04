@@ -30,7 +30,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -96,7 +96,7 @@ func (m *members) load() error {
 	}
 
 	membersToLoad := &members{}
-	err = spectool.Unmarshal(buff, membersToLoad)
+	err = codectool.Unmarshal(buff, membersToLoad)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (m *members) load() error {
 
 // store protected by callers.
 func (m *members) store() {
-	buff, err := spectool.MarshalJSON(m)
+	buff, err := codectool.MarshalJSON(m)
 	if err != nil {
 		logger.Errorf("BUG: get json of %#v failed: %v", m.KnownMembers, err)
 	}

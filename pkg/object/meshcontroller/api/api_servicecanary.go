@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (a *API) readServiceCanaryName(r *http.Request) (string, error) {
@@ -55,7 +55,7 @@ func (a *API) listServiceCanaries(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, serviceCanary)
 	}
 
-	buff := spectool.MustMarshalJSON(apiSpecs)
+	buff := codectool.MustMarshalJSON(apiSpecs)
 	a.writeJSONBody(w, buff)
 }
 
@@ -106,7 +106,7 @@ func (a *API) getServiceCanary(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", serviceCanarySpec, err))
 	}
 
-	buff := spectool.MustMarshalJSON(pbServiceCanarySpec)
+	buff := codectool.MustMarshalJSON(pbServiceCanarySpec)
 	a.writeJSONBody(w, buff)
 }
 

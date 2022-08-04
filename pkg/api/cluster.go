@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (s *Server) _purgeMember(memberName string) {
@@ -144,7 +144,7 @@ func (s *Server) _listStatusObjects() map[string]interface{} {
 
 		// NOTE: This needs top-level of the status to be a map.
 		m := map[string]interface{}{}
-		err = spectool.Unmarshal([]byte(v), &m)
+		err = codectool.Unmarshal([]byte(v), &m)
 		if err != nil {
 			ClusterPanic(fmt.Errorf("unmarshal %s to json failed: %v", v, err))
 		}

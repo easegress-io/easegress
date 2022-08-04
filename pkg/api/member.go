@@ -25,7 +25,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (s *Server) memberAPIEntries() []*Entry {
@@ -63,7 +63,7 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	resp := make(ListMembersResp, 0)
 	for _, v := range kv {
 		memberStatus := cluster.MemberStatus{}
-		err := spectool.Unmarshal([]byte(v), &memberStatus)
+		err := codectool.Unmarshal([]byte(v), &memberStatus)
 		if err != nil {
 			panic(fmt.Errorf("unmarshal %s to member status failed: %v", v, err))
 		}
@@ -73,7 +73,7 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(resp)
 
-	buff, err := spectool.MarshalJSON(resp)
+	buff, err := codectool.MarshalJSON(resp)
 	if err != nil {
 		panic(fmt.Errorf("marshal %#v to json failed: %v", resp, err))
 	}

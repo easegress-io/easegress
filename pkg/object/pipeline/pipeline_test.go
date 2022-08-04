@@ -30,7 +30,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -116,7 +116,7 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		jsonConfig, err := spectool.MarshalJSON(spec)
+		jsonConfig, err := codectool.MarshalJSON(spec)
 		assert.Nil(t, err)
 		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.NotNil(t, err, "filter-1 not found")
@@ -144,7 +144,7 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		jsonConfig, err := spectool.MarshalJSON(spec)
+		jsonConfig, err := codectool.MarshalJSON(spec)
 		assert.Nil(t, err)
 		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.Nil(t, err, "valid spec")
@@ -169,7 +169,7 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 		}
-		jsonConfig, err := spectool.MarshalJSON(spec)
+		jsonConfig, err := codectool.MarshalJSON(spec)
 		assert.Nil(t, err)
 		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.Nil(t, err, "valid spec")
@@ -185,7 +185,7 @@ func TestSpecValidate(t *testing.T) {
 				{"name": "filter-1", "kind": "mock-filter"},
 			},
 		}
-		jsonConfig, err := spectool.MarshalJSON(spec)
+		jsonConfig, err := codectool.MarshalJSON(spec)
 		assert.Nil(t, err)
 		_, err = supervisor.NewSpec(string(jsonConfig))
 		assert.NotNil(t, err, "invalid spec")

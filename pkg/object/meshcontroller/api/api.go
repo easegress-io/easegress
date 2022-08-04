@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
 )
 
@@ -235,12 +235,12 @@ func (a *API) registerAPIs() {
 }
 
 func (a *API) convertSpecToPB(spec interface{}, pbSpec interface{}) error {
-	buf, err := spectool.MarshalJSON(spec)
+	buf, err := codectool.MarshalJSON(spec)
 	if err != nil {
 		return fmt.Errorf("marshal %#v to json failed: %v", spec, err)
 	}
 
-	err = spectool.UnmarshalJSON(buf, pbSpec)
+	err = codectool.UnmarshalJSON(buf, pbSpec)
 	if err != nil {
 		return fmt.Errorf("unmarshal from json: %s failed: %v", string(buf), err)
 	}
@@ -249,12 +249,12 @@ func (a *API) convertSpecToPB(spec interface{}, pbSpec interface{}) error {
 }
 
 func (a *API) convertPBToSpec(pbSpec interface{}, spec interface{}) error {
-	buff, err := spectool.MarshalJSON(pbSpec)
+	buff, err := codectool.MarshalJSON(pbSpec)
 	if err != nil {
 		return fmt.Errorf("marshal %#v to json: %v", pbSpec, err)
 	}
 
-	err = spectool.UnmarshalJSON(buff, spec)
+	err = codectool.UnmarshalJSON(buff, spec)
 	if err != nil {
 		return fmt.Errorf("unmarshal %#v to spec: %v", spec, err)
 	}
@@ -270,7 +270,7 @@ func (a *API) readAPISpec(r *http.Request, pbSpec interface{}, spec interface{})
 		return fmt.Errorf("read body failed: %v", err)
 	}
 
-	err = spectool.UnmarshalJSON(body, pbSpec)
+	err = codectool.UnmarshalJSON(body, pbSpec)
 	if err != nil {
 		return fmt.Errorf("unmarshal %s to pb spec %#v failed: %v", string(body), pbSpec, err)
 	}

@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 )
 
@@ -69,7 +69,7 @@ func (a *API) listServiceInstanceSpecs(w http.ResponseWriter, r *http.Request) {
 		apiSpecs = append(apiSpecs, instance)
 	}
 
-	buff := spectool.MustMarshalJSON(apiSpecs)
+	buff := codectool.MustMarshalJSON(apiSpecs)
 	a.writeJSONBody(w, buff)
 }
 
@@ -92,7 +92,7 @@ func (a *API) getServiceInstanceSpec(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Errorf("convert spec %#v to pb failed: %v", instanceSpec, err))
 	}
 
-	buff := spectool.MustMarshalJSON(pbInstanceSpec)
+	buff := codectool.MustMarshalJSON(pbInstanceSpec)
 	a.writeJSONBody(w, buff)
 }
 

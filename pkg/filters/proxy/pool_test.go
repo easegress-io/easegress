@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -45,7 +45,7 @@ func TestServerPoolSpecValidate(t *testing.T) {
 	// no servers and not service discovery
 	yamlConfig := `spanName: test`
 	spec := &ServerPoolSpec{}
-	err := spectool.Unmarshal([]byte(yamlConfig), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -58,7 +58,7 @@ servers:
   weight: 0
 `
 	spec = &ServerPoolSpec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
 
@@ -72,7 +72,7 @@ servers:
   weight: 10
 `
 	spec = &ServerPoolSpec{}
-	err = spectool.Unmarshal([]byte(yamlConfig), spec)
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 }
@@ -87,7 +87,7 @@ servers:
 - url: http://192.168.1.1
 `
 	spec := &ServerPoolSpec{}
-	err := spectool.Unmarshal([]byte(yamlConfig), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
@@ -126,7 +126,7 @@ servers:
 `
 
 	spec := &ServerPoolSpec{}
-	err := spectool.Unmarshal([]byte(yamlConfig), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
@@ -189,7 +189,7 @@ servers:
 `
 
 	spec := &ServerPoolSpec{}
-	err := spectool.Unmarshal([]byte(yamlConfig), spec)
+	err := codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 

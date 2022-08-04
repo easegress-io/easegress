@@ -20,7 +20,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -45,7 +45,7 @@ func ClusterPanic(err error) {
 // HandleAPIError handles api error.
 func HandleAPIError(w http.ResponseWriter, r *http.Request, code int, err error) {
 	w.WriteHeader(code)
-	buff, err := spectool.MarshalJSON(Err{
+	buff, err := codectool.MarshalJSON(Err{
 		Code:    code,
 		Message: err.Error(),
 	})

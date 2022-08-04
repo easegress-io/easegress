@@ -31,7 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/readers"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +79,7 @@ body: "copyright"
 func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdaptor {
 	assert := assert.New(t)
 	rawSpec := make(map[string]interface{})
-	spectool.MustUnmarshal([]byte(yamlSpec), &rawSpec)
+	codectool.MustUnmarshal([]byte(yamlSpec), &rawSpec)
 
 	spec, e := filters.NewSpec(nil, "", rawSpec)
 	if e != nil {

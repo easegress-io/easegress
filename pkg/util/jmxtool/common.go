@@ -25,13 +25,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 // JSONToKVMap converts JSON string to key value pairs
 func JSONToKVMap(jsonStr string) (map[string]string, error) {
 	m := map[string]interface{}{}
-	err := spectool.Unmarshal([]byte(jsonStr), &m)
+	err := codectool.Unmarshal([]byte(jsonStr), &m)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func handleRequest(httpMethod string, url string, reqBody []byte) ([]byte, error
 
 	msg := string(body)
 	apiErr := &APIErr{}
-	err = spectool.Unmarshal(body, apiErr)
+	err = codectool.Unmarshal(body, apiErr)
 	if err == nil {
 		msg = apiErr.Message
 	}

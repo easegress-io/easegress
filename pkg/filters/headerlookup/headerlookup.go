@@ -32,7 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 const (
@@ -172,7 +172,7 @@ func (hl *HeaderLookup) lookup(headerVal string) (map[string]string, error) {
 	}
 	result := make(map[string]string, len(hl.spec.HeaderSetters))
 	etcdValues := make(map[string]string)
-	err = spectool.Unmarshal([]byte(*etcdVal), &etcdValues)
+	err = codectool.Unmarshal([]byte(*etcdVal), &etcdValues)
 	if err != nil {
 		return nil, err
 	}

@@ -31,7 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
@@ -294,7 +294,7 @@ func (rf *RemoteFilter) marshalHTTPContext(r *httpprot.Request, w *httpprot.Resp
 		},
 	}
 
-	buff, err := spectool.MarshalJSON(ctxEntity)
+	buff, err := codectool.MarshalJSON(ctxEntity)
 	if err != nil {
 		panic(err)
 	}
@@ -305,7 +305,7 @@ func (rf *RemoteFilter) marshalHTTPContext(r *httpprot.Request, w *httpprot.Resp
 func (rf *RemoteFilter) unmarshalHTTPContext(r *httpprot.Request, w *httpprot.Response, buff []byte) {
 	ctxEntity := &contextEntity{}
 
-	err := spectool.Unmarshal(buff, ctxEntity)
+	err := codectool.Unmarshal(buff, ctxEntity)
 	if err != nil {
 		panic(err)
 	}

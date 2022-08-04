@@ -31,7 +31,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 type (
@@ -312,7 +312,7 @@ func (worker *Worker) getInstance(w http.ResponseWriter, r *http.Request) {
 func (worker *Worker) encodeByAcceptType(accept string, jsonSt interface{}, xmlSt interface{}) ([]byte, error) {
 	switch accept {
 	case registrycenter.ContentTypeJSON:
-		return spectool.MarshalJSON(jsonSt)
+		return codectool.MarshalJSON(jsonSt)
 	default:
 		return xml.Marshal(xmlSt)
 	}

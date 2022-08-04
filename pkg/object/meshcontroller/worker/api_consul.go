@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/registrycenter"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 func (worker *Worker) consulAPIs() []*apiEntry {
@@ -114,7 +114,7 @@ func (worker *Worker) healthService(w http.ResponseWriter, r *http.Request) {
 
 	serviceEntry := worker.registryServer.ToConsulHealthService(serviceInfo)
 
-	buff := spectool.MustMarshalJSON(serviceEntry)
+	buff := codectool.MustMarshalJSON(serviceEntry)
 	worker.writeJSONBody(w, buff)
 }
 
@@ -137,7 +137,7 @@ func (worker *Worker) catalogService(w http.ResponseWriter, r *http.Request) {
 
 	catalogService := worker.registryServer.ToConsulCatalogService(serviceInfo)
 
-	buff := spectool.MustMarshalJSON(catalogService)
+	buff := codectool.MustMarshalJSON(catalogService)
 	worker.writeJSONBody(w, buff)
 }
 
@@ -153,6 +153,6 @@ func (worker *Worker) catalogServices(w http.ResponseWriter, r *http.Request) {
 	}
 	catalogServices := worker.registryServer.ToConsulServices(serviceInfos)
 
-	buff := spectool.MustMarshalJSON(catalogServices)
+	buff := codectool.MustMarshalJSON(catalogServices)
 	worker.writeJSONBody(w, buff)
 }

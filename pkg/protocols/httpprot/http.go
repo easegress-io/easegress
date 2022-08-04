@@ -24,7 +24,7 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/spectool"
+	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
 // DefaultMaxPayloadSize is the default max allowed payload size.
@@ -120,7 +120,7 @@ func parseJSONBody(body []byte) (interface{}, error) {
 // of the YAML object must be strings.
 func parseYAMLBody(body []byte) (interface{}, error) {
 	var v interface{}
-	err := spectool.UnmarshalYAML(body, &v)
+	err := codectool.UnmarshalYAML(body, &v)
 	if err != nil {
 		return nil, err
 	}
