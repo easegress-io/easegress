@@ -48,14 +48,14 @@ func TestDynamicObject(t *testing.T) {
 
 	do.Set("field2", []interface{}{"sub1", "sub2"})
 
-	data, err := spectool.MarshalJSON(do)
+	data, err := spectool.MarshalYAML(do)
 	if err != nil {
-		t.Errorf("Marshal should succeed: %v", err.Error())
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
 	}
 
-	err = spectool.Unmarshal(data, &do)
+	err = spectool.UnmarshalYAML(data, &do)
 	if err != nil {
-		t.Errorf("Marshal should succeed: %v", err.Error())
+		t.Errorf("yaml.Marshal should succeed: %v", err.Error())
 	}
 
 	if _, ok := do.Get("field1").(map[string]interface{}); !ok {

@@ -23,20 +23,20 @@ package dynamicobject
 // should not be `map[interface{}]interface{}`.
 type DynamicObject map[string]interface{}
 
-// UnmarshalJSON implements json.Unmarshaler
+// UnmarshalYAML implements yaml.Unmarshaler
 //
 // the type of a DynamicObject field could be `map[interface{}]interface{}`
-// if it is unmarshaled from json, but some packages, like the standard
+// if it is unmarshaled from yaml, but some packages, like the standard
 // json package could not handle this type, so it must be converted to
 // `map[string]interface{}`.
 //
 // Note there's a bug with this function:
 //   do := DynamicObject{}
-//   json.Unmarshal([]byte(`{"a": 1}`), &do)
-//   json.Unmarshal([]byte(`{"b": 2}`), &do)
+//   yaml.Unmarshal([]byte(`{"a": 1}`), &do)
+//   yaml.Unmarshal([]byte(`{"b": 2}`), &do)
 // the result of above code should be `{"a": 1, "b": 2}`, but it is
 // `{"b": 2}`.
-func (do *DynamicObject) UnmarshalJSON(unmarshal func(interface{}) error) error {
+func (do *DynamicObject) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	m := map[string]interface{}{}
 	if err := unmarshal(&m); err != nil {
 		return err
