@@ -509,11 +509,11 @@ func TestRunDefrag(t *testing.T) {
 	cluster.initLayout()
 	cluster.run()
 
-	assert.Equal(cluster.runDefrag(), defragNormalInterval)
+	assert.Equal(defragNormalInterval, cluster.runDefrag())
 	cluster.opt.Cluster.AdvertiseClientURLs[0] = "wrong-urlll"
-	assert.Equal(cluster.runDefrag(), defragFailedInterval)
+	assert.Equal(defragFailedInterval, cluster.runDefrag())
 	cluster.opt.Cluster.AdvertiseClientURLs = []string{} // make GetFirstAdvertiseClientURL fail
-	assert.Equal(cluster.runDefrag(), defragNormalInterval)
+	assert.Equal(defragNormalInterval, cluster.runDefrag())
 
 	// test session
 	cluster.session = nil
