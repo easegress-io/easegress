@@ -83,27 +83,37 @@ func (m *dynamicMux) reloadAPIs() {
 
 	for _, apiGroup := range apiGroups {
 		for _, api := range apiGroup.Entries {
-			path := APIPrefix + api.Path
+			pathV1 := APIPrefixV1 + api.Path
+			pathV2 := APIPrefixV2 + api.Path
 
 			switch api.Method {
 			case "GET":
-				router.Get(path, api.Handler)
+				router.Get(pathV1, api.Handler)
+				router.Get(pathV2, api.Handler)
 			case "HEAD":
-				router.Head(path, api.Handler)
+				router.Head(pathV1, api.Handler)
+				router.Head(pathV2, api.Handler)
 			case "PUT":
-				router.Put(path, api.Handler)
+				router.Put(pathV1, api.Handler)
+				router.Put(pathV2, api.Handler)
 			case "POST":
-				router.Post(path, api.Handler)
+				router.Post(pathV1, api.Handler)
+				router.Post(pathV2, api.Handler)
 			case "PATCH":
-				router.Patch(path, api.Handler)
+				router.Patch(pathV1, api.Handler)
+				router.Patch(pathV2, api.Handler)
 			case "DELETE":
-				router.Delete(path, api.Handler)
+				router.Delete(pathV1, api.Handler)
+				router.Delete(pathV2, api.Handler)
 			case "CONNECT":
-				router.Connect(path, api.Handler)
+				router.Connect(pathV1, api.Handler)
+				router.Connect(pathV2, api.Handler)
 			case "OPTIONS":
-				router.Options(path, api.Handler)
+				router.Options(pathV1, api.Handler)
+				router.Options(pathV2, api.Handler)
 			case "TRACE":
-				router.Trace(path, api.Handler)
+				router.Trace(pathV1, api.Handler)
+				router.Trace(pathV2, api.Handler)
 			default:
 				logger.Errorf("BUG: group %s unsupported method: %s",
 					apiGroup.Group, api.Method)
