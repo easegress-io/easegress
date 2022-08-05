@@ -36,8 +36,10 @@ Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 }
 
 const (
-	// APIPrefix is the prefix of api.
-	APIPrefix = "/apis/v2"
+	// APIPrefixV1 is the prefix of v1 api, deprecated, will be removed soon.
+	APIPrefixV1 = "/apis/v1"
+	// APIPrefixV2 is the prefix of v2 api.
+	APIPrefixV2 = "/apis/v2"
 
 	lockKey = "/config/lock"
 
