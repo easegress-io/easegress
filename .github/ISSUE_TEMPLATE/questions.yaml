@@ -1,7 +1,7 @@
 name: ❓ Questions
 description: Any other question that is not bug or feature request
-title: ""
-labels: []
+title: '[Question]: '
+labels: [question]
 body:
 - type: checkboxes
   attributes:
