@@ -113,30 +113,43 @@ func (a *CORSAdaptor) reload() {
 
 // Handle handles cross-origin requests.
 func (a *CORSAdaptor) Handle(ctx *context.Context) string {
-	r := ctx.GetInputRequest().(*httpprot.Request)
+	req := ctx.GetInputRequest().(*httpprot.Request)
 
 	// not a CORS request
-	if r.HTTPHeader().Get("Origin") == "" {
+	if req.HTTPHeader().Get("Origin") == "" {
 		return ""
 	}
 
-	isPreflight := r.HTTPHeader().Get("Access-Control-Request-Method") != ""
-	isPreflight = isPreflight && (r.Method() == http.MethodOptions)
+	isPreflight := req.HTTPHeader().Get("Access-Control-Request-Method") != ""
+	isPreflight = isPreflight && (req.Method() == http.MethodOptions)
 	if !a.spec.SupportCORSRequest && !isPreflight {
 		return ""
 	}
 
-	w := httptest.NewRecorder()
-	a.cors.HandlerFunc(w, r.Std())
-	resp, _ := httpprot.NewResponse(w.Result())
-	ctx.SetOutputResponse(resp)
+	rw := httptest.NewRecorder()
+	a.cors.HandlerFunc(rw, req.Std())
+
+	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(rw.Result())
+		ctx.SetOutputResponse(resp)
+	} else {
+		h := resp.HTTPHeader()
+		for k, v := range rw.Header() {
+			if k == "Vary" {
+				h[k] = append(h[k], v...)
+			} else {
+				h[k] = v
+			}
+		}
+	}
 
 	if isPreflight {
 		return resultPreflighted
 	}
 
 	// rejected by CORS
-	if w.Header().Get("Access-Control-Allow-Origin") == "" {
+	if rw.Header().Get("Access-Control-Allow-Origin") == "" {
 		return resultRejected
 	}
 
