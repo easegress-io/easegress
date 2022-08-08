@@ -143,7 +143,7 @@ func New() *Options {
 	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "Path to the home directory.")
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
 	opt.flags.StringVar(&opt.WALDir, "wal-dir", "", "Path to the WAL directory.")
-	opt.flags.StringVar(&opt.LogDir, "log-dir", "log", "Path to the log directory.")
+	opt.flags.StringVar(&opt.LogDir, "log-dir", "", "Path to the log directory.")
 	opt.flags.StringVar(&opt.MemberDir, "member-dir", "member", "Path to the member directory.")
 
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
@@ -336,9 +336,6 @@ func (opt *Options) validate() error {
 	if opt.DataDir == "" {
 		return fmt.Errorf("empty data-dir")
 	}
-	if opt.LogDir == "" {
-		return fmt.Errorf("empty log-dir")
-	}
 	if !opt.UseInitialCluster() && opt.MemberDir == "" {
 		return fmt.Errorf("empty member-dir")
 	}
@@ -376,8 +373,10 @@ func (opt *Options) prepare() error {
 	table := []dirItem{
 		{dir: opt.DataDir, absDir: &opt.AbsDataDir},
 		{dir: opt.WALDir, absDir: &opt.AbsWALDir},
-		{dir: opt.LogDir, absDir: &opt.AbsLogDir},
 		{dir: opt.MemberDir, absDir: &opt.AbsMemberDir},
+	}
+	if opt.LogDir != "" {
+		table = append(table, dirItem{dir: opt.LogDir, absDir: &opt.AbsLogDir})
 	}
 	for _, di := range table {
 		if di.dir == "" {

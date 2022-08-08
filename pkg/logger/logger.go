@@ -18,6 +18,7 @@
 package logger
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -98,15 +99,18 @@ func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 
-	outputPaths := []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, filename))}
-
-	return &zap.Config{
+	cfg := &zap.Config{
 		Level:            level,
 		Encoding:         "console",
 		EncoderConfig:    encoderConfig,
-		OutputPaths:      outputPaths,
-		ErrorOutputPaths: outputPaths,
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
 	}
+	if opt.AbsLogDir != "" {
+		cfg.OutputPaths = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, filename))}
+		cfg.ErrorOutputPaths = cfg.OutputPaths
+	}
+	return cfg
 }
 
 func defaultEncoderConfig() zapcore.EncoderConfig {
@@ -137,9 +141,13 @@ func initDefault(opt *option.Options) {
 		lowestLevel = zap.DebugLevel
 	}
 
-	lf, err := newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
-	if err != nil {
-		common.Exit(1, err.Error())
+	var err error
+	var lf io.Writer = os.Stdout
+	if opt.AbsLogDir != "" {
+		lf, err = newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
+		if err != nil {
+			common.Exit(1, err.Error())
+		}
 	}
 
 	opts := []zap.Option{zap.AddCaller(), zap.AddCallerSkip(1)}
@@ -180,9 +188,13 @@ func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) 
 		LineEnding:    zapcore.DefaultLineEnding,
 	}
 
-	fr, err := newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
-	if err != nil {
-		common.Exit(1, err.Error())
+	var err error
+	var fr io.Writer = os.Stdout
+	if opt.AbsLogDir != "" {
+		fr, err = newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
+		if err != nil {
+			common.Exit(1, err.Error())
+		}
 	}
 
 	syncer := zapcore.AddSync(fr)
