@@ -129,7 +129,8 @@ type (
 	RequestAdaptor struct {
 		spec *Spec
 
-		pa *pathadaptor.PathAdaptor
+		pa     *pathadaptor.PathAdaptor
+		signer *signer.Signer
 	}
 
 	// Spec is HTTPAdaptor Spec.
