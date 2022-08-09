@@ -1,5 +1,31 @@
 # Changelog
 
+## [v2.1.0](https://github.com/megaease/easegress/tree/v2.1.0) (2022-08-09)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.0.0...v2.1.0)
+
+**Significant changes:**
+
+* Define user data in pipeline spec.
+* `jumpIf` support jumping on an empty result.
+* Bump API version to v2 (v1 APIs are kept for compatibility).
+
+**Implemented enhancements:**
+
+* RequestAdaptor support signing the request (experimental).
+* RequestBuilder support form data (HTTP only).
+* Add `disableReport` option to tracing.
+* Logs go to stdout/stderr by default.
+
+**Fixed bugs:**
+
+* HTTPServer does not work as expected when match all header is enabled.
+* `jumpIf` not working with global filter.
+* Response headers set by filters before a Proxy are all lost.
+* Nacos registry doesn't work.
+* Panic in StatusSyncController.
+* MQTT client is not closed as expected.
+
 ## [v2.0.0](https://github.com/megaease/easegress/tree/v2.0.0) (2022-07-07)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v1.5.3...v2.0.0)
