@@ -405,18 +405,21 @@ func (r *builderRequest) YAMLBody() (interface{}, error) {
 }
 
 // requestInfo stores the information of a request.
+// This structure is unmarshaled from the template of the RequestBuilder
+// filter, so it is a `YAML in YAML` or `YAML in JSON` case. To make it
+// explicit, we use both json & yaml tags in its fields.
 type requestInfo struct {
-	Method   string              `json:"method" jsonschema:"omitempty"`
-	URL      string              `json:"url" jsonschema:"omitempty"`
-	Headers  map[string][]string `json:"headers" jsonschema:"omitempty"`
-	Body     string              `json:"body" jsonschema:"omitempty"`
-	FormData map[string]field    `json:"formData" jsonschema:"omitempty"`
+	Method   string              `json:"method" yaml:"method" jsonschema:"omitempty"`
+	URL      string              `json:"url" yaml:"url" jsonschema:"omitempty"`
+	Headers  map[string][]string `json:"headers" yaml:"headers" jsonschema:"omitempty"`
+	Body     string              `json:"body" yaml:"body" jsonschema:"omitempty"`
+	FormData map[string]field    `json:"formData" yaml:"formData" jsonschema:"omitempty"`
 }
 
 // field stores the information of a form field.
 type field struct {
-	FileName string `json:"fileName" jsonschema:"omitempty"`
-	Value    string `json:"value" jsonschema:"omitempty"`
+	FileName string `json:"fileName" yaml:"fileName" jsonschema:"omitempty"`
+	Value    string `json:"value" yaml:"value" jsonschema:"omitempty"`
 }
 
 // NewRequestInfo returns a new requestInfo.

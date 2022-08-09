@@ -76,7 +76,7 @@ func (b *Builder) build(data map[string]interface{}, v interface{}) error {
 		return err
 	}
 
-	return codectool.Decode(&result, v)
+	return codectool.UnmarshalYAML(result.Bytes(), v)
 }
 
 // Status returns status.
