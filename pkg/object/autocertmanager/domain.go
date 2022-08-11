@@ -181,10 +181,15 @@ func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 		return err
 	}
 
-	record := libdns.Record{
-		Type: "TXT",
-		Name: "_acme-challenge",
+	name := "_acme-challenge."
+	if d.isWildcard() {
+		name += d.nameInPunyCode[2:] // skip '*.'
+	} else {
+		name += d.nameInPunyCode
 	}
+	name = name[0 : len(name)-len(d.Zone())-1]
+	record := libdns.Record{Type: "TXT", Name: name}
+
 	// ignore the error of DeleteRecords because the record may not exist
 	dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
 
