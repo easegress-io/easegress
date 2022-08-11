@@ -36,10 +36,6 @@ type (
 
 		jsonFormat []byte
 	}
-	// ContentValidator is used to validate by data content.
-	ContentValidator interface {
-		Validate([]byte) error
-	}
 )
 
 var (

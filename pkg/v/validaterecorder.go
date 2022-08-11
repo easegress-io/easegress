@@ -37,6 +37,27 @@ type (
 	FormatFunc func(v interface{}) error
 
 	// Validator stands for the types which needs its own Validate function.
+	// NOTE: Please always define Validate on non-pointer level Spec.Validate instead of (*Spec).Validate .
+	// Based on the mechanism of methods visibility in Golang, if the spec looks like:
+	//
+	// type Spec struct {
+	// 	A 	A
+	// 	B 	*B
+	//	CC 	[]C
+	//	DD 	[]*D
+	//	EE 	map[string]E
+	//	FF 	map[string]*F
+	// }
+	//
+	// If the methods Validate of all A-F is defined on pointer level:
+	// 	A.Validate, CC[i].Validate, EE[i].Validate won't be found.
+	// 	B.Validate, DD[i].Validate, FF[i].Validate will be found.
+	//
+	// But if the methods Validate of all A-F is defined on non-pointer level.
+	// All of them will be found.
+	//
+	// If you really want to define Validate on pointer level,
+	// please keep it appear in pointer form within spec. Otherwise, it won't be called.
 	Validator interface {
 		Validate() error
 	}
@@ -133,6 +154,19 @@ func (vr *ValidateRecorder) recordFormat(val *reflect.Value, field *reflect.Stru
 }
 
 func (vr *ValidateRecorder) recordGeneral(val *reflect.Value, field *reflect.StructField) {
+	t := val.Type()
+	if t.Kind() == reflect.Ptr {
+		elemType := t.Elem()
+
+		// NOTE: MethodByName returns the existence of the method
+		// only if the method is defined on Spec instead of *Spec.
+		// So we need to return here in case of calling Validate twice.
+		_, exists := elemType.MethodByName("Validate")
+		if exists {
+			return
+		}
+	}
+
 	fieldName := val.Type().String()
 	if field != nil {
 		fieldName = getFieldJSONName(field)
