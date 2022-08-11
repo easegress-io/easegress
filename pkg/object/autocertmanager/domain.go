@@ -27,6 +27,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -185,6 +186,11 @@ func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 		Type: "TXT",
 		Name: "_acme-challenge",
 	}
+	if !d.isWildcard() && !strings.EqualFold(d.Name, d.Zone()) {
+		l := len(d.nameInPunyCode) - len(d.Zone()) - 1
+		record.Name += "." + d.nameInPunyCode[0:l]
+	}
+
 	// ignore the error of DeleteRecords because the record may not exist
 	dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
 
