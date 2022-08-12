@@ -593,7 +593,14 @@ The self-defining specification of each filter references to [filters](./filters
 | name        | string            | The name of the domain    | Yes                                  |
 | dnsProvider | map[string]string | DNS provider information  | No (Yes if `name` is a wildcard one) |
 
-The fields in `dnsProvider` vary from DNS providers, but `name` and `zone` are required for all DNS providers.
+The fields in `dnsProvider` vary from DNS providers, but:
+* `name` and `zone` are required for all DNS providers.
+* `nsAddress` and `nsNetwork` are optional name server information for all DNS
+  providers, if provided, AutoCertManager will leverage them to speed up the
+  DNS record lookup. `nsAddress` is the address of the name server, must always
+  include the port number, `nsNetwork` is the network protocol of name server,
+  it should be `udp` in most cases.
+
 Below table list other required fields for each supported DNS provider (Note: `google` is temporarily disabled due to dependency conflict):
 
 | DNS Provider Name | Required Fields                                                     |
