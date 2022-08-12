@@ -205,7 +205,7 @@ type (
 		CircuitBreaker *resilience.CircuitBreakerRule `json:"circuitBreaker,omitempty" jsonschema:"omitempty"`
 		Retry          *resilience.RetryRule          `json:"retry,omitempty" jsonschema:"omitempty"`
 		TimeLimiter    *TimeLimiterRule               `json:"timeLimiter,omitempty" jsonschema:"omitempty"`
-		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"required,uniqueItems=true"`
+		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"omitempty,uniqueItems=true"`
 	}
 
 	// TimeLimiterRule is the spec of TimeLimiter.
