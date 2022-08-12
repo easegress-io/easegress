@@ -146,22 +146,32 @@ func (d *Domain) waitDNSRecord(value string) error {
 		name += d.nameInPunyCode
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	r := net.DefaultResolver
+	if addr := d.DNSProvider["nsAddress"]; addr != "" {
+		network := d.DNSProvider["nsNetwork"]
+		r := net.Resolver{PreferGo: true}
+		r.Dial = func(ctx context.Context, n, a string) (net.Conn, error) {
+			d := net.Dialer{Timeout: 10 * time.Second}
+			if network != "" {
+				n = network
+			}
+			return d.DialContext(ctx, n, addr)
+		}
+	}
 
 	for {
-		values, err := net.DefaultResolver.LookupTXT(d.ctx, name)
-		if err == nil {
+		select {
+		case <-time.After(5 * time.Second):
+		case <-d.ctx.Done():
+			return d.ctx.Err()
+		}
+
+		if values, err := r.LookupTXT(d.ctx, name); err == nil {
 			for _, v := range values {
 				if v == value {
 					return nil
 				}
 			}
-		}
-		select {
-		case <-ticker.C:
-		case <-d.ctx.Done():
-			return d.ctx.Err()
 		}
 	}
 }
