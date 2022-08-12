@@ -192,8 +192,10 @@ type ServerPoolSpec struct {
 	Timeout              string              `json:"timeout" jsonschema:"omitempty,format=duration"`
 	RetryPolicy          string              `json:"retryPolicy" jsonschema:"omitempty"`
 	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
-	FailureCodes         []int               `json:"failureCodes" jsonschema:"omitempty"`
 	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty" jsonschema:"omitempty"`
+
+	// FailureCodes would be 5xx if it isn't assigned any value.
+	FailureCodes []int `json:"failureCodes" jsonschema:"omitempty,uniqueItems=true"`
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -446,7 +448,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	defer sp.collectMetrics(spCtx)
 
 	if sp.buildResponseFromCache(spCtx) {
-		if _, ok := sp.failureCodes[spCtx.resp.StatusCode()]; ok {
+		if sp.inFailureCodes(spCtx.resp.StatusCode()) {
 			return resultFailureCode
 		}
 		return ""
@@ -566,7 +568,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	//
 	// This may be incorrect, but failure code is different from other
 	// errors, and it seems impossible to find a perfect solution.
-	if _, ok := sp.failureCodes[resp.StatusCode]; ok {
+	if sp.inFailureCodes(resp.StatusCode) {
 		return serverPoolError{resp.StatusCode, resultFailureCode}
 	}
 
@@ -695,6 +697,18 @@ func (sp *ServerPool) buildFailureResponse(spCtx *serverPoolContext, statusCode 
 	resp.SetStatusCode(statusCode)
 	spCtx.resp = resp
 	spCtx.SetOutputResponse(resp)
+}
+
+func (sp *ServerPool) inFailureCodes(code int) bool {
+	if len(sp.failureCodes) == 0 {
+		if code >= 500 && code < 600 {
+			return true
+		}
+		return false
+	}
+
+	_, exists := sp.failureCodes[code]
+	return exists
 }
 
 func (sp *ServerPool) close() {
