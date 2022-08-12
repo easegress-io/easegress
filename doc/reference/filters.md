@@ -100,7 +100,7 @@ kind: Proxy
 name: proxy-example-1
 pools:
 - servers:
-  - url: http://127.0.0.1:9095 
+  - url: http://127.0.0.1:9095
 ```
 
 Pool without `filter` is considered the main pool, other pools with `filter`
@@ -109,24 +109,24 @@ pools can process a request. For example, the first candidate pool in the
 below configuration selects and processes requests with the header
 `X-Candidate:candidate`, the second candidate pool randomly selects and
 processes 400‰ of requests, and the main pool processes the other 600‰
-of requests. 
+of requests.
 
 ```yaml
 kind: Proxy
 name: proxy-example-2
-pools: 
+pools:
 - servers:
   - url: http://127.0.0.1:9095
 - filter:
     headers:
       X-Candidate:
-        exact: candidate 
+        exact: candidate
   servers:
   - url: http://127.0.0.1:9096
 - filter:
-    permil: 400 # between 0 and 1000 
-    policy: random 
-  servers: 
+    permil: 400 # between 0 and 1000
+    policy: random
+  servers:
   - url: http://127.0.0.1:9097
 ```
 
@@ -150,7 +150,7 @@ between them:
 kind: Proxy
 name: proxy-example-4
 pools:
-- serverTags: ["v2"] 
+- serverTags: ["v2"]
   serviceName: service-001
   serviceRegistry: eureka-service-registry-example
   loadBalance:
@@ -160,7 +160,7 @@ pools:
 ### Configuration
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| pools | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes |  
+| pools | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes |
 | mirrorPool | [proxy.ServerPoolSpec](#proxyserverpoolspec) | Define a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool | No |
 | compression | [proxy.CompressionSpec](#proxyCompressionSpec) | Response compression options | No |
 | mtls | [proxy.MTLS](#proxymtls) | mTLS configuration | No |
@@ -175,7 +175,7 @@ pools:
 | internalError | Encounters an internal error                           |
 | clientError   | Client-side (Easegress) network error                  |
 | serverError   | Server-side network error                              |
-| failureCode   | Resp failure code matches failureCodes set in poolSpec | 
+| failureCode   | Resp failure code matches failureCodes set in poolSpec |
 
 ## CORSAdaptor
 
@@ -193,7 +193,7 @@ allowedMethods: [GET]
 ### Configuration
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-| allowedOrigins | []string | An array of origins a cross-domain request can be executed from. If the special `*` value is present in the list, all origins will be allowed. An origin may contain a wildcard (*) to replace 0 or more characters (i.e.: http://*.domain.com). Usage of wildcards implies a small performance penalty. Only one wildcard can be used per origin. Default value is `*` | No | 
+| allowedOrigins | []string | An array of origins a cross-domain request can be executed from. If the special `*` value is present in the list, all origins will be allowed. An origin may contain a wildcard (*) to replace 0 or more characters (i.e.: http://*.domain.com). Usage of wildcards implies a small performance penalty. Only one wildcard can be used per origin. Default value is `*` | No |
 | allowedMethods | []string | An array of methods the client is allowed to use with cross-domain requests. The default value is simple methods (HEAD, GET, and POST) | No |
 | allowedHeaders | []string | An array of non-simple headers the client is allowed to use with cross-domain requests. If the special `*` value is present in the list, all headers will be allowed. The default value is [] but "Origin" is always appended to the list | No |
 | allowCredentials | bool | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates | No |
@@ -236,7 +236,7 @@ mockBody: '{"message": "The feature turned off, please try it later."}'
 | Value    | Description                                                                  |
 | -------- | ---------------------------------------------------------------------------- |
 | fallback | The fallback steps have been executed, this filter always return this result |
-| responseNotFound | No response found | 
+| responseNotFound | No response found |
 
 ## Mock
 
@@ -373,10 +373,10 @@ path:
 
 The RequestBuilder creates a new request from existing requests/responses
 according to the configuration, and saves the new request into [the
-namespace it is bound](controllers.md#pipeline). 
+namespace it is bound](controllers.md#pipeline).
 
 The example configuration below creates a reference to the request of
-namespace `DEFAULT`. 
+namespace `DEFAULT`.
 
 ```yaml
 name: requestbuilder-example-1
@@ -387,19 +387,19 @@ sourceNamespace: DEFAULT
 
 The example configuration below creates an HTTP request with method `GET`,
 url `http://127.0.0.1:8080`, header `X-Mock-Header:mock-value`, and body
-`this is the body`.  
+`this is the body`.
 
-```yaml 
+```yaml
 name: requestbuilder-example-1
 kind: RequestBuilder
 protocol: http
 template: |
-  method: get 
+  method: get
   url: http://127.0.0.1:8080
   headers:
-    X-Mock-Header: 
+    X-Mock-Header:
     - mock-value
-  body: "this is the body" 
+  body: "this is the body"
 ```
 
 ### Configuration
@@ -407,10 +407,10 @@ template: |
 | Name            | Type   | Description                                   | Required |
 |-----------------|--------|-----------------------------------------------|----------|
 | protocol        | string | protocol of the request to build, default is `http`.  | No       |
-| sourceNamespace | string | add a reference to the request of the source namespace    | No       | 
-| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       | 
-| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
-| rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
+| sourceNamespace | string | add a reference to the request of the source namespace    | No       |
+| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
 
 **NOTE**: `sourceNamespace` and `template` are mutually exclusive, you must
 set one and only one of them.
@@ -484,24 +484,24 @@ header:
 | header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
 | body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |
 | compress | string | compress body, currently only support gzip | No |
-| decompress | string | decompress body, currently only support gzip | No | 
+| decompress | string | decompress body, currently only support gzip | No |
 
 ### Results
 
 | Value            | Description                                                |
 | ---------------- | ---------------------------------------------------------- |
 | responseNotFound | responseNotFound response is not found                     |
-| decompressFailed | error happens when decompress body                         | 
-| compressFailed   | error happens when compress body                           | 
+| decompressFailed | error happens when decompress body                         |
+| compressFailed   | error happens when compress body                           |
 
 ## ResponseBuilder
 
 The ResponseBuilder creates a new response from existing requests/responses
 according to the configuration, and saves the new response into [the
-namespace it is bound](controllers.md#pipeline). 
+namespace it is bound](controllers.md#pipeline).
 
 The example configuration below creates a reference to the response of
-namespace `DEFAULT`. 
+namespace `DEFAULT`.
 
 ```yaml
 name: responsebuilder-example-1
@@ -511,18 +511,18 @@ sourceNamespace: DEFAULT
 ```
 
 The example configuration below creates an HTTP response with status code
-200, header `X-Mock-Header:mock-value`, and body `this is the body`.  
+200, header `X-Mock-Header:mock-value`, and body `this is the body`.
 
-```yaml 
-name: responsebuilder-example-1 
+```yaml
+name: responsebuilder-example-1
 kind: ResponseBuilder
 protocol: http
 template: |
-  statusCode: 200 
+  statusCode: 200
   headers:
-    X-Mock-Header: 
+    X-Mock-Header:
     - mock-value
-  body: "this is the body" 
+  body: "this is the body"
 ```
 
 ### Configuration
@@ -530,10 +530,10 @@ template: |
 | Name            | Type   | Description                                   | Required |
 |-----------------|--------|-----------------------------------------------|----------|
 | protocol        | string | protocol of the response to build, default is `http`.  | No       |
-| sourceNamespace | string | add a reference to the response of the source namespace    | No       | 
-| template        | string | template to create response, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       | 
-| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       | 
-| rightDelim      | string | right action delimiter of the template, default is `}}` | No       | 
+| sourceNamespace | string | add a reference to the response of the source namespace    | No       |
+| template        | string | template to create response, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
 
 **NOTE**: `sourceNamespace` and `template` are mutually exclusive, you must
 set one and only one of them.
@@ -688,12 +688,12 @@ the Kafka backend. The topic of the Kafka message comes from the HTTP header,
 if not found, then the default topic will be used. The payload of the Kafka
 message comes from the body of the HTTP Request.
 
-Below is an example configuration. 
+Below is an example configuration.
 
 ```yaml
 kind: Kafka
 name: kafka-example
-backend: [":9093"] 
+backend: [":9093"]
 topic:
   default: kafka-topic
   dynamic:
@@ -720,7 +720,7 @@ The HeaderToJSON converts HTTP headers to JSON and combines it with the HTTP
 request body. To use this filter, make sure your HTTP Request body is empty
 or JSON schema.
 
-Below is an example configuration. 
+Below is an example configuration.
 
 ```yaml
 kind: HeaderToJSON
@@ -775,58 +775,58 @@ headerKey: "tls-cert-postalcode"
 | field | string | One of the string or string slice fields from https://pkg.go.dev/crypto/x509/pkix#Name  | Yes      |
 | headerKey | string | Extracted value is added to this request header key. | Yes      |
 
-### Results 
-The CertExtractor is always success and returns no results. 
+### Results
+The CertExtractor is always success and returns no results.
 
 ## HeaderLookup
 
 HeaderLookup checks [custom data](customdata.md) stored in etcd and put them into HTTP header.
 
-Suppose you create a custom data kind of `client-info` and post a data key `client1` with the value: 
-```yaml 
+Suppose you create a custom data kind of `client-info` and post a data key `client1` with the value:
+```yaml
 name: client1
 id: 123
-kind: vip 
+kind: vip
 ```
 
-Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` to HTTP request header. 
+Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` to HTTP request header.
 ```yaml
 name: headerlookup-example-1
 kind: HeaderLookup
-etcdPrefix: client-info # get custom data kind 
-headerKey: client1      # get custom data name 
+etcdPrefix: client-info # get custom data kind
+headerKey: client1      # get custom data name
 headerSetters:
-- etcdKey: id           # custom data value of id 
-  headerKey: X-Id 
-- etcdKey: kind         # custom data value of kind 
-  headerKey: X-Kind  
+- etcdKey: id           # custom data value of id
+  headerKey: X-Id
+- etcdKey: kind         # custom data value of kind
+  headerKey: X-Kind
 ```
 
 You can also use `pathRegExp` to check different keys for different requests. When `pathRegExp` is defined, `pathRegExp` is used with `regexp.FindStringSubmatch` to identify a group from the path. The first captured group is appended to the etcd key in the following format: `{headerKey's value}-{regex group}`.
 
-Suppose you create a custom data kind of `client-info` and post several data: 
-```yaml 
-name: client-abc 
+Suppose you create a custom data kind of `client-info` and post several data:
+```yaml
+name: client-abc
 id: 123
-kind: vip 
+kind: vip
 
-name: client-def 
+name: client-def
 id: 124
-kind: vvip 
+kind: vvip
 ```
 
-Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` for requests with path `/api/abc`, adds `X-Id:124` and `X-Kind:vvip` for requests with path `/api/def`. 
+Then HeaderLookup with the following configuration adds `X-Id:123` and `X-Kind:vip` for requests with path `/api/abc`, adds `X-Id:124` and `X-Kind:vvip` for requests with path `/api/def`.
 ```yaml
 name: headerlookup-example-1
 kind: HeaderLookup
-etcdPrefix: client-info # get custom data kind 
-headerKey: client      # get custom data name 
+etcdPrefix: client-info # get custom data kind
+headerKey: client      # get custom data name
 pathRegExp: "^/api/([a-z]+)"
 headerSetters:
-- etcdKey: id           # custom data value of id 
-  headerKey: X-Id 
-- etcdKey: kind         # custom data value of kind 
-  headerKey: X-Kind  
+- etcdKey: id           # custom data value of id
+  headerKey: X-Id
+- etcdKey: kind         # custom data value of kind
+  headerKey: X-Kind
 ```
 
 ### Configuration
@@ -835,10 +835,10 @@ headerSetters:
 | etcdPrefix | string | Kind of custom data | Yes |
 | headerKey | string | Name of custom data in given kind | Yes |
 | pathRegExp | string | Reg used to get key from request path | No |
-| headerSetters | [][headerlookup.HeaderSetterSpec](#headerlookup.HeaderSetterSpec) | Set custom data value to http header | Yes | 
-### Results 
+| headerSetters | [][headerlookup.HeaderSetterSpec](#headerlookup.HeaderSetterSpec) | Set custom data value to http header | Yes |
+### Results
 
-HeaderLookup has no results. 
+HeaderLookup has no results.
 
 ## Common Types
 
@@ -881,10 +881,10 @@ Rules to revise request header.
 | memoryCache     | [proxy.MemoryCacheSpec](#proxymemorycachespec)   | Options for response caching                                                                                 | No       |
 | filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                                           | No       |
 | serverMaxBodySize | int64 | Max size of response body, will use the option of the Proxy if not set. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
-| timeout | string | Request calceled when timeout | No | 
+| timeout | string | Request calceled when timeout | No |
 | retryPolicy | string | Retry policy name | No |
-| circuitBreakerPolicy | string | CircuitBreaker policy name | No | 
-| failureCodes | []int | Proxy return result of failureCode when backend resposne's status code in failureCodes | No | 
+| circuitBreakerPolicy | string | CircuitBreaker policy name | No |
+| failureCodes | []int | Proxy return result of failureCode when backend resposne's status code in failureCodes. The default value is 5xx | No |
 
 
 ### proxy.Server
@@ -912,22 +912,22 @@ Rules to revise request header.
 | maxEntryBytes | uint32   | Maximum size of the response body, response with a larger body is never cached | Yes      |
 | methods       | []string | HTTP request methods to be cached                                              | Yes      |
 
-### proxy.RequestMatcherSpec 
+### proxy.RequestMatcherSpec
 
-Polices: 
-- If the policy is empty or `general`, matcher match requests with `headers` and `urls`. 
-- If the policy is `ipHash`, the matcher match requests if their IP hash value is less than `permil``. 
+Polices:
+- If the policy is empty or `general`, matcher match requests with `headers` and `urls`.
+- If the policy is `ipHash`, the matcher match requests if their IP hash value is less than `permil``.
 - If the policy is `headerHash`, the matcher match requests if their header hash value is less than `permil`, use the key of `headerHashKey`.
-- If the policy is `random`, the matcher matches requests with probability `permil`/1000. 
+- If the policy is `random`, the matcher matches requests with probability `permil`/1000.
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-｜ policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No | 
+｜ policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
 | headers     | map[string][proxy.StringMatcher](#proxystringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
 | urls        | [][proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)                  | Request URL match criteria                                                                                                  | No       |
 | permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
-| matchAllHeaders | bool | All rules in headers should be match | No | 
-| headerHashKey | string | Used by policy `headerHash`. | No | 
+| matchAllHeaders | bool | All rules in headers should be match | No |
+| headerHashKey | string | Used by policy `headerHash`. | No |
 
 ### proxy.StringMatcher
 
@@ -938,7 +938,7 @@ The relationship between `exact`, `prefix`, and `regex` is `OR`.
 | exact  | string | The string must be identical to the value of this field.                    | No       |
 | prefix | string | The string must begin with the value of this field                          | No       |
 | regex  | string | The string must the regular expression specified by the value of this field | No       |
-| empty | bool | The string must be empty | No | 
+| empty | bool | The string must be empty | No |
 
 ### proxy.MethodAndURLMatcher
 
@@ -949,7 +949,7 @@ The relationship between `methods` and `url` is `AND`.
 | methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
 | url     | [proxy.StringMatcher](#proxystringmatcher) | Criteria to match a  URL                                          | Yes      |
 
-### urlrule.URLRule 
+### urlrule.URLRule
 
 The relationship between `methods` and `url` is `AND`.
 
@@ -1025,17 +1025,17 @@ The relationship between `methods` and `url` is `AND`.
 | excludeBody | bool                             | Exclude request body from the signature calculation, default is `false`   | No       |
 | ttl         | string                           | Time to live of a signature, default is 0 means a signature never expires | No       |
 | accessKeys  | map[string]string                | A map of access key id to access key secret                               | Yes      |
-| accessKeyId | string | ID used to set credential | No | 
-| accessKeySecret | string | Value usd to set credential | No | 
-| ignoredHeaders | []string | Headers to be ignored | No |  
-| headerHoisting | signer.HeaderHoisting | HeaderHoisting defines which headers are allowed to be moved from header to query in presign: header with name has one of the allowed prefixes, but hasn't any disallowed prefixes and doesn't match any of disallowed names are allowed to be hoisted | No | 
+| accessKeyId | string | ID used to set credential | No |
+| accessKeySecret | string | Value usd to set credential | No |
+| ignoredHeaders | []string | Headers to be ignored | No |
+| headerHoisting | signer.HeaderHoisting | HeaderHoisting defines which headers are allowed to be moved from header to query in presign: header with name has one of the allowed prefixes, but hasn't any disallowed prefixes and doesn't match any of disallowed names are allowed to be hoisted | No |
 
-### signer.HeaderHoisting 
+### signer.HeaderHoisting
 
-| Name | Type | Description | Required | 
-| allowedPrefix | []string | Allowed prefix for headers | No | 
+| Name | Type | Description | Required |
+| allowedPrefix | []string | Allowed prefix for headers | No |
 | disallowedPrefix | []string | Disallowed prefix for headers | No |
-| disallowed | []string | Disallowed headers | No | 
+| disallowed | []string | Disallowed headers | No |
 
 ### signer.Literal
 
@@ -1092,20 +1092,20 @@ The relationship between `methods` and `url` is `AND`.
 
 
 ### headerlookup.HeaderSetterSpec
-| Name | Type | Description | Required | 
+| Name | Type | Description | Required |
 |------|------|-------------|----------|
-| etcdKey | string | Key used to get data | No | 
-| headerKey | string | Key used to set data into http header | No | 
+| etcdKey | string | Key used to get data | No |
+| headerKey | string | Key used to set data into http header | No |
 
 ### requestadaptor.SignerSpec
 
 This type is derived from  [signer.Spec](#signerspec), with the following
 two more fields.
 
-| Name | Type | Description | Required | 
+| Name | Type | Description | Required |
 |------|------|-------------|----------|
-| apiProvider | string | The RequestAdaptor pre-defines the [Literal](#signerliteral) and [HeaderHoisting](#signerheaderhoisting) configuration for some API providers, specify the provider name in this field to use one of them, only `aws4` is supported at present. | No | 
-| scopes | []string | Scopes of the input request | No | 
+| apiProvider | string | The RequestAdaptor pre-defines the [Literal](#signerliteral) and [HeaderHoisting](#signerheaderhoisting) configuration for some API providers, specify the provider name in this field to use one of them, only `aws4` is supported at present. | No |
+| scopes | []string | Scopes of the input request | No |
 
 ### Template Of RequestBuilder & ResponseBuilder
 
@@ -1150,33 +1150,33 @@ result YAML varies from protocol.
   is the body as a JSON object; `YAMLBody` is the body as a YAML object.
 
 * **Available fields of existing responses**
-  
+
   All exported fields of the [http.Response](https://pkg.go.dev/net/http#Response).
   And `RawBody` is the body as bytes; `Body` is the body as string; `JSONBody`
   is the body as a JSON object; `YAMLBody` is the body as a YAML object.
 
 * **Schema of result request**
 
-  | Name | Type | Description | Required | 
+  | Name | Type | Description | Required |
   |------|------|-------------|----------|
-  | method | string | HTTP Method of the result request, default is `GET`.  | No | 
-  | url | string | URL of the result request, default is `/`. | No | 
-  | headers | map[string][]string | Headers of the result request. | No | 
-  | body | string | Body of the result request. | No | 
-  | formData | map[string]field | Body of the result request, in form data pattern. | No | 
+  | method | string | HTTP Method of the result request, default is `GET`.  | No |
+  | url | string | URL of the result request, default is `/`. | No |
+  | headers | map[string][]string | Headers of the result request. | No |
+  | body | string | Body of the result request. | No |
+  | formData | map[string]field | Body of the result request, in form data pattern. | No |
 
   Please note `body` takes higher priority than `formData`, and the schema of
   `field` in `formData` is:
 
-  | Name     | Type   | Description         | Required | 
+  | Name     | Type   | Description         | Required |
   |----------|--------|---------------------|----------|
   | value    | string | value of the field. | No       |
   | fileName | string | the file name, if value is the content of a file. | No |
 
 * **Schema of result response**
 
-  | Name | Type | Description | Required | 
+  | Name | Type | Description | Required |
   |------|------|-------------|----------|
-  | statusCode | int | HTTP status code, default is 200.  | No | 
-  | headers | map[string][]string | Headers of the result request. | No | 
-  | body | string | Body of the result request. | No | 
+  | statusCode | int | HTTP status code, default is 200.  | No |
+  | headers | map[string][]string | Headers of the result request. | No |
+  | body | string | Body of the result request. | No |
