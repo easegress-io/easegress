@@ -1,0 +1,14 @@
+name: autocert
+kind: AutoCertManager
+email: service@megaease.com         # please use your own email.
+enableHTTP01: false                 # please enable at least one of the three
+enableDNS01: true                   # challenge types.
+enableTLSALPN01: false
+domains:
+- name: translate.megaease.com      # please use your own information.
+  dnsProvider:
+    name: cloudflare
+    zone: megaease.com
+    nsNetwork: udp
+    nsAddress: 172.64.34.40:53
+    apiToken: XXXXXXXXXXXXXXXX

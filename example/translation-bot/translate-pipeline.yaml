@@ -1,0 +1,163 @@
+name: translate-pipeline
+kind: Pipeline
+
+flow:
+# we put the ResponseBuilder at the top because Telegram requires us to return
+# a response for every Request, but we only process some of the requests. If
+# we put it at the end, the requests we don't process will end the process
+# early and no Response will be returned.
+- filter: responseBuilder
+
+# translation
+- filter: requestBuilderTranslate
+  namespace: translate
+- filter: requestAdaptorTranslate
+  namespace: translate
+- filter: proxyTranslate
+  namespace: translate
+
+# text to speech
+- filter: requestBuilderPolly
+  namespace: polly
+- filter: requestAdaptorPolly
+  namespace: polly
+- filter: proxyPolly
+  namespace: polly
+
+# send the voice message to Telegram
+- filter: requestBuilderTelegram
+  namespace: tg
+- filter: proxyTelegram
+  namespace: tg
+
+data:
+  chinese:
+    code: zh
+    voice: Zhiyu
+  english:
+    code: en
+    voice: Joanna
+  french:
+    code: fr
+    voice: Léa
+  japanese:
+    code: ja
+    voice: Mizuki
+  korean:
+    code: ko
+    voice: Seoyeon
+  german:
+    code: de
+    voice: Vicki
+  spanish:
+    code: es
+    voice: Lucia
+  arabic:
+    code: ar
+    voice: Zeina
+  dutch:
+    code: nl
+    voice: Lotte
+  italian:
+    code: it
+    voice: Carla
+  polish:
+    code: pl
+    voice: Ewa
+
+filters:
+
+# please replace 'easetranslatebot' with your bot name.
+- kind: RequestBuilder
+  name: requestBuilderTranslate
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    {{if contains "@easetranslatebot" (lower $msg.text)}}
+    {{$lang := or (trim (replace "@easetranslatebot" "" (lower $msg.text))) "english"}}
+    {{$lang = index .data.PIPELINE (lower $lang)}}
+    method: POST
+    url: https://translate.us-east-2.amazonaws.com/TranslateText
+    headers:
+      "Content-Type": ["application/x-amz-json-1.1"]
+      "X-Amz-Target": ["AWSShineFrontendService_20170701.TranslateText"]
+    body: |
+      {
+         "SourceLanguageCode": "auto",
+         "TargetLanguageCode": "{{$lang.code}}",
+         "Text": "{{$msg.reply_to_message.text | jsonEscape}}"
+      }
+    {{end}}
+
+- name: requestAdaptorTranslate
+  kind: RequestAdaptor
+  sign:
+    apiProvider: aws4
+    accessKeyId: your access key id
+    accessKeySecret: your access key secret
+    scopes: ["us-east-2", "translate"]
+
+- name: proxyTranslate
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://translate.us-east-2.amazonaws.com
+
+# please replace 'easetranslatebot' with your bot name.
+- kind: RequestBuilder
+  name: requestBuilderPolly
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    {{$lang := or (trim (replace "@easetranslatebot" "" (lower $msg.text))) "english"}}
+    {{$lang = index .data.PIPELINE (lower $lang)}}
+    method: POST
+    url: https://polly.us-east-2.amazonaws.com/v1/speech
+    headers:
+      "Content-Type": ["application/json"]
+    body: |
+      {
+        "Engine": "standard",
+        "OutputFormat": "ogg_vorbis",
+        "Text": "{{.responses.translate.JSONBody.TranslatedText | jsonEscape}}",
+        "VoiceId": "{{$lang.voice}}"
+      }
+
+- name: requestAdaptorPolly
+  kind: RequestAdaptor
+  sign:
+    apiProvider: aws4
+    accessKeyId: your access key id
+    accessKeySecret: your access key secret
+    scopes: ["us-east-2", "polly"]
+
+- name: proxyPolly
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://polly.us-east-2.amazonaws.com
+
+  # Please replace the url with the one of your bot.
+- kind: RequestBuilder
+  name: requestBuilderTelegram
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    method: POST
+    url: https://api.telegram.org/bot5433936603:AAE9W3AXalVv3YX2Nf6jtyeKceyZDkGgV-Q/sendVoice
+    formData:
+      chat_id:
+        value: {{$msg.chat.id}}
+      reply_to_message_id:
+        value: {{$msg.reply_to_message.message_id}}
+      voice:
+        fileName: "tg.ogg"
+        value: !!binary "{{.responses.polly.Body | b64enc}}"
+
+- name: proxyTelegram
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://api.telegram.org
+
+- kind: ResponseBuilder
+  name: responseBuilder
+  template: |
+    statusCode: 200
