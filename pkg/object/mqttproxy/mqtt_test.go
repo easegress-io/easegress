@@ -1780,7 +1780,8 @@ func TestHTTPDeleteSession(t *testing.T) {
 func TestHTTPTransferHeaderCopy(t *testing.T) {
 	done := make(chan bool, 2)
 
-	broker0 := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker0 := getDefaultBroker(mapper)
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
 		broker0.httpTopicsPublishHandler(w, r)
@@ -1792,7 +1793,7 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 	spec.Name = "test1"
 	spec.EGName = "test1"
 	spec.Port = 1884
-	broker1 := getBrokerFromSpec(spec, nil)
+	broker1 := getBrokerFromSpec(spec, mapper)
 
 	srv1 := newServer(":8889")
 	srv1.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
