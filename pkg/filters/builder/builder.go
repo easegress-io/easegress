@@ -104,5 +104,6 @@ func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
 		"requests":  requests,
 		"responses": responses,
 		"data":      ctx.Data(),
+		"namespace": ctx.Namespace(),
 	}, nil
 }
