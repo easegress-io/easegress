@@ -115,6 +115,11 @@ func (ctx *Context) UseNamespace(ns string) {
 	}
 }
 
+// Namespace returns the active namespace.
+func (ctx *Context) Namespace() string {
+	return ctx.activeNs
+}
+
 // CopyRequest copies the request of namespace ns to the active namespace.
 // The copied request is a new reference of the original request, that's
 // they both point to the same underlying protocols.Request.
