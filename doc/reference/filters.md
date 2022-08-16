@@ -49,6 +49,9 @@
   - [HeaderLookup](#headerlookup)
     - [Configuration](#configuration-15)
     - [Results](#results-15)
+  - [ResultBuilder](#resultbuilder)
+    - [Configuration](#configuration-16)
+    - [Results](#results-16)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -78,7 +81,7 @@
     - [headertojson.HeaderMap](#headertojsonheadermap)
     - [headerlookup.HeaderSetterSpec](#headerlookupheadersetterspec)
     - [requestadaptor.SignerSpec](#requestadaptorsignerspec)
-    - [Template Of RequestBuilder & ResponseBuilder](#template-of-requestbuilder--responsebuilder)
+    - [Template Of Builder Filters](#template-of-builder-filters)
       - [HTTP Specific](#http-specific)
 
 A Filter is a request/response processor. Multiple filters can be orchestrated
@@ -408,7 +411,7 @@ template: |
 |-----------------|--------|-----------------------------------------------|----------|
 | protocol        | string | protocol of the request to build, default is `http`.  | No       |
 | sourceNamespace | string | add a reference to the request of the source namespace    | No       |
-| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       |
+| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-builder-filters) for more information        | No       |
 | leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
 | rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
 
@@ -419,7 +422,7 @@ set one and only one of them.
 
 | Value          | Description                              |
 | -------------- | ---------------------------------------- |
-| resultBuildErr | error happens when build request         |
+| buildErr       | error happens when build request         |
 
 ## RateLimiter
 
@@ -531,7 +534,7 @@ template: |
 |-----------------|--------|-----------------------------------------------|----------|
 | protocol        | string | protocol of the response to build, default is `http`.  | No       |
 | sourceNamespace | string | add a reference to the response of the source namespace    | No       |
-| template        | string | template to create response, the schema of this option must conform with `protocol`, please refer the [template](#template-of-requestbuilder--responsebuilder) for more information        | No       |
+| template        | string | template to create response, the schema of this option must conform with `protocol`, please refer the [template](#template-of-builder-filters) for more information        | No       |
 | leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
 | rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
 
@@ -541,7 +544,7 @@ set one and only one of them.
 ### Results
 | Value          | Description                              |
 | -------------- | ---------------------------------------- |
-| resultBuildErr | error happens when build request         |
+| buildErr       | error happens when build response.         |
 
 ## Validator
 
@@ -840,6 +843,57 @@ headerSetters:
 
 HeaderLookup has no results.
 
+## ResultBuilder
+
+ResultBuilder generates a string, which will be the result of the filter. This
+filter is exist to work with the [`jumpIf` mechanism](./controllers.md#pipeline)
+for conditional jumping.
+
+Currently, the result string can only be `result0` - `result9`, this will be
+changed in the future to allow arbitrary result string.
+
+For example, we can use the following configuration to check if the request
+body contains an `image` field, and forward it to `proxy1` or `proxy2`
+conditionally.
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: resultBuilder
+  jumpIf:
+    result1: proxy1
+    result2: proxy2
+- filter: proxy1
+- filter: END
+- filter: proxy2
+
+filters:
+- name: resultBuilder
+  kind: ResultBuilder
+  template: |
+    {{- if .requests.DEFAULT.JSONBody.image}}result1{{else}}result2{{end -}}
+```
+
+### Configuration
+
+| Name            | Type   | Description                                   | Required |
+|-----------------|--------|-----------------------------------------------|----------|
+| template        | string | template to create result, please refer the [template](#template-of-builer-filters) for more information        | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+
+
+### Results
+
+| Value                                                                       | Description                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------- |
+| unknown                                                                     | The ResultBuilder generates an unknown result.     |
+| buildErr                                                                    | Error happens when build the result.               |
+| result0 <td rowspan="3">Results defined and returned by the template .</td> |
+| ...                                                                         |
+| result9                                                                     |
+
 ## Common Types
 
 ### pathadaptor.Spec
@@ -1107,10 +1161,10 @@ two more fields.
 | apiProvider | string | The RequestAdaptor pre-defines the [Literal](#signerliteral) and [HeaderHoisting](#signerheaderhoisting) configuration for some API providers, specify the provider name in this field to use one of them, only `aws4` is supported at present. | No |
 | scopes | []string | Scopes of the input request | No |
 
-### Template Of RequestBuilder & ResponseBuilder
+### Template Of Builder Filters
 
-The content of the `template` field in `RequestBuilder` and `ResponseBuilder`
-spec is a template defined in Golang [text/template](https://pkg.go.dev/text/template),
+The content of the `template` field in the builder filters' spec is a
+a template defined in Golang [text/template](https://pkg.go.dev/text/template),
 with extra functions from the [sprig](https://go-task.github.io/slim-sprig/)
 package, and extra functions defined by Easegress:
 
@@ -1139,7 +1193,7 @@ accessed with `.data.<name>`, for example, we can use `.data.PIPELINE` to
 read the data defined in the pipeline spec.
 
 The `template` should generate a string in YAML format, the schema of the
-result YAML varies from protocol.
+result YAML varies from filters and protocols.
 
 #### HTTP Specific
 
