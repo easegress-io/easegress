@@ -39,8 +39,7 @@ func TestBuilderSpec(t *testing.T) {
 	assert.NotNil(err)
 
 	invalidSpec2 := Spec{
-		SourceNamespace: "DEFAULT",
-		Template:        "fake template",
+		Template: "fake template",
 	}
 	err = invalidSpec2.Validate()
 	assert.NotNil(err)

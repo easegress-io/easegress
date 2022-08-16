@@ -59,6 +59,7 @@ type (
 	RequestBuilderSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
+		SourceNamespace  string `json:"sourceNamespace" jsonschema:"omitempty"`
 		Protocol         string `json:"protocol" jsonschema:"omitempty"`
 	}
 )
@@ -68,6 +69,15 @@ func (spec *RequestBuilderSpec) Validate() error {
 	if protocols.Get(spec.Protocol) == nil {
 		return fmt.Errorf("unknown protocol: %s", spec.Protocol)
 	}
+
+	if spec.SourceNamespace == "" && spec.Template == "" {
+		return fmt.Errorf("sourceNamespace or template must be specified")
+	}
+
+	if spec.SourceNamespace != "" && spec.Template != "" {
+		return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
+	}
+
 	return spec.Spec.Validate()
 }
 
@@ -97,7 +107,9 @@ func (rb *RequestBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *RequestBuilder) reload() {
-	rb.Builder.reload(&rb.spec.Spec)
+	if rb.spec.SourceNamespace == "" {
+		rb.Builder.reload(&rb.spec.Spec)
+	}
 }
 
 // Handle builds request.
