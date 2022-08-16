@@ -19,7 +19,6 @@ package builder
 
 import (
 	"fmt"
-	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -118,14 +117,6 @@ func (rb *ResponseBuilder) Handle(ctx *context.Context) (result string) {
 		ctx.CopyResponse(rb.spec.SourceNamespace)
 		return ""
 	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			msgFmt := "panic: %s, stacktrace: %s\n"
-			logger.Errorf(msgFmt, err, string(debug.Stack()))
-			result = resultBuildErr
-		}
-	}()
 
 	data, err := prepareBuilderData(ctx)
 	if err != nil {

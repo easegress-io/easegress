@@ -36,11 +36,11 @@ func TestBuilderSpec(t *testing.T) {
 
 	invalidSpec := Spec{}
 	err := invalidSpec.Validate()
-	assert.NotNil(err)
+	assert.Nil(err)
 
 	invalidSpec2 := Spec{
 		Template: "fake template",
 	}
 	err = invalidSpec2.Validate()
-	assert.NotNil(err)
+	assert.Nil(err)
 }
