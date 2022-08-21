@@ -2,79 +2,201 @@ name: translate-pipeline
 kind: Pipeline
 
 flow:
-# we put the ResponseBuilder at the top because Telegram requires us to return
-# a response for every Request, but we only process some of the requests. If
-# we put it at the end, the requests we don't process will end the process
-# early and no Response will be returned.
-- filter: responseBuilder
-
-# translation
-- filter: requestBuilderTranslate
-  namespace: translate
-- filter: requestAdaptorTranslate
-  namespace: translate
-- filter: proxyTranslate
-  namespace: translate
-
-# text to speech
-- filter: requestBuilderPolly
-  namespace: polly
-- filter: requestAdaptorPolly
-  namespace: polly
-- filter: proxyPolly
-  namespace: polly
-
-# send the voice message to Telegram
-- filter: requestBuilderTelegram
-  namespace: tg
+# we put the final response builder at the top because Telegram requires
+# us to return a response for every Request, but we only process some of
+# the requests. If we put it at the end, the requests we don't process
+# will end the process early and no Response will be returned.
+- filter: buildFinalResponse
+ 
+# check message type and jump accordingly
+- filter: checkRequestType
+  jumpIf:
+    result0: processText             # text
+    result1: processVoice            # voice
+    result2: processPhoto            # photo
+    "": END                          # ignore, end the processing
+ 
+# text message
+- filter: requestBuilderExtractText
+  alias: processText                 # alias of the filter
+  namespace: extract                 # namespace the filter belongs to
+  jumpIf:                            # conditional jump, begin translation
+    "": translateChinese             # if everything is fine, or end the
+                                     # processing otherwise.
+ 
+# voice message
+- filter: requestBuilderGetVoiceFile # Constructing a request to convert a
+  alias: processVoice                # voice file ID to a path.
+  namespace: extract
+- filter: proxyTelegram              # send the request to retrieve file path.
+  namespace: extract
+- filter: requestBuilderDownloadFile # Constructing a request to download
+  namespace: extract                 # the voice file
+- filter: proxyTelegram              # send the request to retrieve file content
+  namespace: extract
+- filter: requestBuilderSpeechRecognize  # Constructing a request to call the
+  namespace: extract                 # speech recognition API
+- filter: proxySpeechRecognize       # send the request to retrieve the
+  namespace: extract                 # recognition result
+- filter: requestBuilderSpeechText   # Save recognition result
+  namespace: extract
+  jumpIf:                            # conditional jump, begin translation
+    "": translateChinese             # if everything is fine, or end the
+                                     # processing otherwise.
+ 
+# photo message (the process is basically the same as for voice message)
+- filter: requestBuilderGetPhotoFile
+  alias: processPhoto
+  namespace: extract
 - filter: proxyTelegram
+  namespace: extract
+- filter: requestBuilderDownloadFile
+  namespace: extract
+- filter: proxyTelegram
+  namespace: extract
+- filter: requestBuilderImageAnnotate
+  namespace: extract
+- filter: proxyImageAnnotate
+  namespace: extract
+- filter: requestBuilderPhotoText    # no need to jump
+  namespace: extract
+ 
+# translate to Chinese
+- filter: requestBuilderTranslate    # Constructing the request to call the 
+  alias: translateChinese            # translation API
+  namespace: zh
+- filter: signAWSRequest             # Signing as required by AWS
+  namespace: zh
+- filter: proxyTranslate             # Send request to retrieve translation
+  namespace: zh                      # result
+ 
+# translate to English (same process as Chinese translation)
+- filter: requestBuilderTranslate
+  namespace: en
+- filter: signAWSRequest
+  namespace: en
+- filter: proxyTranslate
+  namespace: en
+ 
+# translate to Japanese (same process as Chinese translation)
+- filter: requestBuilderTranslate
+  namespace: ja
+- filter: signAWSRequest
+  namespace: ja
+- filter: proxyTranslate
+  namespace: ja
+ 
+# reply, send the translation to Telegram
+- filter: requestBuilderReply        # constructing a request to send the reply
+  namespace: tg
+- filter: proxyTelegram              # send the request to Telegram
   namespace: tg
 
 data:
-  chinese:
-    code: zh
-    voice: Zhiyu
-  english:
-    code: en
-    voice: Joanna
-  french:
-    code: fr
-    voice: Léa
-  japanese:
-    code: ja
-    voice: Mizuki
-  korean:
-    code: ko
-    voice: Seoyeon
-  german:
-    code: de
-    voice: Vicki
-  spanish:
-    code: es
-    voice: Lucia
-  arabic:
-    code: ar
-    voice: Zeina
-  dutch:
-    code: nl
-    voice: Lotte
-  italian:
-    code: it
-    voice: Carla
-  polish:
-    code: pl
-    voice: Ewa
+  zh:
+    fallback: "(抱歉，我不懂这种语言。)"
+    text:  "中文🇨 🇳 "
+  ja:
+    fallback: "(申し訳ないのですが、この言葉は本当に初めて見ました。)"
+    text: "やまと🇯 🇵 "
+  en:
+    fallback: "(I'm sorry, but I really don't know this language.)"
+    text:  "English🇬 🇧 "
 
 filters:
+- kind: ResultBuilder
+  name: checkRequestType
+  template: |
+    {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
+    {{- if $msg.text}}result0{{else if $msg.voice}}result1{{else if $msg.photo}}result2{{end -}}
 
-# please replace 'easetranslatebot' with your bot name.
+- kind: RequestBuilder
+  name: requestBuilderExtractText
+  template: |
+    {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
+    body: |
+      {
+         "exclude": true,
+         "text": "{{$msg.text | jsonEscape}}"
+      }
+
+- kind: RequestBuilder
+  name: requestBuilderGetVoiceFile
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    method: GET
+    url: https://api.telegram.org/bot{YOUR BOT TOKEN}/getFile?file_id={{$msg.voice.file_id}}
+
+- kind: RequestBuilder
+  name: requestBuilderGetPhotoFile
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    method: GET
+    url: https://api.telegram.org/bot{YOUR BOT TOKEN}/getFile?file_id={{(last $msg.photo).file_id}}
+
+- kind: RequestBuilder
+  name: requestBuilderDownloadFile
+  template: |
+    method: GET
+    url: https://api.telegram.org/file/bot{YOUR BOT TOKEN}/{{.responses.extract.JSONBody.result.file_path}}
+
+- kind: RequestBuilder
+  name: requestBuilderSpeechRecognize
+  template: |
+    url: https://speech.googleapis.com/v1/speech:recognize?key={YOUR GOOGLE API KEY}}
+    method: POST
+    body: |
+      {
+        "config": {
+          "languageCode": "zh",
+          "alternativeLanguageCodes": ["en-US", "ja-JP"],
+          "enableAutomaticPunctuation": true,
+          "model": "default",
+          "encoding": "OGG_OPUS",
+          "sampleRateHertz": 48000
+        },
+        "audio": {
+          "content": "{{.responses.extract.Body | b64enc}}"
+        }
+      }
+
+- kind: RequestBuilder
+  name: requestBuilderSpeechText
+  template: |
+    {{$result := index .responses.extract.JSONBody.results 0}}
+    {{$result = index $result.alternatives 0}}
+    body: |
+      {"text": "{{$result.transcript | jsonEscape}}"}
+
+- kind: RequestBuilder
+  name: requestBuilderImageAnnotate
+  template: |
+    url: https://vision.googleapis.com/v1/images:annotate?key={YOUR GOOGLE API KEY}}
+    method: POST
+    body: |
+      {
+        "requests": [{
+          "features": [{
+            "type": "TEXT_DETECTION",
+            "maxResults": 50,
+            "model": "builtin/latest"
+           }],
+          "image": {
+            "content": "{{.responses.extract.Body | b64enc}}"
+          }
+        }]
+      }
+
+- kind: RequestBuilder
+  name: requestBuilderPhotoText
+  template: |
+    {{$result := index .responses.extract.JSONBody.responses 0}}
+    body: |
+      {"text": "{{replace "\n" " " $result.fullTextAnnotation.text | jsonEscape}}"}
+
 - kind: RequestBuilder
   name: requestBuilderTranslate
   template: |
-    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
-    {{if contains "@easetranslatebot" (lower $msg.text)}}
-    {{$lang := or (trim (replace "@easetranslatebot" "" (lower $msg.text))) "english"}}
-    {{$lang = index .data.PIPELINE (lower $lang)}}
     method: POST
     url: https://translate.us-east-2.amazonaws.com/TranslateText
     headers:
@@ -83,73 +205,55 @@ filters:
     body: |
       {
          "SourceLanguageCode": "auto",
-         "TargetLanguageCode": "{{$lang.code}}",
-         "Text": "{{$msg.reply_to_message.text | jsonEscape}}"
+         "TargetLanguageCode": "{{.namespace}}",
+         "Text": "{{.requests.extract.JSONBody.text | jsonEscape}}"
       }
-    {{end}}
-
-- name: requestAdaptorTranslate
+ 
+- name: signAWSRequest
   kind: RequestAdaptor
   sign:
     apiProvider: aws4
-    accessKeyId: your access key id
-    accessKeySecret: your access key secret
+    accessKeyId: {YOUR AWS ACCESS KEY ID}
+    accessKeySecret: {YOUR AWS ACCESS KEY SECRET}
     scopes: ["us-east-2", "translate"]
+ 
+- kind: RequestBuilder
+  name: requestBuilderReply
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    method: POST
+    url: https://api.telegram.org/bot{YOUR BOT TOKEN}/sendMessage
+    headers:
+      "Content-Type": ["application/json"]
+    body: |
+      {
+        "chat_id": {{$msg.chat.id}},
+        "reply_to_message_id": {{$msg.message_id}},
+        "text": "{{- range $ns, $resp := $.responses -}}
+          {{- if not (get $.data.PIPELINE $ns)}}{{continue}}{{end -}}
+          {{- if and $.requests.extract.JSONBody.exclude (eq $resp.JSONBody.SourceLanguageCode $resp.JSONBody.TargetLanguageCode)}}{{continue}}{{end -}}
+          {{- $lang := get $.data.PIPELINE $resp.JSONBody.TargetLanguageCode -}}
+          {{print $lang.text}}: {{printf "%s\n" (or $resp.JSONBody.TranslatedText $lang.fallback) | jsonEscape}}
+        {{- end}}"
+      }
+
+- name: proxyImageAnnotate
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://vision.googleapis.com
+
+- name: proxySpeechRecognize
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://speech.googleapis.com
 
 - name: proxyTranslate
   kind: Proxy
   pools:
   - servers:
     - url: https://translate.us-east-2.amazonaws.com
-
-# please replace 'easetranslatebot' with your bot name.
-- kind: RequestBuilder
-  name: requestBuilderPolly
-  template: |
-    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
-    {{$lang := or (trim (replace "@easetranslatebot" "" (lower $msg.text))) "english"}}
-    {{$lang = index .data.PIPELINE (lower $lang)}}
-    method: POST
-    url: https://polly.us-east-2.amazonaws.com/v1/speech
-    headers:
-      "Content-Type": ["application/json"]
-    body: |
-      {
-        "Engine": "standard",
-        "OutputFormat": "ogg_vorbis",
-        "Text": "{{.responses.translate.JSONBody.TranslatedText | jsonEscape}}",
-        "VoiceId": "{{$lang.voice}}"
-      }
-
-- name: requestAdaptorPolly
-  kind: RequestAdaptor
-  sign:
-    apiProvider: aws4
-    accessKeyId: your access key id
-    accessKeySecret: your access key secret
-    scopes: ["us-east-2", "polly"]
-
-- name: proxyPolly
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://polly.us-east-2.amazonaws.com
-
-  # Please replace the url with the one of your bot.
-- kind: RequestBuilder
-  name: requestBuilderTelegram
-  template: |
-    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
-    method: POST
-    url: https://api.telegram.org/bot5433936603:AAE9W3AXalVv3YX2Nf6jtyeKceyZDkGgV-Q/sendVoice
-    formData:
-      chat_id:
-        value: {{$msg.chat.id}}
-      reply_to_message_id:
-        value: {{$msg.reply_to_message.message_id}}
-      voice:
-        fileName: "tg.ogg"
-        value: !!binary "{{.responses.polly.Body | b64enc}}"
 
 - name: proxyTelegram
   kind: Proxy
@@ -158,6 +262,6 @@ filters:
     - url: https://api.telegram.org
 
 - kind: ResponseBuilder
-  name: responseBuilder
+  name: buildFinalResponse
   template: |
     statusCode: 200
