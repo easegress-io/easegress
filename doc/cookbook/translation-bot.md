@@ -134,13 +134,13 @@ And, to achieve a better effect, we also defined some data on the pipeline:
 data:
   zh:
     fallback: "(抱歉，我不懂这种语言。)"
-    text:  "中文🇨 🇳 "
+    text:  "中文🇨🇳"
   ja:
     fallback: "(申し訳ないのですが、この言葉は本当に初めて見ました。)"
-    text: "やまと🇯 🇵 "
+    text: "やまと🇯🇵"
   en:
     fallback: "(I'm sorry, but I really don't know this language.)"
-    text:  "English🇬 🇧 "
+    text:  "English🇬🇧"
 ```
 
 where `zh`, `ja` and `en` are the language codes for Chinese, Japanese and English, `text` is the language name and the corresponding flag, and `fallback` is the replacement text in case of translation failure, as shown below:

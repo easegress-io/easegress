@@ -95,13 +95,13 @@ flow:
 data:
   zh:
     fallback: "(抱歉，我不懂这种语言。)"
-    text:  "中文🇨 🇳 "
+    text:  "中文🇨🇳"
   ja:
     fallback: "(申し訳ないのですが、この言葉は本当に初めて見ました。)"
-    text: "やまと🇯 🇵 "
+    text: "やまと🇯🇵"
   en:
     fallback: "(I'm sorry, but I really don't know this language.)"
-    text:  "English🇬 🇧 "
+    text:  "English🇬🇧"
 
 filters:
 - kind: ResultBuilder
