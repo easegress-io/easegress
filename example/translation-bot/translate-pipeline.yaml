@@ -8,8 +8,8 @@ flow:
 # will end the process early and no Response will be returned.
 - filter: buildFinalResponse
  
-# check message type and jump accordingly
-- filter: checkRequestType
+# detect message type and jump accordingly
+- filter: detectMessageType
   jumpIf:
     result0: processText             # text
     result1: processVoice            # voice
@@ -105,7 +105,7 @@ data:
 
 filters:
 - kind: ResultBuilder
-  name: checkRequestType
+  name: detectMessageType
   template: |
     {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
     {{- if $msg.text}}result0{{else if $msg.voice}}result1{{else if $msg.photo}}result2{{end -}}

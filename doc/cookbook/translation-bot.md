@@ -8,7 +8,7 @@ We released Easegress v2.0 recently, with another significant enhancement to tra
 
 Since the bot needs to receive Telegram message notifications and call third-party APIs, we must prepare the following in advance:
 
-* Install the latest version of Easegress according to [this document](https://github.com/megaease/easegress#setting-up-easegress) and make sure that external applications can access the Easegress instance on at least one of ports 80, 88, 443 or 8443.
+* Install the latest version of Easegress according to [this document](https://github.com/megaease/easegress#setting-up-easegress) and make sure that external applications can access the Easegress instance on at least one of ports 80, 88, 443, or 8443.
 * Create a Telegram bot by following [this document](https://core.telegram.org/bots#3-how-do-i-create-a-bot), set its name (EaseTranslateBot is used in this article), write down its token, and [set up a Webhook](https://core.telegram.org/bots/api#setwebhook) that points to the Easegress instance installed in the previous step. Our bot will receive notifications of new messages through this Webhook.
 * AWS Access Key ID and Access Key Secret, and ensure that you can use the AWS translation API with this Access Key.
 * Google Cloud's Token and ensure that you can use Google Cloud's Speech Recognize API and OCR (Image Annotation) API with this Token.
@@ -25,7 +25,7 @@ Upon receiving a notification of a new message from the Telegram server via webh
 
 * **Text Message**: Extract message text directly；
 * **Voice Message**: In this case, the message body only contains the ID of the voice file, so we need to call Telegram's API to convert the ID to a file address, then download the file and send its contents to Google's voice recognition service to convert it to text；
-* **Photo Message**: This case is basically the same as the voice message, but the file content is sent to Google's Image Annotation service.
+* **Photo Message**: Basically, this is the same as the voice message, but the file content is sent to Google's Image Annotation service.
 
 After the above processing, all three types of messages are turned into text, and then AWS translation service can be called to translate them into target languages, the target languages used in this example are Chinese, Japanese, and English.
 
@@ -41,8 +41,8 @@ flow:
 # will end the process early and no Response will be returned.
 - filter: buildFinalResponse
  
-# check message type and jump accordingly
-- filter: checkRequestType
+# detect message type and jump accordingly
+- filter: detectMessageType
   jumpIf:
     result0: processText             # text
     result1: processVoice            # voice
@@ -191,7 +191,7 @@ This is done by a ResultBuilder Filter, configured as follows:
 
 ```yaml
 kind: ResultBuilder
-name: checkRequestType
+name: detectMessageType
 template: |
   {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
   {{- if $msg.text}}result0{{else if $msg.voice}}result1{{else if $msg.photo}}result2{{end -}}
@@ -199,7 +199,7 @@ template: |
 
 Its template field is a template written according to the requirements of the [Go text/template package](https://pkg.go.dev/text/template), which generates a string at runtime that the ResultBuilder returns to Pipeline as its execution result, and Pipeline can jump based on this execution result. In other words, ResultBuilder and Pipeline work together to implement switch-case functionality similar to that of programming languages.
 
-A message in Telegram may come from a user group (Group) or from a channel (Channel), the field representing the message body is different, so the template determines this first, but in both cases, the format of the message body is the same.
+A message in Telegram may come from a user group or from a channel, the field representing the message body is different, so the template determines this first, but in both cases, the format of the message body is the same.
 
 `DEFAULT` is the namespace to which the request belongs, where `.requests.DEFAULT` is the HTTP request sent by Telegram via webhook with the message. By checking the validity of the `text`, `voice`, and `photo` fields in the message body, we can know the message type.
 
