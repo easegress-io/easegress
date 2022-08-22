@@ -366,9 +366,9 @@ func (b *Broker) handleConn(conn net.Conn) {
 		}
 	}
 	b.clients[client.info.cid] = client
-	b.setSession(client, connect)
 	b.Unlock()
 
+	b.setSession(client, connect)
 	err = connack.Write(conn)
 	if err != nil {
 		logger.SpanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
