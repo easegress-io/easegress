@@ -15,7 +15,7 @@ Since the bot needs to receive Telegram message notifications and call third-par
 
 It is fine for you to use other vendors' translation, speech recognition, or OCR APIs, but this will require you to adapt the examples in the later sections accordingly.
 
-## 2. The Idea
+## 2. How It Works
 
 The sequence chart below shows the workflow of this bot:
 
