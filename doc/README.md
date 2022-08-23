@@ -15,7 +15,7 @@
 
 This is a cookbook that lists a number of useful and practical examples on how to use Easegress for different scenarios.
 
-- [API Aggregator](./cookbook/api-aggregator.md) - Aggregating many APIs into a single API.
+- [API Aggregator](./cookbook/api-aggregation.md) - Aggregating many APIs into a single API.
 - [Cluster Deployment](./cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
 - [Distributed Tracing](./cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./cookbook/faas.md) - Supporting Knative FaaS integration
