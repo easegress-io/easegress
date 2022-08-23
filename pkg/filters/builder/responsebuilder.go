@@ -19,7 +19,6 @@ package builder
 
 import (
 	"fmt"
-	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -59,6 +58,7 @@ type (
 	ResponseBuilderSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
+		SourceNamespace  string `json:"sourceNamespace" jsonschema:"omitempty"`
 		Protocol         string `json:"protocol" jsonschema:"omitempty"`
 	}
 )
@@ -68,6 +68,15 @@ func (spec *ResponseBuilderSpec) Validate() error {
 	if protocols.Get(spec.Protocol) == nil {
 		return fmt.Errorf("unknown protocol: %s", spec.Protocol)
 	}
+
+	if spec.SourceNamespace == "" && spec.Template == "" {
+		return fmt.Errorf("sourceNamespace or template must be specified")
+	}
+
+	if spec.SourceNamespace != "" && spec.Template != "" {
+		return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
+	}
+
 	return spec.Spec.Validate()
 }
 
@@ -97,7 +106,9 @@ func (rb *ResponseBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *ResponseBuilder) reload() {
-	rb.Builder.reload(&rb.spec.Spec)
+	if rb.spec.SourceNamespace == "" {
+		rb.Builder.reload(&rb.spec.Spec)
+	}
 }
 
 // Handle builds request.
@@ -106,14 +117,6 @@ func (rb *ResponseBuilder) Handle(ctx *context.Context) (result string) {
 		ctx.CopyResponse(rb.spec.SourceNamespace)
 		return ""
 	}
-
-	defer func() {
-		if err := recover(); err != nil {
-			msgFmt := "panic: %s, stacktrace: %s\n"
-			logger.Errorf(msgFmt, err, string(debug.Stack()))
-			result = resultBuildErr
-		}
-	}()
 
 	data, err := prepareBuilderData(ctx)
 	if err != nil {

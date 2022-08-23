@@ -19,7 +19,6 @@ package builder
 
 import (
 	"bytes"
-	"fmt"
 	"text/template"
 
 	sprig "github.com/go-task/slim-sprig"
@@ -39,31 +38,18 @@ type (
 
 	// Spec is the spec of Builder.
 	Spec struct {
-		LeftDelim       string `json:"leftDelim" jsonschema:"omitempty"`
-		RightDelim      string `json:"rightDelim" jsonschema:"omitempty"`
-		SourceNamespace string `json:"sourceNamespace" jsonschema:"omitempty"`
-		Template        string `json:"template" jsonschema:"omitempty"`
+		LeftDelim  string `json:"leftDelim" jsonschema:"omitempty"`
+		RightDelim string `json:"rightDelim" jsonschema:"omitempty"`
+		Template   string `json:"template" jsonschema:"omitempty"`
 	}
 )
 
 // Validate validates the Builder Spec.
 func (spec *Spec) Validate() error {
-	if spec.SourceNamespace == "" && spec.Template == "" {
-		return fmt.Errorf("sourceNamespace or template must be specified")
-	}
-
-	if spec.SourceNamespace != "" && spec.Template != "" {
-		return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
-	}
-
 	return nil
 }
 
 func (b *Builder) reload(spec *Spec) {
-	if spec.SourceNamespace != "" {
-		return
-	}
-
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
 	t.Funcs(sprig.TxtFuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))

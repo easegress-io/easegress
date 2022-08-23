@@ -58,6 +58,8 @@ func TestExtraFuncs(t *testing.T) {
 	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("error", "error"))
 
 	assert.Equal(`abcd\"ABCD`, extraFuncs["jsonEscape"].(func(s string) string)(`abcd"ABCD`))
+
+	assert.Panics(func() { extraFuncs["panic"].(func(v interface{}))("") })
 }
 
 func TestMergeObject(t *testing.T) {

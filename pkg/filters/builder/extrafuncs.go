@@ -137,4 +137,8 @@ var extraFuncs = template.FuncMap{
 		}
 		return string(b[1 : len(b)-1])
 	},
+
+	"panic": func(v interface{}) interface{} {
+		panic(v)
+	},
 }
