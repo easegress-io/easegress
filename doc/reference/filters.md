@@ -846,7 +846,7 @@ HeaderLookup has no results.
 ## ResultBuilder
 
 ResultBuilder generates a string, which will be the result of the filter. This
-filter is exist to work with the [`jumpIf` mechanism](./controllers.md#pipeline)
+filter exists to work with the [`jumpIf` mechanism](./controllers.md#pipeline)
 for conditional jumping.
 
 Currently, the result string can only be `result0` - `result9`, this will be
