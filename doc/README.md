@@ -32,6 +32,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [WebAssembly](./cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
+- [Multiple API Orchestration](./cookbook/translation-bot.md) - An Telegram translation bot.
 
 ## 2. Development Guide
 
