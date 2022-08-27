@@ -17,9 +17,9 @@ It is fine for you to use other vendors' translation, speech recognition, or OCR
 
 ## 2. How It Works
 
-The sequence chart below shows the workflow of this bot:
+The diagram below shows the workflow of this bot:
 
-![sequence chart](../imgs/translation-bot-sequence-chart.png)
+![diagram](../imgs/translation-bot-workflow.png)
 
 Upon receiving a notification of a new message from the Telegram server via webhook, the bot first checks the message type and does the following accordingly：
 
@@ -54,7 +54,7 @@ flow:
   alias: processText                 # alias of the filter
   namespace: extract                 # namespace the filter belongs to
   jumpIf:                            # conditional jump, begin translation
-    "": translateChinese             # if everything is fine, or end the
+    "": translate                    # if everything is fine, or end the
                                      # processing otherwise.
  
 # voice message
@@ -74,7 +74,7 @@ flow:
 - filter: requestBuilderSpeechText   # Save recognition result
   namespace: extract
   jumpIf:                            # conditional jump, begin translation
-    "": translateChinese             # if everything is fine, or end the
+    "": translate                    # if everything is fine, or end the
                                      # processing otherwise.
  
 # photo message (the process is basically the same as for voice message)
@@ -96,7 +96,7 @@ flow:
  
 # translate to Chinese
 - filter: requestBuilderTranslate    # Constructing the request to call the 
-  alias: translateChinese            # translation API
+  alias: translate                   # translation API
   namespace: zh
 - filter: signAWSRequest             # Signing as required by AWS
   namespace: zh
@@ -414,4 +414,4 @@ rules:
     backend: translate-pipeline' | egctl object create
 ```
 
-Now, we can test the bot in the chat. A demo video can be found at: https://www.youtube.com/watch?v=mDIAk_6ISkw。
+Now, we can test the bot in the chat. A demo video can be found at: https://www.youtube.com/watch?v=ne0OvV1FmvA.
