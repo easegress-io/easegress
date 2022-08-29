@@ -696,8 +696,6 @@ github.com/mattn/goveralls v0.0.2/go.mod h1:8d1ZMHsd7fW6IRPKQh46F2WRpyib5/X4FOpe
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 h1:I0XW9+e1XWDxdcEniV4rQAIOPUGDq67JSCiRCgGCZLI=
 github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369/go.mod h1:BSXmuO+STAnVfrANrmjBb36TMTDstsz7MSK+HVaYKv4=
-github.com/megaease/easemesh-api v1.4.2 h1:ZRg5x7qOCCmEYIQrl+D5SyEGQaOa+fGulArno9DEO5c=
-github.com/megaease/easemesh-api v1.4.2/go.mod h1:kDdyxduq+K9FL/KvShLvGvrXfYEWZMTteFCSLka2h+0=
 github.com/megaease/easemesh-api v1.4.3 h1:im41Z6tRDIOlHF523vd2HIOkPwgaM8r/mwRlu7YmfN8=
 github.com/megaease/easemesh-api v1.4.3/go.mod h1:kDdyxduq+K9FL/KvShLvGvrXfYEWZMTteFCSLka2h+0=
 github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
