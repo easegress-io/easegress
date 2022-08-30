@@ -18,7 +18,6 @@
 - We also provide the HTTP endpoint to allow the backend to send messages to MQTT clients.
 
 # Design
-- `MQTTProxy` is now a `BusinessController` to Easegress.
 - Use `github.com/eclipse/paho.mqtt.golang/packets` to parse MQTT packet. `paho.mqtt.golang` is a MQTT 3.1.1 go client introduced by Eclipse Foundation (who also introduced the most widely used MQTT broker mosquitto).
 - As a MQTT proxy, we support MQTT clients to `publish` messages to backend through publish packet pipeline.
 - As `Pipeline` is protocol independent, it can use MQTT filters to do things like user authentication or topic mapping (map MQTT multi-level topic into single topic and key-value headers).
@@ -87,7 +86,7 @@ flow:
 - filter: publish-kafka-backend
 filters:
 - name: publish-kafka-backend
-  kind: Kafka
+  kind: KafkaMQTT
   backend: ["127.0.0.1:9092"]
   topic:
     default: kafka-topic
@@ -97,7 +96,7 @@ In this example, we use pipeline to process MQTT Connect packet (check username 
 Now, we support following filters for MQTTProxy:
 - `TopicMapper`: map MQTT Publish packet multi-level topic into single topic and key-value headers.
 - `MQTTClientAuth`: provide username and password checking for MQTT Connect packet.
-- `Kafka`: send MQTT Publish message to Kafka backend.
+- `KafkaMQTT`: send MQTT Publish message to Kafka backend.
 
 # Topic Mapping
 In MQTT, there are multi-levels in a topic. Topic mapping is used to map MQTT topic to a single topic with headers. For example:
@@ -165,7 +164,7 @@ filters:
       2: device
       3: status
 - name: publish-kafka-backend
-  kind: Kafka
+  kind: KafkaMQTT
   backend: ["my-cluster-kafka-bootstrap.kafka:9092"]
   topic:
     default: kafka-topic
