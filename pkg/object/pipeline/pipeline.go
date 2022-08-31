@@ -176,7 +176,7 @@ func (s *Spec) Validate() (err error) {
 
 func (p *Pipeline) serializeStats(stats []FilterStat) string {
 	if len(stats) == 0 {
-		return "pipeline: <empty>"
+		return "pipeline(" + p.superSpec.Name() + "): <empty>"
 	}
 
 	var sb strings.Builder
