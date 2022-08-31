@@ -174,14 +174,15 @@ func (s *Spec) Validate() (err error) {
 	return nil
 }
 
-func serializeStats(stats []FilterStat) string {
+func (p *Pipeline) serializeStats(stats []FilterStat) string {
 	if len(stats) == 0 {
-		return "pipeline: <empty>"
+		return "pipeline(" + p.superSpec.Name() + "): <empty>"
 	}
 
 	var sb strings.Builder
-	sb.WriteString("pipeline: ")
-
+	sb.WriteString("pipeline(")
+	sb.WriteString(p.superSpec.Name())
+	sb.WriteString("): ")
 	for i := range stats {
 		if i > 0 {
 			sb.WriteString("->")
@@ -331,7 +332,7 @@ func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pi
 	}
 
 	ctx.LazyAddTag(func() string {
-		return serializeStats(stats)
+		return p.serializeStats(stats)
 	})
 	return result
 }
@@ -346,7 +347,7 @@ func (p *Pipeline) Handle(ctx *context.Context) string {
 	result, stats, _ := p.doHandle(ctx, p.flow, stats)
 
 	ctx.LazyAddTag(func() string {
-		return serializeStats(stats)
+		return p.serializeStats(stats)
 	})
 	return result
 }
