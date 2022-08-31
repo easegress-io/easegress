@@ -69,10 +69,10 @@ type (
 	ObjectRegistry struct {
 		super *Supervisor
 
-		configSyncer    cluster.Syncer
-		configSyncChan  <-chan map[string]string
-		configPrefix    string
-		configLocalPath string
+		configSyncer          cluster.Syncer
+		configSyncChan        <-chan map[string]string
+		configPrefix          string
+		configLocalPathPrefix string
 
 		mutex    sync.Mutex
 		entities map[string]*ObjectEntity
@@ -83,8 +83,8 @@ type (
 )
 
 const (
-	syncInternal   = 1 * time.Minute
-	configFileName = "running_objects.json"
+	syncInternal     = 1 * time.Minute
+	configFilePrefix = "running_objects"
 )
 
 // FilterCategory returns a bool function to check if the object entity is filtered by category or not
@@ -147,14 +147,14 @@ func newObjectRegistry(super *Supervisor, initObjs map[string]string) *ObjectReg
 	}
 
 	or := &ObjectRegistry{
-		super:           super,
-		configSyncer:    syncer,
-		configSyncChan:  syncChan,
-		configPrefix:    prefix,
-		configLocalPath: filepath.Join(super.Options().AbsHomeDir, configFileName),
-		entities:        make(map[string]*ObjectEntity),
-		watchers:        map[string]*ObjectEntityWatcher{},
-		done:            make(chan struct{}),
+		super:                 super,
+		configSyncer:          syncer,
+		configSyncChan:        syncChan,
+		configPrefix:          prefix,
+		configLocalPathPrefix: filepath.Join(super.Options().AbsHomeDir, configFilePrefix),
+		entities:              make(map[string]*ObjectEntity),
+		watchers:              map[string]*ObjectEntityWatcher{},
+		done:                  make(chan struct{}),
 	}
 
 	go or.run()
@@ -288,6 +288,11 @@ func (or *ObjectRegistry) CloseWatcher(name string) {
 	delete(or.watchers, name)
 }
 
+func (or *ObjectRegistry) getConfigLocalFileName() string {
+	timestamp := time.Now().Format("20060102150405")
+	return or.configLocalPathPrefix + "_" + timestamp + ".json"
+}
+
 func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	buff := bytes.NewBuffer(nil)
 	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
@@ -299,9 +304,10 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	}
 	buff.Write(configBuff)
 
-	err = os.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)
+	configLocalFileName := or.getConfigLocalFileName()
+	err = os.WriteFile(configLocalFileName, buff.Bytes(), 0o644)
 	if err != nil {
-		logger.Errorf("write %s failed: %v", or.configLocalPath, err)
+		logger.Errorf("write %s failed: %v", configLocalFileName, err)
 		return
 	}
 }
