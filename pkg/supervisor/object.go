@@ -295,7 +295,6 @@ func (or *ObjectRegistry) getConfigLocalFileName() string {
 
 func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	buff := bytes.NewBuffer(nil)
-	buff.WriteString(fmt.Sprintf("# %s\n", time.Now().Format(time.RFC3339)))
 
 	configBuff, err := codectool.MarshalJSON(config)
 	if err != nil {
