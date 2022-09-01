@@ -193,7 +193,7 @@ func checkKubernetesVersion(cfg *rest.Config) (err error) {
 
 	if minor < 21 {
 		// Ingress version has been changed to v1 after kubernetes 1.21
-		err = fmt.Errorf("kubernetes version [%v] is too low, IngressController requires kubernetes v1.21+", info.GitVersion)
+		panic(fmt.Errorf("kubernetes version [%v] is too low, IngressController requires kubernetes v1.21+", info.GitVersion))
 		return
 	}
 
