@@ -487,17 +487,18 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	route := mi.search(req)
 	if route.code != 0 {
-		logger.Debugf("%s: status code of result route: %d", mi.superSpec.Name(), route.code)
+		logger.Debugf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method, req.RequestURI, route.code)
 		buildFailureResponse(ctx, route.code)
 		return
 	}
 
 	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
 	if !ok {
-		logger.Debugf("%s: backend %q not found", mi.superSpec.Name(), route.path.backend)
+		logger.Debugf("%s: backend(Pipeline) %q for [%s %s] not found", mi.superSpec.Name(), req.Method, req.RequestURI, route.path.backend)
 		buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		return
 	}
+	logger.Debugf("%s: the matched backend(Pipeline) for [%s %s] is %q", mi.superSpec.Name(), req.Method, req.RequestURI, route.path.backend)
 
 	route.path.rewrite(req)
 	if mi.spec.XForwardedFor {

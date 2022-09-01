@@ -102,7 +102,7 @@ rules:
 | certs            | map[string]string                  | Public keys of PEM encoded data, the key is the logic pair name, which must match keys   | No                   |
 | keys             | map[string]string                  | Private keys of PEM encoded data, the key is the logic pair name, which must match certs | No                   |
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
-| rules            | [httpserver.Rule](#httpserverRule) | Router rules                                                                             | No                   |
+| rules            | [httpserver.Rule](#httpserverrule) | Router rules                                                                             | No                   |
 | autoCert | bool | Do HTTP certification automatically | No |  
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No | 
 | caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
@@ -516,7 +516,7 @@ domains:
 | ipFilter   | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the rule                      | No       |
 | host       | string                             | Exact host to match, empty means to match all                 | No       |
 | hostRegexp | string                             | Host in regular expression to match, empty means to match all | No       |
-| paths      | [httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing             | No       |
+| paths      | [httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
 
 ### httpserver.Path
 
