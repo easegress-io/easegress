@@ -160,9 +160,9 @@ func initDefault(opt *option.Options) {
 	gressCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), gressSyncer, lowestLevel)
 	gressLogger = zap.New(gressCore, opts...).Sugar()
 
-	defaultCore := zapcore.NewTee(gressCore, stderrCore)
-	if gressLF == os.Stdout || gressLF == os.Stderr {
-		defaultCore = gressCore
+	defaultCore := gressCore
+	if gressLF != os.Stdout && gressLF != os.Stderr {
+		defaultCore = zapcore.NewTee(gressCore, stderrCore)
 	}
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
 }
