@@ -101,7 +101,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
+	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
 
 integration_test: build
 	{ \

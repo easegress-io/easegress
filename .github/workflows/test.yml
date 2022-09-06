@@ -68,7 +68,7 @@ jobs:
         run: |
           go mod verify
           go mod download
-          go test -v ./pkg/...
+          go test -v -gcflags "all=-l" ./pkg/...
   integration-test-ubuntu:
     runs-on: ubuntu-latest
     strategy:
