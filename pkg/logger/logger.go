@@ -142,9 +142,9 @@ func initDefault(opt *option.Options) {
 	}
 
 	var err error
-	var lf io.Writer = os.Stdout
+	var gressLF io.Writer = os.Stdout
 	if opt.AbsLogDir != "" {
-		lf, err = newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
+		gressLF, err = newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
 		if err != nil {
 			common.Exit(1, err.Error())
 		}
@@ -156,11 +156,14 @@ func initDefault(opt *option.Options) {
 	stderrCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), stderrSyncer, lowestLevel)
 	stderrLogger = zap.New(stderrCore, opts...).Sugar()
 
-	gatewaySyncer := zapcore.AddSync(lf)
-	gatewayCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), gatewaySyncer, lowestLevel)
-	gressLogger = zap.New(gatewayCore, opts...).Sugar()
+	gressSyncer := zapcore.AddSync(gressLF)
+	gressCore := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), gressSyncer, lowestLevel)
+	gressLogger = zap.New(gressCore, opts...).Sugar()
 
-	defaultCore := zapcore.NewTee(gatewayCore, stderrCore)
+	defaultCore := gressCore
+	if gressLF != os.Stdout && gressLF != os.Stderr {
+		defaultCore = zapcore.NewTee(gressCore, stderrCore)
+	}
 	defaultLogger = zap.New(defaultCore, opts...).Sugar()
 }
 
