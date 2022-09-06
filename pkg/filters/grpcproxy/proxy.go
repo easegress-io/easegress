@@ -19,14 +19,15 @@ package grpcprxoy
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/util/connectionpool"
 	grpcpool "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
-	"sync"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -237,7 +238,9 @@ func (p *Proxy) reload() {
 			p.candidatePools = append(p.candidatePools, pool)
 		}
 	}
-	p.closeEvent = make(chan struct{}, 1)
+	if p.closeEvent != nil {
+		p.closeEvent = make(chan struct{}, 1)
+	}
 	if !p.spec.UseConnectionPool {
 		p.conns = make(map[string]*Conn)
 		go p.monitor()
