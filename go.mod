@@ -53,7 +53,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.4
 	go.etcd.io/etcd/client/v3 v3.5.4
 	go.etcd.io/etcd/server/v3 v3.5.4
-	go.uber.org/zap v1.21.0
+	go.uber.org/zap v1.23.0
 	golang.org/x/crypto v0.0.0-20220826181053-bd7e27e6170d
 	golang.org/x/net v0.0.0-20220809184613-07c6da5e1ced
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
