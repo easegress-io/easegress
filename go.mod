@@ -62,7 +62,7 @@ require (
 	k8s.io/apimachinery v0.24.1
 	k8s.io/client-go v0.24.1
 	knative.dev/client v0.34.0
-	knative.dev/serving v0.34.0
+	knative.dev/serving v0.34.1
 )
 
 require (
