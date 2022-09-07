@@ -18,13 +18,14 @@
 package grpcprxoy
 
 import (
+	"os"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -123,7 +124,6 @@ pools:
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	p.reload()
 	assertions.Nil(p.conns)
 	assertions.NotNil(p.pool)
 
@@ -142,8 +142,6 @@ name: grpcforwardproxy
 `
 
 	p = newTestProxy(s, assertions)
-	p.reload()
-	assertions.NotNil(p.locker)
 	assertions.NotNil(p.conns)
 	assertions.Nil(p.pool)
 
