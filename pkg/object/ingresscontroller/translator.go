@@ -86,6 +86,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 		"kind":     proxy.Kind,
 		"name":     name,
 		"mainPool": pool,
+		"pools":    []*proxy.ServerPoolSpec{pool},
 	},
 	)
 }
