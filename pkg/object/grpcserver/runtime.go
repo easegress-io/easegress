@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -70,6 +71,7 @@ type (
 		err           atomic.Value
 		limitListener *limitlistener.LimitListener
 		roundNum      uint64
+		locker        sync.Mutex
 
 		eventChan chan interface{}
 	}
@@ -195,7 +197,7 @@ func (r *runtime) handleEventCheckFailed(e *eventCheckFailed) {
 }
 
 func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
-	if r.roundNum > e.roundNum {
+	if atomic.LoadUint64(&r.roundNum) > e.roundNum {
 		return
 	}
 	r.setState(stateFailed)
@@ -232,7 +234,7 @@ func (r *runtime) setError(err error) {
 }
 
 func (r *runtime) startServer() {
-	r.roundNum++
+	curRound := atomic.AddUint64(&r.roundNum, 1)
 	r.setError(errNil)
 	r.setState(stateRunning)
 	listen, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
@@ -250,8 +252,11 @@ func (r *runtime) startServer() {
 
 	limitListener := limitlistener.NewLimitListener(listen, uint32(r.spec.MaxConnections))
 	r.limitListener = limitListener
+	// this func must be first called or after closeServer. so the lock must not deadlock
+	r.locker.Lock()
 	r.s = grpc.NewServer(opts...)
-	go r.runGrpcServer(r.limitListener, r.roundNum)
+	r.locker.Unlock()
+	go r.runGrpcServer(limitListener, curRound)
 }
 
 func (r *runtime) buildServerKeepaliveOpt() []grpc.ServerOption {
@@ -291,6 +296,8 @@ func (r *runtime) buildServerKeepaliveOpt() []grpc.ServerOption {
 }
 
 func (r *runtime) runGrpcServer(l *limitlistener.LimitListener, round uint64) {
+	r.locker.Lock()
+	defer r.locker.Unlock()
 	err := r.s.Serve(l)
 	if err != nil {
 		r.eventChan <- &eventServeFailed{

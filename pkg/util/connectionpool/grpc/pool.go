@@ -21,17 +21,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/util/connectionpool"
-	"sync/atomic"
+
+	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"sync"
-	"time"
 )
 
 type (
@@ -146,7 +148,7 @@ func NewPoolWithFactory(spec *Spec, factory connectionpool.CreateConnFactory) *P
 func (s *segmentConn) buildConnectionWithChannel(factory connectionpool.CreateConnFactory, spec *Spec, errCh chan<- error) {
 	s.Lock()
 	defer s.Unlock()
-	waited := int(s.waitedNum)
+	waited := int(atomic.LoadInt32(&s.waitedNum))
 	if waited <= len(s.connCh) || len(s.connCh) == cap(s.connCh) {
 		return
 	}
