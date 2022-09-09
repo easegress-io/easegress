@@ -1,5 +1,26 @@
 # Changelog
 
+## [v2.1.1](https://github.com/megaease/easegress/tree/v2.1.1) (2022-09-09)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.1.0...v2.1.1)
+
+**Significant changes:**
+
+* Add ResultBuilder filter
+
+**Implemented enhancements:**
+
+* Speed up DNS01 challenge
+* Add EaseTranslateBot example (code-free workflow by using Easegress pipeline)
+* Speed up MQTTProxy client connection
+* Check Kubernetes version for ingress controller
+
+**Fixed bugs:**
+* Fix default logger bug
+* Fix HTTP runtime ticker bug
+* Fix ingress translation error 
+
+
 ## [v2.1.0](https://github.com/megaease/easegress/tree/v2.1.0) (2022-08-09)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.0.0...v2.1.0)
