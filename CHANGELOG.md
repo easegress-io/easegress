@@ -4,12 +4,10 @@
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.1.0...v2.1.1)
 
-**Significant changes:**
-
-* Add ResultBuilder filter
 
 **Implemented enhancements:**
 
+* Add ResultBuilder filter
 * Speed up DNS01 challenge
 * Add EaseTranslateBot example (code-free workflow by using Easegress pipeline)
 * Speed up MQTTProxy client connection
