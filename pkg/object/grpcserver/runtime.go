@@ -19,6 +19,10 @@ package grpcserver
 
 import (
 	"fmt"
+	"reflect"
+	"sync/atomic"
+	"time"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
@@ -27,10 +31,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
-	"reflect"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (
@@ -71,7 +71,6 @@ type (
 		err           atomic.Value
 		limitListener *limitlistener.LimitListener
 		roundNum      uint64
-		locker        sync.Mutex
 
 		eventChan chan interface{}
 	}
@@ -252,11 +251,19 @@ func (r *runtime) startServer() {
 
 	limitListener := limitlistener.NewLimitListener(listen, uint32(r.spec.MaxConnections))
 	r.limitListener = limitListener
-	// this func must be first called or after closeServer. so the lock must not deadlock
-	r.locker.Lock()
+
 	r.s = grpc.NewServer(opts...)
-	r.locker.Unlock()
-	go r.runGrpcServer(limitListener, curRound)
+	// avoid data race
+	srv := r.s
+	go func() {
+		err := srv.Serve(limitListener)
+		if err != nil {
+			r.eventChan <- &eventServeFailed{
+				err:      err,
+				roundNum: curRound,
+			}
+		}
+	}()
 }
 
 func (r *runtime) buildServerKeepaliveOpt() []grpc.ServerOption {
@@ -293,18 +300,6 @@ func (r *runtime) buildServerKeepaliveOpt() []grpc.ServerOption {
 
 	opts = append(opts, grpc.KeepaliveParams(keepaliveParam))
 	return opts
-}
-
-func (r *runtime) runGrpcServer(l *limitlistener.LimitListener, round uint64) {
-	r.locker.Lock()
-	defer r.locker.Unlock()
-	err := r.s.Serve(l)
-	if err != nil {
-		r.eventChan <- &eventServeFailed{
-			err:      err,
-			roundNum: round,
-		}
-	}
 }
 
 func (r *runtime) handleEventClose(e *eventClose) {

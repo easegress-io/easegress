@@ -20,6 +20,11 @@ package grpcprxoy
 import (
 	stdcontext "context"
 	"fmt"
+	"io"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	grpcpool "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"google.golang.org/grpc"
@@ -28,11 +33,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/anypb"
-	"io"
-	"sync"
-	"sync/atomic"
-	"time"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/megaease/easegress/pkg/context"
 
@@ -468,7 +469,7 @@ func (sp *ServerPool) close() {
 func (sp *ServerPool) forwardServerToClient(src grpc.ClientStream, dst grpc.ServerStream, response *grpcprot.Response) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &anypb.Any{}
+		f := &emptypb.Empty{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
@@ -502,7 +503,7 @@ func (sp *ServerPool) forwardServerToClient(src grpc.ClientStream, dst grpc.Serv
 func (sp *ServerPool) forwardClientToServer(src grpc.ServerStream, dst grpc.ClientStream) chan error {
 	ret := make(chan error, 1)
 	go func() {
-		f := &anypb.Any{}
+		f := &emptypb.Empty{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
