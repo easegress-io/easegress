@@ -73,7 +73,6 @@ The architecture of Easegress:
     - **OAuth2:** validates [OAuth/2](https://datatracker.ietf.org/doc/html/rfc6749) requests.
     - **Let's Encrypt:** automatically manage certificate files.
   - **Pipeline-Filter Mechanism**
-    - **Chain of Responsibility Pattern:** orchestrates filters chain.
     - **Filter Management:** makes it easy to develop new filters.
   - **Service Mesh**
     - **Mesh Master:** is the control plane to manage the lifecycle of mesh services.
