@@ -120,29 +120,9 @@ func NewPoolWithFactory(spec *Spec, factory connectionpool.CreateConnFactory) *P
 	if factory == nil {
 		panic("the factory shouldn't be nil")
 	}
-	if spec.InitConnNum == 0 {
-		spec.InitConnNum = defaultInitNum
-	}
-	if spec.BorrowTimeout == 0 {
-		spec.BorrowTimeout = defaultBorrowTimeout
-	}
-	if spec.ConnectTimeout == 0 {
-		spec.ConnectTimeout = defaultConnectTimeout
-	}
-	if spec.MaxConnsPerHost == 0 {
-		spec.MaxConnsPerHost = defaultMaxIdleConnsPerHost
-	}
-	if spec.DialOptions == nil {
-		spec.DialOptions = defaultDialOpts
-	}
-
-	logger.Infof("created grpc connection pool with factory and spec %+v", spec)
-	return &Pool{
-		spec:       spec,
-		connsMutex: &sync.Mutex{},
-		conns:      map[string]*segmentConn{},
-		factory:    factory,
-	}
+	pool := NewPool(spec)
+	pool.factory = factory
+	return pool
 }
 
 func (s *segmentConn) buildConnectionWithChannel(factory connectionpool.CreateConnFactory, spec *Spec, errCh chan<- error) {
@@ -188,8 +168,7 @@ func (s *segmentConn) buildConnectionWithChannel(factory connectionpool.CreateCo
 func (m *Pool) Get(addr string) (interface{}, error) {
 	timeout, cancelFunc := context.WithTimeout(context.Background(), m.spec.BorrowTimeout)
 	defer cancelFunc()
-	segment := m.conns[addr]
-	if segment == nil {
+	if m.conns[addr] == nil {
 		m.connsMutex.Lock()
 		if m.conns[addr] == nil {
 			m.conns[addr] = &segmentConn{
@@ -200,25 +179,22 @@ func (m *Pool) Get(addr string) (interface{}, error) {
 				addr:      addr,
 			}
 		}
-
-		segment = m.conns[addr]
 		m.connsMutex.Unlock()
 	}
-
-	atomic.AddInt32(&segment.waitedNum, 1)
-	defer atomic.AddInt32(&segment.waitedNum, -1)
+	atomic.AddInt32(&m.conns[addr].waitedNum, 1)
+	defer atomic.AddInt32(&m.conns[addr].waitedNum, -1)
 	errCh := make(chan error, 1)
-	go segment.buildConnectionWithChannel(m.factory, m.spec, errCh)
+	go m.conns[addr].buildConnectionWithChannel(m.factory, m.spec, errCh)
 	for {
 		select {
 		case <-timeout.Done():
 			return nil, timeout.Err()
-		case c := <-segment.connCh:
+		case c := <-m.conns[addr].connCh:
 			if c.isAvailable() {
 				return c, nil
 			}
 			c.destroyConn()
-			go segment.buildConnectionWithChannel(m.factory, m.spec, errCh)
+			go m.conns[addr].buildConnectionWithChannel(m.factory, m.spec, errCh)
 		case err := <-errCh:
 			return nil, err
 		}
@@ -240,8 +216,6 @@ func (m *Pool) Close() {
 	if m.isDone {
 		return
 	}
-	m.connsMutex.Lock()
-	defer m.connsMutex.Unlock()
 	// help gc and we wouldn't close the connections to avoid affecting in-transit requests and go channel
 	m.conns = nil
 	m.isDone = true

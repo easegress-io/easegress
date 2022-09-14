@@ -80,8 +80,9 @@ type serverPoolContext struct {
 
 var (
 	desc = &grpc.StreamDesc{
-		// We need to assume that the users of the streamHandler will want to use both.
-		// in test, client and server anyone or both not streamHandler, it's work well too
+		// we assume that client side and server side both use stream calls.
+		// in test, only one or neither of the client and the server use streaming calls,
+		// gRPC server works well too
 		ClientStreams: true,
 		ServerStreams: true,
 	}
@@ -89,12 +90,11 @@ var (
 
 // ServerPool defines a server pool.
 type ServerPool struct {
-	proxy        *Proxy
-	spec         *ServerPoolSpec
-	done         chan struct{}
-	wg           sync.WaitGroup
-	name         string
-	failureCodes map[int]struct{}
+	proxy *Proxy
+	spec  *ServerPoolSpec
+	done  chan struct{}
+	wg    sync.WaitGroup
+	name  string
 
 	filter                RequestMatcher
 	loadBalancer          atomic.Value
@@ -113,7 +113,6 @@ type ServerPoolSpec struct {
 	LoadBalance          *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
 	Timeout              string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 	CircuitBreakerPolicy string              `yaml:"circuitBreakerPolicy" jsonschema:"omitempty"`
-	FailureCodes         []int               `yaml:"failureCodes" jsonschema:"omitempty"`
 }
 
 // Validate validates ServerPoolSpec.
@@ -157,11 +156,6 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 
 	if spec.Timeout != "" {
 		sp.timeout, _ = time.ParseDuration(spec.Timeout)
-	}
-
-	sp.failureCodes = map[int]struct{}{}
-	for _, code := range spec.FailureCodes {
-		sp.failureCodes[code] = struct{}{}
 	}
 
 	return sp
@@ -219,15 +213,21 @@ func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceIn
 	servers := make([]*Server, 0)
 
 	for _, instance := range instances {
+		// default to true in case of sp.spec.ServerTags is empty
+		match := true
+
 		for _, tag := range sp.spec.ServerTags {
-			if stringtool.StrInSlice(tag, instance.Tags) {
-				servers = append(servers, &Server{
-					URL:    instance.URL(),
-					Tags:   instance.Tags,
-					Weight: instance.Weight,
-				})
+			if match = stringtool.StrInSlice(tag, instance.Tags); match {
 				break
 			}
+		}
+
+		if match {
+			servers = append(servers, &Server{
+				URL:    instance.URL(),
+				Tags:   instance.Tags,
+				Weight: instance.Weight,
+			})
 		}
 	}
 
@@ -288,8 +288,6 @@ func (sp *ServerPool) handle(ctx *context.Context) string {
 		return err
 	}
 
-	// resilience wrappers, note that it is impossible to retry a stream
-	// request as its body can only be read once.
 	if sp.circuitBreakerWrapper != nil {
 		handler = sp.circuitBreakerWrapper.Wrap(handler)
 	}
@@ -324,14 +322,13 @@ func (sp *ServerPool) handle(ctx *context.Context) string {
 func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext) error {
 	lb := sp.LoadBalancer()
 	svr := lb.ChooseServer(spCtx.req)
-	if f, ok := lb.(ReusableServerLB); ok {
-		defer f.ReturnServer(svr)
-	}
-
 	// if there's no available server.
 	if svr == nil {
 		logger.Debugf("%s: no available server", sp.name)
 		return serverPoolError{status.New(codes.InvalidArgument, "no available server"), resultClientError}
+	}
+	if f, ok := lb.(ReusableServerLB); ok {
+		defer f.ReturnServer(svr)
 	}
 	// maybe be rewrite by grpcserver.MuxPath#rewrite
 	fullMethodName := spCtx.req.Path()

@@ -1,233 +1,52 @@
-# API Aggregation
+# gRRC Service Proxy
 
-- [API Aggregation](#api-aggregation)
-  - [Background](#background)
-  - [Example](#example)
-    - [Scenario 1: Simple aggregation](#scenario-1-simple-aggregation)
-    - [Scenario 2: Merge response body](#scenario-2-merge-response-body)
-    - [Scenario 3: Handle Failures](#scenario-3-handle-failures)
-  - [References](#references)
+- [gRPC Service Proxy](#grpc-service-proxy)
+    - [Similar to Service Proxy](#similar-to-service-proxy)
+    - [Configure Whether to Use Connection Pool](#configure whether to use connection pool)
+       - [When Not to Use Connection Pool](#When-not-to-use-connection-pool)
 
-## Background
+Easegress gRPC servers as a forward or reverse proxy base on gRPC protocol. 
 
-* API aggregation is a pattern to aggregate multiple individual requests into
-  a single request. This pattern is useful when a client must make multiple
-  calls to different backend systems to operate.[1]
-* Easegress provides filters [RequestBuilder](../reference/filters.md#requestbuilder)
-  & [ResponseBuilder](../reference/filters.md#responsebuilder) for this
-  powerful feature.
 
-## Example
+## Similar to Service Proxy
+Its design and implementation largely refer to the original HTTP Server, so it is strongly recommended that you read 
+the [Service-Proxy documentation](./service-proxy.md) first.
 
-### Scenario 1: Simple aggregation
 
-1. Suppose we have three backend services called  `demo1`,  `demo2`, and  `demo3`.
-   We want to call these three services and combine their response to one.
-   `demo1` returns `{"mega":"ease"}` as the HTTP response body, `demo2`
-   returns `{"hello":"world"}`,  and `demo3` returns `{"hello":"new world"}`.
+### Configure Whether to Use Connection Pool
 
-``` bash
-echo '
-name: pipeline-api
-kind: Pipeline
-flow:
-- filter: copyRequest
-  namespace: demo1
-- filter: copyRequest
-  namespace: demo2
-- filter: copyRequest
-  namespace: demo3
-- filter: proxy-demo1
-  namespace: demo1
-- filter: proxy-demo2
-  namespace: demo2
-- filter: proxy-demo3
-  namespace: demo3
-- filter: buildResponse
+create a gRPC forward proxy filter to handler traffic
 
+``` yaml
 filters:
-- name: copyRequest
-  kind: RequestBuilder
-  sourceNamespace: DEFAULT
-- name: proxy-demo1
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo1
-- name: proxy-demo2
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo2
-- name: proxy-demo3
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo3
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: 200
-    body: "[{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]"
-'  | egctl object create
-```
-
-1. Creating an HTTPServer for forwarding the traffic to this pipeline.
-
-``` bash
-echo '
-kind: HTTPServer
-name: server-demo
-port: 10080
-keepAlive: true
-https: false
-rules:
-  - paths:
-    - pathPrefix: /api
-      backend: pipeline-api '  | egctl object create
-
-```
-
-3. Send a request to the pipeline
-
-``` bash
-
-$ curl  -X GET  http://127.0.0.1:10080/api -v
-[{"hello":"world"},{"hello":"new world"},{"mega":"ease"}]
-
-```
-
-### Scenario 2: Merge response body
-
-* In #Scenario 1,  `demo2` and `demo3`'s responses share the same JSON key,
-  we want to merge their response body by the JSON key together. If there
-  are duplicated keys, we will use the last value.
-
-1. Update the pipeline spec
-
-``` bash
-echo '
-name: pipeline-api
-kind: Pipeline
+  - kind: GRPCProxy
+    port: 8081
+    useConnectionPool: true
+    initConnNum: 2
+    maxConnsPerHost: 1024
+    connectTimeout: 200ms
+    borrowTimeout: 1000ms
+    pools:
+      - loadBalance:
+          #使用正向代理负载均衡策略
+          policy: forward
+          forwardKey: forward
+        serviceName: "easegress-forward"
+    name: grpcforwardproxy
 flow:
-- filter: copyRequest
-  namespace: demo1
-- filter: copyRequest
-  namespace: demo2
-- filter: copyRequest
-  namespace: demo3
-- filter: proxy-demo1
-  namespace: demo1
-- filter: proxy-demo2
-  namespace: demo2
-- filter: proxy-demo3
-  namespace: demo3
-- filter: buildResponse
-
-filters:
-- name: copyRequest
-  kind: RequestBuilder
-  sourceNamespace: DEFAULT
-- name: proxy-demo1
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo1
-- name: proxy-demo2
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo2
-- name: proxy-demo3
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo3
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: 200
-    body: "{{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}"
-'  | egctl object update
-```
-
-2. Send a request to the pipeline
-
-``` bash
-
-$ curl  -X GET  http://127.0.0.1:10080/api -v
-{"hello":"new world","mega":"ease"}
-
-```
-
-### Scenario 3: Handle Failures
-
-In #Scenario 1, if one of the backend services encounters a failure, the pipeline
-will result a wrong result. We can improve the pipeline to handle this kind of
-failures. 
-
-1. Update the pipeline spec
-
-``` bash
-echo '
-name: pipeline-api
+  - filter: grpcforwardproxy
+    jumpIf: {}
 kind: Pipeline
-flow:
-- filter: copyRequest
-  namespace: demo1
-- filter: copyRequest
-  namespace: demo2
-- filter: copyRequest
-  namespace: demo3
-- filter: proxy-demo1
-  namespace: demo1
-- filter: proxy-demo2
-  namespace: demo2
-- filter: proxy-demo3
-  namespace: demo3
-- filter: buildResponse
-
-filters:
-- name: copyRequest
-  kind: RequestBuilder
-  sourceNamespace: DEFAULT
-- name: proxy-demo1
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo1
-- name: proxy-demo2
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo2
-- name: proxy-demo3
-  kind: Proxy
-  pools:
-  - servers:
-    - url: https://demo3
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: {{$code := 503}}{{range $resp := .responses}}{{if eq $resp.StatusCode 200}}{{$code = 200}}{{break}}{{end}}{{end}}{{$code}}
-    body: |
-      {{$first := true -}}
-      [{{range $resp := .responses -}}
-        {{if eq $resp.StatusCode 200 -}}
-          {{if not $first}},{{end}}{{$resp.Body}}{{$first = false -}}
-        {{- end}}
-      {{- end}}]
-'  | egctl object update
+name: pipeline-grpc-forward
 ```
 
-2. Stop service `demo1` and send a request to the pipeline
+If you don't want to use connection pool , then set `useConnectionPool` to false or not specify. by the way,
+parameters such as `initConnNum`,`maxConnsPerHost`,`connectTimeout`,`borrowTimeout` are valid when `useConnectionPool` is
+true, otherwise, these parameters would be ignored.
 
-``` bash
-$ curl  -X GET  http://127.0.0.1:10080/api -v
-[{"hello":"world"},{"hello":"new world"}]
-
-```
-
-## References
-
-1. https://docs.microsoft.com/en-us/azure/architecture/patterns/gateway-aggregation
+### When Not to Use Connection Pool
+Some gRPC servers manage physical connections by themselves, and they are not designed with gRPC gateway scenarios, such 
+as Nacos: when the actual client goes offline, the server will detect and actively close the server's Connection. 
+because gRPC is based on HTT2, it has the characteristics of request and response multiplexing, so there may be a 
+connection from the same easegress used by multiple real clients to the real server.In this case, the server actively 
+closes the connection, which will cause other normal clients to be affected.

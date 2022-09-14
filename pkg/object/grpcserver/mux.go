@@ -375,13 +375,12 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 	defer func() {
 		var resp *grpcprot.Response
 		if err := recover(); err != nil {
-			logger.Warnf("backend %s occur internal panic %v", mi.superSpec.Name(), err)
-			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "backend %s occur internal panic", mi.superSpec.Name()))
-		}
-		if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
-			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "backend %s return nil response", mi.superSpec.Name()))
+			logger.Warnf("gRPC server %s: panic %v", mi.superSpec.Name(), err)
+			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "gRPC server %s: panic", mi.superSpec.Name()))
+		} else if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
+			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "gRPC server %s: response is nil ", mi.superSpec.Name()))
 		} else if r, ok := v.(*grpcprot.Response); !ok {
-			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "backend %s return response type is %T", mi.superSpec.Name(), r))
+			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "gRPC server %s: response type is %T", mi.superSpec.Name(), v))
 		} else {
 			resp = r
 		}
@@ -436,20 +435,20 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	headerMismatch := false
 	ip := request.RealIP()
 	if ip == "" {
-		logger.Debugf("grpc stream invalid, couldn't get client address")
+		logger.Debugf("invalid gRPC stream, can not get client IP address")
 		return &route{
 			code:    codes.PermissionDenied,
-			message: "grpc stream invalid, couldn't get client address",
+			message: "invalid gRPC stream, can not get client IP address",
 		}
 	}
 
 	// grpc's method equals request.path in standard lib
 	method := request.Path()
 	if method == "" {
-		logger.Debugf("grpc stream invalid: couldn't get called method info")
+		logger.Debugf("invalid grpc stream: can not get called method info")
 		return &route{
 			code:    codes.NotFound,
-			message: "grpc stream invalid: couldn't get called method info",
+			message: "invalid grpc stream: can not get called method info",
 		}
 	}
 
@@ -521,7 +520,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	if headerMismatch {
 		return &route{
 			code:    codes.NotFound,
-			message: "grpc stream header miss match",
+			message: "grpc stream header mismatch",
 		}
 	}
 

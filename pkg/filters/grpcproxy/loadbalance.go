@@ -29,7 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// LoadBalancer is the interface of an HTTP load balancer.
+// LoadBalancer is the interface of an gRPC load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *grpcprot.Request) *Server
 }

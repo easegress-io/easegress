@@ -21,18 +21,26 @@ import (
 	"fmt"
 	"github.com/megaease/easegress/pkg/protocols"
 	"google.golang.org/grpc/metadata"
-	"sync"
 )
 
-type Header struct {
-	md   metadata.MD
-	lock *sync.Mutex
-}
+type (
+	// Header wrapper metadata.MD
+	Header struct {
+		md metadata.MD
+	}
+	// Trailer wrapper metadata.MD. used for grpc response in server-side
+	Trailer = Header
+)
 
 func NewHeader(md metadata.MD) *Header {
 	return &Header{
-		md:   md.Copy(),
-		lock: &sync.Mutex{},
+		md: md.Copy(),
+	}
+}
+
+func NewTrailer(md metadata.MD) *Trailer {
+	return &Trailer{
+		md: md.Copy(),
 	}
 }
 
@@ -82,13 +90,11 @@ func (h *Header) Del(key string) {
 	h.md.Delete(key)
 }
 
-// MergeHeader all the provided metadata will be merged
-func (h *Header) MergeHeader(header *Header) {
+// Merge all the provided metadata will be merged
+func (h *Header) Merge(header *Header) {
 	if header == nil {
 		return
 	}
-	h.lock.Lock()
-	defer h.lock.Unlock()
 	h.md = metadata.Join(h.md, header.md)
 }
 
@@ -103,7 +109,6 @@ func (h *Header) Walk(fn func(key string, value interface{}) bool) {
 
 func (h *Header) Clone() protocols.Header {
 	return &Header{
-		md:   h.md.Copy(),
-		lock: &sync.Mutex{},
+		md: h.md.Copy(),
 	}
 }

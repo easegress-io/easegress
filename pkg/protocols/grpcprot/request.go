@@ -69,34 +69,8 @@ var (
 // NewRequestWithServerStream creates a new request from a grpc.ServerStream
 // that have data and conn, so it could reply to client with data
 func NewRequestWithServerStream(stream grpc.ServerStream) *Request {
-	r := &Request{
-		stream:   stream,
-		headerMx: &sync.Mutex{},
-	}
-	r.ctx, r.cancel = context.WithCancel(r.stream.Context())
-
-	r.sts = &serverTransportStream{ServerTransportStream: grpc.ServerTransportStreamFromContext(r.ctx)}
-	// grpc's method equals request.path in http standard lib
-	if method, ok := grpc.Method(r.ctx); ok {
-		r.sts.path = method
-	}
-	r.ctx = grpc.NewContextWithServerTransportStream(r.ctx, r.sts)
-	md, ok := metadata.FromIncomingContext(r.ctx)
-	if !ok {
-		logger.Infof("couldn't get headers' md from grpc context")
-		md = metadata.New(nil)
-	}
-
-	r.header = NewHeader(md)
-	r.ctx = metadata.NewIncomingContext(r.ctx, r.header.md)
-	r.peer = &peer.Peer{Addr: &Addr{}}
-
-	if peerInfo, ok := peer.FromContext(r.ctx); ok {
-		r.peer.Addr.(*Addr).setAddr(peerInfo.Addr.String())
-		r.peer.AuthInfo = peerInfo.AuthInfo
-	}
-	r.ctx = peer.NewContext(r.ctx, r.peer)
-
+	r := NewRequestWithContext(stream.Context())
+	r.stream = stream
 	return r
 }
 

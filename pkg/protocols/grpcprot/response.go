@@ -23,7 +23,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"io"
-	"sync"
 )
 
 // Response wrapper status.Status
@@ -33,7 +32,6 @@ type Response struct {
 	*status.Status
 	header  *Header
 	trailer *Trailer
-	headMtx sync.Mutex
 }
 
 var (

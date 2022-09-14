@@ -42,10 +42,8 @@ const (
 	resultInternalError = "internalError"
 	resultClientError   = "clientError"
 	resultServerError   = "serverError"
-	resultFailureCode   = "failureCode"
 
 	// result for resilience
-	resultTimeout        = "timeout"
 	resultShortCircuited = "shortCircuited"
 )
 
@@ -56,8 +54,6 @@ var kind = &filters.Kind{
 		resultInternalError,
 		resultClientError,
 		resultServerError,
-		resultFailureCode,
-		resultTimeout,
 		resultShortCircuited,
 	},
 	DefaultSpec: func() filters.Spec {
