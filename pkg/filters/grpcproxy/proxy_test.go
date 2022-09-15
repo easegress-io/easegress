@@ -53,9 +53,11 @@ func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
 func TestInvalidSpec(t *testing.T) {
 	assertions := assert.New(t)
 
+
 	s := `
 kind: GRPCProxy
 useConnectionPool: true
+maxConnsPerHost: 0
 pools:
   - loadBalance:
       policy: forward
@@ -72,25 +74,6 @@ name: grpcforwardproxy
 	s = `
 kind: GRPCProxy
 useConnectionPool: true
-port: 1025
-maxConnsPerHost: 0
-pools:
-  - loadBalance:
-      policy: forward
-    serviceName: "easegress"
-name: grpcforwardproxy
-`
-	rawSpec = make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(s), &rawSpec)
-	assertions.NoError(err)
-
-	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.Error(err)
-
-	s = `
-kind: GRPCProxy
-useConnectionPool: true
-port: 1025
 maxConnsPerHost: 1
 borrowTimeout: 3s
 connectTimeout: 3s
@@ -113,7 +96,6 @@ func TestReload(t *testing.T) {
 	s := `
 kind: GRPCProxy
 useConnectionPool: true
-port: 1025
 maxConnsPerHost: 1
 borrowTimeout: 2000ms
 connectTimeout: 1000ms
@@ -130,7 +112,6 @@ name: grpcforwardproxy
 	s = `
 kind: GRPCProxy
 useConnectionPool: false
-port: 1025
 maxConnsPerHost: 1
 borrowTimeout: 2000ms
 connectTimeout: 1000ms
