@@ -52,8 +52,6 @@ func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
 
 func TestInvalidSpec(t *testing.T) {
 	assertions := assert.New(t)
-
-
 	s := `
 kind: GRPCProxy
 useConnectionPool: true
