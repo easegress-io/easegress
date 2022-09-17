@@ -9,8 +9,7 @@ Easegress gRPC servers as a forward or reverse proxy base on gRPC protocol.
 
 
 ## Similar to Service Proxy
-Its design and implementation largely refer to the original HTTP Server, so it is strongly recommended that you read 
-the [Service-Proxy documentation](./service-proxy.md) first.
+Its design and implementation largely refer to the original HTTP Server, so it is strongly recommended that you read the [Service-Proxy documentation](./service-proxy.md) first.
 
 
 ### Configure Whether to Use Connection Pool
@@ -28,7 +27,7 @@ filters:
     borrowTimeout: 1000ms
     pools:
       - loadBalance:
-          #使用正向代理负载均衡策略
+          # Using the forward load balancing strategy 
           policy: forward
           forwardKey: forward
         serviceName: "easegress-forward"
@@ -40,13 +39,7 @@ kind: Pipeline
 name: pipeline-grpc-forward
 ```
 
-If you don't want to use connection pool , then set `useConnectionPool` to false or not specify. by the way,
-parameters such as `initConnNum`,`maxConnsPerHost`,`connectTimeout`,`borrowTimeout` are valid when `useConnectionPool` is
-true, otherwise, these parameters would be ignored.
+If you don't want to use the connection pool, then set `useConnectionPool` to false or not specified. by the way,parameters such as `initConnNum`, `maxConnsPerHost`, `connectTimeout`, `borrowTimeout` are valid when `useConnectionPool` is true, otherwise, these parameters would be ignored.
 
 ### When Not to Use Connection Pool
-Some gRPC servers manage physical connections by themselves, and they are not designed with gRPC gateway scenarios, such 
-as Nacos: when the actual client goes offline, the server will detect and actively close the server's Connection. 
-because gRPC is based on HTT2, it has the characteristics of request and response multiplexing, so there may be a 
-connection from the same easegress used by multiple real clients to the real server.In this case, the server actively 
-closes the connection, which will cause other normal clients to be affected.
+Some gRPC servers manage physical connections by themselves, and they do not consider gRPC gateway scenarios, such as Nacos: when the actual client goes offline, the server will detect and actively close the server's Connection. because gRPC is based on HTT2, it has the characteristics of request and response multiplexing, so there may be a connection from the same easegress used by multiple real clients to the real server. In this case, the server actively closes the connection, which will cause other normal clients to be affected.
