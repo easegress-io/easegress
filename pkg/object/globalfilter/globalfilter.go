@@ -67,16 +67,24 @@ func init() {
 
 // Validate validates Spec.
 func (s *Spec) Validate() (err error) {
+	bothNil := true
+
 	if s.BeforePipeline != nil {
+		bothNil = false
 		if err := s.BeforePipeline.Validate(); err != nil {
 			return fmt.Errorf("before pipeline is invalid: %v", err)
 		}
 	}
 
 	if s.AfterPipeline != nil {
+		bothNil = false
 		if err := s.AfterPipeline.Validate(); err != nil {
 			return fmt.Errorf("after pipeline is invalid: %v", err)
 		}
+	}
+
+	if bothNil {
+		return fmt.Errorf("both beforePipeline and afterPipeline are nil")
 	}
 
 	return nil
