@@ -29,7 +29,7 @@ build/cache
 build/bin
 
 easegress.pid
-running_objects.json
+running_objects*.json
 
 *.exe
 
