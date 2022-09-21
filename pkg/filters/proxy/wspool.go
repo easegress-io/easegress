@@ -20,11 +20,12 @@ package proxy
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -45,21 +46,18 @@ type WebSocketServerPool struct {
 
 	filter       RequestMatcher
 	loadBalancer atomic.Value
-	timeout      time.Duration
 
 	httpStat *httpstat.HTTPStat
 }
 
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
-	SpanName        string              `json:"spanName" jsonschema:"omitempty"`
 	Filter          *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
 	ServerTags      []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
 	Servers         []*Server           `json:"servers" jsonschema:"omitempty"`
 	ServiceRegistry string              `json:"serviceRegistry" jsonschema:"omitempty"`
 	ServiceName     string              `json:"serviceName" jsonschema:"omitempty"`
 	LoadBalance     *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
-	Timeout         string              `json:"timeout" jsonschema:"omitempty,format=duration"`
 }
 
 // Validate validates WebSocketServerPoolSpec.
@@ -100,10 +98,6 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 		sp.createLoadBalancer(sp.spec.Servers)
 	} else {
 		sp.watchServers()
-	}
-
-	if spec.Timeout != "" {
-		sp.timeout, _ = time.ParseDuration(spec.Timeout)
 	}
 
 	return sp
@@ -203,10 +197,61 @@ func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, status
 	ctx.SetOutputResponse(resp)
 }
 
-func (sp *WebSocketServerPool) doHandle(conn *websocket.Conn) {
+func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*websocket.Conn, error) {
+	origin := req.HTTPHeader().Get("Origin")
+	if len(origin) == 0 {
+		origin = sp.proxy.spec.DefaultOrigin
+	}
+
+	u := *req.URL()
+	u1, _ := url.Parse(svr.URL)
+	u.Host = u1.Host
+	u.Scheme = u1.Scheme
+
+	config, err := websocket.NewConfig(u.String(), origin)
+	if err != nil {
+		return nil, err
+	}
+
+	// copies headers from req to the dialer and forward them to the
+	// destination.
+	//
+	// According to https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm
+	// For load balancer, we add following key-value pairs to headers
+	// X-Forwarded-For: <original_client>, <proxy1>, <proxy2>
+	// X-Forwarded-Host: www.example.com:8080
+	// X-Forwarded-Proto: https
+	//
+	// The websocket library discards some of the headers, so we just clone
+	// the original headers and add the above headers.
+	config.Header = req.HTTPHeader().Clone()
+
+	const xForwardedFor = "X-Forwarded-For"
+	xff := req.HTTPHeader().Get(xForwardedFor)
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if xff == "" {
+			config.Header.Set(xForwardedFor, clientIP)
+		} else {
+			config.Header.Set(xForwardedFor, fmt.Sprintf("%s, %s", xff, clientIP))
+		}
+	}
+
+	const xForwardedHost = "X-Forwarded-Host"
+	xfh := req.HTTPHeader().Get(xForwardedHost)
+	if xfh == "" && req.Host() != "" {
+		config.Header.Set(xForwardedHost, req.Host())
+	}
+
+	const xForwardedProto = "X-Forwarded-Proto"
+	config.Header.Set(xForwardedProto, "http")
+	if req.TLS != nil {
+		config.Header.Set(xForwardedProto, "https")
+	}
+
+	return websocket.DialConfig(config)
 }
 
-func (sp *WebSocketServerPool) handle(ctx *context.Context) string {
+func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	svr := sp.LoadBalancer().ChooseServer(req)
 
@@ -223,50 +268,69 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) string {
 		return resultInternalError
 	}
 
-	svrConn, err := websocket.Dial(svr.URL, "", svr.URL)
-	if err != nil {
-	}
+	metric := &httpstat.Metric{StatusCode: http.StatusSwitchingProtocols}
 
-	var handler websocket.Handler = func(clntConn *websocket.Conn) {
+	wssvr := websocket.Server{}
+	wssvr.Handler = func(clntConn *websocket.Conn) {
+		// dial to the server
+		svrConn, err := sp.dialServer(svr, req)
+		if err != nil {
+			logger.Errorf("%s: dial to %s failed: %v", sp.name, svr.URL, err)
+			return
+		}
+
 		var wg sync.WaitGroup
 		wg.Add(2)
 
+		stop := make(chan struct{})
+
+		// copy messages from client to server
 		go func() {
 			defer wg.Done()
-			io.Copy(svrConn, clntConn)
+			l, _ := io.Copy(svrConn, clntConn)
+			metric.ReqSize = uint64(l)
+			svrConn.Close()
 		}()
 
+		// copy messages from server to client
 		go func() {
 			defer wg.Done()
-			io.Copy(clntConn, svrConn)
+			l, _ := io.Copy(clntConn, svrConn)
+			metric.RespSize = uint64(l)
+			clntConn.Close()
 		}()
 
 		go func() {
 			select {
+			case <-stop:
+				break
 			case <-sp.done:
-				svrConn.Close()
-				clntConn.Close()
-			case <-req.Context().Done():
 				svrConn.Close()
 				clntConn.Close()
 			}
 		}()
 
 		wg.Wait()
+		close(stop)
 	}
 
-	ctx.SetData("HTTP_METRIS", &httpstat.Metric{
-		StatusCode: 200,
-		ReqSize:    100,
-		RespSize:   100,
-	})
-	handler.ServeHTTP(stdw, req.Request)
-	return ""
+	// ServeHTTP may panic due to failed to upgrade the protocol.
+	defer func() {
+		if err := recover(); err != nil {
+			result = resultClientError
+			sp.buildFailureResponse(ctx, http.StatusBadRequest)
+		}
+	}()
+	wssvr.ServeHTTP(stdw, req.Request)
+
+	ctx.SetData("HTTP_METRIC", metric)
+	return
 }
 
 func (sp *WebSocketServerPool) status() *ServerPoolStatus {
-	s := &ServerPoolStatus{Stat: sp.httpStat.Status()}
-	return s
+	return &ServerPoolStatus{
+		Stat: sp.httpStat.Status(),
+	}
 }
 
 func (sp *WebSocketServerPool) close() {

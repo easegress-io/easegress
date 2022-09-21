@@ -18,17 +18,10 @@
 package proxy
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/base64"
 	"fmt"
-	"net"
-	"net/http"
-	"time"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -55,15 +48,10 @@ var kindWebSocketProxy = &filters.Kind{
 	Results: []string{
 		resultInternalError,
 		resultClientError,
-		resultServerError,
-		resultFailureCode,
 		resultTimeout,
 	},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{
-			MaxIdleConns:        10240,
-			MaxIdleConnsPerHost: 1024,
-		}
+		return &WebSocketProxySpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
 		return &WebSocketProxy{
@@ -87,18 +75,14 @@ type (
 
 		mainPool       *WebSocketServerPool
 		candidatePools []*WebSocketServerPool
-
-		client *http.Client
 	}
 
 	// WebSocketProxySpec describes the WebSocketProxy.
 	WebSocketProxySpec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Pools               []*WebSocketServerPoolSpec `json:"pools" jsonschema:"required"`
-		MTLS                *MTLS                      `json:"mtls,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int                        `json:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int                        `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		DefaultOrigin string                     `json:"defaultOrigin" jsonschema:"omitempty,format=url"`
+		Pools         []*WebSocketServerPoolSpec `json:"pools" jsonschema:"required"`
 	}
 )
 
@@ -146,31 +130,6 @@ func (p *WebSocketProxy) Inherit(previousGeneration filters.Filter) {
 	p.reload()
 }
 
-func (p *WebSocketProxy) tlsConfig() (*tls.Config, error) {
-	mtls := p.spec.MTLS
-
-	if mtls == nil {
-		return &tls.Config{InsecureSkipVerify: true}, nil
-	}
-
-	certPem, _ := base64.StdEncoding.DecodeString(mtls.CertBase64)
-	keyPem, _ := base64.StdEncoding.DecodeString(mtls.KeyBase64)
-	cert, err := tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
-		logger.Errorf("websocketproxy generates x509 key pair failed: %v", err)
-		return &tls.Config{InsecureSkipVerify: true}, err
-	}
-
-	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(rootCertPem)
-
-	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
-	}, nil
-}
-
 func (p *WebSocketProxy) reload() {
 	for _, spec := range p.spec.Pools {
 		name := ""
@@ -188,32 +147,6 @@ func (p *WebSocketProxy) reload() {
 		} else {
 			p.candidatePools = append(p.candidatePools, pool)
 		}
-	}
-
-	tlsCfg, _ := p.tlsConfig()
-	p.client = &http.Client{
-		// NOTE: Timeout could be no limit, real client or server could cancel it.
-		Timeout: 0,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 60 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			TLSClientConfig:    tlsCfg,
-			DisableCompression: false,
-			// NOTE: The large number of Idle Connections can
-			// reduce overhead of building connections.
-			MaxIdleConns:          p.spec.MaxIdleConns,
-			MaxIdleConnsPerHost:   p.spec.MaxIdleConnsPerHost,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
 	}
 }
 
