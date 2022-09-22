@@ -230,7 +230,9 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 	}
 
 	mainPool := &proxy.ServerPoolSpec{
-		LoadBalance:          param.lb,
+		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
+			LoadBalance: param.lb,
+		},
 		Timeout:              param.timeout,
 		RetryPolicy:          param.retryPolicy,
 		CircuitBreakerPolicy: param.circuitBreakerPolicy,
@@ -258,11 +260,13 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 					Exact: canary.Name,
 				}
 				candidatePools[i] = &proxy.ServerPoolSpec{
-					Filter: &proxy.RequestMatcherSpec{
-						MatchAllHeaders: true,
-						Headers:         headers,
+					BaseServerPoolSpec: proxy.BaseServerPoolSpec{
+						Filter: &proxy.RequestMatcherSpec{
+							MatchAllHeaders: true,
+							Headers:         headers,
+						},
+						LoadBalance: param.lb,
 					},
-					LoadBalance:          param.lb,
 					Timeout:              param.timeout,
 					RetryPolicy:          param.retryPolicy,
 					CircuitBreakerPolicy: param.circuitBreakerPolicy,

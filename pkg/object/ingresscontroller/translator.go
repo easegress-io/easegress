@@ -74,7 +74,9 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 	const name = "proxy"
 
 	pool := &proxy.ServerPoolSpec{
-		LoadBalance: &proxy.LoadBalanceSpec{},
+		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
+			LoadBalance: &proxy.LoadBalanceSpec{},
+		},
 	}
 
 	for _, ep := range endpoints {

@@ -23,61 +23,28 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/pkg/util/fasttime"
 	"golang.org/x/net/websocket"
 )
 
 // WebSocketServerPool defines a server pool.
 type WebSocketServerPool struct {
-	proxy *WebSocketProxy
-	spec  *WebSocketServerPoolSpec
-	done  chan struct{}
-	wg    sync.WaitGroup
-	name  string
+	BaseServerPool
 
-	filter       RequestMatcher
-	loadBalancer atomic.Value
-
+	proxy    *WebSocketProxy
+	spec     *WebSocketServerPoolSpec
 	httpStat *httpstat.HTTPStat
 }
 
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
-	Filter          *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	ServerTags      []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers         []*Server           `json:"servers" jsonschema:"omitempty"`
-	ServiceRegistry string              `json:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName     string              `json:"serviceName" jsonschema:"omitempty"`
-	LoadBalance     *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
-}
-
-// Validate validates WebSocketServerPoolSpec.
-func (sps *WebSocketServerPoolSpec) Validate() error {
-	if sps.ServiceName == "" && len(sps.Servers) == 0 {
-		return fmt.Errorf("both serviceName and servers are empty")
-	}
-
-	serversGotWeight := 0
-	for _, server := range sps.Servers {
-		if server.Weight > 0 {
-			serversGotWeight++
-		}
-	}
-	if serversGotWeight > 0 && serversGotWeight < len(sps.Servers) {
-		msgFmt := "not all servers have weight(%d/%d)"
-		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
-	}
-
-	return nil
+	BaseServerPoolSpec `json:",inline"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.
@@ -85,106 +52,10 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 	sp := &WebSocketServerPool{
 		proxy:    proxy,
 		spec:     spec,
-		done:     make(chan struct{}),
-		name:     name,
 		httpStat: httpstat.New(),
 	}
-
-	if spec.Filter != nil {
-		sp.filter = NewRequestMatcher(spec.Filter)
-	}
-
-	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
-		sp.createLoadBalancer(sp.spec.Servers)
-	} else {
-		sp.watchServers()
-	}
-
+	sp.Init(proxy.super, name, &spec.BaseServerPoolSpec)
 	return sp
-}
-
-// LoadBalancer returns the load balancer of the server pool.
-func (sp *WebSocketServerPool) LoadBalancer() LoadBalancer {
-	return sp.loadBalancer.Load().(LoadBalancer)
-}
-
-func (sp *WebSocketServerPool) createLoadBalancer(servers []*Server) {
-	for _, server := range servers {
-		u := strings.ToLower(server.URL)
-		if strings.HasPrefix(u, "http") {
-			u = "ws" + u[4:]
-		}
-		server.URL = u
-		server.checkAddrPattern()
-	}
-
-	spec := sp.spec.LoadBalance
-	if spec == nil {
-		spec = &LoadBalanceSpec{}
-	}
-
-	lb := NewLoadBalancer(spec, servers)
-	sp.loadBalancer.Store(lb)
-}
-
-func (sp *WebSocketServerPool) watchServers() {
-	entity := sp.proxy.super.MustGetSystemController(serviceregistry.Kind)
-	registry := entity.Instance().(*serviceregistry.ServiceRegistry)
-
-	instances, err := registry.ListServiceInstances(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	if err != nil {
-		msgFmt := "first try to use service %s/%s failed(will try again): %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, err)
-		sp.createLoadBalancer(sp.spec.Servers)
-	}
-
-	sp.useService(instances)
-
-	watcher := registry.NewServiceWatcher(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	sp.wg.Add(1)
-	go func() {
-		for {
-			select {
-			case <-sp.done:
-				watcher.Stop()
-				sp.wg.Done()
-				return
-			case event := <-watcher.Watch():
-				sp.useService(event.Instances)
-			}
-		}
-	}()
-}
-
-func (sp *WebSocketServerPool) useService(instances map[string]*serviceregistry.ServiceInstanceSpec) {
-	servers := make([]*Server, 0)
-
-	for _, instance := range instances {
-		// default to true in case of sp.spec.ServerTags is empty
-		match := true
-
-		for _, tag := range sp.spec.ServerTags {
-			if match = stringtool.StrInSlice(tag, instance.Tags); match {
-				break
-			}
-		}
-
-		if match {
-			servers = append(servers, &Server{
-				URL:    instance.URL(),
-				Tags:   instance.Tags,
-				Weight: instance.Weight,
-			})
-		}
-	}
-
-	if len(servers) == 0 {
-		msgFmt := "%s/%s: no service instance satisfy tags: %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, sp.spec.ServerTags)
-		servers = sp.spec.Servers
-	}
-
-	sp.createLoadBalancer(servers)
 }
 
 func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, statusCode int) {
@@ -204,9 +75,22 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 	}
 
 	u := *req.URL()
-	u1, _ := url.Parse(svr.URL)
+	u1, err := url.ParseRequestURI(svr.URL)
+	if err != nil {
+		return nil, err
+	}
 	u.Host = u1.Host
-	u.Scheme = u1.Scheme
+	switch u1.Scheme {
+	case "ws", "wss":
+		u.Scheme = u1.Scheme
+		break
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	default:
+		return nil, fmt.Errorf("invalid scheme %s", u1.Scheme)
+	}
 
 	config, err := websocket.NewConfig(u.String(), origin)
 	if err != nil {
@@ -255,20 +139,28 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	svr := sp.LoadBalancer().ChooseServer(req)
 
+	metric := &httpstat.Metric{}
+	startTime := fasttime.Now()
+	defer func() {
+		metric.Duration = fasttime.Since(startTime)
+		sp.httpStat.Stat(metric)
+	}()
+
 	// if there's no available server.
 	if svr == nil {
 		logger.Debugf("%s: no available server", sp.name)
 		sp.buildFailureResponse(ctx, http.StatusServiceUnavailable)
+		metric.StatusCode = http.StatusServiceUnavailable
 		return resultInternalError
 	}
 
 	stdw, _ := ctx.GetData("HTTP_RESPONSE_WRITER").(http.ResponseWriter)
 	if stdw == nil {
+		logger.Debugf("%s: cannot get response writer from context", sp.name)
 		sp.buildFailureResponse(ctx, http.StatusInternalServerError)
+		metric.StatusCode = http.StatusInternalServerError
 		return resultInternalError
 	}
-
-	metric := &httpstat.Metric{StatusCode: http.StatusSwitchingProtocols}
 
 	wssvr := websocket.Server{}
 	wssvr.Handler = func(clntConn *websocket.Conn) {
@@ -319,10 +211,12 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		if err := recover(); err != nil {
 			result = resultClientError
 			sp.buildFailureResponse(ctx, http.StatusBadRequest)
+			metric.StatusCode = http.StatusBadRequest
 		}
 	}()
 	wssvr.ServeHTTP(stdw, req.Request)
 
+	metric.StatusCode = http.StatusSwitchingProtocols
 	ctx.SetData("HTTP_METRIC", metric)
 	return
 }
