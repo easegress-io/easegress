@@ -90,7 +90,7 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(nil, spec, "test")
+	sp := NewServerPool(&Proxy{}, spec, "test")
 	policies := map[string]resilience.Policy{}
 
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
@@ -129,7 +129,7 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(nil, spec, "test")
+	sp := NewServerPool(&Proxy{}, spec, "test")
 	spCtx := &serverPoolContext{
 		Context: context.New(tracing.NoopSpan),
 	}
@@ -169,7 +169,7 @@ func TestCopyCORSHeaders(t *testing.T) {
 	src.Add("X-Src", "src")
 	dst.Add("X-Dst", "dst")
 
-	sp := NewServerPool(nil, &ServerPoolSpec{}, "test")
+	sp := NewServerPool(&Proxy{}, &ServerPoolSpec{}, "test")
 	dst = sp.mergeResponseHeader(dst, src)
 
 	assert.Equal(1, len(dst.Values("Access-Control-Allow-Origin")))
@@ -200,14 +200,14 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(nil, spec, "test")
+	sp := NewServerPool(&Proxy{}, spec, "test")
 	svr := sp.LoadBalancer().ChooseServer(nil)
 	assert.Equal("http://192.168.1.1", svr.URL)
 
-	sp.useService(nil)
+	sp.useService(&spec.BaseServerPoolSpec, nil)
 	assert.Equal("http://192.168.1.1", svr.URL)
 
-	sp.useService(map[string]*serviceregistry.ServiceInstanceSpec{
+	sp.useService(&spec.BaseServerPoolSpec, map[string]*serviceregistry.ServiceInstanceSpec{
 		"2": {
 			Address: "192.168.1.2",
 			Tags:    []string{"a2"},
