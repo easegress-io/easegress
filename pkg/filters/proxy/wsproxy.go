@@ -26,21 +26,8 @@ import (
 	"github.com/megaease/easegress/pkg/supervisor"
 )
 
-const (
-	// WebSocketProxyKind is the kind of WebSocketProxy.
-	WebSocketProxyKind = "WebSocketProxy"
-
-	/*
-		resultInternalError = "internalError"
-		resultClientError   = "clientError"
-		resultServerError   = "serverError"
-		resultFailureCode   = "failureCode"
-
-		// result for resilience
-		resultTimeout        = "timeout"
-		resultShortCircuited = "shortCircuited"
-	*/
-)
+// WebSocketProxyKind is the kind of WebSocketProxy.
+const WebSocketProxyKind = "WebSocketProxy"
 
 var kindWebSocketProxy = &filters.Kind{
 	Name:        WebSocketProxyKind,
@@ -48,7 +35,6 @@ var kindWebSocketProxy = &filters.Kind{
 	Results: []string{
 		resultInternalError,
 		resultClientError,
-		resultTimeout,
 	},
 	DefaultSpec: func() filters.Spec {
 		return &WebSocketProxySpec{}
@@ -112,7 +98,7 @@ func (p *WebSocketProxy) Name() string {
 
 // Kind returns the kind of WebSocketProxy.
 func (p *WebSocketProxy) Kind() *filters.Kind {
-	return kind
+	return kindWebSocketProxy
 }
 
 // Spec returns the spec used by the WebSocketProxy

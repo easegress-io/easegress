@@ -238,3 +238,15 @@ func TestRemoveHopByHopHeader(t *testing.T) {
 	assert.Equal(1, len(h))
 	assert.Equal("foo-bar", h.Get("X-Foo-Bar"))
 }
+
+func TestInFailureCodes(t *testing.T) {
+	assert := assert.New(t)
+
+	sp := ServerPool{}
+	assert.True(sp.inFailureCodes(500))
+	assert.False(sp.inFailureCodes(400))
+
+	sp.failureCodes = map[int]struct{}{400: {}, 404: {}}
+	assert.False(sp.inFailureCodes(500))
+	assert.True(sp.inFailureCodes(400))
+}
