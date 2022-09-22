@@ -4,54 +4,57 @@
   - [Proxy](#proxy)
     - [Configuration](#configuration)
     - [Results](#results)
-  - [CORSAdaptor](#corsadaptor)
+  - [WebSocketProxy](#websocketproxy)
     - [Configuration](#configuration-1)
     - [Results](#results-1)
-  - [Fallback](#fallback)
+  - [CORSAdaptor](#corsadaptor)
     - [Configuration](#configuration-2)
     - [Results](#results-2)
-  - [Mock](#mock)
+  - [Fallback](#fallback)
     - [Configuration](#configuration-3)
     - [Results](#results-3)
-  - [RemoteFilter](#remotefilter)
+  - [Mock](#mock)
     - [Configuration](#configuration-4)
     - [Results](#results-4)
-  - [RequestAdaptor](#requestadaptor)
+  - [RemoteFilter](#remotefilter)
     - [Configuration](#configuration-5)
     - [Results](#results-5)
-  - [RequestBuilder](#requestbuilder)
+  - [RequestAdaptor](#requestadaptor)
     - [Configuration](#configuration-6)
     - [Results](#results-6)
-  - [RateLimiter](#ratelimiter)
+  - [RequestBuilder](#requestbuilder)
     - [Configuration](#configuration-7)
     - [Results](#results-7)
-  - [ResponseAdaptor](#responseadaptor)
+  - [RateLimiter](#ratelimiter)
     - [Configuration](#configuration-8)
     - [Results](#results-8)
-  - [ResponseBuilder](#responsebuilder)
+  - [ResponseAdaptor](#responseadaptor)
     - [Configuration](#configuration-9)
     - [Results](#results-9)
-  - [Validator](#validator)
+  - [ResponseBuilder](#responsebuilder)
     - [Configuration](#configuration-10)
     - [Results](#results-10)
-  - [WasmHost](#wasmhost)
+  - [Validator](#validator)
     - [Configuration](#configuration-11)
     - [Results](#results-11)
-  - [Kafka](#kafka)
+  - [WasmHost](#wasmhost)
     - [Configuration](#configuration-12)
     - [Results](#results-12)
-  - [HeaderToJSON](#headertojson)
+  - [Kafka](#kafka)
     - [Configuration](#configuration-13)
     - [Results](#results-13)
-  - [CertExtractor](#certextractor)
+  - [HeaderToJSON](#headertojson)
     - [Configuration](#configuration-14)
     - [Results](#results-14)
-  - [HeaderLookup](#headerlookup)
+  - [CertExtractor](#certextractor)
     - [Configuration](#configuration-15)
     - [Results](#results-15)
-  - [ResultBuilder](#resultbuilder)
+  - [HeaderLookup](#headerlookup)
     - [Configuration](#configuration-16)
     - [Results](#results-16)
+  - [ResultBuilder](#resultbuilder)
+    - [Configuration](#configuration-17)
+    - [Results](#results-17)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -66,6 +69,7 @@
     - [urlrule.URLRule](#urlruleurlrule)
     - [proxy.Compression](#proxycompression)
     - [proxy.MTLS](#proxymtls)
+    - [websocketproxy.WebSocketServerPoolSpec](#websocketproxywebsocketserverpoolspec)
     - [mock.Rule](#mockrule)
     - [mock.MatchRule](#mockmatchrule)
     - [ratelimiter.Policy](#ratelimiterpolicy)
@@ -179,6 +183,55 @@ pools:
 | clientError   | Client-side (Easegress) network error                  |
 | serverError   | Server-side network error                              |
 | failureCode   | Resp failure code matches failureCodes set in poolSpec |
+
+## WebSocketProxy
+
+The WebSocketProxy filter is a proxy of the websocket backend service.
+
+Below is one of the simplest WebSocketProxy configurations, it forwards
+the websocket connection to `ws://127.0.0.1:9095`.
+
+```yaml
+kind: WebSocketProxy
+name: proxy-example-1
+pools:
+- servers:
+  - url: ws://127.0.0.1:9095
+```
+
+Same as the `Proxy` filter:
+* a `filter` can be configured on a pool.
+* the servers of a pool can be dynamically configured via service discovery.
+* When there are multiple servers in a pool, the pool can do a load balance
+  between them.
+
+Note, when routing traffic to a pipeline with a `WebSocketProxy`, the
+`HTTPServer` must set the corresponding `clientMaxBodySize` to `-1`, as
+below:
+
+```yaml
+name: demo-server
+kind: HTTPServer
+port: 8080
+rules:
+- paths:
+  path: /ws
+  clientMaxBodySize: -1          # REQUIRED!
+  backend: websocket-pipeline
+```
+
+### Configuration
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| pools | [websocketproxy.WebSocketServerPoolSpec](#websocketproxywebsocketserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `WebSocketProxy` gets a request, it first goes through the candidate pools, and if it matches one of the pool's filter, servers of this pool handle the connection, otherwise, it is passed to the main pool. | Yes |
+| defaultOrigin | string | Easegress need to set the `Origin` header when connecting to the backend service, if the client request does not have this header, this value is used.  | No |
+
+### Results
+
+| Value         | Description                                            |
+| ------------- | -------------------------------------------------------|
+| internalError | Encounters an internal error                           |
+| clientError   | Client-side network error                              |
 
 ## CORSAdaptor
 
@@ -945,7 +998,7 @@ Rules to revise request header.
 
 | Name   | Type     | Description                                                                                                  | Required |
 | ------ | -------- | ------------------------------------------------------------------------------------------------------------ | -------- |
-| url    | string   | Address of the server. The address should start with `http://` or `https://`, followed by the hostname or IP address of the server, and then optionally followed by `:{port number}`, for example: `https://www.megaease.com`, `http://10.10.10.10:8080`. When host name is used, the `Host` of a request sent to this server is always the hostname of the server, and therefore using a [RequestAdaptor](#requestadaptor) in the pipeline to modify it will not be possible; when IP address is used, the `Host` is the same as the original request, that can be modified by a [RequestAdaptor](#requestadaptor). See also `KeepHost`.         | Yes      |
+| url    | string   | Address of the server. The address should start with `http://` or `https://` (when used in the `WebSocketProxy`, it can also start with `ws://` and `wss://`), followed by the hostname or IP address of the server, and then optionally followed by `:{port number}`, for example: `https://www.megaease.com`, `http://10.10.10.10:8080`. When host name is used, the `Host` of a request sent to this server is always the hostname of the server, and therefore using a [RequestAdaptor](#requestadaptor) in the pipeline to modify it will not be possible; when IP address is used, the `Host` is the same as the original request, that can be modified by a [RequestAdaptor](#requestadaptor). See also `KeepHost`.         | Yes      |
 | tags   | []string | Tags of this server, refer `serverTags` in [proxy.PoolSpec](#proxyPoolSpec)                                  | No       |
 | weight | int      | When load balance policy is `weightedRandom`, this value is used to calculate the possibility of this server | No       |
 | keepHost | bool      | If true, the `Host` is the same as the original request, no matter what is the value of `url`. Default value is `false`. | No       |
@@ -1026,6 +1079,17 @@ The relationship between `methods` and `url` is `AND`.
 | certBase64     | string | Base64 encoded certificate     | Yes      |
 | keyBase64      | string | Base64 encoded key             | Yes      |
 | rootCertBase64 | string | Base64 encoded root certificate | Yes      |
+
+### websocketproxy.WebSocketServerPoolSpec
+
+| Name            | Type                                   | Description                                                                                                  | Required |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- |
+| serverTags      | []string                               | Server selector tags, only servers have tags in this array are included in this pool                         | No       |
+| servers         | [][proxy.Server](#proxyServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
+| serviceName     | string                                 | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
+| serviceRegistry | string                                 | This option and `serviceName` are for dynamic server discovery                                               | No       |
+| loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                         | Yes      |
+| filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                                           | No       |
 
 ### mock.Rule
 

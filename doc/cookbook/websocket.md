@@ -16,43 +16,43 @@
 
 ## Design
 
-- WebSocket server of Easegress is called `WebSocketServer` and it belongs to the group of BusinessControllers.
-
-- Easegress uses  `github.com/gorilla/websocket` to implement `WebSocket` client since it has rich features supported and a quite active community (15k star/2.5k fork). Gorilla supports some useful features (`receive fragmented message` and `send close message`) that do not exist in Go's standard WebSocket library `golang.org/x/net/websocket` [3], which make it a natural choice for Easegress WebSocketServer.
+- The `WebSocketProxy` is a filter of Easegress, and can be put into a pipeline.
+- Easegress uses `github.com/golang/x/net/websocket` to implement `WebSocketProxy` filter.
 
 1. Spec
 
-    Example1: `http` and `ws`
+* Pipeline with a `WebSocketProxy` filter:
+ 
+```yaml
+ name: websocket-pipeline
+ kind: Pipeline
 
-    ```yaml
-    kind: WebSocketServer
-    name: websocketSvr
-    https: false                  # client need to use http/https firstly for connection upgrade      
-    certBase64:
-    keyBase64:
-    port: 10020                   # proxy servers listening port
+ flow:
+ - filter: wsproxy
 
-    backend: ws://localhost:3001  # the reserved proxy target
-                                  #  Easegress will exame the backend URL's scheme, If it starts with `wss`,
-                                  #  then `wssCerBase64` and `wssKeyBase64` must not be empty
+ filters:
+ - kind: WebSocketProxy
+   name: wsproxy
+   defaultOrigin: http://127.0.0.1/hello
+   pools:
+   - servers:
+     - url: ws://127.0.0.1:12345
+ ```
 
-    wssCertBase64:                # wss backend certificate in base64 format
-    wssKeyBase64:                 # wss backend key in base64 format
-    ```
+* HTTPServer to route traffic to the websocket-pipeline:
+ 
+```yaml
+name: demo-server
+kind: HTTPServer
+port: 8080
+rules:
+- paths:
+  path: /ws
+  clientMaxBodySize: -1          # REQUIRED!
+  backend: websocket-pipeline
+```
 
-    Example2: `https` and `wss`
-
-    ```yaml
-    kind: WebSocketServer
-    name: websocketSvr
-    https: true     
-    certBase64: your-cert-base64
-    keyBase64: your-key-base64
-    port: 10020
-    backend: wss://localhost:3001
-    wssCertBase64: your-cert-wss-base64
-    wssKeyBase64: your-key-wss-base64
-    ```
+Note: `clientMaxBodySize` must be `-1`.
 
 2. Request sequence
 
@@ -60,22 +60,20 @@
     +--------------+                +--------------+                +--------------+  
     |              |  1             |              |   2            |              | 
     |   client     +--------------->|  Easegress   +--------------->|  websocket   |
-    |              |<---------------+(WebSocketSvr)|<---------------+  backend     | 
+    |              |<---------------+              |<---------------+  backend     | 
     |              |  4             |              |   3            |              |
     +--------------+                +--------------+                +--------------+
     ```
 
 3. Headers
 
-    We copy all headers from your HTTP request to websocket backend, except ones used by `gorilla` package to build connection. Based on [4], we also add `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto` to http headers that send to websocket backend.
+    We copy all headers from your HTTP request to websocket backend, except ones used by websocket package to build connection. Based on [3], we also add `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto` to http headers that send to websocket backend.
 
-    > note: `gorilla` use `Upgrade`, `Connection`, `Sec-Websocket-Key`, `Sec-Websocket-Version`, `Sec-Websocket-Extensions` and `Sec-Websocket-Protocol` in http headers to set connection.
+    > note: websocket use `Upgrade`, `Connection`, `Sec-Websocket-Key`, `Sec-Websocket-Version`, `Sec-Websocket-Extensions` and `Sec-Websocket-Protocol` in http headers to set connection.
 
 ## Example
 
-1. Create a WebSocket proxy for Easegress: `egctl object create -f websocket.yaml`. Here we use `Example1` as example, which will transfer requests from `easegress-ip:10020` to `ws://localhost:3001`.
-
-2. Send request
+1. Send request
 
     ```bash
     curl --include \
@@ -85,14 +83,13 @@
         --header "Host: 127.0.0.1:10020" \
         --header "Sec-WebSocket-Key: your-key-here" \
         --header "Sec-WebSocket-Version: 13" \
-        http://127.0.0.1:10081/
+        http://127.0.0.1:8080/
     ```
 
-3. This request to `WebSocketServer` `easegress-ip:10081` will be transferred to websocket backend `ws://localhost:3001`.
+2. This request to Easegress will be forwarded to websocket backend `ws://127.0.0.1:12345`.
 
 ## References
 
 1. <https://datatracker.ietf.org/doc/html/rfc6455>
 2. <https://www.nginx.com/blog/websocket-nginx/>
-3. <https://github.com/gorilla/websocket>
-4. <https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm>
+3. <https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm>
