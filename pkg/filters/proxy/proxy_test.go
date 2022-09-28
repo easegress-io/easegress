@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/codectool"
@@ -346,4 +347,31 @@ pools:
 	proxy = newTestProxy(yamlConfig, assert)
 	_, err = proxy.tlsConfig()
 	assert.NoError(err)
+}
+
+func TestToMetrics(t *testing.T) {
+	assert := assert.New(t)
+
+	s := Status{
+		MainPool: &ServerPoolStatus{
+			Stat: &httpstat.Status{
+				RequestMetric: httpstat.RequestMetric{},
+			},
+		},
+		CandidatePools: []*ServerPoolStatus{
+			{
+				Stat: &httpstat.Status{
+					RequestMetric: httpstat.RequestMetric{},
+				},
+			},
+		},
+		MirrorPool: &ServerPoolStatus{
+			Stat: &httpstat.Status{
+				RequestMetric: httpstat.RequestMetric{},
+			},
+		},
+	}
+
+	metrics := s.ToMetrics("test")
+	assert.Equal(3, len(metrics))
 }

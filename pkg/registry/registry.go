@@ -56,6 +56,5 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/pipeline"
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
-	_ "github.com/megaease/easegress/pkg/object/websocketserver"
 	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
 )

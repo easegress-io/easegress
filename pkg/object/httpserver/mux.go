@@ -411,6 +411,29 @@ func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Respon
 	return resp
 }
 
+func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64) {
+	var resp *httpprot.Response
+	if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
+		logger.Errorf("%s: response is nil", mi.superSpec.Name())
+		resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
+	} else if r, ok := v.(*httpprot.Response); !ok {
+		logger.Errorf("%s: expect an HTTP response", mi.superSpec.Name())
+		resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
+	} else {
+		resp = r
+	}
+
+	// Send the response
+	header := stdw.Header()
+	for k, v := range resp.HTTPHeader() {
+		header[k] = v
+	}
+	stdw.WriteHeader(resp.StatusCode())
+	respBodySize, _ := io.Copy(stdw, resp.GetPayload())
+
+	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize())
+}
+
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// Replace the body of the original request with a ByteCountReader, so
 	// that we can calculate the actual request size.
@@ -420,6 +443,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	startAt := fasttime.Now()
 	span := mi.tracer.NewSpanWithStart(mi.superSpec.Name(), startAt)
 	ctx := context.New(span)
+	ctx.SetData("HTTP_RESPONSE_WRITER", stdw)
 
 	// httpprot.NewRequest never returns an error.
 	req, _ := httpprot.NewRequest(stdr)
@@ -432,39 +456,28 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	topN := mi.topN.Stat(req.Path())
 
 	defer func() {
-		var resp *httpprot.Response
-		if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
-			logger.Errorf("%s: response is nil", mi.superSpec.Name())
-			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
-		} else if r, ok := v.(*httpprot.Response); !ok {
-			logger.Errorf("%s: expect an HTTP response", mi.superSpec.Name())
-			resp = buildFailureResponse(ctx, http.StatusServiceUnavailable)
-		} else {
-			resp = r
+		metric, _ := ctx.GetData("HTTP_METRIC").(*httpstat.Metric)
+
+		if metric == nil {
+			statusCode, respSize := mi.sendResponse(ctx, stdw)
+			ctx.Finish()
+
+			// Drain off the body if it has not been, so that we can get the
+			// correct body size.
+			io.Copy(io.Discard, body)
+
+			metric = &httpstat.Metric{
+				StatusCode: statusCode,
+				ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
+				RespSize:   respSize,
+			}
+		} else { // hijacked, websocket and etc.
+			ctx.Finish()
 		}
 
-		// Send the response.
-		header := stdw.Header()
-		for k, v := range resp.HTTPHeader() {
-			header[k] = v
-		}
-		stdw.WriteHeader(resp.StatusCode())
-		respBodySize, _ := io.Copy(stdw, resp.GetPayload())
-
-		ctx.Finish()
-
-		// Drain off the body if it has not been, so that we can get the
-		// correct body size.
-		io.Copy(io.Discard, body)
-
-		metric := httpstat.Metric{
-			StatusCode: resp.StatusCode(),
-			Duration:   fasttime.Since(startAt),
-			ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
-			RespSize:   uint64(resp.MetaSize() + respBodySize),
-		}
-		topN.Stat(&metric)
-		mi.httpStat.Stat(&metric)
+		metric.Duration = fasttime.Since(startAt)
+		topN.Stat(metric)
+		mi.httpStat.Stat(metric)
 
 		span.Finish()
 
@@ -480,7 +493,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 			return fmt.Sprintf(logFmt,
 				fasttime.Format(startAt, fasttime.RFC3339Milli),
 				stdr.RemoteAddr, req.RealIP(), stdr.Method, stdr.RequestURI,
-				stdr.Proto, resp.StatusCode(), metric.Duration, metric.ReqSize,
+				stdr.Proto, metric.StatusCode, metric.Duration, metric.ReqSize,
 				metric.RespSize, ctx.Tags())
 		})
 	}()
