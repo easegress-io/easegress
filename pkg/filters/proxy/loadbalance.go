@@ -19,7 +19,6 @@ package proxy
 
 import (
 	"fmt"
-	"hash/fnv"
 	"math/rand"
 	"net/http"
 	"sync/atomic"
@@ -28,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/spaolacci/murmur3"
 )
 
 const (
@@ -118,7 +118,7 @@ func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 
 // chooseServerByHash choose server using consistent hash on key
 func (lb *BaseLoadBalancer) chooseServerByHash(key string) *Server {
-	hash := fnv.New32()
+	hash := murmur3.New32()
 	hash.Write([]byte(key))
 	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
