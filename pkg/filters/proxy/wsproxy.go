@@ -55,6 +55,10 @@ func init() {
 
 type (
 	// WebSocketProxy is the filter WebSocketProxy.
+	//
+	// TODO: it is better to put filters to their own folders,
+	// so we need a refactor to extract the WebSocketProxy into
+	// its own folder later.
 	WebSocketProxy struct {
 		super *supervisor.Supervisor
 		spec  *WebSocketProxySpec
