@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,6 +34,15 @@ func prepareServers(count int) []*Server {
 		svrs = append(svrs, &Server{Weight: i + 1})
 	}
 	return svrs
+}
+
+func readCookie(cookies []*http.Cookie, name string) *http.Cookie {
+	for _, c := range cookies {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
 }
 
 func TestRoundRobinLoadBalancer(t *testing.T) {
@@ -159,5 +169,65 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		assert.GreaterOrEqual(counter[i], 1)
+	}
+}
+
+func TestStickySessionWithUserCookie(t *testing.T) {
+	assert := assert.New(t)
+
+	var svrs []*Server
+	name, value := "X-Cookie", uuid.NewString()
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickyEnabled: true, StickyCookie: name}, svrs)
+	assert.Nil(lb.ChooseServer(nil))
+
+	svrs = prepareServers(10)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickyEnabled: true, StickyCookie: name}, svrs)
+	req := &http.Request{Header: http.Header{}}
+	req.AddCookie(&http.Cookie{Name: name, Value: value})
+	r, _ := httpprot.NewRequest(req)
+	firstSvr := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	lb.CustomizeResponse(r, resp)
+	c := readCookie(resp.Cookies(), LoadBalancerStickyCookie)
+	assert.Nil(c)
+
+	for i := 0; i < 10; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: name, Value: value})
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr.Weight, firstSvr.Weight)
+	}
+}
+
+func TestStickySessionWithGeneratedCookie(t *testing.T) {
+	assert := assert.New(t)
+
+	var svrs []*Server
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickyEnabled: true, StickyExpire: "2h"}, svrs)
+	assert.Nil(lb.ChooseServer(nil))
+
+	svrs = prepareServers(10)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickyEnabled: true, StickyExpire: "2h"}, svrs)
+	req := &http.Request{Header: http.Header{}}
+	r, _ := httpprot.NewRequest(req)
+	firstSvr := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	lb.CustomizeResponse(r, resp)
+	c := readCookie(resp.Cookies(), LoadBalancerStickyCookie)
+	assert.NotNil(c)
+	value := c.Value
+
+	for i := 0; i < 10; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: LoadBalancerStickyCookie, Value: value})
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+		lb.CustomizeResponse(r, resp)
+		c := readCookie(resp.Cookies(), LoadBalancerStickyCookie)
+		assert.NotNil(c)
+		value = c.Value
+		assert.Equal(svr.Weight, firstSvr.Weight)
 	}
 }

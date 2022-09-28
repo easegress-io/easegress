@@ -317,7 +317,10 @@ func (r *Request) Method() string {
 
 // Cookie returns the named cookie.
 func (r *Request) Cookie(name string) (*http.Cookie, error) {
-	return r.Std().Cookie(name)
+	if name != "" {
+		return r.Std().Cookie(name)
+	}
+	return nil, http.ErrNoCookie
 }
 
 // Cookies returns all cookies.

@@ -1009,6 +1009,9 @@ Rules to revise request header.
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
 | policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
+| stickyEnabled | bool   | Whether to use sticky sessions | No       |
+| stickyCookie  | string | When `stickyEnabled` is `true`, this option is used to set name of user cookie, if empty, load balander will generate a new cookie | No       |
+| stickyExpire  | string | When `stickyEnabled` is `true` and `stickyCookie` is empty, this option is used to set expire time of generated cookie, default is session | No       |
 
 ### proxy.MemoryCacheSpec
 
