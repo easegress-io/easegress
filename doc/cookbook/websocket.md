@@ -28,19 +28,19 @@
 * Pipeline with a `WebSocketProxy` filter:
  
 ```yaml
- name: websocket-pipeline
- kind: Pipeline
+name: websocket-pipeline
+kind: Pipeline
 
- flow:
- - filter: wsproxy
+flow:
+- filter: wsproxy
 
- filters:
- - kind: WebSocketProxy
-   name: wsproxy
-   defaultOrigin: http://127.0.0.1/hello
-   pools:
-   - servers:
-     - url: ws://127.0.0.1:12345
+filters:
+- kind: WebSocketProxy
+  name: wsproxy
+  defaultOrigin: http://127.0.0.1/hello
+  pools:
+  - servers:
+    - url: ws://127.0.0.1:12345
  ```
 
 * HTTPServer to route traffic to the websocket-pipeline:
@@ -51,9 +51,9 @@ kind: HTTPServer
 port: 8080
 rules:
 - paths:
-  path: /ws
-  clientMaxBodySize: -1          # REQUIRED!
-  backend: websocket-pipeline
+  - path: /ws
+    clientMaxBodySize: -1          # REQUIRED!
+    backend: websocket-pipeline
 ```
 
 Note: `clientMaxBodySize` must be `-1`.
