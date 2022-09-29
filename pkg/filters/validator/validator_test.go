@@ -115,7 +115,7 @@ headers:
 	assert.NotEqual(resultInvalid, result, "request has header 'Is-Valid' and matches the regular expression")
 }
 
-func TestJWTPublicKey(t *testing.T) {
+func TestJWTPublicKeySigning(t *testing.T) {
 	type testCase struct {
 		signName string
 		//privateKey is for test validator here
@@ -182,7 +182,7 @@ jwt:
 	}
 }
 
-func TestJWT(t *testing.T) {
+func TestJWTHMAC(t *testing.T) {
 	assert := assert.New(t)
 	const yamlConfig = `
 kind: Validator
@@ -352,7 +352,7 @@ oauth2:
 }
 
 func TestSignature(t *testing.T) {
-	// This testCase is almost covered by signer
+	// This test is almost covered by signer
 
 	const yamlConfig = `
 kind: Validator
@@ -438,7 +438,7 @@ basicAuth:
   mode: FILE
   userFile: ` + userFile.Name()
 
-		// testCase invalid format
+		// test invalid format
 		userFile.Write([]byte("keypass"))
 		v := createValidator(yamlConfig, nil, nil)
 		ctx, _ := prepareCtxAndHeader()
@@ -491,7 +491,7 @@ basicAuth:
 		v.Close()
 	})
 
-	t.Run("testCase kvsToReader", func(t *testing.T) {
+	t.Run("test kvsToReader", func(t *testing.T) {
 		kvs := make(map[string]string)
 		kvs["/creds/key1"] = "key: key1\npass: pw"     // invalid
 		kvs["/creds/key2"] = "ky: key2\npassword: pw"  // invalid
