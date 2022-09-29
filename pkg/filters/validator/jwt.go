@@ -18,20 +18,24 @@
 package validator
 
 import (
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"strings"
 
-	"github.com/golang-jwt/jwt"
+	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 // JWTValidatorSpec defines the configuration of JWT validator
 type JWTValidatorSpec struct {
-	Algorithm string `json:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512"`
+	Algorithm string `json:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512,enum=RS256,enum=RS384,enum=RS512,enum=ES256,enum=ES384,enum=ES512,enum=EdDSA"`
+	//PublicKey is in hex encoding
+	PublicKey string `json:"publicKey" jsonschema:"pattern=^$|^[A-Fa-f0-9]+$"`
 	// Secret is in hex encoding
-	Secret string `json:"secret" jsonschema:"required,pattern=^[A-Fa-f0-9]+$"`
+	Secret string `json:"secret" jsonschema:"pattern=^$|^[A-Fa-f0-9]+$"`
 	// CookieName specifies the name of a cookie, if not empty, and the cookie with
 	// this name both exists and has a non-empty value, its value is used as token
 	// string, the Authorization header is used to get the token string otherwise.
@@ -41,16 +45,19 @@ type JWTValidatorSpec struct {
 // NewJWTValidator creates a new JWT validator
 func NewJWTValidator(spec *JWTValidatorSpec) *JWTValidator {
 	secret, _ := hex.DecodeString(spec.Secret)
+	publicKey, _ := hex.DecodeString(spec.PublicKey)
 	return &JWTValidator{
-		spec:        spec,
-		secretBytes: secret,
+		spec:           spec,
+		secretBytes:    secret,
+		publicKeyBytes: publicKey,
 	}
 }
 
 // JWTValidator defines the JWT validator
 type JWTValidator struct {
-	spec        *JWTValidatorSpec
-	secretBytes []byte
+	spec           *JWTValidatorSpec
+	secretBytes    []byte
+	publicKeyBytes []byte
 }
 
 // Validate validates the JWT token of a http request
@@ -71,14 +78,23 @@ func (v *JWTValidator) Validate(req *httpprot.Request) error {
 		}
 		token = authHdr[len(prefix):]
 	}
-
 	// jwt.Parse does everything including parsing and verification
-	_, e := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+	t, e := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 		if alg := token.Method.Alg(); alg != v.spec.Algorithm {
 			return nil, fmt.Errorf("unexpected signing method: %v", alg)
 		}
+		switch v.spec.Algorithm {
+		case "ES256", "ES384", "ES512", "RS256", "RS384", "RS512", "EdDSA":
+			p, _ := pem.Decode(v.publicKeyBytes)
+			return x509.ParsePKIXPublicKey(p.Bytes)
+		}
 		return v.secretBytes, nil
 	})
-
-	return e
+	if e != nil {
+		return e
+	}
+	if !t.Valid {
+		return fmt.Errorf("token is invalid")
+	}
+	return nil
 }

@@ -1129,11 +1129,12 @@ The relationship between `methods` and `url` is `AND`.
 
 ### validator.JWTValidatorSpec
 
-| Name       | Type   | Description                                                                                                                                             | Required |
-| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Name       | Type   | Description                                                                                                                                            | Required |
+|------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
 | cookieName | string | The name of a cookie, if this option is set and the cookie exists, its value is used as the token string, otherwise, the `Authorization` header is used | No       |
-| algorithm  | string | The algorithm for validation, `HS256`, `HS384`, and `HS512` are supported                                                                               | Yes      |
-| secret     | string | The secret for validation, in hex encoding                                                                                                              | Yes      |
+| algorithm  | string | The algorithm for validation:`HS256`,`HS384`,`HS512`,`RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512`,`EdDSA` are supported                             | Yes      |
+ | publicKey  | string | The public key is used for `RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512` or `EdDSA` validation in hex encoding                                       | Yes      |
+| secret     | string | The secret is for `HS256`,`HS384`,`HS512` validation  in hex encoding                                                                                  | Yes      |
 
 ### signer.Spec
 
