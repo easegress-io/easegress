@@ -44,21 +44,24 @@ type JWTValidatorSpec struct {
 
 // NewJWTValidator creates a new JWT validator
 func NewJWTValidator(spec *JWTValidatorSpec) *JWTValidator {
-	secret, _ := hex.DecodeString(spec.Secret)
-	publicKeyBytes, _ := hex.DecodeString(spec.PublicKey)
-	p, _ := pem.Decode(publicKeyBytes)
+	var key interface{}
+	if len(spec.PublicKey) > 0 {
+		publicKeyBytes, _ := hex.DecodeString(spec.PublicKey)
+		p, _ := pem.Decode(publicKeyBytes)
+		key, _ = x509.ParsePKIXPublicKey(p.Bytes)
+	} else {
+		key, _ = hex.DecodeString(spec.Secret)
+	}
 	return &JWTValidator{
-		spec:              spec,
-		secretBytes:       secret,
-		publicKeyDerBytes: p.Bytes,
+		spec: spec,
+		key:  key,
 	}
 }
 
 // JWTValidator defines the JWT validator
 type JWTValidator struct {
-	spec              *JWTValidatorSpec
-	secretBytes       []byte
-	publicKeyDerBytes []byte
+	spec *JWTValidatorSpec
+	key  interface{}
 }
 
 // Validate validates the JWT token of a http request
@@ -84,11 +87,7 @@ func (v *JWTValidator) Validate(req *httpprot.Request) error {
 		if alg := token.Method.Alg(); alg != v.spec.Algorithm {
 			return nil, fmt.Errorf("unexpected signing method: %v", alg)
 		}
-		switch v.spec.Algorithm {
-		case "ES256", "ES384", "ES512", "RS256", "RS384", "RS512", "EdDSA":
-			return x509.ParsePKIXPublicKey(v.publicKeyDerBytes)
-		}
-		return v.secretBytes, nil
+		return v.key, nil
 	})
 	if e != nil {
 		return e
