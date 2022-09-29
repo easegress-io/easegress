@@ -45,19 +45,20 @@ type JWTValidatorSpec struct {
 // NewJWTValidator creates a new JWT validator
 func NewJWTValidator(spec *JWTValidatorSpec) *JWTValidator {
 	secret, _ := hex.DecodeString(spec.Secret)
-	publicKey, _ := hex.DecodeString(spec.PublicKey)
+	publicKeyBytes, _ := hex.DecodeString(spec.PublicKey)
+	p, _ := pem.Decode(publicKeyBytes)
 	return &JWTValidator{
-		spec:           spec,
-		secretBytes:    secret,
-		publicKeyBytes: publicKey,
+		spec:              spec,
+		secretBytes:       secret,
+		publicKeyDerBytes: p.Bytes,
 	}
 }
 
 // JWTValidator defines the JWT validator
 type JWTValidator struct {
-	spec           *JWTValidatorSpec
-	secretBytes    []byte
-	publicKeyBytes []byte
+	spec              *JWTValidatorSpec
+	secretBytes       []byte
+	publicKeyDerBytes []byte
 }
 
 // Validate validates the JWT token of a http request
@@ -85,8 +86,7 @@ func (v *JWTValidator) Validate(req *httpprot.Request) error {
 		}
 		switch v.spec.Algorithm {
 		case "ES256", "ES384", "ES512", "RS256", "RS384", "RS512", "EdDSA":
-			p, _ := pem.Decode(v.publicKeyBytes)
-			return x509.ParsePKIXPublicKey(p.Bytes)
+			return x509.ParsePKIXPublicKey(v.publicKeyDerBytes)
 		}
 		return v.secretBytes, nil
 	})
@@ -94,7 +94,7 @@ func (v *JWTValidator) Validate(req *httpprot.Request) error {
 		return e
 	}
 	if !t.Valid {
-		return fmt.Errorf("token is invalid")
+		return fmt.Errorf("invalid jwt token")
 	}
 	return nil
 }
