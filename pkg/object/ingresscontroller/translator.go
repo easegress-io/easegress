@@ -77,6 +77,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
 			LoadBalance: &proxy.LoadBalanceSpec{},
 		},
+		ServerMaxBodySize: -1,
 	}
 
 	for _, ep := range endpoints {
@@ -88,8 +89,29 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 		"kind":  proxy.Kind,
 		"name":  name,
 		"pools": []*proxy.ServerPoolSpec{pool},
-	},
-	)
+	})
+}
+
+func (b *pipelineSpecBuilder) addWebSocketProxy(endpoints []string, defaultOrigin string) {
+	const name = "websocketproxy"
+
+	pool := &proxy.WebSocketServerPoolSpec{
+		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
+			LoadBalance: &proxy.LoadBalanceSpec{},
+		},
+	}
+
+	for _, ep := range endpoints {
+		pool.Servers = append(pool.Servers, &proxy.Server{URL: ep})
+	}
+
+	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
+	b.Filters = append(b.Filters, map[string]interface{}{
+		"kind":          proxy.WebSocketProxyKind,
+		"name":          name,
+		"defaultOrigin": defaultOrigin,
+		"pools":         []*proxy.WebSocketServerPoolSpec{pool},
+	})
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
@@ -137,14 +159,6 @@ func (st *specTranslator) httpServerSpec() *supervisor.Spec {
 
 func (st *specTranslator) pipelineSpecs() map[string]*supervisor.Spec {
 	return st.pipelines
-}
-
-func generatePipelineSpec(name string, endpoints []string) (*supervisor.Spec, error) {
-	b := newPipelineSpecBuilder(name)
-	b.addProxy(endpoints)
-	jsonConfig := b.jsonConfig()
-
-	return supervisor.NewSpec(jsonConfig)
 }
 
 func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.IngressServiceBackend) ([]string, error) {
@@ -208,7 +222,16 @@ func (st *specTranslator) getEndpoints(namespace string, service *apinetv1.Ingre
 	return result, nil
 }
 
-func (st *specTranslator) serviceToPipeline(namespace string, service *apinetv1.IngressServiceBackend) (*supervisor.Spec, error) {
+func supportWebSocket(ingress *apinetv1.Ingress) bool {
+	v := ingress.Annotations["easegress.ingress.kubernetes.io/websocket"]
+	if len(v) == 0 {
+		return false
+	}
+	b, _ := strconv.ParseBool(v)
+	return b
+}
+
+func (st *specTranslator) serviceToPipeline(ingress *apinetv1.Ingress, service *apinetv1.IngressServiceBackend) (*supervisor.Spec, error) {
 	if service == nil || len(service.Name) == 0 {
 		err := fmt.Errorf("invalid service name, ingress backend is object ref")
 		logger.Errorf("%v", err)
@@ -219,18 +242,30 @@ func (st *specTranslator) serviceToPipeline(namespace string, service *apinetv1.
 	if len(port) == 0 {
 		port = strconv.Itoa(int(service.Port.Number))
 	}
-	pipelineName := fmt.Sprintf("pipeline-%s-%s-%s", namespace, service.Name, port)
+	pipelineName := fmt.Sprintf("pipeline-%s-%s-%s", ingress.Namespace, service.Name, port)
+	ws := supportWebSocket(ingress)
+	if ws {
+		pipelineName += "-ws"
+	}
 	if st.pipelines[pipelineName] != nil {
 		return st.pipelines[pipelineName], nil
 	}
 
-	endpoints, err := st.getEndpoints(namespace, service)
+	endpoints, err := st.getEndpoints(ingress.Namespace, service)
 	if err != nil {
 		logger.Errorf("failed to get service endpoints: %v", err)
 		return nil, err
 	}
 
-	spec, err := generatePipelineSpec(pipelineName, endpoints)
+	builder := newPipelineSpecBuilder(pipelineName)
+	if ws {
+		defaultOrigin := ingress.Annotations["easegress.ingress.kubernetes.io/websocket-default-origin"]
+		builder.addWebSocketProxy(endpoints, defaultOrigin)
+	} else {
+		builder.addProxy(endpoints)
+	}
+
+	spec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
 		logger.Errorf("failed to generate pipeline spec: %v", err)
 		return nil, err
@@ -253,7 +288,9 @@ func (st *specTranslator) translateDefaultPipeline(ingress *apinetv1.Ingress) er
 		return err
 	}
 
-	spec, err := generatePipelineSpec(defaultPipelineName, endpoints)
+	builder := newPipelineSpecBuilder(defaultPipelineName)
+	builder.addProxy(endpoints)
+	spec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
 		logger.Errorf("failed to generate pipeline spec: %v", err)
 		return err
@@ -324,7 +361,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 
 		r := &httpserver.Rule{}
 		for _, path := range rule.HTTP.Paths {
-			pipeline, err := st.serviceToPipeline(ingress.Namespace, path.Backend.Service)
+			pipeline, err := st.serviceToPipeline(ingress, path.Backend.Service)
 			if err != nil {
 				continue
 			}
@@ -337,6 +374,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			}
 
 			p.RewriteTarget = ingress.Annotations["easegress.ingress.kubernetes.io/rewrite-target"]
+			p.ClientMaxBodySize = -1
 
 			r.Paths = append(r.Paths, &p)
 		}
