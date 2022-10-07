@@ -438,7 +438,7 @@ func (st *specTranslator) translate() error {
 				return false
 			case p1.Path == "" && p2.Path != "":
 				return true
-			default: // p1.Path == "" && p2.Path == "":
+			default: // p1.FullMethod == "" && p2.FullMethod == "":
 				return len(p1.PathPrefix) > len(p2.PathPrefix)
 			}
 		})

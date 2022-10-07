@@ -194,7 +194,7 @@ func TestGeneralMatche(t *testing.T) {
 
 	// match urls
 	req.Header().Set("X-Test1", "test1")
-	req.SetPath("/abc")
+	req.SetFullMethod("/abc")
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		Headers: map[string]*StringMatcher{
 			"X-Test1": {Exact: "test1"},

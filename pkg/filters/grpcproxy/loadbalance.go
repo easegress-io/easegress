@@ -228,12 +228,12 @@ func newForwardLoadBalancer(forwardKey string) *forwardLoadBalancer {
 func (f *forwardLoadBalancer) ChooseServer(req *grpcprot.Request) *Server {
 	target := req.GetFirstInHeader(f.forwardKey)
 	if target == "" {
-		logger.Debugf("request %v from %v context no target address %s", req.Path(), req.RealIP(), target)
+		logger.Debugf("request %v from %v context no target address %s", req.FullMethod(), req.RealIP(), target)
 		return nil
 	}
 
 	if _, _, err := net.SplitHostPort(target); err != nil {
-		logger.Debugf("request %v from %v context target address %s invalid", req.Path(), req.RealIP(), target)
+		logger.Debugf("request %v from %v context target address %s invalid", req.FullMethod(), req.RealIP(), target)
 		return nil
 	}
 

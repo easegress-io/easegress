@@ -78,7 +78,6 @@ type (
 		pathPrefix     string
 		pathRegexp     string
 		pathRE         *regexp.Regexp
-		rewriteTarget  string
 		backend        string
 		headers        []*Header
 		matchAllHeader bool
@@ -205,7 +204,6 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		pathPrefix:     path.PathPrefix,
 		pathRegexp:     path.PathRegexp,
 		pathRE:         pathRE,
-		rewriteTarget:  path.RewriteTarget,
 		backend:        path.Backend,
 		headers:        path.Headers,
 		matchAllHeader: path.MatchAllHeader,
@@ -228,27 +226,6 @@ func (mp *MuxPath) matchPath(path string) bool {
 	}
 
 	return false
-}
-
-func (mp *MuxPath) rewrite(r *grpcprot.Request) {
-	if mp.rewriteTarget == "" {
-		return
-	}
-	path := r.Path()
-	if mp.path != "" && mp.path == path {
-		r.SetPath(mp.rewriteTarget)
-		return
-	}
-
-	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
-		path = mp.rewriteTarget + path[len(mp.pathPrefix):]
-		r.SetPath(path)
-		return
-	}
-
-	// sure (mp.pathRE != nil && mp.pathRE.MatchString(path)) is true
-	path = mp.pathRE.ReplaceAllString(path, mp.rewriteTarget)
-	r.SetPath(path)
 }
 
 func matchHeader(header string, h *Header) bool {
@@ -397,7 +374,7 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 			const logFmt = "[grpc][%s] [%s %s %d] [%s]"
 			return fmt.Sprintf(logFmt,
 				fasttime.Format(startAt, fasttime.RFC3339Milli),
-				request.SourceHost(), request.Path(), resp.StatusCode(), ctx.Tags())
+				request.SourceHost(), request.FullMethod(), resp.StatusCode(), ctx.Tags())
 		})
 	}()
 
@@ -415,7 +392,6 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 		return
 	}
 
-	rt.path.rewrite(request)
 	if mi.spec.XForwardedFor {
 		appendXForwardedFor(request)
 	}
@@ -443,7 +419,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	}
 
 	// grpc's method equals request.path in standard lib
-	method := request.Path()
+	method := request.FullMethod()
 	if method == "" {
 		logger.Debugf("invalid grpc stream: can not get called method info")
 		return &route{

@@ -71,6 +71,10 @@ func (r *Response) IsStream() bool {
 	return r.stream != nil
 }
 
+func (r *Response) Trailer() protocols.Trailer {
+	return newHeader(r.Std().Trailer)
+}
+
 // FetchPayload reads the body of the underlying http.Response and initializes
 // the payload.
 //

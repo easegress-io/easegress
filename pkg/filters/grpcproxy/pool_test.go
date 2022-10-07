@@ -77,7 +77,8 @@ name: grpcforwardproxy
 		}
 		finish.Wait()
 		assertions.True(0 == count)
-		assertions.True(len(proxy.conns) == 1)
+
+		assertions.True(getSyncMapSize(&proxy.conns) == 1)
 	})
 
 	Convey("test proxy without pool", t, func() {
@@ -123,7 +124,16 @@ name: grpcforwardproxy
 		}
 		finish.Wait()
 		assertions.True(0 == count)
-		assertions.True(len(proxy.conns) == 1)
+		assertions.True(getSyncMapSize(&proxy.conns) == 1)
 	})
 
+}
+
+func getSyncMapSize(m *sync.Map) int {
+	eleNum := 0
+	m.Range(func(key, value any) bool {
+		eleNum++
+		return true
+	})
+	return eleNum
 }

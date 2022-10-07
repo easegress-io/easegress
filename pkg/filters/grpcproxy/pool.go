@@ -43,6 +43,14 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+const (
+	stateNormal    stateType = "normal"
+	stateCloseWait stateType = "close-wait"
+	stateException stateType = "exception"
+)
+
+type stateType string
+
 // serverPoolError is the error returned by handler function of
 // a server pool.
 type serverPoolError struct {
@@ -266,7 +274,7 @@ func (sp *ServerPool) handle(ctx *context.Context) string {
 		resp:    grpcprot.NewResponse(),
 	}
 	defer func() {
-		spCtx.stdw.SetTrailer(spCtx.resp.Trailer().GetMD())
+		spCtx.stdw.SetTrailer(spCtx.resp.RawTrailer().GetMD())
 	}()
 
 	handler := func(stdctx stdcontext.Context) error {
@@ -331,7 +339,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		defer f.ReturnServer(svr)
 	}
 	// maybe be rewrite by grpcserver.MuxPath#rewrite
-	fullMethodName := spCtx.req.Path()
+	fullMethodName := spCtx.req.FullMethod()
 	if fullMethodName == "" {
 		return serverPoolError{status.New(codes.InvalidArgument, "unknown called method from context"), resultClientError}
 	}
@@ -379,16 +387,22 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 	// Explicitly *do not Close* c2sErrChan and c2sErrChan, otherwise the select below will not terminate.
 	// Channels do not have to be closed, it is just a control flow mechanism, see
 	// https://groups.google.com/forum/#!msg/golang-nuts/pZwdYRGxCIk/qpbHxRRPJdUJ
-	c2sErrChan := sp.forwardClientToServer(ctx.stdr, proxyAsClientStream)
-	s2cErrChan := sp.forwardServerToClient(proxyAsClientStream, ctx.stdw, ctx.resp)
+	c2sErrChan := sp.forwardE2E(ctx.stdr, proxyAsClientStream, nil)
+	s2cErrChan := sp.forwardE2E(proxyAsClientStream, ctx.stdw, ctx.resp.RawHeader())
 	// We don't know which side is going to stop sending first, so we need a select between the two.
-	for i := 0; i < 2; i++ {
+	state := stateNormal
+	for state != stateException {
 		select {
 		case c2sErr := <-c2sErrChan:
 			if c2sErr == io.EOF {
 				// this is the happy case where the sender has encountered io.EOF, and won't be sending anymore./
 				// the clientStream>serverStream may continue pumping though.
 				proxyAsClientStream.CloseSend()
+				if state == stateNormal {
+					state = stateCloseWait
+				} else {
+					state = stateException
+				}
 			} else {
 				// however, we may have gotten a receive error (stream disconnected, a read error etc) in which case we need
 				// to cancel the clientStream to the backend, let all of its goroutines be freed up by the CancelFunc and
@@ -415,9 +429,7 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 func (sp *ServerPool) dial(sourceAddr, targetAddr string) (*Conn, error) {
 	// avoid to meet the source addr not change but target changed.
 	key := sp.connectionKey(sourceAddr, targetAddr)
-	sp.proxy.locker.Lock()
-	defer sp.proxy.locker.Unlock()
-	if v, ok := sp.proxy.conns[key]; !ok || v == nil || v.GetState() == connectivity.Shutdown {
+	if v, ok := sp.proxy.conns.Load(key); !ok || v.(*Conn).GetState() == connectivity.Shutdown {
 		t, _ := time.ParseDuration(sp.proxy.spec.ConnectTimeout)
 		timeout, cancelFunc := stdcontext.WithTimeout(stdcontext.Background(), t)
 		defer cancelFunc()
@@ -427,17 +439,21 @@ func (sp *ServerPool) dial(sourceAddr, targetAddr string) (*Conn, error) {
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, err.Error())
 		}
-		if old := sp.proxy.conns[key]; old != nil && !old.isClose {
-			old.isClose = true
+		if old, exist := sp.proxy.conns.Load(key); exist && !old.(*Conn).isClose && old.(*Conn).GetState() == connectivity.Shutdown {
+			old.(*Conn).isClose = true
 		}
-		sp.proxy.conns[key] = &Conn{
+		sp.proxy.conns.Store(key, &Conn{
 			ClientConn: dial,
 			key:        key,
 			proxy:      sp.proxy,
 			isClose:    false,
-		}
+		})
 	}
-	return sp.proxy.conns[key], nil
+	if conn, exist := sp.proxy.conns.Load(key); exist {
+		return conn.(*Conn), nil
+	} else {
+		return nil, status.Error(codes.Internal, "could not borrow conn")
+	}
 
 }
 
@@ -463,52 +479,38 @@ func (sp *ServerPool) close() {
 	sp.wg.Wait()
 }
 
-func (sp *ServerPool) forwardServerToClient(src grpc.ClientStream, dst grpc.ServerStream, response *grpcprot.Response) chan error {
+func (sp *ServerPool) forwardE2E(src grpc.Stream, dst grpc.Stream, header *grpcprot.Header) chan error {
 	ret := make(chan error, 1)
 	go func() {
 		f := &emptypb.Empty{}
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
 				ret <- err // this can be io.EOF which is happy case
-				break
+				return
 			}
 			if i == 0 {
-				// This is a bit of a hack, but client to server headers are only readable after first client msg is
-				// received but must be written to server stream before the first msg is flushed.
-				// This is the only place to do it nicely.
-				md, err := src.Header()
-				if err != nil {
-					ret <- err
-					break
-				}
-				md = metadata.Join(response.RawHeader().GetMD(), md)
+				if cs, ok := src.(grpc.ClientStream); ok {
+					// This is a bit of a hack, but client to server headers are only readable after first client msg is
+					// received but must be written to server stream before the first msg is flushed.
+					// This is the only place to do it nicely.
+					md, err := cs.Header()
+					if err != nil {
+						ret <- err
+						return
+					}
+					if header != nil {
+						md = metadata.Join(header.GetMD(), md)
+					}
 
-				if err := dst.SendHeader(md); err != nil {
-					ret <- err
-					break
+					if err := dst.(grpc.ServerStream).SendHeader(md); err != nil {
+						ret <- err
+						return
+					}
 				}
 			}
 			if err := dst.SendMsg(f); err != nil {
 				ret <- err
-				break
-			}
-		}
-	}()
-	return ret
-}
-
-func (sp *ServerPool) forwardClientToServer(src grpc.ServerStream, dst grpc.ClientStream) chan error {
-	ret := make(chan error, 1)
-	go func() {
-		f := &emptypb.Empty{}
-		for i := 0; ; i++ {
-			if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
-				break
-			}
-			if err := dst.SendMsg(f); err != nil {
-				ret <- err
-				break
+				return
 			}
 		}
 	}()

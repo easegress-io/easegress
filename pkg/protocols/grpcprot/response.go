@@ -50,7 +50,11 @@ func (r *Response) SetTrailer(trailer *Trailer) {
 	r.trailer.md = trailer.md
 }
 
-func (r *Response) Trailer() *Trailer {
+func (r *Response) Trailer() protocols.Trailer {
+	return r.trailer
+}
+
+func (r *Response) RawTrailer() *Trailer {
 	return r.trailer
 }
 

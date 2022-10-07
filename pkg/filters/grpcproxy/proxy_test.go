@@ -104,7 +104,7 @@ pools:
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	assertions.Nil(p.conns)
+	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.NotNil(p.pool)
 
 	s = `
@@ -125,7 +125,7 @@ name: grpcforwardproxy
 	assertions.Nil(p.pool)
 
 	p.Close()
-	assertions.Nil(p.conns)
+	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.Nil(p.pool)
 
 	<-p.closeEvent

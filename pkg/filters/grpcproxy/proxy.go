@@ -26,7 +26,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/connectionpool"
 	grpcpool "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -90,9 +89,7 @@ type (
 		candidatePools []*ServerPool
 
 		pool connectionpool.Pool
-		// locker and conns for not use connection pool
-		locker     sync.Mutex
-		conns      map[string]*Conn
+		conns      sync.Map
 		closeEvent chan struct{}
 	}
 	// Conn is wrapper grpc.ClientConn
@@ -115,40 +112,14 @@ type (
 	}
 )
 
-// monitor 5m timer to remove conn that state is shutdown when
-// Proxy Filter Spec.UseConnectionPool is false
-func (p *Proxy) monitor() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			p.locker.Lock()
-			for addr, conn := range p.conns {
-				if conn.GetState() == connectivity.Shutdown {
-					delete(p.conns, addr)
-					conn.isClose = true
-				}
-			}
-			p.locker.Unlock()
-		case <-p.closeEvent:
-			return
-		}
-	}
-}
-
 // Close to close Conn
 func (c *Conn) Close() {
 	if c.isClose {
 		return
 	}
-	c.proxy.locker.Lock()
-	defer c.proxy.locker.Unlock()
-	defer func() { c.isClose = true }()
-	if c.proxy.conns[c.key] != c {
-		return
+	if v, loaded := c.proxy.conns.Load(c.key); loaded && v.(*Conn) == c {
+		c.proxy.conns.Delete(c.key)
 	}
-	delete(c.proxy.conns, c.key)
 }
 
 // Validate validates Spec.
@@ -237,10 +208,7 @@ func (p *Proxy) reload() {
 
 	p.closeEvent = make(chan struct{}, 1)
 
-	if !p.spec.UseConnectionPool {
-		p.conns = make(map[string]*Conn)
-		go p.monitor()
-	} else {
+	if p.spec.UseConnectionPool {
 		// already valid in Spec.Validate()
 		borrowTimeout, _ := time.ParseDuration(p.spec.BorrowTimeout)
 		connectTimeout, _ := time.ParseDuration(p.spec.ConnectTimeout)
@@ -271,9 +239,7 @@ func (p *Proxy) Close() {
 	}
 
 	// help gc
-	if !p.spec.UseConnectionPool {
-		p.conns = nil
-	} else {
+	if p.spec.UseConnectionPool {
 		p.pool.Close()
 		p.pool = nil
 	}

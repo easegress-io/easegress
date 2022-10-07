@@ -80,7 +80,7 @@ type Options struct {
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
 	Cluster               ClusterOptions `yaml:"cluster"`
 
-	// Path.
+	// FullMethod.
 	HomeDir   string `yaml:"home-dir"`
 	DataDir   string `yaml:"data-dir"`
 	WALDir    string `yaml:"wal-dir"`
@@ -140,14 +140,14 @@ func New() *Options {
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
 	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
 
-	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "Path to the home directory.")
-	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
-	opt.flags.StringVar(&opt.WALDir, "wal-dir", "", "Path to the WAL directory.")
-	opt.flags.StringVar(&opt.LogDir, "log-dir", "", "Path to the log directory.")
-	opt.flags.StringVar(&opt.MemberDir, "member-dir", "member", "Path to the member directory.")
+	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "FullMethod to the home directory.")
+	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "FullMethod to the data directory.")
+	opt.flags.StringVar(&opt.WALDir, "wal-dir", "", "FullMethod to the WAL directory.")
+	opt.flags.StringVar(&opt.LogDir, "log-dir", "", "FullMethod to the log directory.")
+	opt.flags.StringVar(&opt.MemberDir, "member-dir", "member", "FullMethod to the member directory.")
 
-	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
-	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
+	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "FullMethod to the CPU profile file.")
+	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "FullMethod to the memory profile file.")
 
 	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
 

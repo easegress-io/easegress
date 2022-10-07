@@ -535,7 +535,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	ip := req.RealIP()
 
-	// The key of the cache is req.Host + req.Method + req.URL.Path,
+	// The key of the cache is req.Host + req.Method + req.URL.FullMethod,
 	// and if a path is cached, we are sure it does not contain any
 	// headers.
 	r := mi.getRouteFromCache(req)

@@ -204,14 +204,31 @@ func (r *Request) Context() context.Context {
 	return r.ctx
 }
 
-// Path returns full method name of the grpc request.
+// FullMethod returns full method name of the grpc request.
 // The returned string is in the format of "/service/method"
-func (r *Request) Path() string {
+func (r *Request) FullMethod() string {
 	return r.sts.path
 }
 
-// SetPath sets full method name of the grpc request.
-func (r *Request) SetPath(path string) {
+// Method returns method name of the grpc request.
+func (r *Request) Method() string {
+	if index := strings.LastIndex(r.sts.path, "/"); index != -1 {
+		return r.sts.path[index + 1:]
+	}
+	return r.sts.path
+}
+
+// Service returns service name of the grpc request.
+func (r *Request) Service() string {
+	if index := strings.LastIndex(r.sts.path, "/"); index != -1 {
+		return r.sts.path[0:index]
+	}
+	return r.sts.path
+}
+
+// SetFullMethod sets full method name o
+//f the grpc request.
+func (r *Request) SetFullMethod(path string) {
 	r.sts.setMethod(path)
 }
 

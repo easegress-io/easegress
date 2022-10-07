@@ -233,7 +233,7 @@ func (r *URLMatcher) init() {
 
 // Match matches a request.
 func (r *URLMatcher) Match(req *grpcprot.Request) bool {
-	return r.URL.Match(req.Path())
+	return r.URL.Match(req.FullMethod())
 }
 
 // StringMatcher defines the match rule of a string

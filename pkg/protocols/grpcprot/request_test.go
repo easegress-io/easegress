@@ -46,12 +46,12 @@ func TestPath(t *testing.T) {
 	assertions := assert.New(t)
 	fake := NewFakeServerStream(context.Background())
 	request := NewRequestWithServerStream(fake)
-	assertions.Empty(request.Path())
-	request.SetPath("/abc")
-	assertions.Equal("/abc", request.Path())
+	assertions.Empty(request.FullMethod())
+	request.SetFullMethod("/abc")
+	assertions.Equal("/abc", request.FullMethod())
 	method, ok := grpc.Method(request.Context())
 	assertions.True(ok)
-	assertions.Equal(request.Path(), method)
+	assertions.Equal(request.FullMethod(), method)
 
 }
 
@@ -127,7 +127,7 @@ func TestClone(t *testing.T) {
 	assertions := assert.New(t)
 	src := NewRequestWithServerStream(NewFakeServerStream(context.Background()))
 	src.SetHeader(NewHeader(metadata.New(nil)))
-	src.SetPath("/abc")
+	src.SetFullMethod("/abc")
 	src.SetRealIP("127.0.0.1")
 	src.SetHost("127.0.0.2")
 	src.Header().Set("test", "test")
@@ -135,7 +135,7 @@ func TestClone(t *testing.T) {
 	dst := NewRequestWithContext(src.Context())
 
 	assertions.Equal(src.RealIP(), dst.RealIP())
-	assertions.Equal(src.Path(), dst.Path())
+	assertions.Equal(src.FullMethod(), dst.FullMethod())
 	assertions.Equal(src.Host(), dst.Host())
 	assertions.Equal(src.SourceHost(), src.SourceHost())
 	assertions.NotNil(src.Header())

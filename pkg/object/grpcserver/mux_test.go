@@ -69,14 +69,14 @@ cacheSize: 1
 	sm := grpcprot.NewFakeServerStream(metadata.NewIncomingContext(stdcontext.Background(), metadata.MD{}))
 	req := grpcprot.NewRequestWithServerStream(sm)
 	req.Header().Set(grpcprot.Authority, "127.0.0.1")
-	req.SetPath("/abc")
+	req.SetFullMethod("/abc")
 
 	_, ins := newTestMux(yamlSpec, assert)
 	assert.Equal(codes.PermissionDenied, ins.search(req).code)
 
 	req.SetRealIP("127.0.0.1")
 	r := &route{code: 1}
-	ins.putRouteToCache(req.Host(), req.Path(), r)
+	ins.putRouteToCache(req.Host(), req.FullMethod(), r)
 	assert.True(r == ins.search(req))
 }
 
@@ -96,12 +96,12 @@ ipFilter:
 	sm := grpcprot.NewFakeServerStream(metadata.NewIncomingContext(stdcontext.Background(), metadata.MD{}))
 	req := grpcprot.NewRequestWithServerStream(sm)
 	req.SetRealIP("127.0.0.2")
-	req.SetPath("/abc")
+	req.SetFullMethod("/abc")
 
 	assert.Equal(codes.PermissionDenied, ins.search(req).code)
 
 	req.SetRealIP("127.0.0.3")
-	req.SetPath("/abc")
+	req.SetFullMethod("/abc")
 	assert.Equal(codes.NotFound, ins.search(req).code)
 }
 
@@ -127,17 +127,17 @@ rules:
 	request := grpcprot.NewRequestWithServerStream(sm)
 	request.SetRealIP("127.0.0.1")
 	request.SetHost("127.0.0.1")
-	request.SetPath("/abc")
+	request.SetFullMethod("/abc")
 	search := ins.search(request)
 	assertions.Equal(codes.NotFound, search.code)
 
 	request.SetHost("127.0.0.2")
-	request.SetPath("/abd")
+	request.SetFullMethod("/abd")
 	search = ins.search(request)
 	assertions.Equal(codes.NotFound, search.code)
 
 	request.SetHost("127.0.0.1")
-	request.SetPath("/abd")
+	request.SetFullMethod("/abd")
 	search = ins.search(request)
 	assertions.Equal(codes.OK, search.code)
 	assertions.Equal("test-demo", search.path.backend)
@@ -164,7 +164,7 @@ rules:
 	_, ins := newTestMux(yamlSpec, assertions)
 	req := grpcprot.NewRequestWithServerStream(grpcprot.NewFakeServerStream(stdcontext.Background()))
 	req.SetRealIP("127.0.0.1")
-	req.SetPath("/abc")
+	req.SetFullMethod("/abc")
 	req.Header().Set("array", "3")
 	search := ins.search(req)
 	assertions.Equal(codes.NotFound, search.code)
@@ -181,69 +181,4 @@ rules:
 	req.Header().Add("regex", "1")
 	search = ins.search(req)
 	assertions.Equal(codes.OK, search.code)
-}
-
-func TestPathRewrite(t *testing.T) {
-	assertions := assert.New(t)
-
-	t.Run("rewrite path by path", func(t *testing.T) {
-		yamlSpec := `
-kind: GRPCServer
-maxConnections: 1024
-maxConnectionIdle: 60s
-port: 8850
-name: server-grpc
-rules:
- - paths:
-   - path: /abc
-     rewriteTarget: /abd
-`
-		superSpec, err := supervisor.NewSpec(yamlSpec)
-		assertions.NoError(err)
-		assertions.NotNil(superSpec)
-
-		m := newMux(nil)
-		m.reload(superSpec, &contexttest.MockedMuxMapper{})
-
-		_, ins := newTestMux(yamlSpec, assertions)
-		req := grpcprot.NewRequestWithServerStream(grpcprot.NewFakeServerStream(stdcontext.Background()))
-		req.SetPath("/abc")
-		req.SetRealIP("127.0.0.1")
-
-		search := ins.search(req)
-		search.path.rewrite(req)
-
-		assertions.Equal("/abd", req.Path())
-	})
-
-	t.Run("rewrite path by path prefix", func(t *testing.T) {
-		yamlSpec := `
-kind: GRPCServer
-maxConnections: 1024
-maxConnectionIdle: 60s
-port: 8850
-name: server-grpc
-rules:
- - paths:
-   - pathPrefix: /abc
-     rewriteTarget: /abde
-`
-		superSpec, err := supervisor.NewSpec(yamlSpec)
-		assertions.NoError(err)
-		assertions.NotNil(superSpec)
-
-		m := newMux(nil)
-		m.reload(superSpec, &contexttest.MockedMuxMapper{})
-
-		_, ins := newTestMux(yamlSpec, assertions)
-		req := grpcprot.NewRequestWithServerStream(grpcprot.NewFakeServerStream(stdcontext.Background()))
-		req.SetPath("/abc/abc")
-		req.SetRealIP("127.0.0.1")
-
-		search := ins.search(req)
-		search.path.rewrite(req)
-
-		assertions.Equal("/abde/abc", req.Path())
-	})
-
 }

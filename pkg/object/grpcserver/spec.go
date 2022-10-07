@@ -20,7 +20,6 @@ package grpcserver
 import (
 	"fmt"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 	"regexp"
 )
 
@@ -73,7 +72,6 @@ type (
 		Path           string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
 		PathPrefix     string         `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
 		PathRegexp     string         `json:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		RewriteTarget  string         `json:"rewriteTarget" jsonschema:"omitempty"`
 		Backend        string         `json:"backend" jsonschema:"required"`
 		Headers        []*Header      `json:"headers" jsonschema:"omitempty"`
 		MatchAllHeader bool           `json:"matchAllHeader" jsonschema:"omitempty"`
@@ -97,10 +95,6 @@ func (h *Header) initHeaderRoute() {
 
 // Validate validates Path.
 func (p *Path) Validate() error {
-	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
-		return fmt.Errorf("rewriteTarget is specified but path is empty")
-	}
-
 	return nil
 }
 

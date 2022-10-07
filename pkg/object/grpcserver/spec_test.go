@@ -20,26 +20,8 @@ package grpcserver
 import (
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
-	"strings"
 	"testing"
 )
-
-func TestRewrite(t *testing.T) {
-	assert := assert.New(t)
-	superSpecYaml := `
-name: grpc-server-test
-kind: GRPCServer
-port: 10080
-cacheSize: 200
-rules:
-  - paths:
-    - rewriteTarget: /api
-`
-
-	superSpec, err := supervisor.NewSpec(superSpecYaml)
-	assert.True(strings.Contains(err.Error(), "rewriteTarget is specified but path is empty"))
-	assert.Nil(superSpec)
-}
 
 func TestPort(t *testing.T) {
 	assert := assert.New(t)
