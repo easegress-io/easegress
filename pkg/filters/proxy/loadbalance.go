@@ -62,11 +62,16 @@ type LoadBalanceSpec struct {
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
 func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
+	d, err := time.ParseDuration(spec.StickyExpire)
+	if err != nil {
+		logger.Errorf("failed to parse durataion: %s", spec.StickyExpire)
+	}
+
 	ld := BaseLoadBalancer{
 		Servers:       servers,
 		StickyEnabled: spec.StickyEnabled,
 		StickyCookie:  spec.StickyCookie,
-		StickyExpire:  spec.StickyExpire,
+		StickyExpire:  d,
 	}
 	switch spec.Policy {
 	case LoadBalancePolicyRoundRobin, "":
@@ -89,31 +94,29 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 type BaseLoadBalancer struct {
 	Servers       []*Server
 	StickyEnabled bool
-	StickyExpire  string
+	StickyExpire  time.Duration
 	StickyCookie  string
 }
 
 // ChooseServer chooses the sticky server if enable
 func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) > 0 && lb.StickyEnabled {
-		var key string
-		if lb.StickyCookie != "" {
-			if cookie, err := req.Cookie(lb.StickyCookie); err == nil {
-				key = cookie.Value
-			}
-		} else {
-			if cookie, err := req.Cookie(LoadBalancerStickyCookie); err == nil {
-				key = cookie.Value
-			} else {
-				key = uuid.NewString()
-				req.AddCookie(&http.Cookie{Name: LoadBalancerStickyCookie, Value: key})
-			}
-		}
-		if key != "" {
-			return lb.chooseServerByHash(key)
-		}
+	if len(lb.Servers) == 0 || !lb.StickyEnabled {
+		return nil
 	}
-	return nil
+
+	if lb.StickyCookie != "" {
+		if cookie, err := req.Cookie(lb.StickyCookie); err == nil {
+			return lb.chooseServerByHash(cookie.Value)
+		}
+		return nil
+	}
+
+	cookie, err := req.Cookie(LoadBalancerStickyCookie)
+	if err != nil {
+		cookie = &http.Cookie{Name: LoadBalancerStickyCookie, Value: uuid.NewString()}
+		req.AddCookie(cookie)
+	}
+	return lb.chooseServerByHash(cookie.Value)
 }
 
 // chooseServerByHash choose server using consistent hash on key
@@ -125,15 +128,18 @@ func (lb *BaseLoadBalancer) chooseServerByHash(key string) *Server {
 
 // CustomizeResponse customizes response for sticky session
 func (lb *BaseLoadBalancer) CustomizeResponse(req *httpprot.Request, resp *httpprot.Response) {
-	if lb.StickyEnabled && lb.StickyCookie == "" {
-		if cookie, err := req.Cookie(LoadBalancerStickyCookie); err == nil {
-			// reset expire
-			if d, err := time.ParseDuration(lb.StickyExpire); err == nil {
-				cookie.Expires = time.Now().Add(d)
-			}
-			resp.SetCookie(cookie)
-		}
+	if !lb.StickyEnabled || lb.StickyCookie != "" {
+		return
 	}
+
+	cookie, err := req.Cookie(LoadBalancerStickyCookie)
+	if err != nil {
+		logger.Warnf("cookie not found for: %s", LoadBalancerStickyCookie)
+		return
+	}
+	// reset expire
+	cookie.Expires = time.Now().Add(lb.StickyExpire)
+	resp.SetCookie(cookie)
 }
 
 // randomLoadBalancer does load balancing in a random manner.
