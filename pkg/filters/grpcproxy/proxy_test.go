@@ -109,7 +109,7 @@ name: grpcforwardproxy
 
 	s = `
 kind: GRPCProxy
-useConnectionPool: false
+useConnectionPool: true
 maxConnsPerHost: 1
 borrowTimeout: 2000ms
 connectTimeout: 1000ms
@@ -121,15 +121,10 @@ name: grpcforwardproxy
 `
 
 	p = newTestProxy(s, assertions)
-	assertions.NotNil(p.conns)
-	assertions.Nil(p.pool)
+	assertions.Zero(getSyncMapSize(&p.conns))
+	assertions.NotNil(p.pool)
 
 	p.Close()
 	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.Nil(p.pool)
-
-	<-p.closeEvent
-	_, ok := <-p.closeEvent
-
-	assertions.False(ok)
 }

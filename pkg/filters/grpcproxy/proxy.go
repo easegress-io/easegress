@@ -88,9 +88,8 @@ type (
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
 
-		pool       connectionpool.Pool
-		conns      sync.Map
-		closeEvent chan struct{}
+		pool  connectionpool.Pool
+		conns sync.Map
 	}
 	// Conn is wrapper grpc.ClientConn
 	Conn struct {
@@ -206,8 +205,6 @@ func (p *Proxy) reload() {
 		}
 	}
 
-	p.closeEvent = make(chan struct{}, 1)
-
 	if p.spec.UseConnectionPool {
 		// already valid in Spec.Validate()
 		borrowTimeout, _ := time.ParseDuration(p.spec.BorrowTimeout)
@@ -243,8 +240,6 @@ func (p *Proxy) Close() {
 		p.pool.Close()
 		p.pool = nil
 	}
-	p.closeEvent <- struct{}{}
-	close(p.closeEvent)
 }
 
 // Handle handles GRPCContext.
