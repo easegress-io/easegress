@@ -88,7 +88,7 @@ type (
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
 
-		pool connectionpool.Pool
+		pool       connectionpool.Pool
 		conns      sync.Map
 		closeEvent chan struct{}
 	}

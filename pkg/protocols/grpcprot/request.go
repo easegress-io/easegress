@@ -20,15 +20,16 @@ package grpcprot
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
+	"strings"
+	"sync"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"io"
-	"net"
-	"strings"
-	"sync"
 )
 
 type (
@@ -213,7 +214,7 @@ func (r *Request) FullMethod() string {
 // Method returns method name of the grpc request.
 func (r *Request) Method() string {
 	if index := strings.LastIndex(r.sts.path, "/"); index != -1 {
-		return r.sts.path[index + 1:]
+		return r.sts.path[index+1:]
 	}
 	return r.sts.path
 }
