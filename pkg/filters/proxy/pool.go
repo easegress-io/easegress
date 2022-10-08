@@ -24,22 +24,18 @@ import (
 	"net/http"
 	"net/textproto"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"github.com/megaease/easegress/pkg/util/readers"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 // serverPoolError is the error returned by handler function of
@@ -162,15 +158,12 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 
 // ServerPool defines a server pool.
 type ServerPool struct {
+	BaseServerPool
+
 	proxy        *Proxy
 	spec         *ServerPoolSpec
-	done         chan struct{}
-	wg           sync.WaitGroup
-	name         string
 	failureCodes map[int]struct{}
 
-	filter                RequestMatcher
-	loadBalancer          atomic.Value
 	timeout               time.Duration
 	retryWrapper          resilience.Wrapper
 	circuitBreakerWrapper resilience.Wrapper
@@ -181,18 +174,14 @@ type ServerPool struct {
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
-	SpanName             string              `json:"spanName" jsonschema:"omitempty"`
-	Filter               *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	ServerMaxBodySize    int64               `json:"serverMaxBodySize" jsonschema:"omitempty"`
-	ServerTags           []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers              []*Server           `json:"servers" jsonschema:"omitempty"`
-	ServiceRegistry      string              `json:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName          string              `json:"serviceName" jsonschema:"omitempty"`
-	LoadBalance          *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
-	Timeout              string              `json:"timeout" jsonschema:"omitempty,format=duration"`
-	RetryPolicy          string              `json:"retryPolicy" jsonschema:"omitempty"`
-	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
-	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty" jsonschema:"omitempty"`
+	BaseServerPoolSpec `json:",inline"`
+
+	SpanName             string           `json:"spanName" jsonschema:"omitempty"`
+	ServerMaxBodySize    int64            `json:"serverMaxBodySize" jsonschema:"omitempty"`
+	Timeout              string           `json:"timeout" jsonschema:"omitempty,format=duration"`
+	RetryPolicy          string           `json:"retryPolicy" jsonschema:"omitempty"`
+	CircuitBreakerPolicy string           `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
+	MemoryCache          *MemoryCacheSpec `json:"memoryCache,omitempty" jsonschema:"omitempty"`
 
 	// FailureCodes would be 5xx if it isn't assigned any value.
 	FailureCodes []int `json:"failureCodes" jsonschema:"omitempty,uniqueItems=true"`
@@ -203,48 +192,17 @@ type ServerPoolStatus struct {
 	Stat *httpstat.Status `json:"stat"`
 }
 
-// Validate validates ServerPoolSpec.
-func (sps *ServerPoolSpec) Validate() error {
-	if sps.ServiceName == "" && len(sps.Servers) == 0 {
-		return fmt.Errorf("both serviceName and servers are empty")
-	}
-
-	serversGotWeight := 0
-	for _, server := range sps.Servers {
-		if server.Weight > 0 {
-			serversGotWeight++
-		}
-	}
-	if serversGotWeight > 0 && serversGotWeight < len(sps.Servers) {
-		msgFmt := "not all servers have weight(%d/%d)"
-		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
-	}
-
-	return nil
-}
-
 // NewServerPool creates a new server pool according to spec.
 func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool {
 	sp := &ServerPool{
 		proxy:    proxy,
 		spec:     spec,
-		done:     make(chan struct{}),
-		name:     name,
 		httpStat: httpstat.New(),
 	}
-
-	if spec.Filter != nil {
-		sp.filter = NewRequestMatcher(spec.Filter)
-	}
+	sp.BaseServerPool.Init(proxy.super, name, &spec.BaseServerPoolSpec)
 
 	if spec.MemoryCache != nil {
 		sp.memoryCache = NewMemoryCache(spec.MemoryCache)
-	}
-
-	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
-		sp.createLoadBalancer(sp.spec.Servers)
-	} else {
-		sp.watchServers()
 	}
 
 	if spec.Timeout != "" {
@@ -257,85 +215,6 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	}
 
 	return sp
-}
-
-// LoadBalancer returns the load balancer of the server pool.
-func (sp *ServerPool) LoadBalancer() LoadBalancer {
-	return sp.loadBalancer.Load().(LoadBalancer)
-}
-
-func (sp *ServerPool) createLoadBalancer(servers []*Server) {
-	for _, server := range servers {
-		server.checkAddrPattern()
-	}
-
-	spec := sp.spec.LoadBalance
-	if spec == nil {
-		spec = &LoadBalanceSpec{}
-	}
-
-	lb := NewLoadBalancer(spec, servers)
-	sp.loadBalancer.Store(lb)
-}
-
-func (sp *ServerPool) watchServers() {
-	entity := sp.proxy.super.MustGetSystemController(serviceregistry.Kind)
-	registry := entity.Instance().(*serviceregistry.ServiceRegistry)
-
-	instances, err := registry.ListServiceInstances(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	if err != nil {
-		msgFmt := "first try to use service %s/%s failed(will try again): %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, err)
-		sp.createLoadBalancer(sp.spec.Servers)
-	}
-
-	sp.useService(instances)
-
-	watcher := registry.NewServiceWatcher(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	sp.wg.Add(1)
-	go func() {
-		for {
-			select {
-			case <-sp.done:
-				watcher.Stop()
-				sp.wg.Done()
-				return
-			case event := <-watcher.Watch():
-				sp.useService(event.Instances)
-			}
-		}
-	}()
-}
-
-func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceInstanceSpec) {
-	servers := make([]*Server, 0)
-
-	for _, instance := range instances {
-		// default to true in case of sp.spec.ServerTags is empty
-		match := true
-
-		for _, tag := range sp.spec.ServerTags {
-			if match = stringtool.StrInSlice(tag, instance.Tags); match {
-				break
-			}
-		}
-
-		if match {
-			servers = append(servers, &Server{
-				URL:    instance.URL(),
-				Tags:   instance.Tags,
-				Weight: instance.Weight,
-			})
-		}
-	}
-
-	if len(servers) == 0 {
-		msgFmt := "%s/%s: no service instance satisfy tags: %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, sp.spec.ServerTags)
-		servers = sp.spec.Servers
-	}
-
-	sp.createLoadBalancer(servers)
 }
 
 func (sp *ServerPool) status() *ServerPoolStatus {
@@ -709,9 +588,4 @@ func (sp *ServerPool) inFailureCodes(code int) bool {
 
 	_, exists := sp.failureCodes[code]
 	return exists
-}
-
-func (sp *ServerPool) close() {
-	close(sp.done)
-	sp.wg.Wait()
 }

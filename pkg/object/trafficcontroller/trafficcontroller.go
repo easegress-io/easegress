@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/easemonitor"
 )
 
 const (
@@ -91,8 +92,19 @@ type (
 	}
 )
 
+var _ easemonitor.Metricer = (*TrafficObjectStatus)(nil)
+
 func init() {
 	supervisor.Register(&TrafficController{})
+}
+
+// ToMetrics implements easemonitor.Metricer.
+func (s *TrafficObjectStatus) ToMetrics(service string) []*easemonitor.Metrics {
+	metricer, ok := s.Status.(easemonitor.Metricer)
+	if !ok {
+		return nil
+	}
+	return metricer.ToMetrics(service)
 }
 
 // TrafficNamespace returns the exported system namespace of the internal namespace of TrafficController.

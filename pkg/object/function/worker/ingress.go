@@ -166,8 +166,10 @@ func (b *pipelineSpecBuilder) appendProxy(faasNetworkLayerURL string) *pipelineS
 		"kind": proxy.Kind,
 		"name": backendName,
 		"mainPool": &proxy.ServerPoolSpec{
-			Servers:     mainServers,
-			LoadBalance: lb,
+			BaseServerPoolSpec: proxy.BaseServerPoolSpec{
+				Servers:     mainServers,
+				LoadBalance: lb,
+			},
 		},
 	})
 
