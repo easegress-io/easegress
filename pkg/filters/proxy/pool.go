@@ -438,8 +438,8 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
-	// customise response by load balancer
-	sp.LoadBalancer().CustomizeResponse(spCtx.req, spCtx.resp)
+	// manipulate by load balancer
+	sp.LoadBalancer().Manipulate(svr, spCtx.req, spCtx.resp)
 
 	spCtx.LazyAddTag(func() string {
 		return fmt.Sprintf("status code: %d", resp.StatusCode)

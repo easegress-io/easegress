@@ -41,37 +41,40 @@ const (
 	LoadBalancePolicyIPHash = "ipHash"
 	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
 	LoadBalancePolicyHeaderHash = "headerHash"
-	// LoadBalancerStickyCookie is the cookie name used for sticky session
-	LoadBalancerStickyCookie = "EASEGRESS_SESSION"
+	// LoadBalancerGeneratedCookieName is the generated cookie name used for sticky session
+	LoadBalancerGeneratedCookieName = "EASEGRESS_SESSION"
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
-	CustomizeResponse(req *httpprot.Request, resp *httpprot.Response)
+	Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response)
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
-	HeaderHashKey string `json:"headerHashKey" jsonschema:"omitempty"`
-	StickyEnabled bool   `json:"stickyEnabled" jsonschema:"omitempty"`
-	StickyCookie  string `json:"stickyCookie" jsonschema:"omitempty"`
-	StickyExpire  string `json:"stickyExpire" jsonschema:"omitempty,format=duration"`
+	Policy                   string `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	HeaderHashKey            string `json:"headerHashKey" jsonschema:"omitempty"`
+	StickinessEnabled        bool   `json:"stickinessEnabled" jsonschema:"omitempty"`
+	StickinessAppCookieName  string `json:"stickinessAppCookieName" jsonschema:"omitempty"`
+	StickinessLbCookieExpire string `json:"stickinessLbCookieExpire" jsonschema:"omitempty,format=duration"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
 func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
-	d, err := time.ParseDuration(spec.StickyExpire)
+	d, err := time.ParseDuration(spec.StickinessLbCookieExpire)
 	if err != nil {
-		logger.Errorf("failed to parse durataion: %s", spec.StickyExpire)
+		logger.Errorf("failed to parse duration: %s", spec.StickinessLbCookieExpire)
+	}
+	if spec.StickinessAppCookieName == LoadBalancerGeneratedCookieName {
+		logger.Errorf("can't use system cookie name: %s", LoadBalancerGeneratedCookieName)
 	}
 
 	ld := BaseLoadBalancer{
-		Servers:       servers,
-		StickyEnabled: spec.StickyEnabled,
-		StickyCookie:  spec.StickyCookie,
-		StickyExpire:  d,
+		Servers:                  servers,
+		StickinessEnabled:        spec.StickinessEnabled,
+		StickinessAppCookieName:  spec.StickinessAppCookieName,
+		StickinessLbCookieExpire: d,
 	}
 	switch spec.Policy {
 	case LoadBalancePolicyRoundRobin, "":
@@ -92,28 +95,28 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 
 // BaseLoadBalancer implement the common part of load balancer.
 type BaseLoadBalancer struct {
-	Servers       []*Server
-	StickyEnabled bool
-	StickyExpire  time.Duration
-	StickyCookie  string
+	Servers                  []*Server
+	StickinessEnabled        bool
+	StickinessAppCookieName  string
+	StickinessLbCookieExpire time.Duration
 }
 
 // ChooseServer chooses the sticky server if enable
 func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 || !lb.StickyEnabled {
+	if len(lb.Servers) == 0 || !lb.StickinessEnabled {
 		return nil
 	}
 
-	if lb.StickyCookie != "" {
-		if cookie, err := req.Cookie(lb.StickyCookie); err == nil {
+	if lb.StickinessAppCookieName != "" {
+		if cookie, err := req.Cookie(lb.StickinessAppCookieName); err == nil {
 			return lb.chooseServerByHash(cookie.Value)
 		}
 		return nil
 	}
 
-	cookie, err := req.Cookie(LoadBalancerStickyCookie)
+	cookie, err := req.Cookie(LoadBalancerGeneratedCookieName)
 	if err != nil {
-		cookie = &http.Cookie{Name: LoadBalancerStickyCookie, Value: uuid.NewString()}
+		cookie = &http.Cookie{Name: LoadBalancerGeneratedCookieName, Value: uuid.NewString()}
 		req.AddCookie(cookie)
 	}
 	return lb.chooseServerByHash(cookie.Value)
@@ -126,19 +129,19 @@ func (lb *BaseLoadBalancer) chooseServerByHash(key string) *Server {
 	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
 
-// CustomizeResponse customizes response for sticky session
-func (lb *BaseLoadBalancer) CustomizeResponse(req *httpprot.Request, resp *httpprot.Response) {
-	if !lb.StickyEnabled || lb.StickyCookie != "" {
+// Manipulate customizes response for sticky session
+func (lb *BaseLoadBalancer) Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response) {
+	if !lb.StickinessEnabled || lb.StickinessAppCookieName != "" {
 		return
 	}
 
-	cookie, err := req.Cookie(LoadBalancerStickyCookie)
+	cookie, err := req.Cookie(LoadBalancerGeneratedCookieName)
 	if err != nil {
-		logger.Warnf("cookie not found for: %s", LoadBalancerStickyCookie)
+		logger.Warnf("cookie not found for: %s", LoadBalancerGeneratedCookieName)
 		return
 	}
 	// reset expire
-	cookie.Expires = time.Now().Add(lb.StickyExpire)
+	cookie.Expires = time.Now().Add(lb.StickinessLbCookieExpire)
 	resp.SetCookie(cookie)
 }
 
