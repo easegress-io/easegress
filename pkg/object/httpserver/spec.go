@@ -89,6 +89,7 @@ type (
 		Headers           []*Header      `json:"headers" jsonschema:"omitempty"`
 		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
 		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
+		Queries           []*Query       `json:"queries,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
@@ -100,6 +101,15 @@ type (
 		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
 		headerRE *regexp.Regexp
+	}
+
+	// Query is the third level entry
+	Query struct {
+		Key    string   `json:"key" jsonschema:"required"`
+		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
+
+		queryRE *regexp.Regexp
 	}
 )
 
@@ -207,6 +217,18 @@ func (h *Header) Validate() error {
 func (p *Path) Validate() error {
 	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
 		return fmt.Errorf("rewriteTarget is specified but path is empty")
+	}
+
+	return nil
+}
+
+func (q *Query) initQueryRoute() {
+	q.queryRE = regexp.MustCompile(q.Regexp)
+}
+
+func (q *Query) Validate() error {
+	if len(q.Values) == 0 && q.Regexp == "" {
+		return fmt.Errorf("both of values and regexp are empty for key: %s", q.Key)
 	}
 
 	return nil

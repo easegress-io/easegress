@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -180,6 +181,26 @@ func TestMuxPath(t *testing.T) {
 	assert.NotNil(mp)
 	mp.rewrite(req)
 	assert.Equal("/1abz", req.Path())
+
+	// 5. match query
+	stdr.URL.RawQuery = "q=v1&q=v2"
+	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+		Key:    "q",
+		Values: []string{"v1", "v2"},
+	}}})
+	assert.True(mp.matchQueries(req))
+
+	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+		Key:    "q",
+		Regexp: "v[0-9]",
+	}}})
+	assert.True(mp.matchQueries(req))
+
+	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+		Key:    "q2",
+		Values: []string{"v1", "v2"},
+	}}})
+	assert.False(mp.matchQueries(req))
 }
 
 func TestMuxReload(t *testing.T) {
@@ -401,6 +422,40 @@ rules:
       values: ["true"]
     matchAllHeader: true
     backend: 123-pipeline
+  - path: /queryParams
+    methods: [GET]
+    queries:
+    - key: "q"
+      values: ["v1", "v2"]
+    backend: 123-pipeline
+  - path: /queryParamsMultiKey
+    methods: [GET]
+    queries:
+    - key: "q"
+      values: ["v1", "v2"]
+    - key: "q2"
+      values: ["v3", "v4"]
+    backend: 123-pipeline
+  - path: /queryParamsRegexp
+    methods: [GET]
+    queries:
+    - key: "q2"
+      regexp: "^v[0-9]$"
+    backend: 123-pipeline
+  - path: /queryParamsRegexpAndValues
+    methods: [GET]
+    queries:
+    - key: "q3"
+      values: ["v1", "v2"]
+      regexp: "^v[0-9]$"
+    backend: 123-pipeline
+  - path: /queryParamsRegexpAndValues2
+    methods: [GET]
+    queries:
+    - key: "id"
+      values: ["011"]
+      regexp: "[0-9]+"
+    backend: 123-pipeline
 `
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -486,4 +541,100 @@ rules:
 	stdr.Header.Set("AllMatch", "false")
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(400, mi.search(req).code)
+
+	// query string single key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
+	v := url.Values{"q": []string{"v1"}}
+	stdr.URL.RawQuery = v.Encode()
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string single key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
+	v = url.Values{"q": []string{"v1", "v2"}}
+	stdr.URL.RawQuery = v.Encode()
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string single key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
+	stdr.URL.RawQuery = "q=v1"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string multi key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
+	v = url.Values{"q": []string{"v1", "v3"}, "q2": []string{"v6"}}
+	stdr.URL.RawQuery = v.Encode()
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string multi key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
+	v = url.Values{"q": []string{"v1", "v3"}}
+	stdr.URL.RawQuery = v.Encode()
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string multi key
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
+	v = url.Values{"q": []string{"v1", "v3"}, "q2": []string{"v3"}}
+	stdr.URL.RawQuery = v.Encode()
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexp", http.NoBody)
+	stdr.URL.RawQuery = "q2=v1"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexp", http.NoBody)
+	stdr.URL.RawQuery = "q2=vv"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
+	stdr.URL.RawQuery = "q3=v2"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
+	stdr.URL.RawQuery = "q3=v1&q3=v4"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
+	stdr.URL.RawQuery = "q3=v4"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
+	stdr.URL.RawQuery = "q3=v4"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
+	stdr.URL.RawQuery = "id=011&&id=baz"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
+	stdr.URL.RawQuery = "id=baz&&id=011"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
+	// query string values and regexp
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
+	stdr.URL.RawQuery = "id=baz"
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(400, mi.search(req).code)
+
 }

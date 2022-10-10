@@ -93,6 +93,7 @@ type (
 		headers           []*Header
 		clientMaxBodySize int64
 		matchAllHeader    bool
+		queries           []*Query
 	}
 
 	route struct {
@@ -219,6 +220,10 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		p.initHeaderRoute()
 	}
 
+	for _, q := range path.Queries {
+		q.initQueryRoute()
+	}
+
 	return &MuxPath{
 		ipFilter:      newIPFilter(path.IPFilter),
 		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
@@ -233,6 +238,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		headers:           path.Headers,
 		clientMaxBodySize: path.ClientMaxBodySize,
 		matchAllHeader:    path.MatchAllHeader,
+		queries:           path.Queries,
 	}
 }
 
@@ -312,6 +318,25 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 	}
 
 	return mp.matchAllHeader
+}
+
+func (mp *MuxPath) matchQueries(r *httpprot.Request) bool {
+	if len(mp.queries) == 0 {
+		return true
+	}
+	query := r.URL().Query()
+	for _, q := range mp.queries {
+		v := query.Get(q.Key)
+		if len(q.Values) > 0 && !stringtool.StrInSlice(v, q.Values) {
+			return false
+		}
+
+		if q.Regexp != "" && !q.queryRE.MatchString(v) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
@@ -544,7 +569,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 }
 
 func (mi *muxInstance) search(req *httpprot.Request) *route {
-	headerMismatch, methodMismatch := false, false
+	headerMismatch, methodMismatch, queryMismatch := false, false, false
 
 	ip := req.RealIP()
 
@@ -588,15 +613,22 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// The path can be put into the cache if it has no headers.
-			if len(path.headers) == 0 {
+			// only if headers and query are empty, we can cache the result.
+			if len(path.headers) == 0 && len(path.queries) == 0 {
 				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
-			} else if !path.matchHeaders(req) {
+			}
+
+			if len(path.headers) > 0 && !path.matchHeaders(req) {
 				headerMismatch = true
 				continue
 			}
 
+			if len(path.queries) > 0 && !path.matchQueries(req) {
+				queryMismatch = true
+				continue
+			}
+			
 			if !allowIP(path.ipFilter, ip) {
 				return forbidden
 			}
@@ -605,7 +637,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 		}
 	}
 
-	if headerMismatch {
+	if headerMismatch || queryMismatch {
 		return badRequest
 	}
 
