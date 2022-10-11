@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/Shopify/sarama v1.36.0
-	github.com/bytecodealliance/wasmtime-go v0.33.1
+	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/fatih/color v1.13.0
 	github.com/fsnotify/fsnotify v1.5.4
