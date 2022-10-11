@@ -30,12 +30,10 @@ import (
 
 // WasmVM represents a wasm VM
 type WasmVM struct {
-	host  *WasmHost
-	ctx   *context.Context
-	store *wasmtime.Store
-	inst  *wasmtime.Instance
-	//https://github.com/bytecodealliance/wasmtime/pull/3925
-	//ih      *wasmtime.InterruptHandle
+	host    *WasmHost
+	ctx     *context.Context
+	store   *wasmtime.Store
+	inst    *wasmtime.Instance
 	fnRun   *wasmtime.Func
 	fnAlloc *wasmtime.Func
 	fnFree  *wasmtime.Func
