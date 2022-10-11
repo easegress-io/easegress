@@ -109,7 +109,7 @@ type (
 		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
 		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
-		queryRE *regexp.Regexp
+		re *regexp.Regexp
 	}
 )
 
@@ -223,7 +223,9 @@ func (p *Path) Validate() error {
 }
 
 func (q *Query) initQueryRoute() {
-	q.queryRE = regexp.MustCompile(q.Regexp)
+	if q.Regexp != "" {
+		q.re = regexp.MustCompile(q.Regexp)
+	}
 }
 
 func (q *Query) Validate() error {

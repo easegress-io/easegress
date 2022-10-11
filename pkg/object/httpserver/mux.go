@@ -331,7 +331,7 @@ func (mp *MuxPath) matchQueries(r *httpprot.Request) bool {
 			return false
 		}
 
-		if q.Regexp != "" && !q.queryRE.MatchString(v) {
+		if q.Regexp != "" && !q.re.MatchString(v) {
 			return false
 		}
 	}
@@ -575,7 +575,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
-	// headers.
+	// headers or any queries.
 	r := mi.getRouteFromCache(req)
 	if r != nil {
 		if r.code != 0 {
@@ -628,7 +628,7 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				queryMismatch = true
 				continue
 			}
-			
+
 			if !allowIP(path.ipFilter, ip) {
 				return forbidden
 			}
