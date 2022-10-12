@@ -55,6 +55,9 @@
   - [ResultBuilder](#resultbuilder)
     - [Configuration](#configuration-17)
     - [Results](#results-17)
+  - [DataBuilder](#databuilder)
+    - [Configuration](#configuration-18)
+    - [Results](#results-18)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -946,6 +949,73 @@ filters:
 | result0 <td rowspan="3">Results defined and returned by the template .</td> |
 | ...                                                                         |
 | result9                                                                     |
+
+## DataBuilder
+
+DataBuilder is used to manipulate and store data. The data from the previous
+filter can be transformed and stored in the context so that the data can be
+used in subsequent filters.
+
+For example, we can use DataBuilder to store token from login request, and
+use the token in subsequent requests.
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: loginRequestBuilder
+- filter: tokenDataBuilder
+- filter: actionRequestBuilder
+- filter: END
+
+filters:
+- name: loginRequestBuilder
+  kind: RequestBuilder
+  template: |
+    method: POST
+    url: https://example.com/login
+    body: |
+      {
+        "username": "{{.requests.DEFAULT.JSONBody.username}}",
+        "password": "{{.requests.DEFAULT.JSONBody.password}}"
+      }
+
+- name: tokenDataBuilder
+  kind: DataBuilder
+  dataKey: token
+  template: |
+    {{.responses.DEFAULT.JSONBody.token.text | jsonEscape}}
+
+- name: actionRequestBuilder
+  kind: RequestBuilder
+  template: |
+    method: POST
+    url: https://example.com/perfromAction
+    headers:
+      Content-Type: application/json
+      Authorization: "Bearer {{.data.token}}"
+    body: |
+      {
+        "action": "doSomething"
+      }
+```
+
+### Configuration
+
+| Name            | Type   | Description                                   | Required |
+|-----------------|--------|-----------------------------------------------|----------|
+| template        | string | template to create data, please refer the [template](#template-of-builer-filters) for more information        | Yes      |
+| dataKey         | string | key to store data        | Yes      |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+
+
+### Results
+
+| Value                                                                       | Description                                        |
+| --------------------------------------------------------------------------- | -------------------------------------------------- |
+| buildErr                                                                    | Error happens when build the result.               |
+
 
 ## Common Types
 
