@@ -640,8 +640,8 @@ github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51 h1:ds9Nu9RwQWIHXM/e72
 github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51/go.mod h1:HXpNE79BzPq3UumCELwGB7E9HD9Ie10D2o3e56CGkdE=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
-github.com/lucas-clemente/quic-go v0.29.0 h1:Vw0mGTfmWqGzh4jx/kMymsIkFK6rErFVmg+t9RLrnZE=
-github.com/lucas-clemente/quic-go v0.29.0/go.mod h1:CTcNfLYJS2UuRNB+zcNlgvkjBhxX6Hm3WUxxAQx2mgE=
+github.com/lucas-clemente/quic-go v0.29.1 h1:Z+WMJ++qMLhvpFkRZA+jl3BTxUjm415YBmWanXB8zP0=
+github.com/lucas-clemente/quic-go v0.29.1/go.mod h1:CTcNfLYJS2UuRNB+zcNlgvkjBhxX6Hm3WUxxAQx2mgE=
 github.com/magiconair/properties v1.8.1/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/magiconair/properties v1.8.5/go.mod h1:y3VJvCyxH9uVvJTWEGAELF3aiYNyPKd5NZ3oSwXrF60=
 github.com/magiconair/properties v1.8.6 h1:5ibWZ6iY0NctNGWo87LalDlEZ6R41TqbbDamhfG/Qzo=

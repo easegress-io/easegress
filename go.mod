@@ -29,7 +29,7 @@ require (
 	github.com/libdns/libdns v0.2.1
 	github.com/libdns/route53 v1.2.2
 	github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51
-	github.com/lucas-clemente/quic-go v0.29.0
+	github.com/lucas-clemente/quic-go v0.29.1
 	github.com/megaease/easemesh-api v1.4.3
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.5.1
