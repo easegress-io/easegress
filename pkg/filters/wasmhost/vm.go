@@ -34,7 +34,6 @@ type WasmVM struct {
 	ctx     *context.Context
 	store   *wasmtime.Store
 	inst    *wasmtime.Instance
-	ih      *wasmtime.InterruptHandle
 	fnRun   *wasmtime.Func
 	fnAlloc *wasmtime.Func
 	fnFree  *wasmtime.Func
@@ -42,7 +41,7 @@ type WasmVM struct {
 
 // Interrupt interrupts the execution of wasm code
 func (vm *WasmVM) Interrupt() {
-	vm.ih.Interrupt()
+	vm.store.Engine.IncrementEpoch()
 }
 
 // Run executes the wasm code
@@ -105,17 +104,13 @@ func (vm *WasmVM) callInit(params []string) (err error) {
 
 func newWasmVM(host *WasmHost, engine *wasmtime.Engine, module *wasmtime.Module, params []string) (*WasmVM, error) {
 	store := wasmtime.NewStore(engine)
-	ih, e := store.InterruptHandle()
-	if e != nil {
-		return nil, e
-	}
-
-	vm := &WasmVM{host: host, store: store, ih: ih}
+	store.SetEpochDeadline(1)
+	vm := &WasmVM{host: host, store: store}
 
 	linker := wasmtime.NewLinker(engine)
 	vm.importHostFuncs(linker)
 
-	e = linker.DefineWasi()
+	e := linker.DefineWasi()
 	if e != nil {
 		return nil, e
 	}
@@ -150,7 +145,7 @@ type WasmVMPool struct {
 // NewWasmVMPool creates a wasm VM pool according the spec of 'host' which execute 'code'
 func NewWasmVMPool(host *WasmHost, code []byte) (*WasmVMPool, error) {
 	cfg := wasmtime.NewConfig()
-	cfg.SetInterruptable(true)
+	cfg.SetEpochInterruption(true)
 	engine := wasmtime.NewEngineWithConfig(cfg)
 	module, e := wasmtime.NewModule(engine, code)
 	if e != nil {
