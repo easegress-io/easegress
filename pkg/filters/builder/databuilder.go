@@ -114,7 +114,7 @@ func (db *DataBuilder) Handle(ctx *context.Context) (result string) {
 
 	var r interface{}
 	if err = db.build(data, &r); err != nil {
-		msgFmt := "DataBuilder(%s): failed to build request info: %v"
+		msgFmt := "DataBuilder(%s): failed to build data: %v"
 		logger.Warnf(msgFmt, db.Name(), err)
 		return resultBuildErr
 	}
