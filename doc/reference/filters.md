@@ -957,7 +957,7 @@ filter can be transformed and stored in the context so that the data can be
 used in subsequent filters.
 
 For example, we can use DataBuilder to store token from login request, and
-use the token in subsequent requests.
+use the token in subsequent filters.
 
 ```yaml
 name: demo-pipeline
