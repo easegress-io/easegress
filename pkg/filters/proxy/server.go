@@ -31,11 +31,17 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
+	slots          map[int]bool
 }
 
 // String implements the Stringer interface.
 func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
+}
+
+// ID return identifier for server
+func (s *Server) ID() string {
+	return s.URL
 }
 
 // checkAddrPattern checks whether the server address is host name or ip:port,

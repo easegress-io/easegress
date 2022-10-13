@@ -31,8 +31,10 @@ import (
 func prepareServers(count int) []*Server {
 	svrs := make([]*Server, 0, count)
 	for i := 0; i < count; i++ {
-		svrs = append(svrs, &Server{Weight: i + 1})
+		svrs = append(svrs, &Server{Weight: i + 1, URL: fmt.Sprintf("192.168.1.%d", i+1)})
 	}
+	sp := NewServerPool(nil, &ServerPoolSpec{}, "test")
+	sp.allocateSlots(svrs)
 	return svrs
 }
 

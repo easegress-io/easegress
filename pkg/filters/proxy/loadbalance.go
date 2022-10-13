@@ -122,11 +122,17 @@ func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	return lb.chooseServerByHash(cookie.Value)
 }
 
-// chooseServerByHash choose server using consistent hash on key
+// chooseServerByHash choose server using consistent hash
 func (lb *BaseLoadBalancer) chooseServerByHash(key string) *Server {
 	hash := murmur3.New32()
 	hash.Write([]byte(key))
-	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
+	slot := (int)(hash.Sum32() % SlotSize)
+	for _, svr := range lb.Servers {
+		if svr.slots[slot] {
+			return svr
+		}
+	}
+	panic(fmt.Errorf("BUG: should not run to here, key=%s, slot=%d", key, slot))
 }
 
 // Manipulate customizes response for sticky session
