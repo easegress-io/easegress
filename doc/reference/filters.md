@@ -1012,9 +1012,9 @@ filters:
 
 ### Results
 
-| Value                                                                       | Description                                        |
-| --------------------------------------------------------------------------- | -------------------------------------------------- |
-| buildErr                                                                    | Error happens when build the result.               |
+| Value           | Description                                       |
+|-----------------|---------------------------------------------------|
+| buildErr        | Error happens when building the data              |
 
 
 ## Common Types
