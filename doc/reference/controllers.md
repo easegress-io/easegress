@@ -466,8 +466,9 @@ enableDNS01: true
 domains:
   - name: "*.megaease.com"
     dnsProvider:
-      name: alidns
+      name: dnspod
       zone: megaease.com
+      apiToken: <token value>
 ```
 
 | Name            | Type                                       | Description                                                                          | Required                           |
