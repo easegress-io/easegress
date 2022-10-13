@@ -24,24 +24,11 @@ const (
 
 // SlotHash define a slot hash
 type SlotHash struct {
-	slots   *[]string
-	servers []*Server
-	slotses map[string][]int
-	sizes   map[string]int
-}
-
-// init inits the slots map and counts size for servers
-func (s *SlotHash) init() {
-	if *s.slots == nil {
-		*s.slots = make([]string, SlotSize)
-	}
-	l := len(s.servers)
-	s.slotses, s.sizes = make(map[string][]int, l), make(map[string]int, l)
-	for i, svr := range s.servers {
-		id := svr.ID()
-		s.slotses[id] = make([]int, 0, SlotSize/l+1)
-		s.sizes[id] = size(SlotSize, l, i+1)
-	}
+	slots    *[]string
+	servers  []*Server
+	slotses  map[string][]int
+	sizes    map[string]int
+	recycles []int
 }
 
 // size counts size for total and group with pos
@@ -53,37 +40,54 @@ func size(total, group, pos int) int {
 	return size
 }
 
-// remain remains slots by consistent and size
-func (s *SlotHash) remain() {
+// init inits the slots map and counts size for servers
+func (s *SlotHash) init() bool {
+	if len(s.servers) == 0 {
+		return false
+	}
+
+	if *s.slots == nil {
+		*s.slots = make([]string, SlotSize)
+	}
+	l := len(s.servers)
+	s.slotses = make(map[string][]int, l)
+	s.sizes = make(map[string]int, l)
+	for i, svr := range s.servers {
+		id := svr.ID()
+		s.slotses[id] = make([]int, 0)
+		s.sizes[id] = size(SlotSize, l, i+1)
+	}
+	return true
+}
+
+// recycle recycles slots for empty, lost and overflow
+func (s *SlotHash) recycle() bool {
 	for pos, id := range *s.slots {
-		slots := s.slotses[id]
-		if slots != nil && len(slots) < s.sizes[id] {
-			// remain consistent slot
-			s.slotses[id] = append(slots, pos)
+		if id == "" || s.slotses[id] == nil || len(s.slotses[id]) >= s.sizes[id] {
+			s.recycles = append(s.recycles, pos)
 		} else {
-			// free slot for lost and redundant server
-			(*s.slots)[pos] = ""
+			s.slotses[id] = append(s.slotses[id], pos)
 		}
 	}
+	return len(s.recycles) > 0
 }
 
 // fillup fills up slots for lacking servers
 func (s *SlotHash) fillup() {
-	pos := 0
 	for _, svr := range s.servers {
 		id := svr.ID()
 		slots := s.slotses[id]
-		for i := len(slots); i < s.sizes[id]; i++ {
-			// find empty slot and fill server
-			for ; ; pos++ {
-				if (*s.slots)[pos] == "" {
-					(*s.slots)[pos] = id
-					slots = append(slots, pos)
-					pos++
-					break
-				}
-			}
+		fill := s.sizes[id] - len(slots)
+		if fill == 0 {
+			continue
 		}
+
+		// fill slots from recycles
+		for i := 0; i < fill; i++ {
+			slots = append(slots, s.recycles[i])
+			(*s.slots)[s.recycles[i]] = id
+		}
+		s.recycles = s.recycles[fill:]
 
 		// update slots for servers
 		svrSlots := make(map[int]bool, len(slots))
@@ -96,7 +100,11 @@ func (s *SlotHash) fillup() {
 
 // hash distributes slots using consistent hash for servers
 func (s *SlotHash) hash() {
-	s.init()
-	s.remain()
+	if !s.init() {
+		return
+	}
+	if !s.recycle() {
+		return
+	}
 	s.fillup()
 }
