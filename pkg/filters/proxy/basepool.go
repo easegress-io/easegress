@@ -28,6 +28,11 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+const (
+	// SlotSize is the size of slots
+	SlotSize = 1024
+)
+
 // BaseServerPool defines a server pool.
 type BaseServerPool struct {
 	name         string
@@ -35,6 +40,7 @@ type BaseServerPool struct {
 	wg           sync.WaitGroup
 	filter       RequestMatcher
 	loadBalancer atomic.Value
+	slots        []string
 }
 
 // BaseServerPoolSpec is the spec for a base server pool.
@@ -115,6 +121,62 @@ func (bsp *BaseServerPool) LoadBalancer() LoadBalancer {
 	return bsp.loadBalancer.Load().(LoadBalancer)
 }
 
+// allocateSlots allocates slots for servers
+func (bsp *BaseServerPool) allocateSlots(servers []*Server) {
+	// calculate size
+	if bsp.slots == nil {
+		bsp.slots = make([]string, SlotSize)
+	}
+	slotL, svrL := len(bsp.slots), len(servers)
+	slotses, sizes := make(map[string][]int, svrL), make(map[string]int, svrL)
+	for i, svr := range servers {
+		id := svr.ID()
+		slotses[id] = make([]int, 0, slotL/svrL+1)
+		divisor, remainder := slotL/svrL, slotL%svrL
+		if remainder >= (i + 1) {
+			divisor++
+		}
+		sizes[id] = divisor
+	}
+
+	// remain and free slots
+	for pos, id := range bsp.slots {
+		slots := slotses[id]
+		if slots != nil && len(slots) < sizes[id] {
+			// remain consistent slot
+			slotses[id] = append(slots, pos)
+		} else {
+			// free slot for lost and redundant server
+			bsp.slots[pos] = ""
+		}
+	}
+
+	// allocate slots to lacks
+	pos := 0
+	for _, svr := range servers {
+		id := svr.ID()
+		slots := slotses[id]
+		for i := len(slots); i < sizes[id]; i++ {
+			for ; ; pos++ {
+				if pos >= slotL {
+					break
+				}
+				if bsp.slots[pos] == "" {
+					bsp.slots[pos] = id
+					slots = append(slots, pos)
+					pos++
+					break
+				}
+			}
+		}
+		svrSlots := make(map[int]bool, len(slots))
+		for _, slot := range slots {
+			svrSlots[slot] = true
+		}
+		svr.slots = svrSlots
+	}
+}
+
 func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {
 	for _, server := range servers {
 		server.checkAddrPattern()
@@ -124,6 +186,7 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 		spec = &LoadBalanceSpec{}
 	}
 
+	bsp.allocateSlots(servers)
 	lb := NewLoadBalancer(spec, servers)
 	bsp.loadBalancer.Store(lb)
 }
