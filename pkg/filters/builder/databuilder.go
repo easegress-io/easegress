@@ -27,7 +27,7 @@ import (
 
 const (
 	// DataBuilderKind is the kind of DataBuilder.
-	DataBuilderKind = "DataBuilderKind"
+	DataBuilderKind = "DataBuilder"
 )
 
 var dataBuilderKind = &filters.Kind{
@@ -75,36 +75,36 @@ func (spec *DataBuilderSpec) Validate() error {
 }
 
 // Name returns the name of the DataBuilder filter instance.
-func (rb *DataBuilder) Name() string {
-	return rb.spec.Name()
+func (db *DataBuilder) Name() string {
+	return db.spec.Name()
 }
 
 // Kind returns the kind of DataBuilder.
-func (rb *DataBuilder) Kind() *filters.Kind {
+func (db *DataBuilder) Kind() *filters.Kind {
 	return dataBuilderKind
 }
 
 // Spec returns the spec used by the DataBuilder
-func (rb *DataBuilder) Spec() filters.Spec {
-	return rb.spec
+func (db *DataBuilder) Spec() filters.Spec {
+	return db.spec
 }
 
 // Init initializes DataBuilder.
-func (rb *DataBuilder) Init() {
-	rb.reload()
+func (db *DataBuilder) Init() {
+	db.reload()
 }
 
 // Inherit inherits previous generation of DataBuilder.
-func (rb *DataBuilder) Inherit(previousGeneration filters.Filter) {
-	rb.Init()
+func (db *DataBuilder) Inherit(previousGeneration filters.Filter) {
+	db.Init()
 }
 
-func (rb *DataBuilder) reload() {
-	rb.Builder.reload(&rb.spec.Spec)
+func (db *DataBuilder) reload() {
+	db.Builder.reload(&db.spec.Spec)
 }
 
 // Handle builds request.
-func (rb *DataBuilder) Handle(ctx *context.Context) (result string) {
+func (db *DataBuilder) Handle(ctx *context.Context) (result string) {
 	data, err := prepareBuilderData(ctx)
 
 	if err != nil {
@@ -113,12 +113,12 @@ func (rb *DataBuilder) Handle(ctx *context.Context) (result string) {
 	}
 
 	var r interface{}
-	if err = rb.build(data, &r); err != nil {
+	if err = db.build(data, &r); err != nil {
 		msgFmt := "DataBuilder(%s): failed to build request info: %v"
-		logger.Warnf(msgFmt, rb.Name(), err)
+		logger.Warnf(msgFmt, db.Name(), err)
 		return resultBuildErr
 	}
 
-	ctx.SetData(rb.spec.DataKey, r)
+	ctx.SetData(db.spec.DataKey, r)
 	return ""
 }
