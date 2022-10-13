@@ -956,48 +956,15 @@ DataBuilder is used to manipulate and store data. The data from the previous
 filter can be transformed and stored in the context so that the data can be
 used in subsequent filters.
 
-For example, we can use DataBuilder to store token from login request, and
-use the token in subsequent filters.
+The example below shows how to use DataBuilder to store the request body in
+the context.
 
 ```yaml
-name: demo-pipeline
-kind: Pipeline
-flow:
-- filter: loginRequestBuilder
-- filter: tokenDataBuilder
-- filter: actionRequestBuilder
-- filter: END
-
-filters:
-- name: loginRequestBuilder
-  kind: RequestBuilder
-  template: |
-    method: POST
-    url: https://example.com/login
-    body: |
-      {
-        "username": "{{.requests.DEFAULT.JSONBody.username}}",
-        "password": "{{.requests.DEFAULT.JSONBody.password}}"
-      }
-
-- name: tokenDataBuilder
+- name: requestBodyDataBuilder
   kind: DataBuilder
-  dataKey: token
+  dataKey: requestBody
   template: |
-    {{.responses.DEFAULT.JSONBody.token.text | jsonEscape}}
-
-- name: actionRequestBuilder
-  kind: RequestBuilder
-  template: |
-    method: POST
-    url: https://example.com/perfromAction
-    headers:
-      Content-Type: application/json
-      Authorization: "Bearer {{.data.token}}"
-    body: |
-      {
-        "action": "doSomething"
-      }
+    {{.requests.DEFAULT.JSONBody | jsonEscape}}
 ```
 
 ### Configuration
