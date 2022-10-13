@@ -34,7 +34,8 @@ func prepareServers(count int) []*Server {
 		svrs = append(svrs, &Server{Weight: i + 1, URL: fmt.Sprintf("192.168.1.%d", i+1)})
 	}
 	sp := NewServerPool(&Proxy{}, &ServerPoolSpec{}, "test")
-	sp.allocateSlots(svrs)
+	slotHash := &SlotHash{slots: &sp.slots, servers: svrs}
+	slotHash.hash()
 	return svrs
 }
 

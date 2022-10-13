@@ -18,7 +18,6 @@
 package proxy
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -250,92 +249,4 @@ func TestInFailureCodes(t *testing.T) {
 	sp.failureCodes = map[int]struct{}{400: {}, 404: {}}
 	assert.False(sp.inFailureCodes(500))
 	assert.True(sp.inFailureCodes(400))
-}
-
-func assertEven(t *testing.T, svrs []*Server, slots []string) {
-	counter := make(map[string]int, len(svrs))
-	for _, svr := range svrs {
-		counter[svr.ID()] = 0
-	}
-	for _, id := range slots {
-		counter[id]++
-	}
-	for _, c := range counter {
-		assert.GreaterOrEqual(t, c, len(slots)/len(svrs))
-	}
-}
-
-func assertConsistentAfterRemove(t *testing.T, preSvrs []*Server, preSlots []string,
-	oldSvrs []*Server, slots []string) {
-	oldIds := make(map[string]bool)
-	for _, svr := range oldSvrs {
-		oldIds[svr.ID()] = true
-	}
-	for i, id := range preSlots {
-		if !oldIds[id] {
-			assert.Equal(t, slots[i], id)
-		}
-	}
-}
-
-func assertConsistentAfterAdd(t *testing.T, preSvrs []*Server, preSlots []string,
-	newSvrs []*Server, slots []string) {
-	counter := 0
-	for i, id := range preSlots {
-		if id == slots[i] {
-			counter++
-		}
-	}
-	svrL, newSvrL, slotL := len(preSvrs), len(newSvrs), len(preSlots)
-	assert.GreaterOrEqual(t, counter, slotL/(svrL+newSvrL)*svrL)
-}
-
-func TestAllocateSlots(t *testing.T) {
-	spec := &ServerPoolSpec{}
-	sp := NewServerPool(&Proxy{}, &ServerPoolSpec{}, "test")
-	svrs := make([]*Server, 0, 3)
-	for i := 0; i < 3; i++ {
-		svrs = append(svrs, &Server{URL: fmt.Sprintf("192.168.1.%d", i+1)})
-	}
-	sp.createLoadBalancer(spec.LoadBalance, svrs)
-	assertEven(t, svrs, sp.slots)
-
-	preSvrs := svrs
-	preSlots := sp.slots
-	newSvrs := make([]*Server, 0)
-	newSvrs = append(newSvrs, &Server{URL: fmt.Sprintf("192.168.1.%d", 4)})
-	for _, svr := range newSvrs {
-		svrs = append(svrs, svr)
-	}
-	sp.createLoadBalancer(spec.LoadBalance, svrs)
-	assertEven(t, svrs, sp.slots)
-	assertConsistentAfterAdd(t, preSvrs, preSlots, newSvrs, sp.slots)
-
-	preSvrs = svrs
-	preSlots = sp.slots
-	newSvrs = make([]*Server, 0)
-	newSvrs = append(newSvrs, &Server{URL: fmt.Sprintf("192.168.1.%d", 5)})
-	newSvrs = append(newSvrs, &Server{URL: fmt.Sprintf("192.168.1.%d", 6)})
-	for _, svr := range newSvrs {
-		svrs = append(svrs, svr)
-	}
-	sp.createLoadBalancer(spec.LoadBalance, svrs)
-	assertEven(t, svrs, sp.slots)
-	assertConsistentAfterAdd(t, preSvrs, preSlots, newSvrs, sp.slots)
-
-	preSvrs = svrs
-	preSlots = sp.slots
-	oldSvrs := svrs[len(svrs)-1:]
-	svrs = svrs[:len(svrs)-1]
-	sp.createLoadBalancer(spec.LoadBalance, svrs)
-	assertEven(t, svrs, sp.slots)
-	assertConsistentAfterRemove(t, preSvrs, preSlots, oldSvrs, sp.slots)
-
-	preSvrs = svrs
-	preSlots = sp.slots
-	oldSvrs = svrs[len(svrs)-2:]
-	svrs = svrs[:len(svrs)-2]
-	sp.createLoadBalancer(spec.LoadBalance, svrs)
-	assertEven(t, svrs, sp.slots)
-	assertConsistentAfterRemove(t, preSvrs, preSlots, oldSvrs, sp.slots)
 }
