@@ -25,7 +25,7 @@ import (
 )
 
 func assertEven(t *testing.T, svrs []*Server, slots []string) {
-	assert.Greater(t, len(slots), 0)
+	assert.Equal(t, SlotSize, len(slots))
 
 	counter := make(map[string]int, len(svrs))
 	for _, svr := range svrs {
@@ -40,8 +40,8 @@ func assertEven(t *testing.T, svrs []*Server, slots []string) {
 }
 
 func assertConsistentAfterRemove(t *testing.T, preSvrs []*Server, preSlots []string, oldSvrs []*Server, slots []string) {
-	assert.Greater(t, len(preSlots), 0)
-	assert.Greater(t, len(slots), 0)
+	assert.Equal(t, SlotSize, len(preSlots))
+	assert.Equal(t, SlotSize, len(slots))
 
 	oldIds := make(map[string]bool)
 	for _, svr := range oldSvrs {
@@ -55,8 +55,8 @@ func assertConsistentAfterRemove(t *testing.T, preSvrs []*Server, preSlots []str
 }
 
 func assertConsistentAfterAdd(t *testing.T, preSvrs []*Server, preSlots []string, newSvrs []*Server, slots []string) {
-	assert.Greater(t, len(preSlots), 0)
-	assert.Greater(t, len(slots), 0)
+	assert.Equal(t, SlotSize, len(preSlots))
+	assert.Equal(t, SlotSize, len(slots))
 
 	counter := 0
 	for i, id := range preSlots {

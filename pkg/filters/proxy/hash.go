@@ -30,26 +30,31 @@ type SlotHash struct {
 	sizes   map[string]int
 }
 
-// calucate calucates slots map and size map for servers
-func (s *SlotHash) calucate() {
+// init inits the slots map and counts size for servers
+func (s *SlotHash) init() {
 	if *s.slots == nil {
 		*s.slots = make([]string, SlotSize)
 	}
-	slotL, svrL := len(*s.slots), len(s.servers)
-	s.slotses, s.sizes = make(map[string][]int, svrL), make(map[string]int, svrL)
+	l := len(s.servers)
+	s.slotses, s.sizes = make(map[string][]int, l), make(map[string]int, l)
 	for i, svr := range s.servers {
 		id := svr.ID()
-		s.slotses[id] = make([]int, 0, slotL/svrL+1)
-		divisor, remainder := slotL/svrL, slotL%svrL
-		if remainder >= (i + 1) {
-			divisor++
-		}
-		s.sizes[id] = divisor
+		s.slotses[id] = make([]int, 0, SlotSize/l+1)
+		s.sizes[id] = size(SlotSize, l, i+1)
 	}
 }
 
-// remainAndFree remain and free slots
-func (s *SlotHash) remainAndFree() {
+// size counts size for total and group with pos
+func size(total, group, pos int) int {
+	size := total / group
+	if pos <= total%group {
+		size++
+	}
+	return size
+}
+
+// remain remains slots by consistent and size
+func (s *SlotHash) remain() {
 	for pos, id := range *s.slots {
 		slots := s.slotses[id]
 		if slots != nil && len(slots) < s.sizes[id] {
@@ -62,17 +67,15 @@ func (s *SlotHash) remainAndFree() {
 	}
 }
 
-// allocate allocates slots to lacks
-func (s *SlotHash) allocate() {
-	pos, slotL := 0, len(*s.slots)
+// fillup fills up slots for lacking servers
+func (s *SlotHash) fillup() {
+	pos := 0
 	for _, svr := range s.servers {
 		id := svr.ID()
 		slots := s.slotses[id]
 		for i := len(slots); i < s.sizes[id]; i++ {
+			// find empty slot and fill server
 			for ; ; pos++ {
-				if pos >= slotL {
-					break
-				}
 				if (*s.slots)[pos] == "" {
 					(*s.slots)[pos] = id
 					slots = append(slots, pos)
@@ -81,6 +84,8 @@ func (s *SlotHash) allocate() {
 				}
 			}
 		}
+
+		// update slots for servers
 		svrSlots := make(map[int]bool, len(slots))
 		for _, slot := range slots {
 			svrSlots[slot] = true
@@ -91,7 +96,7 @@ func (s *SlotHash) allocate() {
 
 // hash distributes slots using consistent hash for servers
 func (s *SlotHash) hash() {
-	s.calucate()
-	s.remainAndFree()
-	s.allocate()
+	s.init()
+	s.remain()
+	s.fillup()
 }
