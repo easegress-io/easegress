@@ -33,7 +33,7 @@ const (
 
 func (worker *Worker) runAPIServer() {
 	var apis []*apiEntry
-	switch worker.registryServer.RegistryType {
+	switch worker.registryType {
 	case spec.RegistryTypeConsul:
 		apis = worker.consulAPIs()
 	case spec.RegistryTypeEureka:

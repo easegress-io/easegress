@@ -35,6 +35,7 @@ import (
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/jmxtool"
 )
 
 const (
@@ -48,22 +49,17 @@ type (
 	// Server handle all registry about logic
 	Server struct {
 		// Currently we support Eureka/Consul
-		RegistryType string
-		registered   bool
+		registryType string
+		instanceSpec *spec.ServiceInstanceSpec
+		service      *service.Service
+		informer     informer.Informer
+		jmxClient    *jmxtool.AgentClient
 
-		registryName  string
-		serviceName   string
-		instanceID    string
-		IP            string
-		port          int
-		serviceLabels map[string]string
-
+		serviceName        string
+		registered         bool
 		done               chan struct{}
 		mutex              sync.RWMutex
 		accessableServices atomic.Value
-
-		service  *service.Service
-		informer informer.Informer
 	}
 
 	// ReadyFunc is a function to check Ingress/Egress ready to work
@@ -71,23 +67,18 @@ type (
 )
 
 // NewRegistryCenterServer creates an initialized registry center server.
-func NewRegistryCenterServer(registryType string, registryName, serviceName string, IP string, port int, instanceID string,
-	serviceLabels map[string]string, service *service.Service, informer informer.Informer,
+func NewRegistryCenterServer(registryType string, instanceSpec *spec.ServiceInstanceSpec,
+	service *service.Service, informer informer.Informer, jmxAgent *jmxtool.AgentClient,
 ) *Server {
 	return &Server{
-		RegistryType:  registryType,
-		registryName:  registryName,
-		serviceName:   serviceName,
-		service:       service,
-		registered:    false,
-		mutex:         sync.RWMutex{},
-		port:          port,
-		IP:            IP,
-		instanceID:    instanceID,
-		serviceLabels: serviceLabels,
-		informer:      informer,
+		registryType: registryType,
+		instanceSpec: instanceSpec,
+		service:      service,
+		informer:     informer,
+		jmxClient:    jmxAgent,
 
-		done: make(chan struct{}),
+		serviceName: instanceSpec.ServiceName,
+		done:        make(chan struct{}),
 	}
 }
 
@@ -109,19 +100,34 @@ func (rcs *Server) Register(serviceSpec *spec.Service, ingressReady ReadyFunc, e
 		return
 	}
 
-	ins := &spec.ServiceInstanceSpec{
-		RegistryName: rcs.registryName,
-		ServiceName:  rcs.serviceName,
-		InstanceID:   rcs.instanceID,
-		IP:           rcs.IP,
-		Port:         uint32(serviceSpec.Sidecar.IngressPort),
-		Labels:       rcs.serviceLabels,
-	}
+	rcs.instanceSpec.Port = uint32(serviceSpec.Sidecar.IngressPort)
 
-	go rcs.register(ins, ingressReady, egressReady)
+	go rcs.register(rcs.instanceSpec, ingressReady, egressReady)
 
 	rcs.informer.OnPartOfServiceSpec(rcs.serviceName, rcs.onUpdateLocalInfo)
 	rcs.informer.OnAllTrafficTargetSpecs(rcs.onAllTrafficTargetSpecs)
+}
+
+func (rcs *Server) updateAgentType() {
+	if rcs.instanceSpec.AgentType == "" {
+		rcs.instanceSpec.AgentType = "None"
+	}
+
+	if rcs.instanceSpec.AgentType != "None" {
+		return
+	}
+
+	agentInfo, err := rcs.jmxClient.GetAgentInfo()
+	if err != nil {
+		logger.Warnf("get agent info failed: %v", err)
+		return
+	}
+
+	if agentInfo.Type == "" {
+		return
+	}
+
+	rcs.instanceSpec.AgentType = agentInfo.Type
 }
 
 func (rcs *Server) onAllTrafficTargetSpecs(tts map[string]*spec.TrafficTarget) bool {
@@ -172,12 +178,15 @@ func (rcs *Server) register(ins *spec.ServiceInstanceSpec, ingressReady ReadyFun
 			}
 		}()
 
+		rcs.updateAgentType()
+
 		inReady, eReady := ingressReady(), egressReady()
 		if !inReady || !eReady {
 			return fmt.Errorf("ingress ready: %v egress ready: %v", inReady, eReady)
 		}
 
-		if originIns := rcs.service.GetServiceInstanceSpec(rcs.serviceName, rcs.instanceID); originIns != nil {
+		if originIns := rcs.service.GetServiceInstanceSpec(rcs.instanceSpec.ServiceName,
+			rcs.instanceSpec.InstanceID); originIns != nil {
 			if !needUpdateRecord(originIns, ins) {
 				rcs.mutex.Lock()
 				rcs.registered = true
@@ -260,13 +269,14 @@ func (rcs *Server) decodeByEurekaFormat(contentType string, body []byte) error {
 func (rcs *Server) CheckRegistryBody(contentType string, reqBody []byte) error {
 	var err error
 
-	switch rcs.RegistryType {
+	switch rcs.registryType {
 	case spec.RegistryTypeEureka:
 		err = rcs.decodeByEurekaFormat(contentType, reqBody)
 	case spec.RegistryTypeConsul:
 		err = rcs.decodeByConsulFormat(reqBody)
 	default:
-		return fmt.Errorf("BUG: can't recognize registry type: %s req body: %s", rcs.RegistryType, (reqBody))
+		return fmt.Errorf("BUG: can't recognize registry type: %s req body: %s",
+			rcs.registryType, (reqBody))
 	}
 
 	return err
@@ -286,7 +296,7 @@ func (rcs *Server) CheckRegistryURL(w http.ResponseWriter, r *http.Request) erro
 
 	serviceName, err = rcs.SplitNacosServiceName(serviceName)
 
-	if serviceName != rcs.serviceName || err != nil {
+	if serviceName != rcs.instanceSpec.ServiceName || err != nil {
 		return fmt.Errorf("invalid register serviceName: %s want: %s, err: %v", serviceName, rcs.serviceName, err)
 	}
 	return err
