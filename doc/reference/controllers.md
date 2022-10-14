@@ -592,7 +592,7 @@ The self-defining specification of each filter references to [filters](./filters
 | Name        | Type              | Description               | Required                             |
 | ----------- | ----------------- | --------------------------| ------------------------------------ |
 | name        | string            | The name of the domain    | Yes                                  |
-| dnsProvider | map[string]string | DNS provider information  | No (Yes if `DNS01` chanllenge is desired) |
+| dnsProvider | map[string]string | DNS provider information  | No (Yes if `DNS-01` chanllenge is desired) |
 
 The fields in `dnsProvider` vary from DNS providers, but:
 * `name` and `zone` are required for all DNS providers.
