@@ -67,6 +67,7 @@ type (
 		service  *service.Service
 		informer informer.Informer
 
+		registryType         string
 		registryServer       *registrycenter.Server
 		ingressServer        *IngressServer
 		egressServer         *EgressServer
@@ -114,14 +115,23 @@ func New(superSpec *supervisor.Spec) *Worker {
 	store := storage.New(superSpec.Name(), super.Cluster())
 	_service := service.New(superSpec)
 
-	inf := informer.NewInformer(store, serviceName)
+	_informer := informer.NewInformer(store, serviceName)
+	observabilityManager := NewObservabilityServer(serviceName)
+	instanceSpec := &spec.ServiceInstanceSpec{
+		RegistryName: superSpec.Name(),
+		ServiceName:  serviceName,
+		InstanceID:   instanceID,
+		IP:           applicationIP,
+		// Port is assigned when registered.
+		Labels: serviceLabels,
+	}
+
 	registryCenterServer := registrycenter.NewRegistryCenterServer(_spec.RegistryType,
-		superSpec.Name(), serviceName, applicationIP, applicationPort,
-		instanceID, serviceLabels, _service, inf)
+		instanceSpec, _service, _informer, observabilityManager.agentClient)
+
 	ingressServer := NewIngressServer(superSpec, super, serviceName, instanceID, _service)
 	egressServer := NewEgressServer(superSpec, super, serviceName, instanceID, _service)
 
-	observabilityManager := NewObservabilityServer(serviceName)
 	apiServer := newAPIServer(_spec.APIPort)
 
 	worker := &Worker{
@@ -138,8 +148,9 @@ func New(superSpec *supervisor.Spec) *Worker {
 
 		store:    store,
 		service:  _service,
-		informer: inf,
+		informer: _informer,
 
+		registryType:         _spec.RegistryType,
 		registryServer:       registryCenterServer,
 		ingressServer:        ingressServer,
 		egressServer:         egressServer,

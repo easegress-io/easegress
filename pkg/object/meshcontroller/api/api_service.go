@@ -18,6 +18,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"path"
@@ -25,6 +26,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
@@ -202,4 +206,87 @@ func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
 
 	a.service.PutTenantSpec(tenantSpec)
 	a.service.DeleteServiceSpec(serviceName)
+}
+
+func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
+	const annotationServiceNameKey = "mesh.megaease.com/service-name"
+
+	serviceName, err := a.readServiceName(r)
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	if a.k8sClient == nil {
+		api.HandleAPIError(w, r, http.StatusServiceUnavailable,
+			fmt.Errorf("k8s client not found"))
+		return
+	}
+
+	serviceDeployment := &spec.ServiceDeployment{}
+
+	deployments, err := a.k8sClient.AppsV1().Deployments("").List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		api.HandleAPIError(w, r, http.StatusServiceUnavailable, err)
+		return
+	}
+
+	for _, deployment := range deployments.Items {
+		if deployment.Annotations[annotationServiceNameKey] == serviceName {
+			serviceDeployment.App = deployment
+			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecrets(&deployment)
+			a.writeJSONBody(w, codectool.MustMarshalJSON(serviceDeployment))
+			return
+		}
+	}
+
+	statefulsets, err := a.k8sClient.AppsV1().StatefulSets("").List(context.Background(), metav1.ListOptions{})
+	for _, statefulset := range statefulsets.Items {
+		if statefulset.Annotations[annotationServiceNameKey] == serviceName {
+			serviceDeployment.App = statefulset
+			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecrets(&statefulset)
+			a.writeJSONBody(w, codectool.MustMarshalJSON(serviceDeployment))
+			return
+		}
+	}
+
+	api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s deployment spec not found", serviceName))
+}
+
+func (a *API) getConfigMapsAndSecrets(spec interface{}) ([]*corev1.ConfigMap, []*corev1.Secret) {
+	var namespace string
+	var volumes []corev1.Volume
+	switch spec := spec.(type) {
+	case *appsv1.Deployment:
+		namespace = spec.Namespace
+		volumes = spec.Spec.Template.Spec.Volumes
+	case *appsv1.StatefulSet:
+		namespace = spec.Namespace
+		volumes = spec.Spec.Template.Spec.Volumes
+	default:
+		panic(fmt.Errorf("unknown spec type %T", spec))
+	}
+
+	var configMaps []*corev1.ConfigMap
+	var secrets []*corev1.Secret
+	for _, volume := range volumes {
+		if volume.ConfigMap != nil {
+			configMap, err := a.k8sClient.CoreV1().ConfigMaps(namespace).Get(context.Background(),
+				volume.ConfigMap.Name, metav1.GetOptions{})
+			if err != nil {
+				api.ClusterPanic(fmt.Errorf("get configmap %s failed: %v", volume.ConfigMap.Name, err))
+			}
+			configMaps = append(configMaps, configMap)
+		}
+		if volume.Secret != nil {
+			secret, err := a.k8sClient.CoreV1().Secrets(namespace).Get(context.Background(),
+				volume.Secret.SecretName, metav1.GetOptions{})
+			if err != nil {
+				api.ClusterPanic(fmt.Errorf("get secret %s failed: %v", volume.Secret.SecretName, err))
+			}
+			secrets = append(secrets, secret)
+		}
+	}
+
+	return configMaps, secrets
 }

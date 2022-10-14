@@ -27,6 +27,8 @@ import (
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/util/urlrule"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -190,6 +192,18 @@ type (
 		Observability *Observability `json:"observability,omitempty" jsonschema:"omitempty"`
 	}
 
+	// ServiceDeployment contains the information of service deployment.
+	ServiceDeployment struct {
+		// The spec of Deployment or StatefulSet of Kubernetes.
+		App interface{} `json:"app" jsonschema:"required"`
+
+		// All specs of ConfigMaps in volumes of the spec.
+		ConfigMaps []*v1.ConfigMap `json:"configMaps" jsonschema:"omitempty"`
+
+		// All specs of Secrets in volumes of the spec.
+		Secrets []*v1.Secret `json:"secrets" jsonschema:"omitempty"`
+	}
+
 	// Mock is the spec of configured and static API responses for this service.
 	Mock struct {
 		// Enable is the mocking switch for this service.
@@ -339,6 +353,8 @@ type (
 	// ServiceInstanceSpec is the spec of service instance.
 	// FIXME: Use the unified struct: serviceregistry.ServiceInstanceSpec.
 	ServiceInstanceSpec struct {
+		// AgentType supports EaseAgent, GoSDK, None(same as empty value).
+		AgentType    string `json:"agentType" jsonschema:"required"`
 		RegistryName string `json:"registryName" jsonschema:"required"`
 		// Provide by registry client
 		ServiceName  string            `json:"serviceName" jsonschema:"required"`
@@ -354,7 +370,7 @@ type (
 
 	// IngressPath is the path for a mesh ingress rule
 	IngressPath struct {
-		Path          string `json:"path" jsonschema:"required"`
+		Path          string `json:"path" jsonschema:"required,pattern=^/"`
 		RewriteTarget string `json:"rewriteTarget" jsonschema:"omitempty"`
 		Backend       string `json:"backend" jsonschema:"required"`
 	}

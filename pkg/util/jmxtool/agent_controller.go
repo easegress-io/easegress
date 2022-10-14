@@ -18,6 +18,7 @@
 package jmxtool
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -28,6 +29,7 @@ import (
 
 const (
 	agentConfigURL = "/config"
+	agentInfoURL   = "/agent-info"
 )
 
 type (
@@ -67,10 +69,13 @@ type (
 		Cert   string `json:"cert"`
 		CACert string `json:"ca_cert"`
 	}
-)
 
-func newAgentConfig() {
-}
+	// AgentInfo stores agent information.
+	AgentInfo struct {
+		Type    string `json:"type"`
+		Version string `json:"version"`
+	}
+)
 
 func (ac *AgentConfig) marshal() ([]byte, error) {
 	jsonBuff, err := codectool.MarshalJSON(ac)
@@ -93,9 +98,26 @@ func (ac *AgentConfig) marshal() ([]byte, error) {
 // NewAgentClient creates the agent client
 func NewAgentClient(host, port string) *AgentClient {
 	return &AgentClient{
-		"http://" + host + ":" + port,
-		&http.Client{},
+		URL:        "http://" + host + ":" + port,
+		HTTPClient: &http.Client{},
 	}
+}
+
+// GetAgentInfo gets the information of the agent.
+func (agent *AgentClient) GetAgentInfo() (*AgentInfo, error) {
+	url := agent.URL + agentInfoURL
+	bodyString, err := handleRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("handleRequest failed: %v", err)
+	}
+
+	info := &AgentInfo{}
+	err = json.Unmarshal([]byte(bodyString), info)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal %s to json failed: %v", bodyString, err)
+	}
+
+	return info, nil
 }
 
 // UpdateAgentConfig updates agent config.
