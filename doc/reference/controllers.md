@@ -466,8 +466,9 @@ enableDNS01: true
 domains:
   - name: "*.megaease.com"
     dnsProvider:
-      name: alidns
+      name: dnspod
       zone: megaease.com
+      apiToken: <token value>
 ```
 
 | Name            | Type                                       | Description                                                                          | Required                           |
@@ -591,7 +592,7 @@ The self-defining specification of each filter references to [filters](./filters
 | Name        | Type              | Description               | Required                             |
 | ----------- | ----------------- | --------------------------| ------------------------------------ |
 | name        | string            | The name of the domain    | Yes                                  |
-| dnsProvider | map[string]string | DNS provider information  | No (Yes if `name` is a wildcard one) |
+| dnsProvider | map[string]string | DNS provider information  | No (Yes if `DNS-01` chanllenge is desired) |
 
 The fields in `dnsProvider` vary from DNS providers, but:
 * `name` and `zone` are required for all DNS providers.
