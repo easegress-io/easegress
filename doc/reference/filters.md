@@ -55,6 +55,9 @@
   - [ResultBuilder](#resultbuilder)
     - [Configuration](#configuration-17)
     - [Results](#results-17)
+  - [DataBuilder](#databuilder)
+    - [Configuration](#configuration-18)
+    - [Results](#results-18)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -946,6 +949,40 @@ filters:
 | result0 <td rowspan="3">Results defined and returned by the template .</td> |
 | ...                                                                         |
 | result9                                                                     |
+
+## DataBuilder
+
+DataBuilder is used to manipulate and store data. The data from the previous
+filter can be transformed and stored in the context so that the data can be
+used in subsequent filters.
+
+The example below shows how to use DataBuilder to store the request body in
+the context.
+
+```yaml
+- name: requestBodyDataBuilder
+  kind: DataBuilder
+  dataKey: requestBody
+  template: |
+    {{.requests.DEFAULT.JSONBody | jsonEscape}}
+```
+
+### Configuration
+
+| Name            | Type   | Description                                   | Required |
+|-----------------|--------|-----------------------------------------------|----------|
+| template        | string | template to create data, please refer the [template](#template-of-builer-filters) for more information        | Yes      |
+| dataKey         | string | key to store data        | Yes      |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+
+
+### Results
+
+| Value           | Description                                       |
+|-----------------|---------------------------------------------------|
+| buildErr        | Error happens when building the data              |
+
 
 ## Common Types
 
