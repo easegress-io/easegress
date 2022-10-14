@@ -139,10 +139,10 @@ func (m *members) store() {
 func (m *members) self() *member {
 	m.RLock()
 	defer m.RUnlock()
-	return m._self()
+	return m.unsafeSelf()
 }
 
-func (m *members) _self() *member {
+func (m *members) unsafeSelf() *member {
 	// NOTE: use clusterMembers before KnownMembers
 	// owing to getting real-time ID if possible.
 	s := m.ClusterMembers.getByName(m.opt.Name)
@@ -171,25 +171,22 @@ func (m *members) _self() *member {
 	}
 }
 
-func (m *members) _selfWithoutID() *member {
-	s := m._self()
-	s.ID = 0
-	return s
-}
-
 func (m *members) updateClusterMembers(pbMembers []*pb.Member) {
 	m.Lock()
 	defer m.Unlock()
 
-	olderSelfID := m._self().ID
+	self := m.unsafeSelf()
+	olderSelfID := self.ID
 
 	ms := pbMembersToMembersSlice(pbMembers)
 	// NOTE: The member list of result of MemberAdd carrys empty name
 	// of the adding member which is myself.
-	ms.update(membersSlice{m._selfWithoutID()})
+	self.ID = 0
+	ms.update(membersSlice{self})
+
 	m.ClusterMembers.replace(ms)
 
-	selfID := m._self().ID
+	selfID := m.unsafeSelf().ID
 	if selfID != olderSelfID {
 		logger.Infof("self ID changed from %x to %x", olderSelfID, selfID)
 		m.selfIDChanged = true
@@ -212,7 +209,7 @@ func (m *members) knownPeerURLs() []string {
 }
 
 func pbMembersToMembersSlice(pbMembers []*pb.Member) membersSlice {
-	ms := make(membersSlice, 0)
+	ms := make(membersSlice, 0, len(pbMembers))
 	for _, pbMember := range pbMembers {
 		var peerURL string
 		if len(pbMember.PeerURLs) > 0 {
@@ -234,16 +231,6 @@ func newMemberSlices() *membersSlice {
 func (ms membersSlice) Len() int           { return len(ms) }
 func (ms membersSlice) Swap(i, j int)      { ms[i], ms[j] = ms[j], ms[i] }
 func (ms membersSlice) Less(i, j int) bool { return ms[i].Name < ms[j].Name }
-
-func (ms membersSlice) copy() membersSlice {
-	copied := make(membersSlice, len(ms))
-	for i := 0; i < len(copied); i++ {
-		member := *ms[i]
-		copied[i] = &member
-	}
-
-	return copied
-}
 
 func (ms membersSlice) String() string {
 	ss := make([]string, 0)

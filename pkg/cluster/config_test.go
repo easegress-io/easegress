@@ -23,17 +23,23 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/phayes/freeport"
 )
 
 func TestCreateEtcdConfigFailures(t *testing.T) {
+	ports, err := freeport.GetFreePorts(4 * 3)
+	if err != nil {
+		panic(fmt.Errorf("get %d free ports failed: %v", 4*3, err))
+	}
+
 	testData := make([]*option.Options, 0)
-	testData = append(testData, mockTestOpt())
+	testData = append(testData, mockTestOpt(ports[0:3]))
 	testData[len(testData)-1].Cluster.ListenClientURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
+	testData = append(testData, mockTestOpt(ports[3:6]))
 	testData[len(testData)-1].Cluster.ListenPeerURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
+	testData = append(testData, mockTestOpt(ports[6:9]))
 	testData[len(testData)-1].Cluster.AdvertiseClientURLs = []string{"::::::"}
-	testData = append(testData, mockTestOpt())
+	testData = append(testData, mockTestOpt(ports[9:12]))
 	testData[len(testData)-1].Cluster.InitialAdvertisePeerURLs = []string{"::::::"}
 
 	for i, opt := range testData {
