@@ -234,7 +234,7 @@ func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
 	for _, deployment := range deployments.Items {
 		if deployment.Annotations[annotationServiceNameKey] == serviceName {
 			serviceDeployment.App = deployment
-			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecres(&deployment)
+			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecrets(&deployment)
 			a.writeJSONBody(w, codectool.MustMarshalJSON(serviceDeployment))
 			return
 		}
@@ -244,7 +244,7 @@ func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
 	for _, statefulset := range statefulsets.Items {
 		if statefulset.Annotations[annotationServiceNameKey] == serviceName {
 			serviceDeployment.App = statefulset
-			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecres(&statefulset)
+			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecrets(&statefulset)
 			a.writeJSONBody(w, codectool.MustMarshalJSON(serviceDeployment))
 			return
 		}
@@ -253,7 +253,7 @@ func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
 	api.HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("%s deployment spec not found", serviceName))
 }
 
-func (a *API) getConfigMapsAndSecres(spec interface{}) ([]*corev1.ConfigMap, []*corev1.Secret) {
+func (a *API) getConfigMapsAndSecrets(spec interface{}) ([]*corev1.ConfigMap, []*corev1.Secret) {
 	var namespace string
 	var volumes []corev1.Volume
 	switch spec := spec.(type) {
