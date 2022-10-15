@@ -31,7 +31,7 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
-	slots          map[int]bool
+	slots          []int
 }
 
 // String implements the Stringer interface.

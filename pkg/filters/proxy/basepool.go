@@ -35,7 +35,6 @@ type BaseServerPool struct {
 	wg           sync.WaitGroup
 	filter       RequestMatcher
 	loadBalancer atomic.Value
-	slots        []string
 }
 
 // BaseServerPoolSpec is the spec for a base server pool.
@@ -113,7 +112,10 @@ func (bsp *BaseServerPool) Init(super *supervisor.Supervisor, name string, spec 
 
 // LoadBalancer returns the load balancer of the server pool.
 func (bsp *BaseServerPool) LoadBalancer() LoadBalancer {
-	return bsp.loadBalancer.Load().(LoadBalancer)
+	if v := bsp.loadBalancer.Load(); v != nil {
+		return v.(LoadBalancer)
+	}
+	return nil
 }
 
 func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {
@@ -125,8 +127,12 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 		spec = &LoadBalanceSpec{}
 	}
 
-	slotHash := &SlotHash{slots: &bsp.slots, servers: servers}
-	slotHash.hash()
+	var olds []*Server
+	if lb := bsp.LoadBalancer(); lb != nil {
+		olds = lb.Server()
+	}
+	servers = hashSlots(olds, servers)
+
 	lb := NewLoadBalancer(spec, servers)
 	bsp.loadBalancer.Store(lb)
 }

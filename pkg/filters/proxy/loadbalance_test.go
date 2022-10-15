@@ -33,9 +33,7 @@ func prepareServers(count int) []*Server {
 	for i := 0; i < count; i++ {
 		svrs = append(svrs, &Server{Weight: i + 1, URL: fmt.Sprintf("192.168.1.%d", i+1)})
 	}
-	sp := NewServerPool(&Proxy{}, &ServerPoolSpec{}, "test")
-	slotHash := &SlotHash{slots: &sp.slots, servers: svrs}
-	slotHash.hash()
+	svrs = hashSlots(nil, svrs)
 	return svrs
 }
 
@@ -180,18 +178,18 @@ func TestStickySessionWithUserCookie(t *testing.T) {
 
 	var svrs []*Server
 	name, value := "X-Cookie", uuid.NewString()
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickinessEnabled: true, StickinessAppCookieName: name}, svrs)
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickinessEnabled: true, StickinessAppCookieName: name}, svrs)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs)
 	req := &http.Request{Header: http.Header{}}
 	req.AddCookie(&http.Cookie{Name: name, Value: value})
 	r, _ := httpprot.NewRequest(req)
 	firstSvr := lb.ChooseServer(r)
 	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
 	lb.Manipulate(firstSvr, r, resp)
-	c := readCookie(resp.Cookies(), LoadBalancerGeneratedCookieName)
+	c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
 	assert.Nil(c)
 
 	for i := 0; i < 10; i++ {
@@ -207,28 +205,28 @@ func TestStickySessionWithGeneratedCookie(t *testing.T) {
 	assert := assert.New(t)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickinessEnabled: true, StickinessLbCookieExpire: "2h"}, svrs)
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", StickinessEnabled: true, StickinessLbCookieExpire: "2h"}, svrs)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs)
 	req := &http.Request{Header: http.Header{}}
 	r, _ := httpprot.NewRequest(req)
 	firstSvr := lb.ChooseServer(r)
 	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
 	lb.Manipulate(firstSvr, r, resp)
-	c := readCookie(resp.Cookies(), LoadBalancerGeneratedCookieName)
+	c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
 	assert.NotNil(c)
 	value := c.Value
 
 	for i := 0; i < 10; i++ {
 		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: LoadBalancerGeneratedCookieName, Value: value})
+		req.AddCookie(&http.Cookie{Name: LoadBalanceStickyCookie, Value: value})
 		r, _ := httpprot.NewRequest(req)
 		svr := lb.ChooseServer(r)
 		resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
 		lb.Manipulate(svr, r, resp)
-		c := readCookie(resp.Cookies(), LoadBalancerGeneratedCookieName)
+		c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
 		assert.NotNil(c)
 		value = c.Value
 		assert.Equal(svr.Weight, firstSvr.Weight)
