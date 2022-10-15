@@ -24,8 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertBalance(t *testing.T, svrs []*Server) {
-
+func assertEven(t *testing.T, svrs []*Server) {
 	total := 0
 	for i, s := range svrs {
 		size := avg(len(svrs), i)
@@ -62,48 +61,85 @@ func assertConsistent(t *testing.T, from []*Server, to []*Server) {
 	}
 }
 
-func TestHashSlots(t *testing.T) {
-	to := make([]*Server, 0, 3)
-	for i := 0; i < 3; i++ {
-		to = append(to, &Server{URL: fmt.Sprintf("192.168.1.%d", i+1)})
+func create(ids ...int) []*Server {
+	svrs := make([]*Server, len(ids))
+	for i, id := range ids {
+		svrs[i] = &Server{URL: fmt.Sprintf("192.168.1.%d", id)}
 	}
+	return svrs
+}
+
+func increase(from []*Server, ids ...int) []*Server {
+	to := make([]*Server, len(from))
+	copy(to, from)
+	for _, id := range ids {
+		to = append(to, &Server{URL: fmt.Sprintf("192.168.1.%d", id)})
+	}
+	return to
+}
+
+func duplicate(from []*Server) []*Server {
+	to := make([]*Server, len(from))
+	copy(to, from)
+	return to
+}
+
+func replace(from []*Server, ids ...int) []*Server {
+	to := duplicate(from)
+	for i, id := range ids {
+		to[i] = &Server{URL: fmt.Sprintf("192.168.1.%d", id)}
+	}
+	return to
+}
+
+func TestInitServer(t *testing.T) {
+	to := create(1, 2, 3)
 	to = hashSlots(nil, to)
-	assertBalance(t, to)
+	assertEven(t, to)
 
-	from := make([]*Server, len(to))
-	copy(from, to)
-	to = append(from, &Server{URL: fmt.Sprintf("192.168.1.%d", 4)})
-	to = hashSlots(to, from)
-	assertBalance(t, to)
-	assertConsistent(t, from, to)
+	to = create(1, 2, 3, 4, 5)
+	to = hashSlots(nil, to)
+	assertEven(t, to)
+}
 
-	from = make([]*Server, len(to))
-	copy(from, to)
-	to = append(from, &Server{URL: fmt.Sprintf("192.168.1.%d", 5)})
-	to = append(to, &Server{URL: fmt.Sprintf("192.168.1.%d", 6)})
+func TestIncreaseServer(t *testing.T) {
+	from := hashSlots(nil, create(1, 2, 3))
+	to := increase(from, 4)
 	to = hashSlots(from, to)
-	assertBalance(t, to)
+	assertEven(t, to)
 	assertConsistent(t, from, to)
 
-	from = make([]*Server, len(to))
-	copy(from, to)
-	to = to[:len(to)-1]
-	to = append(to, &Server{URL: fmt.Sprintf("192.168.1.%d", 7)})
+	from = duplicate(to)
+	to = increase(from, 5, 6)
 	to = hashSlots(from, to)
-	assertBalance(t, to)
+	assertEven(t, to)
 	assertConsistent(t, from, to)
+}
 
-	from = make([]*Server, len(to))
-	copy(from, to)
-	to = to[1:]
+func TestReduceServer(t *testing.T) {
+	from := hashSlots(nil, create(1, 2, 3, 45))
+	to := from[1:]
 	to = hashSlots(from, to)
-	assertBalance(t, to)
+	assertEven(t, to)
 	assertConsistent(t, from, to)
 
-	from = make([]*Server, len(to))
-	copy(from, to)
+	from = duplicate(to)
 	to = to[2:]
 	to = hashSlots(from, to)
-	assertBalance(t, to)
+	assertEven(t, to)
+	assertConsistent(t, from, to)
+}
+
+func TestReplaceServer(t *testing.T) {
+	from := hashSlots(nil, create(1, 2, 3))
+	to := replace(from, 4)
+	to = hashSlots(from, to)
+	assertEven(t, to)
+	assertConsistent(t, from, to)
+
+	from = duplicate(to)
+	to = replace(to, 5, 6)
+	to = hashSlots(from, to)
+	assertEven(t, to)
 	assertConsistent(t, from, to)
 }

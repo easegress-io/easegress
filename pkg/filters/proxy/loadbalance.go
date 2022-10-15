@@ -115,7 +115,7 @@ func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 
 	if lb.StickyCookie != "" {
 		if cookie, err := req.Cookie(lb.StickyCookie); err == nil {
-			return lb.chooseServerByHash(cookie.Value)
+			return lb.chooseServerBySlot(cookie.Value)
 		}
 		return nil
 	}
@@ -125,18 +125,18 @@ func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		cookie = &http.Cookie{Name: LoadBalanceStickyCookie, Value: uuid.NewString()}
 		req.AddCookie(cookie)
 	}
-	return lb.chooseServerByHash(cookie.Value)
+	return lb.chooseServerBySlot(cookie.Value)
 }
 
-// chooseServerByHash choose server using consistent hash
-func (lb *BaseLoadBalancer) chooseServerByHash(key string) *Server {
+// chooseServerBySlot choose server using consistent hash
+func (lb *BaseLoadBalancer) chooseServerBySlot(key string) *Server {
 	hash := murmur3.New32()
 	hash.Write([]byte(key))
 	slot := (int)(hash.Sum32() % Total)
-	for _, svr := range lb.Servers {
-		for _, s := range svr.slots {
-			if s == slot {
-				return svr
+	for _, s := range lb.Servers {
+		for _, p := range s.slots {
+			if p == slot {
+				return s
 			}
 		}
 	}
@@ -263,7 +263,7 @@ func (lb *ipHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		return server
 	}
 
-	return lb.chooseServerByHash(req.RealIP())
+	return lb.chooseServerBySlot(req.RealIP())
 }
 
 // headerHashLoadBalancer does load balancing based on header hash.
@@ -288,5 +288,5 @@ func (lb *headerHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		return server
 	}
 
-	return lb.chooseServerByHash(req.HTTPHeader().Get(lb.key))
+	return lb.chooseServerBySlot(req.HTTPHeader().Get(lb.key))
 }
