@@ -71,21 +71,25 @@ func create(ids ...int) []*Server {
 
 func increase(from []*Server, ids ...int) []*Server {
 	to := make([]*Server, len(from))
-	copy(to, from)
+	for i, s := range from {
+		to[i] = s
+	}
 	for _, id := range ids {
 		to = append(to, &Server{URL: fmt.Sprintf("192.168.1.%d", id)})
 	}
 	return to
 }
 
-func duplicate(from []*Server) []*Server {
+func copy(from []*Server) []*Server {
 	to := make([]*Server, len(from))
-	copy(to, from)
+	for i, s := range from {
+		to[i] = s
+	}
 	return to
 }
 
 func replace(from []*Server, ids ...int) []*Server {
-	to := duplicate(from)
+	to := copy(from)
 	for i, id := range ids {
 		to[i] = &Server{URL: fmt.Sprintf("192.168.1.%d", id)}
 	}
@@ -109,7 +113,7 @@ func TestIncreaseServer(t *testing.T) {
 	assertEven(t, to)
 	assertConsistent(t, from, to)
 
-	from = duplicate(to)
+	from = copy(to)
 	to = increase(from, 5, 6)
 	to = hashSlots(from, to)
 	assertEven(t, to)
@@ -123,7 +127,7 @@ func TestReduceServer(t *testing.T) {
 	assertEven(t, to)
 	assertConsistent(t, from, to)
 
-	from = duplicate(to)
+	from = copy(to)
 	to = to[2:]
 	to = hashSlots(from, to)
 	assertEven(t, to)
@@ -137,8 +141,22 @@ func TestReplaceServer(t *testing.T) {
 	assertEven(t, to)
 	assertConsistent(t, from, to)
 
-	from = duplicate(to)
+	from = copy(to)
 	to = replace(to, 5, 6)
+	to = hashSlots(from, to)
+	assertEven(t, to)
+	assertConsistent(t, from, to)
+}
+
+func TestReorderServer(t *testing.T) {
+	from := hashSlots(nil, create(1, 2, 3))
+	to := replace(from, 1, 3, 2)
+	to = hashSlots(from, to)
+	assertEven(t, to)
+	assertConsistent(t, from, to)
+
+	from = copy(to)
+	to = replace(to, 2, 3, 1)
 	to = hashSlots(from, to)
 	assertEven(t, to)
 	assertConsistent(t, from, to)

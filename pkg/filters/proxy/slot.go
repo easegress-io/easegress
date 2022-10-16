@@ -50,6 +50,7 @@ func hashSlots(from []*Server, to []*Server) []*Server {
 			svr.slots = all[s : s+size]
 			s += size
 		}
+
 		return to
 	}
 
@@ -59,27 +60,29 @@ func hashSlots(from []*Server, to []*Server) []*Server {
 		m[s.ID()] = s
 	}
 
-	// handle old servers
+	// handle slots
 	c := make([]int, 0)
 	svrs := make([]*Server, lt)
 	pos := 0
 	for _, s := range from {
-		if ns := m[s.ID()]; ns != nil {
-			// copy old server in order
-			size := avg(lt, pos)
-			ns.slots = s.slots
-			svrs[pos] = ns
-			delete(m, s.ID())
-			pos++
-
-			// collect exceeding slots
-			if len(s.slots) > size {
-				c = append(c, s.slots[size:]...)
-			}
-		} else {
-			// collect lost slots
+		ns := m[s.ID()]
+		if ns == nil {
+			// collect slots from lost server
 			c = append(c, s.slots...)
+			continue
 		}
+
+		// collect exceeding slots from existing server
+		size := avg(lt, pos)
+		if len(s.slots) > size {
+			c = append(c, s.slots[size:]...)
+		}
+
+		// copy slots from existing server in order
+		ns.slots = s.slots
+		svrs[pos] = ns
+		delete(m, s.ID())
+		pos++
 	}
 
 	// copy new servers
@@ -88,7 +91,7 @@ func hashSlots(from []*Server, to []*Server) []*Server {
 		pos++
 	}
 
-	// check server slots
+	// check slots size
 	s := 0
 	for i, svr := range svrs {
 		size := avg(len(svrs), i)
