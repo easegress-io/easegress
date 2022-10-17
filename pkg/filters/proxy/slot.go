@@ -32,6 +32,7 @@ func slotSize(svrSize, pos int) int {
 	return s
 }
 
+// createSlots creates slots for servers using old slots
 func createSlots(oldSlots []*Server, servers []*Server) []*Server {
 	if len(servers) == 0 {
 		return nil
@@ -83,7 +84,7 @@ func createSlots(oldSlots []*Server, servers []*Server) []*Server {
 		// keep normal slots for existing server
 		newSlots[i] = svr
 
-		// count slots for existing server in order
+		// count slots for existing server in original order
 		if slots == nil {
 			slots = make([]int, 0)
 			sizem[svr.ID()] = slotSize(svrSize, p)
