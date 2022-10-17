@@ -22,89 +22,93 @@ const (
 	Total = 1024
 )
 
-// avg counts averages size of slots
-func avg(size, pos int) int {
-	avg := Total / size
+// slotSize counts slot size of server at specific pos
+func slotSize(svrSize, pos int) int {
+	s := Total / svrSize
 	// servers ahead can get one more
-	if pos <= Total%size-1 {
-		avg++
+	if pos <= Total%svrSize-1 {
+		s++
 	}
-	return avg
+	return s
 }
 
-// hashSlots repartitions slots for changed servers
-func hashSlots(from []*Server, to []*Server) []*Server {
-	// distribute evenly for first time
-	lf, lt := len(from), len(to)
-	if lf == 0 {
-		// init slots
-		all := make([]int, Total)
-		for i := range all {
-			all[i] = i
-		}
-
-		// distribute evenly
-		s := 0
-		for i, svr := range to {
-			size := avg(lt, i)
-			svr.slots = all[s : s+size]
-			s += size
-		}
-
-		return to
+func createSlots(oldSlots []*Server, servers []*Server) []*Server {
+	if len(servers) == 0 {
+		return nil
 	}
 
-	// use map for compare
-	m := make(map[string]*Server, lt)
-	for _, s := range to {
-		m[s.ID()] = s
+	newSlots := make([]*Server, Total)
+	svrSize := len(servers)
+
+	// distribute evenly first time
+	if len(oldSlots) == 0 {
+		p := 0
+		for i, svr := range servers {
+			size := slotSize(svrSize, i)
+			for j := 0; j < size; j++ {
+				newSlots[p+j] = svr
+			}
+			p += size
+		}
+		return newSlots
+	}
+
+	// use server map to compare
+	svrm := map[string]*Server{}
+	for _, s := range servers {
+		svrm[s.ID()] = s
 	}
 
 	// handle slots
+	p := 0
+	sizem := map[string]int{}
+	slotsm := map[string][]int{}
 	c := make([]int, 0)
-	svrs := make([]*Server, lt)
-	pos := 0
-	for _, s := range from {
-		ns := m[s.ID()]
-		if ns == nil {
-			// collect slots from lost server
-			c = append(c, s.slots...)
+	for i, svr := range oldSlots {
+		// collect slots from lost server
+		nsvr := svrm[svr.ID()]
+		if nsvr == nil {
+			c = append(c, i)
 			continue
 		}
 
 		// collect exceeding slots from existing server
-		size := avg(lt, pos)
-		if len(s.slots) > size {
-			c = append(c, s.slots[size:]...)
+		slots := slotsm[svr.ID()]
+		size := sizem[svr.ID()]
+		if size != 0 && len(slots) >= size {
+			c = append(c, i)
+			continue
 		}
 
-		// copy slots from existing server in order
-		ns.slots = s.slots
-		svrs[pos] = ns
-		delete(m, s.ID())
-		pos++
+		// keep normal slots for existing server
+		newSlots[i] = svr
+
+		// count slots for existing server in order
+		if slots == nil {
+			slots = make([]int, 0)
+			sizem[svr.ID()] = slotSize(svrSize, p)
+			p++
+		}
+		slotsm[svr.ID()] = append(slots, i)
 	}
 
-	// copy new servers
-	for _, s := range m {
-		svrs[pos] = s
-		pos++
-	}
-
-	// check slots size
-	s := 0
-	for i, svr := range svrs {
-		size := avg(len(svrs), i)
-		add := size - len(svr.slots)
-		if add > 0 {
-			// fill up lacking slots
-			svr.slots = append(svr.slots, c[s:s+add]...)
-			s += add
-		} else if add < 0 {
-			// prune exceeding slots
-			svr.slots = svr.slots[:size]
+	// count slots size for new server
+	for id := range svrm {
+		if sizem[id] == 0 {
+			sizem[id] = slotSize(svrSize, p)
+			p++
 		}
 	}
 
-	return svrs
+	// fill up slots for lacking server
+	for _, s := range servers {
+		slots := slotsm[s.ID()]
+		if lack := sizem[s.ID()] - len(slots); lack > 0 {
+			for j := 0; j < lack; j++ {
+				newSlots[c[j]] = s
+			}
+			c = c[lack:]
+		}
+	}
+	return newSlots
 }

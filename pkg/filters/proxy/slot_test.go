@@ -24,39 +24,45 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertEven(t *testing.T, svrs []*Server) {
+func assertEven(t *testing.T, svrs []*Server, slots []*Server) {
 	total := 0
-	for i, s := range svrs {
-		size := avg(len(svrs), i)
-		ls := len(s.slots)
-		assert.GreaterOrEqual(t, ls, size)
+	m := map[string]int{}
+	for _, s := range slots {
+		m[s.ID()] = m[s.ID()] + 1
+	}
+
+	avg := Total / len(svrs)
+	for _, s := range svrs {
+		ls := m[s.ID()]
+		assert.GreaterOrEqual(t, ls, avg)
 		total += ls
 	}
 	assert.Equal(t, Total, total)
 }
 
-func assertConsistent(t *testing.T, from []*Server, to []*Server) {
-	m := map[string]*Server{}
-	for _, s := range to {
-		m[s.ID()] = s
+func assertConsistent(t *testing.T, oldSvrs []*Server, oldSlots []*Server, newSvrs []*Server, newSlots []*Server) {
+
+	lo, ln := len(oldSvrs), len(newSvrs)
+	size := lo
+	if lo < ln {
+		size = ln
 	}
 
-	// compute consistent size
-	lf, lt := len(from), len(to)
-	lc := Total / lf
-	if lt > lf {
-		lc = Total / lt
+	om := map[string]bool{}
+	for _, s := range oldSvrs {
+		om[s.ID()] = true
 	}
 
-	for _, s := range from {
-		if ns := m[s.ID()]; ns != nil {
-			c := 0
-			for i, p := range ns.slots {
-				if p == s.slots[i] {
-					c++
-				}
-			}
-			assert.GreaterOrEqual(t, c, lc)
+	m := map[string]int{}
+	for i, s := range newSlots {
+		if s.ID() == oldSlots[i].ID() {
+			m[s.ID()] = m[s.ID()] + 1
+		}
+	}
+
+	for _, s := range newSvrs {
+		if om[s.ID()] {
+			assert.GreaterOrEqual(t, m[s.ID()], Total/size)
 		}
 	}
 }
@@ -97,67 +103,71 @@ func replace(from []*Server, ids ...int) []*Server {
 }
 
 func TestInitServer(t *testing.T) {
-	to := create(1, 2, 3)
-	to = hashSlots(nil, to)
-	assertEven(t, to)
+	newSvrs := create(1, 2, 3)
+	newSlots := createSlots(nil, newSvrs)
+	assertEven(t, newSvrs, newSlots)
 
-	to = create(1, 2, 3, 4, 5)
-	to = hashSlots(nil, to)
-	assertEven(t, to)
+	newSvrs = create(1, 2, 3, 4, 5)
+	newSlots = createSlots(nil, newSvrs)
+	assertEven(t, newSvrs, newSlots)
 }
 
 func TestIncreaseServer(t *testing.T) {
-	from := hashSlots(nil, create(1, 2, 3))
-	to := increase(from, 4)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs := create(1, 2, 3)
+	oldSlots := createSlots(nil, oldSvrs)
+	newSvrs := increase(oldSvrs, 4)
+	newSlots := createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 
-	from = copy(to)
-	to = increase(from, 5, 6)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs, oldSlots = copy(newSvrs), copy(newSlots)
+	newSvrs = increase(oldSvrs, 5, 6)
+	newSlots = createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 }
 
 func TestReduceServer(t *testing.T) {
-	from := hashSlots(nil, create(1, 2, 3, 45))
-	to := from[1:]
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs := create(1, 2, 3, 4, 5)
+	oldSlots := createSlots(nil, oldSvrs)
+	newSvrs := oldSvrs[1:]
+	newSlots := createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 
-	from = copy(to)
-	to = to[2:]
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs, oldSlots = copy(newSvrs), copy(newSlots)
+	newSvrs = oldSvrs[2:]
+	newSlots = createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 }
 
 func TestReplaceServer(t *testing.T) {
-	from := hashSlots(nil, create(1, 2, 3))
-	to := replace(from, 4)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs := create(1, 2, 3)
+	oldSlots := createSlots(nil, oldSvrs)
+	newSvrs := replace(oldSvrs, 4)
+	newSlots := createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 
-	from = copy(to)
-	to = replace(to, 5, 6)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs, oldSlots = copy(newSvrs), copy(newSlots)
+	newSvrs = replace(oldSvrs, 5, 6)
+	newSlots = createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 }
 
 func TestReorderServer(t *testing.T) {
-	from := hashSlots(nil, create(1, 2, 3))
-	to := replace(from, 1, 3, 2)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs := create(1, 2, 3)
+	oldSlots := createSlots(nil, oldSvrs)
+	newSvrs := replace(oldSvrs, 1, 3, 2)
+	newSlots := createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 
-	from = copy(to)
-	to = replace(to, 2, 3, 1)
-	to = hashSlots(from, to)
-	assertEven(t, to)
-	assertConsistent(t, from, to)
+	oldSvrs, oldSlots = copy(newSvrs), copy(newSlots)
+	newSvrs = replace(oldSvrs, 2, 3, 1)
+	newSlots = createSlots(oldSlots, newSvrs)
+	assertEven(t, newSvrs, newSlots)
+	assertConsistent(t, oldSvrs, oldSlots, newSvrs, newSlots)
 }

@@ -49,7 +49,7 @@ const (
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
 	Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response)
-	Server() []*Server
+	GetSlots() []*Server
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
@@ -62,7 +62,7 @@ type LoadBalanceSpec struct {
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
-func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
+func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server, slots []*Server) LoadBalancer {
 	d, err := time.ParseDuration(spec.StickyExpire)
 	if err != nil {
 		logger.Errorf("failed to parse duration: %s", spec.StickyExpire)
@@ -73,6 +73,7 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 
 	ld := BaseLoadBalancer{
 		Servers:      servers,
+		Slots:        slots,
 		Sticky:       spec.Sticky,
 		StickyCookie: spec.StickyCookie,
 		StickyExpire: d,
@@ -100,11 +101,12 @@ type BaseLoadBalancer struct {
 	Sticky       bool
 	StickyCookie string
 	StickyExpire time.Duration
+	Slots        []*Server
 }
 
-// Server return servers
-func (lb *BaseLoadBalancer) Server() []*Server {
-	return lb.Servers
+// GetSlots gets slots
+func (lb *BaseLoadBalancer) GetSlots() []*Server {
+	return lb.Slots
 }
 
 // ChooseServer chooses the sticky server if enable
@@ -132,15 +134,7 @@ func (lb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 func (lb *BaseLoadBalancer) chooseServerBySlot(key string) *Server {
 	hash := murmur3.New32()
 	hash.Write([]byte(key))
-	slot := (int)(hash.Sum32() % Total)
-	for _, s := range lb.Servers {
-		for _, p := range s.slots {
-			if p == slot {
-				return s
-			}
-		}
-	}
-	panic(fmt.Errorf("BUG: should not run to here, key=%s, slot=%d", key, slot))
+	return lb.Slots[(int)(hash.Sum32()%Total)]
 }
 
 // Manipulate customizes response for sticky session
