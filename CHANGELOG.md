@@ -10,8 +10,6 @@
 * Add new filter DataBuilder.
 
 **Implemented enhancements:**
-* Support OpenID Connect 1.0 authorization.
-* Add DataBuilder to transform data between filters.
 * Support routing by query string.
 * Update wasmtime-go.
 * Add more signing algorithm for JWT validator.
