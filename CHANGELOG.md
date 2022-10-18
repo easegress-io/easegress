@@ -5,7 +5,9 @@
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.1.1...v2.2.0)
 
 **Significant changes:**
-* Add WebSocketProxy and remove WebSocketProxy. 
+* Add new filter WebSocketProxy and remove controller WebSocketServer.
+* Add new filter OIDCAdaptor for OpenID Connect 1.0 authorization.
+* Add new filter DataBuilder.
 
 **Implemented enhancements:**
 * Support OpenID Connect 1.0 authorization.
