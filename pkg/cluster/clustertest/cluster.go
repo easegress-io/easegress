@@ -37,6 +37,7 @@ type MockedCluster struct {
 	MockedGetRawPrefix           func(prefix string) (map[string]*mvccpb.KeyValue, error)
 	MockedGetWithOp              func(key string, ops ...cluster.ClientOp) (map[string]string, error)
 	MockedPut                    func(key, value string) error
+	MockedPutUnderTimeout        func(key, value string, timeout time.Duration) error
 	MockedPutUnderLease          func(key, value string) error
 	MockedPutAndDelete           func(map[string]*string) error
 	MockedPutAndDeleteUnderLease func(map[string]*string) error
@@ -119,6 +120,13 @@ func (mc *MockedCluster) GetWithOp(key string, ops ...cluster.ClientOp) (map[str
 func (mc *MockedCluster) Put(key, value string) error {
 	if mc.MockedPut != nil {
 		return mc.MockedPut(key, value)
+	}
+	return nil
+}
+
+func (mc *MockedCluster) PutUnderTimeout(key, value string, timeout time.Duration) error {
+	if mc.MockedPutUnderTimeout != nil {
+		return mc.MockedPutUnderTimeout(key, value, timeout)
 	}
 	return nil
 }

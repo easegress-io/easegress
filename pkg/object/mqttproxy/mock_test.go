@@ -49,17 +49,18 @@ func (m *mockCluster) GetRaw(key string) (*mvccpb.KeyValue, error) { return nil,
 func (m *mockCluster) GetRawPrefix(prefix string) (map[string]*mvccpb.KeyValue, error) {
 	return nil, nil
 }
-func (m *mockCluster) PutUnderLease(key, value string) error                     { return nil }
-func (m *mockCluster) PutAndDelete(map[string]*string) error                     { return nil }
-func (m *mockCluster) PutAndDeleteUnderLease(map[string]*string) error           { return nil }
-func (m *mockCluster) DeletePrefix(prefix string) error                          { return nil }
-func (m *mockCluster) STM(apply func(concurrency.STM) error) error               { return nil }
-func (m *mockCluster) Syncer(pullInterval time.Duration) (cluster.Syncer, error) { return nil, nil }
-func (m *mockCluster) Mutex(name string) (cluster.Mutex, error)                  { return nil, nil }
-func (m *mockCluster) CloseServer(wg *sync.WaitGroup)                            {}
-func (m *mockCluster) StartServer() (chan struct{}, chan struct{}, error)        { return nil, nil, nil }
-func (m *mockCluster) Close(wg *sync.WaitGroup)                                  {}
-func (m *mockCluster) PurgeMember(member string) error                           { return nil }
+func (m *mockCluster) PutUnderLease(key, value string) error                          { return nil }
+func (m *mockCluster) PutUnderTimeout(key, value string, timeout time.Duration) error { return nil }
+func (m *mockCluster) PutAndDelete(map[string]*string) error                          { return nil }
+func (m *mockCluster) PutAndDeleteUnderLease(map[string]*string) error                { return nil }
+func (m *mockCluster) DeletePrefix(prefix string) error                               { return nil }
+func (m *mockCluster) STM(apply func(concurrency.STM) error) error                    { return nil }
+func (m *mockCluster) Syncer(pullInterval time.Duration) (cluster.Syncer, error)      { return nil, nil }
+func (m *mockCluster) Mutex(name string) (cluster.Mutex, error)                       { return nil, nil }
+func (m *mockCluster) CloseServer(wg *sync.WaitGroup)                                 {}
+func (m *mockCluster) StartServer() (chan struct{}, chan struct{}, error)             { return nil, nil, nil }
+func (m *mockCluster) Close(wg *sync.WaitGroup)                                       {}
+func (m *mockCluster) PurgeMember(member string) error                                { return nil }
 
 func (m *mockCluster) Watcher() (cluster.Watcher, error) {
 	m.Lock()

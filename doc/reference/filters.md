@@ -58,6 +58,9 @@
   - [DataBuilder](#databuilder)
     - [Configuration](#configuration-18)
     - [Results](#results-18)
+  - [OIDCAdaptor](#OIDCAdaptor)
+    - [Configuration](#configuration-19)
+    - [Results](#results-19)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -982,6 +985,78 @@ the context.
 | Value           | Description                                       |
 |-----------------|---------------------------------------------------|
 | buildErr        | Error happens when building the data              |
+
+## OIDCAdaptor
+
+OpenID Connect(OIDC) is an identity layer on top of the OAuth 2.0 protocol. It enables Clients to verify
+the identity of the End-User based on the authentication performed by an Authorization Server, as well as
+to obtain basic profile information about the End-User.
+
+For identity platforms that implement standard OIDC specification like [Google Accounts](https://accounts.google.com)、[OKTA](https://www.okta.com/)、
+[Auth0](https://auth0.com/)、[Authing](https://www.authing.cn/).  configure `discovery` endpoint as below example:
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: oidc
+    jumpIf: { oidcFiltered: END }
+filters:
+  - name: oidc
+    kind: OIDCAdaptor
+    cookieName: oidc-auth-cookie
+    clientId: <Your ClientId>
+    clientSecret: <Your clientSecret>
+    discovery: https://accounts.google.com/.well-known/openid-configuration  #Replace your own discovery
+    redirectURI: /oidc/callback
+```
+
+For third platforms that only implement OAuth2.0 like GitHub, users should configure `authorizationEndpoint`、
+`tokenEndpoint`、`userinfoEndpoint` at the same time as below example:
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: oidc
+    jumpIf: { oidcFiltered: END }
+filters:
+  - name: oidc
+    kind: OIDCAdaptor
+    cookieName: oidc-auth-cookie
+    clientId: <Your ClientId>
+    clientSecret: <Your clientSecret>
+    authorizationEndpoint: https://github.com/login/oauth/authorize
+    tokenEndpoint: https://github.com/login/oauth/access_token
+    userinfoEndpoint: https://api.github.com/user
+    redirectURI: /oidc/callback
+```
+
+### Configuration
+
+| Name                  | Type   | Description                                                                                                               | Required |
+|-----------------------|--------|---------------------------------------------------------------------------------------------------------------------------|----------|
+| clientId              | string | The OAuth2.0 app client id                                                                                                | Yes      |
+| clientSecret          | string | The OAuth2.0 app client secret                                                                                            | Yes      |
+| cookieName            | string | Used to check if necessary to launch OpenIDConnect flow                                                                   | No       |
+| discovery             | string | Standard OpenID Connect discovery endpoint URL of the identity server                                                     | No       |
+| authorizationEndpoint | string | OAuth2.0 authorization endpoint URL                                                                                       | No       |
+| tokenEndpoint         | string | OAuth2.0 token endpoint URL                                                                                               | No       |
+| userInfoEndpoint      | string | OAuth2.0 user info endpoint URL                                                                                           | No       |
+| redirectURI           | string | The callback uri registered in identity server, for example: <br/>`https://example.com/oidc/callback` or `/oidc/callback` | Yes      |
+
+### Results
+| Value           | Description                            |
+|-----------------|----------------------------------------|
+| oidcFiltered    | The request is handled by OIDCAdaptor. |
+
+
+After OIDCAdaptor handled, following OIDC related information can be obtained from Easegress HTTP request headers:
+
+* **X-User-Info**: Base64 encoded OIDC End-User basic profile.
+* **X-Origin-Request-URL**: End-User origin request URL before OpenID Connect or OAuth2.0 flow.
+* **X-Id-Token**: The ID Token returned by OpenID Connect flow.
+* **X-Access-Token**: The AccessToken returned by OpenId Connect or OAuth2.0 flow.
 
 
 ## Common Types
