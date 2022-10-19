@@ -101,13 +101,10 @@ func (base *BaseLoadBalancer) confSticky(spec *LoadBalanceSpec) {
 		}
 		base.StickyCookie = spec.StickyCookie
 
-		dur := 2 * time.Hour
-		if spec.StickyExpire != "" {
-			if dur, err := time.ParseDuration(spec.StickyExpire); err == nil {
-				base.StickyExpire = dur
-			} else {
-				logger.Errorf("failed to parse duration: %s, fallback to default 2h", spec.StickyExpire)
-			}
+		dur, err := time.ParseDuration(spec.StickyExpire)
+		if err != nil {
+		        dur = 2 * time.Hour
+			logger.Warnf("failed to parse duration: %s, fallback to default 2h", spec.StickyExpire)
 		}
 		base.StickyExpire = dur
 	}
