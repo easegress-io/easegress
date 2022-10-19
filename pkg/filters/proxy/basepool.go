@@ -127,12 +127,7 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 		spec = &LoadBalanceSpec{}
 	}
 
-	var oldSlots []*Server
-	if lb := bsp.LoadBalancer(); lb != nil {
-		oldSlots = lb.GetSlots()
-	}
-	newSlots := createSlots(oldSlots, servers)
-	lb := NewLoadBalancer(spec, servers, newSlots)
+	lb := NewLoadBalancer(spec, servers, bsp.LoadBalancer())
 	bsp.loadBalancer.Store(lb)
 }
 

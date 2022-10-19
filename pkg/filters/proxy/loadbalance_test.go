@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
@@ -49,17 +50,17 @@ func TestRoundRobinLoadBalancer(t *testing.T) {
 	assert := assert.New(t)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs, nil)
 	for i := 0; i < 10; i++ {
 		svr := lb.ChooseServer(nil)
 		assert.Equal(svr.Weight, i+1)
 	}
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "unknow"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "unknow"}, svrs, nil)
 	for i := 0; i < 10; i++ {
 		svr := lb.ChooseServer(nil)
 		assert.Equal(svr.Weight, i+1)
@@ -71,13 +72,13 @@ func TestRandomLoadBalancer(t *testing.T) {
 	rand.Seed(0)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
 	counter := [10]int{}
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs, nil)
 	for i := 0; i < 10000; i++ {
 		svr := lb.ChooseServer(nil)
 		assert.NotNil(svr)
@@ -96,13 +97,13 @@ func TestWeightedRandomLoadBalancer(t *testing.T) {
 	rand.Seed(0)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
 	counter := [10]int{}
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs, nil)
 	for i := 0; i < 10000; i++ {
 		svr := lb.ChooseServer(nil)
 		assert.NotNil(svr)
@@ -122,11 +123,11 @@ func TestIPHashLoadBalancer(t *testing.T) {
 	assert := assert.New(t)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, nil)
 
 	counter := [10]int{}
 	for i := 0; i < 100; i++ {
@@ -149,14 +150,14 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 	lb := NewLoadBalancer(&LoadBalanceSpec{
 		Policy:        "headerHash",
 		HeaderHashKey: "X-Header",
-	}, svrs, createSlots(nil, svrs))
+	}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
 	lb = NewLoadBalancer(&LoadBalanceSpec{
 		Policy:        "headerHash",
 		HeaderHashKey: "X-Header",
-	}, svrs, createSlots(nil, svrs))
+	}, svrs, nil)
 
 	counter := [10]int{}
 	for i := 0; i < 100; i++ {
@@ -172,16 +173,30 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 	}
 }
 
+func TestConfSticky(t *testing.T) {
+	base := &BaseLoadBalancer{}
+	base.confSticky(&LoadBalanceSpec{Sticky: false, StickyCookie: "wrong", StickyExpire: "wrong"})
+	assert.Equal(t, false, base.Sticky)
+	assert.Equal(t, "", base.StickyCookie)
+	assert.Equal(t, time.Duration(0), base.StickyExpire)
+
+	base = &BaseLoadBalancer{}
+	base.confSticky(&LoadBalanceSpec{Sticky: true, StickyCookie: LoadBalanceStickyCookie, StickyExpire: "wrong"})
+	assert.Equal(t, true, base.Sticky)
+	assert.Equal(t, "", base.StickyCookie)
+	assert.Equal(t, 2*time.Hour, base.StickyExpire)
+}
+
 func TestStickySessionWithUserCookie(t *testing.T) {
 	assert := assert.New(t)
 
 	var svrs []*Server
 	name, value := "X-Cookie", uuid.NewString()
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs, nil)
 	req := &http.Request{Header: http.Header{}}
 	req.AddCookie(&http.Cookie{Name: name, Value: value})
 	r, _ := httpprot.NewRequest(req)
@@ -204,11 +219,11 @@ func TestStickySessionWithGeneratedCookie(t *testing.T) {
 	assert := assert.New(t)
 
 	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs, createSlots(nil, svrs))
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs, nil)
 	assert.Nil(lb.ChooseServer(nil))
 
 	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs, createSlots(nil, svrs))
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs, nil)
 	req := &http.Request{Header: http.Header{}}
 	r, _ := httpprot.NewRequest(req)
 	firstSvr := lb.ChooseServer(r)
