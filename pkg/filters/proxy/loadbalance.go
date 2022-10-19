@@ -18,13 +18,14 @@
 package proxy
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"sync/atomic"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/spaolacci/murmur3"
@@ -43,6 +44,8 @@ const (
 	LoadBalancePolicyHeaderHash = "headerHash"
 	// LoadBalanceStickyCookie is the generated cookie name used for sticky session
 	LoadBalanceStickyCookie = "EASEGRESS_SESSION"
+	// LoadBalanceStickyExpire is the default expire time for sticky session
+	LoadBalanceStickyExpire = 2 * time.Hour
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
@@ -92,22 +95,23 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server, old LoadBalancer)
 
 // confSticky configures sticky settings
 func (base *BaseLoadBalancer) confSticky(spec *LoadBalanceSpec) {
-	if spec.Sticky {
-		base.Sticky = spec.Sticky
-
-		if spec.StickyCookie == LoadBalanceStickyCookie {
-			logger.Errorf("can't use system cookie name: %s, will be ignored", LoadBalanceStickyCookie)
-			spec.StickyCookie = ""
-		}
-		base.StickyCookie = spec.StickyCookie
-
-		dur, err := time.ParseDuration(spec.StickyExpire)
-		if err != nil {
-		        dur = 2 * time.Hour
-			logger.Warnf("failed to parse duration: %s, fallback to default 2h", spec.StickyExpire)
-		}
-		base.StickyExpire = dur
+	if spec == nil || !spec.Sticky {
+		return
 	}
+	base.Sticky = spec.Sticky
+
+	if spec.StickyCookie == LoadBalanceStickyCookie {
+		logger.Errorf("can't use system cookie name: %s, will be ignored", LoadBalanceStickyCookie)
+		spec.StickyCookie = ""
+	}
+	base.StickyCookie = spec.StickyCookie
+
+	dur, err := time.ParseDuration(spec.StickyExpire)
+	if err != nil {
+		dur = LoadBalanceStickyExpire
+		logger.Warnf("failed to parse duration: %s, fallback to default 2h", spec.StickyExpire)
+	}
+	base.StickyExpire = dur
 }
 
 // BaseLoadBalancer implement the common part of load balancer.
@@ -134,15 +138,30 @@ func (base *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		if cookie, err := req.Cookie(base.StickyCookie); err == nil {
 			return base.chooseServerBySlot(cookie.Value)
 		}
-		return nil
 	}
 
-	cookie, err := req.Cookie(LoadBalanceStickyCookie)
-	if err != nil {
-		cookie = &http.Cookie{Name: LoadBalanceStickyCookie, Value: uuid.NewString()}
-		req.AddCookie(cookie)
+	if cookie, err := req.Cookie(LoadBalanceStickyCookie); err == nil {
+		return base.chooseServerByID(cookie.Value)
 	}
-	return base.chooseServerBySlot(cookie.Value)
+
+	return nil
+}
+
+// chooseServerByID choose server by server id
+func (base *BaseLoadBalancer) chooseServerByID(id string) *Server {
+	for _, svr := range base.Servers {
+		if md5V(svr.ID()) == id {
+			return svr
+		}
+	}
+	return nil
+}
+
+// md5V return md5 result for string
+func md5V(str string) string {
+	h := md5.New()
+	h.Write([]byte(str))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // chooseServerBySlot choose server using consistent hash
@@ -158,13 +177,10 @@ func (base *BaseLoadBalancer) Manipulate(server *Server, req *httpprot.Request, 
 		return
 	}
 
-	cookie, err := req.Cookie(LoadBalanceStickyCookie)
-	if err != nil {
-		logger.Warnf("cookie not found for: %s", LoadBalanceStickyCookie)
-		return
-	}
-	// reset expire
-	cookie.Expires = time.Now().Add(base.StickyExpire)
+	cookie := &http.Cookie{
+		Name:    LoadBalanceStickyCookie,
+		Value:   md5V(server.ID()),
+		Expires: time.Now().Add(base.StickyExpire)}
 	resp.SetCookie(cookie)
 }
 
