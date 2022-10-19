@@ -72,6 +72,7 @@ type Options struct {
 	Debug                    bool              `yaml:"debug"`
 	DisableAccessLog         bool              `yaml:"disable-access-log"`
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
+	ObjectsDumpInterval      string            `yaml:"objects-dump-interval"`
 
 	// cluster options
 	UseStandaloneEtcd     bool           `yaml:"use-standalone-etcd"`
@@ -139,6 +140,7 @@ func New() *Options {
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
 	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
+	opt.flags.StringVar(&opt.ObjectsDumpInterval, "objects-dump-interval", "", "The time interval to dump running objects config, for example: 30m")
 
 	opt.flags.StringVar(&opt.HomeDir, "home-dir", "./", "Path to the home directory.")
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
