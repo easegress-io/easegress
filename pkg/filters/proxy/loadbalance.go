@@ -52,8 +52,6 @@ const (
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
 	Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response)
-	GetHash() *consistent.Consistent
-	GetServers() []*Server
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
@@ -66,11 +64,11 @@ type LoadBalanceSpec struct {
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
-func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server, old LoadBalancer) LoadBalancer {
+func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	base := BaseLoadBalancer{
 		Servers: servers,
 	}
-	base.confHash(servers, old)
+	base.createHash(servers)
 	base.confSticky(spec)
 
 	switch spec.Policy {
@@ -110,12 +108,11 @@ func (h hasher) Sum64(data []byte) uint64 {
 	return hash.Sum64()
 }
 
-// confHash configures Hash
-func (base *BaseLoadBalancer) confHash(svrs []*Server, lb LoadBalancer) {
+// createHash creates Hash object
+func (base *BaseLoadBalancer) createHash(svrs []*Server) {
 	if len(svrs) == 0 {
 		return
 	}
-
 	cfg := consistent.Config{
 		PartitionCount:    1024,
 		ReplicationFactor: 50,
@@ -126,30 +123,7 @@ func (base *BaseLoadBalancer) confHash(svrs []*Server, lb LoadBalancer) {
 	for i, s := range svrs {
 		members[i] = hashMember{server: s}
 	}
-	if lb == nil {
-		base.Hash = consistent.New(members, cfg)
-		return
-	}
-
-	m := make(map[string]*Server, len(svrs))
-	for _, s := range svrs {
-		m[s.ID()] = s
-	}
-	hash, oldSvrs := lb.GetHash(), lb.GetServers()
-	for _, s := range oldSvrs {
-		if m[s.ID()] == nil {
-			// remove non-existent server from hash
-			hash.Remove(s.ID())
-		} else {
-			// remove existing server from map
-			delete(m, s.ID())
-		}
-	}
-	// add new server to hash
-	for _, s := range m {
-		hash.Add((hashMember{server: s}))
-	}
-	base.Hash = hash
+	base.Hash = consistent.New(members, cfg)
 }
 
 // confSticky configures sticky settings
@@ -180,16 +154,6 @@ type BaseLoadBalancer struct {
 	Sticky       bool
 	StickyCookie string
 	StickyExpire time.Duration
-}
-
-// GetHash return Hash
-func (base *BaseLoadBalancer) GetHash() *consistent.Consistent {
-	return base.Hash
-}
-
-// GetServers return servers
-func (base *BaseLoadBalancer) GetServers() []*Server {
-	return base.Servers
 }
 
 // ChooseServer chooses the sticky server if enable

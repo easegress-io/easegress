@@ -162,7 +162,7 @@ pools:
 	}
 
 	// no server
-	proxy.mainPool.loadBalancer.Store(NewLoadBalancer(&LoadBalanceSpec{}, nil, nil))
+	proxy.mainPool.loadBalancer.Store(NewLoadBalancer(&LoadBalanceSpec{}, nil))
 	{
 		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.megaease.com", nil)
 		ctx := getCtx(stdr)
