@@ -87,7 +87,7 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 
 	initObjs := loadInitialObjects(s, opt.InitialObjectConfigFiles)
 
-	s.objectRegistry = newObjectRegistry(s, initObjs)
+	s.objectRegistry = newObjectRegistry(s, initObjs, opt.ObjectsDumpInterval)
 	s.watcher = s.objectRegistry.NewWatcher(watcherName, FilterCategory(
 		// NOTE: SystemController is only initialized internally.
 		// CategorySystemController,
