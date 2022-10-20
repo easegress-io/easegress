@@ -246,3 +246,93 @@ func TestStickySessionWithGeneratedCookie(t *testing.T) {
 		assert.Equal(svr.Weight, firstSvr.Weight)
 	}
 }
+
+func TestHashEqual(t *testing.T) {
+	assert := assert.New(t)
+
+	svrs := prepareServers(5)
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, nil)
+	counter1 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter1[svr.Weight-1]++
+	}
+
+	svrs = prepareServers(5)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, lb)
+	counter2 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter2[svr.Weight-1]++
+	}
+
+	for i := 0; i < 5; i++ {
+		assert.Equal(counter2[i], counter1[i])
+	}
+}
+
+func TestHashAdd(t *testing.T) {
+	assert := assert.New(t)
+
+	svrs := prepareServers(5)
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, nil)
+	counter1 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter1[svr.Weight-1]++
+	}
+
+	svrs = prepareServers(6)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, lb)
+	counter2 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter2[svr.Weight-1]++
+	}
+
+	for i := 0; i < 5; i++ {
+		assert.GreaterOrEqual(counter1[i], counter2[i])
+	}
+}
+
+func TestHashRemove(t *testing.T) {
+	assert := assert.New(t)
+
+	svrs := prepareServers(5)
+	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, nil)
+	counter1 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter1[svr.Weight-1]++
+	}
+
+	svrs = prepareServers(4)
+	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs, lb)
+	counter2 := [10]int{}
+	for i := 0; i < 1000; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
+		r, _ := httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		counter2[svr.Weight-1]++
+	}
+
+	for i := 0; i < 4; i++ {
+		assert.GreaterOrEqual(counter2[i], counter1[i])
+	}
+}

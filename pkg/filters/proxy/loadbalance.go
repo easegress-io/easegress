@@ -18,14 +18,14 @@
 package proxy
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"net/http"
 	"sync/atomic"
 	"time"
 
+	"github.com/buraksezer/consistent"
+	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/spaolacci/murmur3"
@@ -52,7 +52,8 @@ const (
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
 	Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response)
-	GetSlots() []*Server
+	GetHash() *consistent.Consistent
+	GetServers() []*Server
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
@@ -69,11 +70,7 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server, old LoadBalancer)
 	base := BaseLoadBalancer{
 		Servers: servers,
 	}
-	var oldSlots []*Server
-	if old != nil {
-		oldSlots = old.GetSlots()
-	}
-	base.Slots = createSlots(oldSlots, servers)
+	base.confHash(servers, old)
 	base.confSticky(spec)
 
 	switch spec.Policy {
@@ -91,6 +88,68 @@ func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server, old LoadBalancer)
 		logger.Errorf("unsupported load balancing policy: %s", spec.Policy)
 		return newRoundRobinLoadBalancer(base)
 	}
+}
+
+// hashMember is member used for hash
+type hashMember struct {
+	server *Server
+}
+
+// String implements consistent.Member interface
+func (m hashMember) String() string {
+	return m.server.ID()
+}
+
+// hasher is used for hash
+type hasher struct{}
+
+// Sum64 implement hash function using murmur3
+func (h hasher) Sum64(data []byte) uint64 {
+	hash := murmur3.New64()
+	hash.Write(data)
+	return hash.Sum64()
+}
+
+// confHash configures Hash
+func (base *BaseLoadBalancer) confHash(svrs []*Server, lb LoadBalancer) {
+	if len(svrs) == 0 {
+		return
+	}
+
+	cfg := consistent.Config{
+		PartitionCount:    1024,
+		ReplicationFactor: 50,
+		Load:              1.25,
+		Hasher:            hasher{},
+	}
+	members := make([]consistent.Member, len(svrs))
+	for i, s := range svrs {
+		members[i] = hashMember{server: s}
+	}
+	if lb == nil {
+		base.Hash = consistent.New(members, cfg)
+		return
+	}
+
+	m := make(map[string]*Server, len(svrs))
+	for _, s := range svrs {
+		m[s.ID()] = s
+	}
+	hash, oldSvrs := lb.GetHash(), lb.GetServers()
+	for _, s := range oldSvrs {
+		if m[s.ID()] == nil {
+			// remove non-existent server from hash
+			hash.Remove(s.ID())
+		} else {
+			// remove existing server from map
+			delete(m, s.ID())
+		}
+	}
+	// add new server to hash
+	for _, s := range m {
+		hash.Add((hashMember{server: s}))
+	}
+	base.Hash = hash
 }
 
 // confSticky configures sticky settings
@@ -117,15 +176,20 @@ func (base *BaseLoadBalancer) confSticky(spec *LoadBalanceSpec) {
 // BaseLoadBalancer implement the common part of load balancer.
 type BaseLoadBalancer struct {
 	Servers      []*Server
-	Slots        []*Server
+	Hash         *consistent.Consistent
 	Sticky       bool
 	StickyCookie string
 	StickyExpire time.Duration
 }
 
-// GetSlots gets slots
-func (base *BaseLoadBalancer) GetSlots() []*Server {
-	return base.Slots
+// GetHash return Hash
+func (base *BaseLoadBalancer) GetHash() *consistent.Consistent {
+	return base.Hash
+}
+
+// GetServers return servers
+func (base *BaseLoadBalancer) GetServers() []*Server {
+	return base.Servers
 }
 
 // ChooseServer chooses the sticky server if enable
@@ -138,37 +202,23 @@ func (base *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		if cookie, err := req.Cookie(base.StickyCookie); err == nil {
 			return base.chooseServerBySlot(cookie.Value)
 		}
+		return nil
 	}
 
-	if cookie, err := req.Cookie(LoadBalanceStickyCookie); err == nil {
-		return base.chooseServerByID(cookie.Value)
+	cookie, err := req.Cookie(LoadBalanceStickyCookie)
+	if err != nil {
+		cookie = &http.Cookie{Name: LoadBalanceStickyCookie, Value: uuid.NewString()}
+		req.AddCookie(cookie)
 	}
-
-	return nil
-}
-
-// chooseServerByID choose server by server id
-func (base *BaseLoadBalancer) chooseServerByID(id string) *Server {
-	for _, svr := range base.Servers {
-		if md5V(svr.ID()) == id {
-			return svr
-		}
-	}
-	return nil
-}
-
-// md5V return md5 result for string
-func md5V(str string) string {
-	h := md5.New()
-	h.Write([]byte(str))
-	return hex.EncodeToString(h.Sum(nil))
+	return base.chooseServerBySlot(cookie.Value)
 }
 
 // chooseServerBySlot choose server using consistent hash
 func (base *BaseLoadBalancer) chooseServerBySlot(key string) *Server {
-	hash := murmur3.New32()
-	hash.Write([]byte(key))
-	return base.Slots[(int)(hash.Sum32()%Total)]
+	if n := base.Hash.LocateKey([]byte(key)); n != nil {
+		return n.(hashMember).server
+	}
+	return nil
 }
 
 // Manipulate customizes response for sticky session
@@ -177,10 +227,13 @@ func (base *BaseLoadBalancer) Manipulate(server *Server, req *httpprot.Request, 
 		return
 	}
 
-	cookie := &http.Cookie{
-		Name:    LoadBalanceStickyCookie,
-		Value:   md5V(server.ID()),
-		Expires: time.Now().Add(base.StickyExpire)}
+	cookie, err := req.Cookie(LoadBalanceStickyCookie)
+	if err != nil {
+		logger.Warnf("cookie not found for: %s", LoadBalanceStickyCookie)
+		return
+	}
+	// renew expire time
+	cookie.Expires = time.Now().Add(base.StickyExpire)
 	resp.SetCookie(cookie)
 }
 
