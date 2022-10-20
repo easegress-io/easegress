@@ -549,7 +549,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 	err := req.FetchPayload(maxBodySize)
 	if err == httpprot.ErrRequestEntityTooLarge {
-		logger.Debugf("%s: %s", mi.superSpec.Name(), err.Error())
+		logger.Debugf("%s: %s, you may need to increase 'clientMaxBodySize' or set it to -1", mi.superSpec.Name(), err.Error())
 		buildFailureResponse(ctx, http.StatusRequestEntityTooLarge)
 		return
 	}
