@@ -175,6 +175,7 @@ func (ra *ResponseAdaptor) compress(resp *httpprot.Response) string {
 	zr := readers.NewGZipCompressReader(resp.GetPayload())
 	if resp.IsStream() {
 		resp.SetPayload(zr)
+		resp.ContentLength = -1
 		resp.HTTPHeader().Del(keyContentLength)
 	} else {
 		data, err := io.ReadAll(zr)
@@ -184,6 +185,7 @@ func (ra *ResponseAdaptor) compress(resp *httpprot.Response) string {
 			return resultCompressFailed
 		}
 		resp.SetPayload(data)
+		resp.ContentLength = int64(len(data))
 		resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
 	}
 
@@ -208,6 +210,7 @@ func (ra *ResponseAdaptor) decompress(resp *httpprot.Response) string {
 
 	if resp.IsStream() {
 		resp.SetPayload(zr)
+		resp.ContentLength = -1
 		resp.HTTPHeader().Del(keyContentLength)
 	} else {
 		data, err := io.ReadAll(zr)
@@ -217,6 +220,7 @@ func (ra *ResponseAdaptor) decompress(resp *httpprot.Response) string {
 			return resultDecompressFailed
 		}
 		resp.SetPayload(data)
+		resp.ContentLength = int64(len(data))
 		resp.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
 	}
 

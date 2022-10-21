@@ -46,7 +46,7 @@ type Response struct {
 }
 
 // ErrResponseEntityTooLarge means the request entity is too large.
-var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large")
+var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large, you may need to increase 'serverMaxBodySize' or set it to -1")
 
 var _ protocols.Response = (*Response)(nil)
 

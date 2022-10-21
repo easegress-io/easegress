@@ -148,7 +148,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 
 	// if there's no available server.
 	if svr == nil {
-		logger.Debugf("%s: no available server", sp.name)
+		logger.Errorf("%s: no available server", sp.name)
 		sp.buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		metric.StatusCode = http.StatusServiceUnavailable
 		return resultInternalError
@@ -156,7 +156,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 
 	stdw, _ := ctx.GetData("HTTP_RESPONSE_WRITER").(http.ResponseWriter)
 	if stdw == nil {
-		logger.Debugf("%s: cannot get response writer from context", sp.name)
+		logger.Errorf("%s: cannot get response writer from context", sp.name)
 		sp.buildFailureResponse(ctx, http.StatusInternalServerError)
 		metric.StatusCode = http.StatusInternalServerError
 		return resultInternalError
