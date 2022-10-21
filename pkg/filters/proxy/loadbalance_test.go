@@ -22,9 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"testing"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
@@ -173,104 +171,25 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 	}
 }
 
-func TestConfSticky(t *testing.T) {
-	base := &BaseLoadBalancer{}
-	base.confSticky(&LoadBalanceSpec{Sticky: false, StickyCookie: "wrong", StickyExpire: "wrong"})
-	assert.Equal(t, false, base.Sticky)
-	assert.Equal(t, "", base.StickyCookie)
-	assert.Equal(t, time.Duration(0), base.StickyExpire)
-
-	base = &BaseLoadBalancer{}
-	base.confSticky(&LoadBalanceSpec{Sticky: true, StickyCookie: LoadBalanceStickyCookie, StickyExpire: "wrong"})
-	assert.Equal(t, true, base.Sticky)
-	assert.Equal(t, "", base.StickyCookie)
-	assert.Equal(t, 2*time.Hour, base.StickyExpire)
-}
-
-func TestStickySessionWithUserCookie(t *testing.T) {
+func TestStickySession_ConsistentHash(t *testing.T) {
 	assert := assert.New(t)
 
-	var svrs []*Server
-	name, value := "X-Cookie", uuid.NewString()
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
+	servers := prepareServers(10)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode:          "CookieConsistentHash",
+			AppCookieName: "AppCookie",
+		},
+	}, servers)
 
-	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyCookie: name}, svrs)
 	req := &http.Request{Header: http.Header{}}
-	req.AddCookie(&http.Cookie{Name: name, Value: value})
+	req.AddCookie(&http.Cookie{Name: "AppCookie", Value: "abcd-1"})
 	r, _ := httpprot.NewRequest(req)
-	firstSvr := lb.ChooseServer(r)
-	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
-	lb.Manipulate(firstSvr, r, resp)
-	c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
-	assert.Nil(c)
+	svr1 := lb.ChooseServer(r)
 
-	for i := 0; i < 10; i++ {
-		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: name, Value: value})
-		r, _ := httpprot.NewRequest(req)
+	for i := 0; i < 100; i++ {
 		svr := lb.ChooseServer(r)
-		assert.Equal(svr.Weight, firstSvr.Weight)
-	}
-}
-
-func TestStickySessionWithGeneratedCookie(t *testing.T) {
-	assert := assert.New(t)
-
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin", Sticky: true, StickyExpire: "2h"}, svrs)
-	req := &http.Request{Header: http.Header{}}
-	r, _ := httpprot.NewRequest(req)
-	firstSvr := lb.ChooseServer(r)
-	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
-	lb.Manipulate(firstSvr, r, resp)
-	c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
-	assert.NotNil(c)
-	value := c.Value
-
-	for i := 0; i < 10; i++ {
-		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: LoadBalanceStickyCookie, Value: value})
-		r, _ := httpprot.NewRequest(req)
-		svr := lb.ChooseServer(r)
-		resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
-		lb.Manipulate(svr, r, resp)
-		c := readCookie(resp.Cookies(), LoadBalanceStickyCookie)
-		assert.NotNil(c)
-		value = c.Value
-		assert.Equal(svr.Weight, firstSvr.Weight)
-	}
-}
-
-func chooseServers(lb LoadBalancer, n int) []string {
-	counter := make([]string, n)
-	for i := 0; i < n; i++ {
-		req := &http.Request{Header: http.Header{}}
-		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
-		r, _ := httpprot.NewRequest(req)
-		svr := lb.ChooseServer(r)
-		counter[i] = svr.ID()
-	}
-	return counter
-}
-
-func TestHashSame(t *testing.T) {
-	assert := assert.New(t)
-
-	svrs1 := prepareServers(5)
-	lb1 := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs1)
-	c1 := chooseServers(lb1, 1000)
-
-	svrs2 := prepareServers(5)
-	lb2 := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs2)
-	c2 := chooseServers(lb2, 1000)
-
-	for i := 0; i < 1000; i++ {
-		assert.Equal(c1[i], c2[i])
+		assert.Equal(svr1, svr)
 	}
 }

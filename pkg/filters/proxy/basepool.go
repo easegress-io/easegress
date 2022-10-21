@@ -112,10 +112,7 @@ func (bsp *BaseServerPool) Init(super *supervisor.Supervisor, name string, spec 
 
 // LoadBalancer returns the load balancer of the server pool.
 func (bsp *BaseServerPool) LoadBalancer() LoadBalancer {
-	if v := bsp.loadBalancer.Load(); v != nil {
-		return v.(LoadBalancer)
-	}
-	return nil
+	return bsp.loadBalancer.Load().(LoadBalancer)
 }
 
 func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {

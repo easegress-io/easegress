@@ -19,13 +19,11 @@ package proxy
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
-	"net/http"
 	"sync/atomic"
-	"time"
 
 	"github.com/buraksezer/consistent"
-	"github.com/google/uuid"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/spaolacci/murmur3"
@@ -42,49 +40,43 @@ const (
 	LoadBalancePolicyIPHash = "ipHash"
 	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
 	LoadBalancePolicyHeaderHash = "headerHash"
-	// LoadBalanceStickyCookie is the generated cookie name used for sticky session
-	LoadBalanceStickyCookie = "EASEGRESS_SESSION"
-	// LoadBalanceStickyExpire is the default expire time for sticky session
-	LoadBalanceStickyExpire = 2 * time.Hour
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
-	Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response)
+}
+
+// StickySessionSpec is the spec for sticky session.
+type StickySessionSpec struct {
+	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash"`
+	// AppCookieName need to be omitempty when we support other sticky mode.
+	AppCookieName string `json:"appCookieName" jsonschema:"required"`
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
-	HeaderHashKey string `json:"headerHashKey" jsonschema:"omitempty"`
-	Sticky        bool   `json:"sticky" jsonschema:"omitempty"`
-	StickyCookie  string `json:"stickyCookie" jsonschema:"omitempty"`
-	StickyExpire  string `json:"stickyExpire" jsonschema:"omitempty,format=duration"`
+	Policy        string             `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	HeaderHashKey string             `json:"headerHashKey" jsonschema:"omitempty"`
+	StickySession *StickySessionSpec `json:"stickySession" jsonschema:"omitempty"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
 func NewLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
-	base := BaseLoadBalancer{
-		Servers: servers,
-	}
-	base.createHash(servers)
-	base.confSticky(spec)
-
 	switch spec.Policy {
 	case LoadBalancePolicyRoundRobin, "":
-		return newRoundRobinLoadBalancer(base)
+		return newRoundRobinLoadBalancer(spec, servers)
 	case LoadBalancePolicyRandom:
-		return newRandomLoadBalancer(base)
+		return newRandomLoadBalancer(spec, servers)
 	case LoadBalancePolicyWeightedRandom:
-		return newWeightedRandomLoadBalancer(base)
+		return newWeightedRandomLoadBalancer(spec, servers)
 	case LoadBalancePolicyIPHash:
-		return newIPHashLoadBalancer(base)
+		return newIPHashLoadBalancer(spec, servers)
 	case LoadBalancePolicyHeaderHash:
-		return newHeaderHashLoadBalancer(base, spec.HeaderHashKey)
+		return newHeaderHashLoadBalancer(spec, servers)
 	default:
 		logger.Errorf("unsupported load balancing policy: %s", spec.Policy)
-		return newRoundRobinLoadBalancer(base)
+		return newRoundRobinLoadBalancer(spec, servers)
 	}
 }
 
@@ -103,102 +95,56 @@ type hasher struct{}
 
 // Sum64 implement hash function using murmur3
 func (h hasher) Sum64(data []byte) uint64 {
-	hash := murmur3.New64()
-	hash.Write(data)
-	return hash.Sum64()
+	return murmur3.Sum64(data)
 }
 
-// createHash creates Hash object
-func (base *BaseLoadBalancer) createHash(svrs []*Server) {
-	if len(svrs) == 0 {
+// BaseLoadBalancer implement the common part of load balancer.
+type BaseLoadBalancer struct {
+	spec           *LoadBalanceSpec
+	Servers        []*Server
+	consistentHash *consistent.Consistent
+}
+
+func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
+	blb.spec = spec
+	blb.Servers = servers
+
+	if spec.StickySession == nil || len(servers) == 0 {
 		return
 	}
+
+	// For now, we only support HeaderConsistentHash & CookieConsistentHash
+	members := make([]consistent.Member, len(servers))
+	for i, s := range servers {
+		members[i] = hashMember{server: s}
+	}
+
 	cfg := consistent.Config{
 		PartitionCount:    1024,
 		ReplicationFactor: 50,
 		Load:              1.25,
 		Hasher:            hasher{},
 	}
-	members := make([]consistent.Member, len(svrs))
-	for i, s := range svrs {
-		members[i] = hashMember{server: s}
-	}
-	base.Hash = consistent.New(members, cfg)
-}
-
-// confSticky configures sticky settings
-func (base *BaseLoadBalancer) confSticky(spec *LoadBalanceSpec) {
-	if spec == nil || !spec.Sticky {
-		return
-	}
-	base.Sticky = spec.Sticky
-
-	if spec.StickyCookie == LoadBalanceStickyCookie {
-		logger.Errorf("can't use system cookie name: %s, will be ignored", LoadBalanceStickyCookie)
-		spec.StickyCookie = ""
-	}
-	base.StickyCookie = spec.StickyCookie
-
-	dur, err := time.ParseDuration(spec.StickyExpire)
-	if err != nil {
-		dur = LoadBalanceStickyExpire
-		logger.Warnf("failed to parse duration: %s, fallback to default 2h", spec.StickyExpire)
-	}
-	base.StickyExpire = dur
-}
-
-// BaseLoadBalancer implement the common part of load balancer.
-type BaseLoadBalancer struct {
-	Servers      []*Server
-	Hash         *consistent.Consistent
-	Sticky       bool
-	StickyCookie string
-	StickyExpire time.Duration
+	blb.consistentHash = consistent.New(members, cfg)
 }
 
 // ChooseServer chooses the sticky server if enable
-func (base *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(base.Servers) == 0 || !base.Sticky {
+func (blb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
+	if blb.spec.StickySession == nil {
 		return nil
 	}
 
-	if base.StickyCookie != "" {
-		if cookie, err := req.Cookie(base.StickyCookie); err == nil {
-			return base.chooseServerBySlot(cookie.Value)
-		}
-		return nil
-	}
-
-	cookie, err := req.Cookie(LoadBalanceStickyCookie)
+	cookie, err := req.Cookie(blb.spec.StickySession.AppCookieName)
 	if err != nil {
-		cookie = &http.Cookie{Name: LoadBalanceStickyCookie, Value: uuid.NewString()}
-		req.AddCookie(cookie)
+		return nil
 	}
-	return base.chooseServerBySlot(cookie.Value)
-}
 
-// chooseServerBySlot choose server using consistent hash
-func (base *BaseLoadBalancer) chooseServerBySlot(key string) *Server {
-	if n := base.Hash.LocateKey([]byte(key)); n != nil {
-		return n.(hashMember).server
+	m := blb.consistentHash.LocateKey([]byte(cookie.Value))
+	if m != nil {
+		return m.(hashMember).server
 	}
+
 	return nil
-}
-
-// Manipulate customizes response for sticky session
-func (base *BaseLoadBalancer) Manipulate(server *Server, req *httpprot.Request, resp *httpprot.Response) {
-	if !base.Sticky || base.StickyCookie != "" {
-		return
-	}
-
-	cookie, err := req.Cookie(LoadBalanceStickyCookie)
-	if err != nil {
-		logger.Warnf("cookie not found for: %s", LoadBalanceStickyCookie)
-		return
-	}
-	// renew expire time
-	cookie.Expires = time.Now().Add(base.StickyExpire)
-	resp.SetCookie(cookie)
 }
 
 // randomLoadBalancer does load balancing in a random manner.
@@ -206,10 +152,10 @@ type randomLoadBalancer struct {
 	BaseLoadBalancer
 }
 
-func newRandomLoadBalancer(base BaseLoadBalancer) *randomLoadBalancer {
-	return &randomLoadBalancer{
-		BaseLoadBalancer: base,
-	}
+func newRandomLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *randomLoadBalancer {
+	lb := &randomLoadBalancer{}
+	lb.init(spec, servers)
+	return lb
 }
 
 // ChooseServer implements the LoadBalancer interface.
@@ -217,6 +163,7 @@ func (lb *randomLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	if len(lb.Servers) == 0 {
 		return nil
 	}
+
 	if server := lb.BaseLoadBalancer.ChooseServer(req); server != nil {
 		return server
 	}
@@ -230,10 +177,10 @@ type roundRobinLoadBalancer struct {
 	counter uint64
 }
 
-func newRoundRobinLoadBalancer(base BaseLoadBalancer) *roundRobinLoadBalancer {
-	return &roundRobinLoadBalancer{
-		BaseLoadBalancer: base,
-	}
+func newRoundRobinLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *roundRobinLoadBalancer {
+	lb := &roundRobinLoadBalancer{}
+	lb.init(spec, servers)
+	return lb
 }
 
 // ChooseServer implements the LoadBalancer interface.
@@ -241,6 +188,7 @@ func (lb *roundRobinLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	if len(lb.Servers) == 0 {
 		return nil
 	}
+
 	if server := lb.BaseLoadBalancer.ChooseServer(req); server != nil {
 		return server
 	}
@@ -255,11 +203,10 @@ type WeightedRandomLoadBalancer struct {
 	totalWeight int
 }
 
-func newWeightedRandomLoadBalancer(base BaseLoadBalancer) *WeightedRandomLoadBalancer {
-	lb := &WeightedRandomLoadBalancer{
-		BaseLoadBalancer: base,
-	}
-	for _, server := range base.Servers {
+func newWeightedRandomLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *WeightedRandomLoadBalancer {
+	lb := &WeightedRandomLoadBalancer{}
+	lb.init(spec, servers)
+	for _, server := range lb.Servers {
 		lb.totalWeight += server.Weight
 	}
 	return lb
@@ -270,6 +217,7 @@ func (lb *WeightedRandomLoadBalancer) ChooseServer(req *httpprot.Request) *Serve
 	if len(lb.Servers) == 0 {
 		return nil
 	}
+
 	if server := lb.BaseLoadBalancer.ChooseServer(req); server != nil {
 		return server
 	}
@@ -290,10 +238,10 @@ type ipHashLoadBalancer struct {
 	BaseLoadBalancer
 }
 
-func newIPHashLoadBalancer(base BaseLoadBalancer) *ipHashLoadBalancer {
-	return &ipHashLoadBalancer{
-		BaseLoadBalancer: base,
-	}
+func newIPHashLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *ipHashLoadBalancer {
+	lb := &ipHashLoadBalancer{}
+	lb.init(spec, servers)
+	return lb
 }
 
 // ChooseServer implements the LoadBalancer interface.
@@ -301,11 +249,15 @@ func (lb *ipHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	if len(lb.Servers) == 0 {
 		return nil
 	}
+
 	if server := lb.BaseLoadBalancer.ChooseServer(req); server != nil {
 		return server
 	}
 
-	return lb.chooseServerBySlot(req.RealIP())
+	ip := req.RealIP()
+	hash := fnv.New32()
+	hash.Write([]byte(ip))
+	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
 
 // headerHashLoadBalancer does load balancing based on header hash.
@@ -314,11 +266,11 @@ type headerHashLoadBalancer struct {
 	key string
 }
 
-func newHeaderHashLoadBalancer(base BaseLoadBalancer, key string) *headerHashLoadBalancer {
-	return &headerHashLoadBalancer{
-		BaseLoadBalancer: base,
-		key:              key,
-	}
+func newHeaderHashLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *headerHashLoadBalancer {
+	lb := &headerHashLoadBalancer{}
+	lb.init(spec, servers)
+	lb.key = spec.HeaderHashKey
+	return lb
 }
 
 // ChooseServer implements the LoadBalancer interface.
@@ -326,9 +278,13 @@ func (lb *headerHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	if len(lb.Servers) == 0 {
 		return nil
 	}
+
 	if server := lb.BaseLoadBalancer.ChooseServer(req); server != nil {
 		return server
 	}
 
-	return lb.chooseServerBySlot(req.HTTPHeader().Get(lb.key))
+	v := req.HTTPHeader().Get(lb.key)
+	hash := fnv.New32()
+	hash.Write([]byte(v))
+	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
 }
