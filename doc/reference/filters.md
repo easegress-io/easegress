@@ -1017,7 +1017,7 @@ Rules to revise request header.
 | Name          | Type   | Description                                                                                                 | Required |
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
 | mode          | string | Mode of session stickiness, only `CookieConsistentHash` is supported by now                                 | Yes      |
-| appCookieName | string | Name of the application cookie, its value will be used as the session identifier for stickiness             | No       |
+| appCookieName | string | Name of the application cookie, its value will be used as the session identifier for stickiness             | Yes      |
 
 ### proxy.MemoryCacheSpec
 
