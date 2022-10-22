@@ -94,6 +94,7 @@ type (
 		clientMaxBodySize int64
 		matchAllHeader    bool
 		queries           []*Query
+		clientIPsFilter   *ipfilter.IPFilter
 	}
 
 	route struct {
@@ -135,6 +136,17 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	}
 
 	return ipfilter.New(spec)
+}
+
+func newIPFilterFromClientIPs(clientIPs []string) *ipfilter.IPFilter {
+	if len(clientIPs) == 0 {
+		return nil
+	}
+
+	return ipfilter.New(&ipfilter.Spec{
+		BlockByDefault: true,
+		AllowIPs:       clientIPs,
+	})
 }
 
 func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
@@ -239,6 +251,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		clientMaxBodySize: path.ClientMaxBodySize,
 		matchAllHeader:    path.MatchAllHeader,
 		queries:           path.Queries,
+		clientIPsFilter:   newIPFilterFromClientIPs(path.ClientIPs),
 	}
 }
 
@@ -569,13 +582,13 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 }
 
 func (mi *muxInstance) search(req *httpprot.Request) *route {
-	headerMismatch, methodMismatch, queryMismatch := false, false, false
+	headerMismatch, methodMismatch, queryMismatch, clientIPMismatch := false, false, false, false
 
 	ip := req.RealIP()
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
-	// headers or any queries.
+	// headers and any queries and any clientIPs.
 	r := mi.getRouteFromCache(req)
 	if r != nil {
 		if r.code != 0 {
@@ -613,8 +626,9 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// only if headers and query are empty, we can cache the result.
-			if len(path.headers) == 0 && len(path.queries) == 0 {
+			// only if headers and queries and clientIPs are empty, we can cache the result.
+			// otherwise, we have to check them every time.
+			if len(path.headers) == 0 && len(path.queries) == 0 && path.clientIPsFilter == nil {
 				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
 			}
@@ -629,6 +643,12 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
+			// add clientIP route,if not match, continue
+			if !allowIP(path.clientIPsFilter, ip) {
+				clientIPMismatch = true
+				continue
+			}
+
 			if !allowIP(path.ipFilter, ip) {
 				return forbidden
 			}
@@ -639,6 +659,10 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	if headerMismatch || queryMismatch {
 		return badRequest
+	}
+
+	if clientIPMismatch {
+		return forbidden
 	}
 
 	if methodMismatch {
