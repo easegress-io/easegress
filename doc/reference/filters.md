@@ -68,6 +68,7 @@
     - [proxy.ServerPoolSpec](#proxyserverpoolspec)
     - [proxy.Server](#proxyserver)
     - [proxy.LoadBalanceSpec](#proxyloadbalancespec)
+    - [proxy.StickySessionSpec](#proxystickysessionspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
     - [proxy.StringMatcher](#proxystringmatcher)
@@ -1121,6 +1122,14 @@ Rules to revise request header.
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
 | policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
+| stickySession | [proxy.StickySession](#proxyStickySessionSpec) | Sticky session spec                                                 | No       |
+
+### proxy.StickySessionSpec
+
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| mode          | string | Mode of session stickiness, only `CookieConsistentHash` is supported by now                                 | Yes      |
+| appCookieName | string | Name of the application cookie, its value will be used as the session identifier for stickiness             | Yes      |
 
 ### proxy.MemoryCacheSpec
 

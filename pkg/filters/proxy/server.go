@@ -38,6 +38,11 @@ func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
 }
 
+// ID return identifier for server
+func (s *Server) ID() string {
+	return s.URL
+}
+
 // checkAddrPattern checks whether the server address is host name or ip:port,
 // not all error cases are handled.
 func (s *Server) checkAddrPattern() {

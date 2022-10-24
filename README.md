@@ -88,7 +88,7 @@ The architecture of Easegress:
 - **High Performance and Availability**
   - **Adaption**: adapts request, response in the handling chain.
   - **Validation**: headers validation, OAuth2, JWT, and HMAC verification.
-  - **Load Balance:** round-robin, random, weighted random, IP hash, header hash.
+  - **Load Balance:** round-robin, random, weighted random, IP hash, header hash and support sticky sessions.
   - **Cache:** for the backend servers.
   - **Compression:** compresses body for the response.
   - **Hot-Update:** updates both config and binary of Easegress in place without losing connections.

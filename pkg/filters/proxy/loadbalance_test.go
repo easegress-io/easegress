@@ -30,9 +30,18 @@ import (
 func prepareServers(count int) []*Server {
 	svrs := make([]*Server, 0, count)
 	for i := 0; i < count; i++ {
-		svrs = append(svrs, &Server{Weight: i + 1})
+		svrs = append(svrs, &Server{Weight: i + 1, URL: fmt.Sprintf("192.168.1.%d", i+1)})
 	}
 	return svrs
+}
+
+func readCookie(cookies []*http.Cookie, name string) *http.Cookie {
+	for _, c := range cookies {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
 }
 
 func TestRoundRobinLoadBalancer(t *testing.T) {
@@ -159,5 +168,28 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		assert.GreaterOrEqual(counter[i], 1)
+	}
+}
+
+func TestStickySession_ConsistentHash(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode:          "CookieConsistentHash",
+			AppCookieName: "AppCookie",
+		},
+	}, servers)
+
+	req := &http.Request{Header: http.Header{}}
+	req.AddCookie(&http.Cookie{Name: "AppCookie", Value: "abcd-1"})
+	r, _ := httpprot.NewRequest(req)
+	svr1 := lb.ChooseServer(r)
+
+	for i := 0; i < 100; i++ {
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
 	}
 }
