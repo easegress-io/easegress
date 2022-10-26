@@ -47,6 +47,7 @@ name: %s
 port: %d
 keepAlive: true
 https: false
+clientMaxBodySize: -1
 rules:`
 
 	const ruleFmt = `

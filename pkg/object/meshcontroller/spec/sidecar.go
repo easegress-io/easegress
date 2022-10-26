@@ -62,6 +62,7 @@ port: %d
 keepAlive: %v
 keepAliveTimeout: %s
 https: false
+clientMaxBodySize: -1
 `
 	if timeout == "" {
 		timeout = defaultKeepAliveTimeout
@@ -153,6 +154,7 @@ https: %s
 certBase64: %s
 keyBase64: %s
 caCertBase64: %s
+clientMaxBodySize: -1
 rules:
   - paths:
     - pathPrefix: /
