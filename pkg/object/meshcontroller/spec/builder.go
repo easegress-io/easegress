@@ -203,6 +203,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 				Kind: proxy.Kind,
 			},
 		},
+		ServerMaxBodySize: -1,
 	}
 
 	needMTLS := false
