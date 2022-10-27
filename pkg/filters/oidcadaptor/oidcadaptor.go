@@ -223,10 +223,8 @@ func (o *OIDCAdaptor) initDiscoveryOIDCConf() {
 		}
 	}
 	jwks, err := keyfunc.Get(oidcConf.JwksUri, keyfunc.Options{
-		Client:            httpCli,
-		JWKUseNoWhitelist: true,
-		RefreshInterval:   interval,
-		ResponseExtractor: keyfunc.ResponseExtractorStatusAny,
+		Client:          httpCli,
+		RefreshInterval: interval,
 	})
 	if err != nil {
 		logger.Errorf("failed to get the JWKS from the given URL error: %s", err)
