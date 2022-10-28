@@ -88,10 +88,11 @@ type (
 		RewriteTarget     string         `json:"rewriteTarget" jsonschema:"omitempty"`
 		Methods           []string       `json:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		Backend           string         `json:"backend" jsonschema:"required"`
-		Headers           Headers        `json:"headers" jsonschema:"omitempty"`
 		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
-		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
+		Headers           Headers        `json:"headers" jsonschema:"omitempty"`
 		Queries           Queries        `json:"queries,omitempty" jsonschema:"omitempty"`
+		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
+		MatchAllQuery     bool           `json:"matchAllQuery" jsonschema:"omitempty"`
 	}
 
 	Headers []*Header

@@ -90,10 +90,10 @@ type (
 		methods           []string
 		rewriteTarget     string
 		backend           string
-		headers           []*Header
+		headers           Headers
 		clientMaxBodySize int64
 		matchAllHeader    bool
-		queries           []*Query
+		queries           Queries
 	}
 
 	route struct {
@@ -216,13 +216,8 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		}
 	}
 
-	for _, p := range path.Headers {
-		p.initHeaderRoute()
-	}
-
-	for _, q := range path.Queries {
-		q.initQueryRoute()
-	}
+	path.Headers.init()
+	path.Queries.init()
 
 	return &MuxPath{
 		ipFilter:      newIPFilter(path.IPFilter),
