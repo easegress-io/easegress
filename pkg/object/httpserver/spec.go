@@ -22,6 +22,8 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+	"net/http"
+	"net/url"
 	"regexp"
 
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
@@ -86,11 +88,14 @@ type (
 		RewriteTarget     string         `json:"rewriteTarget" jsonschema:"omitempty"`
 		Methods           []string       `json:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
 		Backend           string         `json:"backend" jsonschema:"required"`
-		Headers           []*Header      `json:"headers" jsonschema:"omitempty"`
+		Headers           Headers        `json:"headers" jsonschema:"omitempty"`
 		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
 		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
-		Queries           []*Query       `json:"queries,omitempty" jsonschema:"omitempty"`
+		Queries           Queries        `json:"queries,omitempty" jsonschema:"omitempty"`
 	}
+
+	Headers []*Header
+	Queries []*Query
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
 	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
@@ -100,7 +105,7 @@ type (
 		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
 		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
 
-		headerRE *regexp.Regexp
+		re *regexp.Regexp
 	}
 
 	// Query is the third level entry
@@ -200,19 +205,6 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	return tlsConf, nil
 }
 
-func (h *Header) initHeaderRoute() {
-	h.headerRE = regexp.MustCompile(h.Regexp)
-}
-
-// Validate validates Header.
-func (h *Header) Validate() error {
-	if len(h.Values) == 0 && h.Regexp == "" {
-		return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
-	}
-
-	return nil
-}
-
 // Validate validates Path.
 func (p *Path) Validate() error {
 	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
@@ -222,16 +214,100 @@ func (p *Path) Validate() error {
 	return nil
 }
 
-func (q *Query) initQueryRoute() {
-	if q.Regexp != "" {
-		q.re = regexp.MustCompile(q.Regexp)
+func (hs Headers) init() {
+	for _, h := range hs {
+		if h.Regexp != "" {
+			h.re = regexp.MustCompile(h.Regexp)
+		}
 	}
 }
 
-func (q *Query) Validate() error {
-	if len(q.Values) == 0 && q.Regexp == "" {
-		return fmt.Errorf("both of values and regexp are empty for key: %s", q.Key)
+func (hs Headers) Validate() error {
+	for _, h := range hs {
+		if len(h.Values) == 0 && h.Regexp == "" {
+			return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
+		}
+	}
+	return nil
+}
+
+func (hs Headers) match(headers http.Header, matchAll bool) bool {
+	if len(hs) == 0 {
+		return true
 	}
 
+	if matchAll {
+		for _, h := range hs {
+			v := headers.Get(h.Key)
+			if len(h.Values) > 0 && !stringtool.StrInSlice(v, h.Values) {
+				return false
+			}
+
+			if h.Regexp != "" && !h.re.MatchString(v) {
+				return false
+			}
+		}
+	} else {
+		for _, h := range hs {
+			v := headers.Get(h.Key)
+			if stringtool.StrInSlice(v, h.Values) {
+				return true
+			}
+
+			if h.Regexp != "" && h.re.MatchString(v) {
+				return true
+			}
+		}
+	}
+
+	return matchAll
+}
+
+func (qs Queries) init() {
+	for _, q := range qs {
+		if q.Regexp != "" {
+			q.re = regexp.MustCompile(q.Regexp)
+		}
+	}
+}
+
+func (qs Queries) Validate() error {
+	for _, q := range qs {
+		if len(q.Values) == 0 && q.Regexp == "" {
+			return fmt.Errorf("both of values and regexp are empty for key: %s", q.Key)
+		}
+	}
 	return nil
+}
+
+func (qs Queries) match(query url.Values, matchAll bool) bool {
+	if len(qs) == 0 {
+		return true
+	}
+
+	if matchAll {
+		for _, q := range qs {
+			v := query.Get(q.Key)
+			if len(q.Values) > 0 && !stringtool.StrInSlice(v, q.Values) {
+				return false
+			}
+
+			if q.Regexp != "" && !q.re.MatchString(v) {
+				return false
+			}
+		}
+	} else {
+		for _, q := range qs {
+			v := query.Get(q.Key)
+			if stringtool.StrInSlice(v, q.Values) {
+				return true
+			}
+
+			if q.Regexp != "" && q.re.MatchString(v) {
+				return true
+			}
+		}
+	}
+
+	return matchAll
 }

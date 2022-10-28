@@ -300,7 +300,7 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 				return false
 			}
 
-			if h.Regexp != "" && !h.headerRE.MatchString(v) {
+			if h.Regexp != "" && !h.re.MatchString(v) {
 				return false
 			}
 		}
@@ -311,7 +311,7 @@ func (mp *MuxPath) matchHeaders(r *httpprot.Request) bool {
 				return true
 			}
 
-			if h.Regexp != "" && h.headerRE.MatchString(v) {
+			if h.Regexp != "" && h.re.MatchString(v) {
 				return true
 			}
 		}
