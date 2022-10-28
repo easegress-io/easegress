@@ -193,3 +193,33 @@ func TestStickySession_ConsistentHash(t *testing.T) {
 		assert.Equal(svr1, svr)
 	}
 }
+
+func TestStickySession_ServerMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode: StickySessionModeCookieServerMatch,
+		},
+	}, servers)
+
+	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
+	svr1 := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	lb.ReturnServer(svr1, r, resp)
+	c := readCookie(resp.Cookies(), StickySessionLBCookieNameDefault)
+
+	for i := 0; i < 100; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: StickySessionLBCookieNameDefault, Value: c.Value})
+		r, _ = httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
+
+		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
+		lb.ReturnServer(svr, r, resp)
+		c = readCookie(resp.Cookies(), StickySessionLBCookieNameDefault)
+	}
+}
