@@ -85,7 +85,6 @@ name: cors
 		const yamlConfig = `
 kind: CORSAdaptor
 name: cors
-supportCORSRequest: true
 allowedOrigins:
   - test.orig.test
 `

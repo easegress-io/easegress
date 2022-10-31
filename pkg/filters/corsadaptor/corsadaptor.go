@@ -69,9 +69,6 @@ type (
 		AllowCredentials bool     `json:"allowCredentials" jsonschema:"omitempty"`
 		ExposedHeaders   []string `json:"exposedHeaders" jsonschema:"omitempty"`
 		MaxAge           int      `json:"maxAge" jsonschema:"omitempty"`
-		// If true, handle requests with 'Origin' header. https://fetch.spec.whatwg.org/#http-requests
-		// By default, only CORS-preflight requests are handled.
-		SupportCORSRequest bool `json:"supportCORSRequest" jsonschema:"omitempty"`
 	}
 )
 
@@ -122,9 +119,6 @@ func (a *CORSAdaptor) Handle(ctx *context.Context) string {
 
 	isPreflight := req.HTTPHeader().Get("Access-Control-Request-Method") != ""
 	isPreflight = isPreflight && (req.Method() == http.MethodOptions)
-	if !a.spec.SupportCORSRequest && !isPreflight {
-		return ""
-	}
 
 	rw := httptest.NewRecorder()
 	a.cors.HandlerFunc(rw, req.Std())
