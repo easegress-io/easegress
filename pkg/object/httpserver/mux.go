@@ -175,8 +175,8 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 
 	return &muxRule{
-		ipFilter:      newIPFilter(rule.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, rule.IPFilter),
+		ipFilter:      newIPFilter(rule.IPFilterSpec),
+		ipFilterChain: newIPFilterChain(parentIPFilters, rule.IPFilterSpec),
 
 		host:       rule.Host,
 		hostRegexp: rule.HostRegexp,
@@ -220,8 +220,8 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 	path.Queries.init()
 
 	return &MuxPath{
-		ipFilter:      newIPFilter(path.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
+		ipFilter:      newIPFilter(path.IPFilterSpec),
+		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilterSpec),
 
 		path:              path.Path,
 		pathPrefix:        path.PathPrefix,
@@ -379,8 +379,8 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		muxMapper:    muxMapper,
 		httpStat:     m.httpStat,
 		topN:         m.topN,
-		ipFilter:     newIPFilter(spec.IPFilter),
-		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
+		ipFilter:     newIPFilter(spec.IPFilterSpec),
+		ipFilterChan: newIPFilterChain(nil, spec.IPFilterSpec),
 		rules:        make([]*muxRule, len(spec.Rules)),
 		tracer:       tracer,
 	}
@@ -396,7 +396,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	for i := 0; i < len(inst.rules); i++ {
 		specRule := spec.Rules[i]
 
-		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
+		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilterSpec)
 
 		paths := make([]*MuxPath, len(specRule.Paths))
 		for j := 0; j < len(paths); j++ {

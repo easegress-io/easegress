@@ -60,8 +60,8 @@ type (
 		// Keys saved as map, key is domain name, value is secret
 		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
 
-		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules    []*Rule        `json:"rules" jsonschema:"omitempty"`
+		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Rules        []*Rule        `json:"rules" jsonschema:"omitempty"`
 
 		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
 	}
@@ -78,10 +78,10 @@ type (
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
 		// In the future if we have the scenario where we need marshal the field, but omitempty
 		// in the schema, we are suppose to support multiple types on our own.
-		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Host       string         `json:"host" jsonschema:"omitempty"`
-		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      Paths          `json:"paths" jsonschema:"omitempty"`
+		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Host         string         `json:"host" jsonschema:"omitempty"`
+		HostRegexp   string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
+		Paths        Paths          `json:"paths" jsonschema:"omitempty"`
 
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
@@ -90,7 +90,7 @@ type (
 
 	// Path is second level entry of router.
 	Path struct {
-		IPFilter          *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		IPFilterSpec      *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Path              string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
 		PathPrefix        string         `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
 		PathRegexp        string         `json:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
@@ -222,7 +222,7 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 func (rules Rules) init(ipFilterChan *ipfilter.IPFilters) {
 	for i := 0; i < len(rules); i++ {
 		rule := rules[i]
-		ruleIPFilterChain := newIPFilterChain(ipFilterChan, rule.IPFilter)
+		ruleIPFilterChain := newIPFilterChain(ipFilterChan, rule.IPFilterSpec)
 		for _, p := range rule.Paths {
 			p.init(ruleIPFilterChain)
 		}
@@ -241,8 +241,8 @@ func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
 		}
 	}
 
-	rule.ipFilter = newIPFilter(rule.IPFilter)
-	rule.ipFilterChain = newIPFilterChain(parentIPFilters, rule.IPFilter)
+	rule.ipFilter = newIPFilter(rule.IPFilterSpec)
+	rule.ipFilterChain = newIPFilterChain(parentIPFilters, rule.IPFilterSpec)
 	rule.hostRE = hostRE
 }
 
@@ -263,6 +263,14 @@ func (rule *Rule) Match(req *httpprot.Request) bool {
 	return false
 }
 
+func (rule *Rule) AllowIP(ip string) bool {
+	if rule.ipFilter == nil {
+		return true
+	}
+
+	return rule.ipFilter.Allow(ip)
+}
+
 func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {
@@ -276,8 +284,8 @@ func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
 
 	p.pathRE = pathRE
 
-	p.ipFilter = newIPFilter(p.IPFilter)
-	p.ipFilterChain = newIPFilterChain(parentIPFilters, p.IPFilter)
+	p.ipFilter = newIPFilter(p.IPFilterSpec)
+	p.ipFilterChain = newIPFilterChain(parentIPFilters, p.IPFilterSpec)
 
 	p.Headers.init()
 	p.Queries.init()
@@ -290,6 +298,14 @@ func (p *Path) Validate() error {
 	}
 
 	return nil
+}
+
+func (p *Path) AllowIP(ip string) bool {
+	if p.ipFilter == nil {
+		return true
+	}
+
+	return p.ipFilter.Allow(ip)
 }
 
 func (hs Headers) init() {
