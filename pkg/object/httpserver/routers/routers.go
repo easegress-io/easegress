@@ -22,6 +22,9 @@ type (
 		Path     string
 		Request  *httpprot.Request
 		Captures map[string]string
+
+		Code  int
+		Route Route
 	}
 
 	Router interface {

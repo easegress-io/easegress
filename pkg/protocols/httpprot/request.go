@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -48,6 +49,7 @@ type (
 		stream     *readers.ByteCountReader
 		payload    []byte
 		realIP     string
+		hostOnly   string
 		methodType MethodType
 		queries    url.Values
 	}
@@ -374,6 +376,20 @@ func (r *Request) Context() context.Context {
 // SetMethod sets the request method.
 func (r *Request) SetMethod(method string) {
 	r.Std().Method = method
+}
+
+func (r *Request) HostOnly() string {
+	if r.hostOnly != "" {
+		return r.hostOnly
+	}
+
+	host := r.Host()
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
+	r.hostOnly = host
+	return host
 }
 
 // Host returns host of the request.

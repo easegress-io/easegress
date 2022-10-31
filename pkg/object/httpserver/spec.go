@@ -246,6 +246,23 @@ func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
 	rule.hostRE = hostRE
 }
 
+func (rule *Rule) Match(req *httpprot.Request) bool {
+	if rule.Host == "" && rule.hostRE == nil {
+		return true
+	}
+
+	host := req.HostOnly()
+
+	if rule.Host != "" && rule.Host == host {
+		return true
+	}
+	if rule.hostRE != nil && rule.hostRE.MatchString(host) {
+		return true
+	}
+
+	return false
+}
+
 func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {

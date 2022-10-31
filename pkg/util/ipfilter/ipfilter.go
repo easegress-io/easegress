@@ -92,6 +92,10 @@ func New(spec *Spec) *IPFilter {
 
 // Allow return if IPFilter allows the incoming ip.
 func (f *IPFilter) Allow(ipstr string) bool {
+	if f == nil {
+		return true
+	}
+
 	defaultResult := !f.spec.BlockByDefault
 
 	ip := net.ParseIP(ipstr)
