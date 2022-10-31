@@ -25,7 +25,6 @@ type (
 	}
 
 	Router interface {
-
 		Search(context *RouteContext)
 	}
 
