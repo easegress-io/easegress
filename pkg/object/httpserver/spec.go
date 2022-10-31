@@ -26,7 +26,9 @@ import (
 	"net/url"
 	"regexp"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -64,6 +66,9 @@ type (
 		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
 	}
 
+	Rules []*Rule
+	Paths []*Path
+
 	// Rule is first level entry of router.
 	Rule struct {
 		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
@@ -76,7 +81,11 @@ type (
 		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `json:"host" jsonschema:"omitempty"`
 		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      []*Path        `json:"paths" jsonschema:"omitempty"`
+		Paths      Paths          `json:"paths" jsonschema:"omitempty"`
+
+		ipFilter      *ipfilter.IPFilter
+		ipFilterChain *ipfilter.IPFilters
+		hostRE        *regexp.Regexp
 	}
 
 	// Path is second level entry of router.
@@ -93,6 +102,10 @@ type (
 		Queries           Queries        `json:"queries,omitempty" jsonschema:"omitempty"`
 		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
 		MatchAllQuery     bool           `json:"matchAllQuery" jsonschema:"omitempty"`
+
+		ipFilter      *ipfilter.IPFilter
+		ipFilterChain *ipfilter.IPFilters
+		pathRE        *regexp.Regexp
 	}
 
 	Headers []*Header
@@ -206,6 +219,53 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	return tlsConf, nil
 }
 
+func (rules Rules) init(ipFilterChan *ipfilter.IPFilters) {
+	for i := 0; i < len(rules); i++ {
+		rule := rules[i]
+		ruleIPFilterChain := newIPFilterChain(ipFilterChan, rule.IPFilter)
+		for _, p := range rule.Paths {
+			p.init(ruleIPFilterChain)
+		}
+		rule.init(ipFilterChan)
+	}
+}
+
+func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
+	var hostRE *regexp.Regexp
+
+	if rule.HostRegexp != "" {
+		var err error
+		hostRE, err = regexp.Compile(rule.HostRegexp)
+		if err != nil {
+			logger.Errorf("BUG: compile %s failed: %v", rule.HostRegexp, err)
+		}
+	}
+
+	rule.ipFilter = newIPFilter(rule.IPFilter)
+	rule.ipFilterChain = newIPFilterChain(parentIPFilters, rule.IPFilter)
+	rule.hostRE = hostRE
+}
+
+func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
+	var pathRE *regexp.Regexp
+	if p.PathRegexp != "" {
+		var err error
+		pathRE, err = regexp.Compile(p.PathRegexp)
+		// defensive programming
+		if err != nil {
+			logger.Errorf("BUG: compile %s failed: %v", p.PathRegexp, err)
+		}
+	}
+
+	p.pathRE = pathRE
+
+	p.ipFilter = newIPFilter(p.IPFilter)
+	p.ipFilterChain = newIPFilterChain(parentIPFilters, p.IPFilter)
+
+	p.Headers.init()
+	p.Queries.init()
+}
+
 // Validate validates Path.
 func (p *Path) Validate() error {
 	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
@@ -311,4 +371,13 @@ func (qs Queries) match(query url.Values, matchAll bool) bool {
 	}
 
 	return matchAll
+}
+
+func (p *Path) checkBodySize(req *httpprot.Request, defaultMaxSize int64) error {
+	maxBodySize := p.ClientMaxBodySize
+	if maxBodySize == 0 {
+		maxBodySize = defaultMaxSize
+	}
+	err := req.FetchPayload(maxBodySize)
+	return err
 }
