@@ -74,17 +74,17 @@ type Query struct {
 }
 
 func (rules Rules) Init(ipFilterChan *ipfilter.IPFilters) {
-	for i := 0; i < len(rules); i++ {
-		rule := rules[i]
-		ruleIPFilterChain := ipfilter.NewIPFilterChain(ipFilterChan, rule.IPFilterSpec)
-		for _, p := range rule.Paths {
-			p.init(ruleIPFilterChain)
-		}
+	for _, rule := range rules {
 		rule.init(ipFilterChan)
 	}
 }
 
 func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
+	ruleIPFilterChain := ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilterSpec)
+	for _, p := range rule.Paths {
+		p.init(ruleIPFilterChain)
+	}
+
 	var hostRE *regexp.Regexp
 
 	if rule.HostRegexp != "" {
@@ -303,13 +303,4 @@ func (qs Queries) Match(query url.Values, matchAll bool) bool {
 	}
 
 	return matchAll
-}
-
-func (p *Path) checkBodySize(req *httpprot.Request, defaultMaxSize int64) error {
-	maxBodySize := p.ClientMaxBodySize
-	if maxBodySize == 0 {
-		maxBodySize = defaultMaxSize
-	}
-	err := req.FetchPayload(maxBodySize)
-	return err
 }

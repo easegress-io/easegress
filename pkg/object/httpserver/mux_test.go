@@ -19,7 +19,6 @@ package httpserver
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,70 +26,39 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewIPFilterChain(t *testing.T) {
-	assert := assert.New(t)
+// func TestMuxRule(t *testing.T) {
+// 	assert := assert.New(t)
 
-	assert.Nil(newIPFilterChain(nil, nil))
+// 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080", nil)
+// 	req, _ := httpprot.NewRequest(stdr)
 
-	filters := newIPFilterChain(nil, &ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-	})
-	assert.NotNil(filters)
+// 	rule := newMuxRule(nil, &routers.Rule{}, nil)
+// 	assert.NotNil(rule)
+// 	assert.True(rule.match(req))
 
-	assert.NotNil(newIPFilterChain(filters, nil))
-}
+// 	rule = newMuxRule(nil, &routers.Rule{Host: "www.megaease.com"}, nil)
+// 	assert.NotNil(rule)
+// 	assert.True(rule.match(req))
 
-func TestNewIPFilter(t *testing.T) {
-	assert := assert.New(t)
-	assert.Nil(newIPFilter(nil))
-	assert.NotNil(newIPFilter(&ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-	}))
-}
+// 	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.com$`}, nil)
+// 	assert.NotNil(rule)
+// 	assert.True(rule.match(req))
 
-func TestAllowIP(t *testing.T) {
-	assert := assert.New(t)
-	assert.True(allowIP(nil, "192.168.1.1"))
-	filter := newIPFilter(&ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-		BlockIPs: []string{"192.168.2.0/24"},
-	})
-	assert.True(allowIP(filter, "192.168.1.1"))
-	assert.False(allowIP(filter, "192.168.2.1"))
-}
-
-func TestMuxRule(t *testing.T) {
-	assert := assert.New(t)
-
-	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080", nil)
-	req, _ := httpprot.NewRequest(stdr)
-
-	rule := newMuxRule(nil, &routers.Rule{}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(nil, &routers.Rule{Host: "www.megaease.com"}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.com$`}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
-	assert.NotNil(rule)
-	assert.False(rule.match(req))
-}
+// 	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
+// 	assert.NotNil(rule)
+// 	assert.False(rule.match(req))
+// }
 
 func TestMuxPath(t *testing.T) {
 	assert := assert.New(t)
@@ -637,5 +605,4 @@ rules:
 	stdr.URL.RawQuery = "id=baz"
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(400, mi.search(req).code)
-
 }
