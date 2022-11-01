@@ -59,9 +59,9 @@ require (
 	golang.org/x/net v0.0.0-20220919232410-f2f64ebce3c1
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10
-	k8s.io/api v0.24.6
-	k8s.io/apimachinery v0.24.6
-	k8s.io/client-go v0.24.6
+	k8s.io/api v0.24.7
+	k8s.io/apimachinery v0.24.7
+	k8s.io/client-go v0.24.7
 	knative.dev/client v0.34.0
 	knative.dev/serving v0.34.2
 )
