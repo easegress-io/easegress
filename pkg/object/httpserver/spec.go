@@ -105,7 +105,7 @@ type (
 
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
-		pathRE        *regexp.Regexp
+		method        httpprot.MethodType
 	}
 
 	Headers []*Header
@@ -272,23 +272,21 @@ func (rule *Rule) AllowIP(ip string) bool {
 }
 
 func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
-	var pathRE *regexp.Regexp
-	if p.PathRegexp != "" {
-		var err error
-		pathRE, err = regexp.Compile(p.PathRegexp)
-		// defensive programming
-		if err != nil {
-			logger.Errorf("BUG: compile %s failed: %v", p.PathRegexp, err)
-		}
-	}
-
-	p.pathRE = pathRE
-
 	p.ipFilter = newIPFilter(p.IPFilterSpec)
 	p.ipFilterChain = newIPFilterChain(parentIPFilters, p.IPFilterSpec)
 
 	p.Headers.init()
 	p.Queries.init()
+
+	method := httpprot.MALL
+	if len(p.Methods) != 0 {
+		method = 0
+		for _, m := range p.Methods {
+			method |= httpprot.Methods[m]
+		}
+	}
+
+	p.method = method
 }
 
 // Validate validates Path.
@@ -325,7 +323,7 @@ func (hs Headers) Validate() error {
 	return nil
 }
 
-func (hs Headers) match(headers http.Header, matchAll bool) bool {
+func (hs Headers) Match(headers http.Header, matchAll bool) bool {
 	if len(hs) == 0 {
 		return true
 	}
@@ -374,7 +372,7 @@ func (qs Queries) Validate() error {
 	return nil
 }
 
-func (qs Queries) match(query url.Values, matchAll bool) bool {
+func (qs Queries) Match(query url.Values, matchAll bool) bool {
 	if len(qs) == 0 {
 		return true
 	}

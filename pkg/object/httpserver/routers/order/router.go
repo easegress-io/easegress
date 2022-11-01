@@ -1,11 +1,14 @@
 package order
 
 import (
-	"fmt"
 	"net/http"
+	"regexp"
+	"strings"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
@@ -16,9 +19,11 @@ type (
 
 	muxPath struct {
 		httpserver.Path
+		pathRE *regexp.Regexp
+		method httpprot.MethodType
 	}
 
-	orderRouter struct {
+	OrderRouter struct {
 		rules []*muxRule
 	}
 )
@@ -35,9 +40,7 @@ var kind = &routers.Kind{
 		for i, rule := range rules {
 			muxPaths := make([]*muxPath, len(rule.Paths))
 			for j, path := range rule.Paths {
-				muxPaths[j] = &muxPath{
-					Path: *path,
-				}
+				muxPaths[j] = newMuxPath(path)
 			}
 
 			muxRules[i] = &muxRule{
@@ -45,7 +48,7 @@ var kind = &routers.Kind{
 				paths: muxPaths,
 			}
 		}
-		return &orderRouter{
+		return &OrderRouter{
 			rules: muxRules,
 		}
 	},
@@ -55,9 +58,11 @@ func init() {
 	routers.Register(kind)
 }
 
-func (r *orderRouter) Search(context *routers.RouteContext) {
+func (r *OrderRouter) Search(context *routers.RouteContext) {
 	req := context.Request
 	ip := req.RealIP()
+
+	headerMismatch, methodMismatch, queryMismatch := false, false, false
 
 	for _, host := range r.rules {
 		if !host.Match(req) {
@@ -70,68 +75,116 @@ func (r *orderRouter) Search(context *routers.RouteContext) {
 		}
 
 		for _, path := range host.paths {
-			fmt.Println(path)
-			// if !path.matchPath(req) {
-			// 	continue
-			// }
+			if !path.match(context.Path) {
+				continue
+			}
 
-			// if !path.matchMethod(req) {
-			// 	methodMismatch = true
-			// 	continue
-			// }
+			if req.MethodType()&path.method == 0 {
+				methodMismatch = true
+				continue
+			}
 
-			// // only if headers and query are empty, we can cache the result.
-			// if len(path.headers) == 0 && len(path.queries) == 0 {
-			// 	r = &route{code: 0, path: path}
-			// 	mi.putRouteToCache(req, r)
-			// }
+			if len(path.Headers) > 0 && !path.Headers.Match(req.HTTPHeader(), path.MatchAllHeader) {
+				headerMismatch = true
+				continue
+			}
 
-			// if len(path.headers) > 0 && !path.matchHeaders(req) {
-			// 	headerMismatch = true
-			// 	continue
-			// }
+			if len(path.Queries) > 0 && !path.Queries.Match(req.Queries(), path.MatchAllQuery) {
+				queryMismatch = true
+				continue
+			}
 
-			// if len(path.queries) > 0 && !path.matchQueries(req) {
-			// 	queryMismatch = true
-			// 	continue
-			// }
+			if len(path.Headers) == 0 && len(path.Queries) == 0 {
+				context.Cache = true
+			}
 
-			// if !allowIP(path.ipFilter, ip) {
-			// 	return forbidden
-			// }
+			if !path.AllowIP(ip) {
+				context.Code = http.StatusForbidden
+				return
+			}
 
-			// return &route{code: 0, path: path}
+			context.Route = path
+			return
+
 		}
 	}
 
-	// if headerMismatch || queryMismatch {
-	// 	return badRequest
-	// }
+	if headerMismatch || queryMismatch {
+		context.Code = http.StatusBadRequest
+		return
+	}
 
-	// if methodMismatch {
-	// 	mi.putRouteToCache(req, methodNotAllowed)
-	// 	return methodNotAllowed
-	// }
+	context.Cache = true
+	if methodMismatch {
+		context.Code = http.StatusMethodNotAllowed
+		return
+	}
+	context.Code = http.StatusNotFound
+}
 
-	// mi.putRouteToCache(req, notFound)
-	// return notFound
+func newMuxPath(p *httpserver.Path) *muxPath {
+	var pathRE *regexp.Regexp
+	if p.PathRegexp != "" {
+		var err error
+		pathRE, err = regexp.Compile(p.PathRegexp)
+		// defensive programming
+		if err != nil {
+			logger.Errorf("BUG: compile %s failed: %v", p.PathRegexp, err)
+		}
+	}
+
+	method := httpprot.MALL
+	if len(p.Methods) != 0 {
+		method = 0
+		for _, m := range p.Methods {
+			method |= httpprot.Methods[m]
+		}
+	}
+
+	return &muxPath{
+		Path:   *p,
+		pathRE: pathRE,
+		method: method,
+	}
 }
 
 func (mp *muxPath) match(path string) bool {
-	if mp.Path == "" && mp.PathPrefix == "" && mp.PathRegexp == nil {
+	if mp.Path.Path == "" && mp.PathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
 
-	// path := r.Path()
-	// if mp.path != "" && mp.path == path {
-	// 	return true
-	// }
-	// if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
-	// 	return true
-	// }
-	// if mp.pathRE != nil {
-	// 	return mp.pathRE.MatchString(path)
-	// }
+	if mp.Path.Path != "" && mp.Path.Path == path {
+		return true
+	}
+	if mp.PathPrefix != "" && strings.HasPrefix(path, mp.PathPrefix) {
+		return true
+	}
+	if mp.pathRE != nil {
+		return mp.pathRE.MatchString(path)
+	}
 
 	return false
+}
+
+func (mp *muxPath) Rewrite(context *routers.RouteContext) {
+	if mp.RewriteTarget == "" {
+		return
+	}
+	r := context.Request
+	path := context.Path
+
+	if mp.Path.Path != "" && mp.Path.Path == path {
+		r.SetPath(mp.RewriteTarget)
+		return
+	}
+
+	if mp.PathPrefix != "" && strings.HasPrefix(path, mp.PathPrefix) {
+		path = mp.RewriteTarget + path[len(mp.PathPrefix):]
+		r.SetPath(path)
+		return
+	}
+
+	// sure (mp.pathRE != nil && mp.pathRE.MatchString(path)) is true
+	path = mp.pathRE.ReplaceAllString(path, mp.RewriteTarget)
+	r.SetPath(path)
 }

@@ -2,9 +2,9 @@ package routers
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 
 	"github.com/megaease/easegress/pkg/object/httpserver"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
@@ -18,14 +18,6 @@ type (
 		// CreateInstance creates a new router instance of the kind.
 		CreateInstance func(rules httpserver.Rules) Router
 	}
-	RouteContext struct {
-		Path     string
-		Request  *httpprot.Request
-		Captures map[string]string
-
-		Code  int
-		Route Route
-	}
 
 	Router interface {
 		Search(context *RouteContext)
@@ -33,6 +25,23 @@ type (
 
 	Route interface {
 		Rewrite(context *RouteContext)
+	}
+
+	RouteParams struct {
+		Keys, Values []string
+	}
+
+	RouteContext struct {
+		Path    string
+		Request *httpprot.Request
+
+		RouteParams RouteParams
+		captures    map[string]string
+
+		Code                                          int
+		Cache                                         bool
+		Route                                         Route
+		HeaderMismatch, MethodMismatch, QueryMismatch bool
 	}
 )
 
