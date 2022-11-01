@@ -19,6 +19,7 @@ package httpserver
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -74,19 +75,19 @@ func TestMuxRule(t *testing.T) {
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080", nil)
 	req, _ := httpprot.NewRequest(stdr)
 
-	rule := newMuxRule(nil, &Rule{}, nil)
+	rule := newMuxRule(nil, &routers.Rule{}, nil)
 	assert.NotNil(rule)
 	assert.True(rule.match(req))
 
-	rule = newMuxRule(nil, &Rule{Host: "www.megaease.com"}, nil)
+	rule = newMuxRule(nil, &routers.Rule{Host: "www.megaease.com"}, nil)
 	assert.NotNil(rule)
 	assert.True(rule.match(req))
 
-	rule = newMuxRule(nil, &Rule{HostRegexp: `^[^.]+\.megaease\.com$`}, nil)
+	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.com$`}, nil)
 	assert.NotNil(rule)
 	assert.True(rule.match(req))
 
-	rule = newMuxRule(nil, &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
+	rule = newMuxRule(nil, &routers.Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
 	assert.NotNil(rule)
 	assert.False(rule.match(req))
 }
@@ -98,105 +99,105 @@ func TestMuxPath(t *testing.T) {
 	req, _ := httpprot.NewRequest(stdr)
 
 	// 1. match path
-	mp := newMuxPath(nil, &Path{})
+	mp := newMuxPath(nil, &routers.Path{})
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(req))
 
 	// exact match
-	mp = newMuxPath(nil, &Path{Path: "/abc"})
+	mp = newMuxPath(nil, &routers.Path{Path: "/abc"})
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(req))
 
 	// prefix
-	mp = newMuxPath(nil, &Path{PathPrefix: "/ab"})
+	mp = newMuxPath(nil, &routers.Path{PathPrefix: "/ab"})
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(req))
 
 	// regexp
-	mp = newMuxPath(nil, &Path{PathRegexp: "/[a-z]+"})
+	mp = newMuxPath(nil, &routers.Path{PathRegexp: "/[a-z]+"})
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(req))
 
 	// invalid regexp
-	mp = newMuxPath(nil, &Path{PathRegexp: "/[a-z+"})
+	mp = newMuxPath(nil, &routers.Path{PathRegexp: "/[a-z+"})
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(req))
 
 	// not match
-	mp = newMuxPath(nil, &Path{Path: "/xyz"})
+	mp = newMuxPath(nil, &routers.Path{Path: "/xyz"})
 	assert.NotNil(mp)
 	assert.False(mp.matchPath(req))
 
 	// 2. match method
-	mp = newMuxPath(nil, &Path{})
+	mp = newMuxPath(nil, &routers.Path{})
 	assert.NotNil(mp)
 	assert.True(mp.matchMethod(req))
 
-	mp = newMuxPath(nil, &Path{Methods: []string{http.MethodGet}})
+	mp = newMuxPath(nil, &routers.Path{Methods: []string{http.MethodGet}})
 	assert.NotNil(mp)
 	assert.True(mp.matchMethod(req))
 
-	mp = newMuxPath(nil, &Path{Methods: []string{http.MethodPut}})
+	mp = newMuxPath(nil, &routers.Path{Methods: []string{http.MethodPut}})
 	assert.NotNil(mp)
 	assert.False(mp.matchMethod(req))
 
 	// 3. match headers
 	stdr.Header.Set("X-Test", "test1")
 
-	mp = newMuxPath(nil, &Path{Headers: []*Header{{
+	mp = newMuxPath(nil, &routers.Path{Headers: []*routers.Header{{
 		Key:    "X-Test",
 		Values: []string{"test1", "test2"},
 	}}})
 	assert.True(mp.matchHeaders(req))
 
-	mp = newMuxPath(nil, &Path{Headers: []*Header{{
+	mp = newMuxPath(nil, &routers.Path{Headers: []*routers.Header{{
 		Key:    "X-Test",
 		Regexp: "test[0-9]",
 	}}})
 	assert.True(mp.matchHeaders(req))
 
-	mp = newMuxPath(nil, &Path{Headers: []*Header{{
+	mp = newMuxPath(nil, &routers.Path{Headers: []*routers.Header{{
 		Key:    "X-Test2",
 		Values: []string{"test1", "test2"},
 	}}})
 	assert.False(mp.matchHeaders(req))
 
 	// 4. rewrite
-	mp = newMuxPath(nil, &Path{Path: "/abc"})
+	mp = newMuxPath(nil, &routers.Path{Path: "/abc"})
 	assert.NotNil(mp)
 	mp.rewrite(req)
 	assert.Equal("/abc", req.Path())
 
-	mp = newMuxPath(nil, &Path{Path: "/abc", RewriteTarget: "/xyz"})
+	mp = newMuxPath(nil, &routers.Path{Path: "/abc", RewriteTarget: "/xyz"})
 	assert.NotNil(mp)
 	mp.rewrite(req)
 	assert.Equal("/xyz", req.Path())
 
-	mp = newMuxPath(nil, &Path{PathPrefix: "/xy", RewriteTarget: "/ab"})
+	mp = newMuxPath(nil, &routers.Path{PathPrefix: "/xy", RewriteTarget: "/ab"})
 	assert.NotNil(mp)
 	mp.rewrite(req)
 	assert.Equal("/abz", req.Path())
 
-	mp = newMuxPath(nil, &Path{PathRegexp: "/([a-z]+)", RewriteTarget: "/1$1"})
+	mp = newMuxPath(nil, &routers.Path{PathRegexp: "/([a-z]+)", RewriteTarget: "/1$1"})
 	assert.NotNil(mp)
 	mp.rewrite(req)
 	assert.Equal("/1abz", req.Path())
 
 	// 5. match query
 	stdr.URL.RawQuery = "q=v1&q=v2"
-	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+	mp = newMuxPath(nil, &routers.Path{Queries: []*routers.Query{{
 		Key:    "q",
 		Values: []string{"v1", "v2"},
 	}}})
 	assert.True(mp.matchQueries(req))
 
-	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+	mp = newMuxPath(nil, &routers.Path{Queries: []*routers.Query{{
 		Key:    "q",
 		Regexp: "v[0-9]",
 	}}})
 	assert.True(mp.matchQueries(req))
 
-	mp = newMuxPath(nil, &Path{Queries: []*Query{{
+	mp = newMuxPath(nil, &routers.Path{Queries: []*routers.Query{{
 		Key:    "q2",
 		Values: []string{"v1", "v2"},
 	}}})

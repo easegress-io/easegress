@@ -2,9 +2,8 @@ package routers
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 
-	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
@@ -16,7 +15,7 @@ type (
 		Description string
 
 		// CreateInstance creates a new router instance of the kind.
-		CreateInstance func(rules httpserver.Rules) Router
+		CreateInstance func(rules Rules) Router
 	}
 
 	Router interface {
@@ -38,10 +37,10 @@ type (
 		RouteParams RouteParams
 		captures    map[string]string
 
-		Code                                          int
-		Cache                                         bool
-		Route                                         Route
-		HeaderMismatch, MethodMismatch, QueryMismatch bool
+		Code                                                        int
+		Cache                                                       bool
+		Route                                                       Route
+		HeaderMismatch, MethodMismatch, QueryMismatch, IPNotAllowed bool
 	}
 )
 
@@ -62,7 +61,7 @@ func Register(k *Kind) {
 }
 
 // Create creates a router instance of kind.
-func Create(kind string, rules httpserver.Rules) Router {
+func Create(kind string, rules Rules) Router {
 	k := kinds[kind]
 	if k == nil {
 		return nil

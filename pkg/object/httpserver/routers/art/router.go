@@ -2,12 +2,10 @@ package router
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
@@ -21,7 +19,7 @@ type (
 
 	// Represents leaf node in radix tree
 	route struct {
-		httpserver.Path
+		routers.Path
 		pattern   string
 		method    httpprot.MethodType
 		paramKeys []string
@@ -59,7 +57,7 @@ type (
 	PathCache map[string]routes
 
 	muxRule struct {
-		httpserver.Rule
+		routers.Rule
 		root      *node
 		pathCache PathCache
 	}
@@ -96,7 +94,7 @@ var kind = &routers.Kind{
 	Name:        Kind,
 	Description: "Art",
 
-	CreateInstance: func(rules httpserver.Rules) routers.Router {
+	CreateInstance: func(rules routers.Rules) routers.Router {
 		router := &ArtRouter{
 			rules: make([]*muxRule, len(rules)),
 		}
@@ -269,7 +267,7 @@ func (n *node) replaceChild(label, tail byte, child *node) {
 	panic("replacing missing child")
 }
 
-func (n *node) setRoute(path *httpserver.Path) {
+func (n *node) setRoute(path *routers.Path) {
 	if n.routes == nil {
 		n.routes = make([]*route, 0)
 	}
@@ -278,7 +276,7 @@ func (n *node) setRoute(path *httpserver.Path) {
 	n.routes = append(n.routes, r)
 }
 
-func (root *node) insert(path *httpserver.Path) (*node, error) {
+func (root *node) insert(path *routers.Path) (*node, error) {
 	if path == nil {
 		panic("param invalid")
 	}
@@ -358,7 +356,7 @@ func (root *node) insert(path *httpserver.Path) (*node, error) {
 
 func (n *node) match(context *routers.RouteContext) *route {
 	for _, r := range n.routes {
-		if r.match(context) {
+		if r.Match(context) {
 			return r
 		}
 	}
@@ -480,41 +478,10 @@ func (n *node) isLeaf() bool {
 	return n.routes != nil
 }
 
-func (r *route) match(context *routers.RouteContext) bool {
-	// method match
-	req := context.Request
-	ip := req.RealIP()
-
-	if req.MethodType()&r.method == 0 {
-		context.MethodMismatch = true
-		return false
-	}
-
-	if len(r.Headers) > 0 && !r.Headers.Match(req.HTTPHeader(), r.MatchAllHeader) {
-		context.HeaderMismatch = true
-		return false
-	}
-
-	if len(r.Queries) > 0 && !r.Queries.Match(req.Queries(), r.MatchAllQuery) {
-		context.HeaderMismatch = true
-		return false
-	}
-
-	if len(r.Headers) == 0 && len(r.Queries) == 0 {
-		context.Cache = true
-	}
-
-	if !r.AllowIP(ip) {
-		context.Code = http.StatusForbidden
-	}
-
-	return true
-}
-
 func (r *route) Rewrite(context *routers.RouteContext) {
 }
 
-func newRoute(path *httpserver.Path) *route {
+func newRoute(path *routers.Path) *route {
 	paramKeys := patParamKeys(path.Path)
 
 	method := httpprot.MALL
@@ -535,7 +502,7 @@ func newRoute(path *httpserver.Path) *route {
 	return r
 }
 
-func (pc PathCache) addPath(path *httpserver.Path) {
+func (pc PathCache) addPath(path *routers.Path) {
 	p := path.Path
 	if _, ok := pc[p]; ok {
 		pc[p] = append(pc[p], newRoute(path))
@@ -544,7 +511,7 @@ func (pc PathCache) addPath(path *httpserver.Path) {
 	}
 }
 
-func newMuxRule(rule *httpserver.Rule) *muxRule {
+func newMuxRule(rule *routers.Rule) *muxRule {
 	mr := &muxRule{
 		Rule:      *rule,
 		root:      &node{},
@@ -579,7 +546,7 @@ func (ar *ArtRouter) Search(context *routers.RouteContext) {
 
 		if routes, ok := rule.pathCache[path]; ok {
 			for _, route := range routes {
-				if route.match(context) {
+				if route.Match(context) {
 					context.Route = route
 					return
 				}

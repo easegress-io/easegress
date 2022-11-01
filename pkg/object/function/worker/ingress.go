@@ -19,6 +19,7 @@ package worker
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
@@ -242,11 +243,11 @@ func (ings *ingressServer) add(pipeline string) error {
 	index := ings.find(pipeline)
 	// not backend as function's pipeline
 	if index == -1 {
-		rule := &httpserver.Rule{
-			Paths: []*httpserver.Path{
+		rule := &routers.Rule{
+			Paths: []*routers.Path{
 				{
 					PathPrefix: "/",
-					Headers: []*httpserver.Header{
+					Headers: []*routers.Header{
 						{
 							Key:    ingressFunctionKey,
 							Values: []string{pipeline},

@@ -56,6 +56,10 @@ type (
 
 // New creates an IPFilter.
 func New(spec *Spec) *IPFilter {
+	if spec == nil {
+		return nil
+	}
+
 	rangerFromIPCIDRs := func(ipcidrs []string) cidranger.Ranger {
 		ranger := cidranger.NewPCTrieRanger()
 		for _, ipcidr := range ipcidrs {
@@ -149,4 +153,24 @@ func (f *IPFilters) Allow(ipstr string) bool {
 	}
 
 	return true
+}
+
+// NewIPFilterChain returns nil if the number of final filters is zero.
+func NewIPFilterChain(parentIPFilters *IPFilters, childSpec *Spec) *IPFilters {
+	var ipFilters *IPFilters
+	if parentIPFilters != nil {
+		ipFilters = NewIPFilters(parentIPFilters.Filters()...)
+	} else {
+		ipFilters = NewIPFilters()
+	}
+
+	if childSpec != nil {
+		ipFilters.Append(New(childSpec))
+	}
+
+	if len(ipFilters.Filters()) == 0 {
+		return nil
+	}
+
+	return ipFilters
 }

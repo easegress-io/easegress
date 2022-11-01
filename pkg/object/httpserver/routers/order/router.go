@@ -6,19 +6,18 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
 	muxRule struct {
-		httpserver.Rule
+		routers.Rule
 		paths []*muxPath
 	}
 
 	muxPath struct {
-		httpserver.Path
+		routers.Path
 		pathRE *regexp.Regexp
 		method httpprot.MethodType
 	}
@@ -35,7 +34,7 @@ var kind = &routers.Kind{
 	Name:        Kind,
 	Description: "Order",
 
-	CreateInstance: func(rules httpserver.Rules) routers.Router {
+	CreateInstance: func(rules routers.Rules) routers.Router {
 		muxRules := make([]*muxRule, len(rules))
 		for i, rule := range rules {
 			muxPaths := make([]*muxPath, len(rule.Paths))
@@ -62,8 +61,6 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 	req := context.Request
 	ip := req.RealIP()
 
-	headerMismatch, methodMismatch, queryMismatch := false, false, false
-
 	for _, host := range r.rules {
 		if !host.Match(req) {
 			continue
@@ -79,50 +76,27 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 				continue
 			}
 
-			if req.MethodType()&path.method == 0 {
-				methodMismatch = true
-				continue
-			}
-
-			if len(path.Headers) > 0 && !path.Headers.Match(req.HTTPHeader(), path.MatchAllHeader) {
-				headerMismatch = true
-				continue
-			}
-
-			if len(path.Queries) > 0 && !path.Queries.Match(req.Queries(), path.MatchAllQuery) {
-				queryMismatch = true
-				continue
-			}
-
-			if len(path.Headers) == 0 && len(path.Queries) == 0 {
-				context.Cache = true
-			}
-
-			if !path.AllowIP(ip) {
-				context.Code = http.StatusForbidden
+			if path.Match(context) {
+				context.Route = path
 				return
 			}
-
-			context.Route = path
-			return
-
 		}
 	}
 
-	if headerMismatch || queryMismatch {
-		context.Code = http.StatusBadRequest
-		return
-	}
+	// if headerMismatch || queryMismatch {
+	// 	context.Code = http.StatusBadRequest
+	// 	return
+	// }
 
-	context.Cache = true
-	if methodMismatch {
-		context.Code = http.StatusMethodNotAllowed
-		return
-	}
-	context.Code = http.StatusNotFound
+	// context.Cache = true
+	// if methodMismatch {
+	// 	context.Code = http.StatusMethodNotAllowed
+	// 	return
+	// }
+	// context.Code = http.StatusNotFound
 }
 
-func newMuxPath(p *httpserver.Path) *muxPath {
+func newMuxPath(p *routers.Path) *muxPath {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {
 		var err error
