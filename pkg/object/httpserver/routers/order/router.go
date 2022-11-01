@@ -1,7 +1,6 @@
 package order
 
 import (
-	"net/http"
 	"regexp"
 	"strings"
 
@@ -13,10 +12,10 @@ import (
 type (
 	muxRule struct {
 		routers.Rule
-		paths []*muxPath
+		routes []*route
 	}
 
-	muxPath struct {
+	route struct {
 		routers.Path
 		pathRE *regexp.Regexp
 		method httpprot.MethodType
@@ -37,14 +36,14 @@ var kind = &routers.Kind{
 	CreateInstance: func(rules routers.Rules) routers.Router {
 		muxRules := make([]*muxRule, len(rules))
 		for i, rule := range rules {
-			muxPaths := make([]*muxPath, len(rule.Paths))
+			muxPaths := make([]*route, len(rule.Paths))
 			for j, path := range rule.Paths {
 				muxPaths[j] = newMuxPath(path)
 			}
 
 			muxRules[i] = &muxRule{
-				Rule:  *rule,
-				paths: muxPaths,
+				Rule:   *rule,
+				routes: muxPaths,
 			}
 		}
 		return &OrderRouter{
@@ -60,6 +59,7 @@ func init() {
 func (r *OrderRouter) Search(context *routers.RouteContext) {
 	req := context.Request
 	ip := req.RealIP()
+	path := context.Path
 
 	for _, host := range r.rules {
 		if !host.Match(req) {
@@ -67,36 +67,24 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 		}
 
 		if !host.AllowIP(ip) {
-			context.Code = http.StatusForbidden
+			context.IPNotAllowed = true
 			return
 		}
 
-		for _, path := range host.paths {
-			if !path.match(context.Path) {
+		for _, route := range host.routes {
+			if !route.match(path) {
 				continue
 			}
 
-			if path.Match(context) {
-				context.Route = path
+			if route.Match(context) {
+				context.Route = route
 				return
 			}
 		}
 	}
-
-	// if headerMismatch || queryMismatch {
-	// 	context.Code = http.StatusBadRequest
-	// 	return
-	// }
-
-	// context.Cache = true
-	// if methodMismatch {
-	// 	context.Code = http.StatusMethodNotAllowed
-	// 	return
-	// }
-	// context.Code = http.StatusNotFound
 }
 
-func newMuxPath(p *routers.Path) *muxPath {
+func newMuxPath(p *routers.Path) *route {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {
 		var err error
@@ -115,14 +103,14 @@ func newMuxPath(p *routers.Path) *muxPath {
 		}
 	}
 
-	return &muxPath{
+	return &route{
 		Path:   *p,
 		pathRE: pathRE,
 		method: method,
 	}
 }
 
-func (mp *muxPath) match(path string) bool {
+func (mp *route) match(path string) bool {
 	if mp.Path.Path == "" && mp.PathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
@@ -140,7 +128,7 @@ func (mp *muxPath) match(path string) bool {
 	return false
 }
 
-func (mp *muxPath) Rewrite(context *routers.RouteContext) {
+func (mp *route) Rewrite(context *routers.RouteContext) {
 	if mp.RewriteTarget == "" {
 		return
 	}

@@ -538,10 +538,17 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 func (ar *ArtRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 	req := context.Request
+	ip := req.RealIP()
+
 
 	for _, rule := range ar.rules {
 		if !rule.Match(req) {
 			continue
+		}
+
+		if !rule.AllowIP(ip) {
+			context.IPNotAllowed = true
+			return
 		}
 
 		if routes, ok := rule.pathCache[path]; ok {

@@ -23,7 +23,10 @@ type (
 	}
 
 	Route interface {
+		AllowIPChain(ip string) bool
 		Rewrite(context *RouteContext)
+		GetBackend() string
+		GetClientMaxBodySize() int64
 	}
 
 	RouteParams struct {
@@ -37,7 +40,6 @@ type (
 		RouteParams RouteParams
 		captures    map[string]string
 
-		Code                                                        int
 		Cache                                                       bool
 		Route                                                       Route
 		HeaderMismatch, MethodMismatch, QueryMismatch, IPNotAllowed bool

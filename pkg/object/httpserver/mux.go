@@ -20,10 +20,8 @@ package httpserver
 import (
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"reflect"
-	"regexp"
 	"strings"
 	"sync/atomic"
 
@@ -99,7 +97,6 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *routeCache) {
 		mi.cache.Add(key, rc)
 	}
 }
-
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
 	m := &mux{
@@ -277,28 +274,28 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}()
 
 	routeCtx := routers.NewContext(req)
-
-	route := mi.search(req)
-	if route.code != 0 {
-		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, route.code)
-		buildFailureResponse(ctx, route.code)
+	routeCache := mi.search(routeCtx)
+	if routeCache.code != 0 {
+		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, routeCache.code)
+		buildFailureResponse(ctx, routeCache.code)
 		return
 	}
 
-	handler, ok := mi.muxMapper.GetHandler(route.path.backend)
+	backend := routeCache.route.GetBackend()
+	handler, ok := mi.muxMapper.GetHandler(backend)
 	if !ok {
-		logger.Errorf("%s: backend(Pipeline) %q for [%s %s] not found", mi.superSpec.Name(), req.Method(), req.RequestURI, route.path.backend)
+		logger.Errorf("%s: backend(Pipeline) %q for [%s %s] not found", mi.superSpec.Name(), req.Method(), req.RequestURI, backend)
 		buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		return
 	}
-	logger.Debugf("%s: the matched backend(Pipeline) for [%s %s] is %q", mi.superSpec.Name(), req.Method(), req.RequestURI, route.path.backend)
+	logger.Debugf("%s: the matched backend(Pipeline) for [%s %s] is %q", mi.superSpec.Name(), req.Method(), req.RequestURI, backend)
 
-	route.path.rewrite(req)
+	routeCache.route.Rewrite(routeCtx)
 	if mi.spec.XForwardedFor {
 		appendXForwardedFor(req)
 	}
 
-	maxBodySize := route.path.clientMaxBodySize
+	maxBodySize := routeCache.route.GetClientMaxBodySize()
 	if maxBodySize == 0 {
 		maxBodySize = mi.spec.ClientMaxBodySize
 	}
@@ -323,9 +320,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 }
 
-func (mi *muxInstance) search(req *httpprot.Request) *route {
-	headerMismatch, methodMismatch, queryMismatch := false, false, false
-
+func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
+	req := context.Request
 	ip := req.RealIP()
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
@@ -336,67 +332,43 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 		if r.code != 0 {
 			return r
 		}
-		if r.path.ipFilterChain == nil {
+
+		if r.route.AllowIPChain(ip) {
 			return r
 		}
-		if r.path.ipFilterChain.Allow(ip) {
-			return r
-		}
+
 		return forbidden
 	}
 
-	if !allowIP(mi.ipFilter, ip) {
+	if !mi.ipFilter.Allow(ip) {
 		return forbidden
 	}
 
-	for _, host := range mi.rules {
-		if !host.match(req) {
-			continue
+	mi.router.Search(context)
+
+	route := context.Route
+
+	if context.Route != nil {
+		rc := &routeCache{code: 0, route: route}
+		if context.Cache {
+			mi.putRouteToCache(req, rc)
 		}
 
-		if !allowIP(host.ipFilter, ip) {
+		if context.IPNotAllowed {
 			return forbidden
 		}
-
-		for _, path := range host.paths {
-			if !path.matchPath(req) {
-				continue
-			}
-
-			if !path.matchMethod(req) {
-				methodMismatch = true
-				continue
-			}
-
-			// only if headers and query are empty, we can cache the result.
-			if len(path.headers) == 0 && len(path.queries) == 0 {
-				r = &route{code: 0, path: path}
-				mi.putRouteToCache(req, r)
-			}
-
-			if len(path.headers) > 0 && !path.matchHeaders(req) {
-				headerMismatch = true
-				continue
-			}
-
-			if len(path.queries) > 0 && !path.matchQueries(req) {
-				queryMismatch = true
-				continue
-			}
-
-			if !allowIP(path.ipFilter, ip) {
-				return forbidden
-			}
-
-			return &route{code: 0, path: path}
-		}
+		return rc
 	}
 
-	if headerMismatch || queryMismatch {
+	if context.IPNotAllowed {
+		return forbidden
+	}
+
+	if context.HeaderMismatch || context.QueryMismatch {
 		return badRequest
 	}
 
-	if methodMismatch {
+	if context.MethodMismatch {
 		mi.putRouteToCache(req, methodNotAllowed)
 		return methodNotAllowed
 	}

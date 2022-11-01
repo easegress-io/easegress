@@ -160,6 +160,14 @@ func (p *Path) AllowIP(ip string) bool {
 	return p.ipFilter.Allow(ip)
 }
 
+func (p *Path) AllowIPChain(ip string) bool {
+	if p.ipFilterChain == nil {
+		return true
+	}
+
+	return p.ipFilterChain.Allow(ip)
+}
+
 func (p *Path) Match(context *RouteContext) bool {
 	// method match
 	req := context.Request
@@ -189,6 +197,14 @@ func (p *Path) Match(context *RouteContext) bool {
 	}
 
 	return true
+}
+
+func (p *Path) GetBackend() string {
+	return p.Backend
+}
+
+func (p *Path) GetClientMaxBodySize() int64 {
+	return p.ClientMaxBodySize
 }
 
 func (hs Headers) init() {
