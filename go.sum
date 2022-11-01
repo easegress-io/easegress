@@ -639,8 +639,8 @@ github.com/libdns/libdns v0.1.0/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSO
 github.com/libdns/libdns v0.2.0/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSObbb40=
 github.com/libdns/libdns v0.2.1 h1:Wu59T7wSHRgtA0cfxC+n1c/e+O3upJGWytknkmFEDis=
 github.com/libdns/libdns v0.2.1/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSObbb40=
-github.com/libdns/route53 v1.2.2 h1:ZnlxO2w8ftO/aR0PNRRB8lrG6AcKPOl/H0vU8mb/Ixo=
-github.com/libdns/route53 v1.2.2/go.mod h1:Vu827KwORxYR2I6iGsu8IKh4MESliECL7VA4pAsn95o=
+github.com/libdns/route53 v1.3.0 h1:f41D9uUK7Gib8Zbg3LtAXfxGRFlqfR4gep+FsthDFg0=
+github.com/libdns/route53 v1.3.0/go.mod h1:Vu827KwORxYR2I6iGsu8IKh4MESliECL7VA4pAsn95o=
 github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51 h1:ds9Nu9RwQWIHXM/e7264RiUfdyAgNdoZkiWXt0xSIzY=
 github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51/go.mod h1:HXpNE79BzPq3UumCELwGB7E9HD9Ie10D2o3e56CGkdE=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
