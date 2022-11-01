@@ -94,7 +94,6 @@ type (
 		clientMaxBodySize int64
 		matchAllHeader    bool
 		queries           []*Query
-		clientIPsFilter   *ipfilter.IPFilter
 	}
 
 	route struct {
@@ -136,17 +135,6 @@ func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
 	}
 
 	return ipfilter.New(spec)
-}
-
-func newIPFilterFromClientIPs(clientIPs []string) *ipfilter.IPFilter {
-	if len(clientIPs) == 0 {
-		return nil
-	}
-
-	return ipfilter.New(&ipfilter.Spec{
-		BlockByDefault: true,
-		AllowIPs:       clientIPs,
-	})
 }
 
 func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
@@ -251,7 +239,6 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 		clientMaxBodySize: path.ClientMaxBodySize,
 		matchAllHeader:    path.MatchAllHeader,
 		queries:           path.Queries,
-		clientIPsFilter:   newIPFilterFromClientIPs(path.ClientIPs),
 	}
 }
 
@@ -588,19 +575,10 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
-	// headers and any queries and any clientIPs.
+	// headers,any queries and any ipFilters.
 	r := mi.getRouteFromCache(req)
 	if r != nil {
-		if r.code != 0 {
-			return r
-		}
-		if r.path.ipFilterChain == nil {
-			return r
-		}
-		if r.path.ipFilterChain.Allow(ip) {
-			return r
-		}
-		return forbidden
+		return r
 	}
 
 	if !allowIP(mi.ipFilter, ip) {
@@ -613,7 +591,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 		}
 
 		if !allowIP(host.ipFilter, ip) {
-			return forbidden
+			clientIPMismatch = true
+			continue
 		}
 
 		for _, path := range host.paths {
@@ -626,9 +605,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// only if headers and queries and clientIPs are empty, we can cache the result.
-			// otherwise, we have to check them every time.
-			if len(path.headers) == 0 && len(path.queries) == 0 && path.clientIPsFilter == nil {
+			// only if headers,queries and ipFilter are empty, we can cache the result.
+			if len(path.headers) == 0 && len(path.queries) == 0 && path.ipFilter == nil && path.ipFilterChain == nil {
 				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
 			}
@@ -643,14 +621,9 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// add clientIP route,if not match, continue
-			if !allowIP(path.clientIPsFilter, ip) {
+			if !allowIP(path.ipFilter, ip) {
 				clientIPMismatch = true
 				continue
-			}
-
-			if !allowIP(path.ipFilter, ip) {
-				return forbidden
 			}
 
 			return &route{code: 0, path: path}

@@ -90,7 +90,6 @@ type (
 		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
 		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
 		Queries           []*Query       `json:"queries,omitempty" jsonschema:"omitempty"`
-		ClientIPs         []string       `json:"clientIPs,omitempty" jsonschema:"omitempty,uniqueItems=true,format=ipcidr-array"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean

@@ -89,6 +89,19 @@ func TestMuxRule(t *testing.T) {
 	rule = newMuxRule(nil, &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
 	assert.NotNil(rule)
 	assert.False(rule.match(req))
+
+	rule = newMuxRule(nil,
+		&Rule{
+			HostRegexp: `^[^.]+\.megaease\.com$`,
+			Host:       "www.megaease.com",
+			IPFilter: &ipfilter.Spec{
+				AllowIPs: []string{"192.168.1.0/24"},
+				BlockIPs: []string{"192.168.2.0/24"},
+			}}, nil)
+	assert.NotNil(rule)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.7")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.True(rule.match(req))
 }
 
 func TestMuxPath(t *testing.T) {
@@ -204,12 +217,15 @@ func TestMuxPath(t *testing.T) {
 
 	// 6. match client ip
 	mp = newMuxPath(nil, &Path{
-		ClientIPs: []string{"192.168.1.1", "10.0.1.1/24"},
+		IPFilter: &ipfilter.Spec{
+			AllowIPs: []string{"192.168.1.0/24"},
+			BlockIPs: []string{"192.168.2.0/24"},
+		},
 	})
-	assert.True(allowIP(mp.clientIPsFilter, "192.168.1.1"))
-	assert.False(allowIP(mp.clientIPsFilter, "192.168.1.2"))
-	assert.True(allowIP(mp.clientIPsFilter, "10.0.1.2"))
-	assert.False(allowIP(mp.clientIPsFilter, "10.0.2.1"))
+	assert.True(allowIP(mp.ipFilter, "192.168.1.1"))
+	assert.False(allowIP(mp.ipFilter, "192.168.2.2"))
+	assert.False(allowIP(mp.ipFilter, "10.0.1.2"))
+	assert.False(allowIP(mp.ipFilter, "10.0.2.1"))
 
 }
 
@@ -469,24 +485,61 @@ rules:
   - path: /clientIPsWithBlockIPs
     backend: abc-pipeline
     ipFilter:
+      allowIPs: [192.168.1.2]
       blockIPs: [192.168.1.3]
-    clientIPs: [192.168.1.4]
+  - path: /clientIPsWithBlockIPs
+    backend: abc-pipeline-3
+    ipFilter:
+      allowIPs: [192.168.1.3]
+      blockIPs: [192.168.1.4]
+  - path: /clientIPsWithBlockIPs
+    backend: abc-pipeline
+    ipFilter:
+      allowIPs: [192.168.1.5]
+      blockIPs: [192.168.1.5]
+  - path: /clientIPsWithBlockIPs
+    backend: abc-pipeline
+    ipFilter:
+      allowIPs: [192.168.1.4]
+      blockIPs: [192.168.1.6]
   - path: /clientIPsWithBlockIPs2
     backend: abc-pipeline
     ipFilter:
-      blockIPs: [192.168.1.3]
-    clientIPs: [192.168.1.3]
-  - path: /clientIPsWithAllowIPs
+      blockIPs: [192.168.1.5]
+  - path: /clientIPsWithAllowIPs2
     backend: abc-pipeline
     ipFilter:
-      allowIPs: [192.168.1.3]
-    clientIPs: [192.168.1.3, 192.168.1.4]
-  - path: /clientIPs
+      blockIPs: [192.168.1.5,192.168.1.9]
+  - path: /clientIPsWithAllowIPs2
     backend: abc-pipeline
-    clientIPs: [192.168.1.6]
-  - path: /clientIPs
+    ipFilter:
+      allowIPs: [192.168.1.6]
+  - path: /clientIPsWithAllowIPs2
+    backend: abc-pipeline-default
+  - path: /clientIPsWithAllowIPs3
+    backend: abc-pipeline
+    ipFilter:
+      allowIPs: [192.168.1.7]
+  - path: /clientIPsWithAllowIPs3
     backend: 123-pipeline
-    clientIPs: [192.168.1.8]
+    ipFilter:
+      allowIPs: [192.168.1.8]
+- host: 1.megaease.com
+  ipFilter:
+    blockIPs: [192.168.1.2]
+  paths:
+  - path: /abc
+    backend: host2-abc-pipeline
+    ipFilter:
+      blockIPs: [192.168.1.5]
+- host: 1.megaease.com
+  ipFilter:
+    blockIPs: [192.168.1.3]
+  paths:
+  - path: /abc
+    backend: host2-abc-pipeline
+    ipFilter:
+      blockIPs: [192.168.1.5]
 `
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -677,50 +730,74 @@ rules:
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+	assert.Equal("abc-pipeline-3", mi.search(req).path.backend)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.2")
+	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(req).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
+	assert.Equal(0, mi.search(req).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
+	assert.Equal(0, mi.search(req).code)
 
 	// client ip with allowIPs
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs", http.NoBody)
-	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
-	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs", http.NoBody)
-	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
-	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs", http.NoBody)
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+	assert.Equal("abc-pipeline-default", mi.search(req).path.backend)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.6")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.9")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal("abc-pipeline-default", mi.search(req).path.backend)
+
+	// client ip
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.6")
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(req).code)
 
-	// client ip
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPs", http.NoBody)
-	stdr.Header.Set("X-Real-Ip", "192.168.1.6")
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.7")
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(0, mi.search(req).code)
 	assert.Equal("abc-pipeline", mi.search(req).path.backend)
 
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPs", http.NoBody)
-	stdr.Header.Set("X-Real-Ip", "192.168.1.7")
-	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
-
-	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPs", http.NoBody)
+	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.8")
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(0, mi.search(req).code)
 	assert.Equal("123-pipeline", mi.search(req).path.backend)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.2")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+	assert.Equal("host2-abc-pipeline", mi.search(req).path.backend)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(0, mi.search(req).code)
+	assert.Equal("host2-abc-pipeline", mi.search(req).path.backend)
+
+	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
+	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
+	req, _ = httpprot.NewRequest(stdr)
+	assert.Equal(403, mi.search(req).code)
 
 }
