@@ -350,7 +350,7 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 
 	if context.Route != nil {
 		rc := &routeCache{code: 0, route: route}
-		if context.Cache {
+		if context.Cacheable {
 			mi.putRouteToCache(req, rc)
 		}
 

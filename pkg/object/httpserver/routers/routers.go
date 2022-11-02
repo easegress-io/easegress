@@ -40,7 +40,7 @@ type (
 		RouteParams RouteParams
 		captures    map[string]string
 
-		Cache                                                       bool
+		Cacheable                                                   bool
 		Route                                                       Route
 		HeaderMismatch, MethodMismatch, QueryMismatch, IPNotAllowed bool
 	}

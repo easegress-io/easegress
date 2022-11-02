@@ -48,9 +48,10 @@ type Path struct {
 	MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
 	MatchAllQuery     bool           `json:"matchAllQuery" jsonschema:"omitempty"`
 
-	ipFilter      *ipfilter.IPFilter
-	ipFilterChain *ipfilter.IPFilters
-	method        httpprot.MethodType
+	ipFilter               *ipfilter.IPFilter
+	ipFilterChain          *ipfilter.IPFilters
+	method                 httpprot.MethodType
+	cacheable, noNeedMatch bool
 }
 
 type Headers []*Header
@@ -75,11 +76,11 @@ type Query struct {
 
 func (rules Rules) Init(ipFilterChan *ipfilter.IPFilters) {
 	for _, rule := range rules {
-		rule.init(ipFilterChan)
+		rule.Init(ipFilterChan)
 	}
 }
 
-func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
+func (rule *Rule) Init(parentIPFilters *ipfilter.IPFilters) {
 	ruleIPFilterChain := ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilterSpec)
 	for _, p := range rule.Paths {
 		p.Init(ruleIPFilterChain)
@@ -140,6 +141,13 @@ func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	}
 
 	p.method = method
+
+	if len(p.Headers) == 0 && len(p.Queries) == 0 {
+		p.cacheable = true
+		if len(p.Methods) == 0 && p.ipFilter == nil {
+			p.noNeedMatch = true
+		}
+	}
 }
 
 // Validate validates Path.
@@ -168,6 +176,12 @@ func (p *Path) AllowIPChain(ip string) bool {
 }
 
 func (p *Path) Match(context *RouteContext) bool {
+	context.Cacheable = p.cacheable
+
+	if p.noNeedMatch {
+		return true
+	}
+
 	// method match
 	req := context.Request
 	ip := req.RealIP()
@@ -185,10 +199,6 @@ func (p *Path) Match(context *RouteContext) bool {
 	if len(p.Queries) > 0 && !p.Queries.Match(req.Queries(), p.MatchAllQuery) {
 		context.QueryMismatch = true
 		return false
-	}
-
-	if len(p.Headers) == 0 && len(p.Queries) == 0 {
-		context.Cache = true
 	}
 
 	if !p.AllowIP(ip) {

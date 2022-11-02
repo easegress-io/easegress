@@ -25,7 +25,7 @@ func TestRuleInit(t *testing.T) {
 		},
 	}
 
-	rule.init(nil)
+	rule.Init(nil)
 
 	assert.NotNil(rule.hostRE)
 	assert.NotNil(rule.ipFilter)
@@ -51,7 +51,7 @@ func TestRuleInit(t *testing.T) {
 		},
 	}
 
-	rule2.init(ipfilter.NewIPFilterChain(nil, &ipfilter.Spec{
+	rule2.Init(ipfilter.NewIPFilterChain(nil, &ipfilter.Spec{
 		AllowIPs: []string{"192.168.1.0/24"},
 	}))
 
@@ -71,23 +71,23 @@ func TestRuleMatch(t *testing.T) {
 	req, _ := httpprot.NewRequest(stdr)
 
 	rule := &Rule{}
-	rule.init(nil)
+	rule.Init(nil)
 
 	assert.NotNil(rule)
 	assert.True(rule.Match(req))
 
 	rule = &Rule{Host: "www.megaease.com"}
-	rule.init(nil)
+	rule.Init(nil)
 	assert.NotNil(rule)
 	assert.True(rule.Match(req))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.com$`}
-	rule.init(nil)
+	rule.Init(nil)
 	assert.NotNil(rule)
 	assert.True(rule.Match(req))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}
-	rule.init(nil)
+	rule.Init(nil)
 	assert.NotNil(rule)
 	assert.False(rule.Match(req))
 }
@@ -109,7 +109,7 @@ func TestRuleAllowIP(t *testing.T) {
 		},
 	}
 
-	rule.init(nil)
+	rule.Init(nil)
 
 	assert.True(rule.AllowIP("192.168.1.1"))
 	assert.False(rule.AllowIP("10.168.1.1"))
@@ -154,6 +154,55 @@ func TestPathInit(t *testing.T) {
 	assert.True(path.method&httpprot.MGET != 0)
 	assert.True(path.method&httpprot.MPOST != 0)
 	assert.True(path.method&httpprot.MDELETE == 0)
+}
+
+func TestPathInit2(t *testing.T) {
+	assert := assert.New(t)
+
+	path := &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+	}
+
+	path.Init(nil)
+	assert.True(path.cacheable)
+	assert.True(path.noNeedMatch)
+
+	path = &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+		IPFilterSpec: &ipfilter.Spec{
+			BlockByDefault: true,
+			AllowIPs:       []string{"192.168.1.0/24"},
+		},
+	}
+
+	path.Init(nil)
+	assert.True(path.cacheable)
+	assert.False(path.noNeedMatch)
+
+	path = &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+		IPFilterSpec: &ipfilter.Spec{
+			BlockByDefault: true,
+			AllowIPs:       []string{"192.168.1.0/24"},
+		},
+		Headers: []*Header{
+			{
+				Regexp: `^[^.]+\.megaease\.com$`,
+			},
+		},
+		Queries: []*Query{
+			{
+				Regexp: `^[^.]+\.megaease\.com$`,
+			},
+		},
+	}
+
+	path.Init(nil)
+	assert.False(path.cacheable)
+	assert.False(path.noNeedMatch)
 }
 
 func TestPathAllowIP(t *testing.T) {
@@ -340,7 +389,7 @@ func TestPathMatch(t *testing.T) {
 		assert.Equal(test.result, result)
 		assert.Equal(test.methodMismatch, ctx.MethodMismatch)
 		assert.Equal(test.headerMismatch, ctx.HeaderMismatch)
-		assert.Equal(test.cache, ctx.Cache)
+		assert.Equal(test.cache, ctx.Cacheable)
 		assert.Equal(test.ipNotAllowed, ctx.IPNotAllowed)
 
 	}
@@ -366,7 +415,7 @@ func TestPathMatch1(t *testing.T) {
 	result := path.Match(ctx)
 
 	assert.True(result)
-	assert.True(ctx.Cache)
+	assert.True(ctx.Cacheable)
 }
 
 func TestHeadersInit(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 type (
@@ -18,7 +17,6 @@ type (
 	route struct {
 		routers.Path
 		pathRE *regexp.Regexp
-		method httpprot.MethodType
 	}
 
 	OrderRouter struct {
@@ -56,34 +54,6 @@ func init() {
 	routers.Register(kind)
 }
 
-func (r *OrderRouter) Search(context *routers.RouteContext) {
-	req := context.Request
-	ip := req.RealIP()
-	path := context.Path
-
-	for _, host := range r.rules {
-		if !host.Match(req) {
-			continue
-		}
-
-		if !host.AllowIP(ip) {
-			context.IPNotAllowed = true
-			return
-		}
-
-		for _, route := range host.routes {
-			if !route.matchPath(path) {
-				continue
-			}
-
-			if route.Match(context) {
-				context.Route = route
-				return
-			}
-		}
-	}
-}
-
 func newRoute(p *routers.Path) *route {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {
@@ -95,18 +65,9 @@ func newRoute(p *routers.Path) *route {
 		}
 	}
 
-	method := httpprot.MALL
-	if len(p.Methods) != 0 {
-		method = 0
-		for _, m := range p.Methods {
-			method |= httpprot.Methods[m]
-		}
-	}
-
 	return &route{
 		Path:   *p,
 		pathRE: pathRE,
-		method: method,
 	}
 }
 
@@ -149,4 +110,32 @@ func (mp *route) Rewrite(context *routers.RouteContext) {
 	// sure (mp.pathRE != nil && mp.pathRE.MatchString(path)) is true
 	path = mp.pathRE.ReplaceAllString(path, mp.RewriteTarget)
 	r.SetPath(path)
+}
+
+func (r *OrderRouter) Search(context *routers.RouteContext) {
+	req := context.Request
+	ip := req.RealIP()
+	path := context.Path
+
+	for _, host := range r.rules {
+		if !host.Match(req) {
+			continue
+		}
+
+		if !host.AllowIP(ip) {
+			context.IPNotAllowed = true
+			return
+		}
+
+		for _, route := range host.routes {
+			if !route.matchPath(path) {
+				continue
+			}
+
+			if route.Match(context) {
+				context.Route = route
+				return
+			}
+		}
+	}
 }

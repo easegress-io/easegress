@@ -1,15 +1,83 @@
 package order
 
 import (
+	"net/http"
+	"os"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
+}
+
+func TestCreateInstance(t *testing.T) {
+	rules := routers.Rules{
+		&routers.Rule{
+			Host:       "www.megaease.com",
+			HostRegexp: `^[^.]+\.megaease\.com$`,
+			IPFilterSpec: &ipfilter.Spec{
+				AllowIPs: []string{"192.168.1.0/24"},
+			},
+			Paths: []*routers.Path{
+				{
+					Path: "/api/test",
+				},
+				{
+					PathRegexp: `^test$`,
+				},
+			},
+		},
+		&routers.Rule{
+			Host:       "google.com",
+			HostRegexp: `^[^.]+\.google\.com$`,
+			IPFilterSpec: &ipfilter.Spec{
+				AllowIPs: []string{"192.168.1.0/24"},
+			},
+			Paths: []*routers.Path{
+				{
+					Path: "/api/google",
+				},
+				{
+					PathRegexp: `^google$`,
+				},
+			},
+		},
+	}
+
+	rules.Init(nil)
+	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
+
+	assert := assert.New(t)
+	assert.Equal(len(rules), len(router.rules))
+
+	for i := 0; i < len(rules); i++ {
+		rule := rules[i]
+		muxRule := router.rules[i]
+		assert.Equal(len(rule.Paths), len(muxRule.routes))
+
+		for j := 0; j < len(rule.Paths); j++ {
+			path := rule.Paths[j]
+			route := muxRule.routes[j]
+
+			if path.PathRegexp != "" {
+				assert.NotNil(route.pathRE)
+			}
+
+		}
+	}
+}
+
 func TestMuxRoutePathMatch(t *testing.T) {
 	assert := assert.New(t)
-	path := "http://www.megaease.com/abc"
+	path := "/abc"
 	// stdr, _ := http.NewRequest(http.MethodGet, path, nil)
 	// req, _ := httpprot.NewRequest(stdr)
 
@@ -54,82 +122,82 @@ func TestMuxRoutePathMatch(t *testing.T) {
 	mp = newRoute(p)
 	assert.NotNil(mp)
 	assert.False(mp.matchPath(path))
+}
 
-	// // 2. match method
-	// p = &routers.Path{}
-	// p.Init(nil)
-	// mp = newRoute(p)
-	// mp = newRoute(nil, &routers.Path{})
-	// assert.NotNil(mp)
-	// assert.True(mp.matchMethod(req))
+func TestSearch(t *testing.T) {
+	assert := assert.New(t)
 
-	// mp = newRoute(nil, &routers.Path{Methods: []string{http.MethodGet}})
-	// assert.NotNil(mp)
-	// assert.True(mp.matchMethod(req))
+	rules := routers.Rules{
+		&routers.Rule{
+			Host: "www.megaease.com",
+			IPFilterSpec: &ipfilter.Spec{
+				BlockByDefault: true,
+				AllowIPs:       []string{"192.168.1.0/24"},
+			},
+			Paths: []*routers.Path{
+				{
+					Path: "/api/test",
+				},
+				{
+					PathRegexp: `^test$`,
+				},
+			},
+		},
+	}
 
-	// mp = newRoute(nil, &routers.Path{Methods: []string{http.MethodPut}})
-	// assert.NotNil(mp)
-	// assert.False(mp.matchMethod(req))
+	rules.Init(nil)
+	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
 
-	// // 3. match headers
-	// stdr.Header.Set("X-Test", "test1")
+	tests := []struct {
+		host         string
+		ip           string
+		path         string
+		result       bool
+		iPNotAllowed bool
+	}{
+		{
+			host: "1233434.com",
+			path: "test",
+		},
+		{
+			host:         "www.megaease.com",
+			ip:           "10.168.1.0",
+			iPNotAllowed: true,
+			path:         "test",
+		},
+		{
+			host: "www.megaease.com",
+			ip:   "192.168.1.1",
+			path: "abc",
+		},
+		{
+			host:   "www.megaease.com",
+			ip:     "192.168.1.1",
+			path:   "/api/test",
+			result: true,
+		},
+		{
+			host:   "www.megaease.com",
+			ip:     "192.168.1.1",
+			path:   "test",
+			result: true,
+		},
+	}
 
-	// mp = newRoute(nil, &routers.Path{Headers: []*routers.Header{{
-	// 	Key:    "X-Test",
-	// 	Values: []string{"test1", "test2"},
-	// }}})
-	// assert.True(mp.matchHeaders(req))
+	for _, test := range tests {
+		headers := map[string][]string{
+			"X-Real-Ip": {test.ip},
+		}
+		stdr, _ := http.NewRequest("GET", test.path, nil)
+		stdr.Host = test.host
+		stdr.Header = headers
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := routers.NewContext(req)
 
-	// mp = newRoute(nil, &routers.Path{Headers: []*routers.Header{{
-	// 	Key:    "X-Test",
-	// 	Regexp: "test[0-9]",
-	// }}})
-	// assert.True(mp.matchHeaders(req))
+		router.Search(ctx)
 
-	// mp = newRoute(nil, &routers.Path{Headers: []*routers.Header{{
-	// 	Key:    "X-Test2",
-	// 	Values: []string{"test1", "test2"},
-	// }}})
-	// assert.False(mp.matchHeaders(req))
+		assert.Equal(test.result, ctx.Route != nil)
+		assert.Equal(test.iPNotAllowed, ctx.IPNotAllowed)
 
-	// // 4. rewrite
-	// mp = newRoute(nil, &routers.Path{Path: "/abc"})
-	// assert.NotNil(mp)
-	// mp.rewrite(req)
-	// assert.Equal("/abc", req.Path())
-
-	// mp = newRoute(nil, &routers.Path{Path: "/abc", RewriteTarget: "/xyz"})
-	// assert.NotNil(mp)
-	// mp.rewrite(req)
-	// assert.Equal("/xyz", req.Path())
-
-	// mp = newRoute(nil, &routers.Path{PathPrefix: "/xy", RewriteTarget: "/ab"})
-	// assert.NotNil(mp)
-	// mp.rewrite(req)
-	// assert.Equal("/abz", req.Path())
-
-	// mp = newRoute(nil, &routers.Path{PathRegexp: "/([a-z]+)", RewriteTarget: "/1$1"})
-	// assert.NotNil(mp)
-	// mp.rewrite(req)
-	// assert.Equal("/1abz", req.Path())
-
-	// // 5. match query
-	// stdr.URL.RawQuery = "q=v1&q=v2"
-	// mp = newRoute(nil, &routers.Path{Queries: []*routers.Query{{
-	// 	Key:    "q",
-	// 	Values: []string{"v1", "v2"},
-	// }}})
-	// assert.True(mp.matchQueries(req))
-
-	// mp = newRoute(nil, &routers.Path{Queries: []*routers.Query{{
-	// 	Key:    "q",
-	// 	Regexp: "v[0-9]",
-	// }}})
-	// assert.True(mp.matchQueries(req))
-
-	// mp = newRoute(nil, &routers.Path{Queries: []*routers.Query{{
-	// 	Key:    "q2",
-	// 	Values: []string{"v1", "v2"},
-	// }}})
-	// assert.False(mp.matchQueries(req))
+	}
 }
