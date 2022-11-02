@@ -1,4 +1,4 @@
-package router
+package art
 
 import (
 	"fmt"
@@ -539,7 +539,6 @@ func (ar *ArtRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 	req := context.Request
 	ip := req.RealIP()
-
 
 	for _, rule := range ar.rules {
 		if !rule.Match(req) {
