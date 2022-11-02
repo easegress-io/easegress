@@ -262,7 +262,6 @@ allowedMethods: [GET]
 | allowCredentials | bool | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates | No |
 | exposedHeaders | []string | Indicates which headers are safe to expose to the API of a CORS API specification | No |
 | maxAge | int | Indicates how long (in seconds) the results of a preflight request can be cached. The default is 0 stands for no max age | No |
-| supportCORSRequest | bool | When true, support CORS request and CORS preflight requests. By default, support only preflight requests. | No |
 
 ### Results
 
