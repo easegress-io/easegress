@@ -183,7 +183,7 @@ func (p *Path) Match(context *RouteContext) bool {
 	}
 
 	if len(p.Queries) > 0 && !p.Queries.Match(req.Queries(), p.MatchAllQuery) {
-		context.HeaderMismatch = true
+		context.QueryMismatch = true
 		return false
 	}
 

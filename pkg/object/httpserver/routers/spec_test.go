@@ -149,7 +149,6 @@ func TestPathInit(t *testing.T) {
 	assert.NotNil(path.Headers[0].re)
 	assert.NotNil(path.Queries[0].re)
 
-
 	path.Methods = []string{"GET", "POST"}
 	path.Init(nil)
 	assert.True(path.method&httpprot.MGET != 0)
@@ -165,7 +164,7 @@ func TestPathAllowIP(t *testing.T) {
 		PathRegexp: `^[^.]+\.megaease\.com$`,
 		IPFilterSpec: &ipfilter.Spec{
 			BlockByDefault: true,
-			AllowIPs: []string{"192.168.1.0/24"},
+			AllowIPs:       []string{"192.168.1.0/24"},
 		},
 		Headers: []*Header{
 			{
@@ -190,19 +189,388 @@ func TestPathAllowIP(t *testing.T) {
 }
 
 func TestPathAllowIPChain(t *testing.T) {
+	assert := assert.New(t)
+
+	path := &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+		IPFilterSpec: &ipfilter.Spec{
+			BlockByDefault: true,
+			AllowIPs:       []string{"192.168.1.0/24"},
+		},
+	}
+	path.Init(ipfilter.NewIPFilterChain(nil, &ipfilter.Spec{
+		BlockByDefault: true,
+		AllowIPs:       []string{"10.0.0.1/24"},
+	}))
+
+	assert.False(path.AllowIPChain("192.168.1.1"))
+	assert.False(path.AllowIPChain("10.0.0.1"))
+	assert.False(path.AllowIPChain("2.168.1.1"))
+
+	path.ipFilterChain = nil
+	assert.True(path.AllowIPChain("192.168.1.1"))
+	assert.True(path.AllowIPChain("10.168.1.1"))
+	assert.True(path.AllowIPChain("2.168.1.1"))
 }
 
 func TestPathMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	path := &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+		IPFilterSpec: &ipfilter.Spec{
+			BlockByDefault: true,
+			AllowIPs:       []string{"192.168.1.0/24"},
+		},
+		Methods: []string{"GET", "POST"},
+		Headers: []*Header{
+			{
+				Key:    "X-Test",
+				Values: []string{"abc", "123"},
+			},
+			{
+				Key:    "X-Test1",
+				Regexp: `^abc$`,
+			},
+		},
+		Queries: []*Query{
+			{
+				Key:    "q1",
+				Values: []string{"abc", "123"},
+			},
+			{
+				Key:    "q2",
+				Regexp: `^abc$`,
+			},
+		},
+	}
+	path.Init(nil)
+
+	tests := []struct {
+		method                                                                     string
+		headers                                                                    map[string][]string
+		matchAllheader                                                             bool
+		query                                                                      string
+		matchAllQuery                                                              bool
+		ip                                                                         string
+		result, methodMismatch, headerMismatch, queryMismatch, cache, ipNotAllowed bool
+	}{
+		{
+			method:         http.MethodDelete,
+			result:         false,
+			methodMismatch: true,
+		},
+
+		{
+			method: http.MethodGet,
+			result: false,
+			headers: map[string][]string{
+				"X-Test": {"spec"},
+			},
+			matchAllheader: false,
+			headerMismatch: true,
+		},
+		{
+			method: http.MethodPost,
+			result: false,
+			headers: map[string][]string{
+				"X-Test": {"abc"},
+			},
+			matchAllheader: true,
+			headerMismatch: true,
+		},
+
+		{
+			method: http.MethodPost,
+			result: false,
+			headers: map[string][]string{
+				"X-Test": {"abc"},
+			},
+			query:         "q1=spec",
+			queryMismatch: true,
+		},
+
+		{
+			method: http.MethodPost,
+			result: false,
+			headers: map[string][]string{
+				"X-Test": {"abc"},
+			},
+			query:         "q1=abc",
+			matchAllQuery: true,
+			queryMismatch: true,
+		},
+
+		{
+			method: http.MethodPost,
+			result: true,
+			headers: map[string][]string{
+				"X-Test":    {"abc"},
+				"X-Real-Ip": {"10.168.1.0"},
+			},
+			query:         "q1=abc",
+			queryMismatch: true,
+			ipNotAllowed:  true,
+		},
+
+		{
+			method: http.MethodPost,
+			result: true,
+			headers: map[string][]string{
+				"X-Test":    {"abc"},
+				"X-Real-Ip": {"192.168.1.0"},
+			},
+			query:         "q1=abc",
+			queryMismatch: true,
+		},
+	}
+
+	for _, test := range tests {
+		stdr, _ := http.NewRequest(test.method, "/api/test?"+test.query, nil)
+		stdr.Header = test.headers
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := NewContext(req)
+
+		path.MatchAllHeader = test.matchAllheader
+		path.MatchAllQuery = test.matchAllQuery
+		result := path.Match(ctx)
+
+		assert.Equal(test.result, result)
+		assert.Equal(test.methodMismatch, ctx.MethodMismatch)
+		assert.Equal(test.headerMismatch, ctx.HeaderMismatch)
+		assert.Equal(test.cache, ctx.Cache)
+		assert.Equal(test.ipNotAllowed, ctx.IPNotAllowed)
+
+	}
+}
+
+func TestPathMatch1(t *testing.T) {
+	assert := assert.New(t)
+
+	path := &Path{
+		Path:       "/api/task/check",
+		PathRegexp: `^[^.]+\.megaease\.com$`,
+		IPFilterSpec: &ipfilter.Spec{
+			BlockByDefault: true,
+			AllowIPs:       []string{"192.168.1.0/24"},
+		},
+	}
+	path.Init(nil)
+
+	stdr, _ := http.NewRequest(http.MethodGet, "/api/test?", nil)
+	req, _ := httpprot.NewRequest(stdr)
+
+	ctx := NewContext(req)
+	result := path.Match(ctx)
+
+	assert.True(result)
+	assert.True(ctx.Cache)
 }
 
 func TestHeadersInit(t *testing.T) {
+	var headers Headers = []*Header{
+		{
+			Key:    "X-Test1",
+			Regexp: `^abc$`,
+		},
+		{
+			Key:    "X-Test2",
+			Regexp: `^abc$`,
+		},
+	}
+
+	headers.init()
+	assert := assert.New(t)
+
+	for _, h := range headers {
+		assert.NotNil(h.re)
+	}
 }
 
 func TestHeadersMatch(t *testing.T) {
+	var headers Headers = []*Header{
+		{
+			Key:    "X-Test1",
+			Regexp: `^test1$`,
+		},
+		{
+			Key:    "X-Test2",
+			Regexp: `^test2$`,
+		},
+		{
+			Key:    "X-Test3",
+			Values: []string{"test3"},
+		},
+	}
+
+	headers.init()
+
+	tests := []struct {
+		headers          map[string][]string
+		result, matchAll bool
+	}{
+		{
+			headers: map[string][]string{
+				"X-Test": {"abc"},
+			},
+			matchAll: false,
+			result:   false,
+		},
+		{
+			headers: map[string][]string{
+				"X-Test3": {"abc"},
+			},
+			matchAll: false,
+			result:   false,
+		},
+		{
+			headers: map[string][]string{
+				"X-Test3": {"test3"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+		{
+			headers: map[string][]string{
+				"X-Test1": {"test1"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+		{
+			headers: map[string][]string{
+				"X-Test2": {"test2"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+
+		{
+			headers: map[string][]string{
+				"X-Test2": {"test2"},
+			},
+			matchAll: true,
+			result:   false,
+		},
+		{
+			headers: map[string][]string{
+				"X-Test2": {"test2"},
+				"X-Test1": {"test1"},
+				"X-Test3": {"test3"},
+			},
+			matchAll: true,
+			result:   true,
+		},
+	}
+
+	assert := assert.New(t)
+	for _, test := range tests {
+		result := headers.Match(test.headers, test.matchAll)
+		assert.Equal(test.result, result)
+	}
 }
 
 func TestQueriesInit(t *testing.T) {
+	var queries Queries = []*Query{
+		{
+			Key:    "q1",
+			Regexp: `^abc$`,
+		},
+		{
+			Key:    "q2",
+			Regexp: `^abc$`,
+		},
+	}
+
+	queries.init()
+	assert := assert.New(t)
+
+	for _, q := range queries {
+		assert.NotNil(q.re)
+	}
 }
 
 func TestQueriesMatch(t *testing.T) {
+	var queries Queries = []*Query{
+		{
+			Key:    "X-Test1",
+			Regexp: `^test1$`,
+		},
+		{
+			Key:    "X-Test2",
+			Regexp: `^test2$`,
+		},
+		{
+			Key:    "X-Test3",
+			Values: []string{"test3"},
+		},
+	}
+
+	queries.init()
+
+	tests := []struct {
+		queries          map[string][]string
+		result, matchAll bool
+	}{
+		{
+			queries: map[string][]string{
+				"X-Test": {"abc"},
+			},
+			matchAll: false,
+			result:   false,
+		},
+		{
+			queries: map[string][]string{
+				"X-Test3": {"abc"},
+			},
+			matchAll: false,
+			result:   false,
+		},
+		{
+			queries: map[string][]string{
+				"X-Test3": {"test3"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+		{
+			queries: map[string][]string{
+				"X-Test1": {"test1"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+		{
+			queries: map[string][]string{
+				"X-Test2": {"test2"},
+			},
+			matchAll: false,
+			result:   true,
+		},
+
+		{
+			queries: map[string][]string{
+				"X-Test2": {"test2"},
+			},
+			matchAll: true,
+			result:   false,
+		},
+		{
+			queries: map[string][]string{
+				"X-Test2": {"test2"},
+				"X-Test1": {"test1"},
+				"X-Test3": {"test3"},
+			},
+			matchAll: true,
+			result:   true,
+		},
+	}
+
+	assert := assert.New(t)
+	for _, test := range tests {
+		result := queries.Match(test.queries, test.matchAll)
+		assert.Equal(test.result, result)
+	}
 }
