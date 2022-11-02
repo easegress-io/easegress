@@ -82,7 +82,7 @@ func (rules Rules) Init(ipFilterChan *ipfilter.IPFilters) {
 func (rule *Rule) init(parentIPFilters *ipfilter.IPFilters) {
 	ruleIPFilterChain := ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilterSpec)
 	for _, p := range rule.Paths {
-		p.init(ruleIPFilterChain)
+		p.Init(ruleIPFilterChain)
 	}
 
 	var hostRE *regexp.Regexp
@@ -121,11 +121,10 @@ func (rule *Rule) AllowIP(ip string) bool {
 	if rule.ipFilter == nil {
 		return true
 	}
-
 	return rule.ipFilter.Allow(ip)
 }
 
-func (p *Path) init(parentIPFilters *ipfilter.IPFilters) {
+func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	p.ipFilter = ipfilter.New(p.IPFilterSpec)
 	p.ipFilterChain = ipfilter.NewIPFilterChain(parentIPFilters, p.IPFilterSpec)
 

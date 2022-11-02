@@ -36,14 +36,14 @@ var kind = &routers.Kind{
 	CreateInstance: func(rules routers.Rules) routers.Router {
 		muxRules := make([]*muxRule, len(rules))
 		for i, rule := range rules {
-			muxPaths := make([]*route, len(rule.Paths))
+			routes := make([]*route, len(rule.Paths))
 			for j, path := range rule.Paths {
-				muxPaths[j] = newMuxPath(path)
+				routes[j] = newRoute(path)
 			}
 
 			muxRules[i] = &muxRule{
 				Rule:   *rule,
-				routes: muxPaths,
+				routes: routes,
 			}
 		}
 		return &OrderRouter{
@@ -72,7 +72,7 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 		}
 
 		for _, route := range host.routes {
-			if !route.match(path) {
+			if !route.matchPath(path) {
 				continue
 			}
 
@@ -84,7 +84,7 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 	}
 }
 
-func newMuxPath(p *routers.Path) *route {
+func newRoute(p *routers.Path) *route {
 	var pathRE *regexp.Regexp
 	if p.PathRegexp != "" {
 		var err error
@@ -110,7 +110,7 @@ func newMuxPath(p *routers.Path) *route {
 	}
 }
 
-func (mp *route) match(path string) bool {
+func (mp *route) matchPath(path string) bool {
 	if mp.Path.Path == "" && mp.PathPrefix == "" && mp.pathRE == nil {
 		return true
 	}
