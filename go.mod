@@ -28,7 +28,7 @@ require (
 	github.com/libdns/duckdns v0.1.1
 	github.com/libdns/hetzner v0.0.1
 	github.com/libdns/libdns v0.2.1
-	github.com/libdns/route53 v1.2.2
+	github.com/libdns/route53 v1.3.0
 	github.com/libdns/vultr v0.0.0-20211122184636-cd4cb5c12e51
 	github.com/lucas-clemente/quic-go v0.29.1
 	github.com/megaease/easemesh-api v1.4.3
