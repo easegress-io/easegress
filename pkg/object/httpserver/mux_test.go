@@ -28,13 +28,20 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/art"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/order"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	logger.InitNop()
+}
 
 func TestMuxReload(t *testing.T) {
 	assert := assert.New(t)
@@ -268,12 +275,14 @@ rules:
       values: ["v1", "v2"]
     - key: "q2"
       values: ["v3", "v4"]
+    matchAllQuery: true
     backend: 123-pipeline
   - path: /queryParamsRegexp
     methods: [GET]
     queries:
     - key: "q2"
       regexp: "^v[0-9]$"
+    matchAllQuery: true
     backend: 123-pipeline
   - path: /queryParamsRegexpAndValues
     methods: [GET]
@@ -281,6 +290,7 @@ rules:
     - key: "q3"
       values: ["v1", "v2"]
       regexp: "^v[0-9]$"
+    matchAllQuery: true
     backend: 123-pipeline
   - path: /queryParamsRegexpAndValues2
     methods: [GET]
@@ -288,6 +298,7 @@ rules:
     - key: "id"
       values: ["011"]
       regexp: "[0-9]+"
+    matchAllQuery: true
     backend: 123-pipeline
 `
 
@@ -334,7 +345,6 @@ rules:
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
 	routeCtx = routers.NewContext(req)
-
 	assert.Equal(0, mi.search(routeCtx).code)
 
 	// cached result, but blocked by ip
@@ -350,7 +360,6 @@ rules:
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
 	routeCtx = routers.NewContext(req)
-
 	assert.Equal(methodNotAllowed, mi.search(routeCtx))
 
 	// has no required header
@@ -358,7 +367,6 @@ rules:
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
 	routeCtx = routers.NewContext(req)
-
 	assert.Equal(badRequest, mi.search(routeCtx))
 
 	// success
@@ -367,7 +375,6 @@ rules:
 	stdr.Header.Set("X-Test", "test1")
 	req, _ = httpprot.NewRequest(stdr)
 	routeCtx = routers.NewContext(req)
-
 	assert.Equal(0, mi.search(routeCtx).code)
 
 	// header all matched
@@ -384,7 +391,6 @@ rules:
 	stdr.Header.Set("AllMatch", "false")
 	req, _ = httpprot.NewRequest(stdr)
 	routeCtx = routers.NewContext(req)
-
 	assert.Equal(400, mi.search(routeCtx).code)
 
 	// header all matched

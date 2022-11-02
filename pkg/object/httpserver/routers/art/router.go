@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
 
 // art-router implementation below is a based on the original work by
@@ -21,7 +20,6 @@ type (
 	route struct {
 		routers.Path
 		pattern   string
-		method    httpprot.MethodType
 		paramKeys []string
 	}
 
@@ -484,18 +482,9 @@ func (r *route) Rewrite(context *routers.RouteContext) {
 func newRoute(path *routers.Path) *route {
 	paramKeys := patParamKeys(path.Path)
 
-	method := httpprot.MALL
-	if len(path.Methods) != 0 {
-		method = 0
-		for _, m := range path.Methods {
-			method |= httpprot.Methods[m]
-		}
-	}
-
 	r := &route{
 		Path:      *path,
 		pattern:   path.Path,
-		method:    method,
 		paramKeys: paramKeys,
 	}
 
