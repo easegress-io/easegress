@@ -18,12 +18,16 @@
 package art
 
 import (
+	"bytes"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
+	"text/template"
+	"text/template/parse"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 // art-router implementation below is a based on the original work by
@@ -36,8 +40,9 @@ type (
 	// Represents leaf node in radix tree
 	route struct {
 		routers.Path
-		pattern   string
-		paramKeys []string
+		pattern         string
+		paramKeys       []string
+		rewriteTemplate *template.Template
 	}
 
 	routes []*route
@@ -101,6 +106,8 @@ const (
 	ntParam                    // /{user}
 	ntCatchAll                 // /api/v1/*
 )
+
+const EG_WILDCARD = "EG_WILDCARD"
 
 // Kind is the kind of Proxy.
 const Kind = "Art"
@@ -493,9 +500,6 @@ func (n *node) isLeaf() bool {
 	return n.routes != nil
 }
 
-func (r *route) Rewrite(context *routers.RouteContext) {
-}
-
 func newRoute(path *routers.Path) *route {
 	paramKeys := patParamKeys(path.Path)
 
@@ -505,7 +509,56 @@ func newRoute(path *routers.Path) *route {
 		paramKeys: paramKeys,
 	}
 
+	r.initRewrite()
+
 	return r
+}
+
+func (r *route) initRewrite() {
+	if r.RewriteTarget == "" {
+		return
+	}
+
+	repl := r.RewriteTarget
+	t := template.Must(template.New("").Parse(repl))
+	root := t.Root
+	var params []string
+	for _, n := range root.Nodes {
+		t := n.Type()
+		if t != parse.NodeText && t != parse.NodeAction {
+			panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
+		}
+		if t == parse.NodeAction {
+			pos := int(n.Position()) + 1
+			end := pos + strings.Index(repl[pos:], "}}")
+			param := strings.TrimSpace(repl[pos:end])
+			if !stringtool.StrInSlice(param, r.paramKeys) {
+				panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
+			}
+			params = append(params, param)
+		}
+	}
+
+	if len(params) != 0 {
+		r.rewriteTemplate = t
+	}
+}
+
+func (r *route) Rewrite(context *routers.RouteContext) {
+	req := context.Request
+
+	if r.RewriteTarget == "" {
+		return
+	}
+
+	if r.rewriteTemplate == nil {
+		req.SetPath(r.RewriteTarget)
+		return
+	}
+
+	var buf bytes.Buffer
+	r.rewriteTemplate.Execute(&buf, context.GetCaptures())
+	req.SetPath(buf.String())
 }
 
 func (pc PathCache) addPath(path *routers.Path) {
@@ -657,7 +710,7 @@ func patNextSegment(pattern string) segment {
 
 	return segment{
 		nodeType: ntCatchAll,
-		key:      "*",
+		key:      EG_WILDCARD,
 		ps:       ws,
 		pe:       len(pattern),
 	}

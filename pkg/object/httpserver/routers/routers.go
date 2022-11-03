@@ -98,3 +98,23 @@ func NewContext(req *httpprot.Request) *RouteContext {
 
 	return context
 }
+
+func (ctx *RouteContext) GetCaptures() map[string]string {
+	if ctx.captures != nil {
+		return ctx.captures
+	}
+
+	ctx.captures = make(map[string]string)
+
+	if len(ctx.RouteParams.Keys) == 0 {
+		return ctx.captures
+	}
+
+	for i := 0; i < len(ctx.RouteParams.Keys); i++ {
+		key := ctx.RouteParams.Keys[i]
+		value := ctx.RouteParams.Values[i]
+		ctx.captures[key] = value
+	}
+
+	return ctx.captures
+}

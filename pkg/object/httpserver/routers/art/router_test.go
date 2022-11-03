@@ -256,8 +256,8 @@ func TestTree(t *testing.T) {
 		{r: "/favicon.ico", h: hFavicon, k: nil, v: nil},
 
 		{r: "/pages", h: "", k: nil, v: nil},
-		{r: "/pages/", h: hStub, k: []string{"*"}, v: []string{""}},
-		{r: "/pages/yes", h: hStub, k: []string{"*"}, v: []string{"yes"}},
+		{r: "/pages/", h: hStub, k: []string{EG_WILDCARD}, v: []string{""}},
+		{r: "/pages/yes", h: hStub, k: []string{EG_WILDCARD}, v: []string{"yes"}},
 
 		{r: "/article", h: hArticleList, k: nil, v: nil},
 		{r: "/article/", h: hArticleList, k: nil, v: nil},
@@ -275,18 +275,18 @@ func TestTree(t *testing.T) {
 		{r: "/admin/user/", h: hStub, k: nil, v: nil},
 		{r: "/admin/user/1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
 		{r: "/admin/user//1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
-		{r: "/admin/hi", h: hStub, k: []string{"*"}, v: []string{"hi"}},
-		{r: "/admin/lots/of/:fun", h: hStub, k: []string{"*"}, v: []string{"lots/of/:fun"}},
+		{r: "/admin/hi", h: hStub, k: []string{EG_WILDCARD}, v: []string{"hi"}},
+		{r: "/admin/lots/of/:fun", h: hStub, k: []string{EG_WILDCARD}, v: []string{"lots/of/:fun"}},
 		{r: "/admin/apps/333", h: hAdminAppShow, k: []string{"id"}, v: []string{"333"}},
-		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", "*"}, v: []string{"333", "woot"}},
+		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", EG_WILDCARD}, v: []string{"333", "woot"}},
 
 		{r: "/hubs/123/view", h: hHubView1, k: []string{"hubID"}, v: []string{"123"}},
-		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", "*"}, v: []string{"123", "index.html"}},
+		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", EG_WILDCARD}, v: []string{"123", "index.html"}},
 		{r: "/hubs/123/users", h: hHubView3, k: []string{"hubID"}, v: []string{"123"}},
 
 		{r: "/users/123/profile", h: hUserProfile, k: []string{"userID"}, v: []string{"123"}},
-		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{"*"}, v: []string{"123/okay/yes"}},
-		{r: "/users/123/okay/yes", h: hUserAll, k: []string{"*"}, v: []string{"123/okay/yes"}},
+		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{EG_WILDCARD}, v: []string{"123/okay/yes"}},
+		{r: "/users/123/okay/yes", h: hUserAll, k: []string{EG_WILDCARD}, v: []string{"123/okay/yes"}},
 	}
 
 	router := kind.CreateInstance(rules).(*ArtRouter)
@@ -486,12 +486,12 @@ func TestTreeMoar(t *testing.T) {
 		{m: "PUT", r: "/articles/me", h: hStub13, k: nil, v: nil},
 		{m: "GET", r: "/articles/me", h: hStub, k: []string{"id"}, v: []string{"me"}},
 		{m: "GET", r: "/pages", h: "", k: nil, v: nil},
-		{m: "GET", r: "/pages/", h: hStub, k: []string{"*"}, v: []string{""}},
-		{m: "GET", r: "/pages/yes", h: hStub, k: []string{"*"}, v: []string{"yes"}},
+		{m: "GET", r: "/pages/", h: hStub, k: []string{EG_WILDCARD}, v: []string{""}},
+		{m: "GET", r: "/pages/yes", h: hStub, k: []string{EG_WILDCARD}, v: []string{"yes"}},
 		{m: "GET", r: "/users/1", h: hStub14, k: []string{"id"}, v: []string{"1"}},
 		{m: "GET", r: "/users/", h: "", k: nil, v: nil},
 		{m: "GET", r: "/users/2/settings/password", h: hStub15, k: []string{"id", "key"}, v: []string{"2", "password"}},
-		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", "*"}, v: []string{"2", ""}},
+		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", EG_WILDCARD}, v: []string{"2", ""}},
 	}
 
 	rules.Init(nil)
@@ -808,5 +808,137 @@ func BenchmarkTreeGet(b *testing.B) {
 		req, _ := httpprot.NewRequest(stdr)
 		context := routers.NewContext(req)
 		router.Search(context)
+	}
+}
+
+func TestRouteInitWrite(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		path    string
+		rewrite string
+		isPanic bool
+		result  bool
+	}{
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "",
+			result:  false,
+			isPanic: false,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{{ .na}me}}/popup/{{ .desc}}",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: `{{"put" | printf "%s%s" "out" | printf "%q"}}`,
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .desc}}",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}/{{ .desc}}",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/name/test/demo",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}/{{ .desc}}",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}",
+			result:  true,
+			isPanic: false,
+		},
+	}
+
+	for _, test := range tests {
+		path := &routers.Path{
+			Path:          test.path,
+			RewriteTarget: test.rewrite,
+		}
+		var r *route
+		if test.isPanic {
+			assert.Panics(func() { r = newRoute(path) })
+		} else {
+			assert.NotPanics(func() { r = newRoute(path) })
+			assert.Equal(test.result, r.rewriteTemplate != nil)
+		}
+
+	}
+}
+
+func TestRouteRewrite(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		path         string
+		rewrite      string
+		result       string
+		keys, values []string
+	}{
+		{
+			path:    "/name/test/demo",
+			rewrite: "",
+			result:  "/name/test/demo",
+		},
+
+		{
+			path:    "/name/test/demo",
+			rewrite: "/abc",
+			result:  "/abc",
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}",
+			keys:    []string{"name", "demo"},
+			values:  []string{"v1", "v2"},
+			result:  "/api/activity/ex/v1/popup/v2",
+		},
+
+		{
+			path:    "/{name}/test/*",
+			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .EG_WILDCARD}}",
+			keys:    []string{"name", "EG_WILDCARD"},
+			values:  []string{"v1", "v2"},
+			result:  "/api/activity/ex/v1/popup/v2",
+		},
+	}
+
+	for _, test := range tests {
+		stdr, _ := http.NewRequest(http.MethodGet, test.path, nil)
+		req, _ := httpprot.NewRequest(stdr)
+		context := routers.NewContext(req)
+		context.RouteParams.Keys = test.keys
+		context.RouteParams.Values = test.values
+
+		r := newRoute(&routers.Path{
+			Path:          test.path,
+			RewriteTarget: test.rewrite,
+		})
+
+		r.Rewrite(context)
+
+		assert.Equal(test.result, req.Path())
+
 	}
 }

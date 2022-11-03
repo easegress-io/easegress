@@ -183,7 +183,7 @@ func TestPathInit2(t *testing.T) {
 
 	path.Init(nil)
 	assert.True(path.cacheable)
-	assert.True(path.noNeedMatch)
+	assert.True(path.noMatchable)
 
 	path = &Path{
 		Path:       "/api/task/check",
@@ -196,7 +196,7 @@ func TestPathInit2(t *testing.T) {
 
 	path.Init(nil)
 	assert.True(path.cacheable)
-	assert.False(path.noNeedMatch)
+	assert.False(path.noMatchable)
 
 	path = &Path{
 		Path:       "/api/task/check",
@@ -219,7 +219,7 @@ func TestPathInit2(t *testing.T) {
 
 	path.Init(nil)
 	assert.False(path.cacheable)
-	assert.False(path.noNeedMatch)
+	assert.False(path.noMatchable)
 }
 
 func TestPathAllowIP(t *testing.T) {

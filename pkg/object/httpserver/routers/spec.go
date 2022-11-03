@@ -68,7 +68,7 @@ type Path struct {
 	ipFilter               *ipfilter.IPFilter
 	ipFilterChain          *ipfilter.IPFilters
 	method                 httpprot.MethodType
-	cacheable, noNeedMatch bool
+	cacheable, noMatchable bool
 }
 
 type Headers []*Header
@@ -162,7 +162,7 @@ func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	if len(p.Headers) == 0 && len(p.Queries) == 0 {
 		p.cacheable = true
 		if len(p.Methods) == 0 && p.ipFilter == nil {
-			p.noNeedMatch = true
+			p.noMatchable = true
 		}
 	}
 }
@@ -195,7 +195,7 @@ func (p *Path) AllowIPChain(ip string) bool {
 func (p *Path) Match(context *RouteContext) bool {
 	context.Cacheable = p.cacheable
 
-	if p.noNeedMatch {
+	if p.noMatchable {
 		return true
 	}
 
