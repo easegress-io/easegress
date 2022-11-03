@@ -223,3 +223,16 @@ func TestStickySession_ServerMatch(t *testing.T) {
 		c = readCookie(resp.Cookies(), StickySessionLBCookieNameDefault)
 	}
 }
+
+func BenchmarkSign(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		sign([]byte("192.168.1.2"))
+	}
+}
+
+func BenchmarkMatch(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		encoded := "78f09259d0c3d1f86debb55ac1601ebd4be0d88141e308dc5df68aa1dfbf8802ebf8a11076c66134"
+		match(encoded, []byte("192.168.1.2"))
+	}
+}
