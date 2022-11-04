@@ -166,9 +166,8 @@ func (blb *BaseLoadBalancer) initServerMatch() {
 		blb.spec.StickySession.LBCookieName = StickySessionLBCookieNameDefault
 	}
 
-	if d := blb.spec.StickySession.LBCookieExpire; d != "" {
-		blb.cookieExpire, _ = time.ParseDuration(d)
-	} else {
+	blb.cookieExpire, _ = time.ParseDuration(blb.spec.StickySession.LBCookieExpire)
+	if blb.cookieExpire <= 0 {
 		blb.cookieExpire = StickySessionLBCookieExpireDefault
 	}
 }
