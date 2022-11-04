@@ -256,8 +256,8 @@ func TestTree(t *testing.T) {
 		{r: "/favicon.ico", h: hFavicon, k: nil, v: nil},
 
 		{r: "/pages", h: "", k: nil, v: nil},
-		{r: "/pages/", h: hStub, k: []string{EG_WILDCARD}, v: []string{""}},
-		{r: "/pages/yes", h: hStub, k: []string{EG_WILDCARD}, v: []string{"yes"}},
+		{r: "/pages/", h: hStub, k: []string{WILDCARD}, v: []string{""}},
+		{r: "/pages/yes", h: hStub, k: []string{WILDCARD}, v: []string{"yes"}},
 
 		{r: "/article", h: hArticleList, k: nil, v: nil},
 		{r: "/article/", h: hArticleList, k: nil, v: nil},
@@ -275,18 +275,18 @@ func TestTree(t *testing.T) {
 		{r: "/admin/user/", h: hStub, k: nil, v: nil},
 		{r: "/admin/user/1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
 		{r: "/admin/user//1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
-		{r: "/admin/hi", h: hStub, k: []string{EG_WILDCARD}, v: []string{"hi"}},
-		{r: "/admin/lots/of/:fun", h: hStub, k: []string{EG_WILDCARD}, v: []string{"lots/of/:fun"}},
+		{r: "/admin/hi", h: hStub, k: []string{WILDCARD}, v: []string{"hi"}},
+		{r: "/admin/lots/of/:fun", h: hStub, k: []string{WILDCARD}, v: []string{"lots/of/:fun"}},
 		{r: "/admin/apps/333", h: hAdminAppShow, k: []string{"id"}, v: []string{"333"}},
-		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", EG_WILDCARD}, v: []string{"333", "woot"}},
+		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", WILDCARD}, v: []string{"333", "woot"}},
 
 		{r: "/hubs/123/view", h: hHubView1, k: []string{"hubID"}, v: []string{"123"}},
-		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", EG_WILDCARD}, v: []string{"123", "index.html"}},
+		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", WILDCARD}, v: []string{"123", "index.html"}},
 		{r: "/hubs/123/users", h: hHubView3, k: []string{"hubID"}, v: []string{"123"}},
 
 		{r: "/users/123/profile", h: hUserProfile, k: []string{"userID"}, v: []string{"123"}},
-		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{EG_WILDCARD}, v: []string{"123/okay/yes"}},
-		{r: "/users/123/okay/yes", h: hUserAll, k: []string{EG_WILDCARD}, v: []string{"123/okay/yes"}},
+		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{WILDCARD}, v: []string{"123/okay/yes"}},
+		{r: "/users/123/okay/yes", h: hUserAll, k: []string{WILDCARD}, v: []string{"123/okay/yes"}},
 	}
 
 	router := kind.CreateInstance(rules).(*ArtRouter)
@@ -486,12 +486,12 @@ func TestTreeMoar(t *testing.T) {
 		{m: "PUT", r: "/articles/me", h: hStub13, k: nil, v: nil},
 		{m: "GET", r: "/articles/me", h: hStub, k: []string{"id"}, v: []string{"me"}},
 		{m: "GET", r: "/pages", h: "", k: nil, v: nil},
-		{m: "GET", r: "/pages/", h: hStub, k: []string{EG_WILDCARD}, v: []string{""}},
-		{m: "GET", r: "/pages/yes", h: hStub, k: []string{EG_WILDCARD}, v: []string{"yes"}},
+		{m: "GET", r: "/pages/", h: hStub, k: []string{WILDCARD}, v: []string{""}},
+		{m: "GET", r: "/pages/yes", h: hStub, k: []string{WILDCARD}, v: []string{"yes"}},
 		{m: "GET", r: "/users/1", h: hStub14, k: []string{"id"}, v: []string{"1"}},
 		{m: "GET", r: "/users/", h: "", k: nil, v: nil},
 		{m: "GET", r: "/users/2/settings/password", h: hStub15, k: []string{"id", "key"}, v: []string{"2", "password"}},
-		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", EG_WILDCARD}, v: []string{"2", ""}},
+		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", WILDCARD}, v: []string{"2", ""}},
 	}
 
 	rules.Init(nil)
@@ -829,7 +829,7 @@ func TestRouteInitWrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/{demo}",
-			rewrite: "/api/activity/ex/{{ .na}me}}/popup/{{ .desc}}",
+			rewrite: "/api/activity/ex/{{ .na}me}}/popup/{desc}",
 			result:  false,
 			isPanic: true,
 		},
@@ -843,28 +843,49 @@ func TestRouteInitWrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/{demo}",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .desc}}",
+			rewrite: "/api/activity/ex/{name}/popup/{desc}",
 			result:  false,
 			isPanic: true,
 		},
 
 		{
 			path:    "/{name}/test/{demo}",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}/{{ .desc}}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/{desc}",
 			result:  false,
 			isPanic: true,
 		},
 
 		{
 			path:    "/name/test/demo",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}/{{ .desc}}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/{desc}",
 			result:  false,
 			isPanic: true,
 		},
 
 		{
 			path:    "/{name}/test/{demo}",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/*",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/{*}",
+			result:  false,
+			isPanic: true,
+		},
+
+		{
+			path:    "/{name}/test/{demo}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}",
+			result:  true,
+			isPanic: false,
+		},
+
+		{
+			path:    "/{name}/test/{demo}/*",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/{eg_wildcard}",
 			result:  true,
 			isPanic: false,
 		},
@@ -909,7 +930,7 @@ func TestRouteRewrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/{demo}",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .demo}}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}",
 			keys:    []string{"name", "demo"},
 			values:  []string{"v1", "v2"},
 			result:  "/api/activity/ex/v1/popup/v2",
@@ -917,8 +938,8 @@ func TestRouteRewrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/*",
-			rewrite: "/api/activity/ex/{{ .name}}/popup/{{ .EG_WILDCARD}}",
-			keys:    []string{"name", "EG_WILDCARD"},
+			rewrite: "/api/activity/ex/{name}/popup/{eg_wildcard}",
+			keys:    []string{"name", "eg_wildcard"},
 			values:  []string{"v1", "v2"},
 			result:  "/api/activity/ex/v1/popup/v2",
 		},

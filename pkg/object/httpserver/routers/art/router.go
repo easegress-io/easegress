@@ -24,7 +24,6 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-	"text/template/parse"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
@@ -107,7 +106,7 @@ const (
 	ntCatchAll                 // /api/v1/*
 )
 
-const EG_WILDCARD = "EG_WILDCARD"
+const WILDCARD = "eg_wildcard"
 
 // Kind is the kind of Proxy.
 const Kind = "Art"
@@ -519,29 +518,28 @@ func (r *route) initRewrite() {
 		return
 	}
 
-	repl := r.RewriteTarget
-	t := template.Must(template.New("").Parse(repl))
-	root := t.Root
-	var params []string
-	for _, n := range root.Nodes {
-		t := n.Type()
-		if t != parse.NodeText && t != parse.NodeAction {
-			panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
-		}
-		if t == parse.NodeAction {
-			pos := int(n.Position()) + 1
-			end := pos + strings.Index(repl[pos:], "}}")
-			param := strings.TrimSpace(repl[pos:end])
-			if !stringtool.StrInSlice(param, r.paramKeys) {
-				panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
-			}
-			params = append(params, param)
-		}
+	if strings.Contains(r.RewriteTarget, "*") {
+		panic("artRouter RewriteTarget not support '*', please use {eg_wildcard},")
 	}
 
-	if len(params) != 0 {
-		r.rewriteTemplate = t
+	rewriteKeys := patParamKeys(r.RewriteTarget)
+
+	if len(rewriteKeys) == 0 {
+		// nStatic rewriteTarget
+		return
 	}
+
+	repl := r.RewriteTarget
+
+	for _, rk := range rewriteKeys {
+		if !stringtool.StrInSlice(rk, r.paramKeys) {
+			panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
+		}
+		newRk := "{{ ." + rk + "}}"
+		repl = strings.ReplaceAll(repl, "{"+rk+"}", newRk)
+	}
+
+	r.rewriteTemplate = template.Must(template.New("").Parse(repl))
 }
 
 func (r *route) Rewrite(context *routers.RouteContext) {
@@ -710,7 +708,7 @@ func patNextSegment(pattern string) segment {
 
 	return segment{
 		nodeType: ntCatchAll,
-		key:      EG_WILDCARD,
+		key:      WILDCARD,
 		ps:       ws,
 		pe:       len(pattern),
 	}
