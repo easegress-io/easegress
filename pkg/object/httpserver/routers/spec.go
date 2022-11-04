@@ -65,10 +65,10 @@ type Path struct {
 	MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
 	MatchAllQuery     bool           `json:"matchAllQuery" jsonschema:"omitempty"`
 
-	ipFilter               *ipfilter.IPFilter
-	ipFilterChain          *ipfilter.IPFilters
-	method                 httpprot.MethodType
-	cacheable, noMatchable bool
+	ipFilter             *ipfilter.IPFilter
+	ipFilterChain        *ipfilter.IPFilters
+	method               httpprot.MethodType
+	cacheable, matchable bool
 }
 
 type Headers []*Header
@@ -158,11 +158,12 @@ func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	}
 
 	p.method = method
+	p.matchable = true
 
 	if len(p.Headers) == 0 && len(p.Queries) == 0 {
 		p.cacheable = true
 		if len(p.Methods) == 0 && p.ipFilter == nil {
-			p.noMatchable = true
+			p.matchable = false
 		}
 	}
 }
@@ -195,7 +196,7 @@ func (p *Path) AllowIPChain(ip string) bool {
 func (p *Path) Match(context *RouteContext) bool {
 	context.Cacheable = p.cacheable
 
-	if p.noMatchable {
+	if !p.matchable {
 		return true
 	}
 
