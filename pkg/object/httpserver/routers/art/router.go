@@ -600,7 +600,7 @@ func (ar *ArtRouter) Search(context *routers.RouteContext) {
 	ip := req.RealIP()
 
 	for _, rule := range ar.rules {
-		if !rule.Match(req) {
+		if !rule.Match(context) {
 			continue
 		}
 

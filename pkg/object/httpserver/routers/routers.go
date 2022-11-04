@@ -19,6 +19,9 @@ package routers
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 )
@@ -52,6 +55,11 @@ type (
 
 	RouteContext struct {
 		Path    string
+		Method  MethodType
+		host    string
+		queries url.Values
+		headers http.Header
+
 		Request *httpprot.Request
 
 		RouteParams RouteParams
@@ -61,9 +69,41 @@ type (
 		Route                                                       Route
 		HeaderMismatch, MethodMismatch, QueryMismatch, IPNotAllowed bool
 	}
+
+	MethodType uint
 )
 
-var kinds = map[string]*Kind{}
+const (
+	MSTUB MethodType = 1 << iota
+	MCONNECT
+	MDELETE
+	MGET
+	MHEAD
+	MOPTIONS
+	MPATCH
+	MPOST
+	MPUT
+	MTRACE
+)
+
+var (
+	MALL = MCONNECT | MDELETE | MGET | MHEAD |
+		MOPTIONS | MPATCH | MPOST | MPUT | MTRACE
+
+	Methods = map[string]MethodType{
+		http.MethodGet:     MGET,
+		http.MethodHead:    MHEAD,
+		http.MethodPost:    MPOST,
+		http.MethodPut:     MPUT,
+		http.MethodPatch:   MPATCH,
+		http.MethodDelete:  MDELETE,
+		http.MethodConnect: MCONNECT,
+		http.MethodOptions: MOPTIONS,
+		http.MethodTrace:   MTRACE,
+	}
+
+	kinds = map[string]*Kind{}
+)
 
 func Register(k *Kind) {
 	name := k.Name
@@ -94,6 +134,7 @@ func NewContext(req *httpprot.Request) *RouteContext {
 	context := &RouteContext{
 		Path:    path,
 		Request: req,
+		Method:  Methods[req.Method()],
 	}
 
 	return context
@@ -117,4 +158,34 @@ func (ctx *RouteContext) GetCaptures() map[string]string {
 	}
 
 	return ctx.captures
+}
+
+func (ctx *RouteContext) GetHost() string {
+	if ctx.host != "" {
+		return ctx.host
+	}
+
+	host := ctx.Request.Host()
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+
+	ctx.host = host
+	return host
+}
+
+func (ctx *RouteContext) GetHeaders() http.Header {
+	if ctx.headers != nil {
+		return ctx.headers
+	}
+	ctx.headers = ctx.Request.HTTPHeader()
+	return ctx.headers
+}
+
+func (ctx *RouteContext) GetQueries() url.Values {
+	if ctx.queries != nil {
+		return ctx.queries
+	}
+	ctx.queries = ctx.Request.Std().URL.Query()
+	return ctx.queries
 }

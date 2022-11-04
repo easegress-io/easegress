@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,7 +33,6 @@ import (
 )
 
 type (
-	MethodType uint
 
 	// Request wraps http.Request.
 	//
@@ -46,45 +44,26 @@ type (
 	// request directly.
 	Request struct {
 		*http.Request
-		stream     *readers.ByteCountReader
-		payload    []byte
-		realIP     string
-		hostOnly   string
-		methodType MethodType
-		queries    url.Values
+		stream  *readers.ByteCountReader
+		payload []byte
+		realIP  string
 	}
-)
-
-const (
-	MSTUB MethodType = 1 << iota
-	MCONNECT
-	MDELETE
-	MGET
-	MHEAD
-	MOPTIONS
-	MPATCH
-	MPOST
-	MPUT
-	MTRACE
 )
 
 var (
 	// ErrRequestEntityTooLarge means the request entity is too large.
 	ErrRequestEntityTooLarge = fmt.Errorf("request entity too large")
 
-	MALL = MCONNECT | MDELETE | MGET | MHEAD |
-		MOPTIONS | MPATCH | MPOST | MPUT | MTRACE
-
-	Methods = map[string]MethodType{
-		http.MethodGet:     MGET,
-		http.MethodHead:    MHEAD,
-		http.MethodPost:    MPOST,
-		http.MethodPut:     MPUT,
-		http.MethodPatch:   MPATCH,
-		http.MethodDelete:  MDELETE,
-		http.MethodConnect: MCONNECT,
-		http.MethodOptions: MOPTIONS,
-		http.MethodTrace:   MTRACE,
+	methods = map[string]struct{}{
+		http.MethodGet:     {},
+		http.MethodHead:    {},
+		http.MethodPost:    {},
+		http.MethodPut:     {},
+		http.MethodPatch:   {},
+		http.MethodDelete:  {},
+		http.MethodConnect: {},
+		http.MethodOptions: {},
+		http.MethodTrace:   {},
 	}
 
 	_ protocols.Request = (*Request)(nil)
@@ -100,7 +79,7 @@ func NewRequest(stdr *http.Request) (*Request, error) {
 
 	r := &Request{Request: stdr}
 	r.realIP = realip.FromRequest(stdr)
-	r.methodType = Methods[stdr.Method]
+	// r.methodType = Methods[stdr.Method]
 	return r, nil
 }
 
@@ -340,11 +319,6 @@ func (r *Request) Method() string {
 	return r.Std().Method
 }
 
-// Method returns MethodType of the request.
-func (r *Request) MethodType() MethodType {
-	return r.methodType
-}
-
 // Cookie returns the named cookie.
 func (r *Request) Cookie(name string) (*http.Cookie, error) {
 	return r.Std().Cookie(name)
@@ -360,14 +334,6 @@ func (r *Request) AddCookie(cookie *http.Cookie) {
 	r.Std().AddCookie(cookie)
 }
 
-func (r *Request) Queries() url.Values {
-	if r.queries != nil {
-		return r.queries
-	}
-	r.queries = r.Request.URL.Query()
-	return r.queries
-}
-
 // Context returns the request context.
 func (r *Request) Context() context.Context {
 	return r.Std().Context()
@@ -376,20 +342,6 @@ func (r *Request) Context() context.Context {
 // SetMethod sets the request method.
 func (r *Request) SetMethod(method string) {
 	r.Std().Method = method
-}
-
-func (r *Request) HostOnly() string {
-	if r.hostOnly != "" {
-		return r.hostOnly
-	}
-
-	host := r.Host()
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
-	}
-
-	r.hostOnly = host
-	return host
 }
 
 // Host returns host of the request.
@@ -495,7 +447,7 @@ func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) 
 	} else {
 		ri.Method = strings.ToUpper(ri.Method)
 	}
-	if _, ok := Methods[ri.Method]; !ok {
+	if _, ok := methods[ri.Method]; !ok {
 		return nil, fmt.Errorf("invalid method: %s", ri.Method)
 	}
 
@@ -536,8 +488,4 @@ func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) 
 	req.SetPayload(buf.Bytes())
 
 	return req, nil
-}
-
-func (m MethodType) match(o MethodType) bool {
-	return m&o != 0
 }

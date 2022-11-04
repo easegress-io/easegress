@@ -135,7 +135,7 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 
 	for _, host := range r.rules {
-		if !host.Match(req) {
+		if !host.Match(context) {
 			continue
 		}
 

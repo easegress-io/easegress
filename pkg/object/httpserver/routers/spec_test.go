@@ -86,27 +86,28 @@ func TestRuleMatch(t *testing.T) {
 
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080", nil)
 	req, _ := httpprot.NewRequest(stdr)
+	ctx := NewContext(req)
 
 	rule := &Rule{}
 	rule.Init(nil)
 
 	assert.NotNil(rule)
-	assert.True(rule.Match(req))
+	assert.True(rule.Match(ctx))
 
 	rule = &Rule{Host: "www.megaease.com"}
 	rule.Init(nil)
 	assert.NotNil(rule)
-	assert.True(rule.Match(req))
+	assert.True(rule.Match(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.com$`}
 	rule.Init(nil)
 	assert.NotNil(rule)
-	assert.True(rule.Match(req))
+	assert.True(rule.Match(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}
 	rule.Init(nil)
 	assert.NotNil(rule)
-	assert.False(rule.Match(req))
+	assert.False(rule.Match(ctx))
 }
 
 func TestRuleAllowIP(t *testing.T) {
@@ -162,15 +163,15 @@ func TestPathInit(t *testing.T) {
 	assert.NotNil(path.ipFilter)
 	assert.NotNil(path.ipFilterChain)
 	assert.Equal(len(path.ipFilterChain.Filters()), 1)
-	assert.Equal(path.method, httpprot.MALL)
+	assert.Equal(path.method, MALL)
 	assert.NotNil(path.Headers[0].re)
 	assert.NotNil(path.Queries[0].re)
 
 	path.Methods = []string{"GET", "POST"}
 	path.Init(nil)
-	assert.True(path.method&httpprot.MGET != 0)
-	assert.True(path.method&httpprot.MPOST != 0)
-	assert.True(path.method&httpprot.MDELETE == 0)
+	assert.True(path.method&MGET != 0)
+	assert.True(path.method&MPOST != 0)
+	assert.True(path.method&MDELETE == 0)
 }
 
 func TestPathInit2(t *testing.T) {

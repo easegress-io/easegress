@@ -24,7 +24,6 @@ import (
 	"regexp"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -67,7 +66,7 @@ type Path struct {
 
 	ipFilter             *ipfilter.IPFilter
 	ipFilterChain        *ipfilter.IPFilters
-	method               httpprot.MethodType
+	method               MethodType
 	cacheable, matchable bool
 }
 
@@ -118,12 +117,12 @@ func (rule *Rule) Init(parentIPFilters *ipfilter.IPFilters) {
 	rule.hostRE = hostRE
 }
 
-func (rule *Rule) Match(req *httpprot.Request) bool {
+func (rule *Rule) Match(ctx *RouteContext) bool {
 	if rule.Host == "" && rule.hostRE == nil {
 		return true
 	}
 
-	host := req.HostOnly()
+	host := ctx.GetHost()
 
 	if rule.Host != "" && rule.Host == host {
 		return true
@@ -149,11 +148,11 @@ func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	p.Headers.init()
 	p.Queries.init()
 
-	method := httpprot.MALL
+	method := MALL
 	if len(p.Methods) != 0 {
 		method = 0
 		for _, m := range p.Methods {
-			method |= httpprot.Methods[m]
+			method |= Methods[m]
 		}
 	}
 
@@ -204,17 +203,17 @@ func (p *Path) Match(context *RouteContext) bool {
 	req := context.Request
 	ip := req.RealIP()
 
-	if req.MethodType()&p.method == 0 {
+	if context.Method&p.method == 0 {
 		context.MethodMismatch = true
 		return false
 	}
 
-	if len(p.Headers) > 0 && !p.Headers.Match(req.HTTPHeader(), p.MatchAllHeader) {
+	if len(p.Headers) > 0 && !p.Headers.Match(context.GetHeaders(), p.MatchAllHeader) {
 		context.HeaderMismatch = true
 		return false
 	}
 
-	if len(p.Queries) > 0 && !p.Queries.Match(req.Queries(), p.MatchAllQuery) {
+	if len(p.Queries) > 0 && !p.Queries.Match(context.GetQueries(), p.MatchAllQuery) {
 		context.QueryMismatch = true
 		return false
 	}
