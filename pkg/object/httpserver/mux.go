@@ -573,16 +573,16 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	ip := req.RealIP()
 
+	if !allowIP(mi.ipFilter, ip) {
+		return forbidden
+	}
+
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
-	// headers,any queries and any ipFilters.
+	// headers, any queries, and any ipFilters.
 	r := mi.getRouteFromCache(req)
 	if r != nil {
 		return r
-	}
-
-	if !allowIP(mi.ipFilter, ip) {
-		return forbidden
 	}
 
 	for _, host := range mi.rules {
@@ -605,8 +605,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// only if headers,queries and ipFilter are empty, we can cache the result.
-			if len(path.headers) == 0 && len(path.queries) == 0 && path.ipFilter == nil && path.ipFilterChain == nil {
+			//  we can cache the result only when headers, queries, and ipFilter are empty.
+			if len(path.headers) == 0 && len(path.queries) == 0 && path.ipFilter == nil && host.ipFilter == nil {
 				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
 			}
