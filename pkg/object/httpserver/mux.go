@@ -70,30 +70,30 @@ type (
 		router routers.Router
 	}
 
-	routeCache struct {
+	cachedRoute struct {
 		code  int
 		route routers.Route
 	}
 )
 
 var (
-	notFound         = &routeCache{code: http.StatusNotFound}
-	forbidden        = &routeCache{code: http.StatusForbidden}
-	methodNotAllowed = &routeCache{code: http.StatusMethodNotAllowed}
-	badRequest       = &routeCache{code: http.StatusBadRequest}
+	notFound         = &cachedRoute{code: http.StatusNotFound}
+	forbidden        = &cachedRoute{code: http.StatusForbidden}
+	methodNotAllowed = &cachedRoute{code: http.StatusMethodNotAllowed}
+	badRequest       = &cachedRoute{code: http.StatusBadRequest}
 )
 
-func (mi *muxInstance) getRouteFromCache(req *httpprot.Request) *routeCache {
+func (mi *muxInstance) getRouteFromCache(req *httpprot.Request) *cachedRoute {
 	if mi.cache != nil {
 		key := stringtool.Cat(req.Host(), req.Method(), req.Path())
 		if value, ok := mi.cache.Get(key); ok {
-			return value.(*routeCache)
+			return value.(*cachedRoute)
 		}
 	}
 	return nil
 }
 
-func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *routeCache) {
+func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *cachedRoute) {
 	if mi.cache != nil {
 		key := stringtool.Cat(req.Host(), req.Method(), req.Path())
 		mi.cache.Add(key, rc)
@@ -321,7 +321,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 }
 
-func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
+func (mi *muxInstance) search(context *routers.RouteContext) *cachedRoute {
 	req := context.Request
 	ip := req.RealIP()
 
@@ -340,11 +340,11 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 	mi.router.Search(context)
 
 	if route := context.Route; context.Route != nil {
-		rc := &routeCache{code: 0, route: route}
+		cr := &cachedRoute{code: 0, route: route}
 		if context.Cacheable {
-			mi.putRouteToCache(req, rc)
+			mi.putRouteToCache(req, cr)
 		}
-		return rc
+		return cr
 	}
 
 	if context.IPMismatch {
