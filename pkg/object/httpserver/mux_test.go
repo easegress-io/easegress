@@ -624,6 +624,4 @@ rules:
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
-	
-
 }
