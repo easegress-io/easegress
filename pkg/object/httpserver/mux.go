@@ -61,16 +61,14 @@ type (
 
 		cache *lru.ARCCache
 
-		tracer       *tracing.Tracer
-		ipFilter     *ipfilter.IPFilter
-		ipFilterChan *ipfilter.IPFilters
+		tracer   *tracing.Tracer
+		ipFilter *ipfilter.IPFilter
 
 		rules []*muxRule
 	}
 
 	muxRule struct {
-		ipFilter      *ipfilter.IPFilter
-		ipFilterChain *ipfilter.IPFilters
+		ipFilter *ipfilter.IPFilter
 
 		host       string
 		hostRegexp string
@@ -80,8 +78,7 @@ type (
 
 	// MuxPath describes httpserver's path
 	MuxPath struct {
-		ipFilter      *ipfilter.IPFilter
-		ipFilterChain *ipfilter.IPFilters
+		ipFilter *ipfilter.IPFilter
 
 		path              string
 		pathPrefix        string
@@ -162,7 +159,7 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, r *route) {
 	}
 }
 
-func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPath) *muxRule {
+func newMuxRule(rule *Rule, paths []*MuxPath) *muxRule {
 	var hostRE *regexp.Regexp
 
 	if rule.HostRegexp != "" {
@@ -175,8 +172,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 
 	return &muxRule{
-		ipFilter:      newIPFilter(rule.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, rule.IPFilter),
+		ipFilter: newIPFilter(rule.IPFilter),
 
 		host:       rule.Host,
 		hostRegexp: rule.HostRegexp,
@@ -205,7 +201,7 @@ func (mr *muxRule) match(r *httpprot.Request) bool {
 	return false
 }
 
-func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
+func newMuxPath(path *Path) *MuxPath {
 	var pathRE *regexp.Regexp
 	if path.PathRegexp != "" {
 		var err error
@@ -225,8 +221,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 	}
 
 	return &MuxPath{
-		ipFilter:      newIPFilter(path.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
+		ipFilter: newIPFilter(path.IPFilter),
 
 		path:              path.Path,
 		pathPrefix:        path.PathPrefix,
@@ -379,15 +374,14 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec:    superSpec,
-		spec:         spec,
-		muxMapper:    muxMapper,
-		httpStat:     m.httpStat,
-		topN:         m.topN,
-		ipFilter:     newIPFilter(spec.IPFilter),
-		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
-		rules:        make([]*muxRule, len(spec.Rules)),
-		tracer:       tracer,
+		superSpec: superSpec,
+		spec:      spec,
+		muxMapper: muxMapper,
+		httpStat:  m.httpStat,
+		topN:      m.topN,
+		ipFilter:  newIPFilter(spec.IPFilter),
+		rules:     make([]*muxRule, len(spec.Rules)),
+		tracer:    tracer,
 	}
 
 	if spec.CacheSize > 0 {
@@ -401,15 +395,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	for i := 0; i < len(inst.rules); i++ {
 		specRule := spec.Rules[i]
 
-		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
-
 		paths := make([]*MuxPath, len(specRule.Paths))
 		for j := 0; j < len(paths); j++ {
-			paths[j] = newMuxPath(ruleIPFilterChain, specRule.Paths[j])
+			paths[j] = newMuxPath(specRule.Paths[j])
+
 		}
 
 		// NOTE: Given the parent ipFilters not its own.
-		inst.rules[i] = newMuxRule(inst.ipFilterChan, specRule, paths)
+		inst.rules[i] = newMuxRule(specRule, paths)
+
 	}
 
 	m.inst.Store(inst)
