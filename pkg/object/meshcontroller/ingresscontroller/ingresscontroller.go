@@ -118,6 +118,12 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		logger.Errorf("watch ingress controller cert failed: %v", err)
 	}
 
+	if err := ic.informer.OnAllServiceCanaries(ic.handleServiceCanaries); err != nil {
+		if err != informer.ErrAlreadyWatched {
+			logger.Errorf("add service canary failed: %v", err)
+		}
+	}
+
 	return ic
 }
 
@@ -182,6 +188,21 @@ func (ic *IngressController) handleServiceInstances(serviceInstances map[string]
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Errorf("%s: handleServiceInstance recover from: %v, stack trace:\n%s\n",
+				ic.superSpec.Name(), err, debug.Stack())
+		}
+	}()
+
+	ic.reloadTraffic()
+
+	return
+}
+
+func (ic *IngressController) handleServiceCanaries(serviceCanaries map[string]*spec.ServiceCanary) (continueWatch bool) {
+	continueWatch = true
+
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Errorf("%s: handleServiceCanaries recover from: %v, stack trace:\n%s\n",
 				ic.superSpec.Name(), err, debug.Stack())
 		}
 	}()
