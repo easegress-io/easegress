@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
+
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/tracing"
@@ -54,7 +55,7 @@ type (
 		// Keys saved as map, key is domain name, value is secret
 		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
 
-		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty"`
+		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Order,enum=Art"`
 
 		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules        routers.Rules  `json:"rules" jsonschema:"omitempty"`

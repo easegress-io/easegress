@@ -174,10 +174,6 @@ func (p *Path) Validate() error {
 }
 
 func (p *Path) AllowIP(ip string) bool {
-	if p.ipFilter == nil {
-		return true
-	}
-
 	return p.ipFilter.Allow(ip)
 }
 
@@ -192,23 +188,23 @@ func (p *Path) Match(context *RouteContext) bool {
 	req := context.Request
 	ip := req.RealIP()
 
-	if !p.AllowIP(ip) {
-		context.IPMismatch = true
-		return false
-	}
-
 	if context.Method&p.method == 0 {
 		context.MethodMismatch = true
 		return false
 	}
 
-	if len(p.Headers) > 0 && !p.Headers.Match(context.GetHeaders(), p.MatchAllHeader) {
+	if len(p.Headers) > 0 && !p.Headers.Match(context.GetHeader(), p.MatchAllHeader) {
 		context.HeaderMismatch = true
 		return false
 	}
 
 	if len(p.Queries) > 0 && !p.Queries.Match(context.GetQueries(), p.MatchAllQuery) {
 		context.QueryMismatch = true
+		return false
+	}
+
+	if !p.AllowIP(ip) {
+		context.IPMismatch = true
 		return false
 	}
 

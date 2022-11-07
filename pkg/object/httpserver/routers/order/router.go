@@ -134,17 +134,17 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 	ip := req.RealIP()
 	path := context.Path
 
-	for _, host := range r.rules {
-		if !host.Match(context) {
+	for _, rule := range r.rules {
+		if !rule.Match(context) {
 			continue
 		}
 
-		if !host.AllowIP(ip) {
+		if !rule.AllowIP(ip) {
 			context.IPMismatch = true
 			continue
 		}
 
-		for _, route := range host.routes {
+		for _, route := range rule.routes {
 			if !route.matchPath(path) {
 				continue
 			}

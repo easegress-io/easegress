@@ -32,23 +32,20 @@ import (
 	"github.com/tomasen/realip"
 )
 
-type (
-
-	// Request wraps http.Request.
-	//
-	// The payload of the request can be replaced with a new one, but it will
-	// never replace the body of the underlying http.Request.
-	//
-	// Code should always use payload functions of this request to read the
-	// body of the original request, and never use the Body of the original
-	// request directly.
-	Request struct {
-		*http.Request
-		stream  *readers.ByteCountReader
-		payload []byte
-		realIP  string
-	}
-)
+// Request wraps http.Request.
+//
+// The payload of the request can be replaced with a new one, but it will
+// never replace the body of the underlying http.Request.
+//
+// Code should always use payload functions of this request to read the
+// body of the original request, and never use the Body of the original
+// request directly.
+type Request struct {
+	*http.Request
+	stream  *readers.ByteCountReader
+	payload []byte
+	realIP  string
+}
 
 var (
 	// ErrRequestEntityTooLarge means the request entity is too large.
@@ -79,7 +76,6 @@ func NewRequest(stdr *http.Request) (*Request, error) {
 
 	r := &Request{Request: stdr}
 	r.realIP = realip.FromRequest(stdr)
-	// r.methodType = Methods[stdr.Method]
 	return r, nil
 }
 

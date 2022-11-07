@@ -27,6 +27,7 @@ import (
 )
 
 type (
+	// Kind contains the meta data and functions of a router kind.
 	Kind struct {
 		// Name is the name of the router kind.
 		Name string
@@ -38,26 +39,33 @@ type (
 		CreateInstance func(rules Rules) Router
 	}
 
+	// Router is the interface for route search.
 	Router interface {
+		// Search performs a route search and populates the context with search-related information.
 		Search(context *RouteContext)
 	}
 
+	// Route is the corresponding route interface for different routing policies.
 	Route interface {
+		// Rewrite for path rewriting.
 		Rewrite(context *RouteContext)
+		// GetBackend is used to get the backend corresponding to the route.
 		GetBackend() string
+		// GetClientMaxBodySize is used to get the clientMaxBodySize corresponding to the route.
 		GetClientMaxBodySize() int64
 	}
 
+	// RouteParams are used to store the variables in the search path and their corresponding values.
 	RouteParams struct {
 		Keys, Values []string
 	}
 
+	// RouteContext is the context container in the route search
 	RouteContext struct {
 		Path    string
 		Method  MethodType
 		host    string
 		queries url.Values
-		headers http.Header
 
 		Request *httpprot.Request
 
@@ -150,8 +158,7 @@ func (ctx *RouteContext) GetCaptures() map[string]string {
 		return ctx.captures
 	}
 
-	for i := 0; i < len(ctx.RouteParams.Keys); i++ {
-		key := ctx.RouteParams.Keys[i]
+	for i, key := range ctx.RouteParams.Keys {
 		value := ctx.RouteParams.Values[i]
 		ctx.captures[key] = value
 	}
@@ -173,18 +180,14 @@ func (ctx *RouteContext) GetHost() string {
 	return host
 }
 
-func (ctx *RouteContext) GetHeaders() http.Header {
-	if ctx.headers != nil {
-		return ctx.headers
-	}
-	ctx.headers = ctx.Request.HTTPHeader()
-	return ctx.headers
-}
-
 func (ctx *RouteContext) GetQueries() url.Values {
 	if ctx.queries != nil {
 		return ctx.queries
 	}
 	ctx.queries = ctx.Request.Std().URL.Query()
 	return ctx.queries
+}
+
+func (ctx *RouteContext) GetHeader() http.Header {
+	return ctx.Request.HTTPHeader()
 }

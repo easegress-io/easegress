@@ -331,7 +331,7 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 
 	// The key of the cache is req.Host + req.Method + req.URL.Path,
 	// and if a path is cached, we are sure it does not contain any
-	// headers,any queries, and any ipFilters.
+	// headers, any queries, and any ipFilters.
 	r := mi.getRouteFromCache(req)
 	if r != nil {
 		return r
@@ -339,9 +339,7 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 
 	mi.router.Search(context)
 
-	route := context.Route
-
-	if context.Route != nil {
+	if route := context.Route; context.Route != nil {
 		rc := &routeCache{code: 0, route: route}
 		if context.Cacheable {
 			mi.putRouteToCache(req, rc)

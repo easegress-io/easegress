@@ -116,11 +116,6 @@ func (f *IPFilter) Allow(ipstr string) bool {
 		return false
 	}
 
-	// if AllowIPs is not empty, only allow IPs in AllowIPs
-	if len(f.spec.AllowIPs) > 0 && !allowed {
-		return false
-	}
-
 	blocked, err := f.blockRanger.Contains(ip)
 	if err != nil {
 		return defaultResult

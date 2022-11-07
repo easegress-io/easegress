@@ -288,25 +288,16 @@ func TestPathMatch(t *testing.T) {
 		result, methodMismatch, headerMismatch, queryMismatch, cache, ipNotAllowed bool
 	}{
 		{
-			method:       http.MethodDelete,
-			result:       false,
-			ipNotAllowed: true,
-		},
-
-		{
 			method:         http.MethodDelete,
 			result:         false,
 			methodMismatch: true,
-			headers: map[string][]string{
-				"X-Real-Ip": {"192.168.1.0"}},
 		},
 
 		{
 			method: http.MethodGet,
 			result: false,
 			headers: map[string][]string{
-				"X-Real-Ip": {"192.168.1.0"},
-				"X-Test":    {"spec"},
+				"X-Test": {"spec"},
 			},
 			matchAllheader: false,
 			headerMismatch: true,
@@ -315,7 +306,6 @@ func TestPathMatch(t *testing.T) {
 			method: http.MethodPost,
 			result: false,
 			headers: map[string][]string{
-				"X-Real-Ip": {"192.168.1.0"},
 
 				"X-Test": {"abc"},
 			},
@@ -327,8 +317,7 @@ func TestPathMatch(t *testing.T) {
 			method: http.MethodPost,
 			result: false,
 			headers: map[string][]string{
-				"X-Real-Ip": {"192.168.1.0"},
-				"X-Test":    {"abc"},
+				"X-Test": {"abc"},
 			},
 			query:         "q1=spec",
 			queryMismatch: true,
@@ -338,13 +327,24 @@ func TestPathMatch(t *testing.T) {
 			method: http.MethodPost,
 			result: false,
 			headers: map[string][]string{
-				"X-Real-Ip": {"192.168.1.0"},
 
 				"X-Test": {"abc"},
 			},
 			query:         "q1=abc",
 			matchAllQuery: true,
 			queryMismatch: true,
+		},
+
+		{
+			method: http.MethodPost,
+			result: false,
+			headers: map[string][]string{
+				"X-Test":    {"abc"},
+				"X-Real-Ip": {"10.168.1.0"},
+			},
+			query:         "q1=abc",
+			queryMismatch: true,
+			ipNotAllowed:  true,
 		},
 
 		{
