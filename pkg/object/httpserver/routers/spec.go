@@ -28,10 +28,13 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+// Rules represents the set of rules.
 type Rules []*Rule
 
+// Paths represents the set of paths.
 type Paths []*Path
 
+// Rule is first level entry of router.
 type Rule struct {
 	// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
 	// when it has `omitempty` in tag `jsonschema`.
@@ -49,6 +52,7 @@ type Rule struct {
 	hostRE   *regexp.Regexp
 }
 
+// Path is second level entry of router.
 type Path struct {
 	IPFilterSpec      *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 	Path              string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
@@ -68,10 +72,15 @@ type Path struct {
 	cacheable, matchable bool
 }
 
+// Headers represents the set of headers.
 type Headers []*Header
 
+// Queries represents the set of queries.
 type Queries []*Query
 
+// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
+// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
+// than the path entry itself.
 type Header struct {
 	Key    string   `json:"key" jsonschema:"required"`
 	Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
@@ -80,6 +89,7 @@ type Header struct {
 	re *regexp.Regexp
 }
 
+// Query is the third level entry.
 type Query struct {
 	Key    string   `json:"key" jsonschema:"required"`
 	Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
@@ -88,12 +98,14 @@ type Query struct {
 	re *regexp.Regexp
 }
 
+// Init is the initialization portal for Rules.
 func (rules Rules) Init() {
 	for _, rule := range rules {
 		rule.Init()
 	}
 }
 
+// Init is the initialization portal for Rule.
 func (rule *Rule) Init() {
 	var hostRE *regexp.Regexp
 
@@ -113,6 +125,7 @@ func (rule *Rule) Init() {
 	}
 }
 
+// Match is the matching function of rule.
 func (rule *Rule) Match(ctx *RouteContext) bool {
 	if rule.Host == "" && rule.hostRE == nil {
 		return true
@@ -130,13 +143,12 @@ func (rule *Rule) Match(ctx *RouteContext) bool {
 	return false
 }
 
+// AllowIP return if rule ipFilter allows the incoming ip.
 func (rule *Rule) AllowIP(ip string) bool {
-	if rule.ipFilter == nil {
-		return true
-	}
 	return rule.ipFilter.Allow(ip)
 }
 
+// Init is the initialization portal for Path
 func (p *Path) Init(parentIPFilter *ipfilter.IPFilter) {
 	p.ipFilter = ipfilter.New(p.IPFilterSpec)
 
@@ -173,10 +185,12 @@ func (p *Path) Validate() error {
 	return nil
 }
 
+// AllowIP return if rule ipFilter allows the incoming ip.
 func (p *Path) AllowIP(ip string) bool {
 	return p.ipFilter.Allow(ip)
 }
 
+// Match is the matching function of path.
 func (p *Path) Match(context *RouteContext) bool {
 	context.Cacheable = p.cacheable
 
@@ -211,10 +225,12 @@ func (p *Path) Match(context *RouteContext) bool {
 	return true
 }
 
+// GetBackend is used to get the backend corresponding to the route.
 func (p *Path) GetBackend() string {
 	return p.Backend
 }
 
+// GetClientMaxBodySize is used to get the clientMaxBodySize corresponding to the route.
 func (p *Path) GetClientMaxBodySize() int64 {
 	return p.ClientMaxBodySize
 }
@@ -227,6 +243,7 @@ func (hs Headers) init() {
 	}
 }
 
+// Validate validates Headers.
 func (hs Headers) Validate() error {
 	for _, h := range hs {
 		if len(h.Values) == 0 && h.Regexp == "" {
@@ -236,6 +253,7 @@ func (hs Headers) Validate() error {
 	return nil
 }
 
+// Match is the matching function of Headers.
 func (hs Headers) Match(headers http.Header, matchAll bool) bool {
 	if len(hs) == 0 {
 		return true
@@ -276,6 +294,7 @@ func (qs Queries) init() {
 	}
 }
 
+// Validate validates Queries.
 func (qs Queries) Validate() error {
 	for _, q := range qs {
 		if len(q.Values) == 0 && q.Regexp == "" {
@@ -285,6 +304,7 @@ func (qs Queries) Validate() error {
 	return nil
 }
 
+// Match is the matching function of Queries.
 func (qs Queries) Match(query url.Values, matchAll bool) bool {
 	if len(qs) == 0 {
 		return true

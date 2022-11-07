@@ -108,11 +108,8 @@ const (
 
 const WILDCARD = "eg_wildcard"
 
-// Kind is the kind of Proxy.
-const Kind = "Art"
-
 var kind = &routers.Kind{
-	Name:        Kind,
+	Name:        "Art",
 	Description: "Art",
 
 	CreateInstance: func(rules routers.Rules) routers.Router {

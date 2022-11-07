@@ -158,9 +158,9 @@ func TestPathInit(t *testing.T) {
 
 	path.Methods = []string{"GET", "POST"}
 	path.Init(nil)
-	assert.True(path.method&MGET != 0)
-	assert.True(path.method&MPOST != 0)
-	assert.True(path.method&MDELETE == 0)
+	assert.True(path.method&mGET != 0)
+	assert.True(path.method&mPOST != 0)
+	assert.True(path.method&mDELETE == 0)
 }
 
 func TestPathInit2(t *testing.T) {
@@ -306,7 +306,6 @@ func TestPathMatch(t *testing.T) {
 			method: http.MethodPost,
 			result: false,
 			headers: map[string][]string{
-
 				"X-Test": {"abc"},
 			},
 			matchAllheader: true,
@@ -327,7 +326,6 @@ func TestPathMatch(t *testing.T) {
 			method: http.MethodPost,
 			result: false,
 			headers: map[string][]string{
-
 				"X-Test": {"abc"},
 			},
 			query:         "q1=abc",

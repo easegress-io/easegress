@@ -41,11 +41,8 @@ type (
 	}
 )
 
-// Kind is the kind of Proxy.
-const Kind = "Order"
-
 var kind = &routers.Kind{
-	Name:        Kind,
+	Name:        "Order",
 	Description: "Order",
 
 	CreateInstance: func(rules routers.Rules) routers.Router {

@@ -62,56 +62,65 @@ type (
 
 	// RouteContext is the context container in the route search
 	RouteContext struct {
-		Path    string
+		// Request is httpprot.Request.
+		Request *httpprot.Request
+		// Path represents the path of the request.
+		Path string
+		// Method represents the MethodType corresponding to the http method.
 		Method  MethodType
 		host    string
 		queries url.Values
 
-		Request *httpprot.Request
-
+		// RouteParams are used to store the variables in the search path and their corresponding values.
 		RouteParams RouteParams
 		captures    map[string]string
 
-		Cacheable                                                 bool
+		// Cacheable means whether the route can be cached or not.
+		Cacheable bool
+		// Route represents the results of this search
 		Route                                                     Route
 		HeaderMismatch, MethodMismatch, QueryMismatch, IPMismatch bool
 	}
 
+	// MethodType represents the bit-operated representation of the http method.
 	MethodType uint
 )
 
 const (
-	MSTUB MethodType = 1 << iota
-	MCONNECT
-	MDELETE
-	MGET
-	MHEAD
-	MOPTIONS
-	MPATCH
-	MPOST
-	MPUT
-	MTRACE
+	mSTUB MethodType = 1 << iota
+	mCONNECT
+	mDELETE
+	mGET
+	mHEAD
+	mOPTIONS
+	mPATCH
+	mPOST
+	mPUT
+	mTRACE
 )
 
 var (
-	MALL = MCONNECT | MDELETE | MGET | MHEAD |
-		MOPTIONS | MPATCH | MPOST | MPUT | MTRACE
+	// MALL represents the methodType that can match all methods.
+	MALL = mCONNECT | mDELETE | mGET | mHEAD |
+		mOPTIONS | mPATCH | mPOST | mPUT | mTRACE
 
+	// Methods represents the mapping of http method and methodType.
 	Methods = map[string]MethodType{
-		http.MethodGet:     MGET,
-		http.MethodHead:    MHEAD,
-		http.MethodPost:    MPOST,
-		http.MethodPut:     MPUT,
-		http.MethodPatch:   MPATCH,
-		http.MethodDelete:  MDELETE,
-		http.MethodConnect: MCONNECT,
-		http.MethodOptions: MOPTIONS,
-		http.MethodTrace:   MTRACE,
+		http.MethodGet:     mGET,
+		http.MethodHead:    mHEAD,
+		http.MethodPost:    mPOST,
+		http.MethodPut:     mPUT,
+		http.MethodPatch:   mPATCH,
+		http.MethodDelete:  mDELETE,
+		http.MethodConnect: mCONNECT,
+		http.MethodOptions: mOPTIONS,
+		http.MethodTrace:   mTRACE,
 	}
 
 	kinds = map[string]*Kind{}
 )
 
+// Register registers a router kind.
 func Register(k *Kind) {
 	name := k.Name
 	if name == "" {
@@ -135,6 +144,7 @@ func Create(kind string, rules Rules) Router {
 	return k.CreateInstance(rules)
 }
 
+// NewContext creates a context instance.
 func NewContext(req *httpprot.Request) *RouteContext {
 	path := req.Path()
 
@@ -147,6 +157,7 @@ func NewContext(req *httpprot.Request) *RouteContext {
 	return context
 }
 
+// GetCaptures is used to get and cache path parameter mappings.
 func (ctx *RouteContext) GetCaptures() map[string]string {
 	if ctx.captures != nil {
 		return ctx.captures
@@ -166,6 +177,7 @@ func (ctx *RouteContext) GetCaptures() map[string]string {
 	return ctx.captures
 }
 
+// GetHost is used to get and cache host.
 func (ctx *RouteContext) GetHost() string {
 	if ctx.host != "" {
 		return ctx.host
@@ -180,6 +192,7 @@ func (ctx *RouteContext) GetHost() string {
 	return host
 }
 
+// GetQueries is used to get and cache query params.
 func (ctx *RouteContext) GetQueries() url.Values {
 	if ctx.queries != nil {
 		return ctx.queries
@@ -188,6 +201,7 @@ func (ctx *RouteContext) GetQueries() url.Values {
 	return ctx.queries
 }
 
+// GetHeader is used to get request http header.
 func (ctx *RouteContext) GetHeader() http.Header {
 	return ctx.Request.HTTPHeader()
 }
