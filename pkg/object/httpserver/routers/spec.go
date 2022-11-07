@@ -45,9 +45,8 @@ type Rule struct {
 	HostRegexp   string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
 	Paths        Paths          `json:"paths" jsonschema:"omitempty"`
 
-	ipFilter      *ipfilter.IPFilter
-	ipFilterChain *ipfilter.IPFilters
-	hostRE        *regexp.Regexp
+	ipFilter *ipfilter.IPFilter
+	hostRE   *regexp.Regexp
 }
 
 type Path struct {
@@ -65,7 +64,6 @@ type Path struct {
 	MatchAllQuery     bool           `json:"matchAllQuery" jsonschema:"omitempty"`
 
 	ipFilter             *ipfilter.IPFilter
-	ipFilterChain        *ipfilter.IPFilters
 	method               MethodType
 	cacheable, matchable bool
 }
@@ -90,18 +88,13 @@ type Query struct {
 	re *regexp.Regexp
 }
 
-func (rules Rules) Init(ipFilterChan *ipfilter.IPFilters) {
+func (rules Rules) Init() {
 	for _, rule := range rules {
-		rule.Init(ipFilterChan)
+		rule.Init()
 	}
 }
 
-func (rule *Rule) Init(parentIPFilters *ipfilter.IPFilters) {
-	ruleIPFilterChain := ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilterSpec)
-	for _, p := range rule.Paths {
-		p.Init(ruleIPFilterChain)
-	}
-
+func (rule *Rule) Init() {
 	var hostRE *regexp.Regexp
 
 	if rule.HostRegexp != "" {
@@ -113,8 +106,11 @@ func (rule *Rule) Init(parentIPFilters *ipfilter.IPFilters) {
 	}
 
 	rule.ipFilter = ipfilter.New(rule.IPFilterSpec)
-	rule.ipFilterChain = ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilterSpec)
 	rule.hostRE = hostRE
+
+	for _, p := range rule.Paths {
+		p.Init(rule.ipFilter)
+	}
 }
 
 func (rule *Rule) Match(ctx *RouteContext) bool {
@@ -141,9 +137,8 @@ func (rule *Rule) AllowIP(ip string) bool {
 	return rule.ipFilter.Allow(ip)
 }
 
-func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
+func (p *Path) Init(parentIPFilter *ipfilter.IPFilter) {
 	p.ipFilter = ipfilter.New(p.IPFilterSpec)
-	p.ipFilterChain = ipfilter.NewIPFilterChain(parentIPFilters, p.IPFilterSpec)
 
 	p.Headers.init()
 	p.Queries.init()
@@ -159,9 +154,11 @@ func (p *Path) Init(parentIPFilters *ipfilter.IPFilters) {
 	p.method = method
 	p.matchable = true
 
-	if len(p.Headers) == 0 && len(p.Queries) == 0 {
-		p.cacheable = true
-		if len(p.Methods) == 0 && p.ipFilter == nil {
+	if len(p.Headers) == 0 && len(p.Queries) == 0 && p.ipFilter == nil {
+		if parentIPFilter == nil {
+			p.cacheable = true
+		}
+		if len(p.Methods) == 0 {
 			p.matchable = false
 		}
 	}
@@ -184,14 +181,6 @@ func (p *Path) AllowIP(ip string) bool {
 	return p.ipFilter.Allow(ip)
 }
 
-func (p *Path) AllowIPChain(ip string) bool {
-	if p.ipFilterChain == nil {
-		return true
-	}
-
-	return p.ipFilterChain.Allow(ip)
-}
-
 func (p *Path) Match(context *RouteContext) bool {
 	context.Cacheable = p.cacheable
 
@@ -202,6 +191,11 @@ func (p *Path) Match(context *RouteContext) bool {
 	// method match
 	req := context.Request
 	ip := req.RealIP()
+
+	if !p.AllowIP(ip) {
+		context.IPMismatch = true
+		return false
+	}
 
 	if context.Method&p.method == 0 {
 		context.MethodMismatch = true
@@ -216,10 +210,6 @@ func (p *Path) Match(context *RouteContext) bool {
 	if len(p.Queries) > 0 && !p.Queries.Match(context.GetQueries(), p.MatchAllQuery) {
 		context.QueryMismatch = true
 		return false
-	}
-
-	if !p.AllowIP(ip) {
-		context.IPNotAllowed = true
 	}
 
 	return true

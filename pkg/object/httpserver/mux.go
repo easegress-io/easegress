@@ -41,6 +41,9 @@ import (
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
+
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/art"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/order"
 )
 
 type (
@@ -143,16 +146,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec:    superSpec,
-		spec:         spec,
-		muxMapper:    muxMapper,
-		httpStat:     m.httpStat,
-		topN:         m.topN,
-		ipFilter:     ipfilter.New(spec.IPFilterSpec),
-		ipFilterChan: ipfilter.NewIPFilterChain(nil, spec.IPFilterSpec),
-		tracer:       tracer,
+		superSpec: superSpec,
+		spec:      spec,
+		muxMapper: muxMapper,
+		httpStat:  m.httpStat,
+		topN:      m.topN,
+		ipFilter:  ipfilter.New(spec.IPFilterSpec),
+		tracer:    tracer,
 	}
-	spec.Rules.Init(inst.ipFilterChan)
+	spec.Rules.Init()
 	inst.router = routers.Create(routerKind, spec.Rules)
 
 	if spec.CacheSize > 0 {
@@ -324,24 +326,16 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 	req := context.Request
 	ip := req.RealIP()
 
-	// The key of the cache is req.Host + req.Method + req.URL.Path,
-	// and if a path is cached, we are sure it does not contain any
-	// headers or any queries.
-	r := mi.getRouteFromCache(req)
-	if r != nil {
-		if r.code != 0 {
-			return r
-		}
-
-		if r.route.AllowIPChain(ip) {
-			return r
-		}
-
+	if !mi.ipFilter.Allow(ip) {
 		return forbidden
 	}
 
-	if !mi.ipFilter.Allow(ip) {
-		return forbidden
+	// The key of the cache is req.Host + req.Method + req.URL.Path,
+	// and if a path is cached, we are sure it does not contain any
+	// headers,any queries, and any ipFilters.
+	r := mi.getRouteFromCache(req)
+	if r != nil {
+		return r
 	}
 
 	mi.router.Search(context)
@@ -353,14 +347,10 @@ func (mi *muxInstance) search(context *routers.RouteContext) *routeCache {
 		if context.Cacheable {
 			mi.putRouteToCache(req, rc)
 		}
-
-		if context.IPNotAllowed {
-			return forbidden
-		}
 		return rc
 	}
 
-	if context.IPNotAllowed {
+	if context.IPMismatch {
 		return forbidden
 	}
 

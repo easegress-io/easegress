@@ -140,8 +140,8 @@ func (r *OrderRouter) Search(context *routers.RouteContext) {
 		}
 
 		if !host.AllowIP(ip) {
-			context.IPNotAllowed = true
-			return
+			context.IPMismatch = true
+			continue
 		}
 
 		for _, route := range host.routes {

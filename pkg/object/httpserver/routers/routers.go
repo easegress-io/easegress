@@ -43,7 +43,6 @@ type (
 	}
 
 	Route interface {
-		AllowIPChain(ip string) bool
 		Rewrite(context *RouteContext)
 		GetBackend() string
 		GetClientMaxBodySize() int64
@@ -65,9 +64,9 @@ type (
 		RouteParams RouteParams
 		captures    map[string]string
 
-		Cacheable                                                   bool
-		Route                                                       Route
-		HeaderMismatch, MethodMismatch, QueryMismatch, IPNotAllowed bool
+		Cacheable                                                 bool
+		Route                                                     Route
+		HeaderMismatch, MethodMismatch, QueryMismatch, IPMismatch bool
 	}
 
 	MethodType uint

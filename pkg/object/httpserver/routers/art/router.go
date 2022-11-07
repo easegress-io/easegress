@@ -603,8 +603,8 @@ func (ar *ArtRouter) Search(context *routers.RouteContext) {
 		}
 
 		if !rule.AllowIP(ip) {
-			context.IPNotAllowed = true
-			return
+			context.IPMismatch = true
+			continue
 		}
 
 		if routes, ok := rule.pathCache[path]; ok {

@@ -69,7 +69,7 @@ func TestCreateInstance(t *testing.T) {
 		},
 	}
 
-	rules.Init(nil)
+	rules.Init()
 	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
 
 	assert := assert.New(t)
@@ -162,7 +162,7 @@ func TestSearch(t *testing.T) {
 		},
 	}
 
-	rules.Init(nil)
+	rules.Init()
 	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
 
 	tests := []struct {
@@ -214,7 +214,7 @@ func TestSearch(t *testing.T) {
 		router.Search(ctx)
 
 		assert.Equal(test.result, ctx.Route != nil)
-		assert.Equal(test.iPNotAllowed, ctx.IPNotAllowed)
+		assert.Equal(test.iPNotAllowed, ctx.IPMismatch)
 
 	}
 }

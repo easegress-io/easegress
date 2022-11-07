@@ -244,7 +244,7 @@ func TestTree(t *testing.T) {
 		},
 	}
 
-	rules.Init(nil)
+	rules.Init()
 
 	tests := []struct {
 		r string   // input request path
@@ -494,7 +494,7 @@ func TestTreeMoar(t *testing.T) {
 		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", WILDCARD}, v: []string{"2", ""}},
 	}
 
-	rules.Init(nil)
+	rules.Init()
 
 	router := kind.CreateInstance(rules).(*ArtRouter)
 	assert := assert.New(t)
@@ -594,7 +594,7 @@ func TestTreeRegexp(t *testing.T) {
 		{r: "/articles/1122", h: hStub1, k: []string{"id"}, v: []string{"1122"}},
 		{r: "/articles/1122-yes", h: hStub6, k: []string{"id", "aux"}, v: []string{"1122", "yes"}},
 	}
-	rules.Init(nil)
+	rules.Init()
 	router := kind.CreateInstance(rules).(*ArtRouter)
 	assert := assert.New(t)
 
@@ -653,7 +653,7 @@ func TestTreeRegexpRecursive(t *testing.T) {
 		{r: "/one///first", h: "", k: nil, v: nil},
 		{r: "/one/hi/123/second", h: hStub2, k: []string{"firstId", "secondId"}, v: []string{"hi", "123"}},
 	}
-	rules.Init(nil)
+	rules.Init()
 	router := kind.CreateInstance(rules).(*ArtRouter)
 	assert := assert.New(t)
 
@@ -719,7 +719,7 @@ func TestTreeRegexMatchWholeParam(t *testing.T) {
 		{url: "//foo", expectedHandler: ""},
 		{url: "//test", expectedHandler: ""},
 	}
-	rules.Init(nil)
+	rules.Init()
 	router := kind.CreateInstance(rules).(*ArtRouter)
 	assert := assert.New(t)
 
@@ -797,7 +797,7 @@ func BenchmarkTreeGet(b *testing.B) {
 			},
 		},
 	}
-	rules.Init(nil)
+	rules.Init()
 	router := kind.CreateInstance(rules).(*ArtRouter)
 
 	b.ReportAllocs()

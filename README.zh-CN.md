@@ -6,7 +6,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
 
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
@@ -52,7 +52,7 @@
     - HTTP/2
     - HTTP/3(QUIC)
     - MQTT
-  - **路由规则**：精确路径、路径前缀、路径的正则表达式、方法、标头。
+  - **路由规则**：精确路径、路径前缀、路径的正则表达式、方法、标头、客户端IP地址。
   - **弹性和容错**。
     - **断路器**： 暂时阻止可能的故障。
     - **速率限制**： 限制请求的速率。
@@ -257,7 +257,7 @@ Body  : Hello, Easegress
 
 ### 添加一条新的 Pipeline
 
-现在我们添加一条新的 Pipeline，它会从请求中提取出一个 RSS feed 的地址，并将其中的文章列表组织成一条 Slack 消息发送到 Slack。在执行下面的命令之前，请务必按照[这个文档](https://api.slack.com/messaging/webhooks)创建你自己的 Slack WebHook URL，并用它替换掉下面命令中的那个。 
+现在我们添加一条新的 Pipeline，它会从请求中提取出一个 RSS feed 的地址，并将其中的文章列表组织成一条 Slack 消息发送到 Slack。在执行下面的命令之前，请务必按照[这个文档](https://api.slack.com/messaging/webhooks)创建你自己的 Slack WebHook URL，并用它替换掉下面命令中的那个。
 
 <p align="center">
   <img src="./doc/imgs/rss-pipeline.png" width=480>
