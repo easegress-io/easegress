@@ -23,11 +23,13 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/megaease/easegress/pkg/api"
@@ -42,6 +44,18 @@ type servicesByOrder []*spec.Service
 func (s servicesByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
 func (s servicesByOrder) Len() int           { return len(s) }
 func (s servicesByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type configMapsByOrder []*v1.ConfigMap
+
+func (s configMapsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
+func (s configMapsByOrder) Len() int           { return len(s) }
+func (s configMapsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type secretsByOrder []*v1.Secret
+
+func (s secretsByOrder) Less(i, j int) bool { return s[i].Name < s[j].Name }
+func (s secretsByOrder) Len() int           { return len(s) }
+func (s secretsByOrder) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func (a *API) readServiceName(r *http.Request) (string, error) {
 	serviceName := chi.URLParam(r, "serviceName")
@@ -208,7 +222,7 @@ func (a *API) deleteService(w http.ResponseWriter, r *http.Request) {
 	a.service.DeleteServiceSpec(serviceName)
 }
 
-func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
+func (a *API) getServiceDeployment(w http.ResponseWriter, r *http.Request) {
 	const annotationServiceNameKey = "mesh.megaease.com/service-name"
 
 	serviceName, err := a.readServiceName(r)
@@ -232,6 +246,10 @@ func (a *API) getServiceDeploySpec(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, deployment := range deployments.Items {
+		if strings.HasPrefix(deployment.Name, "canary-") {
+			continue
+		}
+
 		if deployment.Annotations[annotationServiceNameKey] == serviceName {
 			serviceDeployment.App = deployment
 			serviceDeployment.ConfigMaps, serviceDeployment.Secrets = a.getConfigMapsAndSecrets(&deployment)
@@ -267,8 +285,8 @@ func (a *API) getConfigMapsAndSecrets(spec interface{}) ([]*corev1.ConfigMap, []
 		panic(fmt.Errorf("unknown spec type %T", spec))
 	}
 
-	var configMaps []*corev1.ConfigMap
-	var secrets []*corev1.Secret
+	configMaps := map[string]*corev1.ConfigMap{}
+	secrets := map[string]*corev1.Secret{}
 	for _, volume := range volumes {
 		if volume.ConfigMap != nil {
 			configMap, err := a.k8sClient.CoreV1().ConfigMaps(namespace).Get(context.Background(),
@@ -276,7 +294,8 @@ func (a *API) getConfigMapsAndSecrets(spec interface{}) ([]*corev1.ConfigMap, []
 			if err != nil {
 				api.ClusterPanic(fmt.Errorf("get configmap %s failed: %v", volume.ConfigMap.Name, err))
 			}
-			configMaps = append(configMaps, configMap)
+
+			configMaps[configMap.Name] = configMap
 		}
 		if volume.Secret != nil {
 			secret, err := a.k8sClient.CoreV1().Secrets(namespace).Get(context.Background(),
@@ -284,9 +303,21 @@ func (a *API) getConfigMapsAndSecrets(spec interface{}) ([]*corev1.ConfigMap, []
 			if err != nil {
 				api.ClusterPanic(fmt.Errorf("get secret %s failed: %v", volume.Secret.SecretName, err))
 			}
-			secrets = append(secrets, secret)
+			secrets[secret.Name] = secret
 		}
 	}
 
-	return configMaps, secrets
+	cms := []*corev1.ConfigMap{}
+	for _, cm := range configMaps {
+		cms = append(cms, cm)
+	}
+	sort.Sort(configMapsByOrder(cms))
+
+	ss := []*corev1.Secret{}
+	for _, s := range secrets {
+		ss = append(ss, s)
+	}
+	sort.Sort(secretsByOrder(ss))
+
+	return cms, ss
 }

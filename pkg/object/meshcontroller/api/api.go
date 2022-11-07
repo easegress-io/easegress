@@ -172,7 +172,7 @@ func (a *API) registerAPIs() {
 
 			// TODO: API to get instances of one service.
 
-			{Path: MeshServiceDeploySpecPath, Method: "GET", Handler: a.getServiceDeploySpec},
+			{Path: MeshServiceDeploySpecPath, Method: "GET", Handler: a.getServiceDeployment},
 
 			{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
 			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},
