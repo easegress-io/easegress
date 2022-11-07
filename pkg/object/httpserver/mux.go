@@ -61,16 +61,14 @@ type (
 
 		cache *lru.ARCCache
 
-		tracer       *tracing.Tracer
-		ipFilter     *ipfilter.IPFilter
-		ipFilterChan *ipfilter.IPFilters
+		tracer   *tracing.Tracer
+		ipFilter *ipfilter.IPFilter
 
 		rules []*muxRule
 	}
 
 	muxRule struct {
-		ipFilter      *ipfilter.IPFilter
-		ipFilterChain *ipfilter.IPFilters
+		ipFilter *ipfilter.IPFilter
 
 		host       string
 		hostRegexp string
@@ -80,8 +78,7 @@ type (
 
 	// MuxPath describes httpserver's path
 	MuxPath struct {
-		ipFilter      *ipfilter.IPFilter
-		ipFilterChain *ipfilter.IPFilters
+		ipFilter *ipfilter.IPFilter
 
 		path              string
 		pathPrefix        string
@@ -162,7 +159,7 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, r *route) {
 	}
 }
 
-func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPath) *muxRule {
+func newMuxRule(rule *Rule, paths []*MuxPath) *muxRule {
 	var hostRE *regexp.Regexp
 
 	if rule.HostRegexp != "" {
@@ -175,8 +172,7 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 
 	return &muxRule{
-		ipFilter:      newIPFilter(rule.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, rule.IPFilter),
+		ipFilter: newIPFilter(rule.IPFilter),
 
 		host:       rule.Host,
 		hostRegexp: rule.HostRegexp,
@@ -205,7 +201,7 @@ func (mr *muxRule) match(r *httpprot.Request) bool {
 	return false
 }
 
-func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
+func newMuxPath(path *Path) *MuxPath {
 	var pathRE *regexp.Regexp
 	if path.PathRegexp != "" {
 		var err error
@@ -225,8 +221,7 @@ func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
 	}
 
 	return &MuxPath{
-		ipFilter:      newIPFilter(path.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
+		ipFilter: newIPFilter(path.IPFilter),
 
 		path:              path.Path,
 		pathPrefix:        path.PathPrefix,
@@ -379,15 +374,14 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec:    superSpec,
-		spec:         spec,
-		muxMapper:    muxMapper,
-		httpStat:     m.httpStat,
-		topN:         m.topN,
-		ipFilter:     newIPFilter(spec.IPFilter),
-		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
-		rules:        make([]*muxRule, len(spec.Rules)),
-		tracer:       tracer,
+		superSpec: superSpec,
+		spec:      spec,
+		muxMapper: muxMapper,
+		httpStat:  m.httpStat,
+		topN:      m.topN,
+		ipFilter:  newIPFilter(spec.IPFilter),
+		rules:     make([]*muxRule, len(spec.Rules)),
+		tracer:    tracer,
 	}
 
 	if spec.CacheSize > 0 {
@@ -401,15 +395,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	for i := 0; i < len(inst.rules); i++ {
 		specRule := spec.Rules[i]
 
-		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
-
 		paths := make([]*MuxPath, len(specRule.Paths))
 		for j := 0; j < len(paths); j++ {
-			paths[j] = newMuxPath(ruleIPFilterChain, specRule.Paths[j])
+			paths[j] = newMuxPath(specRule.Paths[j])
+
 		}
 
 		// NOTE: Given the parent ipFilters not its own.
-		inst.rules[i] = newMuxRule(inst.ipFilterChan, specRule, paths)
+		inst.rules[i] = newMuxRule(specRule, paths)
+
 	}
 
 	m.inst.Store(inst)
@@ -569,29 +563,20 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 }
 
 func (mi *muxInstance) search(req *httpprot.Request) *route {
-	headerMismatch, methodMismatch, queryMismatch := false, false, false
+	headerMismatch, methodMismatch, queryMismatch, clientIPMismatch := false, false, false, false
 
 	ip := req.RealIP()
 
-	// The key of the cache is req.Host + req.Method + req.URL.Path,
-	// and if a path is cached, we are sure it does not contain any
-	// headers or any queries.
-	r := mi.getRouteFromCache(req)
-	if r != nil {
-		if r.code != 0 {
-			return r
-		}
-		if r.path.ipFilterChain == nil {
-			return r
-		}
-		if r.path.ipFilterChain.Allow(ip) {
-			return r
-		}
+	if !allowIP(mi.ipFilter, ip) {
 		return forbidden
 	}
 
-	if !allowIP(mi.ipFilter, ip) {
-		return forbidden
+	// The key of the cache is req.Host + req.Method + req.URL.Path,
+	// and if a path is cached, we are sure it does not contain any
+	// headers, any queries, and any ipFilters.
+	r := mi.getRouteFromCache(req)
+	if r != nil {
+		return r
 	}
 
 	for _, host := range mi.rules {
@@ -600,7 +585,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 		}
 
 		if !allowIP(host.ipFilter, ip) {
-			return forbidden
+			clientIPMismatch = true
+			continue
 		}
 
 		for _, path := range host.paths {
@@ -613,8 +599,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 				continue
 			}
 
-			// only if headers and query are empty, we can cache the result.
-			if len(path.headers) == 0 && len(path.queries) == 0 {
+			//  we can cache the result only when headers, queries, and ipFilter are empty.
+			if len(path.headers) == 0 && len(path.queries) == 0 && path.ipFilter == nil && host.ipFilter == nil {
 				r = &route{code: 0, path: path}
 				mi.putRouteToCache(req, r)
 			}
@@ -630,7 +616,8 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 			}
 
 			if !allowIP(path.ipFilter, ip) {
-				return forbidden
+				clientIPMismatch = true
+				continue
 			}
 
 			return &route{code: 0, path: path}
@@ -639,6 +626,10 @@ func (mi *muxInstance) search(req *httpprot.Request) *route {
 
 	if headerMismatch || queryMismatch {
 		return badRequest
+	}
+
+	if clientIPMismatch {
+		return forbidden
 	}
 
 	if methodMismatch {

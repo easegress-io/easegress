@@ -53,7 +53,7 @@ The architecture of Easegress:
     - HTTP/2
     - HTTP/3(QUIC)
     - MQTT
-  - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
+  - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers, clientIPs.
   - **Resilience&Fault Tolerance**
     - **CircuitBreaker:** temporarily blocks possible failures.
     - **RateLimiter:** limits the rate of incoming requests.
