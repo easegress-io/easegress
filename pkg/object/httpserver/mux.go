@@ -64,9 +64,8 @@ type (
 
 		cache *lru.ARCCache
 
-		tracer       *tracing.Tracer
-		ipFilter     *ipfilter.IPFilter
-		ipFilterChan *ipfilter.IPFilters
+		tracer   *tracing.Tracer
+		ipFilter *ipfilter.IPFilter
 
 		router routers.Router
 	}

@@ -111,6 +111,10 @@ func (f *IPFilter) Allow(ipstr string) bool {
 	if err != nil {
 		return defaultResult
 	}
+	// if AllowIPs is not empty, only allow IPs in AllowIPs
+	if len(f.spec.AllowIPs) > 0 && !allowed {
+		return false
+	}
 
 	// if AllowIPs is not empty, only allow IPs in AllowIPs
 	if len(f.spec.AllowIPs) > 0 && !allowed {
