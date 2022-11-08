@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package order
+package ordered
 
 import (
 	"net/http"
@@ -70,7 +70,7 @@ func TestCreateInstance(t *testing.T) {
 	}
 
 	rules.Init()
-	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
+	var router *orderedRouter = kind.CreateInstance(rules).(*orderedRouter)
 
 	assert := assert.New(t)
 	assert.Equal(len(rules), len(router.rules))
@@ -163,7 +163,7 @@ func TestSearch(t *testing.T) {
 	}
 
 	rules.Init()
-	var router *OrderRouter = kind.CreateInstance(rules).(*OrderRouter)
+	var router *orderedRouter = kind.CreateInstance(rules).(*orderedRouter)
 
 	tests := []struct {
 		host         string

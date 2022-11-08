@@ -55,7 +55,7 @@ type (
 		// Keys saved as map, key is domain name, value is secret
 		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
 
-		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Order,enum=Art"`
+		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Ordered,enum=RadixTree"`
 
 		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Rules        routers.Rules  `json:"rules" jsonschema:"omitempty"`

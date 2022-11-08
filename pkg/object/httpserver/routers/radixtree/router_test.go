@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package art
+package radixtree
 
 import (
 	"net/http"
@@ -289,7 +289,7 @@ func TestTree(t *testing.T) {
 		{r: "/users/123/okay/yes", h: hUserAll, k: []string{WILDCARD}, v: []string{"123/okay/yes"}},
 	}
 
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 	assert := assert.New(t)
 
 	for _, tt := range tests {
@@ -496,7 +496,7 @@ func TestTreeMoar(t *testing.T) {
 
 	rules.Init()
 
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 	assert := assert.New(t)
 
 	for _, tt := range tests {
@@ -595,7 +595,7 @@ func TestTreeRegexp(t *testing.T) {
 		{r: "/articles/1122-yes", h: hStub6, k: []string{"id", "aux"}, v: []string{"1122", "yes"}},
 	}
 	rules.Init()
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 	assert := assert.New(t)
 
 	for _, tt := range tests {
@@ -654,7 +654,7 @@ func TestTreeRegexpRecursive(t *testing.T) {
 		{r: "/one/hi/123/second", h: hStub2, k: []string{"firstId", "secondId"}, v: []string{"hi", "123"}},
 	}
 	rules.Init()
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 	assert := assert.New(t)
 
 	for _, tt := range tests {
@@ -720,7 +720,7 @@ func TestTreeRegexMatchWholeParam(t *testing.T) {
 		{url: "//test", expectedHandler: ""},
 	}
 	rules.Init()
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 	assert := assert.New(t)
 
 	for _, tt := range tests {
@@ -798,7 +798,7 @@ func BenchmarkTreeGet(b *testing.B) {
 		},
 	}
 	rules.Init()
-	router := kind.CreateInstance(rules).(*ArtRouter)
+	router := kind.CreateInstance(rules).(*radixTreeRouter)
 
 	b.ReportAllocs()
 	b.ResetTimer()

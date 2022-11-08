@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package order
+package ordered
 
 import (
 	"regexp"
@@ -36,14 +36,14 @@ type (
 		pathRE *regexp.Regexp
 	}
 
-	OrderRouter struct {
+	orderedRouter struct {
 		rules []*muxRule
 	}
 )
 
 var kind = &routers.Kind{
-	Name:        "Order",
-	Description: "Order",
+	Name:        "Ordered",
+	Description: "Ordered",
 
 	CreateInstance: func(rules routers.Rules) routers.Router {
 		muxRules := make([]*muxRule, len(rules))
@@ -58,7 +58,7 @@ var kind = &routers.Kind{
 				routes: routes,
 			}
 		}
-		return &OrderRouter{
+		return &orderedRouter{
 			rules: muxRules,
 		}
 	},
@@ -126,7 +126,7 @@ func (mp *route) Rewrite(context *routers.RouteContext) {
 	r.SetPath(path)
 }
 
-func (r *OrderRouter) Search(context *routers.RouteContext) {
+func (r *orderedRouter) Search(context *routers.RouteContext) {
 	req := context.Request
 	ip := req.RealIP()
 	path := context.Path

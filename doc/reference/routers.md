@@ -1,14 +1,14 @@
 # Routers
 
 - [Routers](#routers)
-  - [Order](#order)
-  - [Art](#art)
+  - [Ordered](#ordered)
+  - [RadixTree](#radixTree)
 
-Router determines how requests are routed to the corresponding Pipeline for subsequent processing. We currently support two routing policies, `Order` and `Art`, and you can choose a Router that suits your needs based on its characteristics, and we also provide the ability to customize Router, if the built-in Router does not meet your needs, you can choose Write a custom Router.
+Router determines how requests are routed to the corresponding Pipeline for subsequent processing. We currently support two routing strategies, `Ordered` and `RadixTree`, and you can choose a Router that suits your needs based on its characteristics, and we also provide the ability to customize Router, if the built-in Router does not meet your needs, you can choose Write a custom Router.
 
-## Order
+## Ordered
 
-Order router is the default router for httpserver, as the name implies, its matching rules are in the order of the route definition.
+Ordered router is the default router for httpserver, as the name implies, its matching rules are in the order of the route definition.
 
 Let's look at some examples to better understand the strategy.
 
@@ -18,7 +18,7 @@ name: server-demo
 port: 10080
 keepAlive: true
 https: false
-routerKind: Order
+routerKind: Ordered
 rules:
   - paths:
     - path: /pipeline/abc
@@ -45,7 +45,7 @@ name: server-demo
 port: 10080
 keepAlive: true
 https: false
-routerKind: Order
+routerKind: Ordered
 rules:
   - paths:
     - pathPrefix: /pipeline
@@ -66,9 +66,9 @@ rules:
 
 It is clear to see that the matching rules of the router are matched in the order of route definition, and the matching stops when the result is reached.
 
-## Art
+## RadixTree
 
-Art's full name is `Adaptive Radix Trees`, and you can see that the underlying mechanism of the router uses [Radix tree](https://en.wikipedia.org/wiki/Radix_tree])
+As the name implies, you can see that the underlying mechanism of the router uses a [Radix tree](https://en.wikipedia.org/wiki/Radix_tree])
 
 Still in the same way, let's use some examples to better understand the strategy.
 
@@ -116,7 +116,7 @@ name: server-demo
 port: 10080
 keepAlive: true
 https: false
-routerKind: Art
+routerKind: RadixTree
 rules:
   - paths:
     - path: /users/{username}/hovercard
@@ -139,7 +139,7 @@ rules:
 
 ### Rewrite
 
-Let's take a look at how Art's Path Rewrite feature works. The syntax of Rewrite remains basically the same as that of Path, with a few minor differences.
+Let's take a look at how RadixTree's Path Rewrite feature works. The syntax of Rewrite remains basically the same as that of Path, with a few minor differences.
 
 ```yaml
 kind: HTTPServer
@@ -147,7 +147,7 @@ name: server-demo
 port: 10080
 keepAlive: true
 https: false
-routerKind: Art
+routerKind: RadixTree
 rules:
   - paths:
     - path: /users/{username}/hovercard

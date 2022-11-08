@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package art
+package radixtree
 
 import (
 	"bytes"
@@ -81,7 +81,7 @@ type (
 		pathCache PathCache
 	}
 
-	ArtRouter struct {
+	radixTreeRouter struct {
 		rules []*muxRule
 	}
 
@@ -109,11 +109,11 @@ const (
 const WILDCARD = "eg_wildcard"
 
 var kind = &routers.Kind{
-	Name:        "Art",
-	Description: "Art",
+	Name:        "RadixTree",
+	Description: "RadixTree",
 
 	CreateInstance: func(rules routers.Rules) routers.Router {
-		router := &ArtRouter{
+		router := &radixTreeRouter{
 			rules: make([]*muxRule, len(rules)),
 		}
 
@@ -274,18 +274,19 @@ func (n *node) addChild(child *node, prefix string) *node {
 }
 
 func (n *node) replaceChild(label, tail byte, child *node) {
-	for i := 0; i < len(n.children[child.typ]); i++ {
-		if n.children[child.typ][i].label == label && n.children[child.typ][i].tail == tail {
-			n.children[child.typ][i] = child
-			n.children[child.typ][i].label = label
-			n.children[child.typ][i].tail = tail
+	ns := n.children[child.typ]
+	for i := 0; i < len(ns); i++ {
+		if ns[i].label == label && ns[i].tail == tail {
+			ns[i] = child
+			ns[i].label = label
+			ns[i].tail = tail
 			return
 		}
 	}
 	panic("replacing missing child")
 }
 
-func (n *node) setRoute(path *routers.Path) {
+func (n *node) addRoute(path *routers.Path) {
 	if n.routes == nil {
 		n.routes = make([]*route, 0)
 	}
@@ -307,7 +308,7 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 	for {
 
 		if len(search) == 0 {
-			n.setRoute(path)
+			n.addRoute(path)
 			return n, nil
 		}
 
@@ -324,7 +325,7 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 		if n == nil {
 			child := &node{label: label, tail: seg.tail, prefix: search}
 			hn := parent.addChild(child, search)
-			hn.setRoute(path)
+			hn.addRoute(path)
 			return hn, nil
 		}
 
@@ -355,7 +356,7 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 
 		search = search[commonPrefix:]
 		if len(search) == 0 {
-			child.setRoute(path)
+			child.addRoute(path)
 			return child, nil
 		}
 
@@ -366,7 +367,7 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 		}
 
 		hn := child.addChild(subChild, search)
-		hn.setRoute(path)
+		hn.addRoute(path)
 		return hn, nil
 
 	}
@@ -589,7 +590,7 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 	return mr
 }
 
-func (ar *ArtRouter) Search(context *routers.RouteContext) {
+func (ar *radixTreeRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 	req := context.Request
 	ip := req.RealIP()

@@ -41,9 +41,6 @@ import (
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
-
-	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/art"
-	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/order"
 )
 
 type (
@@ -139,7 +136,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		tracer = oldInst.tracer
 	}
 
-	routerKind := "Order"
+	routerKind := "Ordered"
 	if spec.RouterKind != "" {
 		routerKind = spec.RouterKind
 	}

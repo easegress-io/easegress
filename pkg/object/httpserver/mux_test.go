@@ -30,6 +30,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
