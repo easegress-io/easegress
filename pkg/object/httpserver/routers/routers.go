@@ -55,8 +55,8 @@ type (
 		GetClientMaxBodySize() int64
 	}
 
-	// RouteParams are used to store the variables in the search path and their corresponding values.
-	RouteParams struct {
+	// Params are used to store the variables in the search path and their corresponding values.
+	Params struct {
 		Keys, Values []string
 	}
 
@@ -71,9 +71,9 @@ type (
 		host    string
 		queries url.Values
 
-		// RouteParams are used to store the variables in the search path and their corresponding values.
-		RouteParams RouteParams
-		captures    map[string]string
+		// Params are used to store the variables in the search path and their corresponding values.
+		Params   Params
+		captures map[string]string
 
 		// Cacheable means whether the route can be cached or not.
 		Cacheable bool
@@ -165,12 +165,12 @@ func (ctx *RouteContext) GetCaptures() map[string]string {
 
 	ctx.captures = make(map[string]string)
 
-	if len(ctx.RouteParams.Keys) == 0 {
+	if len(ctx.Params.Keys) == 0 {
 		return ctx.captures
 	}
 
-	for i, key := range ctx.RouteParams.Keys {
-		value := ctx.RouteParams.Values[i]
+	for i, key := range ctx.Params.Keys {
+		value := ctx.Params.Values[i]
 		ctx.captures[key] = value
 	}
 

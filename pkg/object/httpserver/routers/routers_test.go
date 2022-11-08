@@ -37,8 +37,8 @@ func TestGetCaptures(t *testing.T) {
 	assert.NotNil(res)
 
 	ctx = NewContext(req)
-	ctx.RouteParams.Keys = []string{"a", "b", "c"}
-	ctx.RouteParams.Values = []string{"1", "2", "3"}
+	ctx.Params.Keys = []string{"a", "b", "c"}
+	ctx.Params.Values = []string{"1", "2", "3"}
 	res = ctx.GetCaptures()
 	assert.Equal(3, len(res))
 	assert.NotNil(res)

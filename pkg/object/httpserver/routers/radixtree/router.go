@@ -73,12 +73,10 @@ type (
 
 	nodes []*node
 
-	PathCache map[string]routes
-
 	muxRule struct {
 		routers.Rule
 		root      *node
-		pathCache PathCache
+		pathCache map[string]routes
 	}
 
 	radixTreeRouter struct {
@@ -106,7 +104,7 @@ const (
 	ntCatchAll                 // /api/v1/*
 )
 
-const WILDCARD = "eg_wildcard"
+const egWildcard = "eg_wildcard"
 
 var kind = &routers.Kind{
 	Name:        "RadixTree",
@@ -149,10 +147,8 @@ func (ns nodes) tailSort() {
 }
 
 func (ns nodes) findEdge(label byte) *node {
-	// static nodes find
-	num := len(ns)
-	idx := 0
-	i, j := 0, num-1
+	idx, i, j := 0, 0, len(ns)-1
+
 	for i <= j {
 		idx = i + (j-i)/2
 		if label > ns[idx].label {
@@ -160,9 +156,10 @@ func (ns nodes) findEdge(label byte) *node {
 		} else if label < ns[idx].label {
 			j = idx - 1
 		} else {
-			i = num // breaks cond
+			break
 		}
 	}
+
 	if ns[idx].label != label {
 		return nil
 	}
@@ -188,89 +185,71 @@ func (n *node) getEdge(ntyp nodeType, label, tail byte, rexpat string) *node {
 // into different nodes. In addition, addChild will recursively call itself until every
 // pattern segment is added to the url pattern tree as individual nodes, depending on type.
 func (n *node) addChild(child *node, prefix string) *node {
-	search := prefix
-
-	// handler leaf node added to the tree is the child.
-	// this may be overridden later down the flow
-	hn := child
+	defer func() {
+		n.children[child.typ] = append(n.children[child.typ], child)
+		n.children[child.typ].Sort()
+	}()
 
 	// Parse next segment
-	seg := patNextSegment(search)
+	seg := patNextSegment(prefix)
 
-	segType := seg.nodeType
-
-	// Add child depending on next up segment
-	switch segType {
-
-	case ntStatic:
-		// Search prefix is all static (that is, has no params in path)
-		// noop
-
-	default:
-		// Search prefix contains a param, regexp or wildcard
-
-		ps := seg.ps
-		pe := seg.pe
-
-		if ps == 0 {
-			// Route starts with a param
-			child.typ = segType
-
-			if segType == ntRegexp {
-				rex, err := regexp.Compile(seg.rexpat)
-				if err != nil {
-					panic(fmt.Sprintf("invalid regexp pattern '%s' in route param", seg.rexpat))
-				}
-				child.prefix = seg.rexpat
-				child.rex = rex
-			}
-
-			child.tail = seg.tail // for params, we set the tail
-
-			if pe != len(search) {
-				// add static edge for the remaining part, split the end.
-				// its not possible to have adjacent param nodes, so its certainly
-				// going to be a static node next.
-
-				// prefix require update?
-				if segType != ntRegexp {
-					child.prefix = search[:pe]
-				}
-
-				search = search[pe:] // advance search position
-
-				nn := &node{
-					typ:    ntStatic, // after update
-					label:  search[0],
-					prefix: search,
-				}
-				hn = child.addChild(nn, search)
-			}
-
-		} else if ps > 0 {
-			// Route has some param
-
-			// starts with a static segment
-			child.typ = ntStatic
-			child.prefix = search[:ps]
-			child.rex = nil
-
-			// add the param edge node
-			search = search[ps:]
-
-			nn := &node{
-				typ:    segType,
-				label:  search[0],
-				tail:   seg.tail,
-				prefix: search,
-			}
-			hn = child.addChild(nn, search)
-		}
+	if seg.nodeType == ntStatic {
+		return child
 	}
 
-	n.children[child.typ] = append(n.children[child.typ], child)
-	n.children[child.typ].Sort()
-	return hn
+	// Route has some param
+	if seg.ps > 0 {
+		// starts with a static segment
+		child.typ = ntStatic
+		child.prefix = prefix[:seg.ps]
+		child.rex = nil
+
+		// add the param edge node
+		prefix = prefix[seg.ps:]
+
+		grandchild := &node{
+			typ:    seg.nodeType,
+			label:  prefix[0],
+			tail:   seg.tail,
+			prefix: prefix,
+		}
+		return child.addChild(grandchild, prefix)
+	}
+
+	// prefix prefix contains a param, regexp or wildcard
+	// Route starts with a param
+	child.typ = seg.nodeType
+
+	if seg.nodeType == ntRegexp {
+		rex, err := regexp.Compile(seg.rexpat)
+		if err != nil {
+			panic(fmt.Sprintf("invalid regexp pattern '%s' in route param", seg.rexpat))
+		}
+		child.prefix = seg.rexpat
+		child.rex = rex
+	}
+	child.tail = seg.tail // for params, we set the tail
+
+	if seg.pe != len(prefix) {
+		// add static edge for the remaining part, split the end.
+		// its not possible to have adjacent param nodes, so its certainly
+		// going to be a static node next.
+
+		// prefix require update?
+		if seg.nodeType != ntRegexp {
+			child.prefix = prefix[:seg.pe]
+		}
+		prefix = prefix[seg.pe:] // advance prefix position
+
+		grandchild := &node{
+			typ:    ntStatic, // after update
+			label:  prefix[0],
+			prefix: prefix,
+		}
+		return child.addChild(grandchild, prefix)
+	}
+
+	return child
 }
 
 func (n *node) replaceChild(label, tail byte, child *node) {
@@ -295,21 +274,18 @@ func (n *node) addRoute(path *routers.Path) {
 	n.routes = append(n.routes, r)
 }
 
-func (root *node) insert(path *routers.Path) (*node, error) {
+func (n *node) insert(path *routers.Path) {
 	if path == nil {
 		panic("param invalid")
 	}
 
 	search := path.Path
-
-	var parent *node
-	n := root
+	parent := n
 
 	for {
-
 		if len(search) == 0 {
-			n.addRoute(path)
-			return n, nil
+			parent.addRoute(path)
+			break
 		}
 
 		label := search[0]
@@ -319,26 +295,25 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 			seg = patNextSegment(search)
 		}
 
-		parent = n
-		n = n.getEdge(seg.nodeType, label, seg.tail, seg.rexpat)
-
-		if n == nil {
+		nn := parent.getEdge(seg.nodeType, label, seg.tail, seg.rexpat)
+		if nn == nil {
 			child := &node{label: label, tail: seg.tail, prefix: search}
-			hn := parent.addChild(child, search)
-			hn.addRoute(path)
-			return hn, nil
+			nn = parent.addChild(child, search)
+			nn.addRoute(path)
+			break
 		}
 
-		if n.typ > ntStatic {
+		if nn.typ > ntStatic {
 			search = search[seg.pe:]
+			parent = nn
 			continue
 		}
 
 		// n.prefix compare
-		commonPrefix := longestPrefix(search, n.prefix)
-
-		if commonPrefix == len(n.prefix) {
+		commonPrefix := longestPrefix(search, nn.prefix)
+		if commonPrefix == len(nn.prefix) {
 			search = search[commonPrefix:]
+			parent = nn
 			continue
 		}
 
@@ -350,26 +325,25 @@ func (root *node) insert(path *routers.Path) (*node, error) {
 
 		parent.replaceChild(label, seg.tail, child)
 
-		n.label = n.prefix[commonPrefix]
-		n.prefix = n.prefix[commonPrefix:]
-		child.addChild(n, n.prefix)
+		nn.label = nn.prefix[commonPrefix]
+		nn.prefix = nn.prefix[commonPrefix:]
+		child.addChild(nn, nn.prefix)
 
 		search = search[commonPrefix:]
 		if len(search) == 0 {
 			child.addRoute(path)
-			return child, nil
+			break
 		}
 
-		subChild := &node{
+		grandchild := &node{
 			typ:    ntStatic,
 			label:  search[0],
 			prefix: search,
 		}
 
-		hn := child.addChild(subChild, search)
-		hn.addRoute(path)
-		return hn, nil
-
+		nn = child.addChild(grandchild, search)
+		nn.addRoute(path)
+		break
 	}
 }
 
@@ -384,66 +358,46 @@ func (n *node) match(context *routers.RouteContext) *route {
 }
 
 func (n *node) find(path string, context *routers.RouteContext) *route {
-	nn := n
-	search := path
-
-	for t, nds := range nn.children {
-
+	for t, nds := range n.children {
 		if len(nds) == 0 {
 			continue
 		}
 
-		ntype := nodeType(t)
-
-		var xn *node
-		xsearch := search
-
-		var label byte
-
-		if search != "" {
-			label = search[0]
-		}
-
-		switch ntype {
+		switch ntype := nodeType(t); ntype {
 		case ntStatic:
-
-			if xsearch == "" {
+			if path == "" {
 				continue
 			}
 
-			xn = nds.findEdge(label)
-			if xn == nil || !strings.HasPrefix(xsearch, xn.prefix) {
+			var label byte
+			if path != "" {
+				label = path[0]
+			}
+			xn := nds.findEdge(label)
+			if xn == nil || !strings.HasPrefix(path, xn.prefix) {
 				continue
 			}
-			xsearch = xsearch[len(xn.prefix):]
 
-			if len(xsearch) == 0 {
-				if xn.isLeaf() {
-					r := xn.match(context)
-					if r != nil {
-						return r
-					}
+			search := path[len(xn.prefix):]
+			if len(search) == 0 && xn.isLeaf() {
+				if r := xn.match(context); r != nil {
+					return r
 				}
 			}
-			fin := xn.find(xsearch, context)
-			if fin != nil {
+			if fin := xn.find(search, context); fin != nil {
 				return fin
 			}
 
 		case ntParam, ntRegexp:
-			if xsearch == "" {
+			if path == "" {
 				continue
 			}
 
-			for idx := 0; idx < len(nds); idx++ {
-				xn = nds[idx]
-
-				p := strings.IndexByte(xsearch, xn.tail)
-
+			for _, xn := range nds {
+				p := strings.IndexByte(path, xn.tail)
 				if p < 0 {
 					if xn.tail == '/' {
-						// xsearch is param value
-						p = len(search)
+						p = len(path)
 					} else {
 						continue
 					}
@@ -452,42 +406,36 @@ func (n *node) find(path string, context *routers.RouteContext) *route {
 				}
 
 				if ntype == ntRegexp {
-					if !xn.rex.MatchString(xsearch[:p]) {
+					if !xn.rex.MatchString(path[:p]) {
 						continue
 					}
-				} else if strings.IndexByte(xsearch[:p], '/') != -1 {
+				} else if strings.IndexByte(path[:p], '/') != -1 {
 					continue
 				}
 
-				prevlen := len(context.RouteParams.Values)
-				context.RouteParams.Values = append(context.RouteParams.Values, xsearch[:p])
-				xsearch = xsearch[p:]
+				prevlen := len(context.Params.Values)
+				context.Params.Values = append(context.Params.Values, path[:p])
 
-				if len(xsearch) == 0 {
-					if xn.isLeaf() {
-						r := xn.match(context)
-						if r != nil {
-							return r
-						}
+				search := path[p:]
+				if len(search) == 0 && xn.isLeaf() {
+					if r := xn.match(context); r != nil {
+						return r
 					}
 				}
-				fin := xn.find(xsearch, context)
-				if fin != nil {
+				if fin := xn.find(search, context); fin != nil {
 					return fin
 				}
-				context.RouteParams.Values = context.RouteParams.Values[:prevlen]
-				xsearch = search
+
+				context.Params.Values = context.Params.Values[:prevlen]
 			}
 
 		default:
-			xn = nds[0]
-			r := xn.match(context)
-			if r != nil {
-				context.RouteParams.Values = append(context.RouteParams.Values, xsearch)
+			xn := nds[0]
+			if r := xn.match(context); r != nil {
+				context.Params.Values = append(context.Params.Values, path)
 				return r
 			}
 		}
-
 	}
 
 	return nil
@@ -517,7 +465,7 @@ func (r *route) initRewrite() {
 	}
 
 	if strings.Contains(r.RewriteTarget, "*") {
-		panic("artRouter RewriteTarget not support '*', please use {eg_wildcard},")
+		panic("artRouter RewriteTarget not support '*', please use {eg_wildcard}")
 	}
 
 	rewriteKeys := patParamKeys(r.RewriteTarget)
@@ -557,33 +505,25 @@ func (r *route) Rewrite(context *routers.RouteContext) {
 	req.SetPath(buf.String())
 }
 
-func (pc PathCache) addPath(path *routers.Path) {
-	p := path.Path
-	if _, ok := pc[p]; ok {
-		pc[p] = append(pc[p], newRoute(path))
-	} else {
-		pc[p] = []*route{newRoute(path)}
-	}
-}
-
 func newMuxRule(rule *routers.Rule) *muxRule {
 	mr := &muxRule{
 		Rule:      *rule,
 		root:      &node{},
-		pathCache: make(PathCache),
+		pathCache: make(map[string]routes),
 	}
 
 	for _, path := range rule.Paths {
-
 		seg := patNextSegment(path.Path)
 
 		if seg.nodeType == ntStatic {
-			mr.pathCache.addPath(path)
-		} else {
-			_, err := mr.root.insert(path)
-			if err != nil {
-				panic(err)
+			p := path.Path
+			if _, ok := mr.pathCache[p]; ok {
+				mr.pathCache[p] = append(mr.pathCache[p], newRoute(path))
+			} else {
+				mr.pathCache[p] = []*route{newRoute(path)}
 			}
+		} else {
+			mr.root.insert(path)
 		}
 	}
 
@@ -618,7 +558,7 @@ func (ar *radixTreeRouter) Search(context *routers.RouteContext) {
 
 		if route != nil {
 			context.Route = route
-			context.RouteParams.Keys = append(context.RouteParams.Keys, route.paramKeys...)
+			context.Params.Keys = append(context.Params.Keys, route.paramKeys...)
 			return
 		}
 	}
@@ -641,10 +581,8 @@ func patNextSegment(pattern string) segment {
 		panic("wildcard '*' must be the last pattern in a route, otherwise use a '{param}'")
 	}
 
-	// Wildcard pattern as finale
-
+	// Wildcard pattern as final
 	if ps >= 0 {
-
 		var tail byte = '/' // Default endpoint tail to / byte
 		// Param/Regexp pattern is next
 		nt := ntParam
@@ -706,7 +644,7 @@ func patNextSegment(pattern string) segment {
 
 	return segment{
 		nodeType: ntCatchAll,
-		key:      WILDCARD,
+		key:      egWildcard,
 		ps:       ws,
 		pe:       len(pattern),
 	}

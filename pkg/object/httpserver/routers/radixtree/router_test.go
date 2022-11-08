@@ -256,8 +256,8 @@ func TestTree(t *testing.T) {
 		{r: "/favicon.ico", h: hFavicon, k: nil, v: nil},
 
 		{r: "/pages", h: "", k: nil, v: nil},
-		{r: "/pages/", h: hStub, k: []string{WILDCARD}, v: []string{""}},
-		{r: "/pages/yes", h: hStub, k: []string{WILDCARD}, v: []string{"yes"}},
+		{r: "/pages/", h: hStub, k: []string{egWildcard}, v: []string{""}},
+		{r: "/pages/yes", h: hStub, k: []string{egWildcard}, v: []string{"yes"}},
 
 		{r: "/article", h: hArticleList, k: nil, v: nil},
 		{r: "/article/", h: hArticleList, k: nil, v: nil},
@@ -275,18 +275,18 @@ func TestTree(t *testing.T) {
 		{r: "/admin/user/", h: hStub, k: nil, v: nil},
 		{r: "/admin/user/1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
 		{r: "/admin/user//1", h: hUserShow, k: []string{"id"}, v: []string{"1"}},
-		{r: "/admin/hi", h: hStub, k: []string{WILDCARD}, v: []string{"hi"}},
-		{r: "/admin/lots/of/:fun", h: hStub, k: []string{WILDCARD}, v: []string{"lots/of/:fun"}},
+		{r: "/admin/hi", h: hStub, k: []string{egWildcard}, v: []string{"hi"}},
+		{r: "/admin/lots/of/:fun", h: hStub, k: []string{egWildcard}, v: []string{"lots/of/:fun"}},
 		{r: "/admin/apps/333", h: hAdminAppShow, k: []string{"id"}, v: []string{"333"}},
-		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", WILDCARD}, v: []string{"333", "woot"}},
+		{r: "/admin/apps/333/woot", h: hAdminAppShowCatchall, k: []string{"id", egWildcard}, v: []string{"333", "woot"}},
 
 		{r: "/hubs/123/view", h: hHubView1, k: []string{"hubID"}, v: []string{"123"}},
-		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", WILDCARD}, v: []string{"123", "index.html"}},
+		{r: "/hubs/123/view/index.html", h: hHubView2, k: []string{"hubID", egWildcard}, v: []string{"123", "index.html"}},
 		{r: "/hubs/123/users", h: hHubView3, k: []string{"hubID"}, v: []string{"123"}},
 
 		{r: "/users/123/profile", h: hUserProfile, k: []string{"userID"}, v: []string{"123"}},
-		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{WILDCARD}, v: []string{"123/okay/yes"}},
-		{r: "/users/123/okay/yes", h: hUserAll, k: []string{WILDCARD}, v: []string{"123/okay/yes"}},
+		{r: "/users/super/123/okay/yes", h: hUserSuper, k: []string{egWildcard}, v: []string{"123/okay/yes"}},
+		{r: "/users/123/okay/yes", h: hUserAll, k: []string{egWildcard}, v: []string{"123/okay/yes"}},
 	}
 
 	router := kind.CreateInstance(rules).(*radixTreeRouter)
@@ -306,8 +306,8 @@ func TestTree(t *testing.T) {
 
 		assert.Equal(tt.h, backend)
 
-		paramKeys := context.RouteParams.Keys
-		paramValues := context.RouteParams.Values
+		paramKeys := context.Params.Keys
+		paramValues := context.Params.Values
 
 		assert.Equal(tt.k, paramKeys)
 		assert.Equal(tt.v, paramValues)
@@ -486,12 +486,12 @@ func TestTreeMoar(t *testing.T) {
 		{m: "PUT", r: "/articles/me", h: hStub13, k: nil, v: nil},
 		{m: "GET", r: "/articles/me", h: hStub, k: []string{"id"}, v: []string{"me"}},
 		{m: "GET", r: "/pages", h: "", k: nil, v: nil},
-		{m: "GET", r: "/pages/", h: hStub, k: []string{WILDCARD}, v: []string{""}},
-		{m: "GET", r: "/pages/yes", h: hStub, k: []string{WILDCARD}, v: []string{"yes"}},
+		{m: "GET", r: "/pages/", h: hStub, k: []string{egWildcard}, v: []string{""}},
+		{m: "GET", r: "/pages/yes", h: hStub, k: []string{egWildcard}, v: []string{"yes"}},
 		{m: "GET", r: "/users/1", h: hStub14, k: []string{"id"}, v: []string{"1"}},
 		{m: "GET", r: "/users/", h: "", k: nil, v: nil},
 		{m: "GET", r: "/users/2/settings/password", h: hStub15, k: []string{"id", "key"}, v: []string{"2", "password"}},
-		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", WILDCARD}, v: []string{"2", ""}},
+		{m: "GET", r: "/users/2/settings/", h: hStub16, k: []string{"id", egWildcard}, v: []string{"2", ""}},
 	}
 
 	rules.Init()
@@ -513,8 +513,8 @@ func TestTreeMoar(t *testing.T) {
 
 		assert.Equal(tt.h, backend)
 
-		paramKeys := context.RouteParams.Keys
-		paramValues := context.RouteParams.Values
+		paramKeys := context.Params.Keys
+		paramValues := context.Params.Values
 
 		assert.Equal(tt.k, paramKeys)
 		assert.Equal(tt.v, paramValues)
@@ -612,8 +612,8 @@ func TestTreeRegexp(t *testing.T) {
 
 		assert.Equal(tt.h, backend)
 
-		paramKeys := context.RouteParams.Keys
-		paramValues := context.RouteParams.Values
+		paramKeys := context.Params.Keys
+		paramValues := context.Params.Values
 
 		assert.Equal(tt.k, paramKeys)
 		assert.Equal(tt.v, paramValues)
@@ -671,8 +671,8 @@ func TestTreeRegexpRecursive(t *testing.T) {
 
 		assert.Equal(tt.h, backend)
 
-		paramKeys := context.RouteParams.Keys
-		paramValues := context.RouteParams.Values
+		paramKeys := context.Params.Keys
+		paramValues := context.Params.Values
 
 		assert.Equal(tt.k, paramKeys)
 		assert.Equal(tt.v, paramValues)
@@ -949,8 +949,8 @@ func TestRouteRewrite(t *testing.T) {
 		stdr, _ := http.NewRequest(http.MethodGet, test.path, nil)
 		req, _ := httpprot.NewRequest(stdr)
 		context := routers.NewContext(req)
-		context.RouteParams.Keys = test.keys
-		context.RouteParams.Values = test.values
+		context.Params.Keys = test.keys
+		context.Params.Values = test.values
 
 		r := newRoute(&routers.Path{
 			Path:          test.path,
