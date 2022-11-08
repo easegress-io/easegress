@@ -78,11 +78,11 @@ func TestCreateInstance(t *testing.T) {
 	for i := 0; i < len(rules); i++ {
 		rule := rules[i]
 		muxRule := router.rules[i]
-		assert.Equal(len(rule.Paths), len(muxRule.routes))
+		assert.Equal(len(rule.Paths), len(muxRule.paths))
 
 		for j := 0; j < len(rule.Paths); j++ {
 			path := rule.Paths[j]
-			route := muxRule.routes[j]
+			route := muxRule.paths[j]
 
 			if path.PathRegexp != "" {
 				assert.NotNil(route.pathRE)
@@ -101,42 +101,42 @@ func TestMuxRoutePathMatch(t *testing.T) {
 	// 1. match path
 	p := &routers.Path{}
 	p.Init(nil)
-	mp := newRoute(p)
+	mp := newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// exact match
 	p = &routers.Path{Path: "/abc"}
 	p.Init(nil)
-	mp = newRoute(p)
+	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// prefix
 	p = &routers.Path{PathPrefix: "/ab"}
 	p.Init(nil)
-	mp = newRoute(p)
+	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// regexp
 	p = &routers.Path{PathRegexp: "/[a-z]+"}
 	p.Init(nil)
-	mp = newRoute(p)
+	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// invalid regexp
 	p = &routers.Path{PathRegexp: "/[a-z+"}
 	p.Init(nil)
-	mp = newRoute(p)
+	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// not match
 	p = &routers.Path{Path: "/xyz"}
 	p.Init(nil)
-	mp = newRoute(p)
+	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.False(mp.matchPath(path))
 }

@@ -37,14 +37,14 @@ type (
 	nodeType uint8
 
 	// Represents leaf node in radix tree
-	route struct {
+	muxPath struct {
 		routers.Path
 		pattern         string
 		paramKeys       []string
 		rewriteTemplate *template.Template
 	}
 
-	routes []*route
+	paths []*muxPath
 
 	// Represents node and edge in radix tree
 	node struct {
@@ -52,7 +52,7 @@ type (
 		rex *regexp.Regexp
 
 		// HTTP handler endpoints on the leaf node
-		routes []*route
+		paths []*muxPath
 
 		// prefix is the common prefix we ignore
 		prefix string
@@ -76,15 +76,11 @@ type (
 	muxRule struct {
 		routers.Rule
 		root      *node
-		pathCache map[string]routes
+		pathCache map[string]paths
 	}
 
 	radixTreeRouter struct {
 		rules []*muxRule
-	}
-
-	routeParams struct {
-		Keys, Values []string
 	}
 
 	segment struct {
@@ -265,13 +261,13 @@ func (n *node) replaceChild(label, tail byte, child *node) {
 	panic("replacing missing child")
 }
 
-func (n *node) addRoute(path *routers.Path) {
-	if n.routes == nil {
-		n.routes = make([]*route, 0)
+func (n *node) addPath(path *routers.Path) {
+	if n.paths == nil {
+		n.paths = make([]*muxPath, 0)
 	}
 
-	r := newRoute(path)
-	n.routes = append(n.routes, r)
+	mp := newMuxPath(path)
+	n.paths = append(n.paths, mp)
 }
 
 func (n *node) insert(path *routers.Path) {
@@ -284,7 +280,7 @@ func (n *node) insert(path *routers.Path) {
 
 	for {
 		if len(search) == 0 {
-			parent.addRoute(path)
+			parent.addPath(path)
 			break
 		}
 
@@ -299,7 +295,7 @@ func (n *node) insert(path *routers.Path) {
 		if nn == nil {
 			child := &node{label: label, tail: seg.tail, prefix: search}
 			nn = parent.addChild(child, search)
-			nn.addRoute(path)
+			nn.addPath(path)
 			break
 		}
 
@@ -331,7 +327,7 @@ func (n *node) insert(path *routers.Path) {
 
 		search = search[commonPrefix:]
 		if len(search) == 0 {
-			child.addRoute(path)
+			child.addPath(path)
 			break
 		}
 
@@ -342,13 +338,13 @@ func (n *node) insert(path *routers.Path) {
 		}
 
 		nn = child.addChild(grandchild, search)
-		nn.addRoute(path)
+		nn.addPath(path)
 		break
 	}
 }
 
-func (n *node) match(context *routers.RouteContext) *route {
-	for _, r := range n.routes {
+func (n *node) match(context *routers.RouteContext) *muxPath {
+	for _, r := range n.paths {
 		if r.Match(context) {
 			return r
 		}
@@ -357,7 +353,7 @@ func (n *node) match(context *routers.RouteContext) *route {
 	return nil
 }
 
-func (n *node) find(path string, context *routers.RouteContext) *route {
+func (n *node) find(path string, context *routers.RouteContext) *muxPath {
 	for t, nds := range n.children {
 		if len(nds) == 0 {
 			continue
@@ -442,66 +438,66 @@ func (n *node) find(path string, context *routers.RouteContext) *route {
 }
 
 func (n *node) isLeaf() bool {
-	return n.routes != nil
+	return n.paths != nil
 }
 
-func newRoute(path *routers.Path) *route {
+func newMuxPath(path *routers.Path) *muxPath {
 	paramKeys := patParamKeys(path.Path)
 
-	r := &route{
+	mp := &muxPath{
 		Path:      *path,
 		pattern:   path.Path,
 		paramKeys: paramKeys,
 	}
 
-	r.initRewrite()
+	mp.initRewrite()
 
-	return r
+	return mp
 }
 
-func (r *route) initRewrite() {
-	if r.RewriteTarget == "" {
+func (mp *muxPath) initRewrite() {
+	if mp.RewriteTarget == "" {
 		return
 	}
 
-	if strings.Contains(r.RewriteTarget, "*") {
+	if strings.Contains(mp.RewriteTarget, "*") {
 		panic("artRouter RewriteTarget not support '*', please use {eg_wildcard}")
 	}
 
-	rewriteKeys := patParamKeys(r.RewriteTarget)
+	rewriteKeys := patParamKeys(mp.RewriteTarget)
 
 	if len(rewriteKeys) == 0 {
 		// nStatic rewriteTarget
 		return
 	}
 
-	repl := r.RewriteTarget
+	repl := mp.RewriteTarget
 
 	for _, rk := range rewriteKeys {
-		if !stringtool.StrInSlice(rk, r.paramKeys) {
-			panic("artRouter RewriteTarget syntax error: " + r.RewriteTarget)
+		if !stringtool.StrInSlice(rk, mp.paramKeys) {
+			panic("artRouter RewriteTarget syntax error: " + mp.RewriteTarget)
 		}
 		newRk := "{{ ." + rk + "}}"
 		repl = strings.ReplaceAll(repl, "{"+rk+"}", newRk)
 	}
 
-	r.rewriteTemplate = template.Must(template.New("").Parse(repl))
+	mp.rewriteTemplate = template.Must(template.New("").Parse(repl))
 }
 
-func (r *route) Rewrite(context *routers.RouteContext) {
+func (mp *muxPath) Rewrite(context *routers.RouteContext) {
 	req := context.Request
 
-	if r.RewriteTarget == "" {
+	if mp.RewriteTarget == "" {
 		return
 	}
 
-	if r.rewriteTemplate == nil {
-		req.SetPath(r.RewriteTarget)
+	if mp.rewriteTemplate == nil {
+		req.SetPath(mp.RewriteTarget)
 		return
 	}
 
 	var buf bytes.Buffer
-	r.rewriteTemplate.Execute(&buf, context.GetCaptures())
+	mp.rewriteTemplate.Execute(&buf, context.GetCaptures())
 	req.SetPath(buf.String())
 }
 
@@ -509,7 +505,7 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 	mr := &muxRule{
 		Rule:      *rule,
 		root:      &node{},
-		pathCache: make(map[string]routes),
+		pathCache: make(map[string]paths),
 	}
 
 	for _, path := range rule.Paths {
@@ -518,9 +514,9 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 		if seg.nodeType == ntStatic {
 			p := path.Path
 			if _, ok := mr.pathCache[p]; ok {
-				mr.pathCache[p] = append(mr.pathCache[p], newRoute(path))
+				mr.pathCache[p] = append(mr.pathCache[p], newMuxPath(path))
 			} else {
-				mr.pathCache[p] = []*route{newRoute(path)}
+				mr.pathCache[p] = []*muxPath{newMuxPath(path)}
 			}
 		} else {
 			mr.root.insert(path)
@@ -545,20 +541,20 @@ func (r *radixTreeRouter) Search(context *routers.RouteContext) {
 			continue
 		}
 
-		if routes, ok := rule.pathCache[path]; ok {
-			for _, route := range routes {
-				if route.Match(context) {
-					context.Route = route
+		if paths, ok := rule.pathCache[path]; ok {
+			for _, mp := range paths {
+				if mp.Match(context) {
+					context.Route = mp
 					return
 				}
 			}
 		}
 
-		route := rule.root.find(path, context)
+		mp := rule.root.find(path, context)
 
-		if route != nil {
-			context.Route = route
-			context.Params.Keys = append(context.Params.Keys, route.paramKeys...)
+		if mp != nil {
+			context.Route = mp
+			context.Params.Keys = append(context.Params.Keys, mp.paramKeys...)
 			return
 		}
 	}

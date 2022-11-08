@@ -896,11 +896,11 @@ func TestRouteInitWrite(t *testing.T) {
 			Path:          test.path,
 			RewriteTarget: test.rewrite,
 		}
-		var r *route
+		var r *muxPath
 		if test.isPanic {
-			assert.Panics(func() { r = newRoute(path) })
+			assert.Panics(func() { r = newMuxPath(path) })
 		} else {
-			assert.NotPanics(func() { r = newRoute(path) })
+			assert.NotPanics(func() { r = newMuxPath(path) })
 			assert.Equal(test.result, r.rewriteTemplate != nil)
 		}
 
@@ -952,7 +952,7 @@ func TestRouteRewrite(t *testing.T) {
 		context.Params.Keys = test.keys
 		context.Params.Values = test.values
 
-		r := newRoute(&routers.Path{
+		r := newMuxPath(&routers.Path{
 			Path:          test.path,
 			RewriteTarget: test.rewrite,
 		})
