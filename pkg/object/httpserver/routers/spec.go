@@ -125,8 +125,8 @@ func (rule *Rule) Init() {
 	}
 }
 
-// Match is the matching function of rule.
-func (rule *Rule) Match(ctx *RouteContext) bool {
+// MatchHost matches the host of the request to the rule.
+func (rule *Rule) MatchHost(ctx *RouteContext) bool {
 	if rule.Host == "" && rule.hostRE == nil {
 		return true
 	}

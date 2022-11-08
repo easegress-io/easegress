@@ -272,14 +272,14 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}()
 
 	routeCtx := routers.NewContext(req)
-	routeCache := mi.search(routeCtx)
-	if routeCache.code != 0 {
-		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, routeCache.code)
-		buildFailureResponse(ctx, routeCache.code)
+	route := mi.search(routeCtx)
+	if route.code != 0 {
+		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, route.code)
+		buildFailureResponse(ctx, route.code)
 		return
 	}
 
-	backend := routeCache.route.GetBackend()
+	backend := route.route.GetBackend()
 	handler, ok := mi.muxMapper.GetHandler(backend)
 	if !ok {
 		logger.Errorf("%s: backend(Pipeline) %q for [%s %s] not found", mi.superSpec.Name(), req.Method(), req.RequestURI, backend)
@@ -288,12 +288,12 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	}
 	logger.Debugf("%s: the matched backend(Pipeline) for [%s %s] is %q", mi.superSpec.Name(), req.Method(), req.RequestURI, backend)
 
-	routeCache.route.Rewrite(routeCtx)
+	route.route.Rewrite(routeCtx)
 	if mi.spec.XForwardedFor {
 		appendXForwardedFor(req)
 	}
 
-	maxBodySize := routeCache.route.GetClientMaxBodySize()
+	maxBodySize := route.route.GetClientMaxBodySize()
 	if maxBodySize == 0 {
 		maxBodySize = mi.spec.ClientMaxBodySize
 	}

@@ -132,7 +132,7 @@ func (r *orderedRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 
 	for _, rule := range r.rules {
-		if !rule.Match(context) {
+		if !rule.MatchHost(context) {
 			continue
 		}
 

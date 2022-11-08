@@ -530,13 +530,13 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 	return mr
 }
 
-func (ar *radixTreeRouter) Search(context *routers.RouteContext) {
+func (r *radixTreeRouter) Search(context *routers.RouteContext) {
 	path := context.Path
 	req := context.Request
 	ip := req.RealIP()
 
-	for _, rule := range ar.rules {
-		if !rule.Match(context) {
+	for _, rule := range r.rules {
+		if !rule.MatchHost(context) {
 			continue
 		}
 
