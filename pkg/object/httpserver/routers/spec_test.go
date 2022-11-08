@@ -83,22 +83,22 @@ func TestRuleMatch(t *testing.T) {
 	rule.Init()
 
 	assert.NotNil(rule)
-	assert.True(rule.Match(ctx))
+	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{Host: "www.megaease.com"}
 	rule.Init()
 	assert.NotNil(rule)
-	assert.True(rule.Match(ctx))
+	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.com$`}
 	rule.Init()
 	assert.NotNil(rule)
-	assert.True(rule.Match(ctx))
+	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}
 	rule.Init()
 	assert.NotNil(rule)
-	assert.False(rule.Match(ctx))
+	assert.False(rule.MatchHost(ctx))
 }
 
 func TestRuleAllowIP(t *testing.T) {
