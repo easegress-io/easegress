@@ -209,18 +209,18 @@ func TestStickySession_DurationBased(t *testing.T) {
 	svr1 := lb.ChooseServer(r)
 	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
 	lb.ReturnServer(svr1, r, resp)
-	c := readCookie(resp.Cookies(), StickySessionLBCookieNameDefault)
+	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
 
 	for i := 0; i < 100; i++ {
 		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: StickySessionLBCookieNameDefault, Value: c.Value})
+		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
 		r, _ = httpprot.NewRequest(req)
 		svr := lb.ChooseServer(r)
 		assert.Equal(svr1, svr)
 
 		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
 		lb.ReturnServer(svr, r, resp)
-		c = readCookie(resp.Cookies(), StickySessionLBCookieNameDefault)
+		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
 	}
 }
 

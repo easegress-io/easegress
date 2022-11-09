@@ -54,7 +54,7 @@ const (
 	// StickySessionDefaultLBCookieName is the default name of the load balancer-generated cookie.
 	StickySessionDefaultLBCookieName = "EG_SESSION"
 	// StickySessionDefaultLBCookieExpire is the default expiration duration of the load balancer-generated cookie.
-	StickySessionLBCookieExpireDefault = time.Hour * 2
+	StickySessionDefaultLBCookieExpire = time.Hour * 2
 	// KeyLen is the key length used by HMAC.
 	KeyLen = 8
 )
@@ -163,12 +163,12 @@ func (blb *BaseLoadBalancer) initConsistentHash() {
 // initDurationBased initializes for duration based mode
 func (blb *BaseLoadBalancer) initDurationBased() {
 	if blb.spec.StickySession.LBCookieName == "" {
-		blb.spec.StickySession.LBCookieName = StickySessionLBCookieNameDefault
+		blb.spec.StickySession.LBCookieName = StickySessionDefaultLBCookieName
 	}
 
 	blb.cookieExpire, _ = time.ParseDuration(blb.spec.StickySession.LBCookieExpire)
 	if blb.cookieExpire <= 0 {
-		blb.cookieExpire = StickySessionLBCookieExpireDefault
+		blb.cookieExpire = StickySessionDefaultLBCookieExpire
 	}
 }
 
