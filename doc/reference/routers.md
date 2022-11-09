@@ -137,6 +137,47 @@ rules:
 |/users/test | `prefix-backend` |
 |/blog/bar | not match |
 
+Let's take a look at another example to deepen our understanding
+
+```yaml
+kind: HTTPServer
+name: server-demo
+port: 10080
+keepAlive: true
+https: false
+routerKind: RadixTree
+rules:
+  - paths:
+    - path: /user/{username}/123
+      backend: h1
+    - path: /user/wang/{num}
+      backend: h2
+    - path: /{type}/wang/123
+      backend: h3
+```
+
+`/user/wang/123` will match `/user/wang/{num}`, which is determined by the matching order of RadixTree, you can split the path into individual characters, each character follows the matching order of `Full match` -> `Regexp match` -> `Parameter match` -> `Prefix match`, so the final match result is `/user/wang/{num}`.
+
+RadixTree, compared with Ordered, is lost its definition order.
+
+See one more.
+
+```yaml
+kind: HTTPServer
+name: server-demo
+port: 10080
+keepAlive: true
+https: false
+routerKind: RadixTree
+- paths:
+    - path: /users/{u:[a-z]+}sername/hovercard
+      backend: h1
+    - path: /users/u{sername}/hovercard
+      backend: h2
+```
+
+Similarly, `/users/username/hovercard` will match `/users/u{sername}/hovercard` for the same reason as above, so you can try to understand it.
+
 ### Rewrite
 
 Let's take a look at how RadixTree's Path Rewrite feature works. The syntax of Rewrite remains basically the same as that of Path, with a few minor differences.
