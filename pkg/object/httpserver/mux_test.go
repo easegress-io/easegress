@@ -19,6 +19,8 @@ package httpserver
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,205 +30,17 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewIPFilterChain(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.Nil(newIPFilterChain(nil, nil))
-
-	filters := newIPFilterChain(nil, &ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-	})
-	assert.NotNil(filters)
-
-	assert.NotNil(newIPFilterChain(filters, nil))
-}
-
-func TestNewIPFilter(t *testing.T) {
-	assert := assert.New(t)
-	assert.Nil(newIPFilter(nil))
-	assert.NotNil(newIPFilter(&ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-	}))
-}
-
-func TestAllowIP(t *testing.T) {
-	assert := assert.New(t)
-	assert.True(allowIP(nil, "192.168.1.1"))
-	filter := newIPFilter(&ipfilter.Spec{
-		AllowIPs: []string{"192.168.1.0/24"},
-		BlockIPs: []string{"192.168.2.0/24"},
-	})
-	assert.True(allowIP(filter, "192.168.1.1"))
-	assert.False(allowIP(filter, "192.168.2.1"))
-}
-
-func TestMuxRule(t *testing.T) {
-	assert := assert.New(t)
-
-	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080", nil)
-	req, _ := httpprot.NewRequest(stdr)
-
-	rule := newMuxRule(&Rule{}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(&Rule{Host: "www.megaease.com"}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(&Rule{HostRegexp: `^[^.]+\.megaease\.com$`}, nil)
-	assert.NotNil(rule)
-	assert.True(rule.match(req))
-
-	rule = newMuxRule(&Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}, nil)
-	assert.NotNil(rule)
-	assert.False(rule.match(req))
-
-	rule = newMuxRule(
-		&Rule{
-			HostRegexp: `^[^.]+\.megaease\.com$`,
-			Host:       "www.megaease.com",
-			IPFilter: &ipfilter.Spec{
-				AllowIPs: []string{"192.168.1.0/24"},
-				BlockIPs: []string{"192.168.2.0/24"},
-			}}, nil)
-	assert.NotNil(rule)
-	stdr.Header.Set("X-Real-Ip", "192.168.1.7")
-	req, _ = httpprot.NewRequest(stdr)
-	assert.True(rule.match(req))
-}
-
-func TestMuxPath(t *testing.T) {
-	assert := assert.New(t)
-
-	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", nil)
-	req, _ := httpprot.NewRequest(stdr)
-
-	// 1. match path
-	mp := newMuxPath(&Path{})
-	assert.NotNil(mp)
-	assert.True(mp.matchPath(req))
-
-	// exact match
-	mp = newMuxPath(&Path{Path: "/abc"})
-	assert.NotNil(mp)
-	assert.True(mp.matchPath(req))
-
-	// prefix
-	mp = newMuxPath(&Path{PathPrefix: "/ab"})
-	assert.NotNil(mp)
-	assert.True(mp.matchPath(req))
-
-	// regexp
-	mp = newMuxPath(&Path{PathRegexp: "/[a-z]+"})
-	assert.NotNil(mp)
-	assert.True(mp.matchPath(req))
-
-	// invalid regexp
-	mp = newMuxPath(&Path{PathRegexp: "/[a-z+"})
-	assert.NotNil(mp)
-	assert.True(mp.matchPath(req))
-
-	// not match
-	mp = newMuxPath(&Path{Path: "/xyz"})
-	assert.NotNil(mp)
-	assert.False(mp.matchPath(req))
-
-	// 2. match method
-	mp = newMuxPath(&Path{})
-	assert.NotNil(mp)
-	assert.True(mp.matchMethod(req))
-
-	mp = newMuxPath(&Path{Methods: []string{http.MethodGet}})
-	assert.NotNil(mp)
-	assert.True(mp.matchMethod(req))
-
-	mp = newMuxPath(&Path{Methods: []string{http.MethodPut}})
-	assert.NotNil(mp)
-	assert.False(mp.matchMethod(req))
-
-	// 3. match headers
-	stdr.Header.Set("X-Test", "test1")
-
-	mp = newMuxPath(&Path{Headers: []*Header{{
-		Key:    "X-Test",
-		Values: []string{"test1", "test2"},
-	}}})
-	assert.True(mp.matchHeaders(req))
-
-	mp = newMuxPath(&Path{Headers: []*Header{{
-		Key:    "X-Test",
-		Regexp: "test[0-9]",
-	}}})
-	assert.True(mp.matchHeaders(req))
-
-	mp = newMuxPath(&Path{Headers: []*Header{{
-		Key:    "X-Test2",
-		Values: []string{"test1", "test2"},
-	}}})
-	assert.False(mp.matchHeaders(req))
-
-	// 4. rewrite
-	mp = newMuxPath(&Path{Path: "/abc"})
-	assert.NotNil(mp)
-	mp.rewrite(req)
-	assert.Equal("/abc", req.Path())
-
-	mp = newMuxPath(&Path{Path: "/abc", RewriteTarget: "/xyz"})
-	assert.NotNil(mp)
-	mp.rewrite(req)
-	assert.Equal("/xyz", req.Path())
-
-	mp = newMuxPath(&Path{PathPrefix: "/xy", RewriteTarget: "/ab"})
-	assert.NotNil(mp)
-	mp.rewrite(req)
-	assert.Equal("/abz", req.Path())
-
-	mp = newMuxPath(&Path{PathRegexp: "/([a-z]+)", RewriteTarget: "/1$1"})
-	assert.NotNil(mp)
-	mp.rewrite(req)
-	assert.Equal("/1abz", req.Path())
-
-	// 5. match query
-	stdr.URL.RawQuery = "q=v1&q=v2"
-	mp = newMuxPath(&Path{Queries: []*Query{{
-		Key:    "q",
-		Values: []string{"v1", "v2"},
-	}}})
-	assert.True(mp.matchQueries(req))
-
-	mp = newMuxPath(&Path{Queries: []*Query{{
-		Key:    "q",
-		Regexp: "v[0-9]",
-	}}})
-	assert.True(mp.matchQueries(req))
-
-	mp = newMuxPath(&Path{Queries: []*Query{{
-		Key:    "q2",
-		Values: []string{"v1", "v2"},
-	}}})
-	assert.False(mp.matchQueries(req))
-
-	// 6. match client ip
-	mp = newMuxPath(&Path{
-		IPFilter: &ipfilter.Spec{
-			AllowIPs: []string{"192.168.1.0/24"},
-			BlockIPs: []string{"192.168.2.0/24"},
-		},
-	})
-	assert.True(allowIP(mp.ipFilter, "192.168.1.1"))
-	assert.False(allowIP(mp.ipFilter, "192.168.2.2"))
-	assert.False(allowIP(mp.ipFilter, "10.0.1.2"))
-	assert.False(allowIP(mp.ipFilter, "10.0.2.1"))
-
+func init() {
+	logger.InitNop()
 }
 
 func TestMuxReload(t *testing.T) {
@@ -441,6 +255,7 @@ rules:
     backend: 123-pipeline
   - path: /headerAllMatch2
     methods: [GET]
+    matchAllQuery: true
     headers:
     - key: "X-Test"
       values: [test1, test2]
@@ -450,12 +265,14 @@ rules:
     backend: 123-pipeline
   - path: /queryParams
     methods: [GET]
+    matchAllQuery: true
     queries:
     - key: "q"
       values: ["v1", "v2"]
     backend: 123-pipeline
   - path: /queryParamsMultiKey
     methods: [GET]
+    matchAllQuery: true
     queries:
     - key: "q"
       values: ["v1", "v2"]
@@ -464,12 +281,14 @@ rules:
     backend: 123-pipeline
   - path: /queryParamsRegexp
     methods: [GET]
+    matchAllQuery: true
     queries:
     - key: "q2"
       regexp: "^v[0-9]$"
     backend: 123-pipeline
   - path: /queryParamsRegexpAndValues
     methods: [GET]
+    matchAllQuery: true
     queries:
     - key: "q3"
       values: ["v1", "v2"]
@@ -551,253 +370,260 @@ rules:
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.cn/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ := httpprot.NewRequest(stdr)
-	assert.Equal(notFound, mi.search(req))
+	routeCtx := routers.NewContext(req)
+	assert.Equal(notFound, mi.search(routeCtx))
 
 	// blocked IPs
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.1")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(forbidden, mi.search(req))
+	routeCtx = routers.NewContext(req)
+	assert.Equal(forbidden, mi.search(routeCtx))
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.2")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(forbidden, mi.search(req))
+	routeCtx = routers.NewContext(req)
+	assert.Equal(forbidden, mi.search(routeCtx))
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(forbidden, mi.search(req))
+	routeCtx = routers.NewContext(req)
+	assert.Equal(forbidden, mi.search(routeCtx))
 
 	// put to cache
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	routeCtx = routers.NewContext(req)
+	assert.Equal(0, mi.search(routeCtx).code)
 
 	// try again for cached result
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	routeCtx = routers.NewContext(req)
+	assert.Equal(0, mi.search(routeCtx).code)
 
 	// cached result, but blocked by ip
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.1")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(forbidden, mi.search(req))
+	routeCtx = routers.NewContext(req)
+	assert.Equal(forbidden, mi.search(routeCtx))
 
 	// method not allowed
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/xyz", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(methodNotAllowed, mi.search(req))
+	assert.Equal(methodNotAllowed, mi.search(routers.NewContext(req)))
 
 	// has no required header
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/123", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(badRequest, mi.search(req))
+	assert.Equal(badRequest, mi.search(routers.NewContext(req)))
 
 	// success
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/123", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	stdr.Header.Set("X-Test", "test1")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// header all matched
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/headerAllMatch", http.NoBody)
 	stdr.Header.Set("X-Test", "test1")
 	stdr.Header.Set("AllMatch", "true")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// header all matched
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/headerAllMatch", http.NoBody)
 	stdr.Header.Set("X-Test", "test1")
 	stdr.Header.Set("AllMatch", "false")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// header all matched
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/headerAllMatch2", http.NoBody)
 	stdr.Header.Set("X-Test", "test1")
 	stdr.Header.Set("AllMatch", "false")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string single key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
 	v := url.Values{"q": []string{"v1"}}
 	stdr.URL.RawQuery = v.Encode()
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string single key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
 	v = url.Values{"q": []string{"v1", "v2"}}
 	stdr.URL.RawQuery = v.Encode()
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string single key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParams", http.NoBody)
 	stdr.URL.RawQuery = "q=v1"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string multi key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
 	v = url.Values{"q": []string{"v1", "v3"}, "q2": []string{"v6"}}
 	stdr.URL.RawQuery = v.Encode()
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string multi key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
 	v = url.Values{"q": []string{"v1", "v3"}}
 	stdr.URL.RawQuery = v.Encode()
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string multi key
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsMultiKey", http.NoBody)
 	v = url.Values{"q": []string{"v1", "v3"}, "q2": []string{"v3"}}
 	stdr.URL.RawQuery = v.Encode()
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexp", http.NoBody)
 	stdr.URL.RawQuery = "q2=v1"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexp", http.NoBody)
 	stdr.URL.RawQuery = "q2=vv"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
 	stdr.URL.RawQuery = "q3=v2"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
 	stdr.URL.RawQuery = "q3=v1&q3=v4"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
 	stdr.URL.RawQuery = "q3=v4"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues", http.NoBody)
 	stdr.URL.RawQuery = "q3=v4"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
 	stdr.URL.RawQuery = "id=011&&id=baz"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
 	stdr.URL.RawQuery = "id=baz&&id=011"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// query string values and regexp
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/queryParamsRegexpAndValues2", http.NoBody)
 	stdr.URL.RawQuery = "id=baz"
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(400, mi.search(req).code)
+	assert.Equal(400, mi.search(routers.NewContext(req)).code)
 
 	// client ip with blockIPs
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.4")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("abc-pipeline-3", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("abc-pipeline-3", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.2")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
+	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithBlockIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	// client ip with allowIPs
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("abc-pipeline-default", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("abc-pipeline-default", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.6")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs2", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.9")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal("abc-pipeline-default", mi.search(req).path.backend)
+	assert.Equal("abc-pipeline-default", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	// client ip
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.6")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
+	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.7")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("abc-pipeline", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("abc-pipeline", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://www.megaease.com/clientIPsWithAllowIPs3", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.8")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("123-pipeline", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("123-pipeline", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.2")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("host2-abc-pipeline", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("host2-abc-pipeline", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.3")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(0, mi.search(req).code)
-	assert.Equal("host2-abc-pipeline", mi.search(req).path.backend)
+	assert.Equal(0, mi.search(routers.NewContext(req)).code)
+	assert.Equal("host2-abc-pipeline", mi.search(routers.NewContext(req)).route.GetBackend())
 
 	stdr, _ = http.NewRequest(http.MethodGet, "http://1.megaease.com/abc", http.NoBody)
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
-	assert.Equal(403, mi.search(req).code)
+	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
 }

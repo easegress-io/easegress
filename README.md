@@ -6,7 +6,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
 
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
@@ -144,7 +144,7 @@ We can download the latest or history binaries from the
 [release page](https://github.com/megaease/easegress/releases). The following
 shell script will:
 
-- Download and extract the latest binaries to `./easegress` folder  
+- Download and extract the latest binaries to `./easegress` folder
 - Install the Easegress Systemd service.
 
 ```bash

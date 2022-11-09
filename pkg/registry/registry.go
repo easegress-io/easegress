@@ -58,4 +58,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
+
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
 )
