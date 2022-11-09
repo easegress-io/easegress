@@ -29,9 +29,9 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
-// art-router implementation below is a based on the original work by
+// radixtree-router implementation below is a based on the original work by
 // go-chi in https://github.com/go-chi/chi/blob/master/tree.go
-// (MIT licensed). It's been heavily modified for use as a HTTP router.
+// (MIT licensed). It's been heavily modified for use as an HTTP router.
 
 type (
 	nodeType uint8
@@ -100,7 +100,7 @@ const (
 	ntCatchAll                 // /api/v1/*
 )
 
-const egWildcard = "eg_wildcard"
+const egWildcard = "EG_WILDCARD"
 
 var kind = &routers.Kind{
 	Name:        "RadixTree",
@@ -461,7 +461,7 @@ func (mp *muxPath) initRewrite() {
 	}
 
 	if strings.Contains(mp.RewriteTarget, "*") {
-		panic("artRouter RewriteTarget not support '*', please use {eg_wildcard}")
+		panic("artRouter RewriteTarget not support '*', please use {EG_WILDCARD}")
 	}
 
 	rewriteKeys := patParamKeys(mp.RewriteTarget)

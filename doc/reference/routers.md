@@ -158,7 +158,7 @@ rules:
 
 `/user/wang/123` will match `/user/wang/{num}`, which is determined by the matching order of RadixTree, you can split the path into individual characters, each character follows the matching order of `Full match` -> `Regexp match` -> `Parameter match` -> `Prefix match`, so the final match result is `/user/wang/{num}`.
 
-RadixTree, compared with Ordered, is lost its definition order.
+RadixTree, compared with Ordered, has lost its definition order.
 
 See one more.
 
@@ -198,7 +198,7 @@ rules:
       rewriteTarget: /api/users/{username}/card
       backend: regexp-backend
     - path: /users/*
-      rewriteTarget: /api/users/{eg_wildcard}
+      rewriteTarget: /api/users/{EG_WILDCARD}
       backend: prefix-backend
     - path: /users/aniaan/hovercard
       rewriteTarget: /api/users/aniaan/card
@@ -212,4 +212,4 @@ rules:
 |/users/localvar/hovercard | `regexp-backend` |  /api/users/localvar/card |
 |/users/test | `prefix-backend` | /api/users/test |
 
-You can see that only the wildcard `*` needs to be replaced by the built-in variable `eg_wildcard`.
+You can see that only the wildcard `*` needs to be replaced by the built-in variable `EG_WILDCARD`.

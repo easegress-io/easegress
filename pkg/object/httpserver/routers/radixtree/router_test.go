@@ -885,7 +885,7 @@ func TestRouteInitWrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/{demo}/*",
-			rewrite: "/api/activity/ex/{name}/popup/{demo}/{eg_wildcard}",
+			rewrite: "/api/activity/ex/{name}/popup/{demo}/{EG_WILDCARD}",
 			result:  true,
 			isPanic: false,
 		},
@@ -938,8 +938,8 @@ func TestRouteRewrite(t *testing.T) {
 
 		{
 			path:    "/{name}/test/*",
-			rewrite: "/api/activity/ex/{name}/popup/{eg_wildcard}",
-			keys:    []string{"name", "eg_wildcard"},
+			rewrite: "/api/activity/ex/{name}/popup/{EG_WILDCARD}",
+			keys:    []string{"name", "EG_WILDCARD"},
 			values:  []string{"v1", "v2"},
 			result:  "/api/activity/ex/v1/popup/v2",
 		},
