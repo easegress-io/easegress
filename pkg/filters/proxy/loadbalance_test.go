@@ -194,14 +194,14 @@ func TestStickySession_ConsistentHash(t *testing.T) {
 	}
 }
 
-func TestStickySession_ServerMatch(t *testing.T) {
+func TestStickySession_DurationBased(t *testing.T) {
 	assert := assert.New(t)
 
 	servers := prepareServers(10)
 	lb := NewLoadBalancer(&LoadBalanceSpec{
 		Policy: LoadBalancePolicyRandom,
 		StickySession: &StickySessionSpec{
-			Mode: StickySessionModeCookieServerMatch,
+			Mode: StickySessionModeDurationBased,
 		},
 	}, servers)
 
