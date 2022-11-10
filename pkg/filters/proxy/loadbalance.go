@@ -51,6 +51,8 @@ const (
 	StickySessionModeCookieConsistentHash = "CookieConsistentHash"
 	// StickySessionModeDurationBased uses a load balancer-generated cookie for stickiness.
 	StickySessionModeDurationBased = "DurationBased"
+	// StickySessionModeApplicationBased uses a load balancer-generated cookie depends on app cookie for stickiness.
+	StickySessionModeApplicationBased = "ApplicationBased"
 	// StickySessionDefaultLBCookieName is the default name of the load balancer-generated cookie.
 	StickySessionDefaultLBCookieName = "EG_SESSION"
 	// StickySessionDefaultLBCookieExpire is the default expiration duration of the load balancer-generated cookie.
@@ -67,12 +69,12 @@ type LoadBalancer interface {
 
 // StickySessionSpec is the spec for sticky session.
 type StickySessionSpec struct {
-	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash,enum=DurationBased"`
-	// AppCookieName is the user-defined cookie name in CookieConsistentHash mode.
+	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash,enum=DurationBased,enum=ApplicationBased"`
+	// AppCookieName is the user-defined cookie name in CookieConsistentHash and ApplicationBased mode.
 	AppCookieName string `json:"appCookieName" jsonschema:"omitempty"`
-	// LBCookieName is the generated cookie name in DurationBased mode.
+	// LBCookieName is the generated cookie name in DurationBased and ApplicationBased mode.
 	LBCookieName string `json:"lbCookieName" jsonschema:"omitempty"`
-	// LBCookieExpire is the expire seconds of generated cookie in DurationBased mode.
+	// LBCookieExpire is the expire seconds of generated cookie in DurationBased and ApplicationBased mode.
 	LBCookieExpire string `json:"lbCookieExpire" jsonschema:"omitempty,format=duration"`
 }
 
@@ -139,8 +141,8 @@ func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
 	switch spec.StickySession.Mode {
 	case StickySessionModeCookieConsistentHash:
 		blb.initConsistentHash()
-	case StickySessionModeDurationBased:
-		blb.initDurationBased()
+	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
+		blb.configLBCookie()
 	}
 }
 
@@ -160,8 +162,8 @@ func (blb *BaseLoadBalancer) initConsistentHash() {
 	blb.consistentHash = consistent.New(members, cfg)
 }
 
-// initDurationBased initializes for duration based mode
-func (blb *BaseLoadBalancer) initDurationBased() {
+// configLBCookie configures properties for load balancer-generated cookie
+func (blb *BaseLoadBalancer) configLBCookie() {
 	if blb.spec.StickySession.LBCookieName == "" {
 		blb.spec.StickySession.LBCookieName = StickySessionDefaultLBCookieName
 	}
@@ -181,8 +183,8 @@ func (blb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	switch blb.spec.StickySession.Mode {
 	case StickySessionModeCookieConsistentHash:
 		return blb.chooseServerByConsistentHash(req)
-	case StickySessionModeDurationBased:
-		return blb.chooseServerByDurationBased(req)
+	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
+		return blb.chooseServerByLBCookie(req)
 	}
 
 	return nil
@@ -203,8 +205,8 @@ func (blb *BaseLoadBalancer) chooseServerByConsistentHash(req *httpprot.Request)
 	return nil
 }
 
-// chooseServerByDurationBased chooses server by matching server
-func (blb *BaseLoadBalancer) chooseServerByDurationBased(req *httpprot.Request) *Server {
+// chooseServerByLBCookie chooses server by load balancer-generated cookie
+func (blb *BaseLoadBalancer) chooseServerByLBCookie(req *httpprot.Request) *Server {
 	cookie, err := req.Cookie(blb.spec.StickySession.LBCookieName)
 	if err != nil {
 		return nil
@@ -235,8 +237,19 @@ func (blb *BaseLoadBalancer) ReturnServer(server *Server, req *httpprot.Request,
 		return
 	}
 
+	setCookie := false
 	switch blb.spec.StickySession.Mode {
 	case StickySessionModeDurationBased:
+		setCookie = true
+	case StickySessionModeApplicationBased:
+		for _, c := range resp.Cookies() {
+			if c.Name == blb.spec.StickySession.AppCookieName {
+				setCookie = true
+				break
+			}
+		}
+	}
+	if setCookie {
 		cookie := &http.Cookie{
 			Name:    blb.spec.StickySession.LBCookieName,
 			Value:   sign([]byte(server.ID())),

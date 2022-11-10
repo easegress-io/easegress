@@ -224,6 +224,40 @@ func TestStickySession_DurationBased(t *testing.T) {
 	}
 }
 
+func TestStickySession_ApplicationBased(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	appCookieName := "x-app-cookie"
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode:          StickySessionModeApplicationBased,
+			AppCookieName: appCookieName,
+		},
+	}, servers)
+
+	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
+	svr1 := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
+	lb.ReturnServer(svr1, r, resp)
+	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+
+	for i := 0; i < 100; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
+		r, _ = httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
+
+		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
+		resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
+		lb.ReturnServer(svr, r, resp)
+		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+	}
+}
+
 func BenchmarkSign(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		sign([]byte("192.168.1.2"))
