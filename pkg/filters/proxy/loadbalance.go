@@ -18,10 +18,17 @@
 package proxy
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"hash/fnv"
+	"hash/maphash"
 	"math/rand"
+	"net/http"
 	"sync/atomic"
+	"time"
 
 	"github.com/buraksezer/consistent"
 	"github.com/megaease/easegress/pkg/logger"
@@ -40,18 +47,35 @@ const (
 	LoadBalancePolicyIPHash = "ipHash"
 	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
 	LoadBalancePolicyHeaderHash = "headerHash"
+	// StickySessionModeCookieConsistentHash is the sticky session mode of consistent hash on app cookie.
+	StickySessionModeCookieConsistentHash = "CookieConsistentHash"
+	// StickySessionModeDurationBased uses a load balancer-generated cookie for stickiness.
+	StickySessionModeDurationBased = "DurationBased"
+	// StickySessionModeApplicationBased uses a load balancer-generated cookie depends on app cookie for stickiness.
+	StickySessionModeApplicationBased = "ApplicationBased"
+	// StickySessionDefaultLBCookieName is the default name of the load balancer-generated cookie.
+	StickySessionDefaultLBCookieName = "EG_SESSION"
+	// StickySessionDefaultLBCookieExpire is the default expiration duration of the load balancer-generated cookie.
+	StickySessionDefaultLBCookieExpire = time.Hour * 2
+	// KeyLen is the key length used by HMAC.
+	KeyLen = 8
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
+	ReturnServer(server *Server, req *httpprot.Request, resp *httpprot.Response)
 }
 
 // StickySessionSpec is the spec for sticky session.
 type StickySessionSpec struct {
-	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash"`
-	// AppCookieName need to be omitempty when we support other sticky mode.
-	AppCookieName string `json:"appCookieName" jsonschema:"required"`
+	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash,enum=DurationBased,enum=ApplicationBased"`
+	// AppCookieName is the user-defined cookie name in CookieConsistentHash and ApplicationBased mode.
+	AppCookieName string `json:"appCookieName" jsonschema:"omitempty"`
+	// LBCookieName is the generated cookie name in DurationBased and ApplicationBased mode.
+	LBCookieName string `json:"lbCookieName" jsonschema:"omitempty"`
+	// LBCookieExpire is the expire seconds of generated cookie in DurationBased and ApplicationBased mode.
+	LBCookieExpire string `json:"lbCookieExpire" jsonschema:"omitempty,format=duration"`
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
@@ -103,6 +127,7 @@ type BaseLoadBalancer struct {
 	spec           *LoadBalanceSpec
 	Servers        []*Server
 	consistentHash *consistent.Consistent
+	cookieExpire   time.Duration
 }
 
 func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
@@ -113,9 +138,18 @@ func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
 		return
 	}
 
-	// For now, we only support HeaderConsistentHash & CookieConsistentHash
-	members := make([]consistent.Member, len(servers))
-	for i, s := range servers {
+	switch spec.StickySession.Mode {
+	case StickySessionModeCookieConsistentHash:
+		blb.initConsistentHash()
+	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
+		blb.configLBCookie()
+	}
+}
+
+// initConsistentHash initializes for consistent hash mode
+func (blb *BaseLoadBalancer) initConsistentHash() {
+	members := make([]consistent.Member, len(blb.Servers))
+	for i, s := range blb.Servers {
 		members[i] = hashMember{server: s}
 	}
 
@@ -128,12 +162,36 @@ func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
 	blb.consistentHash = consistent.New(members, cfg)
 }
 
+// configLBCookie configures properties for load balancer-generated cookie
+func (blb *BaseLoadBalancer) configLBCookie() {
+	if blb.spec.StickySession.LBCookieName == "" {
+		blb.spec.StickySession.LBCookieName = StickySessionDefaultLBCookieName
+	}
+
+	blb.cookieExpire, _ = time.ParseDuration(blb.spec.StickySession.LBCookieExpire)
+	if blb.cookieExpire <= 0 {
+		blb.cookieExpire = StickySessionDefaultLBCookieExpire
+	}
+}
+
 // ChooseServer chooses the sticky server if enable
 func (blb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	if blb.spec.StickySession == nil {
 		return nil
 	}
 
+	switch blb.spec.StickySession.Mode {
+	case StickySessionModeCookieConsistentHash:
+		return blb.chooseServerByConsistentHash(req)
+	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
+		return blb.chooseServerByLBCookie(req)
+	}
+
+	return nil
+}
+
+// chooseServerByConsistentHash chooses server using consistent hash on cookie
+func (blb *BaseLoadBalancer) chooseServerByConsistentHash(req *httpprot.Request) *Server {
 	cookie, err := req.Cookie(blb.spec.StickySession.AppCookieName)
 	if err != nil {
 		return nil
@@ -145,6 +203,75 @@ func (blb *BaseLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	}
 
 	return nil
+}
+
+// chooseServerByLBCookie chooses server by load balancer-generated cookie
+func (blb *BaseLoadBalancer) chooseServerByLBCookie(req *httpprot.Request) *Server {
+	cookie, err := req.Cookie(blb.spec.StickySession.LBCookieName)
+	if err != nil {
+		return nil
+	}
+
+	signed, err := hex.DecodeString(cookie.Value)
+	if err != nil || len(signed) != KeyLen+sha256.Size {
+		return nil
+	}
+
+	key := signed[:KeyLen]
+	macBytes := signed[KeyLen:]
+	for _, s := range blb.Servers {
+		mac := hmac.New(sha256.New, key)
+		mac.Write([]byte(s.ID()))
+		expected := mac.Sum(nil)
+		if hmac.Equal(expected, macBytes) {
+			return s
+		}
+	}
+
+	return nil
+}
+
+// ReturnServer does some custom work before return server
+func (blb *BaseLoadBalancer) ReturnServer(server *Server, req *httpprot.Request, resp *httpprot.Response) {
+	if blb.spec.StickySession == nil {
+		return
+	}
+
+	setCookie := false
+	switch blb.spec.StickySession.Mode {
+	case StickySessionModeDurationBased:
+		setCookie = true
+	case StickySessionModeApplicationBased:
+		for _, c := range resp.Cookies() {
+			if c.Name == blb.spec.StickySession.AppCookieName {
+				setCookie = true
+				break
+			}
+		}
+	}
+	if setCookie {
+		cookie := &http.Cookie{
+			Name:    blb.spec.StickySession.LBCookieName,
+			Value:   sign([]byte(server.ID())),
+			Expires: time.Now().Add(blb.cookieExpire),
+		}
+		resp.SetCookie(cookie)
+	}
+}
+
+// sign signs plain text byte array to encoded string
+func sign(plain []byte) string {
+	signed := make([]byte, KeyLen+sha256.Size)
+	key := signed[:KeyLen]
+	macBytes := signed[KeyLen:]
+
+	// use maphash to generate random key fast
+	binary.LittleEndian.PutUint64(key, new(maphash.Hash).Sum64())
+	mac := hmac.New(sha256.New, key)
+	mac.Write(plain)
+	mac.Sum(macBytes[:0])
+
+	return hex.EncodeToString(signed)
 }
 
 // randomLoadBalancer does load balancing in a random manner.
