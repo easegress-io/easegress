@@ -1066,9 +1066,9 @@ After OIDCAdaptor handled, following OIDC related information can be obtained fr
 ## OPAFilter
 The [Open Policy Agent (OPA)](https://www.openpolicyagent.org/docs/latest/) is an open source, 
 general-purpose policy engine that unifies policy enforcement across the stack. It provides a 
-high-level declarative language, we can specify policy as code to enforce policies in 
-Easegress API Gateway. There are 185 builtin operators including functions we can use 
-like examples `net.cidr_contains` and `contains`.
+high-level declarative language, which can be used to define and enforce policies in 
+Easegress API Gateway. Currently, there are 160+ built-in operators and functions we can use, 
+for examples `net.cidr_contains` and `contains`.
 
 ```yaml
 name: demo-pipeline
@@ -1093,7 +1093,7 @@ filters:
       }
 ```
 
-The following table input request fields can be used in OPA policy to help make policy decision enforcement
+The following table lists input request fields that can be used in an OPA policy to help enforce it.
 
 | Name                     | Type   | Description                                                           | Example                              |
 |--------------------------|--------|-----------------------------------------------------------------------|--------------------------------------|
@@ -1110,12 +1110,12 @@ The following table input request fields can be used in OPA policy to help make 
 
 ### Configuration
 
-| Name             | Type   | Description                                                                                                            | Required |
-|------------------|--------|------------------------------------------------------------------------------------------------------------------------|----------|
-| defaultStatus    | int    | The default http status code when request is denied by OPA policy decision                                             | No       |
-| readBody         | bool   | Whether to read request body as OPA policy data on condition than body can be cast to string                           | No       |
-| includedHeaders  | string | Used to configure which HTTP headers should be included in `input.request.headers`, <br/>comma-separated header names  | No       |
-| policy           | string | The OPA policy written using Rego declarative language                                                                 | Yes      |
+| Name             | Type   | Description                                                                          | Required |
+|------------------|--------|--------------------------------------------------------------------------------------|----------|
+| defaultStatus    | int    | The default HTTP status code when request is denied by the OPA policy decision       | No       |
+| readBody         | bool   | Whether to read request body as OPA policy data on condition                         | No       |
+| includedHeaders  | string | Names of the HTTP headers to be included in `input.request.headers`, comma-separated | No       |
+| policy           | string | The OPA policy written in the Rego declarative language                              | Yes      |
 
 ### Results
 | Value     | Description                                   |

@@ -18,16 +18,15 @@
 package opafilter
 
 import (
-	"bytes"
 	stdctx "context"
-	"encoding/json"
 	"errors"
-	"io"
+	"fmt"
 	"net/textproto"
 	"strings"
 	"time"
 
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/spf13/cast"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -47,13 +46,6 @@ var (
 	errOpaNoResult          = errors.New("received no results from rego policy. Are you setting data.http.allow")
 	errOpaInvalidResultType = errors.New("got an invalid type from repo policy. Only a boolean or map is valid")
 )
-
-// RegoResult is the expected result from rego policy.
-type RegoResult struct {
-	Allow             bool              `json:"allow"`
-	AdditionalHeaders map[string]string `json:"additional_headers,omitempty"`
-	StatusCode        int               `json:"status_code,omitempty"`
-}
 
 var kind = &filters.Kind{
 	Name:        kindName,
@@ -120,7 +112,7 @@ func (o *OPAFilter) Init() {
 	).PrepareForEval(ctx)
 	defer cancelFunc()
 	if err != nil {
-		logger.Errorf("create PrepareForEval rego query error: %s", err)
+		panic(fmt.Sprintf("cannot create PrepareForEval rego query: %s", err))
 	} else {
 		o.regoQuery = &query
 	}
@@ -159,10 +151,12 @@ func (o *OPAFilter) evalRequest(r *httpprot.Request, w *httpprot.Response) strin
 
 	var body string
 	if o.spec.ReadBody {
-		buf, _ := io.ReadAll(r.Body)
-		body = string(buf)
-		// Put the body back in the request
-		r.Body = io.NopCloser(bytes.NewBuffer(buf))
+		_ = r.FetchPayload(0)
+		if !r.IsStream() {
+			body = string(r.RawPayload())
+		} else {
+			logger.Errorf("body is stream, cannot set as input request body")
+		}
 	}
 	pathParts := strings.Split(strings.Trim(r.Path(), "/"), "/")
 	input := map[string]any{
@@ -190,47 +184,47 @@ func (o *OPAFilter) evalRequest(r *httpprot.Request, w *httpprot.Response) strin
 	if err != nil {
 		return o.opaError(w, err)
 	}
-	if *bp {
+	if bp {
 		return ""
 	}
 	return resultFiltered
 }
 
-func boolP(val bool) *bool {
-	return &val
-}
-
-func (o *OPAFilter) handleRegoResult(w *httpprot.Response, result any) (*bool, error) {
+func (o *OPAFilter) handleRegoResult(w *httpprot.Response, result any) (bool, error) {
 	if allowed, ok := result.(bool); ok {
 		if !allowed {
 			w.SetStatusCode(o.spec.DefaultStatus)
-			return boolP(false), nil
+			return false, nil
 		}
-		return boolP(true), nil
+		return true, nil
 	}
-	if _, ok := result.(map[string]any); !ok {
-		return nil, errOpaInvalidResultType
+	var resMap map[string]any
+	resMap, ok := result.(map[string]any)
+	if !ok {
+		return false, errOpaInvalidResultType
 	}
-	marshaled, err := json.Marshal(result)
-	if err != nil {
-		return nil, errOpaInvalidResultType
+	var allow bool
+	if a, exists := resMap["allow"]; exists {
+		allow = cast.ToBool(a)
 	}
-	regoResult := RegoResult{
-		// By default, a non-allowed request with return a 403 response.
-		StatusCode:        o.spec.DefaultStatus,
-		AdditionalHeaders: make(map[string]string),
+	if _, exists := resMap["additional_headers"]; exists {
+		if aHeaders, ok := resMap["additional_headers"].(map[string]any); ok {
+			for key, value := range aHeaders {
+				w.Header().Set(key, value)
+			}
+		}
 	}
-	if err = json.Unmarshal(marshaled, &regoResult); err != nil {
-		return nil, errOpaInvalidResultType
+	if sc, exists := resMap["status_code"]; exists {
+		isc, err := cast.ToIntE(sc)
+		if err != nil {
+			logger.Errorf("cannot cast status_code to int: %s", err)
+		} else {
+			if !allow {
+				w.SetStatusCode(isc)
+			}
+		}
 	}
-	// Set the headers on the ongoing request (overriding as necessary)
-	for key, value := range regoResult.AdditionalHeaders {
-		w.Header().Set(key, value)
-	}
-	if !regoResult.Allow {
-		w.SetStatusCode(regoResult.StatusCode)
-	}
-	return boolP(regoResult.Allow), nil
+	return allow, nil
 }
 
 func (o *OPAFilter) opaError(resp *httpprot.Response, err error) string {
