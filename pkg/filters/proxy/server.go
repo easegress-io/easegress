@@ -75,6 +75,13 @@ func (s *Server) checkAddrPattern() {
 	s.addrIsHostName = net.ParseIP(host) == nil
 }
 
+// healthy return health status
+func (s *Server) healthy() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return !s.unhealthy
+}
+
 // recordHealth records health status, return true if status changes
 func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) bool {
 	s.mu.Lock()

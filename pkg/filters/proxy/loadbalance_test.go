@@ -276,16 +276,16 @@ func TestHealthCheck(t *testing.T) {
 		},
 	}, servers)
 	for _, svr := range servers {
-		assert.True(!svr.unhealthy)
+		assert.True(svr.healthy())
 	}
 
 	time.Sleep(5 * time.Second)
 	for _, svr := range servers {
-		assert.True(!svr.unhealthy)
+		assert.True(svr.healthy())
 	}
 
 	time.Sleep(5 * time.Second)
 	for _, svr := range servers {
-		assert.True(svr.unhealthy)
+		assert.True(!svr.healthy())
 	}
 }

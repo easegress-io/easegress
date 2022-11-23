@@ -214,7 +214,7 @@ func (blb *BaseLoadBalancer) probeServers() {
 	if statusChange {
 		healthyServers := make([]*Server, len(blb.Servers))
 		for _, svr := range blb.Servers {
-			if !svr.unhealthy {
+			if svr.healthy() {
 				healthyServers = append(healthyServers, svr)
 			}
 		}
