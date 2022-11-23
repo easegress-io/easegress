@@ -22,6 +22,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
@@ -36,6 +37,7 @@ type Server struct {
 	unhealthy      bool
 	fails          int
 	passes         int
+	mu             sync.Mutex
 }
 
 // String implements the Stringer interface.
@@ -75,6 +77,8 @@ func (s *Server) checkAddrPattern() {
 
 // recordHealth records health status, return true if status changes
 func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if pass {
 		s.passes++
 		s.fails = 0
