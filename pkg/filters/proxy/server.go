@@ -22,6 +22,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 // Server is proxy server.
@@ -31,6 +33,9 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
+	unhealthy      bool
+	fails          int
+	passes         int
 }
 
 // String implements the Stringer interface.
@@ -66,4 +71,26 @@ func (s *Server) checkAddrPattern() {
 	}
 
 	s.addrIsHostName = net.ParseIP(host) == nil
+}
+
+// recordHealth records health status, return true if status changes
+func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) bool {
+	if pass {
+		s.passes++
+		s.fails = 0
+	} else {
+		s.passes = 0
+		s.fails++
+	}
+	if s.passes >= passThrehold && s.unhealthy {
+		s.unhealthy = false
+		logger.Warnf("server:%v becomes healthy.", s.ID())
+		return true
+	}
+	if s.fails >= failThrehold && !s.unhealthy {
+		logger.Warnf("server:%v becomes unhealthy!", s.ID())
+		s.unhealthy = true
+		return true
+	}
+	return false
 }

@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
@@ -261,5 +262,30 @@ func TestStickySession_ApplicationBased(t *testing.T) {
 func BenchmarkSign(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		sign([]byte("192.168.1.2"))
+	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+	servers := prepareServers(3)
+	NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		HealthCheck: &HealthCheckSpec{
+			Interval: 3,
+			Fails:    2,
+		},
+	}, servers)
+	for _, svr := range servers {
+		assert.True(!svr.unhealthy)
+	}
+
+	time.Sleep(5 * time.Second)
+	for _, svr := range servers {
+		assert.True(!svr.unhealthy)
+	}
+
+	time.Sleep(5 * time.Second)
+	for _, svr := range servers {
+		assert.True(svr.unhealthy)
 	}
 }

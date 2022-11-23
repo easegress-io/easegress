@@ -59,6 +59,12 @@ const (
 	StickySessionDefaultLBCookieExpire = time.Hour * 2
 	// KeyLen is the key length used by HMAC.
 	KeyLen = 8
+	// HealthCheckDefaultTimeout is the default timeout for health check
+	HealthCheckDefaultTimeout = 3
+	// HealthCheckDefaultFailThrehold is the default fail threhold for health check
+	HealthCheckDefaultFailThrehold = 1
+	// HealthCheckDefaultPassThrehold is the default pass threhold for health check
+	HealthCheckDefaultPassThrehold = 1
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
@@ -78,11 +84,26 @@ type StickySessionSpec struct {
 	LBCookieExpire string `json:"lbCookieExpire" jsonschema:"omitempty,format=duration"`
 }
 
+// HealthCheckSpec is the spec for health check.
+type HealthCheckSpec struct {
+	// Interval is the interval seconds for health check, default is 0 which means not to check health.
+	Interval int `json:"interval" jsonschema:"omitempty,minimum=1"`
+	// Path is the health check path for server
+	Path string `json:"path" jsonschema:"omitempty"`
+	// Timeout is the timeout seconds for health check, default is 3.
+	Timeout int `json:"timeout" jsonschema:"omitempty,minimum=1"`
+	// Fails is the consecutive fails count for assert fail, default is 1.
+	Fails int `json:"fails" jsonschema:"omitempty,minimum=1"`
+	// Passes is the consecutive passes count for assert pass, default is 1.
+	Passes int `json:"passes" jsonschema:"omitempty,minimum=1"`
+}
+
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
 	Policy        string             `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
 	HeaderHashKey string             `json:"headerHashKey" jsonschema:"omitempty"`
 	StickySession *StickySessionSpec `json:"stickySession" jsonschema:"omitempty"`
+	HealthCheck   *HealthCheckSpec   `json:"healthCheck" jsonschema:"omitempty"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
@@ -126,19 +147,29 @@ func (h hasher) Sum64(data []byte) uint64 {
 type BaseLoadBalancer struct {
 	spec           *LoadBalanceSpec
 	Servers        []*Server
+	healthyServers []*Server
 	consistentHash *consistent.Consistent
 	cookieExpire   time.Duration
+	probeClient    *http.Client
 }
 
+// init initializes load balancer
 func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
 	blb.spec = spec
 	blb.Servers = servers
+	blb.healthyServers = servers
 
-	if spec.StickySession == nil || len(servers) == 0 {
+	blb.initStickySession(spec.StickySession, blb.healthyServers)
+	blb.initHealthCheck(spec.HealthCheck, servers)
+}
+
+// initStickySession initializes for sticky session
+func (blb *BaseLoadBalancer) initStickySession(spec *StickySessionSpec, servers []*Server) {
+	if spec == nil || len(servers) == 0 {
 		return
 	}
 
-	switch spec.StickySession.Mode {
+	switch spec.Mode {
 	case StickySessionModeCookieConsistentHash:
 		blb.initConsistentHash()
 	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
@@ -146,10 +177,69 @@ func (blb *BaseLoadBalancer) init(spec *LoadBalanceSpec, servers []*Server) {
 	}
 }
 
+// initHealthCheck initializes for health check
+func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*Server) {
+	if spec == nil || spec.Interval == 0 || len(servers) == 0 {
+		return
+	}
+
+	if spec.Timeout == 0 {
+		spec.Timeout = HealthCheckDefaultTimeout
+	}
+	if spec.Fails == 0 {
+		spec.Fails = HealthCheckDefaultFailThrehold
+	}
+	if spec.Passes == 0 {
+		spec.Passes = HealthCheckDefaultPassThrehold
+	}
+	blb.probeClient = &http.Client{Timeout: time.Duration(spec.Timeout) * time.Second}
+	t := time.NewTicker(time.Duration(spec.Interval) * time.Second)
+	go func(t *time.Ticker) {
+		for {
+			<-t.C
+			blb.probeServers()
+		}
+	}(t)
+}
+
+// probeServers checks health status of servers
+func (blb *BaseLoadBalancer) probeServers() {
+	statusChange := false
+	for _, svr := range blb.Servers {
+		pass := blb.probeHTTP(svr.URL)
+		if svr.recordHealth(pass, blb.spec.HealthCheck.Passes, blb.spec.HealthCheck.Fails) {
+			statusChange = true
+		}
+	}
+	if statusChange {
+		healthyServers := make([]*Server, len(blb.Servers))
+		for _, svr := range blb.Servers {
+			if !svr.unhealthy {
+				healthyServers = append(healthyServers, svr)
+			}
+		}
+		blb.healthyServers = healthyServers
+		// init consistent hash in sticky session when servers change
+		blb.initStickySession(blb.spec.StickySession, blb.healthyServers)
+	}
+}
+
+// probeHTTP checks http url status
+func (blb *BaseLoadBalancer) probeHTTP(url string) bool {
+	if blb.spec.HealthCheck.Path != "" {
+		url += blb.spec.HealthCheck.Path
+	}
+	res, err := blb.probeClient.Get(url)
+	if err != nil || res.StatusCode > 500 {
+		return false
+	}
+	return true
+}
+
 // initConsistentHash initializes for consistent hash mode
 func (blb *BaseLoadBalancer) initConsistentHash() {
-	members := make([]consistent.Member, len(blb.Servers))
-	for i, s := range blb.Servers {
+	members := make([]consistent.Member, len(blb.healthyServers))
+	for i, s := range blb.healthyServers {
 		members[i] = hashMember{server: s}
 	}
 
@@ -219,7 +309,7 @@ func (blb *BaseLoadBalancer) chooseServerByLBCookie(req *httpprot.Request) *Serv
 
 	key := signed[:KeyLen]
 	macBytes := signed[KeyLen:]
-	for _, s := range blb.Servers {
+	for _, s := range blb.healthyServers {
 		mac := hmac.New(sha256.New, key)
 		mac.Write([]byte(s.ID()))
 		expected := mac.Sum(nil)
@@ -287,7 +377,7 @@ func newRandomLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *randomLoad
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *randomLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 {
+	if len(lb.healthyServers) == 0 {
 		return nil
 	}
 
@@ -295,7 +385,7 @@ func (lb *randomLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 		return server
 	}
 
-	return lb.Servers[rand.Intn(len(lb.Servers))]
+	return lb.healthyServers[rand.Intn(len(lb.healthyServers))]
 }
 
 // roundRobinLoadBalancer does load balancing in a round robin manner.
@@ -312,7 +402,7 @@ func newRoundRobinLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *roundR
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *roundRobinLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 {
+	if len(lb.healthyServers) == 0 {
 		return nil
 	}
 
@@ -321,7 +411,7 @@ func (lb *roundRobinLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	}
 
 	counter := atomic.AddUint64(&lb.counter, 1) - 1
-	return lb.Servers[int(counter)%len(lb.Servers)]
+	return lb.healthyServers[int(counter)%len(lb.healthyServers)]
 }
 
 // WeightedRandomLoadBalancer does load balancing in a weighted random manner.
@@ -333,7 +423,7 @@ type WeightedRandomLoadBalancer struct {
 func newWeightedRandomLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *WeightedRandomLoadBalancer {
 	lb := &WeightedRandomLoadBalancer{}
 	lb.init(spec, servers)
-	for _, server := range lb.Servers {
+	for _, server := range lb.healthyServers {
 		lb.totalWeight += server.Weight
 	}
 	return lb
@@ -341,7 +431,7 @@ func newWeightedRandomLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *We
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *WeightedRandomLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 {
+	if len(lb.healthyServers) == 0 {
 		return nil
 	}
 
@@ -350,7 +440,7 @@ func (lb *WeightedRandomLoadBalancer) ChooseServer(req *httpprot.Request) *Serve
 	}
 
 	randomWeight := rand.Intn(lb.totalWeight)
-	for _, server := range lb.Servers {
+	for _, server := range lb.healthyServers {
 		randomWeight -= server.Weight
 		if randomWeight < 0 {
 			return server
@@ -373,7 +463,7 @@ func newIPHashLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *ipHashLoad
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *ipHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 {
+	if len(lb.healthyServers) == 0 {
 		return nil
 	}
 
@@ -384,7 +474,7 @@ func (lb *ipHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	ip := req.RealIP()
 	hash := fnv.New32()
 	hash.Write([]byte(ip))
-	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
+	return lb.healthyServers[hash.Sum32()%uint32(len(lb.healthyServers))]
 }
 
 // headerHashLoadBalancer does load balancing based on header hash.
@@ -402,7 +492,7 @@ func newHeaderHashLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *header
 
 // ChooseServer implements the LoadBalancer interface.
 func (lb *headerHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
-	if len(lb.Servers) == 0 {
+	if len(lb.healthyServers) == 0 {
 		return nil
 	}
 
@@ -413,5 +503,5 @@ func (lb *headerHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	v := req.HTTPHeader().Get(lb.key)
 	hash := fnv.New32()
 	hash.Write([]byte(v))
-	return lb.Servers[hash.Sum32()%uint32(len(lb.Servers))]
+	return lb.healthyServers[hash.Sum32()%uint32(len(lb.healthyServers))]
 }
