@@ -85,16 +85,16 @@ func (s *Server) healthy() bool {
 	if v == nil {
 		return true
 	}
-	return v.(*ServerHealth).healthy
+	return v.(ServerHealth).healthy
 }
 
 // recordHealth records health status, return healthy status and true if status changes
 func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, bool) {
-	var h *ServerHealth
+	var h ServerHealth
 	if v := s.health.Load(); v != nil {
-		h = v.(*ServerHealth)
+		h = v.(ServerHealth)
 	} else {
-		h = &ServerHealth{healthy: true}
+		h = ServerHealth{healthy: true}
 	}
 	if pass {
 		h.passes++
