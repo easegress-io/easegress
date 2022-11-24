@@ -22,7 +22,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"sync"
+	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
@@ -34,10 +34,14 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
-	unhealthy      bool
-	fails          int
-	passes         int
-	mu             sync.Mutex
+	health         atomic.Value
+}
+
+// ServerHealth is health status of server
+type ServerHealth struct {
+	healthy bool
+	fails   int
+	passes  int
 }
 
 // String implements the Stringer interface.
@@ -77,31 +81,38 @@ func (s *Server) checkAddrPattern() {
 
 // healthy return health status
 func (s *Server) healthy() bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return !s.unhealthy
+	v := s.health.Load()
+	if v == nil {
+		return true
+	}
+	return v.(*ServerHealth).healthy
 }
 
-// recordHealth records health status, return true if status changes
-func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if pass {
-		s.passes++
-		s.fails = 0
+// recordHealth records health status, return healthy status and true if status changes
+func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, bool) {
+	var h *ServerHealth
+	if v := s.health.Load(); v != nil {
+		h = v.(*ServerHealth)
 	} else {
-		s.passes = 0
-		s.fails++
+		h = &ServerHealth{healthy: true}
 	}
-	if s.passes >= passThrehold && s.unhealthy {
-		s.unhealthy = false
+	if pass {
+		h.passes++
+		h.fails = 0
+	} else {
+		h.passes = 0
+		h.fails++
+	}
+	change := false
+	if h.passes >= passThrehold && !h.healthy {
+		h.healthy = true
 		logger.Warnf("server:%v becomes healthy.", s.ID())
-		return true
-	}
-	if s.fails >= failThrehold && !s.unhealthy {
+		change = true
+	} else if h.fails >= failThrehold && h.healthy {
 		logger.Warnf("server:%v becomes unhealthy!", s.ID())
-		s.unhealthy = true
-		return true
+		h.healthy = false
+		change = true
 	}
-	return false
+	s.health.Store(h)
+	return h.healthy, change
 }
