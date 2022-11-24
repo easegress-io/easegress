@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/open-policy-agent/opa/rego"
-	"github.com/spf13/cast"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -176,55 +175,19 @@ func (o *OPAFilter) evalRequest(r *httpprot.Request, w *httpprot.Response) strin
 	if err != nil {
 		return o.opaError(w, err)
 	}
-
 	if len(results) == 0 {
 		return o.opaError(w, errOpaNoResult)
 	}
-	bp, err := o.handleRegoResult(w, results[0].Bindings["result"])
-	if err != nil {
-		return o.opaError(w, err)
+	result := results[0].Bindings["result"]
+	var allow, ok bool
+	if allow, ok = result.(bool); !ok {
+		return o.opaError(w, errOpaInvalidResultType)
 	}
-	if bp {
-		return ""
+	if !allow {
+		w.SetStatusCode(o.spec.DefaultStatus)
+		return resultFiltered
 	}
-	return resultFiltered
-}
-
-func (o *OPAFilter) handleRegoResult(w *httpprot.Response, result any) (bool, error) {
-	if allowed, ok := result.(bool); ok {
-		if !allowed {
-			w.SetStatusCode(o.spec.DefaultStatus)
-			return false, nil
-		}
-		return true, nil
-	}
-	var resMap map[string]any
-	resMap, ok := result.(map[string]any)
-	if !ok {
-		return false, errOpaInvalidResultType
-	}
-	var allow bool
-	if a, exists := resMap["allow"]; exists {
-		allow = cast.ToBool(a)
-	}
-	if _, exists := resMap["additional_headers"]; exists {
-		if aHeaders, ok := resMap["additional_headers"].(map[string]any); ok {
-			for key, value := range aHeaders {
-				w.Header().Set(key, value)
-			}
-		}
-	}
-	if sc, exists := resMap["status_code"]; exists {
-		isc, err := cast.ToIntE(sc)
-		if err != nil {
-			logger.Errorf("cannot cast status_code to int: %s", err)
-		} else {
-			if !allow {
-				w.SetStatusCode(isc)
-			}
-		}
-	}
-	return allow, nil
+	return ""
 }
 
 func (o *OPAFilter) opaError(resp *httpprot.Response, err error) string {
