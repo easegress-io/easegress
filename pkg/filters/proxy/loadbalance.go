@@ -61,10 +61,10 @@ const (
 	KeyLen = 8
 	// HealthCheckDefaultTimeout is the default timeout for health check
 	HealthCheckDefaultTimeout = 3
-	// HealthCheckDefaultFailThrehold is the default fail threhold for health check
-	HealthCheckDefaultFailThrehold = 1
-	// HealthCheckDefaultPassThrehold is the default pass threhold for health check
-	HealthCheckDefaultPassThrehold = 1
+	// HealthCheckDefaultFailThreshold is the default fail threshold for health check
+	HealthCheckDefaultFailThreshold = 1
+	// HealthCheckDefaultPassThreshold is the default pass threshold for health check
+	HealthCheckDefaultPassThreshold = 1
 )
 
 // LoadBalancer is the interface of an HTTP load balancer.
@@ -195,10 +195,10 @@ func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*S
 		spec.Timeout = HealthCheckDefaultTimeout
 	}
 	if spec.Fails == 0 {
-		spec.Fails = HealthCheckDefaultFailThrehold
+		spec.Fails = HealthCheckDefaultFailThreshold
 	}
 	if spec.Passes == 0 {
-		spec.Passes = HealthCheckDefaultPassThrehold
+		spec.Passes = HealthCheckDefaultPassThreshold
 	}
 	blb.probeClient = &http.Client{Timeout: time.Duration(spec.Timeout) * time.Second}
 	blb.ticker = time.NewTicker(time.Duration(spec.Interval) * time.Second)

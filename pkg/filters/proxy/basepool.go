@@ -64,6 +64,10 @@ func (sps *BaseServerPoolSpec) Validate() error {
 		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
 	}
 
+	if sps.ServiceName != "" && sps.LoadBalance.HealthCheck != nil {
+		return fmt.Errorf("can not open health check for service discovery")
+	}
+
 	return nil
 }
 

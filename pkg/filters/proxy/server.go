@@ -79,7 +79,7 @@ func (s *Server) checkAddrPattern() {
 }
 
 // recordHealth records health status, return healthy status and true if status changes
-func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, bool) {
+func (s *Server) recordHealth(pass bool, passThreshold, failThreshold int) (bool, bool) {
 	if s.health == nil {
 		s.health = &ServerHealth{healthy: true}
 	}
@@ -92,11 +92,11 @@ func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, 
 		h.fails++
 	}
 	change := false
-	if h.passes >= passThrehold && !h.healthy {
+	if h.passes >= passThreshold && !h.healthy {
 		h.healthy = true
 		logger.Warnf("server:%v becomes healthy.", s.ID())
 		change = true
-	} else if h.fails >= failThrehold && h.healthy {
+	} else if h.fails >= failThreshold && h.healthy {
 		logger.Warnf("server:%v becomes unhealthy!", s.ID())
 		h.healthy = false
 		change = true

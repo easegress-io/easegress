@@ -312,6 +312,21 @@ mirrorPool:
 	err = codectool.Unmarshal([]byte(yamlConfig), spec)
 	assert.NoError(err)
 	assert.Error(spec.Validate())
+
+	// health check for service discovery
+	yamlConfig = `
+name: proxy
+kind: Proxy
+pools:
+  - serviceName: service
+    loadBalance:
+      healthCheck:
+        interval: 3
+`
+	spec = &Spec{}
+	err = codectool.Unmarshal([]byte(yamlConfig), spec)
+	assert.NoError(err)
+	assert.Error(spec.Validate())
 }
 
 func TestTLSConfig(t *testing.T) {
