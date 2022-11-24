@@ -1137,7 +1137,7 @@ Rules to revise request header.
 
 | Name          | Type   | Description                                                                                                 | Required |
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
-| interval | int | Interval seconds for health check, default is 0 which means not to check health | Yes |
+| interval | int | Interval seconds for health check | Yes |
 | path | string | Path URL for server health check | No |
 | timeout | int | Timeout seconds for health check, default is 3 | No |
 | fails | int | Consecutive fails count for assert fail, default is 1 | No |

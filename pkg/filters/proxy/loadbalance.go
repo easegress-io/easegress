@@ -71,6 +71,8 @@ const (
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
 	ReturnServer(server *Server, req *httpprot.Request, resp *httpprot.Response)
+	HealthyServers() []*Server
+	Close()
 }
 
 // StickySessionSpec is the spec for sticky session.
@@ -86,7 +88,7 @@ type StickySessionSpec struct {
 
 // HealthCheckSpec is the spec for health check.
 type HealthCheckSpec struct {
-	// Interval is the interval seconds for health check, default is 0 which means not to check health.
+	// Interval is the interval seconds for health check.
 	Interval int `json:"interval" jsonschema:"omitempty,minimum=1"`
 	// Path is the health check path for server
 	Path string `json:"path" jsonschema:"omitempty"`
@@ -150,6 +152,7 @@ type BaseLoadBalancer struct {
 	healthyServers atomic.Value
 	consistentHash *consistent.Consistent
 	cookieExpire   time.Duration
+	ticker         *time.Ticker
 	probeClient    *http.Client
 }
 
@@ -198,19 +201,19 @@ func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*S
 		spec.Passes = HealthCheckDefaultPassThrehold
 	}
 	blb.probeClient = &http.Client{Timeout: time.Duration(spec.Timeout) * time.Second}
-	t := time.NewTicker(time.Duration(spec.Interval) * time.Second)
+	blb.ticker = time.NewTicker(time.Duration(spec.Interval) * time.Second)
 	go func(t *time.Ticker) {
 		for {
 			<-t.C
 			blb.probeServers()
 		}
-	}(t)
+	}(blb.ticker)
 }
 
 // probeServers checks health status of servers
 func (blb *BaseLoadBalancer) probeServers() {
 	statusChange := false
-	healthyServers := make([]*Server, len(blb.Servers))
+	healthyServers := make([]*Server, 0, len(blb.Servers))
 	for _, svr := range blb.Servers {
 		pass := blb.probeHTTP(svr.URL)
 		healthy, change := svr.recordHealth(pass, blb.spec.HealthCheck.Passes, blb.spec.HealthCheck.Fails)
@@ -350,6 +353,13 @@ func (blb *BaseLoadBalancer) ReturnServer(server *Server, req *httpprot.Request,
 			Expires: time.Now().Add(blb.cookieExpire),
 		}
 		resp.SetCookie(cookie)
+	}
+}
+
+// Close closes resources
+func (blb *BaseLoadBalancer) Close() {
+	if blb.ticker != nil {
+		blb.ticker.Stop()
 	}
 }
 

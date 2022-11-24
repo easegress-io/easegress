@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"sync/atomic"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
@@ -34,7 +33,7 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
-	health         atomic.Value
+	health         *ServerHealth
 }
 
 // ServerHealth is health status of server
@@ -79,23 +78,12 @@ func (s *Server) checkAddrPattern() {
 	s.addrIsHostName = net.ParseIP(host) == nil
 }
 
-// healthy return health status
-func (s *Server) healthy() bool {
-	v := s.health.Load()
-	if v == nil {
-		return true
-	}
-	return v.(ServerHealth).healthy
-}
-
 // recordHealth records health status, return healthy status and true if status changes
 func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, bool) {
-	var h ServerHealth
-	if v := s.health.Load(); v != nil {
-		h = v.(ServerHealth)
-	} else {
-		h = ServerHealth{healthy: true}
+	if s.health == nil {
+		s.health = &ServerHealth{healthy: true}
 	}
+	h := s.health
 	if pass {
 		h.passes++
 		h.fails = 0
@@ -113,6 +101,5 @@ func (s *Server) recordHealth(pass bool, passThrehold, failThrehold int) (bool, 
 		h.healthy = false
 		change = true
 	}
-	s.health.Store(h)
 	return h.healthy, change
 }

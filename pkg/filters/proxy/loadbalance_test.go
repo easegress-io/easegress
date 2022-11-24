@@ -268,24 +268,19 @@ func BenchmarkSign(b *testing.B) {
 func TestHealthCheck(t *testing.T) {
 	assert := assert.New(t)
 	servers := prepareServers(3)
-	NewLoadBalancer(&LoadBalanceSpec{
+	lb := NewLoadBalancer(&LoadBalanceSpec{
 		Policy: LoadBalancePolicyRandom,
 		HealthCheck: &HealthCheckSpec{
 			Interval: 3,
 			Fails:    2,
 		},
 	}, servers)
-	for _, svr := range servers {
-		assert.True(svr.healthy())
-	}
+
+	assert.Equal(len(servers), len(lb.HealthyServers()))
 
 	time.Sleep(5 * time.Second)
-	for _, svr := range servers {
-		assert.True(svr.healthy())
-	}
+	assert.Equal(len(servers), len(lb.HealthyServers()))
 
 	time.Sleep(5 * time.Second)
-	for _, svr := range servers {
-		assert.True(!svr.healthy())
-	}
+	assert.Equal(0, len(lb.HealthyServers()))
 }
