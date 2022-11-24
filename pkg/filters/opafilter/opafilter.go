@@ -150,7 +150,6 @@ func (o *OPAFilter) evalRequest(r *httpprot.Request, w *httpprot.Response) strin
 
 	var body string
 	if o.spec.ReadBody {
-		_ = r.FetchPayload(0)
 		if !r.IsStream() {
 			body = string(r.RawPayload())
 		} else {
