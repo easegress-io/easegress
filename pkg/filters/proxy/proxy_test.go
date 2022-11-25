@@ -321,7 +321,7 @@ pools:
   - serviceName: service
     loadBalance:
       healthCheck:
-        interval: 3
+        interval: 3s
 `
 	spec = &Spec{}
 	err = codectool.Unmarshal([]byte(yamlConfig), spec)
