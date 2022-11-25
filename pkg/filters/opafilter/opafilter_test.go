@@ -57,7 +57,6 @@ func createOPAFilter(yamlConfig string, prev *OPAFilter, supervisor *supervisor.
 type testCase struct {
 	req                func() *http.Request
 	status             int
-	headers            *[][]string
 	shouldHandlerError bool
 	shouldRegoError    bool
 	readBody           bool
@@ -80,48 +79,13 @@ func TestOpaPolicyInFilter(t *testing.T) {
 						allow = false`,
 			status: 403,
 		},
-		"status": {
-			policy: `
-						package http
-						allow = {
-							"allow": false,
-							"status_code": 301
-						}`,
-			status: 301,
-		},
-		"add redirect": {
-			policy: `
-						package http
-						allow = {
-							"allow": false,
-							"status_code": 301,
-							"additional_headers": { "location": "https://example.com/login" }
-						}`,
-			status: 301,
-			headers: &[][]string{
-				{"location", "https://example.com/login"},
-			},
-		},
-		"add headers": {
-			policy: `
-						package http
-						allow = {
-							"allow": false,
-							"status_code": 301,
-							"additional_headers": { "x-key": "abc" }
-						}`,
-			status: 301,
-			headers: &[][]string{
-				{"x-key", "abc"},
-			},
-		},
 		"allow with path": {
 			policy: `
 						package http
-						default allow = true
+						default allow = false
 
-						allow = { "status_code": 403 } {
-							input.request.path_parts[0] = "forbidden"
+						allow {
+							input.request.path_parts[0] == "allowed"
 						}
 						`,
 			req: func() *http.Request {
@@ -132,10 +96,10 @@ func TestOpaPolicyInFilter(t *testing.T) {
 		"deny with path": {
 			policy: `
 						package http
-						default allow = true
+						default allow = false
 
-						allow = { "status_code": 403 } {
-							input.request.path_parts[0] = "forbidden"
+						allow {
+							input.request.path_parts[0] == "allowed"
 						}
 						`,
 			req: func() *http.Request {
@@ -148,8 +112,8 @@ func TestOpaPolicyInFilter(t *testing.T) {
 						package http
 						default allow = true
 
-						allow = { "status_code": 403 } {
-							input.request.headers["x-bad-header"] = "1"
+						allow  {
+							input.request.headers["x-bad-header"] == "1"
 						}
 						`,
 			req: func() *http.Request {
@@ -165,7 +129,7 @@ func TestOpaPolicyInFilter(t *testing.T) {
 						default allow = true
 
 						allow = { "status_code": 403 } {
-							input.request.headers["X-Bad-Header"] = "1"
+							input.request.headers["X-Bad-Header"] == "1"
 						}
 					`,
 			includedHeaders: "x-bad-header",
@@ -195,37 +159,12 @@ func TestOpaPolicyInFilter(t *testing.T) {
 			defaultStatus: 500,
 			status:        500,
 		},
-		"rego priority over defaultStatus metadata": {
-			policy: `
-						package http
-						allow = {
-							"allow": false,
-							"status_code": 301
-						}`,
-			defaultStatus: 500,
-			status:        301,
-		},
-		"allow on body contains allow": {
-			readBody: true,
-			policy: `
-						package http
-						default allow = false
-						allow = { "allow": true } {
-							input.request.body == "allow"
-						}`,
-			req: func() *http.Request {
-				r := httptest.NewRequest(http.MethodGet, "https://example.com", strings.NewReader("allow"))
-				r.Header.Add("content-type", "text/plain; charset=utf8")
-				return r
-			},
-			status: 200,
-		},
 		"body is not read by default": {
 			// `"readBody": "false"` is the default value
 			policy: `
 						package http
 						default allow = false
-						allow = { "allow": true } {
+						allow {
 							input.request.body == "allow"
 						}
 						`,
@@ -236,28 +175,11 @@ func TestOpaPolicyInFilter(t *testing.T) {
 			},
 			status: 403,
 		},
-		"allow when multiple headers included with space": {
-			policy: `
-						package http
-						default allow = false
-						allow = { "allow": true } {
-							input.request.headers["X-Jwt-Header"]
-							input.request.headers["X-My-Custom-Header"]
-						}`,
-			includedHeaders: "x-my-custom-header, x-jwt-header",
-			req: func() *http.Request {
-				r := httptest.NewRequest(http.MethodGet, "https://example.com", nil)
-				r.Header.Add("x-jwt-header", "1")
-				r.Header.Add("x-my-custom-header", "2")
-				return r
-			},
-			status: 200,
-		},
 		"reject when multiple headers included with space": {
 			policy: `
 						package http
 						default allow = false
-						allow = { "allow": true } {
+						allow {
 							input.request.headers["X-Jwt-Header"]
 							input.request.headers["X-My-Custom-Header"]
 						}
@@ -303,12 +225,6 @@ func TestOpaPolicyInFilter(t *testing.T) {
 				assert.Equal(t, "", result)
 			} else {
 				assert.Equal(t, resultFiltered, result)
-			}
-
-			if tc.headers != nil {
-				for _, header := range *tc.headers {
-					assert.Equal(t, header[1], stdResp.Header.Get(header[0]))
-				}
 			}
 		})
 	}
