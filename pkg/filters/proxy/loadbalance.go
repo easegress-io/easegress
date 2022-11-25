@@ -59,8 +59,10 @@ const (
 	StickySessionDefaultLBCookieExpire = time.Hour * 2
 	// KeyLen is the key length used by HMAC.
 	KeyLen = 8
+	// HealthCheckDefaultInterval is the default interval for health check
+	HealthCheckDefaultInterval = time.Second * 60
 	// HealthCheckDefaultTimeout is the default timeout for health check
-	HealthCheckDefaultTimeout = 3
+	HealthCheckDefaultTimeout = time.Second * 3
 	// HealthCheckDefaultFailThreshold is the default fail threshold for health check
 	HealthCheckDefaultFailThreshold = 1
 	// HealthCheckDefaultPassThreshold is the default pass threshold for health check
@@ -88,12 +90,12 @@ type StickySessionSpec struct {
 
 // HealthCheckSpec is the spec for health check.
 type HealthCheckSpec struct {
-	// Interval is the interval seconds for health check.
-	Interval int `json:"interval" jsonschema:"omitempty,minimum=1"`
+	// Interval is the interval duration for health check.
+	Interval string `json:"interval" jsonschema:"omitempty,format=duration"`
 	// Path is the health check path for server
 	Path string `json:"path" jsonschema:"omitempty"`
-	// Timeout is the timeout seconds for health check, default is 3.
-	Timeout int `json:"timeout" jsonschema:"omitempty,minimum=1"`
+	// Timeout is the timeout duration for health check, default is 3.
+	Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
 	// Fails is the consecutive fails count for assert fail, default is 1.
 	Fails int `json:"fails" jsonschema:"omitempty,minimum=1"`
 	// Passes is the consecutive passes count for assert pass, default is 1.
@@ -153,7 +155,10 @@ type BaseLoadBalancer struct {
 	consistentHash *consistent.Consistent
 	cookieExpire   time.Duration
 	ticker         *time.Ticker
+	done           chan bool
 	probeClient    *http.Client
+	probeInterval  time.Duration
+	probeTimeout   time.Duration
 }
 
 // HealthyServers return healthy servers
@@ -187,12 +192,17 @@ func (blb *BaseLoadBalancer) initStickySession(spec *StickySessionSpec, servers 
 
 // initHealthCheck initializes for health check
 func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*Server) {
-	if spec == nil || spec.Interval == 0 || len(servers) == 0 {
+	if spec == nil || len(servers) == 0 {
 		return
 	}
 
-	if spec.Timeout == 0 {
-		spec.Timeout = HealthCheckDefaultTimeout
+	blb.probeInterval, _ = time.ParseDuration(spec.Interval)
+	if blb.probeInterval <= 0 {
+		blb.probeInterval = HealthCheckDefaultInterval
+	}
+	blb.probeTimeout, _ = time.ParseDuration(spec.Timeout)
+	if blb.probeTimeout <= 0 {
+		blb.probeTimeout = HealthCheckDefaultTimeout
 	}
 	if spec.Fails == 0 {
 		spec.Fails = HealthCheckDefaultFailThreshold
@@ -200,14 +210,19 @@ func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*S
 	if spec.Passes == 0 {
 		spec.Passes = HealthCheckDefaultPassThreshold
 	}
-	blb.probeClient = &http.Client{Timeout: time.Duration(spec.Timeout) * time.Second}
-	blb.ticker = time.NewTicker(time.Duration(spec.Interval) * time.Second)
-	go func(t *time.Ticker) {
+	blb.probeClient = &http.Client{Timeout: blb.probeTimeout}
+	blb.ticker = time.NewTicker(blb.probeInterval)
+	blb.done = make(chan bool)
+	go func() {
 		for {
-			<-t.C
-			blb.probeServers()
+			select {
+			case <-blb.done:
+				return
+			case <-blb.ticker.C:
+				blb.probeServers()
+			}
 		}
-	}(blb.ticker)
+	}()
 }
 
 // probeServers checks health status of servers
@@ -360,6 +375,9 @@ func (blb *BaseLoadBalancer) ReturnServer(server *Server, req *httpprot.Request,
 func (blb *BaseLoadBalancer) Close() {
 	if blb.ticker != nil {
 		blb.ticker.Stop()
+	}
+	if blb.done != nil {
+		blb.done <- true
 	}
 }
 

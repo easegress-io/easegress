@@ -131,12 +131,12 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 		spec = &LoadBalanceSpec{}
 	}
 
-	if lb := bsp.LoadBalancer(); lb != nil {
-		lb.Close()
-	}
-
 	lb := NewLoadBalancer(spec, servers)
+	old := bsp.LoadBalancer()
 	bsp.loadBalancer.Store(lb)
+	if old != nil {
+		old.Close()
+	}
 }
 
 func (bsp *BaseServerPool) useService(spec *BaseServerPoolSpec, instances map[string]*serviceregistry.ServiceInstanceSpec) {

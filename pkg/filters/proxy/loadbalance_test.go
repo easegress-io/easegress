@@ -271,7 +271,7 @@ func TestHealthCheck(t *testing.T) {
 	lb := NewLoadBalancer(&LoadBalanceSpec{
 		Policy: LoadBalancePolicyRandom,
 		HealthCheck: &HealthCheckSpec{
-			Interval: 3,
+			Interval: "3s",
 			Fails:    2,
 		},
 	}, servers)
