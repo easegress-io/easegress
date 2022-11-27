@@ -39,6 +39,41 @@ type mockAsyncProducer struct {
 	ch chan *sarama.ProducerMessage
 }
 
+func (m *mockAsyncProducer) IsTransactional() bool {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) TxnStatus() sarama.ProducerTxnStatusFlag {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) BeginTxn() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) CommitTxn() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) AbortTxn() error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) AddOffsetsToTxn(offsets map[string][]*sarama.PartitionOffsetMetadata, groupId string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockAsyncProducer) AddMessageToTxn(msg *sarama.ConsumerMessage, groupId string, metadata *string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *mockAsyncProducer) AsyncClose()                               {}
 func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
 func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return nil }
