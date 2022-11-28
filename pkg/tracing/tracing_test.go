@@ -26,8 +26,7 @@ func TestNew(t *testing.T) {
 		SampleRate:  0.5,
 		BatchLimits: nil,
 		Exporter: &ExporterSpec{
-			Kind:   exporterKindZipkin,
-			Zipkin: &ZipkinSpec{CollectorURL: "http://localhost:2181"},
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
 		},
 	}
 
@@ -48,8 +47,7 @@ func TestNewResource(t *testing.T) {
 		SampleRate:  0.5,
 		BatchLimits: nil,
 		Exporter: &ExporterSpec{
-			Kind:   exporterKindZipkin,
-			Zipkin: &ZipkinSpec{CollectorURL: "http://localhost:2181"},
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
 		},
 	}
 	r, err := spec.newResource()

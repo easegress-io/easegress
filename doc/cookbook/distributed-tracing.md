@@ -10,9 +10,8 @@ tracing:
   serviceName: httpServerExample
   sampleRate: 1
   exporter:
-    kind: zipkin
     zipkin:
-      collectorURL: http://localhost:9412/api/v2/spans
+      endpoint: http://localhost:9412/api/v2/spans
 rules:
   - paths:
     - pathPrefix: /pipeline
@@ -33,9 +32,8 @@ tracing:
     customAttributeKey: customAttributeValue
   sampleRate: 1
   exporter:
-    kind: zipkin
     zipkin:
-      collectorURL: http://localhost:9412/api/v2/spans
+      endpoint: http://localhost:9412/api/v2/spans
 rules:
   - paths:
     - pathPrefix: /pipeline
@@ -47,3 +45,24 @@ rules:
 In the above example, we can see that we are sending span to Zipkin, thanks to the standardization of OpenTelemetry, we can also send span to other tracing backend, which currently supports Jaeger, Zipkin, OTLP (OpenTelemetry Collector), you can refer to [tracing](../reference/controllers.md#tracingspec) for details.
 
 ![exporter](../imgs/tracing-exporter.png)
+
+You can configure more than one exporter at a time, so let's look at an example to understand.
+
+```yaml
+kind: HTTPServer
+name: http-server-example
+port: 10080
+tracing:
+  serviceName: httpServerExample
+  sampleRate: 1
+  exporter:
+    zipkin:
+      endpoint: http://localhost:9412/api/v2/spans
+    jaeger:
+      mode: agent
+      endpoint: localhost:8888
+rules:
+  - paths:
+    - pathPrefix: /pipeline
+      backend: pipeline-example
+```

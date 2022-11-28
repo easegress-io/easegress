@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/megaease/easegress/pkg/util/fasttime"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -32,6 +31,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
+	"net"
 	"net/http"
 	"time"
 )
@@ -126,40 +126,34 @@ type (
 		MaxExportBatchSize int `json:"maxExportBatchSize" jsonschema:"default=512,omitempty"`
 	}
 
-	exporterKind string
-
 	// ExporterSpec describes exporter.
 	ExporterSpec struct {
-		Kind   exporterKind `json:"kind" jsonschema:"required,enum=jaeger,enum=zipkin,enum=otlp"`
-		Jaeger *JaegerSpec  `json:"jaeger" jsonschema:"omitempty"`
-		Zipkin *ZipkinSpec  `json:"zipkin" jsonschema:"omitempty"`
-		OTLP   *OTLPSpec    `json:"otlp" jsonschema:"omitempty"`
+		Jaeger *JaegerSpec `json:"jaeger" jsonschema:"omitempty"`
+		Zipkin *ZipkinSpec `json:"zipkin" jsonschema:"omitempty"`
+		OTLP   *OTLPSpec   `json:"otlp" jsonschema:"omitempty"`
 	}
 
 	jaegerMode string
 
 	// JaegerSpec describes Jaeger.
 	JaegerSpec struct {
-		Mode      jaegerMode `json:"mode" jsonschema:"required,enum=agent,enum=collector"`
-		AgentHost string     `json:"agentHost" jsonschema:"omitempty"`
-		AgentPort string     `json:"agentPort" jsonschema:"omitempty"`
-
-		Endpoint string `json:"endpoint" jsonschema:"omitempty"`
-		Username string `json:"username" jsonschema:"omitempty"`
-		Password string `json:"password" jsonschema:"omitempty"`
+		Mode     jaegerMode `json:"mode" jsonschema:"required,enum=agent,enum=collector"`
+		Endpoint string     `json:"endpoint" jsonschema:"omitempty"`
+		Username string     `json:"username" jsonschema:"omitempty"`
+		Password string     `json:"password" jsonschema:"omitempty"`
 	}
 
 	// ZipkinSpec describes Zipkin.
 	ZipkinSpec struct {
-		CollectorURL string `json:"collectorURL" jsonschema:"required,format=url"`
+		Endpoint string `json:"endpoint" jsonschema:"required,format=url"`
 	}
 
-	otlpMode string
+	otlpProtocol string
 	// OTLPSpec describes OpenTelemetry exporter.
 	OTLPSpec struct {
-		Mode        otlpMode `json:"mode" jsonschema:"required,,enum=http,enum=grpc"`
-		Endpoint    string   `json:"endpoint" jsonschema:"required"`
-		Compression string   `json:"compression" jsonschema:"omitempty,enum=,enum=gzip"`
+		Protocol    otlpProtocol `json:"protocol" jsonschema:"required,,enum=http,enum=grpc"`
+		Endpoint    string       `json:"endpoint" jsonschema:"required"`
+		Compression string       `json:"compression" jsonschema:"omitempty,enum=,enum=gzip"`
 	}
 
 	// Tracer is the tracer.
@@ -177,32 +171,22 @@ type (
 )
 
 const (
-	exporterKindJaeger exporterKind = "jaeger"
-	exporterKindZipkin exporterKind = "zipkin"
-	exporterKindOTLP   exporterKind = "otlp"
-
 	jaegerModeAgent     jaegerMode = "agent"
 	jaegerModeCollector jaegerMode = "collector"
 
-	otlpModeHTTP otlpMode = "http"
-	otlpModeGRPC otlpMode = "grpc"
+	otlpProtocolHTTP otlpProtocol = "http"
+	otlpProtocolGRPC otlpProtocol = "grpc"
 )
 
 // Validate validates Spec.
 func (spec *ExporterSpec) Validate() error {
-	switch spec.Kind {
-	case exporterKindJaeger:
-		if spec.Jaeger == nil {
-			return fmt.Errorf("jaeger cannot be empty")
-		}
-	case exporterKindZipkin:
-		if spec.Zipkin == nil {
-			return fmt.Errorf("zipkin cannot be empty")
-		}
-	default:
-		if spec.OTLP == nil {
-			return fmt.Errorf("otlp cannot be empty")
-		}
+
+	if spec == nil {
+		return fmt.Errorf("exporter cannot be empty")
+	}
+
+	if spec.Jaeger == nil && spec.Zipkin == nil && spec.OTLP == nil {
+		return fmt.Errorf("exporter cannot be empty")
 	}
 
 	return nil
@@ -210,17 +194,17 @@ func (spec *ExporterSpec) Validate() error {
 
 // Validate validates Spec.
 func (spec *JaegerSpec) Validate() error {
-	switch spec.Mode {
-	case jaegerModeAgent:
-		if stringtool.IsAnyEmpty(spec.AgentHost, spec.AgentPort) {
-			return fmt.Errorf("agentHost or anentPort cannot be empty")
-		}
-	default:
-		if spec.Endpoint == "" {
-			return fmt.Errorf("endpoint cannot be empty")
-		}
 
+	if spec.Endpoint == "" {
+		return fmt.Errorf("endpoint cannot be empty")
 	}
+
+	if spec.Mode == jaegerModeAgent {
+		if _, _, err := net.SplitHostPort(spec.Endpoint); err != nil {
+			return fmt.Errorf("in agent mode, the endpoint must be host:port")
+		}
+	}
+
 	return nil
 }
 
@@ -257,8 +241,10 @@ func New(spec *Spec) (*Tracer, error) {
 		return NoopTracer, err
 	}
 
-	if sp, err := spec.newBatchSpanProcessor(); err == nil {
-		opts = append(opts, sdktrace.WithSpanProcessor(sp))
+	if sps, err := spec.newBatchSpanProcessors(); err == nil {
+		for _, sp := range sps {
+			opts = append(opts, sdktrace.WithSpanProcessor(sp))
+		}
 	} else {
 		return NoopTracer, err
 	}
@@ -306,8 +292,8 @@ func (spec *Spec) newSpanLimits() sdktrace.SpanLimits {
 	}
 }
 
-func (spec *Spec) newBatchSpanProcessor() (sdktrace.SpanProcessor, error) {
-	exp, err := spec.Exporter.newExporter()
+func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
+	exporters, err := spec.Exporter.newExporters()
 
 	if err != nil {
 		return nil, err
@@ -323,38 +309,63 @@ func (spec *Spec) newBatchSpanProcessor() (sdktrace.SpanProcessor, error) {
 		}
 	}
 
-	return sdktrace.NewBatchSpanProcessor(exp, opts...), nil
+	var bsps []sdktrace.SpanProcessor
+	for _, exp := range exporters {
+		bsps = append(bsps, sdktrace.NewBatchSpanProcessor(exp, opts...))
+	}
+
+	return bsps, nil
 
 }
 
-func (spec *ExporterSpec) newExporter() (sdktrace.SpanExporter, error) {
-	switch spec.Kind {
-	case exporterKindJaeger:
-		return spec.Jaeger.newExporter()
-	case exporterKindZipkin:
-		return spec.Zipkin.newExporter()
-	default:
-		return spec.OTLP.newExporter()
+func (spec *ExporterSpec) newExporters() ([]sdktrace.SpanExporter, error) {
+	var exporters []sdktrace.SpanExporter
+
+	if spec.Jaeger != nil {
+		if exp, err := spec.Jaeger.newExporter(); err == nil {
+			exporters = append(exporters, exp)
+		} else {
+			return nil, err
+		}
 	}
+
+	if spec.Zipkin != nil {
+		if exp, err := spec.Zipkin.newExporter(); err == nil {
+			exporters = append(exporters, exp)
+		} else {
+			return nil, err
+		}
+	}
+
+	if spec.OTLP != nil {
+		if exp, err := spec.OTLP.newExporter(); err == nil {
+			exporters = append(exporters, exp)
+		} else {
+			return nil, err
+		}
+	}
+
+	return exporters, nil
 }
 
 func (spec *JaegerSpec) newExporter() (sdktrace.SpanExporter, error) {
 	switch spec.Mode {
 	case jaegerModeAgent:
-		return jaeger.New(jaeger.WithAgentEndpoint(jaeger.WithAgentHost(spec.AgentHost), jaeger.WithAgentPort(spec.AgentPort)))
+		host, port, _ := net.SplitHostPort(spec.Endpoint)
+		return jaeger.New(jaeger.WithAgentEndpoint(jaeger.WithAgentHost(host), jaeger.WithAgentPort(port)))
 	default:
 		return jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(spec.Endpoint), jaeger.WithUsername(spec.Username), jaeger.WithPassword(spec.Password)))
 	}
 }
 
 func (spec *ZipkinSpec) newExporter() (sdktrace.SpanExporter, error) {
-	return zipkin.New(spec.CollectorURL)
+	return zipkin.New(spec.Endpoint)
 }
 
 func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
 
-	switch spec.Mode {
-	case otlpModeGRPC:
+	switch spec.Protocol {
+	case otlpProtocolGRPC:
 		return otlptracegrpc.New(context.Background(), otlptracegrpc.WithEndpoint(spec.Endpoint), otlptracegrpc.WithCompressor(spec.Compression))
 	default:
 		compression := otlptracehttp.NoCompression

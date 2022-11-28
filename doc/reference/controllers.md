@@ -525,7 +525,6 @@ domains:
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
-| kind        | string                     |Kind of exporter | Yes (options: jaeger,zipkin,otlp)      |
 | jaeger      | [jaeger.Spec](#jaegerSpec) | JaegerSpec describes Jaeger    | No       |
 | zipkin      | [zipkin.Spec](#zipkinSpec) |  ZipkinSpec describes Zipkin    | No       |
 | otlp        | [otlp.Spec](#otlpSpec)     | OTLPSpec describes OpenTelemetry exporter    | No       |
@@ -535,9 +534,7 @@ domains:
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | mode | string                     |Jaeger's access mode | Yes (options: agent,collector)      |
-| agentHost        | string   | The host used in agent mode | No|
-| agentPort        | string   | The port used in agent mode | No|
-| endpoint        | string   | The endpoint used in collector mode| No|
+| endpoint        | string   |In agent mode, endpoint must be host:port, in collector mode it is url| No|
 | username        | string   |The username used in collector mode| No |
 | password        | string   | The password used in collector mode| No|
 
@@ -545,14 +542,14 @@ domains:
 
 | Name          | Type    | Description                                                                                        | Required |
 |---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
-| collectorURL     | string  | The zipkin server URL                                                                              | Yes      |
+| endpoint     | string  | The zipkin server URL                                                                              | Yes      |
 
 #### otlp.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
-| mode | string                     | Connection mode of otlp | Yes (options: http,grpc)      |
-| endpoint        | string   | The endpoint used in collector mode| Yes|
+| protocol | string                     | Connection protocol of otlp | Yes (options: http,grpc)      |
+| endpoint        | string   | Endpoint of the otlp collector| Yes|
 | compression        | string   |Compression describes the compression used for payloads sent to the collector| No (options: gzip) |
 
 ### ipfilter.Spec
