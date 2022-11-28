@@ -153,6 +153,7 @@ type (
 	OTLPSpec struct {
 		Protocol    otlpProtocol `json:"protocol" jsonschema:"required,,enum=http,enum=grpc"`
 		Endpoint    string       `json:"endpoint" jsonschema:"required"`
+		Insecure    bool         `json:"insecure" jsonschema:"omitempty"`
 		Compression string       `json:"compression" jsonschema:"omitempty,enum=,enum=gzip"`
 	}
 
@@ -366,13 +367,22 @@ func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
 
 	switch spec.Protocol {
 	case otlpProtocolGRPC:
-		return otlptracegrpc.New(context.Background(), otlptracegrpc.WithEndpoint(spec.Endpoint), otlptracegrpc.WithCompressor(spec.Compression))
+		opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(spec.Endpoint), otlptracegrpc.WithCompressor(spec.Compression)}
+		if spec.Insecure {
+			opts = append(opts, otlptracegrpc.WithInsecure())
+		}
+		return otlptracegrpc.New(context.Background(), opts...)
 	default:
 		compression := otlptracehttp.NoCompression
 		if spec.Compression == "gzip" {
 			compression = otlptracehttp.GzipCompression
 		}
-		return otlptracehttp.New(context.Background(), otlptracehttp.WithEndpoint(spec.Endpoint), otlptracehttp.WithCompression(compression))
+		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(spec.Endpoint), otlptracehttp.WithCompression(compression)}
+		if spec.Insecure {
+			opts = append(opts, otlptracehttp.WithInsecure())
+		}
+
+		return otlptracehttp.New(context.Background(), opts...)
 	}
 
 }

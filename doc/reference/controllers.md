@@ -550,6 +550,7 @@ domains:
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | protocol | string                     | Connection protocol of otlp | Yes (options: http,grpc)      |
 | endpoint        | string   | Endpoint of the otlp collector| Yes|
+| insecure        | bool   | Whether to allow insecure connections| No (default: false)|
 | compression        | string   |Compression describes the compression used for payloads sent to the collector| No (options: gzip) |
 
 ### ipfilter.Spec

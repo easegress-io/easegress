@@ -11,6 +11,7 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/go-chi/chi/v5 v5.0.7
+	github.com/go-logr/zapr v1.2.3
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 	github.com/go-zookeeper/zk v1.0.3
 	github.com/goccy/go-json v0.9.6

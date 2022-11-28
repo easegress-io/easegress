@@ -60,7 +60,11 @@ tracing:
       endpoint: http://localhost:9412/api/v2/spans
     jaeger:
       mode: agent
-      endpoint: localhost:8888
+      endpoint: localhost:6831
+    otlp:
+      protocol: grpc
+      endpoint: localhost:4317
+      insecure: true
 rules:
   - paths:
     - pathPrefix: /pipeline
