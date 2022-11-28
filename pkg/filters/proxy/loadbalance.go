@@ -154,7 +154,6 @@ type BaseLoadBalancer struct {
 	healthyServers atomic.Value
 	consistentHash *consistent.Consistent
 	cookieExpire   time.Duration
-	ticker         *time.Ticker
 	done           chan bool
 	probeClient    *http.Client
 	probeInterval  time.Duration
@@ -211,14 +210,15 @@ func (blb *BaseLoadBalancer) initHealthCheck(spec *HealthCheckSpec, servers []*S
 		spec.Passes = HealthCheckDefaultPassThreshold
 	}
 	blb.probeClient = &http.Client{Timeout: blb.probeTimeout}
-	blb.ticker = time.NewTicker(blb.probeInterval)
+	ticker := time.NewTicker(blb.probeInterval)
 	blb.done = make(chan bool)
 	go func() {
 		for {
 			select {
 			case <-blb.done:
+				ticker.Stop()
 				return
-			case <-blb.ticker.C:
+			case <-ticker.C:
 				blb.probeServers()
 			}
 		}
@@ -373,11 +373,8 @@ func (blb *BaseLoadBalancer) ReturnServer(server *Server, req *httpprot.Request,
 
 // Close closes resources
 func (blb *BaseLoadBalancer) Close() {
-	if blb.ticker != nil {
-		blb.ticker.Stop()
-	}
 	if blb.done != nil {
-		blb.done <- true
+		close(blb.done)
 	}
 }
 

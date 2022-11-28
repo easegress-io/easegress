@@ -132,10 +132,8 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 	}
 
 	lb := NewLoadBalancer(spec, servers)
-	old := bsp.LoadBalancer()
-	bsp.loadBalancer.Store(lb)
-	if old != nil {
-		old.Close()
+	if old := bsp.loadBalancer.Swap(lb); old != nil {
+		old.(LoadBalancer).Close()
 	}
 }
 
