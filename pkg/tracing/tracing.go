@@ -299,7 +299,7 @@ func (spec *Spec) newSpanLimits() sdktrace.SpanLimits {
 	return sdktrace.SpanLimits{
 		AttributeValueLengthLimit:   spec.SpanLimits.AttributeValueLengthLimit,
 		AttributeCountLimit:         spec.SpanLimits.AttributeCountLimit,
-		EventCountLimit:             spec.SpanLimits.AttributeCountLimit,
+		EventCountLimit:             spec.SpanLimits.EventCountLimit,
 		LinkCountLimit:              spec.SpanLimits.LinkCountLimit,
 		AttributePerEventCountLimit: spec.SpanLimits.AttributePerEventCountLimit,
 		AttributePerLinkCountLimit:  spec.SpanLimits.AttributePerLinkCountLimit,

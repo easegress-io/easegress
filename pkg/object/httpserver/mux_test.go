@@ -69,9 +69,12 @@ https: false
 cacheSize: 100
 tracing:
   serviceName: test
-  zipkin:
-    serverURL: http://test.megaease.com/zipkin
-    sampleRate: 0.1
+  sampleRate: 0.1
+  exporter:
+    kind: zipkin
+    zipkin:
+      collectorURL: http://test.megaease.com/zipkin
+
 rules:
 - host: www.megaease.com
   paths:
