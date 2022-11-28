@@ -44,38 +44,31 @@ type mockAsyncProducer struct {
 }
 
 func (m *mockAsyncProducer) IsTransactional() bool {
-	//TODO implement me
-	panic("implement me")
+	return false
 }
 
 func (m *mockAsyncProducer) TxnStatus() sarama.ProducerTxnStatusFlag {
-	//TODO implement me
-	panic("implement me")
+	return 0
 }
 
 func (m *mockAsyncProducer) BeginTxn() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mockAsyncProducer) CommitTxn() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mockAsyncProducer) AbortTxn() error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mockAsyncProducer) AddOffsetsToTxn(offsets map[string][]*sarama.PartitionOffsetMetadata, groupId string) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mockAsyncProducer) AddMessageToTxn(msg *sarama.ConsumerMessage, groupId string, metadata *string) error {
-	//TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (m *mockAsyncProducer) AsyncClose()                               {}
