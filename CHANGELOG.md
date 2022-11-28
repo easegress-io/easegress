@@ -6,7 +6,7 @@
 
 **Significant changes:**
 * HTTPServer: support radix tree router and routing by client IP.
-* Add new filter OPAFilter.
+* Add new filter OPAFilter for Open Policy Agent.
 
 **Implemented enhancements:**
 * Load Balance: support session and server health check.
