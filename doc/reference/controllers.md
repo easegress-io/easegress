@@ -21,7 +21,12 @@
     - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
-    - [zipkin.Spec](#zipkinspec)
+      - [spanlimits.Spec](#spanlimitsSpec)
+      - [batchlimits.Spec](#batchlimitsSpec)
+      - [exporter.Spec](#exporterSpec)
+        - [jaeger.Spec](#jaegerSpec)
+        - [zipkin.Spec](#zipkinSpec)
+        - [otlp.Spec](#otlpSpec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
@@ -495,7 +500,7 @@ domains:
 | batchLimits      | [batchlimits.Spec](#batchlimitsSpec) | BatchLimitsSpec describes BatchSpanProcessorOptions    | No       |
 | exporter      | [exporter.Spec](#exporterSpec) | ExporterSpec describes exporter    | No       |
 
-### spanlimits.Spec
+#### spanlimits.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
@@ -507,7 +512,7 @@ domains:
 | attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
 | attributePerLinkCountLimit        | int   | AttributePerLinkCountLimit is the maximum number of attributes allowed per span link| No (default:128)|
 
-### batchlimits.Spec
+#### batchlimits.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
@@ -516,7 +521,7 @@ domains:
 | exportTimeout        | int   | ExportTimeout specifies the maximum duration for exporting spans| No (default:30000 msec)|
 | maxExportBatchSize        | int   | MaxExportBatchSize is the maximum number of spans to process in a single batch| No (default:512)|
 
-### exporter.Spec
+#### exporter.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
@@ -525,7 +530,7 @@ domains:
 | zipkin      | [zipkin.Spec](#zipkinSpec) |  ZipkinSpec describes Zipkin    | No       |
 | otlp        | [otlp.Spec](#otlpSpec)     | OTLPSpec describes OpenTelemetry exporter    | No       |
 
-### jaeger.Spec
+#### jaeger.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
@@ -536,13 +541,13 @@ domains:
 | username        | string   |The username used in collector mode| No |
 | password        | string   | The password used in collector mode| No|
 
-### zipkin.Spec
+#### zipkin.Spec
 
 | Name          | Type    | Description                                                                                        | Required |
 |---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
 | collectorURL     | string  | The zipkin server URL                                                                              | Yes      |
 
-### otlp.Spec
+#### otlp.Spec
 
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
