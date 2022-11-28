@@ -32,6 +32,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/mock"
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
 	_ "github.com/megaease/easegress/pkg/filters/oidcadaptor"
+	_ "github.com/megaease/easegress/pkg/filters/opafilter"
 	_ "github.com/megaease/easegress/pkg/filters/proxy"
 	_ "github.com/megaease/easegress/pkg/filters/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filters/remotefilter"

@@ -61,6 +61,9 @@
   - [OIDCAdaptor](#OIDCAdaptor)
     - [Configuration](#configuration-19)
     - [Results](#results-19)
+  - [OPAFilter](#OPAFilter)
+    - [Configuration](#configuration-20)
+    - [Results](#results-20) 
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -1059,6 +1062,68 @@ After OIDCAdaptor handled, following OIDC related information can be obtained fr
 * **X-Access-Token**: The AccessToken returned by OpenId Connect or OAuth2.0 flow.
 
 
+
+## OPAFilter
+The [Open Policy Agent (OPA)](https://www.openpolicyagent.org/docs/latest/) is an open source, 
+general-purpose policy engine that unifies policy enforcement across the stack. It provides a 
+high-level declarative language, which can be used to define and enforce policies in 
+Easegress API Gateway. Currently, there are 160+ built-in operators and functions we can use, 
+for examples `net.cidr_contains` and `contains`.
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: opa-filter
+    jumpIf: { opaDenied: END }
+filters:
+  - name: opa-filter
+    kind: OPAFilter
+    defaultStatus: 403
+    readBody: true
+    includedHeaders: a,b,c
+    policy: |
+      package http
+      default allow = false
+      allow {
+         input.request.method == "POST"
+         input.request.scheme == "https"
+         contains(input.request.path, "/")               
+         net.cidr_contains("127.0.0.0/24",input.request.realIP)          
+      }
+```
+
+The following table lists input request fields that can be used in an OPA policy to help enforce it.
+
+| Name                     | Type   | Description                                                           | Example                              |
+|--------------------------|--------|-----------------------------------------------------------------------|--------------------------------------|
+| input.request.method     | string | The current http request method                                       | "POST"                               |
+| input.request.path       | string | The current http request URL path                                     | "/a/b/c"                             |
+| input.request.path_parts | array  | The current http request URL path parts                               | ["a","b","c"]                        |
+| input.request.raw_query  | string | The current http request raw query                                    | "a=1&b=2&c=3"                        |
+| input.request.query      | map    | The current http request query map                                    | {"a":1,"b":2,"c":3}                  |
+| input.request.headers    | map    | The current http request header map targeted by<br/> includedHeaders  | {"Content-Type":"application/json"}  |
+| input.request.scheme     | string | The current http request scheme                                       | "https"                              | 
+| input.request.realIP     | string | The current http request client real IP                               | "127.0.0.1"                          |
+| input.request.body       | string | The current http request body string data                             | {"data":"xxx"}                       |
+
+
+### Configuration
+
+| Name             | Type   | Description                                                                          | Required |
+|------------------|--------|--------------------------------------------------------------------------------------|----------|
+| defaultStatus    | int    | The default HTTP status code when request is denied by the OPA policy decision       | No       |
+| readBody         | bool   | Whether to read request body as OPA policy data on condition                         | No       |
+| includedHeaders  | string | Names of the HTTP headers to be included in `input.request.headers`, comma-separated | No       |
+| policy           | string | The OPA policy written in the Rego declarative language                              | Yes      |
+
+### Results
+| Value     | Description                                   |
+|-----------|-----------------------------------------------|
+| opaDenied | The request is denied by OPA policy decision. |
+
+
+
 ## Common Types
 
 ### pathadaptor.Spec
@@ -1122,6 +1187,7 @@ Rules to revise request header.
 | policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
 | stickySession | [proxy.StickySession](#proxyStickySessionSpec) | Sticky session spec                                                 | No       |
+| healthCheck | [proxy.HealthCheck](#proxyHealthCheckSpec) | Health check spec, note that healthCheck is not needed if you are using service registry | No       |
 
 ### proxy.StickySessionSpec
 
@@ -1131,6 +1197,16 @@ Rules to revise request header.
 | appCookieName | string | Name of the application cookie, its value will be used as the session identifier for stickiness in `CookieConsistentHash` and `ApplicationBased` mode             | No      |
 | lbCookieName | string | Name of the cookie generated by load balancer, its value will be used as the session identifier for stickiness in `DurationBased` and `ApplicationBased` mode, default is `EG_SESSION`             | No      |
 | lbCookieExpire | string | Expire duration of the cookie generated by load balancer, its value will be used as the session expire time for stickiness in `DurationBased` and `ApplicationBased` mode, default is 2 hours             | No      |
+
+### proxy.HealthCheckSpec
+
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| interval | string | Interval duration for health check, default is 60s | Yes |
+| path | string | Path URL for server health check | No |
+| timeout | string | Timeout duration for health check, default is 3s | No |
+| fails | int | Consecutive fails count for assert fail, default is 1 | No |
+| passes | int | Consecutive passes count for assert pass , default is 1 | No |
 
 ### proxy.MemoryCacheSpec
 
