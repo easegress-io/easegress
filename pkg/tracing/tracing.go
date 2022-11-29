@@ -19,8 +19,10 @@ package tracing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -37,14 +39,17 @@ import (
 )
 
 type (
+	headerFormat string
 	// Spec describes Tracer.
 	Spec struct {
-		ServiceName string            `json:"serviceName" jsonschema:"required"`
-		Attributes  map[string]string `json:"attributes" jsonschema:"omitempty"`
-		SpanLimits  *SpanLimitsSpec   `json:"spanLimits" jsonschema:"omitempty"`
-		SampleRate  float64           `json:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
-		BatchLimits *BatchLimitsSpec  `json:"batchLimits" jsonschema:"omitempty"`
-		Exporter    *ExporterSpec     `json:"exporter" jsonschema:"required"`
+		ServiceName  string                `json:"serviceName" jsonschema:"required,minLength=1"`
+		Attributes   map[string]string     `json:"attributes" jsonschema:"omitempty"`
+		SpanLimits   *SpanLimitsSpec       `json:"spanLimits" jsonschema:"omitempty"`
+		SampleRate   float64               `json:"sampleRate" jsonschema:"omitempty,minimum=0,maximum=1,default=1"`
+		BatchLimits  *BatchLimitsSpec      `json:"batchLimits" jsonschema:"omitempty"`
+		Exporter     *ExporterSpec         `json:"exporter" jsonschema:"omitempty"`
+		Zipkin       *ZipkinDeprecatedSpec `json:"zipkin" jsonschema:"omitempty"`
+		HeaderFormat headerFormat          `json:"headerFormat" jsonschema:"omitempty,default=trace-context,enum=trace-context,enum=b3"`
 	}
 
 	// SpanLimitsSpec represents the limits of a span.
@@ -112,12 +117,12 @@ type (
 		// BatchTimeout is the maximum duration for constructing a batch. Processor
 		// forcefully sends available spans when timeout is reached.
 		// The default value of BatchTimeout is 5000 msec.
-		BatchTimeout time.Duration `json:"batchTimeout" jsonschema:"default=5000,omitempty"`
+		BatchTimeout int64 `json:"batchTimeout" jsonschema:"default=5000,omitempty"`
 
 		// ExportTimeout specifies the maximum duration for exporting spans. If the timeout
 		// is reached, the export will be cancelled.
 		// The default value of ExportTimeout is 30000 msec.
-		ExportTimeout time.Duration `json:"exportTimeout" jsonschema:"default=30000,omitempty"`
+		ExportTimeout int64 `json:"exportTimeout" jsonschema:"default=30000,omitempty"`
 
 		// MaxExportBatchSize is the maximum number of spans to process in a single batch.
 		// If there are more than one batch worth of spans then it processes multiple batches
@@ -157,10 +162,23 @@ type (
 		Compression string       `json:"compression" jsonschema:"omitempty,enum=,enum=gzip"`
 	}
 
+	// ZipkinDeprecatedSpec describes Zipkin.
+	// Deprecated: This option will be kept until the next major version
+	// incremented release.
+	ZipkinDeprecatedSpec struct {
+		Hostport      string  `json:"hostport" jsonschema:"omitempty"`
+		ServerURL     string  `json:"serverURL" jsonschema:"required,format=url"`
+		DisableReport bool    `json:"disableReport" jsonschema:"omitempty"`
+		SampleRate    float64 `json:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
+		SameSpan      bool    `json:"sameSpan" jsonschema:"omitempty"`
+		ID128Bit      bool    `json:"id128Bit" jsonschema:"omitempty"`
+	}
+
 	// Tracer is the tracer.
 	Tracer struct {
 		trace.Tracer
-		tp *sdktrace.TracerProvider
+		tp         *sdktrace.TracerProvider
+		propagator propagation.TextMapPropagator
 	}
 
 	// Span is the span of the Tracing.
@@ -172,12 +190,58 @@ type (
 )
 
 const (
+	//see: https://www.w3.org/TR/trace-context/
+	headerFormatTraceContext = "trace-context"
+	headerFormatB3           = "b3"
+
 	jaegerModeAgent     jaegerMode = "agent"
 	jaegerModeCollector jaegerMode = "collector"
 
 	otlpProtocolHTTP otlpProtocol = "http"
 	otlpProtocolGRPC otlpProtocol = "grpc"
 )
+
+func (spec *Spec) UnmarshalJSON(data []byte) error {
+	type innerSpec Spec
+	inner := &innerSpec{
+		SpanLimits: &SpanLimitsSpec{
+			AttributeValueLengthLimit:   sdktrace.DefaultAttributeValueLengthLimit,
+			AttributeCountLimit:         sdktrace.DefaultAttributeCountLimit,
+			EventCountLimit:             sdktrace.DefaultEventCountLimit,
+			LinkCountLimit:              sdktrace.DefaultLinkCountLimit,
+			AttributePerEventCountLimit: sdktrace.DefaultAttributePerEventCountLimit,
+			AttributePerLinkCountLimit:  sdktrace.DefaultAttributePerLinkCountLimit,
+		},
+		SampleRate: 1,
+		BatchLimits: &BatchLimitsSpec{
+			MaxQueueSize:       sdktrace.DefaultMaxQueueSize,
+			BatchTimeout:       sdktrace.DefaultScheduleDelay,
+			ExportTimeout:      sdktrace.DefaultExportTimeout,
+			MaxExportBatchSize: sdktrace.DefaultMaxExportBatchSize,
+		},
+		HeaderFormat: headerFormatTraceContext,
+	}
+
+	if err := json.Unmarshal(data, inner); err != nil {
+		return err
+	}
+
+	*spec = Spec(*inner)
+	return nil
+
+}
+
+func (spec *Spec) Validate() error {
+	if spec.Exporter == nil && spec.Zipkin == nil {
+		return fmt.Errorf("exporter and zipkin cannot both be empty")
+	}
+
+	if spec.Exporter != nil && spec.Zipkin != nil {
+		return fmt.Errorf("exporter and zipkin cannot exist at the same time")
+	}
+
+	return nil
+}
 
 // Validate validates Spec.
 func (spec *ExporterSpec) Validate() error {
@@ -215,12 +279,10 @@ var NoopTracer *Tracer
 // NoopSpan does nothing.
 var NoopSpan *Span
 
-//GlobalPropagator is global
-var GlobalPropagator propagation.TextMapPropagator = propagation.Baggage{}
-
 func init() {
 	NoopTracer = &Tracer{
-		Tracer: trace.NewNoopTracerProvider().Tracer("noop"),
+		Tracer:     trace.NewNoopTracerProvider().Tracer("noop"),
+		propagator: propagation.TraceContext{},
 	}
 	ctx, span := NoopTracer.Start(context.Background(), "noop")
 	NoopSpan = &Span{Span: span, ctx: ctx, tracer: NoopTracer}
@@ -269,12 +331,18 @@ func (spec *Spec) newResource() (*resource.Resource, error) {
 }
 
 func (spec *Spec) newSampler() sdktrace.Sampler {
-	if spec.SampleRate <= 0 {
+	sampleRate := spec.SampleRate
+
+	if spec.Exporter == nil {
+		sampleRate = spec.Zipkin.SampleRate
+	}
+
+	if sampleRate <= 0 {
 		return sdktrace.NeverSample()
-	} else if spec.SampleRate >= 1 {
+	} else if sampleRate >= 1 {
 		return sdktrace.AlwaysSample()
 	} else {
-		return sdktrace.TraceIDRatioBased(spec.SampleRate)
+		return sdktrace.TraceIDRatioBased(sampleRate)
 	}
 }
 
@@ -294,18 +362,30 @@ func (spec *Spec) newSpanLimits() sdktrace.SpanLimits {
 }
 
 func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
-	exporters, err := spec.Exporter.newExporters()
 
-	if err != nil {
-		return nil, err
+	var exporters []sdktrace.SpanExporter
+	var err error
+
+	if spec.Exporter != nil {
+		exporters, err = spec.Exporter.newExporters()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if exp, err := spec.Zipkin.newExporter(); err == nil {
+			exporters = []sdktrace.SpanExporter{exp}
+		} else {
+			return nil, err
+		}
+
 	}
 
 	var opts []sdktrace.BatchSpanProcessorOption
 	if spec.BatchLimits != nil {
 		opts = []sdktrace.BatchSpanProcessorOption{
 			sdktrace.WithMaxQueueSize(spec.BatchLimits.MaxQueueSize),
-			sdktrace.WithBatchTimeout(spec.BatchLimits.BatchTimeout),
-			sdktrace.WithExportTimeout(spec.BatchLimits.ExportTimeout),
+			sdktrace.WithBatchTimeout(time.Duration(spec.BatchLimits.BatchTimeout) * time.Millisecond),
+			sdktrace.WithExportTimeout(time.Duration(spec.BatchLimits.ExportTimeout) * time.Millisecond),
 			sdktrace.WithMaxExportBatchSize(spec.BatchLimits.MaxExportBatchSize),
 		}
 	}
@@ -319,9 +399,21 @@ func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
 
 }
 
+func (spec *Spec) newPropagator() propagation.TextMapPropagator {
+	format := spec.HeaderFormat
+	if spec.Exporter == nil && spec.Zipkin != nil {
+		format = headerFormatB3
+	}
+
+	if format == headerFormatB3 {
+		return b3.New(b3.WithInjectEncoding(b3.B3SingleHeader))
+	}
+
+	return propagation.TraceContext{}
+}
+
 func (spec *ExporterSpec) newExporters() ([]sdktrace.SpanExporter, error) {
 	var exporters []sdktrace.SpanExporter
-
 	if spec.Jaeger != nil {
 		if exp, err := spec.Jaeger.newExporter(); err == nil {
 			exporters = append(exporters, exp)
@@ -361,6 +453,10 @@ func (spec *JaegerSpec) newExporter() (sdktrace.SpanExporter, error) {
 
 func (spec *ZipkinSpec) newExporter() (sdktrace.SpanExporter, error) {
 	return zipkin.New(spec.Endpoint)
+}
+
+func (spec *ZipkinDeprecatedSpec) newExporter() (sdktrace.SpanExporter, error) {
+	return zipkin.New(spec.ServerURL)
 }
 
 func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
@@ -458,5 +554,5 @@ func (s *Span) newChildWithStart(name string, startAt time.Time) *Span {
 
 // InjectHTTP injects span context into an HTTP request.
 func (s *Span) InjectHTTP(r *http.Request) {
-	GlobalPropagator.Inject(s.ctx, propagation.HeaderCarrier(r.Header))
+	s.tracer.propagator.Inject(s.ctx, propagation.HeaderCarrier(r.Header))
 }

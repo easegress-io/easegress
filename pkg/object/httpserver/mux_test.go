@@ -70,10 +70,11 @@ cacheSize: 100
 tracing:
   serviceName: test
   sampleRate: 0.1
+  spanLimits:
+    attributeCountLimit: 20
   exporter:
-    kind: zipkin
     zipkin:
-      collectorURL: http://test.megaease.com/zipkin
+      endpoint: http://test.megaease.com/zipkin
 
 rules:
 - host: www.megaease.com

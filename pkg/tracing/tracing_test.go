@@ -79,18 +79,27 @@ func TestNewSampler(t *testing.T) {
 
 	spec := &Spec{
 		SampleRate: 0,
+		Exporter: &ExporterSpec{
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
+		},
 	}
 	s := spec.newSampler()
 	assert.Equal(trace.NeverSample(), s)
 
 	spec = &Spec{
 		SampleRate: 1,
+		Exporter: &ExporterSpec{
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
+		},
 	}
 	s = spec.newSampler()
 	assert.Equal(trace.AlwaysSample(), s)
 
 	spec = &Spec{
 		SampleRate: 0.5,
+		Exporter: &ExporterSpec{
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
+		},
 	}
 	s = spec.newSampler()
 	assert.Equal(trace.TraceIDRatioBased(0.5), s)

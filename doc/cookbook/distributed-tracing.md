@@ -70,3 +70,46 @@ rules:
     - pathPrefix: /pipeline
       backend: pipeline-example
 ```
+
+## Backward Compatibility
+
+In the current version, you can still use the same configuration as before, but there are still some minor differences that need to be adjusted, as you can see in the following example.
+
+```yaml
+kind: HTTPServer
+name: http-server-example
+port: 10080
+tracing:
+  serviceName: httpServerExample
+  tags:                             # tags need to be renamed to attributes
+    customTagKey: customTagValue
+  zipkin:
+    hostport: 0.0.0.0:10080 # This option will no longer be used
+    serverURL: http://localhost:9412/api/v2/spans
+    sampleRate: 1
+    sameSpan: true # This option will no longer be used
+    id128Bit: false # # This option will no longer be used
+rules:
+  - paths:
+    - pathPrefix: /pipeline
+      backend: pipeline-example
+```
+
+The adjusted example should look like this.
+
+```yaml
+kind: HTTPServer
+name: http-server-example
+port: 10080
+tracing:
+  serviceName: httpServerExample
+  attributes:
+    customTagKey: customTagValue
+  zipkin:
+    serverURL: http://localhost:9412/api/v2/spans
+    sampleRate: 1
+rules:
+  - paths:
+    - pathPrefix: /pipeline
+      backend: pipeline-example
+```

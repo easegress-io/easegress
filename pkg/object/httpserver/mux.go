@@ -19,7 +19,6 @@ package httpserver
 
 import (
 	"fmt"
-	"go.opentelemetry.io/otel/propagation"
 	"io"
 	"net/http"
 	"reflect"
@@ -216,8 +215,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	startAt := fasttime.Now()
 
-	stdCtx := tracing.GlobalPropagator.Extract(stdr.Context(), propagation.HeaderCarrier(stdr.Header))
-	span := mi.tracer.NewSpanWithStart(stdCtx, mi.superSpec.Name(), startAt)
+	span := mi.tracer.NewSpanWithStart(stdr.Context(), mi.superSpec.Name(), startAt)
 
 	ctx := context.New(span)
 	ctx.SetData("HTTP_RESPONSE_WRITER", stdw)
