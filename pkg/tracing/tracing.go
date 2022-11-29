@@ -316,7 +316,7 @@ func New(spec *Spec) (*Tracer, error) {
 		opts...,
 	)
 
-	return &Tracer{Tracer: tp.Tracer(""), tp: tp}, nil
+	return &Tracer{Tracer: tp.Tracer(""), tp: tp, propagator: spec.newPropagator()}, nil
 }
 
 func (spec *Spec) newResource() (*resource.Resource, error) {
