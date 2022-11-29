@@ -22,6 +22,8 @@ import (
 	"net"
 	"net/url"
 	"strings"
+
+	"github.com/megaease/easegress/pkg/logger"
 )
 
 // Server is proxy server.
@@ -31,11 +33,24 @@ type Server struct {
 	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
 	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
 	addrIsHostName bool
+	health         *ServerHealth
+}
+
+// ServerHealth is health status of server
+type ServerHealth struct {
+	healthy bool
+	fails   int
+	passes  int
 }
 
 // String implements the Stringer interface.
 func (s *Server) String() string {
 	return fmt.Sprintf("%s,%v,%d", s.URL, s.Tags, s.Weight)
+}
+
+// ID return identifier for server
+func (s *Server) ID() string {
+	return s.URL
 }
 
 // checkAddrPattern checks whether the server address is host name or ip:port,
@@ -61,4 +76,30 @@ func (s *Server) checkAddrPattern() {
 	}
 
 	s.addrIsHostName = net.ParseIP(host) == nil
+}
+
+// recordHealth records health status, return healthy status and true if status changes
+func (s *Server) recordHealth(pass bool, passThreshold, failThreshold int) (bool, bool) {
+	if s.health == nil {
+		s.health = &ServerHealth{healthy: true}
+	}
+	h := s.health
+	if pass {
+		h.passes++
+		h.fails = 0
+	} else {
+		h.passes = 0
+		h.fails++
+	}
+	change := false
+	if h.passes >= passThreshold && !h.healthy {
+		h.healthy = true
+		logger.Warnf("server:%v becomes healthy.", s.ID())
+		change = true
+	} else if h.fails >= failThreshold && h.healthy {
+		logger.Warnf("server:%v becomes unhealthy!", s.ID())
+		h.healthy = false
+		change = true
+	}
+	return h.healthy, change
 }

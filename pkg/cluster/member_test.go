@@ -19,52 +19,21 @@ package cluster
 
 import (
 	"fmt"
-	"math/rand"
-	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/phayes/freeport"
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 
 	"github.com/megaease/easegress/pkg/env"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 )
 
-var (
-	memberCounter = 0
-	tempDir       = os.TempDir()
-)
+var memberCounter = 0
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-func getRandomString(n int) string {
-	randBytes := make([]byte, n/2)
-	rand.Read(randBytes)
-	return fmt.Sprintf("%x", randBytes)
-}
-
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	// logger.InitMock()
-	tempDir = path.Join(tempDir, getRandomString(6))
-	code := m.Run()
-	os.Exit(code)
-}
-
-func mockTestOpt() *option.Options {
-	ports, err := freeport.GetFreePorts(3)
-	if err != nil {
-		panic(fmt.Errorf("get 3 free ports failed: %v", err))
-	}
-
+func mockTestOpt(ports []int) *option.Options {
 	memberCounter++
 	name := fmt.Sprintf("test-member-%03d", memberCounter)
 
@@ -84,8 +53,7 @@ func mockTestOpt() *option.Options {
 	opt.MemberDir = "member"
 	opt.Debug = false
 
-	_, err = opt.Parse()
-	if err != nil {
+	if _, err := opt.Parse(); err != nil {
 		panic(fmt.Errorf("parse option failed: %v", err))
 	}
 
@@ -93,23 +61,27 @@ func mockTestOpt() *option.Options {
 }
 
 func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
+	ports, err := freeport.GetFreePorts(count * 3)
+	if err != nil {
+		panic(fmt.Errorf("get %d free ports failed: %v", count*3, err))
+	}
+
 	opts := make([]*option.Options, count)
 	members := make(membersSlice, count)
 	pbMembers := make([]*pb.Member, count)
 
 	for i := 0; i < count; i++ {
-		opt := mockTestOpt()
-
-		id := uint64(i + 1)
+		id := i + 1
+		opt := mockTestOpt(ports[i*3 : (i+1)*3])
 
 		opts[i] = opt
 		members[i] = &member{
-			ID:      id,
+			ID:      uint64(id),
 			Name:    opt.Name,
 			PeerURL: opt.Cluster.InitialAdvertisePeerURLs[0],
 		}
 		pbMembers[i] = &pb.Member{
-			ID:         id,
+			ID:         uint64(id),
 			Name:       opt.Name,
 			PeerURLs:   []string{opt.Cluster.InitialAdvertisePeerURLs[0]},
 			ClientURLs: []string{opt.Cluster.AdvertiseClientURLs[0]},
@@ -132,89 +104,12 @@ func mockMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
 
 	sort.Sort(members)
 
-	tmp := members.copy()
-	if len(tmp) == 0 {
-		panic("members copy failed")
-	}
 	noexistMember := members.getByPeerURL("no-exist")
 
 	if noexistMember != nil {
 		panic("get a member not exist succ, should failed")
 	}
 
-	members.deleteByName("no-exist")
-	members.deleteByPeerURL("no-exist-purl")
-	return opts, members, pbMembers
-}
-
-func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
-	opts := make([]*option.Options, count)
-	members := make(membersSlice, count)
-	pbMembers := make([]*pb.Member, count)
-
-	portCount := (count * 2) + 1 // two for each member and one for egctl API.
-	ports, err := freeport.GetFreePorts(portCount)
-	if err != nil {
-		panic(fmt.Errorf("get %d free ports failed: %v", portCount, err))
-	}
-	initialCluster := make(map[string]string)
-	for i := 0; i < count; i++ {
-		name := fmt.Sprintf("static-cluster-test-member-%03d", i)
-		peerURL := fmt.Sprintf("http://localhost:%d", ports[(i*2)+1])
-		initialCluster[name] = peerURL
-	}
-
-	for i := 0; i < count; i++ {
-		name := fmt.Sprintf("static-cluster-test-member-%03d", i)
-		opt := option.New()
-		opt.Name = name
-		opt.ClusterName = "test-static-sized-cluster"
-		opt.ClusterRole = "primary"
-		opt.ClusterRequestTimeout = "10s"
-		listenPort := ports[(i*2)+2]
-		advertisePort := ports[(i*2)+1]
-
-		opt.APIAddr = fmt.Sprintf("localhost:%d", ports[0])
-		opt.Cluster.ListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", listenPort)}
-		opt.Cluster.AdvertiseClientURLs = opt.Cluster.ListenClientURLs
-		opt.Cluster.ListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", advertisePort)}
-		opt.Cluster.InitialAdvertisePeerURLs = opt.Cluster.ListenPeerURLs
-		opt.Cluster.InitialCluster = initialCluster
-		opt.HomeDir = filepath.Join(tempDir, name)
-		opt.DataDir = "data"
-		opt.LogDir = "log"
-		opt.MemberDir = "member"
-		opt.Debug = false
-		_, err = opt.Parse() // create directories
-		if err != nil {
-			panic(fmt.Errorf("parse option failed: %v", err))
-		}
-
-		id := uint64(i + 1)
-
-		opts[i] = opt
-		members[i] = &member{
-			ID:      id,
-			Name:    opt.Name,
-			PeerURL: opt.Cluster.InitialAdvertisePeerURLs[0],
-		}
-		pbMembers[i] = &pb.Member{
-			ID:         id,
-			Name:       opt.Name,
-			PeerURLs:   []string{opt.Cluster.InitialAdvertisePeerURLs[0]},
-			ClientURLs: []string{opt.Cluster.AdvertiseClientURLs[0]},
-		}
-		env.InitServerDir(opts[i])
-	}
-	sort.Sort(members)
-	tmp := members.copy()
-	if len(tmp) == 0 {
-		panic("members copy failed")
-	}
-	noexistMember := members.getByPeerURL("no-exist")
-	if noexistMember != nil {
-		panic("get a member not exist succ, should failed")
-	}
 	members.deleteByName("no-exist")
 	members.deleteByPeerURL("no-exist-purl")
 	return opts, members, pbMembers

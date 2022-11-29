@@ -56,6 +56,10 @@ type (
 
 // New creates an IPFilter.
 func New(spec *Spec) *IPFilter {
+	if spec == nil {
+		return nil
+	}
+
 	rangerFromIPCIDRs := func(ipcidrs []string) cidranger.Ranger {
 		ranger := cidranger.NewPCTrieRanger()
 		for _, ipcidr := range ipcidrs {
@@ -92,6 +96,10 @@ func New(spec *Spec) *IPFilter {
 
 // Allow return if IPFilter allows the incoming ip.
 func (f *IPFilter) Allow(ipstr string) bool {
+	if f == nil {
+		return true
+	}
+
 	defaultResult := !f.spec.BlockByDefault
 
 	ip := net.ParseIP(ipstr)
@@ -102,6 +110,10 @@ func (f *IPFilter) Allow(ipstr string) bool {
 	allowed, err := f.allowRanger.Contains(ip)
 	if err != nil {
 		return defaultResult
+	}
+	// if AllowIPs is not empty, only allow IPs in AllowIPs
+	if len(f.spec.AllowIPs) > 0 && !allowed {
+		return false
 	}
 
 	blocked, err := f.blockRanger.Contains(ip)
@@ -145,4 +157,24 @@ func (f *IPFilters) Allow(ipstr string) bool {
 	}
 
 	return true
+}
+
+// NewIPFilterChain returns nil if the number of final filters is zero.
+func NewIPFilterChain(parentIPFilters *IPFilters, childSpec *Spec) *IPFilters {
+	var ipFilters *IPFilters
+	if parentIPFilters != nil {
+		ipFilters = NewIPFilters(parentIPFilters.Filters()...)
+	} else {
+		ipFilters = NewIPFilters()
+	}
+
+	if childSpec != nil {
+		ipFilters.Append(New(childSpec))
+	}
+
+	if len(ipFilters.Filters()) == 0 {
+		return nil
+	}
+
+	return ipFilters
 }

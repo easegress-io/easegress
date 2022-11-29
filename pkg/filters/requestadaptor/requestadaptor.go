@@ -20,6 +20,7 @@ package requestadaptor
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -40,6 +41,9 @@ const (
 	resultDecompressFailed = "decompressFailed"
 	resultCompressFailed   = "compressFailed"
 	resultSignFailed       = "signFailed"
+
+	keyContentLength   = "Content-Length"
+	keyContentEncoding = "Content-Encoding"
 )
 
 var kind = &filters.Kind{
@@ -295,7 +299,7 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 }
 
 func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {
-	encoding := req.HTTPHeader().Get("Content-Encoding")
+	encoding := req.HTTPHeader().Get(keyContentEncoding)
 	if encoding != "" {
 		return ""
 	}
@@ -303,6 +307,8 @@ func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {
 	zr := readers.NewGZipCompressReader(req.GetPayload())
 	if req.IsStream() {
 		req.SetPayload(zr)
+		req.ContentLength = -1
+		req.HTTPHeader().Del(keyContentLength)
 	} else {
 		data, err := io.ReadAll(zr)
 		zr.Close()
@@ -311,14 +317,16 @@ func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {
 			return resultCompressFailed
 		}
 		req.SetPayload(data)
+		req.ContentLength = int64(len(data))
+		req.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
 	}
 
-	req.HTTPHeader().Set("Content-Encoding", "gzip")
+	req.HTTPHeader().Set(keyContentEncoding, "gzip")
 	return ""
 }
 
 func (ra *RequestAdaptor) processDecompress(req *httpprot.Request) string {
-	encoding := req.HTTPHeader().Get("Content-Encoding")
+	encoding := req.HTTPHeader().Get(keyContentEncoding)
 	if ra.spec.Decompress != "gzip" || encoding != "gzip" {
 		return ""
 	}
@@ -330,6 +338,8 @@ func (ra *RequestAdaptor) processDecompress(req *httpprot.Request) string {
 
 	if req.IsStream() {
 		req.SetPayload(zr)
+		req.ContentLength = -1
+		req.HTTPHeader().Del(keyContentLength)
 	} else {
 		data, err := io.ReadAll(zr)
 		zr.Close()
@@ -338,9 +348,11 @@ func (ra *RequestAdaptor) processDecompress(req *httpprot.Request) string {
 			return resultDecompressFailed
 		}
 		req.SetPayload(data)
+		req.ContentLength = int64(len(data))
+		req.HTTPHeader().Set(keyContentLength, strconv.Itoa(len(data)))
 	}
 
-	req.HTTPHeader().Del("Content-Encoding")
+	req.HTTPHeader().Del(keyContentEncoding)
 	return ""
 }
 

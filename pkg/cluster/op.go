@@ -21,6 +21,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"
+	"time"
 )
 
 // PutUnderLease stores data under lease.
@@ -221,5 +222,20 @@ func (c *cluster) STM(apply func(concurrency.STM) error) error {
 		return err
 	}
 	_, err = concurrency.NewSTM(client, apply)
+	return err
+}
+
+func (c *cluster) PutUnderTimeout(key, value string, timeout time.Duration) error {
+	client, err := c.getClient()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := c.requestContext()
+	defer cancel()
+	lgr, err := client.Lease.Grant(ctx, int64(timeout.Seconds()))
+	if err != nil {
+		return err
+	}
+	_, err = client.Put(ctx, key, value, clientv3.WithLease(lgr.ID))
 	return err
 }

@@ -46,6 +46,8 @@ type (
 		PutAndDelete(map[string]*string) error
 		PutAndDeleteUnderLease(map[string]*string) error
 
+		PutUnderTimeout(key, value string, timeout time.Duration) error
+
 		Delete(key string) error
 		DeletePrefix(prefix string) error
 

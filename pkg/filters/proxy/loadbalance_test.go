@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
@@ -30,9 +31,18 @@ import (
 func prepareServers(count int) []*Server {
 	svrs := make([]*Server, 0, count)
 	for i := 0; i < count; i++ {
-		svrs = append(svrs, &Server{Weight: i + 1})
+		svrs = append(svrs, &Server{Weight: i + 1, URL: fmt.Sprintf("192.168.1.%d", i+1)})
 	}
 	return svrs
+}
+
+func readCookie(cookies []*http.Cookie, name string) *http.Cookie {
+	for _, c := range cookies {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
 }
 
 func TestRoundRobinLoadBalancer(t *testing.T) {
@@ -160,4 +170,117 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		assert.GreaterOrEqual(counter[i], 1)
 	}
+}
+
+func TestStickySession_ConsistentHash(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode:          "CookieConsistentHash",
+			AppCookieName: "AppCookie",
+		},
+	}, servers)
+
+	req := &http.Request{Header: http.Header{}}
+	req.AddCookie(&http.Cookie{Name: "AppCookie", Value: "abcd-1"})
+	r, _ := httpprot.NewRequest(req)
+	svr1 := lb.ChooseServer(r)
+
+	for i := 0; i < 100; i++ {
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
+	}
+}
+
+func TestStickySession_DurationBased(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode: StickySessionModeDurationBased,
+		},
+	}, servers)
+
+	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
+	svr1 := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	lb.ReturnServer(svr1, r, resp)
+	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+
+	for i := 0; i < 100; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
+		r, _ = httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
+
+		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
+		lb.ReturnServer(svr, r, resp)
+		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+	}
+}
+
+func TestStickySession_ApplicationBased(t *testing.T) {
+	assert := assert.New(t)
+
+	servers := prepareServers(10)
+	appCookieName := "x-app-cookie"
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		StickySession: &StickySessionSpec{
+			Mode:          StickySessionModeApplicationBased,
+			AppCookieName: appCookieName,
+		},
+	}, servers)
+
+	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
+	svr1 := lb.ChooseServer(r)
+	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
+	resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
+	lb.ReturnServer(svr1, r, resp)
+	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+
+	for i := 0; i < 100; i++ {
+		req := &http.Request{Header: http.Header{}}
+		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
+		r, _ = httpprot.NewRequest(req)
+		svr := lb.ChooseServer(r)
+		assert.Equal(svr1, svr)
+
+		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
+		resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
+		lb.ReturnServer(svr, r, resp)
+		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		sign([]byte("192.168.1.2"))
+	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+	servers := prepareServers(3)
+	lb := NewLoadBalancer(&LoadBalanceSpec{
+		Policy: LoadBalancePolicyRandom,
+		HealthCheck: &HealthCheckSpec{
+			Interval: "3s",
+			Fails:    2,
+		},
+	}, servers)
+
+	assert.Equal(len(servers), len(lb.HealthyServers()))
+
+	time.Sleep(5 * time.Second)
+	assert.Equal(len(servers), len(lb.HealthyServers()))
+
+	time.Sleep(5 * time.Second)
+	assert.Equal(0, len(lb.HealthyServers()))
 }

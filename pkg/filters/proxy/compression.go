@@ -64,6 +64,7 @@ func (c *compression) compress(req *http.Request, resp *http.Response) bool {
 		return false
 	}
 
+	resp.ContentLength = -1
 	resp.Header.Del(keyContentLength)
 	resp.Header.Set(keyContentEncoding, "gzip")
 	resp.Header.Add(keyVary, keyContentEncoding)

@@ -55,6 +55,15 @@
   - [ResultBuilder](#resultbuilder)
     - [Configuration](#configuration-17)
     - [Results](#results-17)
+  - [DataBuilder](#databuilder)
+    - [Configuration](#configuration-18)
+    - [Results](#results-18)
+  - [OIDCAdaptor](#OIDCAdaptor)
+    - [Configuration](#configuration-19)
+    - [Results](#results-19)
+  - [OPAFilter](#OPAFilter)
+    - [Configuration](#configuration-20)
+    - [Results](#results-20) 
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -62,6 +71,7 @@
     - [proxy.ServerPoolSpec](#proxyserverpoolspec)
     - [proxy.Server](#proxyserver)
     - [proxy.LoadBalanceSpec](#proxyloadbalancespec)
+    - [proxy.StickySessionSpec](#proxystickysessionspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
     - [proxy.StringMatcher](#proxystringmatcher)
@@ -255,7 +265,6 @@ allowedMethods: [GET]
 | allowCredentials | bool | Indicates whether the request can include user credentials like cookies, HTTP authentication, or client-side SSL certificates | No |
 | exposedHeaders | []string | Indicates which headers are safe to expose to the API of a CORS API specification | No |
 | maxAge | int | Indicates how long (in seconds) the results of a preflight request can be cached. The default is 0 stands for no max age | No |
-| supportCORSRequest | bool | When true, support CORS request and CORS preflight requests. By default, support only preflight requests. | No |
 
 ### Results
 
@@ -947,6 +956,174 @@ filters:
 | ...                                                                         |
 | result9                                                                     |
 
+## DataBuilder
+
+DataBuilder is used to manipulate and store data. The data from the previous
+filter can be transformed and stored in the context so that the data can be
+used in subsequent filters.
+
+The example below shows how to use DataBuilder to store the request body in
+the context.
+
+```yaml
+- name: requestBodyDataBuilder
+  kind: DataBuilder
+  dataKey: requestBody
+  template: |
+    {{.requests.DEFAULT.JSONBody | jsonEscape}}
+```
+
+### Configuration
+
+| Name            | Type   | Description                                   | Required |
+|-----------------|--------|-----------------------------------------------|----------|
+| template        | string | template to create data, please refer the [template](#template-of-builer-filters) for more information        | Yes      |
+| dataKey         | string | key to store data        | Yes      |
+| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+
+
+### Results
+
+| Value           | Description                                       |
+|-----------------|---------------------------------------------------|
+| buildErr        | Error happens when building the data              |
+
+## OIDCAdaptor
+
+OpenID Connect(OIDC) is an identity layer on top of the OAuth 2.0 protocol. It enables Clients to verify
+the identity of the End-User based on the authentication performed by an Authorization Server, as well as
+to obtain basic profile information about the End-User.
+
+For identity platforms that implement standard OIDC specification like [Google Accounts](https://accounts.google.com)、[OKTA](https://www.okta.com/)、
+[Auth0](https://auth0.com/)、[Authing](https://www.authing.cn/).  configure `discovery` endpoint as below example:
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: oidc
+    jumpIf: { oidcFiltered: END }
+filters:
+  - name: oidc
+    kind: OIDCAdaptor
+    cookieName: oidc-auth-cookie
+    clientId: <Your ClientId>
+    clientSecret: <Your clientSecret>
+    discovery: https://accounts.google.com/.well-known/openid-configuration  #Replace your own discovery
+    redirectURI: /oidc/callback
+```
+
+For third platforms that only implement OAuth2.0 like GitHub, users should configure `authorizationEndpoint`、
+`tokenEndpoint`、`userinfoEndpoint` at the same time as below example:
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: oidc
+    jumpIf: { oidcFiltered: END }
+filters:
+  - name: oidc
+    kind: OIDCAdaptor
+    cookieName: oidc-auth-cookie
+    clientId: <Your ClientId>
+    clientSecret: <Your clientSecret>
+    authorizationEndpoint: https://github.com/login/oauth/authorize
+    tokenEndpoint: https://github.com/login/oauth/access_token
+    userinfoEndpoint: https://api.github.com/user
+    redirectURI: /oidc/callback
+```
+
+### Configuration
+
+| Name                  | Type   | Description                                                                                                               | Required |
+|-----------------------|--------|---------------------------------------------------------------------------------------------------------------------------|----------|
+| clientId              | string | The OAuth2.0 app client id                                                                                                | Yes      |
+| clientSecret          | string | The OAuth2.0 app client secret                                                                                            | Yes      |
+| cookieName            | string | Used to check if necessary to launch OpenIDConnect flow                                                                   | No       |
+| discovery             | string | Standard OpenID Connect discovery endpoint URL of the identity server                                                     | No       |
+| authorizationEndpoint | string | OAuth2.0 authorization endpoint URL                                                                                       | No       |
+| tokenEndpoint         | string | OAuth2.0 token endpoint URL                                                                                               | No       |
+| userInfoEndpoint      | string | OAuth2.0 user info endpoint URL                                                                                           | No       |
+| redirectURI           | string | The callback uri registered in identity server, for example: <br/>`https://example.com/oidc/callback` or `/oidc/callback` | Yes      |
+
+### Results
+| Value           | Description                            |
+|-----------------|----------------------------------------|
+| oidcFiltered    | The request is handled by OIDCAdaptor. |
+
+
+After OIDCAdaptor handled, following OIDC related information can be obtained from Easegress HTTP request headers:
+
+* **X-User-Info**: Base64 encoded OIDC End-User basic profile.
+* **X-Origin-Request-URL**: End-User origin request URL before OpenID Connect or OAuth2.0 flow.
+* **X-Id-Token**: The ID Token returned by OpenID Connect flow.
+* **X-Access-Token**: The AccessToken returned by OpenId Connect or OAuth2.0 flow.
+
+
+
+## OPAFilter
+The [Open Policy Agent (OPA)](https://www.openpolicyagent.org/docs/latest/) is an open source, 
+general-purpose policy engine that unifies policy enforcement across the stack. It provides a 
+high-level declarative language, which can be used to define and enforce policies in 
+Easegress API Gateway. Currently, there are 160+ built-in operators and functions we can use, 
+for examples `net.cidr_contains` and `contains`.
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+  - filter: opa-filter
+    jumpIf: { opaDenied: END }
+filters:
+  - name: opa-filter
+    kind: OPAFilter
+    defaultStatus: 403
+    readBody: true
+    includedHeaders: a,b,c
+    policy: |
+      package http
+      default allow = false
+      allow {
+         input.request.method == "POST"
+         input.request.scheme == "https"
+         contains(input.request.path, "/")               
+         net.cidr_contains("127.0.0.0/24",input.request.realIP)          
+      }
+```
+
+The following table lists input request fields that can be used in an OPA policy to help enforce it.
+
+| Name                     | Type   | Description                                                           | Example                              |
+|--------------------------|--------|-----------------------------------------------------------------------|--------------------------------------|
+| input.request.method     | string | The current http request method                                       | "POST"                               |
+| input.request.path       | string | The current http request URL path                                     | "/a/b/c"                             |
+| input.request.path_parts | array  | The current http request URL path parts                               | ["a","b","c"]                        |
+| input.request.raw_query  | string | The current http request raw query                                    | "a=1&b=2&c=3"                        |
+| input.request.query      | map    | The current http request query map                                    | {"a":1,"b":2,"c":3}                  |
+| input.request.headers    | map    | The current http request header map targeted by<br/> includedHeaders  | {"Content-Type":"application/json"}  |
+| input.request.scheme     | string | The current http request scheme                                       | "https"                              | 
+| input.request.realIP     | string | The current http request client real IP                               | "127.0.0.1"                          |
+| input.request.body       | string | The current http request body string data                             | {"data":"xxx"}                       |
+
+
+### Configuration
+
+| Name             | Type   | Description                                                                          | Required |
+|------------------|--------|--------------------------------------------------------------------------------------|----------|
+| defaultStatus    | int    | The default HTTP status code when request is denied by the OPA policy decision       | No       |
+| readBody         | bool   | Whether to read request body as OPA policy data on condition                         | No       |
+| includedHeaders  | string | Names of the HTTP headers to be included in `input.request.headers`, comma-separated | No       |
+| policy           | string | The OPA policy written in the Rego declarative language                              | Yes      |
+
+### Results
+| Value     | Description                                   |
+|-----------|-----------------------------------------------|
+| opaDenied | The request is denied by OPA policy decision. |
+
+
+
 ## Common Types
 
 ### pathadaptor.Spec
@@ -1009,6 +1186,27 @@ Rules to revise request header.
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
 | policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
+| stickySession | [proxy.StickySession](#proxyStickySessionSpec) | Sticky session spec                                                 | No       |
+| healthCheck | [proxy.HealthCheck](#proxyHealthCheckSpec) | Health check spec, note that healthCheck is not needed if you are using service registry | No       |
+
+### proxy.StickySessionSpec
+
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| mode          | string | Mode of session stickiness, support `CookieConsistentHash`,`DurationBased`,`ApplicationBased`                                 | Yes      |
+| appCookieName | string | Name of the application cookie, its value will be used as the session identifier for stickiness in `CookieConsistentHash` and `ApplicationBased` mode             | No      |
+| lbCookieName | string | Name of the cookie generated by load balancer, its value will be used as the session identifier for stickiness in `DurationBased` and `ApplicationBased` mode, default is `EG_SESSION`             | No      |
+| lbCookieExpire | string | Expire duration of the cookie generated by load balancer, its value will be used as the session expire time for stickiness in `DurationBased` and `ApplicationBased` mode, default is 2 hours             | No      |
+
+### proxy.HealthCheckSpec
+
+| Name          | Type   | Description                                                                                                 | Required |
+| ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
+| interval | string | Interval duration for health check, default is 60s | Yes |
+| path | string | Path URL for server health check | No |
+| timeout | string | Timeout duration for health check, default is 3s | No |
+| fails | int | Consecutive fails count for assert fail, default is 1 | No |
+| passes | int | Consecutive passes count for assert pass , default is 1 | No |
 
 ### proxy.MemoryCacheSpec
 
@@ -1129,11 +1327,12 @@ The relationship between `methods` and `url` is `AND`.
 
 ### validator.JWTValidatorSpec
 
-| Name       | Type   | Description                                                                                                                                             | Required |
-| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Name       | Type   | Description                                                                                                                                            | Required |
+|------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
 | cookieName | string | The name of a cookie, if this option is set and the cookie exists, its value is used as the token string, otherwise, the `Authorization` header is used | No       |
-| algorithm  | string | The algorithm for validation, `HS256`, `HS384`, and `HS512` are supported                                                                               | Yes      |
-| secret     | string | The secret for validation, in hex encoding                                                                                                              | Yes      |
+| algorithm  | string | The algorithm for validation:`HS256`,`HS384`,`HS512`,`RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512`,`EdDSA` are supported                             | Yes      |
+ | publicKey  | string | The public key is used for `RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512` or `EdDSA` validation in hex encoding                                       | Yes      |
+| secret     | string | The secret is for `HS256`,`HS384`,`HS512` validation  in hex encoding                                                                                  | Yes      |
 
 ### signer.Spec
 

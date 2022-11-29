@@ -234,7 +234,7 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	x.CacheSize, y.CacheSize = 0, 0
 	x.XForwardedFor, y.XForwardedFor = false, false
 	x.Tracing, y.Tracing = nil, nil
-	x.IPFilter, y.IPFilter = nil, nil
+	x.IPFilterSpec, y.IPFilterSpec = nil, nil
 	x.Rules, y.Rules = nil, nil
 
 	// The update of rules need not to shutdown server.

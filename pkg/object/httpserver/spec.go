@@ -22,12 +22,11 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
-	"regexp"
 
 	"github.com/megaease/easegress/pkg/object/autocertmanager"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
@@ -56,50 +55,12 @@ type (
 		// Keys saved as map, key is domain name, value is secret
 		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
 
-		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules    []*Rule        `json:"rules" jsonschema:"omitempty"`
+		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Ordered,enum=RadixTree"`
+
+		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Rules        routers.Rules  `json:"rules" jsonschema:"omitempty"`
 
 		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
-	}
-
-	// Rule is first level entry of router.
-	Rule struct {
-		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
-		// when it has `omitempty` in tag `jsonschema`.
-		// Otherwise it will output null value, which is invalid in json schema (the type is object).
-		// the original reason is the jsonscheme(genjs) has not support multiple types.
-		// Reference: https://github.com/alecthomas/jsonschema/issues/30
-		// In the future if we have the scenario where we need marshal the field, but omitempty
-		// in the schema, we are suppose to support multiple types on our own.
-		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Host       string         `json:"host" jsonschema:"omitempty"`
-		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      []*Path        `json:"paths" jsonschema:"omitempty"`
-	}
-
-	// Path is second level entry of router.
-	Path struct {
-		IPFilter          *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Path              string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix        string         `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathRegexp        string         `json:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
-		RewriteTarget     string         `json:"rewriteTarget" jsonschema:"omitempty"`
-		Methods           []string       `json:"methods,omitempty" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		Backend           string         `json:"backend" jsonschema:"required"`
-		Headers           []*Header      `json:"headers" jsonschema:"omitempty"`
-		ClientMaxBodySize int64          `json:"clientMaxBodySize" jsonschema:"omitempty"`
-		MatchAllHeader    bool           `json:"matchAllHeader" jsonschema:"omitempty"`
-	}
-
-	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
-	// the headers entry will only be checked after a path entry matched. However, the headers entry has a higher priority
-	// than the path entry itself.
-	Header struct {
-		Key    string   `json:"key" jsonschema:"required"`
-		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
-
-		headerRE *regexp.Regexp
 	}
 )
 
@@ -188,26 +149,4 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	return tlsConf, nil
-}
-
-func (h *Header) initHeaderRoute() {
-	h.headerRE = regexp.MustCompile(h.Regexp)
-}
-
-// Validate validates Header.
-func (h *Header) Validate() error {
-	if len(h.Values) == 0 && h.Regexp == "" {
-		return fmt.Errorf("both of values and regexp are empty for key: %s", h.Key)
-	}
-
-	return nil
-}
-
-// Validate validates Path.
-func (p *Path) Validate() error {
-	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
-		return fmt.Errorf("rewriteTarget is specified but path is empty")
-	}
-
-	return nil
 }

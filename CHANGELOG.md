@@ -1,5 +1,45 @@
 # Changelog
 
+## [v2.3.0](https://github.com/megaease/easegress/tree/v2.3.0) (2022-11-28)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.2.0...v2.3.0)
+
+**Significant changes:**
+* HTTPServer: support radix tree router and routing by client IP.
+* Add new filter OPAFilter for Open Policy Agent.
+
+**Implemented enhancements:**
+* Load Balance: support session and server health check.
+* Making running objects dump interval configurable.
+* Simplify CORSAdaptor.
+
+**Fixed bugs:**
+* Fix unexpected EOF when compression is enabled.
+* Remove duplicated code in codectool.
+* Update keyfunc for compatibility and bug fixes.
+* Fix mqtt test random fail.
+
+
+## [v2.2.0](https://github.com/megaease/easegress/tree/v2.2.0) (2022-10-18)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.1.1...v2.2.0)
+
+**Significant changes:**
+* Add new filter WebSocketProxy and remove controller WebSocketServer.
+* Add new filter OIDCAdaptor for OpenID Connect 1.0 authorization.
+* Add new filter DataBuilder.
+
+**Implemented enhancements:**
+* Support routing by query string.
+* Update wasmtime-go.
+* Add more signing algorithm for JWT validator.
+* Support websocket for ingress controller.
+
+**Fixed bugs:**
+* Fix cluster test random fail.
+* Fix EaseMonitorMetrics status error.
+* Fix GlobalFilter jsonschema validator error.
+
 ## [v2.1.1](https://github.com/megaease/easegress/tree/v2.1.1) (2022-09-09)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.1.0...v2.1.1)

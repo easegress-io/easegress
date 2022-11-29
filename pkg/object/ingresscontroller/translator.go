@@ -19,6 +19,7 @@ package ingresscontroller
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net"
 	"sort"
 	"strconv"
@@ -359,14 +360,14 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			continue
 		}
 
-		r := &httpserver.Rule{}
+		r := &routers.Rule{}
 		for _, path := range rule.HTTP.Paths {
 			pipeline, err := st.serviceToPipeline(ingress, path.Backend.Service)
 			if err != nil {
 				continue
 			}
 
-			p := httpserver.Path{Backend: pipeline.Name()}
+			p := routers.Path{Backend: pipeline.Name()}
 			if path.PathType != nil && *path.PathType == apinetv1.PathTypeExact {
 				p.Path = path.Path
 			} else {
@@ -383,7 +384,7 @@ func (st *specTranslator) translateIngressRules(b *httpServerSpecBuilder, ingres
 			continue
 		}
 
-		var existingRule *httpserver.Rule
+		var existingRule *routers.Rule
 		if len(rule.Host) > 0 && rule.Host[0] == '*' {
 			host := strings.ReplaceAll(rule.Host[1:], ".", "\\.")
 			r.HostRegexp = fmt.Sprintf("^[^.]+%s$", host)
@@ -456,10 +457,10 @@ func (st *specTranslator) translate() error {
 	if p := st.pipelines[defaultPipelineName]; p != nil {
 		r := b.Rules[len(b.Rules)-1]
 		if r.Host != "" || r.HostRegexp != "" {
-			r = &httpserver.Rule{}
+			r = &routers.Rule{}
 			b.Rules = append(b.Rules, r)
 		}
-		r.Paths = append(r.Paths, &httpserver.Path{
+		r.Paths = append(r.Paths, &routers.Path{
 			Backend:    defaultPipelineName,
 			PathPrefix: "/",
 		})

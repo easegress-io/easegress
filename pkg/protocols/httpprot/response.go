@@ -46,7 +46,7 @@ type Response struct {
 }
 
 // ErrResponseEntityTooLarge means the request entity is too large.
-var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large")
+var ErrResponseEntityTooLarge = fmt.Errorf("response entity too large, you may need to increase 'serverMaxBodySize' or set it to -1")
 
 var _ protocols.Response = (*Response)(nil)
 
@@ -335,7 +335,7 @@ func (r *builderResponse) YAMLBody() (interface{}, error) {
 
 // responseInfo stores the information of a response.
 type responseInfo struct {
-	StatusCode int                 `json:"statusCode" jsonshema:"omitempty"`
+	StatusCode int                 `json:"statusCode" jsonschema:"omitempty"`
 	Headers    map[string][]string `json:"headers" jsonschema:"omitempty"`
 	Body       string              `json:"body" jsonschema:"omitempty"`
 }

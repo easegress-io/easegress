@@ -23,10 +23,13 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/k8s"
 	"github.com/megaease/easegress/pkg/v"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -51,8 +54,8 @@ const (
 	// MeshServicePath is the mesh service path.
 	MeshServicePath = "/mesh/services/{serviceName}"
 
-	// OldMeshServiceCanaryPath is the mesh service canary path.
-	OldMeshServiceCanaryPath = "/mesh/services/{serviceName}/canary"
+	// MeshServiceDeploySpecPath is the mesh service deployment spec path.
+	MeshServiceDeploySpecPath = "/mesh/services/{serviceName}/deployment"
 
 	// MeshServiceMockPath is the mesh service mock path.
 	MeshServiceMockPath = "/mesh/services/{serviceName}/mock"
@@ -118,7 +121,8 @@ const (
 type (
 	// API is the struct with the service
 	API struct {
-		service *service.Service
+		k8sClient *kubernetes.Clientset
+		service   *service.Service
 	}
 )
 
@@ -126,8 +130,14 @@ const apiGroupName = "mesh_admin"
 
 // New creates a API
 func New(superSpec *supervisor.Spec) *API {
+	k8sClient, err := k8s.NewK8sClientInCluster()
+	if err != nil {
+		logger.Errorf("new k8s client failed: %v", err)
+	}
+
 	api := &API{
-		service: service.New(superSpec),
+		service:   service.New(superSpec),
+		k8sClient: k8sClient,
 	}
 
 	api.registerAPIs()
@@ -161,6 +171,8 @@ func (a *API) registerAPIs() {
 			{Path: MeshServicePath, Method: "DELETE", Handler: a.deleteService},
 
 			// TODO: API to get instances of one service.
+
+			{Path: MeshServiceDeploySpecPath, Method: "GET", Handler: a.getServiceDeployment},
 
 			{Path: MeshServiceInstancePrefix, Method: "GET", Handler: a.listServiceInstanceSpecs},
 			{Path: MeshServiceInstancePath, Method: "GET", Handler: a.getServiceInstanceSpec},

@@ -83,8 +83,8 @@ type (
 )
 
 const (
-	syncInternal     = 1 * time.Minute
-	configFilePrefix = "running_objects"
+	defaultDumpInterval = 1 * time.Hour
+	configFilePrefix    = "running_objects"
 )
 
 // FilterCategory returns a bool function to check if the object entity is filtered by category or not
@@ -118,7 +118,7 @@ func newObjectEntityWatcherEvent() *ObjectEntityWatcherEvent {
 	}
 }
 
-func newObjectRegistry(super *Supervisor, initObjs map[string]string) *ObjectRegistry {
+func newObjectRegistry(super *Supervisor, initObjs map[string]string, interval string) *ObjectRegistry {
 	cls := super.Cluster()
 	prefix := cls.Layout().ConfigObjectPrefix()
 	objs, err := cls.GetPrefix(prefix)
@@ -135,8 +135,15 @@ func newObjectRegistry(super *Supervisor, initObjs map[string]string) *ObjectReg
 			panic(fmt.Errorf("add initial object %s to config failed: %v", k, err))
 		}
 	}
-
-	syncer, err := cls.Syncer(syncInternal)
+	dumpInterval := defaultDumpInterval
+	if len(interval) != 0 {
+		if confInterval, err := time.ParseDuration(interval); err == nil {
+			dumpInterval = confInterval
+		} else {
+			logger.Errorf("parse objects dump interval [%s] as time.Duration error", confInterval)
+		}
+	}
+	syncer, err := cls.Syncer(dumpInterval)
 	if err != nil {
 		panic(fmt.Errorf("get syncer failed: %v", err))
 	}

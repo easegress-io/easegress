@@ -32,6 +32,8 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/meshadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/mock"
 	_ "github.com/megaease/easegress/pkg/filters/mqttclientauth"
+	_ "github.com/megaease/easegress/pkg/filters/oidcadaptor"
+	_ "github.com/megaease/easegress/pkg/filters/opafilter"
 	_ "github.com/megaease/easegress/pkg/filters/proxy"
 	_ "github.com/megaease/easegress/pkg/filters/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filters/remotefilter"
@@ -59,4 +61,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/rawconfigtrafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
+
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
+	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
 )
