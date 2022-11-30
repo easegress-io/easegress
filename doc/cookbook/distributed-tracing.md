@@ -81,7 +81,7 @@ name: http-server-example
 port: 10080
 tracing:
   serviceName: httpServerExample
-  tags:                             # tags need to be renamed to attributes
+  tags: # Deprecated: This option will be kept until the next major version incremented release.
     customTagKey: customTagValue
   zipkin:
     hostport: 0.0.0.0:10080 # This option will no longer be used
@@ -103,7 +103,7 @@ name: http-server-example
 port: 10080
 tracing:
   serviceName: httpServerExample
-  attributes:
+  tags: # Deprecated: This option will be kept until the next major version incremented release.
     customTagKey: customTagValue
   zipkin:
     serverURL: http://localhost:9412/api/v2/spans

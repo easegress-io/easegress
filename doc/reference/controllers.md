@@ -495,14 +495,14 @@ domains:
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | serviceName | string                     | The service name of top level | Yes      |
-| attributes        | map[string]string    | Attributes to include to every span | No |
+| attributes        | map[string]string    |  Attributes to include to every span. | No |
+| tags        | map[string]string    | Deprecated. Tags to include to every span. This option will be kept until the next major version incremented release. | No |
 | spanLimits      | [spanlimits.Spec](#spanlimitsSpec) | SpanLimitsSpec represents the limits of a span.   | No       |
 | sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]. For backward compatibility, if the exporter is empty, the default is to use zipkin.sampleRate  | No (default: 1)     |
 | batchLimits      | [batchlimits.Spec](#batchlimitsSpec) | BatchLimitsSpec describes BatchSpanProcessorOptions    | No       |
 | exporter      | [exporter.Spec](#exporterSpec) | ExporterSpec describes exporter. exporter and zipkin cannot both be empty     | No       |
-| zipkin      | [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec) | ZipkinDeprecatedSpec describes Zipkin. If exporter is configured, this option does not take effect。 This option will be kept until the next major version incremented release.   | No       |
+| zipkin      | [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec) | ZipkinDeprecatedSpec describes Zipkin. If exporter is configured, this option does not take effect. This option will be kept until the next major version incremented release.   | No       |
 | headerFormat | string | HeaderFormat represents which format should be used for context propagation. options: [trace-conext](https://www.w3.org/TR/trace-context/),b3. For backward compatibility, the historical Zipkin configuration remains in b3 format. | No  (default: trace-conext)    |
-
 
 #### spanlimits.Spec
 

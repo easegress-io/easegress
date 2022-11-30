@@ -21,6 +21,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"time"
+
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel/attribute"
@@ -33,9 +37,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	"go.opentelemetry.io/otel/trace"
-	"net"
-	"net/http"
-	"time"
 )
 
 type (
@@ -43,6 +44,7 @@ type (
 	// Spec describes Tracer.
 	Spec struct {
 		ServiceName  string                `json:"serviceName" jsonschema:"required,minLength=1"`
+		Tags         map[string]string     `json:"tags" jsonschema:"omitempty"`
 		Attributes   map[string]string     `json:"attributes" jsonschema:"omitempty"`
 		SpanLimits   *SpanLimitsSpec       `json:"spanLimits" jsonschema:"omitempty"`
 		SampleRate   float64               `json:"sampleRate" jsonschema:"omitempty,minimum=0,maximum=1,default=1"`
@@ -190,7 +192,7 @@ type (
 )
 
 const (
-	//see: https://www.w3.org/TR/trace-context/
+	// see: https://www.w3.org/TR/trace-context/
 	headerFormatTraceContext = "trace-context"
 	headerFormatB3           = "b3"
 
@@ -228,9 +230,9 @@ func (spec *Spec) UnmarshalJSON(data []byte) error {
 
 	*spec = Spec(*inner)
 	return nil
-
 }
 
+// Validate validates Spec.
 func (spec *Spec) Validate() error {
 	if spec.Exporter == nil && spec.Zipkin == nil {
 		return fmt.Errorf("exporter and zipkin cannot both be empty")
@@ -240,12 +242,15 @@ func (spec *Spec) Validate() error {
 		return fmt.Errorf("exporter and zipkin cannot exist at the same time")
 	}
 
+	if spec.Tags != nil && spec.Attributes != nil {
+		return fmt.Errorf("tags and attributes cannot be configured at the same time, please use attributes to unify the management")
+	}
+
 	return nil
 }
 
 // Validate validates Spec.
 func (spec *ExporterSpec) Validate() error {
-
 	if spec == nil {
 		return fmt.Errorf("exporter cannot be empty")
 	}
@@ -259,7 +264,6 @@ func (spec *ExporterSpec) Validate() error {
 
 // Validate validates Spec.
 func (spec *JaegerSpec) Validate() error {
-
 	if spec.Endpoint == "" {
 		return fmt.Errorf("endpoint cannot be empty")
 	}
@@ -296,7 +300,8 @@ func New(spec *Spec) (*Tracer, error) {
 
 	opts := []sdktrace.TracerProviderOption{
 		sdktrace.WithRawSpanLimits(spec.newSpanLimits()),
-		sdktrace.WithSampler(spec.newSampler())}
+		sdktrace.WithSampler(spec.newSampler()),
+	}
 
 	if r, err := spec.newResource(); err == nil {
 		opts = append(opts, sdktrace.WithResource(r))
@@ -320,14 +325,17 @@ func New(spec *Spec) (*Tracer, error) {
 }
 
 func (spec *Spec) newResource() (*resource.Resource, error) {
+	attributes := spec.Attributes
+	if attributes == nil {
+		attributes = spec.Tags
+	}
 
-	var attrs = []attribute.KeyValue{semconv.ServiceNameKey.String(spec.ServiceName)}
-	for k, v := range spec.Attributes {
+	attrs := []attribute.KeyValue{semconv.ServiceNameKey.String(spec.ServiceName)}
+	for k, v := range attributes {
 		attrs = append(attrs, attribute.String(k, v))
 	}
 
-	return resource.Merge(resource.Default(),
-		resource.NewWithAttributes(semconv.SchemaURL, attrs...))
+	return resource.Merge(resource.Default(), resource.NewWithAttributes(semconv.SchemaURL, attrs...))
 }
 
 func (spec *Spec) newSampler() sdktrace.Sampler {
@@ -339,11 +347,13 @@ func (spec *Spec) newSampler() sdktrace.Sampler {
 
 	if sampleRate <= 0 {
 		return sdktrace.NeverSample()
-	} else if sampleRate >= 1 {
-		return sdktrace.AlwaysSample()
-	} else {
-		return sdktrace.TraceIDRatioBased(sampleRate)
 	}
+
+	if sampleRate >= 1 {
+		return sdktrace.AlwaysSample()
+	}
+
+	return sdktrace.TraceIDRatioBased(sampleRate)
 }
 
 func (spec *Spec) newSpanLimits() sdktrace.SpanLimits {
@@ -362,7 +372,6 @@ func (spec *Spec) newSpanLimits() sdktrace.SpanLimits {
 }
 
 func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
-
 	var exporters []sdktrace.SpanExporter
 	var err error
 
@@ -371,13 +380,10 @@ func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
 		if err != nil {
 			return nil, err
 		}
+	} else if exp, err := spec.Zipkin.newExporter(); err == nil {
+		exporters = []sdktrace.SpanExporter{exp}
 	} else {
-		if exp, err := spec.Zipkin.newExporter(); err == nil {
-			exporters = []sdktrace.SpanExporter{exp}
-		} else {
-			return nil, err
-		}
-
+		return nil, err
 	}
 
 	var opts []sdktrace.BatchSpanProcessorOption
@@ -396,7 +402,6 @@ func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
 	}
 
 	return bsps, nil
-
 }
 
 func (spec *Spec) newPropagator() propagation.TextMapPropagator {
@@ -460,7 +465,6 @@ func (spec *ZipkinDeprecatedSpec) newExporter() (sdktrace.SpanExporter, error) {
 }
 
 func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
-
 	switch spec.Protocol {
 	case otlpProtocolGRPC:
 		opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(spec.Endpoint), otlptracegrpc.WithCompressor(spec.Compression)}
@@ -480,7 +484,6 @@ func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
 
 		return otlptracehttp.New(context.Background(), opts...)
 	}
-
 }
 
 // IsNoopTracer checks whether tracer is noop tracer.
