@@ -67,7 +67,7 @@ func (rr *responseRef) release() {
 // Context holds requests, responses and other data that need to be passed
 // through the pipeline.
 type Context struct {
-	span     tracing.Span
+	span     *tracing.Span
 	lazyTags []func() string
 
 	activeNs string
@@ -80,7 +80,7 @@ type Context struct {
 }
 
 // New creates a new Context.
-func New(span tracing.Span) *Context {
+func New(span *tracing.Span) *Context {
 	ctx := &Context{
 		span:      span,
 		activeNs:  DefaultNamespace,
@@ -92,7 +92,7 @@ func New(span tracing.Span) *Context {
 }
 
 // Span returns the span of this Context.
-func (ctx *Context) Span() tracing.Span {
+func (ctx *Context) Span() *tracing.Span {
 	return ctx.span
 }
 

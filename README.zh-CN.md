@@ -94,8 +94,7 @@
 - **操作**
   - **易于集成**：命令行(`egctl`)、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
   - **分布式跟踪**
-    - 内置 [Open Zipkin](https://zipkin.io/)
-    - [Open Tracing](https://opentracing.io/)，提供厂商中立的 API。
+    - 内置 [OpenTelemetry](https://opentelemetry.io/)，提供厂商中立的 API。
   - **可观察性**
     - **节点**：角色（primary、secondary）、是不是Leader，健康状态、最后一次心跳时间，等等。
     - **多维度的服务器和后端流量数据**
