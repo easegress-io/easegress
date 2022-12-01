@@ -18,8 +18,9 @@
 package grpc
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSingleInstance(t *testing.T) {

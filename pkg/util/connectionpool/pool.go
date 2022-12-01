@@ -17,11 +17,12 @@
 
 package connectionpool
 
+import "context"
+
 type (
 	Pool interface {
 		Get(addr string) (interface{}, error)
-		ReleaseConn(c interface{})
 		Close()
 	}
-	CreateConnFactory func() (interface{}, error)
+	CreateConnFactory func(ctx context.Context, addr string) (interface{}, error)
 )

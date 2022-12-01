@@ -19,7 +19,6 @@ package grpcprxoy
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
@@ -57,11 +56,9 @@ var kind = &filters.Kind{
 	},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{
-			UseConnectionPool: false,
-			BorrowTimeout:     "1000ms",
-			ConnectTimeout:    "200ms",
-			MaxConnsPerHost:   4,
-			InitConnNum:       1,
+			BorrowTimeout:      "1000ms",
+			ConnectTimeout:     "200ms",
+			ConnectionsPerHost: 2,
 		}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
@@ -88,38 +85,18 @@ type (
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
 
-		pool  connectionpool.Pool
-		conns sync.Map
-	}
-	// Conn is wrapper grpc.ClientConn
-	Conn struct {
-		*grpc.ClientConn
-		key     string
-		proxy   *Proxy
-		isClose bool
+		pool connectionpool.Pool
 	}
 
 	// Spec describes the Proxy.
 	Spec struct {
-		filters.BaseSpec  `json:",inline"`
-		Pools             []*ServerPoolSpec `json:"pools" jsonschema:"required"`
-		UseConnectionPool bool              `json:"useConnectionPool" jsonschema:"required"`
-		BorrowTimeout     string            `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
-		ConnectTimeout    string            `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnsPerHost   uint16            `json:"maxConnsPerHost" jsonschema:"omitempty,minimum=1"`
-		InitConnNum       uint16            `json:"initConnNum" jsonschema:"omitempty,minimum=1"`
+		filters.BaseSpec   `json:",inline"`
+		Pools              []*ServerPoolSpec `json:"pools" jsonschema:"required"`
+		BorrowTimeout      string            `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
+		ConnectTimeout     string            `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
+		ConnectionsPerHost int               `json:"connectionsPerHost" jsonschema:"omitempty,minimum=1"`
 	}
 )
-
-// Close to close Conn
-func (c *Conn) Close() {
-	if c.isClose {
-		return
-	}
-	if v, loaded := c.proxy.conns.Load(c.key); loaded && v.(*Conn) == c {
-		c.proxy.conns.Delete(c.key)
-	}
-}
 
 // Validate validates Spec.
 func (s *Spec) Validate() error {
@@ -205,20 +182,17 @@ func (p *Proxy) reload() {
 		}
 	}
 
-	if p.spec.UseConnectionPool {
-		// already valid in Spec.Validate()
-		borrowTimeout, _ := time.ParseDuration(p.spec.BorrowTimeout)
-		connectTimeout, _ := time.ParseDuration(p.spec.ConnectTimeout)
-		poolSpec := &grpcpool.Spec{
-			InitConnNum:     p.spec.InitConnNum,
-			BorrowTimeout:   borrowTimeout,
-			ConnectTimeout:  connectTimeout,
-			MaxConnsPerHost: p.spec.MaxConnsPerHost,
-			DialOptions:     []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithCodec(grpcpool.GetCodecInstance())},
-		}
-
-		p.pool = grpcpool.NewPool(poolSpec)
+	// already valid in Spec.Validate()
+	borrowTimeout, _ := time.ParseDuration(p.spec.BorrowTimeout)
+	connectTimeout, _ := time.ParseDuration(p.spec.ConnectTimeout)
+	poolSpec := &grpcpool.Spec{
+		ConnectionsPerHost: p.spec.ConnectionsPerHost,
+		BorrowTimeout:      borrowTimeout,
+		ConnectTimeout:     connectTimeout,
+		DialOptions:        []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithCodec(grpcpool.GetCodecInstance())},
 	}
+
+	p.pool, _ = grpcpool.New(poolSpec)
 
 }
 
@@ -236,10 +210,10 @@ func (p *Proxy) Close() {
 	}
 
 	// help gc
-	if p.spec.UseConnectionPool {
-		p.pool.Close()
-		p.pool = nil
-	}
+
+	p.pool.Close()
+	p.pool = nil
+
 }
 
 // Handle handles GRPCContext.

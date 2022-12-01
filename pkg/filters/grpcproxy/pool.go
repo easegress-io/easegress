@@ -29,8 +29,6 @@ import (
 	grpcpool "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -345,36 +343,21 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	}
 	send2ProviderCtx, cancelContext := stdcontext.WithCancel(metadata.NewOutgoingContext(ctx, spCtx.req.RawHeader().GetMD()))
 	defer cancelContext()
-	var proxyAsClientStream grpc.ClientStream
-	if !sp.proxy.spec.UseConnectionPool {
-		conn, err := sp.dial(spCtx.req.SourceHost(), svr.URL)
-		if err != nil {
-			logger.Infof("create new conn without pool fail %s for source addr %s, target addr %s, path %s",
-				err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
-			return serverPoolError{status: status.Convert(err), result: resultInternalError}
-		}
-		proxyAsClientStream, err = conn.NewStream(send2ProviderCtx, desc, fullMethodName)
-		if err != nil {
-			conn.Close()
-			logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
-				err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
-			return serverPoolError{status: status.Convert(err), result: resultInternalError}
-		}
-	} else {
-		conn, err := sp.dialWithConnPool(svr.URL)
-		if err != nil {
-			logger.Infof("create new conn without pool fail %s for source addr %s, target addr %s, path %s",
-				err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
-			return serverPoolError{status: status.Convert(err), result: resultInternalError}
-		}
-		defer sp.proxy.pool.ReleaseConn(conn)
-		proxyAsClientStream, err = conn.NewStream(send2ProviderCtx, desc, fullMethodName)
-		if err != nil {
-			logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
-				err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
-			return serverPoolError{status: status.Convert(err), result: resultInternalError}
-		}
+
+	conn, err := sp.dialWithConnPool(svr.URL)
+	if err != nil {
+		logger.Infof("create new conn without pool fail %s for source addr %s, target addr %s, path %s",
+			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
+		return serverPoolError{status: status.Convert(err), result: resultInternalError}
 	}
+	defer conn.ReturnPool()
+	proxyAsClientStream, err := conn.NewStream(send2ProviderCtx, desc, fullMethodName)
+	if err != nil {
+		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
+			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
+		return serverPoolError{status: status.Convert(err), result: resultInternalError}
+	}
+
 	result := sp.biTransport(spCtx, proxyAsClientStream)
 	if result != nil && result != io.EOF {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
@@ -426,47 +409,12 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 
 }
 
-func (sp *ServerPool) dial(sourceAddr, targetAddr string) (*Conn, error) {
-	// avoid to meet the source addr not change but target changed.
-	key := sp.connectionKey(sourceAddr, targetAddr)
-	if v, ok := sp.proxy.conns.Load(key); !ok || v.(*Conn).GetState() == connectivity.Shutdown {
-		t, _ := time.ParseDuration(sp.proxy.spec.ConnectTimeout)
-		timeout, cancelFunc := stdcontext.WithTimeout(stdcontext.Background(), t)
-		defer cancelFunc()
-		dial, err := grpc.DialContext(timeout, targetAddr, grpc.WithBlock(),
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-			grpc.WithCodec(grpcpool.GetCodecInstance()))
-		if err != nil {
-			return nil, status.Errorf(codes.Internal, err.Error())
-		}
-		if old, exist := sp.proxy.conns.Load(key); exist && !old.(*Conn).isClose && old.(*Conn).GetState() == connectivity.Shutdown {
-			old.(*Conn).isClose = true
-		}
-		sp.proxy.conns.Store(key, &Conn{
-			ClientConn: dial,
-			key:        key,
-			proxy:      sp.proxy,
-			isClose:    false,
-		})
-	}
-	if conn, exist := sp.proxy.conns.Load(key); exist {
-		return conn.(*Conn), nil
-	} else {
-		return nil, status.Error(codes.Internal, "could not borrow conn")
-	}
-
-}
-
-func (sp *ServerPool) connectionKey(sourceAddr, targetAddr string) string {
-	return fmt.Sprintf("%s:%s", sourceAddr, targetAddr)
-}
-
-func (sp *ServerPool) dialWithConnPool(targetAddr string) (*grpcpool.Connection, error) {
+func (sp *ServerPool) dialWithConnPool(targetAddr string) (*grpcpool.ClientConn, error) {
 	conn, err := sp.proxy.pool.Get(targetAddr)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	return conn.(*grpcpool.Connection), nil
+	return conn.(*grpcpool.ClientConn), nil
 }
 
 func (sp *ServerPool) buildOutputResponse(spCtx *serverPoolContext, s *status.Status) {

@@ -54,8 +54,7 @@ func TestInvalidSpec(t *testing.T) {
 	assertions := assert.New(t)
 	s := `
 kind: GRPCProxy
-useConnectionPool: true
-maxConnsPerHost: 0
+connectionsPerHost: 0
 pools:
   - loadBalance:
       policy: forward
@@ -71,8 +70,7 @@ name: grpcforwardproxy
 
 	s = `
 kind: GRPCProxy
-useConnectionPool: true
-maxConnsPerHost: 1
+connectionsPerHost: 1
 borrowTimeout: 3s
 connectTimeout: 3s
 pools:
@@ -93,7 +91,6 @@ func TestReload(t *testing.T) {
 	assertions := assert.New(t)
 	s := `
 kind: GRPCProxy
-useConnectionPool: true
 maxConnsPerHost: 1
 borrowTimeout: 2000ms
 connectTimeout: 1000ms
@@ -104,12 +101,10 @@ pools:
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.NotNil(p.pool)
 
 	s = `
 kind: GRPCProxy
-useConnectionPool: true
 maxConnsPerHost: 1
 borrowTimeout: 2000ms
 connectTimeout: 1000ms
@@ -121,10 +116,8 @@ name: grpcforwardproxy
 `
 
 	p = newTestProxy(s, assertions)
-	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.NotNil(p.pool)
 
 	p.Close()
-	assertions.Zero(getSyncMapSize(&p.conns))
 	assertions.Nil(p.pool)
 }

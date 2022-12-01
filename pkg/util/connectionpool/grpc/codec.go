@@ -18,9 +18,10 @@
 package grpc
 
 import (
+	"sync"
+
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
-	"sync"
 )
 
 const (
