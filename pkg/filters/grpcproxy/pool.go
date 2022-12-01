@@ -350,8 +350,8 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
 		return serverPoolError{status: status.Convert(err), result: resultInternalError}
 	}
-	defer conn.ReturnPool()
 	proxyAsClientStream, err := conn.NewStream(send2ProviderCtx, desc, fullMethodName)
+	conn.ReturnPool()
 	if err != nil {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
