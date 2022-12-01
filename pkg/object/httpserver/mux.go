@@ -214,7 +214,9 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	stdr.Body = body
 
 	startAt := fasttime.Now()
-	span := mi.tracer.NewSpanWithStart(mi.superSpec.Name(), startAt)
+
+	span := mi.tracer.NewSpanWithStart(stdr.Context(), mi.superSpec.Name(), startAt)
+
 	ctx := context.New(span)
 	ctx.SetData("HTTP_RESPONSE_WRITER", stdw)
 
@@ -252,7 +254,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		topN.Stat(metric)
 		mi.httpStat.Stat(metric)
 
-		span.Finish()
+		span.End()
 
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {

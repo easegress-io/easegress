@@ -21,7 +21,13 @@
     - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
-    - [zipkin.Spec](#zipkinspec)
+      - [spanlimits.Spec](#spanlimitsSpec)
+      - [batchlimits.Spec](#batchlimitsSpec)
+      - [exporter.Spec](#exporterSpec)
+        - [jaeger.Spec](#jaegerSpec)
+        - [zipkin.Spec](#zipkinSpec)
+        - [otlp.Spec](#otlpSpec)
+      - [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
@@ -489,19 +495,78 @@ domains:
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | serviceName | string                     | The service name of top level | Yes      |
-| tags        | map[string]string          | Tags to include to every span | No       |
-| Zipkin      | [zipkin.Spec](#zipkinSpec) | The tracing spec of zipkin    | No       |
+| attributes        | map[string]string    |  Attributes to include to every span. | No |
+| tags        | map[string]string    | Deprecated. Tags to include to every span. This option will be kept until the next major version incremented release. | No |
+| spanLimits      | [spanlimits.Spec](#spanlimitsSpec) | SpanLimitsSpec represents the limits of a span.   | No       |
+| sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]. For backward compatibility, if the exporter is empty, the default is to use zipkin.sampleRate  | No (default: 1)     |
+| batchLimits      | [batchlimits.Spec](#batchlimitsSpec) | BatchLimitsSpec describes BatchSpanProcessorOptions    | No       |
+| exporter      | [exporter.Spec](#exporterSpec) | ExporterSpec describes exporter. exporter and zipkin cannot both be empty     | No       |
+| zipkin      | [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec) | ZipkinDeprecatedSpec describes Zipkin. If exporter is configured, this option does not take effect. This option will be kept until the next major version incremented release.   | No       |
+| headerFormat | string | HeaderFormat represents which format should be used for context propagation. options: [trace-conext](https://www.w3.org/TR/trace-context/),b3. For backward compatibility, the historical Zipkin configuration remains in b3 format. | No  (default: trace-conext)    |
 
-### zipkin.Spec
+#### spanlimits.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| attributeValueLengthLimit | int                     | AttributeValueLengthLimit is the maximum allowed attribute value length, Setting this to a negative value means no limit is applied| No (default:-1)      |
+| attributeCountLimit        | int   | AttributeCountLimit is the maximum allowed span attribute count| No (default:128)|
+| eventCountLimit        | int   | EventCountLimit is the maximum allowed span event count| No (default:128)|
+| linkCountLimit        | int   | LinkCountLimit is the maximum allowed span link count| No (default:128)|
+| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
+| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
+| attributePerLinkCountLimit        | int   | AttributePerLinkCountLimit is the maximum number of attributes allowed per span link| No (default:128)|
+
+#### batchlimits.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| maxQueueSize | int                     |MaxQueueSize is the maximum queue size to buffer spans for delayed processing| No (default:2048)      |
+| batchTimeout        | int   | BatchTimeout is the maximum duration for constructing a batch| No (default:5000 msec)|
+| exportTimeout        | int   | ExportTimeout specifies the maximum duration for exporting spans| No (default:30000 msec)|
+| maxExportBatchSize        | int   | MaxExportBatchSize is the maximum number of spans to process in a single batch| No (default:512)|
+
+#### exporter.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| jaeger      | [jaeger.Spec](#jaegerSpec) | JaegerSpec describes Jaeger    | No       |
+| zipkin      | [zipkin.Spec](#zipkinSpec) |  ZipkinSpec describes Zipkin    | No       |
+| otlp        | [otlp.Spec](#otlpSpec)     | OTLPSpec describes OpenTelemetry exporter    | No       |
+
+#### jaeger.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| mode | string                     |Jaeger's access mode | Yes (options: agent,collector)      |
+| endpoint        | string   |In agent mode, endpoint must be host:port, in collector mode it is url| No|
+| username        | string   |The username used in collector mode| No |
+| password        | string   | The password used in collector mode| No|
+
+#### zipkin.Spec
 
 | Name          | Type    | Description                                                                                        | Required |
 |---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
-| hostPort      | string  | The host:port of the service                                                                       | No       |
+| endpoint     | string  | The zipkin server URL                                                                              | Yes      |
+
+#### otlp.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| protocol | string                     | Connection protocol of otlp | Yes (options: http,grpc)      |
+| endpoint        | string   | Endpoint of the otlp collector| Yes|
+| insecure        | bool   | Whether to allow insecure connections| No (default: false)|
+| compression        | string   |Compression describes the compression used for payloads sent to the collector| No (options: gzip) |
+
+#### zipkin.DeprecatedSpec
+
+| Name          | Type    | Description                                                                                        | Required |
+|---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
+| ~~hostPort~~  | string  | Deprecated. The host:port of the service                                                           | No       |
 | serverURL     | string  | The zipkin server URL                                                                              | Yes      |
 | sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]                                        | Yes      |
-| disableReport | bool    | Whether to report span model data to zipkin server                                                 | No       |
-| sameSpan      | bool    | Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No       |
-| id128Bit      | bool    | Whether to start traces with 128-bit trace id                                                      | No       |
+| ~~disableReport~~ | bool    | Deprecated. Whether to report span model data to zipkin server                                 | No       |
+| ~~sameSpan~~      | bool    | Deprecated. Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No |
+| ~~id128Bit~~      | bool    | Deprecated. Whether to start traces with 128-bit trace id                                      | No       |
 
 ### ipfilter.Spec
 
@@ -535,7 +600,6 @@ domains:
 | clientMaxBodySize | int64 | Max size of request body, will use the option of the HTTP server if not set. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | matchAllHeader | bool | Match all headers that are defined in headers, default is `false`. | No |
 | matchAllQuery | bool | Match all queries that are defined in queries, default is `false`. | No |
-
 
 ### httpserver.Header
 
@@ -598,6 +662,7 @@ The self-defining specification of each filter references to [filters](./filters
 | dnsProvider | map[string]string | DNS provider information  | No (Yes if `DNS-01` chanllenge is desired) |
 
 The fields in `dnsProvider` vary from DNS providers, but:
+
 - `name` and `zone` are required for all DNS providers.
 - `nsAddress` and `nsNetwork` are optional name server information for all DNS
   providers, if provided, AutoCertManager will leverage them to speed up the

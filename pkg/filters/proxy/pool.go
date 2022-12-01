@@ -64,7 +64,7 @@ func (spe serverPoolError) Result() string {
 // handler function.
 type serverPoolContext struct {
 	*context.Context
-	span      tracing.Span
+	span      *tracing.Span
 	startTime time.Time
 
 	req     *httpprot.Request
@@ -354,7 +354,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 			spanName = sp.name
 		}
 		spCtx.span = ctx.Span().NewChild(spanName)
-		defer spCtx.span.Finish()
+		defer spCtx.span.End()
 
 		return sp.doHandle(stdctx, spCtx)
 	}
