@@ -65,7 +65,7 @@ type (
 		segment  map[string]*segment
 		factory  connectionpool.CreateConnFactory
 		spec     *Spec
-		mu       sync.RWMutex
+		mu       sync.Mutex
 		isClosed bool
 	}
 
@@ -73,7 +73,6 @@ type (
 		count   int32
 		clients chan *ClientConn
 		pool    *Pool
-		mu      sync.Mutex
 	}
 
 	// ClientConn is the wrapper for a grpc client conn
@@ -127,13 +126,6 @@ func NewWithFactory(factory connectionpool.CreateConnFactory, spec *Spec) (*Pool
 		return nil, ErrorParams
 	}
 	return newPool(factory, spec)
-}
-
-func (p *Pool) getClients() map[string]*segment {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-
-	return p.segment
 }
 
 // Close empties the pool calling Close on all its clients.
@@ -249,6 +241,9 @@ func (c *ClientConn) ReturnPool() error {
 	}
 	if c.segment.pool.IsClosed() {
 		return ErrClosed
+	}
+	if c.ClientConn == nil {
+		return ErrAlreadyClosed
 	}
 	if !c.isAvailable() {
 		c.ClientConn.Close()
