@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
-	github.com/MicahParks/keyfunc v1.5.1
+	github.com/MicahParks/keyfunc v1.7.0
 	github.com/Shopify/sarama v1.37.2
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.4.1
