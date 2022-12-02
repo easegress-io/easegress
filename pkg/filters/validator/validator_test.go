@@ -584,4 +584,36 @@ lastEntry: "byebye"
 		assert.Equal("doge", header.Get("X-AUTH-USER"))
 		v.Close()
 	})
+
+	t.Run("credentials from LDAP", func(t *testing.T) {
+		assert := assert.New(t)
+
+		yamlConfig := `
+kind: Validator
+name: validator
+basicAuth:
+  mode: LDAP
+  ldap:
+    host: localhost
+    port: 3893
+    baseDN: ou=superheros,dc=glauth,dc=com
+    uid: cn
+    skipTLS: true
+`
+		// mock
+		fnAuthLDAP = func(luc *ldapUserCache, username, password string) bool {
+			return true
+		}
+
+		v := createValidator(yamlConfig, nil, nil)
+		for i := 0; i < 3; i++ {
+			ctx, header := prepareCtxAndHeader()
+			b64creds := base64.StdEncoding.EncodeToString([]byte(userIds[i] + ":" + passwords[i]))
+			header.Set("Authorization", "Basic "+b64creds)
+			result := v.Handle(ctx)
+			assert.True(result != resultInvalid)
+		}
+
+		v.Close()
+	})
 }

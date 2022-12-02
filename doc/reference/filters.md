@@ -686,7 +686,7 @@ basicAuth:
 | jwt       | [validator.JWTValidatorSpec](#validatorJWTValidatorSpec)          | JWT validation rule, validates JWT token string from the `Authorization` header or cookies                                                                                                                    | No       |
 | signature | [signer.Spec](#signerSpec)                                        | Signature validation rule, implements an [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) compatible signature validation validator, with customizable literal strings | No       |
 | oauth2    | [validator.OAuth2ValidatorSpec](#validatorOAuth2ValidatorSpec)    | The `OAuth/2` method support `Token Introspection` mode and `Self-Encoded Access Tokens` mode, only one mode can be configured at a time                                                                      | No       |
-| basicAuth    | [basicauth.BasicAuthValidatorSpec](#basicauthBasicAuthValidatorSpec)    | The `BasicAuth` method support `FILE` mode and `ETCD` mode, only one mode can be configured at a time.                                                                  | No       |
+| basicAuth    | [validator.BasicAuthValidatorSpec](#validatorBasicAuthValidatorSpec)    | The `BasicAuth` method support `FILE`, `ETCD` and `LDAP` mode, only one mode can be configured at a time.                                                                  | No       |
 
 ### Results
 
@@ -1333,6 +1333,31 @@ The relationship between `methods` and `url` is `AND`.
 | algorithm  | string | The algorithm for validation:`HS256`,`HS384`,`HS512`,`RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512`,`EdDSA` are supported                             | Yes      |
  | publicKey  | string | The public key is used for `RS256`,`RS384`,`RS512`,`ES256`,`ES384`,`ES512` or `EdDSA` validation in hex encoding                                       | Yes      |
 | secret     | string | The secret is for `HS256`,`HS384`,`HS512` validation  in hex encoding                                                                                  | Yes      |
+
+### validator.BasicAuthValidatorSpec
+
+| Name         | Type   | Description                                                                                                                                           | Required |
+|--------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| mode         | string | The mode of basic authentication, valid values are `FILE`, `ETCD` and `LDAP`                                             | Yes      |
+| userFile     | string | The user file used for `FILE` mode                                               | No       |
+| etcdPrefix   | string | The etcd prefix used for `ETCD` mode                                               | No       |
+| ldap         | [basicAuth.LDAPSpec](#basicAuthLDAPSpec)   | The LDAP configuration used for `LDAP` mode                 | No       |
+
+### basicAuth.LDAPSpec
+
+| Name         | Type   | Description                                                                                                                                           | Required |
+|--------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| host         | string | The host of the LDAP server      | Yes      |
+| port         | int    | The port of the LDAP server      | Yes      |
+| baseDN       | string | The base dn of the LDAP server, e.g. `ou=users,dc=example,dc=org`                                                    | Yes      |
+| uid          | string | The user attribute used to bind user, e.g. `cn`                                                       | Yes      |
+| useSSL       | bool   | Whether to use SSL               | No       |
+| skipTLS      | bool   | Whether to skip `StartTLS`       | No       |
+| insecure     | bool   | Whether to skip verifying LDAP server's
+	certificate chain and host name                          | No       |
+| serverName   | string | Server name used to verify certificate when `insecure` is `false`                                                    | No       |
+| certBase64   | string | Base64 encoded certificate       | No       |
+| keyBase64    | string | Base64 encoded key               | No       |
 
 ### signer.Spec
 

@@ -21,6 +21,7 @@ require (
 	github.com/hashicorp/consul/api v1.15.2
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/invopop/yaml v0.2.0
+	github.com/jtblin/go-ldap-client v0.0.0-20170223121919-b73f66626b33
 	github.com/libdns/alidns v1.0.2-x2
 	github.com/libdns/azure v0.2.0
 	github.com/libdns/cloudflare v0.1.0
@@ -84,6 +85,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.2.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.11.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.11.1 // indirect
+	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
+	gopkg.in/ldap.v2 v2.5.1 // indirect
 )
 
 require (
