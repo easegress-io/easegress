@@ -364,7 +364,6 @@ func newLDAPUserCache(spec *ldapSpec) *ldapUserCache {
 
 // make it mockable
 var fnAuthLDAP = func(luc *ldapUserCache, username, password string) bool {
-	defer luc.client.Close()
 	if err := luc.client.Connect(); err != nil {
 		logger.Warnf("failed to connect LDAP server %v", err)
 		return false
