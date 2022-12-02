@@ -124,6 +124,8 @@ func New(superSpec *supervisor.Spec) *IngressController {
 		}
 	}
 
+	ic.reloadTraffic()
+
 	return ic
 }
 
