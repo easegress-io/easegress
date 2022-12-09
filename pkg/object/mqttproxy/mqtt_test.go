@@ -119,15 +119,15 @@ func getDefaultSpec() *Spec {
 
 func getBrokerFromSpec(spec *Spec, mapper context.MuxMapper) *Broker {
 	store := newStorage(nil)
-	broker := newBroker(spec, store, mapper, func(s, ss string) ([]string, error) {
+	broker := newBroker(spec, store, mapper, func(s, ss string) (map[string]string, error) {
 		m := map[string]string{
 			"test":  "http://localhost:8888/mqtt",
 			"test1": "http://localhost:8889/mqtt",
 		}
-		urls := []string{}
+		urls := map[string]string{}
 		for k, v := range m {
 			if k != s {
-				urls = append(urls, v)
+				urls[k] = v
 			}
 		}
 		return urls, nil
@@ -1056,7 +1056,7 @@ func TestSplitTopic(t *testing.T) {
 }
 
 func TestWildCard(t *testing.T) {
-	mgr := newTopicManager(10000)
+	mgr := newNoCacheTopicManager(10000)
 	mgr.subscribe([]string{"a/+", "b/d"}, []byte{0, 1}, "A")
 	mgr.subscribe([]string{"+/+"}, []byte{1}, "B")
 	mgr.subscribe([]string{"+/fin"}, []byte{1}, "C")
@@ -1095,7 +1095,7 @@ func TestWildCard(t *testing.T) {
 		t.Errorf("find subscribers for invalid topic should return error")
 	}
 
-	mgr = newTopicManager(100000)
+	mgr = newNoCacheTopicManager(100000)
 	mgr.subscribe([]string{"a/b/c/d/e"}, []byte{0}, "A")
 	mgr.subscribe([]string{"a/b/c/f/g"}, []byte{0}, "A")
 	mgr.subscribe([]string{"m/x/v/f/g"}, []byte{0}, "B")
@@ -1105,11 +1105,11 @@ func TestWildCard(t *testing.T) {
 	mgr.unsubscribe([]string{"a/b/c/f/g"}, "A")
 	mgr.unsubscribe([]string{"m/x/v/f/g"}, "B")
 	mgr.unsubscribe([]string{"m/x"}, "C")
-	if len(mgr.root.clients) != 0 || len(mgr.root.nodes) != 0 {
+	if len(mgr.topicMgr.root.clients) != 0 || len(mgr.topicMgr.root.nodes) != 0 {
 		t.Errorf("topic manager not clear memory when topics are unsubscribes")
 	}
 
-	mgr = newTopicManager(1000000)
+	mgr = newNoCacheTopicManager(1000000)
 	checkSubscriptions := func(subTopic string, recvTopic []string, notRecvTopic []string) {
 		mgr.subscribe([]string{subTopic}, []byte{0}, "tmpClient")
 		for _, topic := range recvTopic {
@@ -1377,7 +1377,7 @@ func TestMQTTProxy(t *testing.T) {
 	broker := getDefaultBroker(&mockMuxMapper{})
 
 	mp.broker = broker
-	broker.reconnectWatcher()
+	broker.reconnectDeleteWatcher()
 	mp.Close()
 
 	ans, err := updatePort("http://example.com:1234", "demo.com:2345")
@@ -1837,4 +1837,115 @@ func TestHTTPTransferHeaderCopy(t *testing.T) {
 	broker1.close()
 	srv0.shutdown()
 	srv1.shutdown()
+}
+
+func TestCacheTopicManager(t *testing.T) {
+	mgr := newCachedTopicManager(10000)
+
+	findSubscribers := func(topic string, want map[string]byte) map[string]byte {
+		mgr.findSubscribers(topic)
+		for i := 0; i < 100; i++ {
+			subscribers, _ := mgr.findSubscribers(topic)
+			if reflect.DeepEqual(subscribers, want) {
+				return subscribers
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		got, _ := mgr.findSubscribers(topic)
+		return got
+	}
+
+	findSubscribersInCache := func(topic string, want map[string]byte) map[string]byte {
+		got := make(map[string]byte)
+		for i := 0; i < 100; i++ {
+			clientMap, ok := mgr.topicMapper.Load(topic)
+			if ok {
+				got = make(map[string]byte)
+				clientMap.(*sync.Map).Range(func(key, value interface{}) bool {
+					got[key.(string)] = value.(byte)
+					return true
+				})
+				if reflect.DeepEqual(got, want) {
+					return got
+				}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		return got
+	}
+
+	findTopicInCache := func(clientID string, topic string) bool {
+		for i := 0; i < 100; i++ {
+			topicMap, ok := mgr.clientMapper.Load(clientID)
+			if ok {
+				_, ok = topicMap.(*sync.Map).Load(topic)
+				if ok {
+					return true
+				}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		return false
+	}
+
+	{
+		mgr.subscribe([]string{"a/+", "b/d"}, []byte{0, 1}, "A")
+		mgr.subscribe([]string{"+/+"}, []byte{1}, "B")
+		mgr.subscribe([]string{"+/fin"}, []byte{1}, "C")
+		mgr.subscribe([]string{"a/fin"}, []byte{1}, "D")
+		mgr.subscribe([]string{"#"}, []byte{2}, "E")
+		mgr.subscribe([]string{"a/#"}, []byte{2}, "F")
+
+		want := map[string]byte{"A": 0, "B": 1, "C": 1, "D": 1, "E": 2, "F": 2}
+		got := findSubscribers("a/fin", want)
+		assert.Equal(t, want, got)
+		got = findSubscribersInCache("a/fin", want)
+		assert.Equal(t, want, got)
+		for k := range want {
+			assert.True(t, findTopicInCache(k, "a/fin"))
+		}
+
+		want = map[string]byte{"A": 1, "B": 1, "E": 2}
+		got = findSubscribers("b/d", want)
+		assert.Equal(t, want, got)
+		got = findSubscribersInCache("b/d", want)
+		assert.Equal(t, want, got)
+		for k := range want {
+			assert.True(t, findTopicInCache(k, "b/d"))
+		}
+	}
+
+	{
+		mgr.unsubscribe([]string{"+/+"}, "B")
+		mgr.unsubscribe([]string{"#"}, "E")
+
+		want := map[string]byte{"A": 0, "C": 1, "D": 1, "F": 2}
+		got := findSubscribers("a/fin", want)
+		assert.Equal(t, want, got)
+		got = findSubscribersInCache("a/fin", want)
+		assert.Equal(t, want, got)
+		for k := range want {
+			assert.True(t, findTopicInCache(k, "a/fin"))
+		}
+
+		want = map[string]byte{"A": 1}
+		got = findSubscribers("b/d", want)
+		assert.Equal(t, want, got)
+		got = findSubscribersInCache("b/d", want)
+		assert.Equal(t, want, got)
+		assert.True(t, findTopicInCache("A", "b/d"))
+	}
+
+	{
+		mgr.disconnect([]string{"a/+", "b/d"}, "A")
+
+		want := map[string]byte{"C": 1, "D": 1, "F": 2}
+		got := findSubscribers("a/fin", want)
+		assert.Equal(t, want, got)
+		got = findSubscribersInCache("a/fin", want)
+		assert.Equal(t, want, got)
+		for k := range want {
+			assert.True(t, findTopicInCache(k, "a/fin"))
+		}
+	}
 }
