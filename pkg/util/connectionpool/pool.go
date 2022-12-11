@@ -20,9 +20,11 @@ package connectionpool
 import "context"
 
 type (
+	// Pool is the interface of the connection pool
 	Pool interface {
 		Get(addr string) (interface{}, error)
 		Close()
 	}
+	// CreateConnFactory is the func interface of the behavior creating a connection
 	CreateConnFactory func(ctx context.Context, addr string) (interface{}, error)
 )

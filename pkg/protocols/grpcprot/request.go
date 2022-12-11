@@ -270,21 +270,11 @@ func (r *Request) SetSourceHost(sourceHost string) {
 // Host refer to google.golang.org\grpc@v1.46.2\internal\transport\http2_server.go#operateHeaders
 // ensure only one value
 func (r *Request) Host() string {
-	return r.GetFirstInHeader(Authority)
+	return r.header.GetFirst(Authority)
 }
 
 func (r *Request) SetHost(host string) {
 	r.header.Set(Authority, host)
-}
-
-// GetFirstInHeader returns the first value for a given key.
-// k is converted to lowercase before searching in md.
-func (r *Request) GetFirstInHeader(k string) string {
-	v := r.header.md.Get(k)
-	if v == nil {
-		return ""
-	}
-	return v[0]
 }
 
 // Header returns the header of the request in type protocols.Header.

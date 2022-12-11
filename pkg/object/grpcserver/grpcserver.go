@@ -31,28 +31,28 @@ const (
 )
 
 func init() {
-	supervisor.Register(&GrpcServer{})
+	supervisor.Register(&GRPCServer{})
 }
 
 type (
-	// GrpcServer is TrafficGate Object GrpcServer
-	GrpcServer struct {
+	// GRPCServer  is TrafficGate Object GRPCServer
+	GRPCServer struct {
 		runtime *runtime
 	}
 )
 
 // Category returns the category of GrpcServer.
-func (g *GrpcServer) Category() supervisor.ObjectCategory {
+func (g *GRPCServer) Category() supervisor.ObjectCategory {
 	return Category
 }
 
 // Kind returns the kind of GrpcServer.
-func (g *GrpcServer) Kind() string {
+func (g *GRPCServer) Kind() string {
 	return Kind
 }
 
 // DefaultSpec returns the default Spec of GrpcServer.
-func (g *GrpcServer) DefaultSpec() interface{} {
+func (g *GRPCServer) DefaultSpec() interface{} {
 	return &Spec{
 		MaxConnectionIdle: "60s",
 		MaxConnections:    10240,
@@ -60,19 +60,19 @@ func (g *GrpcServer) DefaultSpec() interface{} {
 }
 
 // Status returns the status of GrpcServer.
-func (g *GrpcServer) Status() *supervisor.Status {
+func (g *GRPCServer) Status() *supervisor.Status {
 	return &supervisor.Status{
 		ObjectStatus: g.runtime.Status(),
 	}
 }
 
 // Close close GrpcServer
-func (g *GrpcServer) Close() {
+func (g *GRPCServer) Close() {
 	g.runtime.Close()
 }
 
 // Init first create GrpcServer by Spec.name
-func (g *GrpcServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
+func (g *GRPCServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	g.runtime = newRuntime(superSpec, muxMapper)
 	g.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
@@ -81,8 +81,8 @@ func (g *GrpcServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 }
 
 // Inherit inherits previous generation of GrpcServer.
-func (g *GrpcServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
-	g.runtime = previousGeneration.(*GrpcServer).runtime
+func (g *GRPCServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
+	g.runtime = previousGeneration.(*GRPCServer).runtime
 	g.runtime.eventChan <- &eventReload{
 		nextSuperSpec: superSpec,
 		muxMapper:     muxMapper,

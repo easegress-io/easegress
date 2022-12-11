@@ -18,13 +18,14 @@
 package grpcserver
 
 import (
+	"os"
+	"testing"
+	"time"
+
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -45,7 +46,7 @@ name: server-grpc
 	superSpec, err := supervisor.NewSpec(yamlSpec)
 	assertions.NoError(err)
 
-	svr := &GrpcServer{}
+	svr := &GRPCServer{}
 	svr.Init(superSpec, &contexttest.MockedMuxMapper{})
 
 	yamlSpec = `
@@ -58,7 +59,7 @@ name: server-grpc
 	superSpec, err = supervisor.NewSpec(yamlSpec)
 	assertions.NoError(err)
 
-	svr2 := &GrpcServer{}
+	svr2 := &GRPCServer{}
 	svr2.Inherit(superSpec, svr, &contexttest.MockedMuxMapper{})
 
 	time.Sleep(500 * time.Millisecond)

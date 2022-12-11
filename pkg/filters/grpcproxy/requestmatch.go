@@ -19,11 +19,12 @@ package grpcprxoy
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"hash/fnv"
 	"math/rand"
 	"regexp"
 	"strings"
+
+	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
@@ -116,7 +117,7 @@ type headerHashMatcher struct {
 
 // Match implements protocols.Matcher.
 func (hhm headerHashMatcher) Match(req *grpcprot.Request) bool {
-	v := req.GetFirstInHeader(hhm.headerHashKey)
+	v := req.RawHeader().GetFirst(hhm.headerHashKey)
 	hash := fnv.New32()
 	hash.Write([]byte(v))
 	return hash.Sum32()%1000 < hhm.permill

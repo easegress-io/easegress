@@ -19,6 +19,7 @@ package grpcprot
 
 import (
 	"fmt"
+
 	"github.com/megaease/easegress/pkg/protocols"
 	"google.golang.org/grpc/metadata"
 )
@@ -88,6 +89,16 @@ func (h *Header) Get(key string) interface{} {
 
 func (h *Header) Del(key string) {
 	h.md.Delete(key)
+}
+
+// GetFirst returns the first value for a given key.
+// k is converted to lowercase before searching in md.
+func (h *Header) GetFirst(k string) string {
+	v := h.md.Get(k)
+	if len(v) == 0 {
+		return ""
+	}
+	return v[0]
 }
 
 // Merge all the provided metadata will be merged

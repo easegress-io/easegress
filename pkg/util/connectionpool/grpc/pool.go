@@ -62,7 +62,7 @@ type (
 
 	// Pool is the grpc client pool
 	Pool struct {
-		segment  map[string]*segment
+		segment  sync.Map
 		factory  connectionpool.CreateConnFactory
 		spec     *Spec
 		mu       sync.Mutex
@@ -105,7 +105,7 @@ func newPool(factory connectionpool.CreateConnFactory, spec *Spec) (*Pool, error
 	}
 
 	p := &Pool{
-		segment: make(map[string]*segment),
+
 		factory: factory,
 		spec:    spec,
 	}
@@ -132,31 +132,32 @@ func NewWithFactory(factory connectionpool.CreateConnFactory, spec *Spec) (*Pool
 // You can call Close while there are outstanding clients.
 // The pool channel is then closed, and Get will not be allowed anymore
 func (p *Pool) Close() {
-	p.mu.Lock()
-	smts := p.segment
-	p.segment = nil
-	p.mu.Unlock()
+	if p.isClosed {
+		return
+	}
 	defer func() {
 		p.isClosed = true
 	}()
-	if smts == nil {
-		return
-	}
 
-	for _, seg := range smts {
-		close(seg.clients)
-		for c := range seg.clients {
-			if c.ClientConn != nil {
-				c.ClientConn.Close()
+	p.segment.Range(func(key, value any) bool {
+		if v, ok := value.(*segment); ok {
+			close(v.clients)
+			for c := range v.clients {
+				if c.ClientConn != nil {
+					c.ClientConn.Close()
+				}
 			}
+			return true
+		} else {
+			return false
 		}
-	}
+	})
 
 }
 
 // IsClosed returns true if the client pool is closed.
 func (p *Pool) IsClosed() bool {
-	return p == nil || p.isClosed || p.segment == nil
+	return p == nil || p.isClosed
 }
 
 // Get will return the next available client. If capacity
@@ -169,18 +170,18 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 	}
 	timeout, cancelFunc := context.WithTimeout(context.Background(), p.spec.BorrowTimeout)
 	defer cancelFunc()
-	if p.segment[addr] == nil {
-		p.mu.Lock()
-		if p.segment[addr] == nil {
-			p.segment[addr] = &segment{
-				clients: make(chan *ClientConn, p.spec.ConnectionsPerHost),
-				pool:    p,
-				count:   0,
-			}
-		}
-		p.mu.Unlock()
+	var smt *segment
+	if value, ok := p.segment.Load(addr); !ok {
+		value, _ = p.segment.LoadOrStore(addr, &segment{
+			clients: make(chan *ClientConn, p.spec.ConnectionsPerHost),
+			pool:    p,
+			count:   0,
+		})
+		smt = value.(*segment)
+	} else {
+		smt = value.(*segment)
 	}
-	smt := p.segment[addr]
+
 	for {
 		select {
 		case wrapper := <-smt.clients:
@@ -193,43 +194,51 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 			return nil, ErrTimeout // it would better returns ctx.Err()
 		default:
 			cur := smt.count
-			if cur < int32(smt.Capacity()) && atomic.CompareAndSwapInt32(&smt.count, cur, cur+1) {
-				return func() (wrapper *ClientConn, err error) {
-					var cc interface{}
-					defer func() {
-						if wrapper == nil {
-							atomic.AddInt32(&smt.count, -1)
-						}
-					}()
-					if p.factory != nil {
-						cc, err = p.factory(timeout, addr)
-						if err != nil {
-							return nil, ErrFactory
-						}
-						if connection, ok := cc.(*grpc.ClientConn); ok {
-							wrapper = &ClientConn{
-								segment:    smt,
-								ClientConn: connection,
-							}
-							return wrapper, nil
-						} else {
-							return nil, ErrFactory
-						}
-					} else {
-						cc, err = grpc.DialContext(timeout, addr, p.spec.DialOptions...)
-						if err != nil {
-							return nil, err
-						}
-						wrapper = &ClientConn{
-							segment:    smt,
-							ClientConn: cc.(*grpc.ClientConn),
-						}
-						return wrapper, nil
-					}
-
-				}()
+			if cur >= int32(smt.Capacity()) || atomic.CompareAndSwapInt32(&smt.count, cur, cur+1) {
+				continue
 			}
+			return func() (wrapper *ClientConn, err error) {
+				defer func() {
+					if wrapper == nil {
+						atomic.AddInt32(&smt.count, -1)
+					}
+				}()
+				if p.factory == nil {
+					return p.createConnectionByDefault(timeout, addr, smt)
+				} else {
+					return p.createConnectionByFactory(timeout, addr, smt)
+				}
+
+			}()
 		}
+	}
+}
+
+func (p *Pool) createConnectionByDefault(ctx context.Context, addr string, smt *segment) (wrapper *ClientConn, err error) {
+	cc, err := grpc.DialContext(ctx, addr, p.spec.DialOptions...)
+	if err != nil {
+		return nil, err
+	}
+	wrapper = &ClientConn{
+		segment:    smt,
+		ClientConn: cc,
+	}
+	return wrapper, nil
+}
+
+func (p *Pool) createConnectionByFactory(ctx context.Context, addr string, smt *segment) (wrapper *ClientConn, err error) {
+	cc, err := p.factory(ctx, addr)
+	if err != nil {
+		return nil, ErrFactory
+	}
+	if connection, ok := cc.(*grpc.ClientConn); ok {
+		wrapper = &ClientConn{
+			segment:    smt,
+			ClientConn: connection,
+		}
+		return wrapper, nil
+	} else {
+		return nil, ErrFactory
 	}
 }
 

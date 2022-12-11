@@ -19,13 +19,14 @@ package grpcprot
 
 import (
 	"context"
+	"os"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
-	"os"
-	"testing"
 )
 
 func TestMain(m *testing.M) {
@@ -119,7 +120,7 @@ func TestHeaderPoint(t *testing.T) {
 
 	header.Set("test", "test")
 	assertions.NotNil(req.RawHeader())
-	assertions.NotNil("test", req.GetFirstInHeader("test"))
+	assertions.NotNil("test", req.RawHeader().GetFirst("test"))
 }
 
 // clone test cases create request from other request's context and check two request should be consistent
@@ -142,6 +143,6 @@ func TestClone(t *testing.T) {
 	assertions.NotNil(dst.Header())
 	assertions.True(src.Header() != dst.Header())
 	assertions.Equal(src.header.md.Len(), dst.header.md.Len())
-	assertions.Equal(src.GetFirstInHeader("test"), dst.GetFirstInHeader("test"))
+	assertions.Equal(src.RawHeader().GetFirst("test"), dst.RawHeader().GetFirst("test"))
 
 }

@@ -19,12 +19,13 @@ package grpcprxoy
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"hash/fnv"
 	"math/rand"
 	"net"
 	"sync"
 	"sync/atomic"
+
+	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 
 	"github.com/megaease/easegress/pkg/logger"
 )
@@ -226,7 +227,7 @@ func newForwardLoadBalancer(forwardKey string) *forwardLoadBalancer {
 
 // ChooseServer implements the LoadBalancer interface
 func (f *forwardLoadBalancer) ChooseServer(req *grpcprot.Request) *Server {
-	target := req.GetFirstInHeader(f.forwardKey)
+	target := req.RawHeader().GetFirst(f.forwardKey)
 	if target == "" {
 		logger.Debugf("request %v from %v context no target address %s", req.FullMethod(), req.RealIP(), target)
 		return nil

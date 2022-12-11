@@ -81,7 +81,7 @@ type Options struct {
 	ClusterRequestTimeout string         `yaml:"cluster-request-timeout"`
 	Cluster               ClusterOptions `yaml:"cluster"`
 
-	// FullMethod.
+	// Path.
 	HomeDir   string `yaml:"home-dir"`
 	DataDir   string `yaml:"data-dir"`
 	WALDir    string `yaml:"wal-dir"`

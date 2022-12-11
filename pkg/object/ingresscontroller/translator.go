@@ -19,11 +19,12 @@ package ingresscontroller
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
@@ -479,7 +480,7 @@ func (st *specTranslator) translate() error {
 				return false
 			case p1.Path == "" && p2.Path != "":
 				return true
-			default: // p1.FullMethod == "" && p2.FullMethod == "":
+			default: // p1.Path == "" && p2.Path == "":
 				return len(p1.PathPrefix) > len(p2.PathPrefix)
 			}
 		})
