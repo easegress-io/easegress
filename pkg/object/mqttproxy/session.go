@@ -95,7 +95,7 @@ func (s *Session) encode() (string, error) {
 }
 
 func (s *Session) decode(str string) error {
-	return codectool.Unmarshal([]byte(str), s.info)
+	return codectool.UnmarshalJSON([]byte(str), s.info)
 }
 
 func (s *Session) init(sm *SessionManager, b *Broker, connect *packets.ConnectPacket) error {

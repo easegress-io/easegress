@@ -37,9 +37,10 @@ type (
 	}
 
 	mockStorage struct {
-		mu        sync.RWMutex
-		store     map[string]string
-		watchCh   chan map[string]*string
+		mu      sync.RWMutex
+		store   map[string]string
+		watchCh chan map[string]*string
+		// 0 is not watch, 1 is watch delete, 2 is watch put, 3 is watch delete and put
 		watchFlag int32
 	}
 
@@ -91,6 +92,13 @@ func (m *mockStorage) getPrefix(prefix string, keysOnly bool) (map[string]string
 func (m *mockStorage) put(key, value string) error {
 	m.mu.Lock()
 	m.store[key] = value
+	if m.watchPut() {
+		go func() {
+			ans := make(map[string]*string)
+			ans[key] = &value
+			m.watchCh <- ans
+		}()
+	}
 	m.mu.Unlock()
 	return nil
 }
@@ -98,7 +106,7 @@ func (m *mockStorage) put(key, value string) error {
 func (m *mockStorage) delete(key string) error {
 	m.mu.Lock()
 	delete(m.store, key)
-	if m.watched() {
+	if m.watchDel() {
 		go func() {
 			ans := make(map[string]*string)
 			ans[key] = nil
@@ -109,9 +117,14 @@ func (m *mockStorage) delete(key string) error {
 	return nil
 }
 
-func (m *mockStorage) watched() bool {
+func (m *mockStorage) watchDel() bool {
 	flag := atomic.LoadInt32(&m.watchFlag)
-	return flag == 1
+	return (flag & 1) != 0
+}
+
+func (m *mockStorage) watchPut() bool {
+	flag := atomic.LoadInt32(&m.watchFlag)
+	return (flag & 2) != 0
 }
 
 func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
@@ -120,7 +133,7 @@ func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, fun
 }
 
 func (m *mockStorage) watch(prefix string) (<-chan map[string]*string, func(), error) {
-	atomic.StoreInt32(&m.watchFlag, 1)
+	atomic.StoreInt32(&m.watchFlag, 3)
 	return m.watchCh, func() {}, nil
 }
 

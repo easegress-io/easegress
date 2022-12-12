@@ -1949,3 +1949,175 @@ func TestCacheTopicManager(t *testing.T) {
 		}
 	}
 }
+
+func TestSingleNodeBrokerMode(t *testing.T) {
+	spec := getDefaultSpec()
+	spec.BrokerMode = true
+	store := newStorage(nil)
+	mapper := &mockMuxMapper{}
+	broker := newBroker(spec, store, mapper, func(s, ss string) (map[string]string, error) {
+		return map[string]string{}, nil
+	})
+	defer broker.close()
+	topicMgr := broker.topicMgr.(*cachedTopicManager)
+
+	client1 := getMQTTClient(t, "client1", "test1", "test1", true)
+	defer client1.Disconnect(200)
+	ch1 := make(chan CheckMsg, 100)
+	handler1 := getMQTTSubscribeHandler(ch1)
+	token := client1.Subscribe("test1", 1, handler1)
+	token.Wait()
+	assert.Nil(t, token.Error())
+
+	client2 := getMQTTClient(t, "client2", "test2", "test2", true)
+	defer client2.Disconnect(200)
+	ch2 := make(chan CheckMsg, 100)
+	handler2 := getMQTTSubscribeHandler(ch2)
+	token = client2.Subscribe("test2", 1, handler2)
+	token.Wait()
+	assert.Nil(t, token.Error())
+
+	// asynchronous system
+	for i := 0; i < 100; i++ {
+		_, ok1 := topicMgr.clientMapper.Load("client1")
+		_, ok2 := topicMgr.clientMapper.Load("client2")
+		if ok1 && ok2 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	_, ok1 := topicMgr.clientMapper.Load("client1")
+	_, ok2 := topicMgr.clientMapper.Load("client2")
+	assert.True(t, ok1)
+	assert.True(t, ok2)
+
+	got, err := topicMgr.findSubscribers("test1")
+	assert.Nil(t, err)
+	assert.Equal(t, map[string]byte{"client1": 1}, got)
+
+	got, err = topicMgr.findSubscribers("test2")
+	assert.Nil(t, err)
+	assert.Equal(t, map[string]byte{"client2": 1}, got)
+
+	for i := 0; i < 20; i++ {
+		token := client2.Publish("test1", 1, false, strconv.Itoa(i))
+		token.Wait()
+		assert.Nil(t, token.Error())
+
+		token = client1.Publish("test2", 1, false, strconv.Itoa(i))
+		token.Wait()
+		assert.Nil(t, token.Error())
+		time.Sleep(300 * time.Millisecond)
+	}
+	for i := 0; i < 20; i++ {
+		msg := <-ch1
+		assert.Equal(t, "test1", msg.topic)
+		assert.Equal(t, strconv.Itoa(i), msg.payload)
+		msg = <-ch2
+		assert.Equal(t, "test2", msg.topic)
+		assert.Equal(t, strconv.Itoa(i), msg.payload)
+	}
+}
+
+func TestBrokerModeWatch(t *testing.T) {
+	assert := assert.New(t)
+
+	// information about another easegress instance and client on it.
+	eg2 := "eg2"
+	clientOnEg2 := "clientOnEg2"
+	topicOnEg2 := "topicOnEg2"
+
+	// init broker mode
+	spec := getDefaultSpec()
+	spec.BrokerMode = true
+	store := newStorage(nil)
+	mapper := &mockMuxMapper{}
+	broker := newBroker(spec, store, mapper, func(s, ss string) (map[string]string, error) {
+		return map[string]string{
+			eg2: "http://localhost:8888/mqtt",
+		}, nil
+	})
+	defer broker.close()
+
+	mockStorage := broker.sessMgr.store.(*mockStorage)
+	assert.True(mockStorage.watchPut())
+	assert.True(mockStorage.watchDel())
+	topicMgr := broker.topicMgr.(*cachedTopicManager)
+	sessCacheMgr := broker.sessionCacheMgr
+
+	// test SessionCacheManager watch put event of storage
+	sessInfo := &SessionInfo{
+		EGName:    eg2,
+		Name:      "mqttproxy",
+		Topics:    map[string]int{topicOnEg2: 1},
+		ClientID:  clientOnEg2,
+		CleanFlag: true,
+	}
+	info, err := codectool.MarshalJSON(sessInfo)
+	assert.Nil(err)
+	mockStorage.put(sessionStoreKey(clientOnEg2), string(info))
+
+	egName := ""
+	for i := 0; i < 100; i++ {
+		egName = sessCacheMgr.getEGName(clientOnEg2)
+		if egName == eg2 {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	assert.Equal(eg2, egName, "SessionCacheManager failed to watch put event")
+
+	// test SessionCacheManager update topic manager
+	want := map[string]byte{clientOnEg2: 1}
+	var got map[string]byte
+	for i := 0; i < 100; i++ {
+		got, err = topicMgr.findSubscribers(topicOnEg2)
+		assert.Nil(err)
+		if reflect.DeepEqual(want, got) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	assert.Equal(want, got)
+	assert.Nil(err)
+
+	// test broker transfer publish message to another easegress instance.
+	server := newServer(":8888")
+	type httpRes struct {
+		req  *http.Request
+		body []byte
+	}
+	reqCh := make(chan *httpRes, 10)
+	server.addHandlerFunc("/mqtt", func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		assert.Nil(err)
+		reqCh <- &httpRes{
+			req:  r.Clone(stdcontext.Background()),
+			body: body,
+		}
+	})
+	err = server.start()
+	assert.Nil(err)
+
+	publish := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+	publish.TopicName = topicOnEg2
+	publish.Payload = []byte("hello")
+	publish.Qos = 1
+	broker.processBrokerModePublish("clientOnEg1", publish)
+
+	var res *httpRes
+	select {
+	case res = <-reqCh:
+	case <-time.After(5 * time.Second):
+		assert.Fail("broker failed to transfer publish message to another easegress instance")
+	}
+	assert.NotNil(res)
+	assert.Equal(http.MethodPost, res.req.Method)
+	data := HTTPJsonData{}
+	err = codectool.UnmarshalJSON(res.body, &data)
+	assert.Nil(err)
+	assert.Equal(topicOnEg2, data.Topic)
+	assert.True(data.Base64)
+	assert.True(data.Distributed)
+	assert.Equal(1, data.QoS)
+}

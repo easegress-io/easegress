@@ -150,12 +150,7 @@ func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL
 
 	} else {
 		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
-		ch, closeFunc, err := broker.sessMgr.store.watch(sessionStoreKey(""))
-		if (err != nil) || (ch == nil) {
-			logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
-		} else {
-			go broker.watch(ch, closeFunc)
-		}
+		broker.connectWatcher()
 	}
 	return broker
 }
@@ -242,7 +237,7 @@ func (b *Broker) watchDelete(ch <-chan map[string]*string, closeFunc func()) {
 	}
 }
 
-func (b *Broker) reconnectWatcher() {
+func (b *Broker) connectWatcher() {
 	if b.closed() {
 		return
 	}
@@ -251,7 +246,7 @@ func (b *Broker) reconnectWatcher() {
 	if err != nil {
 		logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
 		time.Sleep(10 * time.Second)
-		go b.reconnectWatcher()
+		go b.connectWatcher()
 		return
 	}
 	go b.watch(ch, cancelFunc)
@@ -265,7 +260,7 @@ func (b *Broker) reconnectWatcher() {
 	for k, v := range sessions {
 		clientID := strings.TrimPrefix(k, sessionStoreKey(""))
 		sessionInfo := &SessionInfo{}
-		err := codectool.Unmarshal([]byte(v), &sessionInfo)
+		err := codectool.UnmarshalJSON([]byte(v), &sessionInfo)
 		if err != nil {
 			logger.SpanErrorf(nil, "unmarshal session info failed, %v", err)
 		} else {
@@ -296,14 +291,14 @@ func (b *Broker) watch(ch <-chan map[string]*string, closeFunc func()) {
 			return
 		case m := <-ch:
 			if m == nil {
-				go b.reconnectWatcher()
+				go b.connectWatcher()
 				return
 			}
 			for k, v := range m {
 				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
 				if v != nil {
 					info := &SessionInfo{}
-					err := codectool.Unmarshal([]byte(*v), info)
+					err := codectool.UnmarshalJSON([]byte(*v), info)
 					if err != nil {
 						logger.SpanErrorf(nil, "decode session info for client %s failed, %v", clientID, err)
 					} else {
@@ -818,6 +813,9 @@ func (b *Broker) close() {
 	b.listener.Close()
 	b.sessMgr.close()
 	b.topicMgr.close()
+	if b.spec.BrokerMode {
+		b.sessionCacheMgr.close()
+	}
 
 	b.Lock()
 	defer b.Unlock()

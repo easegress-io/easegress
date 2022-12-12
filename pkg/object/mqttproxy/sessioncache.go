@@ -62,6 +62,7 @@ func newSessionCacheManager(sepc *Spec, topicMgr TopicManager) SessionCacheManag
 		topicMgr: topicMgr,
 		cache:    make(map[string]*SessionInfo),
 		writeCh:  make(chan *sessionCacheOp, 10000),
+		doneCh:   make(chan struct{}),
 	}
 	go mgr.run()
 	return mgr
@@ -119,11 +120,9 @@ func (c *sessionCacheManager) processUpdate(clientID string, session *SessionInf
 		}
 	}
 	unsubTopics := []string{}
-	unsubQoss := []byte{}
-	for k, v := range oldSession.Topics {
+	for k := range oldSession.Topics {
 		if _, ok := session.Topics[k]; !ok {
 			unsubTopics = append(unsubTopics, k)
-			unsubQoss = append(unsubQoss, byte(v))
 		}
 	}
 	c.topicMgr.subscribe(subTopics, subQoss, clientID)
@@ -175,7 +174,7 @@ func (c *sessionCacheManager) run() {
 func (c *sessionCacheManager) getEGName(clientID string) string {
 	val, ok := c.egNameCache.Load(clientID)
 	if !ok {
-		return ""
+		return c.egName
 	}
 	return val.(string)
 }
