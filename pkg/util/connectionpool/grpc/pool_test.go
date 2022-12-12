@@ -77,7 +77,7 @@ func TestPool(t *testing.T) {
 	wg.Wait()
 	sgt, exit := pool.segment.Load(target)
 	assertions.True(exit)
-	assertions.True(connectionsPerHost <= len(sgt.(*segment).clients))
+	assertions.True(connectionsPerHost >= len(sgt.(*segment).clients))
 
 	wrapper, _ := pool.Get(target)
 	_ = wrapper.(*ClientConn).ReturnPool()
