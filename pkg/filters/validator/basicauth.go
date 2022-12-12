@@ -20,6 +20,7 @@ package validator
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/jtblin/go-ldap-client"
 	"github.com/tg123/go-htpasswd"
 	"golang.org/x/crypto/bcrypt"
 
@@ -42,7 +44,7 @@ type (
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
 	// There are 'file' and 'etcd' modes.
 	BasicAuthValidatorSpec struct {
-		Mode string `json:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD"`
+		Mode string `json:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD,enum=LDAP"`
 		// Required for 'FILE' mode.
 		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
 		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
@@ -58,6 +60,8 @@ type (
 		// Username and password are used for Basic Authentication. If "username" is empty, the value of "key"
 		// entry is used as username for Basic Auth.
 		EtcdPrefix string `json:"etcdPrefix" jsonschema:"omitempty"`
+		// Required for 'LDAP' mode.
+		LDAP *ldapSpec `json:"ldap,omitempty" jsonshema:"omitempty"`
 	}
 
 	// AuthorizedUsersCache provides cached lookup for authorized users.
@@ -83,6 +87,26 @@ type (
 		syncInterval   time.Duration
 		stopCtx        context.Context
 		cancel         context.CancelFunc
+	}
+
+	ldapUserCache struct {
+		spec   *ldapSpec
+		client *ldap.LDAPClient
+	}
+
+	// ldapSpec defines the configuration of LDAP authentication
+	ldapSpec struct {
+		Host         string `json:"host" jsonschema:"required"`
+		Port         int    `json:"port" jsonschema:"required"`
+		BaseDN       string `json:"baseDN" jsonschema:"required"`
+		UID          string `json:"uid" jsonschema:"required"`
+		UseSSL       bool   `json:"useSSL" jsonschema:"omitempty"`
+		SkipTLS      bool   `json:"skipTLS" jsonschema:"omitempty"`
+		Insecure     bool   `json:"insecure" jsonschema:"omitempty"`
+		ServerName   string `json:"serverName" jsonschema:"omitempty"`
+		CertBase64   string `json:"certBase64" jsonschema:"omitempty,format=base64"`
+		KeyBase64    string `json:"keyBase64" jsonschema:"omitempty,format=base64"`
+		certificates []tls.Certificate
 	}
 
 	// BasicAuthValidator defines the Basic Auth validator
@@ -313,6 +337,61 @@ func (euc *etcdUserCache) Match(username string, password string) bool {
 	return euc.userFileObject.Match(username, password)
 }
 
+func newLDAPUserCache(spec *ldapSpec) *ldapUserCache {
+	if spec.CertBase64 != "" && spec.KeyBase64 != "" {
+		certPem, _ := base64.StdEncoding.DecodeString(spec.CertBase64)
+		keyPem, _ := base64.StdEncoding.DecodeString(spec.KeyBase64)
+		if cert, err := tls.X509KeyPair(certPem, keyPem); err == nil {
+			spec.certificates = append(spec.certificates, cert)
+		} else {
+			logger.Errorf("generates x509 key pair failed: %v", err)
+		}
+	}
+	client := &ldap.LDAPClient{
+		Host:               spec.Host,
+		Port:               spec.Port,
+		Base:               spec.BaseDN,
+		UseSSL:             spec.UseSSL,
+		SkipTLS:            spec.SkipTLS,
+		InsecureSkipVerify: spec.Insecure,
+		ServerName:         spec.ServerName,
+		ClientCertificates: spec.certificates,
+	}
+	return &ldapUserCache{
+		spec:   spec,
+		client: client}
+}
+
+// make it mockable
+var fnAuthLDAP = func(luc *ldapUserCache, username, password string) bool {
+	if err := luc.client.Connect(); err != nil {
+		logger.Warnf("failed to connect LDAP server %v", err)
+		return false
+	}
+
+	userdn := fmt.Sprintf("%s=%s,%s", luc.spec.UID, username, luc.spec.BaseDN)
+	if err := luc.client.Conn.Bind(userdn, password); err != nil {
+		logger.Warnf("failed to bind LDAP user %v", err)
+		return false
+	}
+
+	return true
+}
+
+func (luc *ldapUserCache) Match(username, password string) bool {
+	return fnAuthLDAP(luc, username, password)
+}
+
+func (luc *ldapUserCache) WatchChanges() {
+
+}
+
+func (luc *ldapUserCache) Close() {
+	if luc.client != nil {
+		luc.client.Close()
+	}
+}
+
 // NewBasicAuthValidator creates a new Basic Auth validator
 func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.Supervisor) *BasicAuthValidator {
 	var cache AuthorizedUsersCache
@@ -325,6 +404,8 @@ func NewBasicAuthValidator(spec *BasicAuthValidatorSpec, supervisor *supervisor.
 		cache = newEtcdUserCache(supervisor.Cluster(), spec.EtcdPrefix)
 	case "FILE":
 		cache = newHtpasswdUserCache(spec.UserFile, 1*time.Minute)
+	case "LDAP":
+		cache = newLDAPUserCache(spec.LDAP)
 	default:
 		logger.Errorf("BasicAuth validator spec unvalid.")
 		return nil
