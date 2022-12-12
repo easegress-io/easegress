@@ -202,7 +202,7 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 		case <-timeout.Done():
 			return nil, ErrTimeout // it would better returns ctx.Err()
 		default:
-			cur := smt.count
+			cur := atomic.LoadInt32(&smt.count)
 			if cur >= int32(smt.Capacity()) || !atomic.CompareAndSwapInt32(&smt.count, cur, cur+1) {
 				continue
 			}
