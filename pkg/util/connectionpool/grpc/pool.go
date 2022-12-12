@@ -51,6 +51,11 @@ var (
 	_ connectionpool.Pool = (*Pool)(nil)
 )
 
+const (
+	closed uint32 = iota
+	normal
+)
+
 type (
 	// Spec describe Pool
 	Spec struct {
@@ -65,7 +70,7 @@ type (
 		segment  sync.Map
 		factory  connectionpool.CreateConnFactory
 		spec     *Spec
-		mu       sync.Mutex
+		mu       sync.RWMutex
 		isClosed bool
 	}
 
@@ -78,7 +83,8 @@ type (
 	// ClientConn is the wrapper for a grpc client conn
 	ClientConn struct {
 		*grpc.ClientConn
-		segment *segment
+		segment  *segment
+		returned uint32
 	}
 )
 
@@ -105,7 +111,6 @@ func newPool(factory connectionpool.CreateConnFactory, spec *Spec) (*Pool, error
 	}
 
 	p := &Pool{
-
 		factory: factory,
 		spec:    spec,
 	}
@@ -132,25 +137,26 @@ func NewWithFactory(factory connectionpool.CreateConnFactory, spec *Spec) (*Pool
 // You can call Close while there are outstanding clients.
 // The pool channel is then closed, and Get will not be allowed anymore
 func (p *Pool) Close() {
+	p.mu.RLock()
 	if p.isClosed {
+		p.mu.RUnlock()
 		return
 	}
+	p.mu.RUnlock()
+	p.mu.Lock()
 	defer func() {
 		p.isClosed = true
+		p.mu.Unlock()
 	}()
 
 	p.segment.Range(func(key, value any) bool {
-		if v, ok := value.(*segment); ok {
-			close(v.clients)
-			for c := range v.clients {
-				if c.ClientConn != nil {
-					c.ClientConn.Close()
-				}
+		close(value.(*segment).clients)
+		for c := range value.(*segment).clients {
+			if c.ClientConn != nil {
+				c.ClientConn.Close()
 			}
-			return true
-		} else {
-			return false
 		}
+		return true
 	})
 
 }
@@ -165,6 +171,8 @@ func (p *Pool) IsClosed() bool {
 // it will wait till the next client becomes available or a timeout.
 // A timeout of 0 is an indefinite wait
 func (p *Pool) Get(addr string) (interface{}, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	if p.IsClosed() {
 		return nil, ErrClosed
 	}
@@ -186,6 +194,7 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 		select {
 		case wrapper := <-smt.clients:
 			if wrapper.isAvailable() {
+				atomic.StoreUint32(&wrapper.returned, normal)
 				return wrapper, nil
 			}
 			// discard
@@ -194,7 +203,7 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 			return nil, ErrTimeout // it would better returns ctx.Err()
 		default:
 			cur := smt.count
-			if cur >= int32(smt.Capacity()) || atomic.CompareAndSwapInt32(&smt.count, cur, cur+1) {
+			if cur >= int32(smt.Capacity()) || !atomic.CompareAndSwapInt32(&smt.count, cur, cur+1) {
 				continue
 			}
 			return func() (wrapper *ClientConn, err error) {
@@ -208,7 +217,6 @@ func (p *Pool) Get(addr string) (interface{}, error) {
 				} else {
 					return p.createConnectionByFactory(timeout, addr, smt)
 				}
-
 			}()
 		}
 	}
@@ -222,6 +230,7 @@ func (p *Pool) createConnectionByDefault(ctx context.Context, addr string, smt *
 	wrapper = &ClientConn{
 		segment:    smt,
 		ClientConn: cc,
+		returned:   normal,
 	}
 	return wrapper, nil
 }
@@ -235,6 +244,7 @@ func (p *Pool) createConnectionByFactory(ctx context.Context, addr string, smt *
 		wrapper = &ClientConn{
 			segment:    smt,
 			ClientConn: connection,
+			returned:   normal,
 		}
 		return wrapper, nil
 	} else {
@@ -245,15 +255,20 @@ func (p *Pool) createConnectionByFactory(ctx context.Context, addr string, smt *
 // ReturnPool returns a ClientConn to the pool. It is safe to call multiple time,
 // but will return an error after first time
 func (c *ClientConn) ReturnPool() error {
-	if c == nil {
+	if c == nil || c.ClientConn == nil {
 		return nil
 	}
-	if c.segment.pool.IsClosed() {
+	c.segment.pool.mu.RLock()
+	poolClosed := c.segment.pool.IsClosed()
+	c.segment.pool.mu.RUnlock()
+	if poolClosed {
 		return ErrClosed
 	}
-	if c.ClientConn == nil {
+
+	if atomic.LoadUint32(&c.returned) == closed || !atomic.CompareAndSwapUint32(&c.returned, normal, closed) {
 		return ErrAlreadyClosed
 	}
+
 	if !c.isAvailable() {
 		c.ClientConn.Close()
 		// help gc
@@ -277,6 +292,8 @@ func (c *ClientConn) isAvailable() bool {
 
 // Capacity returns the capacity
 func (s *segment) Capacity() int {
+	s.pool.mu.RLock()
+	defer s.pool.mu.RUnlock()
 	if s.pool.IsClosed() {
 		return 0
 	}
