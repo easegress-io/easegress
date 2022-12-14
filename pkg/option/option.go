@@ -69,6 +69,9 @@ type Options struct {
 	Name                     string            `yaml:"name" env:"EG_NAME"`
 	Labels                   map[string]string `yaml:"labels" env:"EG_LABELS"`
 	APIAddr                  string            `yaml:"api-addr"`
+	Secure                   bool              `yaml:"secure"`
+	CertFile                 string            `yaml:"cert-file"`
+	KeyFile                  string            `yaml:"key-file"`
 	Debug                    bool              `yaml:"debug"`
 	DisableAccessLog         bool              `yaml:"disable-access-log"`
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
@@ -138,6 +141,9 @@ func New() *Options {
 	opt.flags.BoolVar(&opt.UseStandaloneEtcd, "use-standalone-etcd", false, "Use standalone etcd instead of embedded .")
 	addClusterVars(opt)
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
+	opt.flags.BoolVar(&opt.Secure, "secure", false, "Flag to use secure transport protocol(https).")
+	opt.flags.StringVar(&opt.CertFile, "cert-file", "", "Flag to set the certificate file for https.")
+	opt.flags.StringVar(&opt.KeyFile, "key-file", "", "Flag to set the private key file for https.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
 	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
 	opt.flags.StringVar(&opt.ObjectsDumpInterval, "objects-dump-interval", "", "The time interval to dump running objects config, for example: 30m")

@@ -19,6 +19,7 @@ package command
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,8 +31,10 @@ import (
 type (
 	// GlobalFlags is the global flags for the whole client.
 	GlobalFlags struct {
-		Server       string
-		OutputFormat string
+		Server             string
+		Secure             bool
+		InsecureSkipVerify bool
+		OutputFormat       string
 	}
 
 	// APIErr is the standard return of error.
@@ -115,7 +118,13 @@ const (
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
-	return "http://" + CommandlineGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
+	var p string
+	if CommandlineGlobalFlags.Secure {
+		p = "https://"
+	} else {
+		p = "http://"
+	}
+	return p + CommandlineGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
 }
 
 func successfulStatusCode(code int) bool {
@@ -137,7 +146,14 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		ExitWithError(err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	var tr http.Transport
+	if CommandlineGlobalFlags.InsecureSkipVerify {
+		tr = http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	}
+	client := &http.Client{Transport: &tr}
+	resp, err := client.Do(req)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
