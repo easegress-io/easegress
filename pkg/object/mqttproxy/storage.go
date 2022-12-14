@@ -94,9 +94,9 @@ func (m *mockStorage) put(key, value string) error {
 	m.store[key] = value
 	if m.watchPut() {
 		go func() {
-			ans := make(map[string]*string)
-			ans[key] = &value
-			m.watchCh <- ans
+			res := make(map[string]*string)
+			res[key] = &value
+			m.watchCh <- res
 		}()
 	}
 	m.mu.Unlock()

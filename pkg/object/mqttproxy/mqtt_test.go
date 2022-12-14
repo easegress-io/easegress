@@ -1377,7 +1377,7 @@ func TestMQTTProxy(t *testing.T) {
 	broker := getDefaultBroker(&mockMuxMapper{})
 
 	mp.broker = broker
-	broker.reconnectDeleteWatcher()
+	broker.reconnectOnlyDeleteWatcher()
 	mp.Close()
 
 	ans, err := updatePort("http://example.com:1234", "demo.com:2345")

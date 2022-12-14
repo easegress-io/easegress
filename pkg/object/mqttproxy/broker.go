@@ -140,17 +140,19 @@ func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL
 	broker.sessMgr = newSessionManager(broker, store)
 	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
-	if !spec.BrokerMode {
+	if spec.BrokerMode {
+		// watcher watch all event that include put and delete
+		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
+		broker.connectWatcher()
+
+	} else {
+		// watch delete only watch delete event
 		ch, closeFunc, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
 		if (err != nil) || (ch == nil) {
 			logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
 		} else {
-			go broker.watchDelete(ch, closeFunc)
+			go broker.onlyWatchDelete(ch, closeFunc)
 		}
-
-	} else {
-		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
-		broker.connectWatcher()
 	}
 	return broker
 }
@@ -180,19 +182,24 @@ func (b *Broker) setListener() error {
 	return err
 }
 
-func (b *Broker) reconnectDeleteWatcher() {
+func (b *Broker) reconnectOnlyDeleteWatcher() {
 	if b.closed() {
 		return
 	}
 
-	ch, cancelFunc, err := b.sessMgr.store.watchDelete(sessionStoreKey(""))
-	if err != nil {
+	var ch <-chan map[string]*string
+	var cancelFunc func()
+	var err error
+
+	for {
+		ch, cancelFunc, err = b.sessMgr.store.watchDelete(sessionStoreKey(""))
+		if err == nil {
+			break
+		}
 		logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
 		time.Sleep(10 * time.Second)
-		go b.reconnectDeleteWatcher()
-		return
 	}
-	go b.watchDelete(ch, cancelFunc)
+	go b.onlyWatchDelete(ch, cancelFunc)
 
 	// check event during reconnect
 	sessions, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), true)
@@ -214,7 +221,7 @@ func (b *Broker) reconnectDeleteWatcher() {
 	}
 }
 
-func (b *Broker) watchDelete(ch <-chan map[string]*string, closeFunc func()) {
+func (b *Broker) onlyWatchDelete(ch <-chan map[string]*string, closeFunc func()) {
 	defer closeFunc()
 	for {
 		select {
@@ -222,7 +229,7 @@ func (b *Broker) watchDelete(ch <-chan map[string]*string, closeFunc func()) {
 			return
 		case m := <-ch:
 			if m == nil {
-				go b.reconnectDeleteWatcher()
+				go b.reconnectOnlyDeleteWatcher()
 				return
 			}
 			for k, v := range m {
@@ -242,12 +249,16 @@ func (b *Broker) connectWatcher() {
 		return
 	}
 
-	ch, cancelFunc, err := b.sessMgr.store.watch(sessionStoreKey(""))
-	if err != nil {
+	var ch <-chan map[string]*string
+	var cancelFunc func()
+	var err error
+	for {
+		ch, cancelFunc, err = b.sessMgr.store.watch(sessionStoreKey(""))
+		if err == nil {
+			break
+		}
 		logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
 		time.Sleep(10 * time.Second)
-		go b.connectWatcher()
-		return
 	}
 	go b.watch(ch, cancelFunc)
 
@@ -294,22 +305,26 @@ func (b *Broker) watch(ch <-chan map[string]*string, closeFunc func()) {
 				go b.connectWatcher()
 				return
 			}
-			for k, v := range m {
-				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
-				if v != nil {
-					info := &SessionInfo{}
-					err := codectool.UnmarshalJSON([]byte(*v), info)
-					if err != nil {
-						logger.SpanErrorf(nil, "decode session info for client %s failed, %v", clientID, err)
-					} else {
-						b.sessionCacheMgr.update(clientID, info)
-					}
-				} else {
-					logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
-					b.sessionCacheMgr.delete(clientID)
-					go b.deleteSession(clientID)
-				}
+			b.updateSessionCacheWithWatcher(m)
+		}
+	}
+}
+
+func (b *Broker) updateSessionCacheWithWatcher(watcherRes map[string]*string) {
+	for k, v := range watcherRes {
+		clientID := strings.TrimPrefix(k, sessionStoreKey(""))
+		if v != nil {
+			info := &SessionInfo{}
+			err := codectool.UnmarshalJSON([]byte(*v), info)
+			if err != nil {
+				logger.SpanErrorf(nil, "decode session info for client %s failed, %v", clientID, err)
+			} else {
+				b.sessionCacheMgr.update(clientID, info)
 			}
+		} else {
+			logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
+			b.sessionCacheMgr.delete(clientID)
+			go b.deleteSession(clientID)
 		}
 	}
 }
