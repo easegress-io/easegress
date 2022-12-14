@@ -260,7 +260,6 @@ func (b *Broker) connectWatcher() {
 		logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
 		time.Sleep(10 * time.Second)
 	}
-	go b.watch(ch, cancelFunc)
 
 	// check event during reconnect
 	sessions, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), false)
@@ -292,6 +291,9 @@ func (b *Broker) connectWatcher() {
 	for _, c := range clients {
 		c.close()
 	}
+
+	// start watch when finish connect and update
+	go b.watch(ch, cancelFunc)
 }
 
 func (b *Broker) watch(ch <-chan map[string]*string, closeFunc func()) {
