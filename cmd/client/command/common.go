@@ -146,11 +146,8 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		ExitWithError(err)
 	}
 
-	var tr http.Transport
-	if CommandlineGlobalFlags.InsecureSkipVerify {
-		tr = http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
+	tr := http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: CommandlineGlobalFlags.InsecureSkipVerify},
 	}
 	client := &http.Client{Transport: &tr}
 	resp, err := client.Do(req)
