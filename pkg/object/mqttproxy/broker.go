@@ -112,6 +112,10 @@ func getPipelineMap(spec *Spec) (map[PacketType]string, error) {
 }
 
 func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL func(string, string) (map[string]string, error)) *Broker {
+	if spec.RetryInterval <= 0 {
+		spec.RetryInterval = 30
+	}
+
 	broker := &Broker{
 		egName:    spec.EGName,
 		name:      spec.Name,
@@ -140,20 +144,11 @@ func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL
 	broker.sessMgr = newSessionManager(broker, store)
 	broker.connectionLimiter = newLimiter(spec.ConnectionLimit)
 	go broker.run()
-	if spec.BrokerMode {
-		// watcher watch all event that include put and delete
-		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
-		broker.connectWatcher()
 
-	} else {
-		// watch delete only watch delete event
-		ch, closeFunc, err := broker.sessMgr.store.watchDelete(sessionStoreKey(""))
-		if (err != nil) || (ch == nil) {
-			logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
-		} else {
-			go broker.onlyWatchDelete(ch, closeFunc)
-		}
+	if spec.BrokerMode {
+		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
 	}
+	broker.connectWatcher()
 	return broker
 }
 
@@ -182,77 +177,15 @@ func (b *Broker) setListener() error {
 	return err
 }
 
-func (b *Broker) reconnectOnlyDeleteWatcher() {
-	if b.closed() {
-		return
-	}
-
-	var ch <-chan map[string]*string
-	var cancelFunc func()
-	var err error
-
-	for {
-		ch, cancelFunc, err = b.sessMgr.store.watchDelete(sessionStoreKey(""))
-		if err == nil {
-			break
-		}
-		logger.SpanErrorf(nil, "get watcher for session failed, %v", err)
-		time.Sleep(10 * time.Second)
-	}
-	go b.onlyWatchDelete(ch, cancelFunc)
-
-	// check event during reconnect
-	sessions, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), true)
-	if err != nil {
-		logger.SpanErrorf(nil, "get all session prefix failed, %v", err)
-	}
-
-	clients := []*Client{}
-	b.Lock()
-	for clientID, client := range b.clients {
-		if _, ok := sessions[sessionStoreKey(clientID)]; !ok {
-			clients = append(clients, client)
-		}
-	}
-	b.Unlock()
-
-	for _, c := range clients {
-		c.close()
-	}
-}
-
-func (b *Broker) onlyWatchDelete(ch <-chan map[string]*string, closeFunc func()) {
-	defer closeFunc()
-	for {
-		select {
-		case <-b.done:
-			return
-		case m := <-ch:
-			if m == nil {
-				go b.reconnectOnlyDeleteWatcher()
-				return
-			}
-			for k, v := range m {
-				if v != nil {
-					continue
-				}
-				clientID := strings.TrimPrefix(k, sessionStoreKey(""))
-				logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
-				go b.deleteSession(clientID)
-			}
-		}
-	}
-}
-
 func (b *Broker) connectWatcher() {
-	if b.closed() {
-		return
-	}
-
 	var ch <-chan map[string]*string
 	var cancelFunc func()
 	var err error
 	for {
+		if b.closed() {
+			return
+		}
+
 		ch, cancelFunc, err = b.sessMgr.store.watch(sessionStoreKey(""))
 		if err == nil {
 			break
@@ -261,23 +194,19 @@ func (b *Broker) connectWatcher() {
 		time.Sleep(10 * time.Second)
 	}
 
-	// check event during reconnect
 	sessions, err := b.sessMgr.store.getPrefix(sessionStoreKey(""), false)
 	if err != nil {
 		logger.SpanErrorf(nil, "get all session prefix failed, %v", err)
 	}
-	sessionInfos := make(map[string]*SessionInfo)
-	for k, v := range sessions {
-		clientID := strings.TrimPrefix(k, sessionStoreKey(""))
-		sessionInfo := &SessionInfo{}
-		err := codectool.UnmarshalJSON([]byte(v), &sessionInfo)
-		if err != nil {
-			logger.SpanErrorf(nil, "unmarshal session info failed, %v", err)
-		} else {
-			sessionInfos[clientID] = sessionInfo
+
+	if b.spec.BrokerMode {
+		// make sessions a watcher event
+		watcherEvent := make(map[string]*string)
+		for k, v := range sessions {
+			watcherEvent[k] = &v
 		}
+		b.processWatcherEvent(watcherEvent)
 	}
-	b.sessionCacheMgr.sync(sessionInfos)
 
 	clients := []*Client{}
 	b.Lock()
@@ -307,28 +236,95 @@ func (b *Broker) watch(ch <-chan map[string]*string, closeFunc func()) {
 				go b.connectWatcher()
 				return
 			}
-			b.updateSessionCacheWithWatcher(m)
+			b.processWatcherEvent(m)
 		}
 	}
 }
 
-func (b *Broker) updateSessionCacheWithWatcher(watcherRes map[string]*string) {
-	for k, v := range watcherRes {
+func (b *Broker) processWatcherEvent(event map[string]*string) {
+	syncMap := make(map[string]*SessionInfo)
+	for k, v := range event {
 		clientID := strings.TrimPrefix(k, sessionStoreKey(""))
 		if v != nil {
-			info := &SessionInfo{}
-			err := codectool.UnmarshalJSON([]byte(*v), info)
-			if err != nil {
-				logger.SpanErrorf(nil, "decode session info for client %s failed, %v", clientID, err)
-			} else {
-				b.sessionCacheMgr.update(clientID, info)
+			var info *SessionInfo
+			if b.spec.BrokerMode {
+				session := &Session{}
+				err := session.decode(*v)
+				if err != nil {
+					logger.Warnf("ignored decode session info %s failed: %s", *v, err)
+					continue
+				}
+				info = session.info
+				syncMap[clientID] = session.info
 			}
+			// the new session created, the scenario could indicate
+			// that a device reconnect to a broker of the MQTT cluster,
+			// so we kick out the previous session. Apparently, we
+			// should disconnect session which reconnect same broker,
+			// we should check the `egName` in new session (variable v indicated)
+			// is a different value with current broker name. If it is a different
+			// value, and the current broker contains the same session, it means that
+			// we should disconnect session in the current broker, but we might attention
+			// that we just disconnect session and don't clear global store session
+			// information
+			go b.handleNewSessionInCluster(clientID, v, info)
+
 		} else {
 			logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
-			b.sessionCacheMgr.delete(clientID)
 			go b.deleteSession(clientID)
+
+			if b.spec.BrokerMode {
+				b.sessionCacheMgr.delete(clientID)
+			}
 		}
 	}
+
+	if b.spec.BrokerMode && len(syncMap) > 0 {
+		b.sessionCacheMgr.sync(syncMap)
+	}
+}
+
+// processNewSession
+func (b *Broker) handleNewSessionInCluster(clientID string, v *string, sessionInfo *SessionInfo) {
+	b.Lock()
+	defer b.Unlock()
+	c, ok := b.clients[clientID]
+	if !ok {
+		// The current broker doesn't contain the new session, just ignore it.
+		return
+	}
+
+	// The current broker contains the new session, so we need
+	// to disconnect the current connection when the new session
+	// was established to other brokers.
+	var info *SessionInfo
+	if sessionInfo != nil {
+		info = sessionInfo
+	} else {
+		session := &Session{}
+		err := session.decode(*v)
+		if err != nil {
+			logger.Warnf("ignored decorde session info %s failed: %s", *v, err)
+			return
+		}
+		info = session.info
+	}
+
+	if info.EGName == b.egName {
+		// The new session was established on the same broker,
+		// just ignore it.
+		return
+	}
+
+	// The new session was established on the different broker,
+	// we should disconnect the connection in the current broker,
+	// but we should not delete session information in the global
+	// store (etcd).
+	logger.Warnf("the client: %s was kicked out as the new session was eatablished on the broker: %s",
+		c.ClientID(), info.EGName)
+	c.kickOut()
+	delete(b.clients, clientID) // protected in the lock of the broker
+
 }
 
 func (b *Broker) deleteSession(clientID string) {
@@ -602,10 +598,12 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
 		if err != nil {
 			logger.SpanErrorf(span, "make new request failed: %v", err)
+			continue
 		}
 		err = b3.InjectHTTP(req, b3.WithSingleHeaderOnly())(*span)
 		if err != nil {
 			logger.SpanErrorf(span, "inject span failed: %v", err)
+			continue
 		}
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {

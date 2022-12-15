@@ -205,11 +205,11 @@ func checkSessionStore(broker *Broker, cid, topic string) error {
 		return fmt.Errorf("topic %v not in session %v", topic, cid)
 	}
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 30; i++ {
 		if checkFn() == nil {
 			return nil
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(time.Second)
 	}
 	return fmt.Errorf("session %v with topic %v not been stored", cid, topic)
 }
@@ -1377,7 +1377,7 @@ func TestMQTTProxy(t *testing.T) {
 	broker := getDefaultBroker(&mockMuxMapper{})
 
 	mp.broker = broker
-	broker.reconnectOnlyDeleteWatcher()
+	broker.connectWatcher()
 	mp.Close()
 
 	ans, err := updatePort("http://example.com:1234", "demo.com:2345")
@@ -1656,16 +1656,17 @@ func TestHTTPGetAllSession(t *testing.T) {
 	for i := 0; i < clientNum; i++ {
 		cid := strconv.Itoa(i)
 		client := getMQTTClient(t, cid, "test", "test", true)
-		if err := checkSessionStore(broker, cid, ""); err != nil {
-			t.Fatal(err)
-		}
 		if token := client.Subscribe("topic", 1, nil); token.Wait() && token.Error() != nil {
 			t.Errorf("subscribe qos0 error %s", token.Error())
 		}
+		clients = append(clients, client)
+	}
+
+	for i := 0; i < clientNum; i++ {
+		cid := strconv.Itoa(i)
 		if err := checkSessionStore(broker, cid, "topic"); err != nil {
 			t.Fatal(err)
 		}
-		clients = append(clients, client)
 	}
 
 	// we use goroutine to store session, make sure all sessions have been stored before we go forward.
@@ -1674,7 +1675,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 		if len(sessions) == clientNum {
 			break
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(time.Second)
 		if i == 19 && len(sessions) != clientNum {
 			t.Fatalf("not all sessions have been stored %v", sessions)
 		}
@@ -2037,8 +2038,8 @@ func TestBrokerModeWatch(t *testing.T) {
 	defer broker.close()
 
 	mockStorage := broker.sessMgr.store.(*mockStorage)
-	assert.True(mockStorage.watchPut())
-	assert.True(mockStorage.watchDel())
+	assert.True(mockStorage.watched())
+	assert.True(mockStorage.watched())
 	topicMgr := broker.topicMgr.(*cachedTopicManager)
 	sessCacheMgr := broker.sessionCacheMgr
 

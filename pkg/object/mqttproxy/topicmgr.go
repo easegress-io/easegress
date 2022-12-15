@@ -78,7 +78,7 @@ func (mgr *levelTopicManager) findSubscribers(levels []string) map[string]byte {
 	mgr.RLock()
 	defer mgr.RUnlock()
 
-	ans := make(map[string]byte)
+	output := make(map[string]byte)
 
 	currentLevelNodes := []*topicNode{mgr.root}
 	for _, topicLevel := range levels {
@@ -86,7 +86,7 @@ func (mgr *levelTopicManager) findSubscribers(levels []string) map[string]byte {
 		for _, node := range currentLevelNodes {
 			for nodeLevel, nextNode := range node.nodes {
 				if nodeLevel == "#" {
-					nextNode.addClients(ans)
+					nextNode.addClients(output)
 
 				} else if nodeLevel == "+" || nodeLevel == topicLevel {
 					nextLevelNodes = append(nextLevelNodes, nextNode)
@@ -95,18 +95,18 @@ func (mgr *levelTopicManager) findSubscribers(levels []string) map[string]byte {
 		}
 		currentLevelNodes = nextLevelNodes
 		if len(currentLevelNodes) == 0 {
-			return ans
+			return output
 		}
 	}
 	for _, n := range currentLevelNodes {
-		n.addClients(ans)
+		n.addClients(output)
 		// in MQTT version 3.1.1 section 4.7.1.2, topic "sport/tennis/player1/#" would receive msg from "sport/tennis/player1"
 		// which means when we reach end of topic level, we need check one more level for wildcard #
 		if val, ok := n.nodes["#"]; ok {
-			val.addClients(ans)
+			val.addClients(output)
 		}
 	}
-	return ans
+	return output
 }
 
 func (mgr *levelTopicManager) insert(levels []string, qos byte, clientID string) {

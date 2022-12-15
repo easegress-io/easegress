@@ -32,15 +32,13 @@ type (
 		getPrefix(prefix string, keysOnly bool) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
-		watchDelete(prefix string) (<-chan map[string]*string, func(), error)
 		watch(prefix string) (<-chan map[string]*string, func(), error)
 	}
 
 	mockStorage struct {
-		mu      sync.RWMutex
-		store   map[string]string
-		watchCh chan map[string]*string
-		// 0 is not watch, 1 is watch delete, 2 is watch put, 3 is watch delete and put
+		mu        sync.RWMutex
+		store     map[string]string
+		watchCh   chan map[string]*string
 		watchFlag int32
 	}
 
@@ -92,7 +90,7 @@ func (m *mockStorage) getPrefix(prefix string, keysOnly bool) (map[string]string
 func (m *mockStorage) put(key, value string) error {
 	m.mu.Lock()
 	m.store[key] = value
-	if m.watchPut() {
+	if m.watched() {
 		go func() {
 			res := make(map[string]*string)
 			res[key] = &value
@@ -106,7 +104,7 @@ func (m *mockStorage) put(key, value string) error {
 func (m *mockStorage) delete(key string) error {
 	m.mu.Lock()
 	delete(m.store, key)
-	if m.watchDel() {
+	if m.watched() {
 		go func() {
 			ans := make(map[string]*string)
 			ans[key] = nil
@@ -117,23 +115,12 @@ func (m *mockStorage) delete(key string) error {
 	return nil
 }
 
-func (m *mockStorage) watchDel() bool {
-	flag := atomic.LoadInt32(&m.watchFlag)
-	return (flag & 1) != 0
-}
-
-func (m *mockStorage) watchPut() bool {
-	flag := atomic.LoadInt32(&m.watchFlag)
-	return (flag & 2) != 0
-}
-
-func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
-	atomic.StoreInt32(&m.watchFlag, 1)
-	return m.watchCh, func() {}, nil
+func (m *mockStorage) watched() bool {
+	return atomic.LoadInt32(&m.watchFlag) != 0
 }
 
 func (m *mockStorage) watch(prefix string) (<-chan map[string]*string, func(), error) {
-	atomic.StoreInt32(&m.watchFlag, 3)
+	atomic.StoreInt32(&m.watchFlag, 1)
 	return m.watchCh, func() {}, nil
 }
 
@@ -154,19 +141,6 @@ func (cs *clusterStorage) put(key, value string) error {
 
 func (cs *clusterStorage) delete(key string) error {
 	return cs.cls.Delete(key)
-}
-
-func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
-	watcher, err := cs.cls.Watcher()
-	if err != nil {
-		return nil, nil, err
-	}
-	ch, err := watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpNotWatchPut)
-	if err != nil {
-		watcher.Close()
-		return nil, nil, err
-	}
-	return ch, watcher.Close, nil
 }
 
 func (cs *clusterStorage) watch(prefix string) (<-chan map[string]*string, func(), error) {

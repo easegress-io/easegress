@@ -291,14 +291,18 @@ func (c *Client) disconnected() bool {
 }
 
 func (c *Client) closeAndDelSession() {
-	c.broker.sessMgr.delLocal(c.info.cid)
-	if c.session.cleanSession() {
+	// session can be delete by kickOUt or closeAndDelSession
+	// only when session was delete by closeAndDelSession we should clean
+	// global store, otherwise it means that the device reconnect to
+	// the another broker, the current broker just disconnect connection.
+	// and clean local session information.
+	deleted := c.broker.sessMgr.delLocal(c.info.cid)
+	if c.session.cleanSession() && deleted {
 		c.broker.sessMgr.delDB(c.info.cid)
 	}
 
 	topics, _, _ := c.session.allSubscribes()
 	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
-
 	c.close()
 }
 
@@ -386,4 +390,30 @@ func processUnsubscribe(c *Client, p packets.ControlPacket) {
 func processPingreq(c *Client, packet packets.ControlPacket) {
 	resp := packets.NewControlPacket(packets.Pingresp).(*packets.PingrespPacket)
 	c.writePacket(resp)
+}
+
+// kickOUt kick out the connection of the client,
+// it will recycle the session, unsbuscribe topic of the client.
+// **IMPORT:**
+// - DO NOT SCHEDULE THE DISCONNECT PIPELINE.
+// - DO NOT CLEAN SESSION INFO IN THE GLOBAL STORE.
+// So in the kickOUt, we don't call Client::close
+func (c *Client) kickOut() {
+	// clean local session information, unsubscribe topic
+	// in the current broker
+	c.sessionCleanLocal()
+
+	// close connection, but don't schedule Disconnect Pipeline
+	c.Lock()
+	defer c.Unlock()
+	// Change the client status to Disconnected
+	atomic.StoreInt32(&c.statusFlag, Disconnected)
+	close(c.done)
+	c.conn.Close()
+}
+
+func (c *Client) sessionCleanLocal() {
+	c.broker.sessMgr.delLocal(c.info.cid)
+	topics, _, _ := c.session.allSubscribes()
+	c.broker.topicMgr.unsubscribe(topics, c.info.cid)
 }
