@@ -86,9 +86,10 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 		logger.Infof("api server running in %s", opt.APIAddr)
 		var err error
 		if s.opt.Secure {
-			logger.Infof("api server running in secure model(https)")
+			logger.Infof("api server (https) running in %s", opt.APIAddr)
 			err = s.server.ListenAndServeTLS(s.opt.CertFile, s.opt.KeyFile)
 		} else {
+		        logger.Infof("api server running in %s", opt.APIAddr)
 			err = s.server.ListenAndServe()
 		}
 		if err != nil {
