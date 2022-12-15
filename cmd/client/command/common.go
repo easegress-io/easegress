@@ -32,7 +32,7 @@ type (
 	// GlobalFlags is the global flags for the whole client.
 	GlobalFlags struct {
 		Server             string
-		Secure             bool
+		SSL                bool
 		InsecureSkipVerify bool
 		OutputFormat       string
 	}
@@ -119,7 +119,7 @@ const (
 
 func makeURL(urlTemplate string, a ...interface{}) string {
 	var p string
-	if CommandlineGlobalFlags.Secure {
+	if CommandlineGlobalFlags.SSL {
 		p = "https://"
 	} else {
 		p = "http://"

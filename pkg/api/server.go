@@ -83,13 +83,16 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 	s.registerAPIs()
 
 	go func() {
-		logger.Infof("api server running in %s", opt.APIAddr)
 		var err error
-		if s.opt.Secure {
+		if s.opt.SSL {
+			if s.opt.CertFile == "" || s.opt.KeyFile == "" {
+				logger.Errorf("cert file and key file must be provided for SSL")
+				return
+			}
 			logger.Infof("api server (https) running in %s", opt.APIAddr)
 			err = s.server.ListenAndServeTLS(s.opt.CertFile, s.opt.KeyFile)
 		} else {
-		        logger.Infof("api server running in %s", opt.APIAddr)
+			logger.Infof("api server running in %s", opt.APIAddr)
 			err = s.server.ListenAndServe()
 		}
 		if err != nil {

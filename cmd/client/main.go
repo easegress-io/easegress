@@ -118,8 +118,8 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the Easegress endpoint")
-	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.Secure,
-		"secure", false, "Whether to use secure transport protocal(https)")
+	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.SSL,
+		"ssl", false, "Whether to use secure transport protocal(https)")
 	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.InsecureSkipVerify,
 		"insecure-skip-verify", false, "Whether to verify the server's certificate chain and host name")
 	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
