@@ -553,13 +553,13 @@ func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload 
 	}
 }
 
-func (b *Broker) processBrokerModePublish(clientID string, publish *packets.PublishPacket) {
-	if !b.spec.BrokerMode {
-		return
-	}
-	span := generateNewSpanContext(clientID, publish.TopicName)
-	subscribers, _ := b.topicMgr.findSubscribers(publish.TopicName)
+// splitSubscribers split subscribers to local and remote on broker mode and return
+// client ids of local subscribers and eg names of remote subscribers
+func (b *Broker) splitSubscribers(span *model.SpanContext, publish *packets.PublishPacket) ([]string, map[string]struct{}) {
 	egNames := make(map[string]struct{})
+	clients := []string{}
+
+	subscribers, _ := b.topicMgr.findSubscribers(publish.TopicName)
 	for clientID, subQos := range subscribers {
 		if subQos < publish.Qos {
 			continue
@@ -569,6 +569,13 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 			egNames[egName] = struct{}{}
 			continue
 		}
+		clients = append(clients, clientID)
+	}
+	return clients, egNames
+}
+
+func (b *Broker) sendMsgToLocalClient(span *model.SpanContext, publish *packets.PublishPacket, clients []string) {
+	for _, clientID := range clients {
 		client := b.getClient(clientID)
 		if client == nil {
 			logger.SpanDebugf(span, "client %v not on broker %v in eg %v", clientID, b.name, b.egName)
@@ -576,12 +583,14 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 			client.session.publish(span, publish.TopicName, publish.Payload, publish.Qos)
 		}
 	}
+}
 
+func (b *Broker) requestTransferToCertainInstances(span *model.SpanContext, remoteEgs map[string]struct{}, publish *packets.PublishPacket) {
 	data := &HTTPJsonData{}
 	data.init(publish)
 	urls, err := b.memberURL(b.egName, b.name)
 	if err != nil {
-		logger.SpanErrorf(span, "eg %v find urls for other egs failed:%v", b.egName, err)
+		logger.SpanErrorf(span, "eg %v find urls for other egs failed: %v", b.egName, err)
 		return
 	}
 	jsonData, err := codectool.MarshalJSON(data)
@@ -589,10 +598,10 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 		logger.SpanErrorf(span, "json data marshal failed: %v", err)
 		return
 	}
-	for egName := range egNames {
+	for egName := range remoteEgs {
 		url, ok := urls[egName]
 		if !ok {
-			logger.SpanErrorf(span, "eg %v not find url for eg %v", b.egName, egName)
+			logger.SpanErrorf(span, "eg %s not find url for eg %s", b.egName, egName)
 			continue
 		}
 		req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(jsonData))
@@ -612,6 +621,17 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 			resp.Body.Close()
 		}
 	}
+
+}
+
+func (b *Broker) processBrokerModePublish(clientID string, publish *packets.PublishPacket) {
+	if !b.spec.BrokerMode {
+		return
+	}
+	span := generateNewSpanContext(clientID, publish.TopicName)
+	localClients, remoteEgs := b.splitSubscribers(span, publish)
+	b.sendMsgToLocalClient(span, publish, localClients)
+	b.requestTransferToCertainInstances(span, remoteEgs, publish)
 }
 
 func (b *Broker) getClient(clientID string) *Client {

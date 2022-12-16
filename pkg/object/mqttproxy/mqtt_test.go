@@ -1672,11 +1672,11 @@ func TestHTTPGetAllSession(t *testing.T) {
 	// we use goroutine to store session, make sure all sessions have been stored before we go forward.
 	for i := 0; i < 20; i++ {
 		sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
-		if len(sessions) == clientNum {
+		if len(sessions) >= clientNum {
 			break
 		}
 		time.Sleep(time.Second)
-		if i == 19 && len(sessions) != clientNum {
+		if i == 19 && len(sessions) < clientNum {
 			t.Fatalf("not all sessions have been stored %v", sessions)
 		}
 	}
