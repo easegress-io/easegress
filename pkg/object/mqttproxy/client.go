@@ -333,7 +333,7 @@ func pipelineWrapper(fn processFn, packetType PacketType) processFnWithErr {
 
 func processPublish(c *Client, packet packets.ControlPacket) {
 	publish := packet.(*packets.PublishPacket)
-	c.broker.processBrokerModePublish(c.info.cid, publish)
+	go c.broker.processBrokerModePublish(c.info.cid, publish)
 	switch publish.Qos {
 	case QoS0:
 		// do nothing
