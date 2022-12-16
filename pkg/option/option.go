@@ -347,6 +347,9 @@ func (opt *Options) validate() error {
 	if !opt.UseInitialCluster() && opt.MemberDir == "" {
 		return fmt.Errorf("empty member-dir")
 	}
+	if opt.SSL && (opt.CertFile == "" || opt.KeyFile == "") {
+		return fmt.Errorf("empty cert file or key file")
+	}
 
 	// profile: nothing to validate
 
