@@ -69,7 +69,7 @@ type Options struct {
 	Name                     string            `yaml:"name" env:"EG_NAME"`
 	Labels                   map[string]string `yaml:"labels" env:"EG_LABELS"`
 	APIAddr                  string            `yaml:"api-addr"`
-	SSL                      bool              `yaml:"ssl"`
+	TLS                      bool              `yaml:"tls"`
 	CertFile                 string            `yaml:"cert-file"`
 	KeyFile                  string            `yaml:"key-file"`
 	Debug                    bool              `yaml:"debug"`
@@ -141,7 +141,7 @@ func New() *Options {
 	opt.flags.BoolVar(&opt.UseStandaloneEtcd, "use-standalone-etcd", false, "Use standalone etcd instead of embedded .")
 	addClusterVars(opt)
 	opt.flags.StringVar(&opt.APIAddr, "api-addr", "localhost:2381", "Address([host]:port) to listen on for administration traffic.")
-	opt.flags.BoolVar(&opt.SSL, "ssl", false, "Flag to use secure transport protocol(https).")
+	opt.flags.BoolVar(&opt.TLS, "tls", false, "Flag to use secure transport protocol(https).")
 	opt.flags.StringVar(&opt.CertFile, "cert-file", "", "Flag to set the certificate file for https.")
 	opt.flags.StringVar(&opt.KeyFile, "key-file", "", "Flag to set the private key file for https.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
@@ -347,7 +347,7 @@ func (opt *Options) validate() error {
 	if !opt.UseInitialCluster() && opt.MemberDir == "" {
 		return fmt.Errorf("empty member-dir")
 	}
-	if opt.SSL && (opt.CertFile == "" || opt.KeyFile == "") {
+	if opt.TLS && (opt.CertFile == "" || opt.KeyFile == "") {
 		return fmt.Errorf("empty cert file or key file")
 	}
 

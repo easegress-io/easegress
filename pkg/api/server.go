@@ -84,7 +84,7 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 
 	go func() {
 		var err error
-		if s.opt.SSL {
+		if s.opt.TLS {
 			logger.Infof("api server (https) running in %s", opt.APIAddr)
 			err = s.server.ListenAndServeTLS(s.opt.CertFile, s.opt.KeyFile)
 		} else {

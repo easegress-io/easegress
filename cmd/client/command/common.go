@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/spf13/cobra"
@@ -32,7 +33,7 @@ type (
 	// GlobalFlags is the global flags for the whole client.
 	GlobalFlags struct {
 		Server             string
-		SSL                bool
+		ForceTLS           bool
 		InsecureSkipVerify bool
 		OutputFormat       string
 	}
@@ -115,14 +116,17 @@ const (
 
 	// MeshIngressURL is the mesh ingress path.
 	MeshIngressURL = apiURL + "/mesh/ingresses/%s"
+
+	// HTTPProtocal is prefix for HTTP protocal
+	HTTPProtocal = "http://"
+	// HTTPSProtocal is prefix for HTTPS protocal
+	HTTPSProtocal = "https://"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
-	var p string
-	if CommandlineGlobalFlags.SSL {
-		p = "https://"
-	} else {
-		p = "http://"
+	p := HTTPProtocal
+	if CommandlineGlobalFlags.ForceTLS {
+		p = HTTPSProtocal
 	}
 	return p + CommandlineGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
 }
@@ -141,15 +145,38 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		}
 	}
 
-	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
-	if err != nil {
-		ExitWithError(err)
-	}
-
 	tr := http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: CommandlineGlobalFlags.InsecureSkipVerify},
 	}
 	client := &http.Client{Transport: &tr}
+	resp, body := doRequest(httpMethod, url, jsonBody, client, cmd)
+
+	if resp.StatusCode == 400 && strings.Contains(string(body), "Client sent an HTTP request to an HTTPS server") {
+		fmt.Println("Warning: upgraded to HTTPS, it's better to turn on option --force-tls")
+		url = strings.ReplaceAll(url, HTTPProtocal, HTTPSProtocal)
+		resp, body = doRequest(httpMethod, url, jsonBody, client, cmd)
+	}
+
+	if !successfulStatusCode(resp.StatusCode) {
+		msg := string(body)
+		apiErr := &APIErr{}
+		err := codectool.Unmarshal(body, apiErr)
+		if err == nil {
+			msg = apiErr.Message
+		}
+		ExitWithErrorf("%d: %s", apiErr.Code, msg)
+	}
+
+	if len(body) != 0 {
+		printBody(body)
+	}
+}
+
+func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client, cmd *cobra.Command) (*http.Response, []byte) {
+	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		ExitWithError(err)
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
@@ -160,20 +187,7 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	if err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	}
-
-	if !successfulStatusCode(resp.StatusCode) {
-		msg := string(body)
-		apiErr := &APIErr{}
-		err = codectool.Unmarshal(body, apiErr)
-		if err == nil {
-			msg = apiErr.Message
-		}
-		ExitWithErrorf("%d: %s", apiErr.Code, msg)
-	}
-
-	if len(body) != 0 {
-		printBody(body)
-	}
+	return resp, body
 }
 
 func printBody(body []byte) {
