@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"reflect"
@@ -1721,7 +1722,7 @@ func TestHTTPGetAllSession(t *testing.T) {
 		if ok {
 			sessions := &HTTPSessions{}
 			codectool.MustDecodeJSON(resp.Body, sessions)
-			if len(sessions.Sessions) < test.ansLen {
+			if math.Abs((float64)(len(sessions.Sessions)-test.ansLen)) >= 2 {
 				t.Errorf("get wrong session number wanted %v, got %v %v", test.ansLen, len(sessions.Sessions), sessions.Sessions)
 				sessions, _ := broker.sessMgr.store.getPrefix(sessionStoreKey(""), true)
 				broker.Lock()
