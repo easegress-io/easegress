@@ -88,6 +88,7 @@ type (
 
 		httpStat      *httpstat.HTTPStat
 		topN          *httpstat.TopN
+		metrics       *metrics
 		limitListener *limitlistener.LimitListener
 	}
 
@@ -112,7 +113,8 @@ func newRuntime(superSpec *supervisor.Spec, muxMapper context.MuxMapper) *runtim
 		topN:      httpstat.NewTopN(topNum),
 	}
 
-	r.mux = newMux(r.httpStat, r.topN, muxMapper)
+	r.metrics = r.newMetrics(r.superSpec.Name())
+	r.mux = newMux(r.httpStat, r.topN, r.metrics, muxMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -201,6 +203,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper context.MuxMa
 }
 
 func (r *runtime) setState(state stateType) {
+	r.exportState(state)
 	r.state.Store(state)
 }
 

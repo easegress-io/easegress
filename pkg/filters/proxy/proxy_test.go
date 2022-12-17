@@ -19,11 +19,14 @@ package proxy
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -54,6 +57,10 @@ func newTestProxy(yamlConfig string, assert *assert.Assertions) *Proxy {
 	assert.NoError(err)
 
 	proxy := kind.CreateInstance(spec).(*Proxy)
+
+	proxy.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+
 	proxy.Init()
 
 	assert.Equal(kind, proxy.Kind())

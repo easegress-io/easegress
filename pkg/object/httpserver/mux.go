@@ -47,6 +47,7 @@ type (
 	mux struct {
 		httpStat *httpstat.HTTPStat
 		topN     *httpstat.TopN
+		metrics  *metrics
 
 		inst atomic.Value // *muxInstance
 	}
@@ -56,6 +57,7 @@ type (
 		spec      *Spec
 		httpStat  *httpstat.HTTPStat
 		topN      *httpstat.TopN
+		metrics   *metrics
 
 		muxMapper context.MuxMapper
 
@@ -97,10 +99,12 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *cachedRoute) {
 	}
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN,
+	metrics *metrics, mapper context.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
+		metrics:  metrics,
 	}
 
 	m.inst.Store(&muxInstance{
@@ -109,6 +113,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.Mux
 		muxMapper: mapper,
 		httpStat:  httpStat,
 		topN:      topN,
+		metrics:   metrics,
 	})
 
 	return m
@@ -147,6 +152,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		muxMapper: muxMapper,
 		httpStat:  m.httpStat,
 		topN:      m.topN,
+		metrics:   m.metrics,
 		ipFilter:  ipfilter.New(spec.IPFilterSpec),
 		tracer:    tracer,
 	}
@@ -230,6 +236,9 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// get topN here, as the path could be modified later.
 	topN := mi.topN.Stat(req.Path())
 
+	routeCtx := routers.NewContext(req)
+	route := mi.search(routeCtx)
+
 	defer func() {
 		metric, _ := ctx.GetData("HTTP_METRIC").(*httpstat.Metric)
 
@@ -253,6 +262,9 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		metric.Duration = fasttime.Since(startAt)
 		topN.Stat(metric)
 		mi.httpStat.Stat(metric)
+		if route.code == 0 {
+			mi.exportPrometheusMetrics(metric, route.route.GetBackend())
+		}
 
 		span.End()
 
@@ -273,8 +285,6 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		})
 	}()
 
-	routeCtx := routers.NewContext(req)
-	route := mi.search(routeCtx)
 	if route.code != 0 {
 		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, route.code)
 		buildFailureResponse(ctx, route.code)

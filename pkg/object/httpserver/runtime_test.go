@@ -18,6 +18,8 @@
 package httpserver
 
 import (
+	"github.com/megaease/easegress/pkg/option"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,7 +38,9 @@ port: 38081
 keepAlive: true
 https: false
 `
-	superSpec, err := supervisor.NewSpec(yamlConfig)
+	super := supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+	superSpec, err := super.NewSpec(yamlConfig)
 	assert.NoError(err)
 
 	r := newRuntime(superSpec, &contexttest.MockedMuxMapper{})

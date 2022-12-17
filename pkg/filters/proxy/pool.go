@@ -170,6 +170,7 @@ type ServerPool struct {
 
 	httpStat    *httpstat.HTTPStat
 	memoryCache *MemoryCache
+	metrics     *metrics
 }
 
 // ServerPoolSpec is the spec for a server pool.
@@ -214,6 +215,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 		sp.failureCodes[code] = struct{}{}
 	}
 
+	sp.metrics = proxy.newMetrics(name)
 	return sp
 }
 
@@ -262,6 +264,7 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 	collect := func() {
 		metric.Duration = fasttime.Since(spCtx.startTime)
 		sp.httpStat.Stat(metric)
+		sp.exportPrometheusMetrics(metric)
 		spCtx.LazyAddTag(func() string {
 			return sp.name + "#duration: " + metric.Duration.String()
 		})
