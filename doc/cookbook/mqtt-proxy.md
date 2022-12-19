@@ -23,6 +23,7 @@
 - As `Pipeline` is protocol independent, it can use MQTT filters to do things like user authentication or topic mapping (map MQTT multi-level topic into single topic and key-value headers).
 - We also support MQTT clients to `subscribe` topics (wildcard is supported) and send messages back to the MQTT clients through the HTTP endpoint.
 
+By default:
 ```
              publish msg                       publish pipeline
 MQTT client ------------> Easegress MQTTProxy ----------------> Backend like Kafka
@@ -35,6 +36,18 @@ MQTT client <---------------- Easegress MQTT HTTP Endpoint <---- Backend Server
 all msg send back to MQTT clients come from HTTP endpoint.
 ```
 - We assume that IoT devices (use MQTT client) report their status to the backend (through tools like Kafka), and backend process these messages and send instructions back to IoT devices.
+
+Using `brokerMode`:
+```
+             publish msg                       publish pipeline
+MQTT client ------------> Easegress MQTTProxy ----------------> Backend like Kafka
+                              |
+                              | also send msg to subscribers
+                              |
+             subscribe msg            send msg through http endpoint
+MQTT client <------------ Easegress <------------------------------- Backend Server
+```
+By setting `brokerMode` to `true`. MQTTProxy can both send msg to backend and subscribers. Users can also send msg to clients by using HTTP endpoint.
 
 # Example
 Save following yaml to file `mqttproxy.yaml` and then run
@@ -60,6 +73,8 @@ rules:
 - when:
     packetType: Publish
   pipeline: pipeline-mqtt-publish
+# by default, brokerMode is disabled. 
+brokerMode: true
 
 ---
 
