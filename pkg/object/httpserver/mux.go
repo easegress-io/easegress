@@ -41,13 +41,13 @@ import (
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type (
 	mux struct {
 		httpStat *httpstat.HTTPStat
 		topN     *httpstat.TopN
-		metrics  *metrics
 
 		inst atomic.Value // *muxInstance
 	}
@@ -104,7 +104,6 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN,
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
-		metrics:  metrics,
 	}
 
 	m.inst.Store(&muxInstance{
@@ -152,7 +151,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		muxMapper: muxMapper,
 		httpStat:  m.httpStat,
 		topN:      m.topN,
-		metrics:   m.metrics,
+		metrics:   oldInst.metrics,
 		ipFilter:  ipfilter.New(spec.IPFilterSpec),
 		tracer:    tracer,
 	}
@@ -413,4 +412,19 @@ func (mi *muxInstance) close() {
 
 func (m *mux) close() {
 	m.inst.Load().(*muxInstance).close()
+}
+
+func (mi *muxInstance) exportPrometheusMetrics(stat *httpstat.Metric, backend string) {
+	labels := prometheus.Labels{
+		"routerKind": mi.spec.RouterKind,
+		"backend":    backend,
+	}
+	mi.metrics.TotalRequests.With(labels).Inc()
+	mi.metrics.TotalResponses.With(labels).Inc()
+	if stat.StatusCode >= 400 {
+		mi.metrics.TotalErrorRequests.With(labels).Inc()
+	}
+	mi.metrics.RequestsDuration.With(labels).Observe(float64(stat.Duration.Milliseconds()))
+	mi.metrics.RequestSizeBytes.With(labels).Observe(float64(stat.ReqSize))
+	mi.metrics.ResponseSizeBytes.With(labels).Observe(float64(stat.RespSize))
 }

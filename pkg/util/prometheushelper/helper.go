@@ -20,6 +20,7 @@ package prometheushelper
 import (
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
@@ -32,6 +33,7 @@ var (
 	gaugeMap     = make(map[string]*prometheus.GaugeVec)
 	histogramMap = make(map[string]*prometheus.HistogramVec)
 	summaryMap   = make(map[string]*prometheus.SummaryVec)
+	lock         = sync.Mutex{}
 )
 
 var (
@@ -40,15 +42,14 @@ var (
 )
 
 // NewCounter create the counter metric
-func NewCounter(metric string, help string, labels []string) *prometheus.
-	CounterVec {
-
-	metricName, err := getAndValid(metric, labels)
+func NewCounter(metric string, help string, labels []string) *prometheus.CounterVec {
+	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
 
+	lock.Lock()
 	if m, find := counterMap[metricName]; find {
 		logger.Debugf("[%s] Counter <%s> already created!", module, metricName)
 		return m
@@ -61,6 +62,7 @@ func NewCounter(metric string, help string, labels []string) *prometheus.
 		},
 		labels,
 	)
+	lock.Unlock()
 	prometheus.MustRegister(counterMap[metricName])
 
 	logger.Infof("[%s] Counter <%s> is created!", module, metricName)
@@ -68,19 +70,18 @@ func NewCounter(metric string, help string, labels []string) *prometheus.
 }
 
 // NewGauge create the gauge metric
-func NewGauge(metric string, help string, labels []string) *prometheus.
-	GaugeVec {
-
-	metricName, err := getAndValid(metric, labels)
+func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec {
+	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
+
+	lock.Lock()
 	if m, find := gaugeMap[metricName]; find {
 		logger.Debugf("[%s] Gauge <%s> already created!", module, metricName)
 		return m
 	}
-
 	gaugeMap[metricName] = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: metricName,
@@ -88,6 +89,7 @@ func NewGauge(metric string, help string, labels []string) *prometheus.
 		},
 		labels,
 	)
+	lock.Unlock()
 	prometheus.MustRegister(gaugeMap[metricName])
 
 	logger.Infof("[%s] Gauge <%s> is created!", module, metricName)
@@ -96,17 +98,17 @@ func NewGauge(metric string, help string, labels []string) *prometheus.
 
 // NewHistogram create the Histogram metric
 func NewHistogram(metric string, help string, labels []string) *prometheus.HistogramVec {
-
-	metricName, err := getAndValid(metric, labels)
+	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
+
+	lock.Lock()
 	if m, find := histogramMap[metricName]; find {
 		logger.Debugf("[%s] Histogram <%s> already created!", module, metricName)
 		return m
 	}
-
 	histogramMap[metricName] = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name: metricName,
@@ -114,24 +116,26 @@ func NewHistogram(metric string, help string, labels []string) *prometheus.Histo
 		},
 		labels,
 	)
+	lock.Unlock()
 	prometheus.MustRegister(histogramMap[metricName])
+
 	logger.Infof("[%s] Histogram <%s> already created!", module, metricName)
 	return histogramMap[metricName]
 }
 
 // NewSummary create the NewSummary metric
 func NewSummary(metric string, help string, labels []string) *prometheus.SummaryVec {
-
-	metricName, err := getAndValid(metric, labels)
+	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
+
+	lock.Lock()
 	if m, find := summaryMap[metricName]; find {
 		logger.Debugf("[%s] Summary <%s> already created!", module, metricName)
 		return m
 	}
-
 	summaryMap[metricName] = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Name: metricName,
@@ -139,30 +143,32 @@ func NewSummary(metric string, help string, labels []string) *prometheus.Summary
 		},
 		labels,
 	)
+	lock.Unlock()
 	prometheus.MustRegister(summaryMap[metricName])
+
 	logger.Infof("[%s] Summary <%s> already created!", module, metricName)
 	return summaryMap[metricName]
 }
 
-func getAndValid(metricName string, labels []string) (string, error) {
-	if ValidMetricName(metricName) == false {
+func getAndValidate(metricName string, labels []string) (string, error) {
+	if ValidateMetricName(metricName) == false {
 		return "", fmt.Errorf("Invalid metric name: %s", metricName)
 	}
 
 	for _, l := range labels {
-		if ValidLabelName(l) == false {
+		if ValidateLabelName(l) == false {
 			return "", fmt.Errorf("Invalid label name: %s", l)
 		}
 	}
 	return metricName, nil
 }
 
-// ValidMetricName check if the metric name is valid
-func ValidMetricName(name string) bool {
+// ValidateMetricName check if the metric name is valid
+func ValidateMetricName(name string) bool {
 	return validMetric.MatchString(name)
 }
 
-// ValidLabelName check if the label name is valid
-func ValidLabelName(label string) bool {
+// ValidateLabelName check if the label name is valid
+func ValidateLabelName(label string) bool {
 	return validLabel.MatchString(label)
 }

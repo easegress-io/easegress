@@ -36,7 +36,7 @@ func newMockMetrics() *metrics {
 			"mock_httpserver_total_requests",
 			"the total count of http requests",
 			mockLabels).MustCurryWith(commonLabels),
-		TotalResponse: prometheushelper.NewCounter(
+		TotalResponses: prometheushelper.NewCounter(
 			"mock_httpserver_total_response",
 			"the total count of http resposne",
 			mockLabels).MustCurryWith(commonLabels),
