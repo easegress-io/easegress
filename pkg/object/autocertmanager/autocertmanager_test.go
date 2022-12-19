@@ -479,7 +479,7 @@ func startACMEServerStub(
 			pem.Encode(w, &pem.Block{Type: "CERTIFICATE", Bytes: csrContainer})
 			wg.Done()
 		default:
-			t.Errorf("unrecognized r.URL.FullMethod: %s", r.URL.Path)
+			t.Errorf("unrecognized r.URL.Path: %s", r.URL.Path)
 		}
 	}))
 	finish = func() {
