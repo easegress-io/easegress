@@ -33,7 +33,7 @@ var (
 	gaugeMap     = make(map[string]*prometheus.GaugeVec)
 	histogramMap = make(map[string]*prometheus.HistogramVec)
 	summaryMap   = make(map[string]*prometheus.SummaryVec)
-	lock         = sync.Mutex{}
+	lock         = &sync.Mutex{}
 )
 
 var (
@@ -43,13 +43,15 @@ var (
 
 // NewCounter create the counter metric
 func NewCounter(metric string, help string, labels []string) *prometheus.CounterVec {
+	lock.Lock()
+	defer lock.Unlock()
+
 	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
 
-	lock.Lock()
 	if m, find := counterMap[metricName]; find {
 		logger.Debugf("[%s] Counter <%s> already created!", module, metricName)
 		return m
@@ -62,7 +64,6 @@ func NewCounter(metric string, help string, labels []string) *prometheus.Counter
 		},
 		labels,
 	)
-	lock.Unlock()
 	prometheus.MustRegister(counterMap[metricName])
 
 	logger.Infof("[%s] Counter <%s> is created!", module, metricName)
@@ -71,13 +72,15 @@ func NewCounter(metric string, help string, labels []string) *prometheus.Counter
 
 // NewGauge create the gauge metric
 func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec {
+	lock.Lock()
+	defer lock.Unlock()
+
 	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
 
-	lock.Lock()
 	if m, find := gaugeMap[metricName]; find {
 		logger.Debugf("[%s] Gauge <%s> already created!", module, metricName)
 		return m
@@ -89,7 +92,6 @@ func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec 
 		},
 		labels,
 	)
-	lock.Unlock()
 	prometheus.MustRegister(gaugeMap[metricName])
 
 	logger.Infof("[%s] Gauge <%s> is created!", module, metricName)
@@ -98,13 +100,15 @@ func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec 
 
 // NewHistogram create the Histogram metric
 func NewHistogram(metric string, help string, labels []string) *prometheus.HistogramVec {
+	lock.Lock()
+	defer lock.Unlock()
+
 	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
 
-	lock.Lock()
 	if m, find := histogramMap[metricName]; find {
 		logger.Debugf("[%s] Histogram <%s> already created!", module, metricName)
 		return m
@@ -116,7 +120,6 @@ func NewHistogram(metric string, help string, labels []string) *prometheus.Histo
 		},
 		labels,
 	)
-	lock.Unlock()
 	prometheus.MustRegister(histogramMap[metricName])
 
 	logger.Infof("[%s] Histogram <%s> already created!", module, metricName)
@@ -125,13 +128,15 @@ func NewHistogram(metric string, help string, labels []string) *prometheus.Histo
 
 // NewSummary create the NewSummary metric
 func NewSummary(metric string, help string, labels []string) *prometheus.SummaryVec {
+	lock.Lock()
+	defer lock.Unlock()
+
 	metricName, err := getAndValidate(metric, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
 	}
 
-	lock.Lock()
 	if m, find := summaryMap[metricName]; find {
 		logger.Debugf("[%s] Summary <%s> already created!", module, metricName)
 		return m
@@ -143,7 +148,6 @@ func NewSummary(metric string, help string, labels []string) *prometheus.Summary
 		},
 		labels,
 	)
-	lock.Unlock()
 	prometheus.MustRegister(summaryMap[metricName])
 
 	logger.Infof("[%s] Summary <%s> already created!", module, metricName)
