@@ -124,11 +124,7 @@ const (
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
-	p := HTTPProtocal
-	if CommandlineGlobalFlags.ForceTLS {
-		p = HTTPSProtocal
-	}
-	return p + CommandlineGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
+	return CommandlineGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
 }
 
 func successfulStatusCode(code int) bool {
@@ -145,20 +141,22 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		}
 	}
 
+	p := HTTPProtocal
+	if CommandlineGlobalFlags.ForceTLS {
+		p = HTTPSProtocal
+	}
 	tr := http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: CommandlineGlobalFlags.InsecureSkipVerify},
 	}
 	client := &http.Client{Transport: &tr}
-	resp, body := doRequest(httpMethod, url, jsonBody, client, cmd)
+	resp, body := doRequest(httpMethod, p+url, jsonBody, client, cmd)
 
-	if resp.StatusCode == 400 && strings.Contains(string(body), "Client sent an HTTP request to an HTTPS server") {
-		fmt.Println("Warning: upgraded to HTTPS, it's better to turn on option --force-tls")
-		url = strings.ReplaceAll(url, HTTPProtocal, HTTPSProtocal)
-		resp, body = doRequest(httpMethod, url, jsonBody, client, cmd)
+	msg := string(body)
+	if resp.StatusCode == 400 && strings.Contains(msg, "HTTP") && strings.Contains(msg, "HTTPS") {
+		resp, body = doRequest(httpMethod, HTTPSProtocal+url, jsonBody, client, cmd)
 	}
 
 	if !successfulStatusCode(resp.StatusCode) {
-		msg := string(body)
 		apiErr := &APIErr{}
 		err := codectool.Unmarshal(body, apiErr)
 		if err == nil {
