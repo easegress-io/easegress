@@ -555,7 +555,7 @@ func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload 
 
 // splitSubscribers split subscribers to local and remote on broker mode and return
 // client ids of local subscribers and eg names of remote subscribers
-func (b *Broker) splitSubscribers(span *model.SpanContext, publish *packets.PublishPacket) ([]string, map[string]struct{}) {
+func (b *Broker) splitSubscribers(publish *packets.PublishPacket) ([]string, map[string]struct{}) {
 	egNames := make(map[string]struct{})
 	clients := []string{}
 
@@ -585,7 +585,7 @@ func (b *Broker) sendMsgToLocalClient(span *model.SpanContext, publish *packets.
 	}
 }
 
-func (b *Broker) requestTransferToCertainInstances(span *model.SpanContext, remoteEgs map[string]struct{}, publish *packets.PublishPacket) {
+func (b *Broker) requestTransferToCertainInstances(span *model.SpanContext, publish *packets.PublishPacket, remoteEgs map[string]struct{}) {
 	data := &HTTPJsonData{}
 	data.init(publish)
 	urls, err := b.memberURL(b.egName, b.name)
@@ -628,10 +628,18 @@ func (b *Broker) processBrokerModePublish(clientID string, publish *packets.Publ
 	if !b.spec.BrokerMode {
 		return
 	}
+	localClients, remoteEgs := b.splitSubscribers(publish)
+	if len(localClients) == 0 && len(remoteEgs) == 0 {
+		return
+	}
+
 	span := generateNewSpanContext(clientID, publish.TopicName)
-	localClients, remoteEgs := b.splitSubscribers(span, publish)
-	b.sendMsgToLocalClient(span, publish, localClients)
-	b.requestTransferToCertainInstances(span, remoteEgs, publish)
+	if len(localClients) > 0 {
+		b.sendMsgToLocalClient(span, publish, localClients)
+	}
+	if len(remoteEgs) > 0 {
+		b.requestTransferToCertainInstances(span, publish, remoteEgs)
+	}
 }
 
 func (b *Broker) getClient(clientID string) *Client {
