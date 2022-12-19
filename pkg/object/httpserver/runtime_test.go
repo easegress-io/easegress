@@ -18,12 +18,12 @@
 package httpserver
 
 import (
-	"github.com/megaease/easegress/pkg/option"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
