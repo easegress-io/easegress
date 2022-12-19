@@ -33,7 +33,7 @@ var (
 	gaugeMap     = make(map[string]*prometheus.GaugeVec)
 	histogramMap = make(map[string]*prometheus.HistogramVec)
 	summaryMap   = make(map[string]*prometheus.SummaryVec)
-	lock         = &sync.Mutex{}
+	lock         = sync.Mutex{}
 )
 
 var (
