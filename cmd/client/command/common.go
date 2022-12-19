@@ -152,7 +152,7 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	resp, body := doRequest(httpMethod, p+url, jsonBody, client, cmd)
 
 	msg := string(body)
-	if resp.StatusCode == 400 && strings.Contains(msg, "HTTP") && strings.Contains(msg, "HTTPS") {
+	if p == HTTPProtocal && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
 		resp, body = doRequest(httpMethod, HTTPSProtocal+url, jsonBody, client, cmd)
 	}
 
