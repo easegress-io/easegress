@@ -6,7 +6,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) 
+[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
 
 <a href="https://megaease.com/easegress">
     <img src="./doc/imgs/easegress.svg"
@@ -53,7 +53,7 @@ The architecture of Easegress:
     - HTTP/2
     - HTTP/3(QUIC)
     - MQTT
-  - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers.
+  - **Rich Routing Rules:** exact path, path prefix, regular expression of the path, method, headers, clientIPs.
   - **Resilience&Fault Tolerance**
     - **CircuitBreaker:** temporarily blocks possible failures.
     - **RateLimiter:** limits the rate of incoming requests.
@@ -95,8 +95,7 @@ The architecture of Easegress:
 - **Operation**
   - **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
   - **Distributed Tracing**
-    - Built-in [Open Zipkin](https://zipkin.io/)
-    - [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
+    - Built-in [OpenTelemetry](https://opentelemetry.io/), which provides a vendor-neutral API.
   - **Observability**
     - **Node:** role(primary, secondary), raft leader status, healthy or not, last heartbeat time, and so on
     - **Traffic:** in multi-dimension: server and backend.
@@ -127,7 +126,6 @@ The following examples show how to use Easegress for different scenarios.
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
 
-
 For full list, see [Cookbook](./doc/README.md#1-cookbook--how-to-guide).
 
 ## Getting Started
@@ -144,7 +142,7 @@ We can download the latest or history binaries from the
 [release page](https://github.com/megaease/easegress/releases). The following
 shell script will:
 
-- Download and extract the latest binaries to `./easegress` folder  
+- Download and extract the latest binaries to `./easegress` folder
 - Install the Easegress Systemd service.
 
 ```bash
@@ -396,7 +394,7 @@ Execute the below command, your slack will receive the article list of the RSS
 feed.
 
 ```bash
-$ curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:10080/rss
+curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:10080/rss
 ```
 
 Please note the maximum message size Slack allowed is about 3K, so you will

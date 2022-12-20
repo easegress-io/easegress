@@ -48,8 +48,6 @@ type (
 
 // New creates a service with spec
 func New(superSpec *supervisor.Spec) *Service {
-	superSpec.Super().Cluster().Layout().CustomDataKindPrefix()
-	superSpec.Super().Cluster().Layout().CustomDataPrefix()
 	kindPrefix := layout.CustomResourceKindPrefix()
 	dataPrefix := layout.AllCustomResourcePrefix()
 	s := &Service{

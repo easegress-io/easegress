@@ -285,7 +285,8 @@ func TestPublish(t *testing.T) {
 }
 
 func TestSubUnsub(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	client := getMQTTClient(t, "test", "test", "test", true)
@@ -465,7 +466,8 @@ func TestMultiClientPublish(t *testing.T) {
 }
 
 func TestSession(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	client := getDefaultMQTTClient(t, "test", true)
@@ -709,7 +711,8 @@ func TestSendMsgBack(t *testing.T) {
 }
 
 func TestYamlEncodeDecode(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	// old session
@@ -796,7 +799,8 @@ func topicsPublish(t *testing.T, data HTTPJsonData) int {
 }
 
 func TestHTTPRequest(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	srv := newServer(":8888")
@@ -880,7 +884,8 @@ func TestHTTPRequest(t *testing.T) {
 }
 
 func TestHTTPPublish(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	srv := newServer(":8888")
@@ -938,7 +943,8 @@ func TestHTTPPublish(t *testing.T) {
 }
 
 func TestHTTPTransfer(t *testing.T) {
-	broker0 := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker0 := getDefaultBroker(mapper)
 
 	srv0 := newServer(":8888")
 	srv0.addHandlerFunc("/mqtt", broker0.httpTopicsPublishHandler)
@@ -1189,7 +1195,9 @@ func TestTLSConfig(t *testing.T) {
 }
 
 func TestSessMgr(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
+
 	defer broker.close()
 
 	sessMgr := broker.sessMgr
@@ -1335,7 +1343,8 @@ func TestBrokerListen(t *testing.T) {
 }
 
 func TestBrokerHandleConn(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 
 	// broker handleConn return if error happen
 	svcConn, clientConn := net.Pipe()
@@ -1365,7 +1374,7 @@ func TestMQTTProxy(t *testing.T) {
 	mp := MQTTProxy{}
 	mp.Status()
 
-	broker := getDefaultBroker(nil)
+	broker := getDefaultBroker(&mockMuxMapper{})
 
 	mp.broker = broker
 	broker.reconnectWatcher()
@@ -1637,7 +1646,8 @@ func TestClientPublishLimit(t *testing.T) {
 }
 
 func TestHTTPGetAllSession(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	// connect 10 clients
@@ -1726,7 +1736,8 @@ func TestHTTPGetAllSession(t *testing.T) {
 }
 
 func TestHTTPDeleteSession(t *testing.T) {
-	broker := getDefaultBroker(nil)
+	mapper := &mockMuxMapper{}
+	broker := getDefaultBroker(mapper)
 	defer broker.close()
 
 	// connect 10 clients

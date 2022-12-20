@@ -21,7 +21,13 @@
     - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
-    - [zipkin.Spec](#zipkinspec)
+      - [spanlimits.Spec](#spanlimitsSpec)
+      - [batchlimits.Spec](#batchlimitsSpec)
+      - [exporter.Spec](#exporterSpec)
+        - [jaeger.Spec](#jaegerSpec)
+        - [zipkin.Spec](#zipkinSpec)
+        - [otlp.Spec](#otlpSpec)
+      - [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
@@ -102,12 +108,12 @@ rules:
 | certs            | map[string]string                  | Public keys of PEM encoded data, the key is the logic pair name, which must match keys   | No                   |
 | keys             | map[string]string                  | Private keys of PEM encoded data, the key is the logic pair name, which must match certs | No                   |
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
+| routerKind       | string                             | Kind of router. see [routers](./routers.md)                                               | No (default: Order)  |
 | rules            | [httpserver.Rule](#httpserverrule) | Router rules                                                                             | No                   |
-| autoCert | bool | Do HTTP certification automatically | No |  
-| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No | 
+| autoCert | bool | Do HTTP certification automatically | No |
+| clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
-| globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No | 
-
+| globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No |
 
 #### Pipeline
 
@@ -124,7 +130,7 @@ filters:
   kind: Proxy
   pools:
   - servers:
-    - url: http://127.0.0.1:9095   
+    - url: http://127.0.0.1:9095
 ```
 
 The `flow` defines the execution order of filters. You can use `jumpIf` to
@@ -134,83 +140,85 @@ For example, if a request’s header doesn’t have the key `X-Id` or its value
 is not `user1` or `user2`, then the `validator` filter returns result `invalid`
 and the pipeline jumps to `END`.
 
-```yaml 
+```yaml
 name: http-pipeline-example2
 kind: Pipeline
 flow:
 - filter: validator
-  jumpIf: 
+  jumpIf:
     # END is a built-in filter, it stops the execution of the pipeline.
     invalid: END
-- filter: proxy 
+- filter: proxy
 
 filters:
-- name: validator 
+- name: validator
   kind: Validator
-  headers: 
+  headers:
     X-Id:
-      values: ["user1", "user2"] 
+      values: ["user1", "user2"]
 - name: proxy
-  kind: Proxy 
+  kind: Proxy
   pools:
   - servers:
-    - url: http://127.0.0.1:9095 
+    - url: http://127.0.0.1:9095
 ```
 
 > `jumpIf` can only jump to filters behind the current filter.
 
-
 The `resilience` field defines resilience policies, if a filter implements the `filters.Resiliencer` interface (for now, only the `Proxy` filter implements the interface), the pipeline injects the policies into the filter instance after creating it.
-A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreaker`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter: 
+A filter can implement the `filters.Resiliencer` interface to support resilience. There are two kinds of resilience, `Retry` and `CircuitBreaker`. Check [resilience](#resilience) for more details. The following config adds a retry policy to the proxy filter:
+
 ```yaml
 name: http-pipeline-example3
 kind: Pipeline
 flow:
-- filter: proxy 
+- filter: proxy
 
 filters:
 - name: proxy
-  kind: Proxy 
+  kind: Proxy
   pools:
   - servers:
     - url: http://127.0.0.1:9095
     retryPolicy: retry
-    
+
 resilience:
 - name: retry
   kind: Retry
   maxAttempts: 3
-``` 
-In this case, if `proxy` returns non-empty results, then resilience retry reruns the `proxy` filter until `proxy` returns empty results or gets the max attempts. 
+```
 
-The `flow` also supports `namespace`, so the pipeline can support workflows that contain multiple requests and responses. 
+In this case, if `proxy` returns non-empty results, then resilience retry reruns the `proxy` filter until `proxy` returns empty results or gets the max attempts.
+
+The `flow` also supports `namespace`, so the pipeline can support workflows that contain multiple requests and responses.
+
 ```yaml
 name: http-pipeline-example4
 kind: Pipeline
-flow: 
+flow:
 - filter: validator
   jumpIf:
-    invalid: END 
-- filter: requestBuilderFoo 
-  namespace: foo 
-- filter: proxyFoo 
-  namespace: foo 
-- filter: requestBuilderBar 
-  namespace: bar 
+    invalid: END
+- filter: requestBuilderFoo
+  namespace: foo
+- filter: proxyFoo
+  namespace: foo
+- filter: requestBuilderBar
+  namespace: bar
 - filter: proxyBar
-  namespace: bar 
-- filter: responseBuilder 
+  namespace: bar
+- filter: responseBuilder
 
-filters: 
+filters:
 - name: requestBuilder
   kind: RequestBuilder
   ...
-... 
+...
 ```
-In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `proxyFoo` sends `foo` request and puts the response into namespace `foo`. `requestBuilderBar` creates a request in namespace `bar` and `proxyBar` sends `bar` request and puts the response into namespace `bar`. Finally, `requestBuilder` creates a response and puts it into the default namespace. 
+
+In this case, `requestBuilderFoo` creates a request in namespace `foo`, and `proxyFoo` sends `foo` request and puts the response into namespace `foo`. `requestBuilderBar` creates a request in namespace `bar` and `proxyBar` sends `bar` request and puts the response into namespace `bar`. Finally, `requestBuilder` creates a response and puts it into the default namespace.
 
 > If not set, the filter works in the default namespace `DEFAULT`.
-
 
 The `alias` in `flow` gives a filter an alias to help re-use the filter so that we can use the alias to distinguish each of its appearances in the flow.
 
@@ -233,7 +241,8 @@ filters:
   kind: Proxy
   ...
 ```
-In this case, we give second `proxy` alias `proxy2`, so request is invalid, it jumps to second proxy. 
+
+In this case, we give second `proxy` alias `proxy2`, so request is invalid, it jumps to second proxy.
 
 The `data` field defines static user data for the pipeline, which can be
 accessed by filters. For example, in the below pipeline, the body of the result
@@ -242,7 +251,7 @@ data item `foo`.
 
 ```yaml
 name: http-pipeline-example6
-kind: Pipeline 
+kind: Pipeline
 flow:
   ...
 
@@ -271,33 +280,32 @@ No config.
 
 ### GlobalFilter
 
-`GlobalFilter` is a special pipeline that can be executed before or/and after all pipelines in a server. For example:  
+`GlobalFilter` is a special pipeline that can be executed before or/and after all pipelines in a server. For example:
 
 ```yaml
 name: globalFilter-example
 kind: GlobalFilter
 beforePipeline:
-  flow: 
+  flow:
   - filter: validator
 
-  filters: 
+  filters:
   - name: validator
-    kind: Validator 
+    kind: Validator
     ...
 ---
-name: server-example 
+name: server-example
 kind: HTTPServer
 globalFilter: globalFilter-example
 ...
 ```
-In this case, all requests in HTTPServer `server-example` go through GlobalFilter `globalFilter-example` before executing any other pipelines. 
 
+In this case, all requests in HTTPServer `server-example` go through GlobalFilter `globalFilter-example` before executing any other pipelines.
 
-| Name | Type | Description | Required | 
+| Name | Type | Description | Required |
 |------|------|-------------|----------|
 | beforePipeline | [pipeline.Spec](#pipelineSpec) | Spec for before pipeline | No |
-| afterPipeline | [pipeline.Spec](#pipelinespec) | Spec for after pipeline | No | 
-
+| afterPipeline | [pipeline.Spec](#pipelinespec) | Spec for after pipeline | No |
 
 ### EaseMonitorMetrics
 
@@ -349,7 +357,6 @@ httpServer:
 | httpServer   | [httpserver.Spec](#httpserver) | Basic configuration for the shared HTTP traffic gate. The routing rules will be generated dynamically according to Kubernetes ingresses and should not be specified here. | Yes                     |
 
 **Note**: IngressController uses `kubeConfig` and `masterURL` to connect to Kubernetes, at least one of them must be specified when deployed outside of a Kubernetes cluster, and both are optional when deployed inside a cluster.
-
 
 ### ConsulServiceRegistry
 
@@ -404,7 +411,7 @@ syncInterval: 10s
 
 | Name         | Type     | Description                  | Required                                    |
 | ------------ | -------- | ---------------------------- | ------------------------------------------- |
-| endpoints    | []string | Endpoints of Eureka servers  | Yes (default: http://127.0.0.1:8761/eureka) |
+| endpoints    | []string | Endpoints of Eureka servers  | Yes (default: <http://127.0.0.1:8761/eureka>) |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)                          |
 
 ### ZookeeperServiceRegistry
@@ -488,19 +495,78 @@ domains:
 | Name        | Type                       | Description                   | Required |
 | ----------- | -------------------------- | ----------------------------- | -------- |
 | serviceName | string                     | The service name of top level | Yes      |
-| tags        | map[string]string          | Tags to include to every span | No       |
-| Zipkin      | [zipkin.Spec](#zipkinSpec) | The tracing spec of zipkin    | No       |
+| attributes        | map[string]string    |  Attributes to include to every span. | No |
+| tags        | map[string]string    | Deprecated. Tags to include to every span. This option will be kept until the next major version incremented release. | No |
+| spanLimits      | [spanlimits.Spec](#spanlimitsSpec) | SpanLimitsSpec represents the limits of a span.   | No       |
+| sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]. For backward compatibility, if the exporter is empty, the default is to use zipkin.sampleRate  | No (default: 1)     |
+| batchLimits      | [batchlimits.Spec](#batchlimitsSpec) | BatchLimitsSpec describes BatchSpanProcessorOptions    | No       |
+| exporter      | [exporter.Spec](#exporterSpec) | ExporterSpec describes exporter. exporter and zipkin cannot both be empty     | No       |
+| zipkin      | [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec) | ZipkinDeprecatedSpec describes Zipkin. If exporter is configured, this option does not take effect. This option will be kept until the next major version incremented release.   | No       |
+| headerFormat | string | HeaderFormat represents which format should be used for context propagation. options: [trace-conext](https://www.w3.org/TR/trace-context/),b3. For backward compatibility, the historical Zipkin configuration remains in b3 format. | No  (default: trace-conext)    |
 
-### zipkin.Spec
+#### spanlimits.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| attributeValueLengthLimit | int                     | AttributeValueLengthLimit is the maximum allowed attribute value length, Setting this to a negative value means no limit is applied| No (default:-1)      |
+| attributeCountLimit        | int   | AttributeCountLimit is the maximum allowed span attribute count| No (default:128)|
+| eventCountLimit        | int   | EventCountLimit is the maximum allowed span event count| No (default:128)|
+| linkCountLimit        | int   | LinkCountLimit is the maximum allowed span link count| No (default:128)|
+| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
+| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
+| attributePerLinkCountLimit        | int   | AttributePerLinkCountLimit is the maximum number of attributes allowed per span link| No (default:128)|
+
+#### batchlimits.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| maxQueueSize | int                     |MaxQueueSize is the maximum queue size to buffer spans for delayed processing| No (default:2048)      |
+| batchTimeout        | int   | BatchTimeout is the maximum duration for constructing a batch| No (default:5000 msec)|
+| exportTimeout        | int   | ExportTimeout specifies the maximum duration for exporting spans| No (default:30000 msec)|
+| maxExportBatchSize        | int   | MaxExportBatchSize is the maximum number of spans to process in a single batch| No (default:512)|
+
+#### exporter.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| jaeger      | [jaeger.Spec](#jaegerSpec) | JaegerSpec describes Jaeger    | No       |
+| zipkin      | [zipkin.Spec](#zipkinSpec) |  ZipkinSpec describes Zipkin    | No       |
+| otlp        | [otlp.Spec](#otlpSpec)     | OTLPSpec describes OpenTelemetry exporter    | No       |
+
+#### jaeger.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| mode | string                     |Jaeger's access mode | Yes (options: agent,collector)      |
+| endpoint        | string   |In agent mode, endpoint must be host:port, in collector mode it is url| No|
+| username        | string   |The username used in collector mode| No |
+| password        | string   | The password used in collector mode| No|
+
+#### zipkin.Spec
 
 | Name          | Type    | Description                                                                                        | Required |
 |---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
-| hostPort      | string  | The host:port of the service                                                                       | No       |
+| endpoint     | string  | The zipkin server URL                                                                              | Yes      |
+
+#### otlp.Spec
+
+| Name        | Type                       | Description                   | Required |
+| ----------- | -------------------------- | ----------------------------- | -------- |
+| protocol | string                     | Connection protocol of otlp | Yes (options: http,grpc)      |
+| endpoint        | string   | Endpoint of the otlp collector| Yes|
+| insecure        | bool   | Whether to allow insecure connections| No (default: false)|
+| compression        | string   |Compression describes the compression used for payloads sent to the collector| No (options: gzip) |
+
+#### zipkin.DeprecatedSpec
+
+| Name          | Type    | Description                                                                                        | Required |
+|---------------|---------|----------------------------------------------------------------------------------------------------| -------- |
+| ~~hostPort~~  | string  | Deprecated. The host:port of the service                                                           | No       |
 | serverURL     | string  | The zipkin server URL                                                                              | Yes      |
 | sampleRate    | float64 | The sample rate for collecting metrics, the range is [0, 1]                                        | Yes      |
-| disableReport | bool    | Whether to report span model data to zipkin server                                                 | No       |
-| sameSpan      | bool    | Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No       |
-| id128Bit      | bool    | Whether to start traces with 128-bit trace id                                                      | No       |
+| ~~disableReport~~ | bool    | Deprecated. Whether to report span model data to zipkin server                                 | No       |
+| ~~sameSpan~~      | bool    | Deprecated. Whether to allow to place client-side and server-side annotations for an RPC call in the same span | No |
+| ~~id128Bit~~      | bool    | Deprecated. Whether to start traces with 128-bit trace id                                      | No       |
 
 ### ipfilter.Spec
 
@@ -531,9 +597,9 @@ domains:
 | methods       | []string                                 | Methods to match, empty means to allow all methods                                                                                     | No       |
 | headers       | [][httpserver.Header](#httpserverHeader) | Headers to match (the requests matching headers won't be put into cache)                                                               | No       |
 | backend       | string                                   | backend name (pipeline name in static config, service name in mesh)                                                                    | Yes      |
-| clientMaxBodySize | int64 | Max size of request body, will use the option of the HTTP server if not set. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No | 
+| clientMaxBodySize | int64 | Max size of request body, will use the option of the HTTP server if not set. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | matchAllHeader | bool | Match all headers that are defined in headers, default is `false`. | No |
-
+| matchAllQuery | bool | Match all queries that are defined in queries, default is `false`. | No |
 
 ### httpserver.Header
 
@@ -545,12 +611,13 @@ There must be at least one of `values` and `regexp`.
 | values  | []string | Header values to match                                              | No       |
 | regexp  | string   | Header value in regular expression to match                         | No       |
 
-### pipeline.Spec 
-| Name | Type | Description | Required | 
+### pipeline.Spec
+
+| Name | Type | Description | Required |
 |------|------|-------------|----------|
 | flow | [pipeline.FlowNode](#pipelineFlowNode) | Flow of pipeline | No |
 | filters | [][filters.Filter](#filters.Filter) | Filter definitions of pipeline  | Yes |
-| resilience | [][resilience.Policy](#resiliencePolicy) | Resilience policy for backend filters | No | 
+| resilience | [][resilience.Policy](#resiliencePolicy) | Resilience policy for backend filters | No |
 
 ### pipeline.FlowNode
 
@@ -558,8 +625,8 @@ There must be at least one of `values` and `regexp`.
 | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
 | filter | string            | The filter name                                                                                                                                                                     | Yes      |
 | jumpIf | map[string]string | Jump to another filter conditionally, the key is the result of the current filter, the value is the target filter name/alias. `END` is the built-in value for the ending of the pipeline | No       |
-| namespace | string | Namespace of the filter | No | 
-| alias | string | Alias name of the filter | No | 
+| namespace | string | Namespace of the filter | No |
+| alias | string | Alias name of the filter | No |
 
 ### filters.Filter
 
@@ -595,8 +662,9 @@ The self-defining specification of each filter references to [filters](./filters
 | dnsProvider | map[string]string | DNS provider information  | No (Yes if `DNS-01` chanllenge is desired) |
 
 The fields in `dnsProvider` vary from DNS providers, but:
-* `name` and `zone` are required for all DNS providers.
-* `nsAddress` and `nsNetwork` are optional name server information for all DNS
+
+- `name` and `zone` are required for all DNS providers.
+- `nsAddress` and `nsNetwork` are optional name server information for all DNS
   providers, if provided, AutoCertManager will leverage them to speed up the
   DNS record lookup. `nsAddress` is the address of the name server, must always
   include the port number, `nsNetwork` is the network protocol of name server,
@@ -617,7 +685,6 @@ Below table list other required fields for each supported DNS provider (Note: `g
 | route53           | accessKeyId, secretAccessKey, awsProfile                            |
 | vultr             | apiToken                                                            |
 
-
 ### resilience.Policy
 
 | Name                 | Type   | Description    | Required |
@@ -627,6 +694,7 @@ Below table list other required fields for each supported DNS provider (Note: `g
 | other kind specific fields of the policy kind | -      | -              | -        |
 
 #### Retry Policy
+
 A retry policy configures how to retry a failed request.
 
 | Name | Type | Description | Required |
@@ -643,35 +711,35 @@ based on the results of the permitted requests.
 
 When `CLOSED`, it uses a sliding window to store and aggregate the result of recent requests, the window can either be `COUNT_BASED` or `TIME_BASED`. The `COUNT_BASED` window aggregates the last N requests and the `TIME_BASED` window aggregates requests in the last N seconds, where N is the window size.
 
-Below is an example configuration with both `COUNT_BASED` and `TIME_BASED` policies. 
+Below is an example configuration with both `COUNT_BASED` and `TIME_BASED` policies.
 
 Policy `circuit-breaker-example-count` short-circuits requests if more than half of recent requests failed.
 
 Policy `circuit-breaker-example-time` short-circuits requests if more than 60% of recent requests failed.
 
-> failed means that backend filter returns non-empty results. 
+> failed means that backend filter returns non-empty results.
 
 ```yaml
 kind: CircuitBreaker
-name: circuit-breaker-example-count 
+name: circuit-breaker-example-count
 slidingWindowType: COUNT_BASED
 failureRateThreshold: 50
 slidingWindowSize: 100
 
 ---
 kind: CircuitBreaker
-name: circuit-breaker-example-time 
+name: circuit-breaker-example-time
 slidingWindowType: TIME_BASED
 failureRateThreshold: 60
 slidingWindowSize: 100
 ```
 
-| Name | Type | Description | Required | 
-|------|------|-------------|----------| 
+| Name | Type | Description | Required |
+|------|------|-------------|----------|
 | slidingWindowType | string | Type of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Sliding window can either be `COUNT_BASED` or `TIME_BASED`. If the sliding window is `COUNT_BASED`, the last `slidingWindowSize` requests are recorded and aggregated. If the sliding window is `TIME_BASED`, the requests of the last `slidingWindowSize` seconds are recorded and aggregated. Default is `COUNT_BASED` | No |
-| failureRateThreshold | int8 | Failure rate threshold in percentage. When the failure rate is equal to or greater than the threshold the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 50 | No | 
+| failureRateThreshold | int8 | Failure rate threshold in percentage. When the failure rate is equal to or greater than the threshold the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 50 | No |
 | slowCallRateThreshold | int8 | Slow rate threshold in percentage. The CircuitBreaker considers a request as slow when its duration is greater than `slowCallDurationThreshold`. When the percentage of slow requests is equal to or greater than the threshold, the CircuitBreaker transitions to `OPEN` and starts short-circuiting requests. Default is 100 | No |
-| slowCallDurationThreshold | string | Duration threshold for slow call | No | 
+| slowCallDurationThreshold | string | Duration threshold for slow call | No |
 | slidingWindowSize | uint32 | The size of the sliding window which is used to record the outcome of requests when the CircuitBreaker is `CLOSED`. Default is 100 | No |
 | permittedNumberOfCallsInHalfOpenState | uint32 | The number of permitted requests when the CircuitBreaker is `HALF_OPEN`. Default is 10 | No |
 | minimumNumberOfCalls | uint32 | The minimum number of requests which are required (per sliding window period) before the CircuitBreaker can calculate the error rate or slow requests rate. For example, if `minimumNumberOfCalls` is 10, then at least 10 requests must be recorded before the failure rate can be calculated. If only 9 requests have been recorded the CircuitBreaker will not transition to `OPEN` even if all 9 requests have failed. Default is 10 | No |

@@ -48,7 +48,6 @@ func Unmarshal(data []byte, v interface{}) error {
 	if err != nil {
 		return fmt.Errorf("%s: convert yaml to json failed: %v", data, err)
 	}
-	json.Unmarshal(data, v)
 
 	return json.Unmarshal(data, v)
 }

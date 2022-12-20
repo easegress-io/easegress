@@ -64,7 +64,7 @@ func (spe serverPoolError) Result() string {
 // handler function.
 type serverPoolContext struct {
 	*context.Context
-	span      tracing.Span
+	span      *tracing.Span
 	startTime time.Time
 
 	req     *httpprot.Request
@@ -354,7 +354,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 			spanName = sp.name
 		}
 		spCtx.span = ctx.Span().NewChild(spanName)
-		defer spCtx.span.Finish()
+		defer spCtx.span.End()
 
 		return sp.doHandle(stdctx, spCtx)
 	}
@@ -437,6 +437,8 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	if err = sp.buildResponse(spCtx); err != nil {
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
+
+	sp.LoadBalancer().ReturnServer(svr, spCtx.req, spCtx.resp)
 
 	spCtx.LazyAddTag(func() string {
 		return fmt.Sprintf("status code: %d", resp.StatusCode)
