@@ -45,16 +45,25 @@ func newMockMetrics() *metrics {
 			"the total count of http error requests",
 			mockLabels).MustCurryWith(commonLabels),
 		RequestsDuration: prometheushelper.NewHistogram(
-			"mock_httpserver_requests_duration",
-			"request processing duration histogram",
+			prometheus.HistogramOpts{
+				Name:    "mock_httpserver_requests_duration",
+				Help:    "request processing duration histogram",
+				Buckets: prometheushelper.DefaultDurationBuckets(),
+			},
 			mockLabels).MustCurryWith(commonLabels),
 		RequestSizeBytes: prometheushelper.NewHistogram(
-			"mock_httpserver_requests_size_bytes",
-			"a histogram of the total size of the request. Includes body",
+			prometheus.HistogramOpts{
+				Name:    "mock_httpserver_requests_size_bytes",
+				Help:    "a histogram of the total size of the request. Includes body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			mockLabels).MustCurryWith(commonLabels),
 		ResponseSizeBytes: prometheushelper.NewHistogram(
-			"mock_httpserver_response_size_bytes",
-			"a histogram of the total size of the returned response body",
+			prometheus.HistogramOpts{
+				Name:    "mock_httpserver_responses_size_bytes",
+				Help:    "a histogram of the total size of the returned response body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			mockLabels).MustCurryWith(commonLabels),
 	}
 }

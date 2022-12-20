@@ -625,12 +625,19 @@ func (sp *ServerPool) newMetrics(name string) *metrics {
 		TotalErrorConnections: prometheushelper.NewCounter("proxy_total_error_connections",
 			"the total count of proxy error connections",
 			proxyLabels).MustCurryWith(commonLabels),
-		RequestBodySize: prometheushelper.NewHistogram("proxy_request_body_size",
-			"a histogram of the total size of the request.",
+		RequestBodySize: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "proxy_request_body_size",
+				Help:    "a histogram of the total size of the request.",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			proxyLabels).MustCurryWith(commonLabels),
 		ResponseBodySize: prometheushelper.NewHistogram(
-			"proxy_response_body_size",
-			"a histogram of the total size of the response.",
+			prometheus.HistogramOpts{
+				Name:    "proxy_response_body_size",
+				Help:    "a histogram of the total size of the response.",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			proxyLabels).MustCurryWith(commonLabels),
 	}
 }

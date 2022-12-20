@@ -41,7 +41,7 @@ var (
 	validLabel  = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 )
 
-// NewCounter create the counter metric
+// NewCounter creates a counter metric
 func NewCounter(metric string, help string, labels []string) *prometheus.CounterVec {
 	lock.Lock()
 	defer lock.Unlock()
@@ -70,7 +70,7 @@ func NewCounter(metric string, help string, labels []string) *prometheus.Counter
 	return counterMap[metricName]
 }
 
-// NewGauge create the gauge metric
+// NewGauge creates a gauge metric
 func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec {
 	lock.Lock()
 	defer lock.Unlock()
@@ -98,12 +98,12 @@ func NewGauge(metric string, help string, labels []string) *prometheus.GaugeVec 
 	return gaugeMap[metricName]
 }
 
-// NewHistogram create the Histogram metric
-func NewHistogram(metric string, help string, labels []string) *prometheus.HistogramVec {
+// NewHistogram creates a Histogram metric
+func NewHistogram(opt prometheus.HistogramOpts, labels []string) *prometheus.HistogramVec {
 	lock.Lock()
 	defer lock.Unlock()
 
-	metricName, err := getAndValidate(metric, labels)
+	metricName, err := getAndValidate(opt.Name, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
@@ -114,10 +114,7 @@ func NewHistogram(metric string, help string, labels []string) *prometheus.Histo
 		return m
 	}
 	histogramMap[metricName] = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name: metricName,
-			Help: help,
-		},
+		opt,
 		labels,
 	)
 	prometheus.MustRegister(histogramMap[metricName])
@@ -126,12 +123,12 @@ func NewHistogram(metric string, help string, labels []string) *prometheus.Histo
 	return histogramMap[metricName]
 }
 
-// NewSummary create the NewSummary metric
-func NewSummary(metric string, help string, labels []string) *prometheus.SummaryVec {
+// NewSummary creates a NewSummary metric
+func NewSummary(opt prometheus.SummaryOpts, labels []string) *prometheus.SummaryVec {
 	lock.Lock()
 	defer lock.Unlock()
 
-	metricName, err := getAndValidate(metric, labels)
+	metricName, err := getAndValidate(opt.Name, labels)
 	if err != nil {
 		logger.Errorf("[%s] %v", module, err)
 		return nil
@@ -142,10 +139,7 @@ func NewSummary(metric string, help string, labels []string) *prometheus.Summary
 		return m
 	}
 	summaryMap[metricName] = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name: metricName,
-			Help: help,
-		},
+		opt,
 		labels,
 	)
 	prometheus.MustRegister(summaryMap[metricName])
@@ -167,12 +161,22 @@ func getAndValidate(metricName string, labels []string) (string, error) {
 	return metricName, nil
 }
 
-// ValidateMetricName check if the metric name is valid
+// ValidateMetricName checks if the metric name is valid
 func ValidateMetricName(name string) bool {
 	return validMetric.MatchString(name)
 }
 
-// ValidateLabelName check if the label name is valid
+// ValidateLabelName checks if the label name is valid
 func ValidateLabelName(label string) bool {
 	return validLabel.MatchString(label)
+}
+
+// DefaultDurationBuckets returns default duration buckets in milliseconds
+func DefaultDurationBuckets() []float64 {
+	return []float64{10, 50, 100, 200, 400, 800, 1000, 2000, 4000, 8000}
+}
+
+// DefaultBodySizeBuckets returns default body size buckets in bytes
+func DefaultBodySizeBuckets() []float64 {
+	return prometheus.ExponentialBucketsRange(200, 400000, 10)
 }

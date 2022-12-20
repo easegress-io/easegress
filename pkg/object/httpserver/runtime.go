@@ -464,16 +464,25 @@ func (r *runtime) newMetrics(name string) *metrics {
 			"the total count of http error requests",
 			httpserverLabels).MustCurryWith(commonLabels),
 		RequestsDuration: prometheushelper.NewHistogram(
-			"httpserver_requests_duration",
-			"request processing duration histogram",
+			prometheus.HistogramOpts{
+				Name:    "httpserver_requests_duration",
+				Help:    "request processing duration histogram",
+				Buckets: prometheushelper.DefaultDurationBuckets(),
+			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		RequestSizeBytes: prometheushelper.NewHistogram(
-			"httpserver_requests_size_bytes",
-			"a histogram of the total size of the request. Includes body",
+			prometheus.HistogramOpts{
+				Name:    "httpserver_requests_size_bytes",
+				Help:    "a histogram of the total size of the request. Includes body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		ResponseSizeBytes: prometheushelper.NewHistogram(
-			"httpserver_responses_size_bytes",
-			"a histogram of the total size of the returned response body",
+			prometheus.HistogramOpts{
+				Name:    "httpserver_responses_size_bytes",
+				Help:    "a histogram of the total size of the returned response body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
 			httpserverLabels).MustCurryWith(commonLabels),
 	}
 }
