@@ -270,7 +270,7 @@ func (b *Broker) processWatcherEvent(event map[string]*string) {
 			go b.handleNewSessionInCluster(clientID, v, info)
 
 		} else {
-			logger.SpanDebugf(nil, "client %v recv delete watch %v", clientID, v)
+			logger.Debugf("client %v recv delete watch %v", clientID, v)
 			go b.deleteSession(clientID)
 
 			if b.spec.BrokerMode {
