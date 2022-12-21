@@ -65,5 +65,26 @@ func newMockMetrics() *metrics {
 				Buckets: prometheushelper.DefaultBodySizeBuckets(),
 			},
 			mockLabels).MustCurryWith(commonLabels),
+		RequestsDurationPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "mock_httpserver_requests_duration_percentage",
+				Help:       "request processing duration summary",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			mockLabels).MustCurryWith(commonLabels),
+		RequestSizeBytesPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "mock_httpserver_requests_size_bytes_percentage",
+				Help:       "a summary of the total size of the request. Includes body",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			mockLabels).MustCurryWith(commonLabels),
+		ResponseSizeBytesPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "mock_httpserver_responses_size_bytes_percentage",
+				Help:       "a summary of the total size of the returned response body",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			mockLabels).MustCurryWith(commonLabels),
 	}
 }
