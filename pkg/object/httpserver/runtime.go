@@ -39,6 +39,8 @@ import (
 	"github.com/megaease/easegress/pkg/util/easemonitor"
 	"github.com/megaease/easegress/pkg/util/filterwriter"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
+	"github.com/megaease/easegress/pkg/util/prometheushelper"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -88,6 +90,7 @@ type (
 
 		httpStat      *httpstat.HTTPStat
 		topN          *httpstat.TopN
+		metrics       *metrics
 		limitListener *limitlistener.LimitListener
 	}
 
@@ -112,7 +115,8 @@ func newRuntime(superSpec *supervisor.Spec, muxMapper context.MuxMapper) *runtim
 		topN:      httpstat.NewTopN(topNum),
 	}
 
-	r.mux = newMux(r.httpStat, r.topN, muxMapper)
+	r.metrics = r.newMetrics(r.superSpec.Name())
+	r.mux = newMux(r.httpStat, r.topN, r.metrics, muxMapper)
 	r.setState(stateNil)
 	r.setError(errNil)
 
@@ -201,6 +205,7 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec, muxMapper context.MuxMa
 }
 
 func (r *runtime) setState(state stateType) {
+	r.exportState(state)
 	r.state.Store(state)
 }
 
@@ -416,4 +421,76 @@ func (s *Status) ToMetrics(service string) []*easemonitor.Metrics {
 	}
 
 	return results
+}
+
+type (
+	metrics struct {
+		Health             *prometheus.GaugeVec
+		TotalRequests      *prometheus.CounterVec
+		TotalResponses     *prometheus.CounterVec
+		TotalErrorRequests *prometheus.CounterVec
+		RequestsDuration   prometheus.ObserverVec
+		RequestSizeBytes   prometheus.ObserverVec
+		ResponseSizeBytes  prometheus.ObserverVec
+	}
+)
+
+// newMetrics create the HttpServerMetrics.
+func (r *runtime) newMetrics(name string) *metrics {
+	commonLabels := prometheus.Labels{
+		"name":         name,
+		"kind":         Kind,
+		"clusterName":  r.superSpec.Super().Options().ClusterName,
+		"clusterRole":  r.superSpec.Super().Options().ClusterRole,
+		"instanceName": r.superSpec.Super().Options().Name,
+	}
+	httpserverLabels := []string{"clusterName", "clusterRole",
+		"instanceName", "name", "kind", "routerKind", "backend"}
+	return &metrics{
+		Health: prometheushelper.NewGauge(
+			"httpserver_health",
+			"show the status for the http server: 1 for ready, 0 for down",
+			httpserverLabels[:5]).MustCurryWith(commonLabels),
+		TotalRequests: prometheushelper.NewCounter(
+			"httpserver_total_requests",
+			"the total count of http requests",
+			httpserverLabels).MustCurryWith(commonLabels),
+		TotalResponses: prometheushelper.NewCounter(
+			"httpserver_total_responses",
+			"the total count of http responses",
+			httpserverLabels).MustCurryWith(commonLabels),
+		TotalErrorRequests: prometheushelper.NewCounter(
+			"httpserver_total_error_requests",
+			"the total count of http error requests",
+			httpserverLabels).MustCurryWith(commonLabels),
+		RequestsDuration: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "httpserver_requests_duration",
+				Help:    "request processing duration histogram",
+				Buckets: prometheushelper.DefaultDurationBuckets(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+		RequestSizeBytes: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "httpserver_requests_size_bytes",
+				Help:    "a histogram of the total size of the request. Includes body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+		ResponseSizeBytes: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "httpserver_responses_size_bytes",
+				Help:    "a histogram of the total size of the returned response body",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+	}
+}
+
+func (r *runtime) exportState(state stateType) {
+	if state == stateRunning {
+		r.metrics.Health.WithLabelValues().Set(1)
+	} else {
+		r.metrics.Health.WithLabelValues().Set(0)
+	}
 }

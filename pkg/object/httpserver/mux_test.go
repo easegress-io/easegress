@@ -45,7 +45,7 @@ func init() {
 
 func TestMuxReload(t *testing.T) {
 	assert := assert.New(t)
-	m := newMux(&httpstat.HTTPStat{}, &httpstat.TopN{}, nil)
+	m := newMux(&httpstat.HTTPStat{}, &httpstat.TopN{}, newMockMetrics(), nil)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -122,7 +122,7 @@ func TestServerACME(t *testing.T) {
 	assert := assert.New(t)
 
 	mm := &contexttest.MockedMuxMapper{}
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), mm)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), mm)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -154,7 +154,7 @@ func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
 
 	mm := &contexttest.MockedMuxMapper{}
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), mm)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), mm)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -216,7 +216,7 @@ rules:
 func TestMuxInstanceSearch(t *testing.T) {
 	assert := assert.New(t)
 
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), nil)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), nil)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
