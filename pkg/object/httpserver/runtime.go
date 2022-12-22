@@ -425,13 +425,16 @@ func (s *Status) ToMetrics(service string) []*easemonitor.Metrics {
 
 type (
 	metrics struct {
-		Health             *prometheus.GaugeVec
-		TotalRequests      *prometheus.CounterVec
-		TotalResponses     *prometheus.CounterVec
-		TotalErrorRequests *prometheus.CounterVec
-		RequestsDuration   prometheus.ObserverVec
-		RequestSizeBytes   prometheus.ObserverVec
-		ResponseSizeBytes  prometheus.ObserverVec
+		Health                      *prometheus.GaugeVec
+		TotalRequests               *prometheus.CounterVec
+		TotalResponses              *prometheus.CounterVec
+		TotalErrorRequests          *prometheus.CounterVec
+		RequestsDuration            prometheus.ObserverVec
+		RequestSizeBytes            prometheus.ObserverVec
+		ResponseSizeBytes           prometheus.ObserverVec
+		RequestsDurationPercentage  prometheus.ObserverVec
+		RequestSizeBytesPercentage  prometheus.ObserverVec
+		ResponseSizeBytesPercentage prometheus.ObserverVec
 	}
 )
 
@@ -482,6 +485,27 @@ func (r *runtime) newMetrics(name string) *metrics {
 				Name:    "httpserver_responses_size_bytes",
 				Help:    "a histogram of the total size of the returned response body",
 				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+		RequestsDurationPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "httpserver_requests_duration_percentage",
+				Help:       "request processing duration summary",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+		RequestSizeBytesPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "httpserver_requests_size_bytes_percentage",
+				Help:       "a summary of the total size of the request. Includes body",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			httpserverLabels).MustCurryWith(commonLabels),
+		ResponseSizeBytesPercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "httpserver_responses_size_bytes_percentage",
+				Help:       "a summary of the total size of the returned response body",
+				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 	}

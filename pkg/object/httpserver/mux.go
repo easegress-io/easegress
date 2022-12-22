@@ -427,4 +427,7 @@ func (mi *muxInstance) exportPrometheusMetrics(stat *httpstat.Metric, backend st
 	mi.metrics.RequestsDuration.With(labels).Observe(float64(stat.Duration.Milliseconds()))
 	mi.metrics.RequestSizeBytes.With(labels).Observe(float64(stat.ReqSize))
 	mi.metrics.ResponseSizeBytes.With(labels).Observe(float64(stat.RespSize))
+	mi.metrics.RequestsDurationPercentage.With(labels).Observe(float64(stat.Duration.Milliseconds()))
+	mi.metrics.RequestSizeBytesPercentage.With(labels).Observe(float64(stat.ReqSize))
+	mi.metrics.ResponseSizeBytesPercentage.With(labels).Observe(float64(stat.RespSize))
 }

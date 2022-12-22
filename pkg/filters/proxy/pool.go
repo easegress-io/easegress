@@ -600,10 +600,12 @@ func (sp *ServerPool) inFailureCodes(code int) bool {
 type (
 	// ProxyMetrics is the Prometheus Metrics of ProxyMetrics Object.
 	metrics struct {
-		TotalConnections      *prometheus.CounterVec
-		TotalErrorConnections *prometheus.CounterVec
-		RequestBodySize       prometheus.ObserverVec
-		ResponseBodySize      prometheus.ObserverVec
+		TotalConnections           *prometheus.CounterVec
+		TotalErrorConnections      *prometheus.CounterVec
+		RequestBodySize            prometheus.ObserverVec
+		ResponseBodySize           prometheus.ObserverVec
+		RequestBodySizePercentage  prometheus.ObserverVec
+		ResponseBodySizePercentage prometheus.ObserverVec
 	}
 )
 
@@ -639,6 +641,20 @@ func (sp *ServerPool) newMetrics(name string) *metrics {
 				Buckets: prometheushelper.DefaultBodySizeBuckets(),
 			},
 			proxyLabels).MustCurryWith(commonLabels),
+		RequestBodySizePercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "proxy_request_body_size_percentage",
+				Help:       "a summary of the total size of the request.",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
+		ResponseBodySizePercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "proxy_response_body_size_percentage",
+				Help:       "a summary of the total size of the response.",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
 	}
 }
 
@@ -659,4 +675,6 @@ func (sp *ServerPool) exportPrometheusMetrics(stat *httpstat.Metric) {
 	}
 	sp.metrics.RequestBodySize.With(labels).Observe(float64(stat.ReqSize))
 	sp.metrics.ResponseBodySize.With(labels).Observe(float64(stat.RespSize))
+	sp.metrics.RequestBodySizePercentage.With(labels).Observe(float64(stat.ReqSize))
+	sp.metrics.ResponseBodySizePercentage.With(labels).Observe(float64(stat.RespSize))
 }

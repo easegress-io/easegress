@@ -180,3 +180,8 @@ func DefaultDurationBuckets() []float64 {
 func DefaultBodySizeBuckets() []float64 {
 	return prometheus.ExponentialBucketsRange(200, 400000, 10)
 }
+
+// DefaultObjectives returns default summary objectives
+func DefaultObjectives() map[float64]float64 {
+	return map[float64]float64{0.25: 10, 0.5: 10, 0.75: 10, 0.9: 10, 0.95: 10, 0.99: 10}
+}
