@@ -71,6 +71,9 @@ type (
 		ConnectionLimit      *RateLimit    `json:"connectionLimit" jsonschema:"omitempty"`
 		ClientPublishLimit   *RateLimit    `json:"clientPublishLimit" jsonschema:"omitempty"`
 		Rules                []*Rule       `json:"rules" jsonschema:"omitempty"`
+		BrokerMode           bool          `json:"brokerMode" jsonschema:"omitempty"`
+		// unit is second, default is 30s
+		RetryInterval int `yaml:"retryInterval" jsonschema:"omitempty"`
 	}
 
 	// Rule used to route MQTT packets to different pipelines

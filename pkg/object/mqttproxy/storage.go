@@ -32,7 +32,7 @@ type (
 		getPrefix(prefix string, keysOnly bool) (map[string]string, error)
 		put(key, value string) error
 		delete(key string) error
-		watchDelete(prefix string) (<-chan map[string]*string, func(), error)
+		watch(prefix string) (<-chan map[string]*string, func(), error)
 	}
 
 	mockStorage struct {
@@ -90,6 +90,13 @@ func (m *mockStorage) getPrefix(prefix string, keysOnly bool) (map[string]string
 func (m *mockStorage) put(key, value string) error {
 	m.mu.Lock()
 	m.store[key] = value
+	if m.watched() {
+		go func() {
+			res := make(map[string]*string)
+			res[key] = &value
+			m.watchCh <- res
+		}()
+	}
 	m.mu.Unlock()
 	return nil
 }
@@ -109,11 +116,10 @@ func (m *mockStorage) delete(key string) error {
 }
 
 func (m *mockStorage) watched() bool {
-	flag := atomic.LoadInt32(&m.watchFlag)
-	return flag == 1
+	return atomic.LoadInt32(&m.watchFlag) != 0
 }
 
-func (m *mockStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
+func (m *mockStorage) watch(prefix string) (<-chan map[string]*string, func(), error) {
 	atomic.StoreInt32(&m.watchFlag, 1)
 	return m.watchCh, func() {}, nil
 }
@@ -137,12 +143,12 @@ func (cs *clusterStorage) delete(key string) error {
 	return cs.cls.Delete(key)
 }
 
-func (cs *clusterStorage) watchDelete(prefix string) (<-chan map[string]*string, func(), error) {
+func (cs *clusterStorage) watch(prefix string) (<-chan map[string]*string, func(), error) {
 	watcher, err := cs.cls.Watcher()
 	if err != nil {
 		return nil, nil, err
 	}
-	ch, err := watcher.WatchWithOp(prefix, cluster.OpPrefix, cluster.OpNotWatchPut)
+	ch, err := watcher.WatchWithOp(prefix, cluster.OpPrefix)
 	if err != nil {
 		watcher.Close()
 		return nil, nil, err

@@ -45,7 +45,7 @@ func newSessionManager(b *Broker, store storage) *SessionManager {
 	sm := &SessionManager{
 		broker:  b,
 		store:   store,
-		storeCh: make(chan SessionStore),
+		storeCh: make(chan SessionStore, 1024), // change to unbounded buffer, due to avoiding to block write operation
 		done:    make(chan struct{}),
 	}
 	go sm.doStore()
@@ -75,7 +75,7 @@ func (sm *SessionManager) newSessionFromConn(connect *packets.ConnectPacket) *Se
 	s := &Session{}
 	s.init(sm, sm.broker, connect)
 	sm.sessionMap.Store(connect.ClientIdentifier, s)
-	go s.backgroundResendPending()
+	go s.backgroundSessionTask()
 	return s
 }
 
@@ -92,7 +92,7 @@ func (sm *SessionManager) newSessionFromJSON(str *string) *Session {
 	if err != nil {
 		return nil
 	}
-	go sess.backgroundResendPending()
+	go sess.backgroundSessionTask()
 	return sess
 }
 
@@ -113,11 +113,13 @@ func (sm *SessionManager) get(clientID string) *Session {
 	return sess
 }
 
-func (sm *SessionManager) delLocal(clientID string) {
+func (sm *SessionManager) delLocal(clientID string) bool {
 	if val, ok := sm.sessionMap.LoadAndDelete(clientID); ok {
 		sess := val.(*Session)
 		sess.close()
+		return true
 	}
+	return false
 }
 
 func (sm *SessionManager) delDB(clientID string) {

@@ -166,7 +166,7 @@ func TestStorage(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(valmap, map[string]string{"prefix_1": "1", "prefix_2": "2"}) {
 		t.Errorf("get wrong prefix val")
 	}
-	ch, _, err := store.watchDelete("prefix")
+	ch, _, err := store.watch("prefix")
 	if err != nil {
 		t.Errorf("create watch delete failed %v", err)
 	}
