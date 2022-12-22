@@ -643,20 +643,16 @@ func (sp *ServerPool) newMetrics(name string) *metrics {
 			proxyLabels).MustCurryWith(commonLabels),
 		RequestBodySizePercentage: prometheushelper.NewSummary(
 			prometheus.SummaryOpts{
-				Name: "proxy_request_body_size_percentage",
-				Help: "a summary of the total size of the request.",
-				Objectives: map[float64]float64{
-					0.25: 20, 0.5: 20, 0.9: 20, 0.95: 20, 0.99: 20,
-				},
+				Name:       "proxy_request_body_size_percentage",
+				Help:       "a summary of the total size of the request.",
+				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			proxyLabels).MustCurryWith(commonLabels),
 		ResponseBodySizePercentage: prometheushelper.NewSummary(
 			prometheus.SummaryOpts{
-				Name: "proxy_response_body_size_percentage",
-				Help: "a summary of the total size of the response.",
-				Objectives: map[float64]float64{
-					0.25: 20, 0.5: 20, 0.9: 20, 0.95: 20, 0.99: 20,
-				},
+				Name:       "proxy_response_body_size_percentage",
+				Help:       "a summary of the total size of the response.",
+				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			proxyLabels).MustCurryWith(commonLabels),
 	}
