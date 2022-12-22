@@ -96,23 +96,33 @@ func updateObjectCmd() *cobra.Command {
 }
 
 func deleteObjectCmd() *cobra.Command {
+	var specFile string
+	var allFlag bool
 	cmd := &cobra.Command{
-		Use:     "delete",
-		Short:   "Delete an object",
-		Example: "egctl object delete <object_name>",
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires one object name to be deleted")
+		Use:   "delete",
+		Short: "Delete an object from a yaml file or name",
+		Run: func(cmd *cobra.Command, args []string) {
+
+			if allFlag {
+				handleRequest(http.MethodDelete, makeURL(objectsURL), nil, cmd)
+				return
 			}
 
-			return nil
-		},
+			if len(specFile) != 0 {
+				visitor := buildSpecVisitor(specFile, cmd)
+				visitor.Visit(func(s *spec) error {
+					handleRequest(http.MethodDelete, makeURL(objectURL, s.Name), nil, cmd)
+					return nil
+				})
+				visitor.Close()
+				return
+			}
 
-		Run: func(cmd *cobra.Command, args []string) {
 			handleRequest(http.MethodDelete, makeURL(objectURL, args[0]), nil, cmd)
 		},
 	}
-
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Delete all object.")
 	return cmd
 }
 

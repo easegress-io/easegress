@@ -73,6 +73,11 @@ func (s *Server) objectAPIEntries() []*Entry {
 			Handler: s.deleteObject,
 		},
 		{
+			Path:    ObjectPrefix,
+			Method:  "DELETE",
+			Handler: s.deleteAllObject,
+		},
+		{
 			Path:    StatusObjectPrefix,
 			Method:  "GET",
 			Handler: s.listStatusObjects,
@@ -148,6 +153,18 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s._deleteObject(name)
+	s.upgradeConfigVersion(w, r)
+}
+
+func (s *Server) deleteAllObject(w http.ResponseWriter, r *http.Request) {
+	s.Lock()
+	defer s.Unlock()
+
+	specs := s._listObjects()
+	for _, spec := range specs {
+		s._deleteObject(spec.Name())
+	}
+
 	s.upgradeConfigVersion(w, r)
 }
 
