@@ -21,13 +21,13 @@
     - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
-      - [spanlimits.Spec](#spanlimitsSpec)
-      - [batchlimits.Spec](#batchlimitsSpec)
-      - [exporter.Spec](#exporterSpec)
-        - [jaeger.Spec](#jaegerSpec)
-        - [zipkin.Spec](#zipkinSpec)
-        - [otlp.Spec](#otlpSpec)
-      - [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec)
+      - [spanlimits.Spec](#spanlimitsspec)
+      - [batchlimits.Spec](#batchlimitsspec)
+      - [exporter.Spec](#exporterspec)
+      - [jaeger.Spec](#jaegerspec)
+      - [zipkin.Spec](#zipkinspec)
+      - [otlp.Spec](#otlpspec)
+      - [zipkin.DeprecatedSpec](#zipkindeprecatedspec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
@@ -376,7 +376,7 @@ syncInterval: 10s
 | scheme       | string   | Communication scheme         | Yes (default: http)           |
 | datacenter   | string   | Datacenter name              | No                            |
 | token        | string   | ACL token for communication  | No                            |
-| Namespace    | string   | Namespace to use             | No                            |
+| namespace    | string   | Namespace to use             | No                            |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)            |
 | serviceTags  | []string | Service tags to query        | No                            |
 
@@ -431,7 +431,7 @@ syncInterval: 10s
 | ------------ | -------- | ---------------------------- | ----------------------------- |
 | zkservices   | []string | Zookeeper service addresses  | Yes (default: 127.0.0.1:2181) |
 | connTimeout  | string   | Timeout of connection        | Yes (default: 6s)             |
-| Prefix       | string   | Prefix of services           | Yes (default: /)              |
+| prefix       | string   | Prefix of services           | Yes (default: /)              |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)            |
 
 ### NacosServiceRegistry

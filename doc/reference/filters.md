@@ -58,12 +58,12 @@
   - [DataBuilder](#databuilder)
     - [Configuration](#configuration-18)
     - [Results](#results-18)
-  - [OIDCAdaptor](#OIDCAdaptor)
+  - [OIDCAdaptor](#oidcadaptor)
     - [Configuration](#configuration-19)
     - [Results](#results-19)
-  - [OPAFilter](#OPAFilter)
+  - [OPAFilter](#opafilter)
     - [Configuration](#configuration-20)
-    - [Results](#results-20) 
+    - [Results](#results-20)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -72,6 +72,7 @@
     - [proxy.Server](#proxyserver)
     - [proxy.LoadBalanceSpec](#proxyloadbalancespec)
     - [proxy.StickySessionSpec](#proxystickysessionspec)
+    - [proxy.HealthCheckSpec](#proxyhealthcheckspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
     - [proxy.StringMatcher](#proxystringmatcher)
@@ -85,6 +86,8 @@
     - [ratelimiter.Policy](#ratelimiterpolicy)
     - [httpheader.ValueValidator](#httpheadervaluevalidator)
     - [validator.JWTValidatorSpec](#validatorjwtvalidatorspec)
+    - [validator.BasicAuthValidatorSpec](#validatorbasicauthvalidatorspec)
+    - [basicAuth.LDAPSpec](#basicauthldapspec)
     - [signer.Spec](#signerspec)
     - [signer.HeaderHoisting](#signerheaderhoisting)
     - [signer.Literal](#signerliteral)
@@ -179,7 +182,7 @@ pools:
 | ---- | ---- | ----------- | -------- |
 | pools | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes |
 | mirrorPool | [proxy.ServerPoolSpec](#proxyserverpoolspec) | Define a mirror pool, requests are sent to this pool simultaneously when they are sent to candidate pools or main pool | No |
-| compression | [proxy.CompressionSpec](#proxyCompressionSpec) | Response compression options | No |
+| compression | [proxy.Compression](#proxyCompression) | Response compression options | No |
 | mtls | [proxy.MTLS](#proxymtls) | mTLS configuration | No |
 | maxIdleConns | int | Controls the maximum number of idle (keep-alive) connections across all hosts. Default is 10240 | No |
 | maxIdleConnsPerHost | int | Controls the maximum idle (keep-alive) connections to keep per-host. Default is 1024 | No |
@@ -1227,7 +1230,7 @@ Polices:
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
-｜ policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
+| policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
 | headers     | map[string][proxy.StringMatcher](#proxystringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
 | urls        | [][proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)                  | Request URL match criteria                                                                                                  | No       |
 | permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
@@ -1375,6 +1378,7 @@ The relationship between `methods` and `url` is `AND`.
 ### signer.HeaderHoisting
 
 | Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
 | allowedPrefix | []string | Allowed prefix for headers | No |
 | disallowedPrefix | []string | Disallowed prefix for headers | No |
 | disallowed | []string | Disallowed headers | No |
