@@ -122,7 +122,7 @@ func deleteObjectCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
-	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Delete all object.")
+	cmd.Flags().BoolVarP(&allFlag, "all", "", false, "Delete all object.")
 	return cmd
 }
 
