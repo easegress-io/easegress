@@ -103,7 +103,6 @@ func deleteObjectCmd() *cobra.Command {
 		Use:   "delete",
 		Short: "Delete an object from a yaml file or name",
 		Args: func(cmd *cobra.Command, args []string) error {
-
 			if allFlag {
 				if len(specFile) != 0 {
 					return errors.New("--all and --file cannot be used together")
