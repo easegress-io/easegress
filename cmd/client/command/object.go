@@ -120,7 +120,6 @@ func deleteObjectCmd() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-
 			if allFlag {
 				handleRequest(http.MethodDelete, makeURL(objectsURL+fmt.Sprintf("?all=%v", true)), nil, cmd)
 				return
