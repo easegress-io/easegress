@@ -75,7 +75,7 @@ func (s *Server) objectAPIEntries() []*Entry {
 		{
 			Path:    ObjectPrefix,
 			Method:  "DELETE",
-			Handler: s.deleteAllObject,
+			Handler: s.deleteObjects,
 		},
 		{
 			Path:    StatusObjectPrefix,
@@ -156,16 +156,20 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	s.upgradeConfigVersion(w, r)
 }
 
-func (s *Server) deleteAllObject(w http.ResponseWriter, r *http.Request) {
-	s.Lock()
-	defer s.Unlock()
+func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
+	allFlag := r.URL.Query().Get("all")
+	if allFlag == "true" {
+		s.Lock()
+		defer s.Unlock()
 
-	specs := s._listObjects()
-	for _, spec := range specs {
-		s._deleteObject(spec.Name())
+		specs := s._listObjects()
+		for _, spec := range specs {
+			s._deleteObject(spec.Name())
+		}
+
+		s.upgradeConfigVersion(w, r)
 	}
 
-	s.upgradeConfigVersion(w, r)
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
