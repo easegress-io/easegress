@@ -169,7 +169,6 @@ func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 		s.upgradeConfigVersion(w, r)
 	}
-
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
