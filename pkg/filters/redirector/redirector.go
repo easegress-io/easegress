@@ -114,7 +114,7 @@ func (r *Redirector) reload() {
 		r.spec.StatusCode = 301
 	}
 	if _, ok := statusCodeMap[r.spec.StatusCode]; !ok {
-		logger.Warnf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
+		logger.Errorf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
 		r.spec.StatusCode = 301
 	}
 
@@ -123,7 +123,7 @@ func (r *Redirector) reload() {
 	}
 	r.spec.MatchPart = strings.ToLower(r.spec.MatchPart)
 	if !stringtool.StrInSlice(r.spec.MatchPart, []string{matchPartURI, matchPartFull, matchPartPath}) {
-		logger.Warnf("invalid match part of Redirector, only uri, full and path are supported, use uri instead")
+		logger.Errorf("invalid match part of Redirector, only uri, full and path are supported, use uri instead")
 		r.spec.MatchPart = matchPartURI
 	}
 	r.re = regexp.MustCompile(r.spec.Match)
