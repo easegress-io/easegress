@@ -64,6 +64,9 @@
   - [OPAFilter](#OPAFilter)
     - [Configuration](#configuration-20)
     - [Results](#results-20) 
+  - [Redirector](#Redirector)
+    - [Configuration](#configuration-21)
+    - [Results](#results-21) 
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -1123,6 +1126,75 @@ The following table lists input request fields that can be used in an OPA policy
 | opaDenied | The request is denied by OPA policy decision. |
 
 
+## Redirector
+
+The `Redirector` filter is used to do HTTP redirect. `Redirector` matches request url, do replacement, and return response with status code of 301 or 302 and put new path in response header with key of `Location`.
+
+Here a simple example: 
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "^/users/([0-9]+)"
+  replacement: "http://example.com/display?user=$1"
+```
+In this example, request with path `/users/123` will redirect to `http://example.com/display?user=123`.
+```
+HTTP/1.1 301 Moved Permanently
+Location: http://example.com/display?user=123
+```
+
+More details about spec:
+
+We use [ReplaceAllString](https://pkg.go.dev/regexp#Regexp.ReplaceAllString) to do match and replace and put output into response header with key `Location`. By default, we use `URI` as input, but you can change input by control parameter of `matchPart`.
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "^/users/([0-9]+)"
+  # by default, value of matchPart is uri, supported values: uri, path, full.
+  matchPart: "full" 
+  replacement: "http://example.com/display?user=$1"
+```
+
+For request with URL of `https://example.com:8080/apis/v1/user?id=1`, URI part is `/apis/v1/user?id=1`, path part is `/apis/v1/user` and full part is `https://example.com:8080/apis/v1/user?id=1`.
+
+By default, we return status code of `301` "Moved Permanently". To return status code of `302` "Found", change `statusCode` in yaml. 
+
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "^/users/([0-9]+)"
+  # default value of 301, supported values: 301, 302.
+  statusCode: 302
+  replacement: "http://example.com/display?user=$1"
+```
+
+
+### Configuration
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| match | string | Regular expression to match request path. The syntax of the regular expression is [RE2](https://golang.org/s/re2syntax) | Yes |
+| matchPart | string | Parameter to decide which part of url used to do match, supported values: uri, full, path. Default value is uri. | No |
+| replacement | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp` | Yes | 
+| statusCode | int | Status code of response. Supported values: 301, 302. Default: 301. | No | 
+### Results
+
+`Redirector` has no results. 
 
 ## Common Types
 
