@@ -112,11 +112,10 @@ func (r *Redirector) Inherit(previousGeneration filters.Filter) {
 func (r *Redirector) reload() {
 	if r.spec.StatusCode == 0 {
 		r.spec.StatusCode = 301
-	} else {
-		if _, ok := statusCodeMap[r.spec.StatusCode]; !ok {
-			logger.Warnf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
-			r.spec.StatusCode = 301
-		}
+	}
+	if _, ok := statusCodeMap[r.spec.StatusCode]; !ok {
+		logger.Warnf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
+		r.spec.StatusCode = 301
 	}
 
 	if r.spec.MatchPart == "" {
