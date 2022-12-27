@@ -134,10 +134,13 @@ func TestRedirector(t *testing.T) {
 		}
 	}
 
-	// test invalid spec change to default
+	// test invalid spec change to default or case-insensitive match part
 	for i, t := range []*Spec{
 		getSpec("(.*)", "all", "$1", 800),   // invalid match part
 		getSpec("(.*)", "other", "$1", 200), // invalid status code
+		getSpec("(.*)", "URI", "$1", 200),   // invalid status code
+		getSpec("(.*)", "uRi", "$1", 200),   // invalid status code
+		getSpec("(.*)", "urI", "$1", 200),   // invalid status code
 	} {
 		msg := fmt.Sprintf("case %d failed.", i)
 		r := &Redirector{spec: t}
