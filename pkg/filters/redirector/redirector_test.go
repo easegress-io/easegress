@@ -23,9 +23,14 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
+
+func init() {
+	logger.InitNop()
+}
 
 func getSpec(match string, part string, replace string, code int) *Spec {
 	return &Spec{
@@ -85,9 +90,27 @@ func TestRedirector(t *testing.T) {
 			},
 		},
 		{
-			spec: getSpec("(.*)", "path", "$1", 302), // path, 302
+			spec: getSpec("(.*)", "path", "$1", 303), // path, 303
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 302, "Found"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 303, "See Other"),
+			},
+		},
+		{
+			spec: getSpec("(.*)", "path", "$1", 304), // path, 304
+			matches: []match{
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 304, "Not Modified"),
+			},
+		},
+		{
+			spec: getSpec("(.*)", "path", "$1", 307), // path, 307
+			matches: []match{
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 307, "Temporary Redirect"),
+			},
+		},
+		{
+			spec: getSpec("(.*)", "path", "$1", 308), // path, 308
+			matches: []match{
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 308, "Permanent Redirect"),
 			},
 		},
 	} {
@@ -111,15 +134,16 @@ func TestRedirector(t *testing.T) {
 		}
 	}
 
-	// test invalid spec
+	// test invalid spec change to default
 	for i, t := range []*Spec{
-		getSpec("(.*)", "all", "$1", 0),   // invalid match part
-		getSpec("(.*)", "uri", "$1", 200), // invalid status code
-		getSpec("(+)", "uri", "$1", 301),  // invalid regex
+		getSpec("(.*)", "all", "$1", 800),   // invalid match part
+		getSpec("(.*)", "other", "$1", 200), // invalid status code
 	} {
 		msg := fmt.Sprintf("case %d failed.", i)
 		r := &Redirector{spec: t}
-		assert.Panics(func() { r.Init() }, msg)
+		r.Init()
+		assert.Equal("uri", r.spec.MatchPart, msg)
+		assert.Equal(301, r.spec.StatusCode, msg)
 	}
 
 	// test complicated regex
@@ -145,6 +169,41 @@ func TestRedirector(t *testing.T) {
 			spec: getSpec("^/users/([0-9]+)", "path", "http://example.com/display?user=$1", 301),
 			matches: []match{
 				getMatch("http://a.com:8080/users/123", "http://example.com/display?user=123", 301, "Moved Permanently"),
+			},
+		},
+		{
+			// URI Prefix Redirect
+			spec: getSpec("^(.*)$", "uri", "/prefix$1", 301),
+			matches: []match{
+				getMatch("https://example.com/path/to/api/?key1=123&key2=456", "/prefix/path/to/api/?key1=123&key2=456", 301, "Moved Permanently"),
+			},
+		},
+		{
+			// URI Prefix Redirect with schema and host
+			spec: getSpec(`(^.*\/\/)([^\/]*)(.*)$`, "full", "${1}${2}/prefix$3", 301),
+			matches: []match{
+				getMatch("https://example.com/path/to/api/?key1=123&key2=456", "https://example.com/prefix/path/to/api/?key1=123&key2=456", 301, "Moved Permanently"),
+			},
+		},
+		{
+			// Domain Redirect
+			spec: getSpec(`(^.*\/\/)([^\/]*)(.*$)`, "full", "${1}my.com${3}", 301),
+			matches: []match{
+				getMatch("https://example.com/path/to/api/?key1=123&key2=456", "https://my.com/path/to/api/?key1=123&key2=456", 301, "Moved Permanently"),
+			},
+		},
+		{
+			// Path Redirect
+			spec: getSpec(`/path/to/(user)\.php\?id=(\d*)`, "uri", "/api/$1/$2", 301),
+			matches: []match{
+				getMatch("https://example.com/path/to/user.php?id=123", "/api/user/123", 301, "Moved Permanently"),
+			},
+		},
+		{
+			// Path Redirect with schema and host
+			spec: getSpec(`(^.*\/\/)([^\/]*)/path/to/(user)\.php\?id=(\d*)`, "full", "${1}${2}/api/$3/$4", 301),
+			matches: []match{
+				getMatch("https://example.com/path/to/user.php?id=123", "https://example.com/api/user/123", 301, "Moved Permanently"),
 			},
 		},
 	} {

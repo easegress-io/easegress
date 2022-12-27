@@ -19,9 +19,11 @@ package redirector
 
 import (
 	"regexp"
+	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -32,6 +34,21 @@ const (
 
 	resultMismatch = "mismatch"
 )
+
+const (
+	matchPartFull = "full"
+	matchPartURI  = "uri"
+	matchPartPath = "path"
+)
+
+var statusCodeMap = map[int]string{
+	301: "Moved Permanently",
+	302: "Found",
+	303: "See Other",
+	304: "Not Modified",
+	307: "Temporary Redirect",
+	308: "Permanent Redirect",
+}
 
 var kind = &filters.Kind{
 	Name:        Kind,
@@ -63,7 +80,7 @@ type (
 		Match       string `json:"match" jsonschema:"required"`
 		MatchPart   string `json:"matchPart" jsonschema:"required,enum=uri|full|path"` // default uri
 		Replacement string `json:"replacement" jsonschema:"required"`
-		StatusCode  int    `json:"statusCode" jsonschema:"required,enum=301|302"` // default 301
+		StatusCode  int    `json:"statusCode" jsonschema:"required,enum=300|301|302|303|304|307|308"` // default 301
 	}
 )
 
@@ -95,25 +112,29 @@ func (r *Redirector) Inherit(previousGeneration filters.Filter) {
 func (r *Redirector) reload() {
 	if r.spec.StatusCode == 0 {
 		r.spec.StatusCode = 301
-	}
-	if r.spec.StatusCode != 301 && r.spec.StatusCode != 302 {
-		panic("invalid status code of Redirector, only 301 and 302 are supported")
+	} else {
+		if _, ok := statusCodeMap[r.spec.StatusCode]; !ok {
+			logger.Warnf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
+			r.spec.StatusCode = 301
+		}
 	}
 
 	if r.spec.MatchPart == "" {
-		r.spec.MatchPart = "uri"
+		r.spec.MatchPart = matchPartURI
 	}
-	if !stringtool.StrInSlice(r.spec.MatchPart, []string{"uri", "full", "path"}) {
-		panic("invalid match part of Redirector, only uri, full and path are supported")
+	r.spec.MatchPart = strings.ToLower(r.spec.MatchPart)
+	if !stringtool.StrInSlice(r.spec.MatchPart, []string{matchPartURI, matchPartFull, matchPartPath}) {
+		logger.Warnf("invalid match part of Redirector, only uri, full and path are supported, use uri instead")
+		r.spec.MatchPart = matchPartURI
 	}
 	r.re = regexp.MustCompile(r.spec.Match)
 }
 
 func (r *Redirector) getMatchInput(req *httpprot.Request) string {
 	switch r.spec.MatchPart {
-	case "uri":
+	case matchPartURI:
 		return req.URL().RequestURI()
-	case "full":
+	case matchPartFull:
 		return req.URL().String()
 	default:
 		// in spec we have already checked the value of MatchPart, only "uri", "full" and "path" are allowed
@@ -123,10 +144,11 @@ func (r *Redirector) getMatchInput(req *httpprot.Request) string {
 
 func (r *Redirector) updateResponse(resp *httpprot.Response, matchResult string) {
 	resp.SetStatusCode(r.spec.StatusCode)
-	if r.spec.StatusCode == 301 {
-		resp.SetPayload([]byte("Moved Permanently"))
+	val, ok := statusCodeMap[r.spec.StatusCode]
+	if !ok {
+		resp.SetPayload([]byte(statusCodeMap[301]))
 	} else {
-		resp.SetPayload([]byte("Found"))
+		resp.SetPayload([]byte(val))
 	}
 	resp.Header().Add("Location", matchResult)
 }

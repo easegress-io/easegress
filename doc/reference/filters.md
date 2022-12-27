@@ -1128,7 +1128,7 @@ The following table lists input request fields that can be used in an OPA policy
 
 ## Redirector
 
-The `Redirector` filter is used to do HTTP redirect. `Redirector` matches request url, do replacement, and return response with status code of 301 or 302 and put new path in response header with key of `Location`.
+The `Redirector` filter is used to do HTTP redirect. `Redirector` matches request url, do replacement, and return response with status code of `3xx` and put new path in response header with key of `Location`.
 
 Here a simple example: 
 ```yaml
@@ -1168,7 +1168,7 @@ filters:
 
 For request with URL of `https://example.com:8080/apis/v1/user?id=1`, URI part is `/apis/v1/user?id=1`, path part is `/apis/v1/user` and full part is `https://example.com:8080/apis/v1/user?id=1`.
 
-By default, we return status code of `301` "Moved Permanently". To return status code of `302` "Found", change `statusCode` in yaml. 
+By default, we return status code of `301` "Moved Permanently". To return status code of `302` "Found" or other `3xx`, change `statusCode` in yaml. 
 
 ```yaml
 name: demo-pipeline
@@ -1179,9 +1179,102 @@ filters:
 - name: redirector
   kind: Redirector
   match: "^/users/([0-9]+)"
-  # default value of 301, supported values: 301, 302.
+  # default value of 301, supported values: 301, 302, 303, 304, 307, 308.
   statusCode: 302
   replacement: "http://example.com/display?user=$1"
+```
+
+Following are some common used examples: 
+1. URI prefix redirect
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "^(.*)$"
+  matchPart: "uri"
+  replacement: "/prefix$1"
+```
+
+```
+input: https://example.com/path/to/api/?key1=123&key2=456
+output: /prefix/path/to/api/?key1=123&key2=456
+```
+
+URI prefix redirect with schema and host:
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "(^.*\/\/)([^\/]*)(.*)$"
+  matchPart: "full"
+  replacement: "${1}${2}/prefix$3"
+```
+```
+input: https://example.com/path/to/api/?key1=123&key2=456
+output: https://example.com/prefix/path/to/api/?key1=123&key2=456
+```
+
+2. Domain Redirect
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "(^.*\/\/)([^\/]*)(.*$)"
+  matchPart: "full"
+  # use ${1} instead of $1 here.
+  replacement: "${1}my.com${3}"
+```
+```
+input: https://example.com/path/to/api/?key1=123&key2=456
+output: https://my.com/path/to/api/?key1=123&key2=456
+```
+
+3. Path Redirect
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "/path/to/(user)\.php\?id=(\d*)"
+  matchPart: "uri"
+  replacement: "/api/$1/$2"
+```
+```
+input: https://example.com/path/to/user.php?id=123
+output: /api/user/123
+```
+
+Path redirect with schema and host:
+```yaml
+name: demo-pipeline
+kind: Pipeline
+flow:
+- filter: redirector
+filters:
+- name: redirector
+  kind: Redirector
+  match: "(^.*\/\/)([^\/]*)/path/to/(user)\.php\?id=(\d*)"
+  matchPart: "full"
+  replacement: "${1}${2}/api/$3/$4"
+```
+```
+input: https://example.com/path/to/user.php?id=123
+output: https://example.com/api/user/123
 ```
 
 
@@ -1191,7 +1284,7 @@ filters:
 | match | string | Regular expression to match request path. The syntax of the regular expression is [RE2](https://golang.org/s/re2syntax) | Yes |
 | matchPart | string | Parameter to decide which part of url used to do match, supported values: uri, full, path. Default value is uri. | No |
 | replacement | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp` | Yes | 
-| statusCode | int | Status code of response. Supported values: 301, 302. Default: 301. | No | 
+| statusCode | int | Status code of response. Supported values: 301, 302, 303, 304, 307, 308. Default: 301. | No | 
 ### Results
 
 `Redirector` has no results. 
