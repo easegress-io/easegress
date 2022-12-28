@@ -6,14 +6,15 @@
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.3.0...v2.3.1)
 
 **Significant changes:**
+* Support OpenTelemetry for tracing.
 * Add new filter Redirector to handle HTTP 3xx redirects.
 * Add prometheus support for Proxy and HTTPServer.
-* Support HTTPS for egctl and easegress-server.
-* Enhance egctl delete.
 
 **Implemented enhancements:**
 * Add LDAP mode for basic authentication.
 * Add Broker mode for MQTTProxy.
+* Support HTTPS for egctl and easegress-server.
+* Enhance egctl delete.
 
 ## [v2.3.0](https://github.com/megaease/easegress/tree/v2.3.0) (2022-11-28)
 
