@@ -19,6 +19,7 @@ package command
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/spf13/cobra"
@@ -96,23 +97,48 @@ func updateObjectCmd() *cobra.Command {
 }
 
 func deleteObjectCmd() *cobra.Command {
+	var specFile string
+	var allFlag bool
 	cmd := &cobra.Command{
-		Use:     "delete",
-		Short:   "Delete an object",
-		Example: "egctl object delete <object_name>",
+		Use:   "delete",
+		Short: "Delete an object from a yaml file or name",
 		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires one object name to be deleted")
+			if allFlag {
+				if len(specFile) != 0 {
+					return errors.New("--all and --file cannot be used together")
+				}
+				if len(args) != 0 {
+					return errors.New("--all and <object_name> cannot be used together")
+				}
+			}
+
+			if len(args) != 0 && len(specFile) != 0 {
+				return errors.New("--file and <object_name> cannot be used together")
 			}
 
 			return nil
 		},
-
 		Run: func(cmd *cobra.Command, args []string) {
+			if allFlag {
+				handleRequest(http.MethodDelete, makeURL(objectsURL+fmt.Sprintf("?all=%v", true)), nil, cmd)
+				return
+			}
+
+			if len(specFile) != 0 {
+				visitor := buildSpecVisitor(specFile, cmd)
+				visitor.Visit(func(s *spec) error {
+					handleRequest(http.MethodDelete, makeURL(objectURL, s.Name), nil, cmd)
+					return nil
+				})
+				visitor.Close()
+				return
+			}
+
 			handleRequest(http.MethodDelete, makeURL(objectURL, args[0]), nil, cmd)
 		},
 	}
-
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+	cmd.Flags().BoolVarP(&allFlag, "all", "", false, "Delete all object.")
 	return cmd
 }
 
