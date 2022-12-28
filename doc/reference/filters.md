@@ -1288,7 +1288,7 @@ output: https://example.com/api/user/123
 ### Results
 | Value | Description |
 | ----- | ----------- |
-| redirected | The request matches rule and response has been redirected |
+| redirected | The request has been redirected |
 
 ## Common Types
 
