@@ -18,12 +18,12 @@
 package redirector
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
@@ -32,7 +32,7 @@ const (
 	// Kind is the kind of Redirector.
 	Kind = "Redirector"
 
-	resultMismatch = "mismatch"
+	resultRedirected = "redirected"
 )
 
 const (
@@ -53,9 +53,12 @@ var statusCodeMap = map[int]string{
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "Redirector redirect HTTP requests.",
-	Results:     []string{resultMismatch},
+	Results:     []string{resultRedirected},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{}
+		return &Spec{
+			MatchPart:  matchPartURI,
+			StatusCode: 301,
+		}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
 		return &Redirector{spec: spec.(*Spec)}
@@ -78,11 +81,29 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Match       string `json:"match" jsonschema:"required"`
-		MatchPart   string `json:"matchPart" jsonschema:"required,enum=uri|full|path"` // default uri
+		MatchPart   string `json:"matchPart,omitempty" jsonschema:"omitempty,enum=uri,enum=path,enum=full"` // default uri
 		Replacement string `json:"replacement" jsonschema:"required"`
-		StatusCode  int    `json:"statusCode" jsonschema:"required,enum=300|301|302|303|304|307|308"` // default 301
+		StatusCode  int    `json:"statusCode,omitempty" jsonschema:"omitempty"` // default 301
 	}
 )
+
+func (s *Spec) Validate() error {
+	if _, ok := statusCodeMap[s.StatusCode]; !ok {
+		return errors.New("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308")
+	}
+	s.MatchPart = strings.ToLower(s.MatchPart)
+	if !stringtool.StrInSlice(s.MatchPart, []string{matchPartURI, matchPartFull, matchPartPath}) {
+		return errors.New("invalid match part of Redirector, only uri, full and path are supported")
+	}
+	if s.Match == "" || s.Replacement == "" {
+		return errors.New("match and replacement of Redirector can't be empty")
+	}
+	_, err := regexp.Compile(s.Match)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // Name returns the name of the Redirector filter instance.
 func (r *Redirector) Name() string {
@@ -110,22 +131,6 @@ func (r *Redirector) Inherit(previousGeneration filters.Filter) {
 }
 
 func (r *Redirector) reload() {
-	if r.spec.StatusCode == 0 {
-		r.spec.StatusCode = 301
-	}
-	if _, ok := statusCodeMap[r.spec.StatusCode]; !ok {
-		logger.Errorf("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308, use 301 instead")
-		r.spec.StatusCode = 301
-	}
-
-	if r.spec.MatchPart == "" {
-		r.spec.MatchPart = matchPartURI
-	}
-	r.spec.MatchPart = strings.ToLower(r.spec.MatchPart)
-	if !stringtool.StrInSlice(r.spec.MatchPart, []string{matchPartURI, matchPartFull, matchPartPath}) {
-		logger.Errorf("invalid match part of Redirector, only uri, full and path are supported, use uri instead")
-		r.spec.MatchPart = matchPartURI
-	}
 	r.re = regexp.MustCompile(r.spec.Match)
 }
 
@@ -141,27 +146,31 @@ func (r *Redirector) getMatchInput(req *httpprot.Request) string {
 	}
 }
 
-func (r *Redirector) updateResponse(resp *httpprot.Response, matchResult string) {
+func (r *Redirector) updateResponse(resp *httpprot.Response, newLocation string) {
 	resp.SetStatusCode(r.spec.StatusCode)
-	val, ok := statusCodeMap[r.spec.StatusCode]
-	if !ok {
-		resp.SetPayload([]byte(statusCodeMap[301]))
-	} else {
-		resp.SetPayload([]byte(val))
-	}
-	resp.Header().Add("Location", matchResult)
+	resp.SetPayload([]byte(statusCodeMap[r.spec.StatusCode]))
+	resp.Header().Add("Location", newLocation)
 }
 
 // Handle Redirector Context.
 func (r *Redirector) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	matchInput := r.getMatchInput(req)
-	matchResult := r.re.ReplaceAllString(matchInput, r.spec.Replacement)
+	newLocation := r.re.ReplaceAllString(matchInput, r.spec.Replacement)
+
+	// if matchInput is not matched, newLocation will be the same as matchInput
+	// consider we have multiple Redirector filters, we should not redirect the request
+	// if the request is not matched by the current Redirector filter
+	// so we return "" to indicate the request is not matched by the current Redirector filter
+	// and the request will be handled by the next filter.
+	if newLocation == matchInput {
+		return ""
+	}
 
 	resp, _ := httpprot.NewResponse(nil)
-	r.updateResponse(resp, matchResult)
+	r.updateResponse(resp, newLocation)
 	ctx.SetOutputResponse(resp)
-	return ""
+	return resultRedirected
 }
 
 // Status returns status.
