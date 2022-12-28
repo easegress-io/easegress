@@ -1286,8 +1286,9 @@ output: https://example.com/api/user/123
 | replacement | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp` | Yes | 
 | statusCode | int | Status code of response. Supported values: 301, 302, 303, 304, 307, 308. Default: 301. | No | 
 ### Results
-
-`Redirector` has no results. 
+| Value | Description |
+| ----- | ----------- |
+| redirected | The request has been redirected |
 
 ## Common Types
 
