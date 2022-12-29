@@ -103,17 +103,17 @@ rules:
 | cacheSize        | uint32                             | The size of cache, 0 means no cache                                                      | No                   |
 | xForwardedFor    | bool                               | Whether to set X-Forwarded-For header by own ip                                          | No                   |
 | tracing          | [tracing.Spec](#tracingSpec)       | Distributed tracing settings                                                             | No                   |
-| certBase64      | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
+| certBase64       | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
 | keyBase64        | string                             | Private key of PEM encoded data in base64 encoded format                                 | No                   |
 | certs            | map[string]string                  | Public keys of PEM encoded data, the key is the logic pair name, which must match keys   | No                   |
 | keys             | map[string]string                  | Private keys of PEM encoded data, the key is the logic pair name, which must match certs | No                   |
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
-| routerKind       | string                             | Kind of router. see [routers](./routers.md)                                               | No (default: Order)  |
-| rules            | [httpserver.Rule](#httpserverrule) | Router rules                                                                             | No                   |
-| autoCert | bool | Do HTTP certification automatically | No |
+| routerKind       | string                             | Kind of router. see [routers](./routers.md)                                              | No (default: Order)  |
+| rules            | [][httpserver.Rule](#httpserverrule) | Router rules                                                                           | No                   |
+| autoCert         | bool                               | Do HTTP certification automatically                                                      | No                   |
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
-| caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
-| globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No |
+| caCertBase64     | string                             | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
+| globalFilter     | string                             | Name of [GlobalFilter](#globalfilter) for all backends                                   | No                   |
 
 #### Pipeline
 
