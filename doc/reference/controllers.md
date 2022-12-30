@@ -583,7 +583,7 @@ domains:
 | ipFilter   | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the rule                      | No       |
 | host       | string                             | Exact host to match, empty means to match all                 | No       |
 | hostRegexp | string                             | Host in regular expression to match, empty means to match all | No       |
-| paths      | [httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
+| paths      | [][httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
 
 ### httpserver.Path
 
