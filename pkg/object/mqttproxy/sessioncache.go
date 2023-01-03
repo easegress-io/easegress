@@ -23,7 +23,7 @@ import "sync"
 // SessionCache is used in broker mode only. It stores session info of clients from
 // different easegress instances. It update topic manager when session info of is updated.
 type SessionCacheManager interface {
-	update(clientID string, session *SessionInfo)
+	update(clients map[string]*SessionInfo)
 	delete(clientID string)
 	sync(clients map[string]*SessionInfo)
 	getEGName(clientID string) string
@@ -52,7 +52,6 @@ const (
 type sessionCacheOp struct {
 	opType   sessionCacheOpType
 	clientID string
-	session  *SessionInfo
 	clients  map[string]*SessionInfo
 }
 
@@ -68,11 +67,10 @@ func newSessionCacheManager(sepc *Spec, topicMgr TopicManager) SessionCacheManag
 	return mgr
 }
 
-func (c *sessionCacheManager) update(clientID string, session *SessionInfo) {
+func (c *sessionCacheManager) update(clients map[string]*SessionInfo) {
 	c.writeCh <- &sessionCacheOp{
-		opType:   sessionCacheOpUpdate,
-		clientID: clientID,
-		session:  session,
+		opType:  sessionCacheOpUpdate,
+		clients: clients,
 	}
 }
 
@@ -80,7 +78,6 @@ func (c *sessionCacheManager) delete(clientID string) {
 	c.writeCh <- &sessionCacheOp{
 		opType:   sessionCacheOpDelete,
 		clientID: clientID,
-		session:  nil,
 	}
 }
 
@@ -91,7 +88,13 @@ func (c *sessionCacheManager) sync(clients map[string]*SessionInfo) {
 	}
 }
 
-func (c *sessionCacheManager) processUpdate(clientID string, session *SessionInfo) {
+func (c *sessionCacheManager) processUpdate(clients map[string]*SessionInfo) {
+	for k, v := range clients {
+		c.processSingleUpdate(k, v)
+	}
+}
+
+func (c *sessionCacheManager) processSingleUpdate(clientID string, session *SessionInfo) {
 	c.egNameCache.Store(clientID, session.EGName)
 	if session.EGName == c.egName {
 		c.cache[clientID] = session
@@ -149,7 +152,7 @@ func (c *sessionCacheManager) processSync(clients map[string]*SessionInfo) {
 		}
 	}
 	for k, v := range clients {
-		c.processUpdate(k, v)
+		c.processSingleUpdate(k, v)
 	}
 }
 
@@ -161,7 +164,7 @@ func (c *sessionCacheManager) run() {
 		case op := <-c.writeCh:
 			switch op.opType {
 			case sessionCacheOpUpdate:
-				c.processUpdate(op.clientID, op.session)
+				c.processUpdate(op.clients)
 			case sessionCacheOpDelete:
 				c.processDelete(op.clientID)
 			case sessionCacheOpSync:
