@@ -39,10 +39,10 @@ require (
 	github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.0
-	github.com/open-policy-agent/opa v0.35.0
+	github.com/open-policy-agent/opa v0.47.4
 	github.com/openzipkin/zipkin-go v0.4.1
 	github.com/patrickmn/go-cache v2.1.0+incompatible
-	github.com/phayes/freeport v0.0.0-20180830031419-95f893ade6f2
+	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.14.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.8.3
@@ -68,7 +68,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.11.1
 	go.uber.org/zap v1.24.0
 	golang.org/x/crypto v0.4.0
-	golang.org/x/net v0.3.0
+	golang.org/x/net v0.4.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.3.0
 	k8s.io/api v0.24.8
@@ -79,11 +79,14 @@ require (
 )
 
 require (
+	github.com/BurntSushi/toml v0.4.1 // indirect
+	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.2.0 // indirect
+	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.11.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.11.1 // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
