@@ -513,7 +513,6 @@ domains:
 | eventCountLimit        | int   | EventCountLimit is the maximum allowed span event count| No (default:128)|
 | linkCountLimit        | int   | LinkCountLimit is the maximum allowed span link count| No (default:128)|
 | attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
-| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
 | attributePerLinkCountLimit        | int   | AttributePerLinkCountLimit is the maximum number of attributes allowed per span link| No (default:128)|
 
 #### batchlimits.Spec
