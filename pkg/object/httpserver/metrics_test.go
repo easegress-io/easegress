@@ -24,10 +24,10 @@ import (
 
 func newMockMetrics() *metrics {
 	commonLabels := prometheus.Labels{
-		"name": "name",
-		"kind": Kind,
+		"httpServerName": "name",
+		"kind":           Kind,
 	}
-	mockLabels := []string{"name", "kind", "routerKind", "backend"}
+	mockLabels := []string{"httpServerName", "kind", "routerKind", "backend"}
 	return &metrics{
 		Health: prometheushelper.NewGauge("mock_httpserver_health",
 			"show the status for the http server: 1 for ready, 0 for down",

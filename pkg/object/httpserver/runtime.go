@@ -441,14 +441,14 @@ type (
 // newMetrics create the HttpServerMetrics.
 func (r *runtime) newMetrics(name string) *metrics {
 	commonLabels := prometheus.Labels{
-		"name":         name,
-		"kind":         Kind,
-		"clusterName":  r.superSpec.Super().Options().ClusterName,
-		"clusterRole":  r.superSpec.Super().Options().ClusterRole,
-		"instanceName": r.superSpec.Super().Options().Name,
+		"httpServerName": name,
+		"kind":           Kind,
+		"clusterName":    r.superSpec.Super().Options().ClusterName,
+		"clusterRole":    r.superSpec.Super().Options().ClusterRole,
+		"instanceName":   r.superSpec.Super().Options().Name,
 	}
 	httpserverLabels := []string{"clusterName", "clusterRole",
-		"instanceName", "name", "kind", "routerKind", "backend"}
+		"instanceName", "httpServerName", "kind", "routerKind", "backend"}
 	return &metrics{
 		Health: prometheushelper.NewGauge(
 			"httpserver_health",

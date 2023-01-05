@@ -612,14 +612,14 @@ type (
 // newMetrics create the ProxyMetrics.
 func (sp *ServerPool) newMetrics(name string) *metrics {
 	commonLabels := prometheus.Labels{
-		"name":         name,
+		"proxyName":    name,
 		"kind":         Kind,
 		"clusterName":  sp.proxy.super.Options().ClusterName,
 		"clusterRole":  sp.proxy.super.Options().ClusterRole,
 		"instanceName": sp.proxy.super.Options().Name,
 	}
 	proxyLabels := []string{"clusterName", "clusterRole", "instanceName",
-		"name", "kind", "loadBalancePolicy", "filterPolicy"}
+		"proxyName", "kind", "loadBalancePolicy", "filterPolicy"}
 	return &metrics{
 		TotalConnections: prometheushelper.NewCounter("proxy_total_connections",
 			"the total count of proxy connections",
