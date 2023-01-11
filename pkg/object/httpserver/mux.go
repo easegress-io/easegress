@@ -18,14 +18,19 @@
 package httpserver
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync/atomic"
+	"text/template"
+	"time"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/pkg/protocols"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/pkg/object/globalfilter"
@@ -44,6 +49,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	defaultAccessLogFormat = "$Time $RemoteAddr $RealIP $Method $URI $Proto $StatusCode $Duration $ReqSize $RespSize ReqHeaders:{$ReqHeaders} RespHeaders:{$RespHeaders} Tags:{$Tags}"
+)
+
 type (
 	mux struct {
 		httpStat *httpstat.HTTPStat
@@ -53,11 +62,12 @@ type (
 	}
 
 	muxInstance struct {
-		superSpec *supervisor.Spec
-		spec      *Spec
-		httpStat  *httpstat.HTTPStat
-		topN      *httpstat.TopN
-		metrics   *metrics
+		superSpec     *supervisor.Spec
+		spec          *Spec
+		httpStat      *httpstat.HTTPStat
+		topN          *httpstat.TopN
+		metrics       *metrics
+		alogFormatter *accessLogFormatter
 
 		muxMapper context.MuxMapper
 
@@ -72,6 +82,26 @@ type (
 	cachedRoute struct {
 		code  int
 		route routers.Route
+	}
+
+	accessLogFormatter struct {
+		template *template.Template
+	}
+
+	accessLog struct {
+		Time        string
+		RemoteAddr  string
+		RealIP      string
+		Method      string
+		URI         string
+		Proto       string
+		StatusCode  int
+		Duration    time.Duration
+		ReqSize     uint64
+		RespSize    uint64
+		ReqHeaders  string
+		RespHeaders string
+		Tags        string
 	}
 )
 
@@ -146,14 +176,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec: superSpec,
-		spec:      spec,
-		muxMapper: muxMapper,
-		httpStat:  m.httpStat,
-		topN:      m.topN,
-		metrics:   oldInst.metrics,
-		ipFilter:  ipfilter.New(spec.IPFilterSpec),
-		tracer:    tracer,
+		superSpec:     superSpec,
+		spec:          spec,
+		muxMapper:     muxMapper,
+		httpStat:      m.httpStat,
+		topN:          m.topN,
+		metrics:       oldInst.metrics,
+		ipFilter:      ipfilter.New(spec.IPFilterSpec),
+		tracer:        tracer,
+		alogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}
 	spec.Rules.Init()
 	inst.router = routers.Create(routerKind, spec.Rules)
@@ -189,7 +220,7 @@ func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Respon
 	return resp
 }
 
-func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64) {
+func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, protocols.Header) {
 	var resp *httpprot.Response
 	if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
 		logger.Errorf("%s: response is nil", mi.superSpec.Name())
@@ -209,7 +240,7 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	stdw.WriteHeader(resp.StatusCode())
 	respBodySize, _ := io.Copy(stdw, resp.GetPayload())
 
-	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize())
+	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize()), resp.Header()
 }
 
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
@@ -242,7 +273,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		metric, _ := ctx.GetData("HTTP_METRIC").(*httpstat.Metric)
 
 		if metric == nil {
-			statusCode, respSize := mi.sendResponse(ctx, stdw)
+			statusCode, respSize, respHeader := mi.sendResponse(ctx, stdw)
 			ctx.Finish()
 
 			// Drain off the body if it has not been, so that we can get the
@@ -253,6 +284,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				StatusCode: statusCode,
 				ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
 				RespSize:   respSize,
+				RespHeader: respHeader,
 			}
 		} else { // hijacked, websocket and etc.
 			ctx.Finish()
@@ -269,18 +301,22 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
-			// log format:
-			//
-			// [$startTime]
-			// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
-			// [$contextDuration $readBytes $writeBytes]
-			// [$tags]
-			const logFmt = "[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]"
-			return fmt.Sprintf(logFmt,
-				fasttime.Format(startAt, fasttime.RFC3339Milli),
-				stdr.RemoteAddr, req.RealIP(), stdr.Method, stdr.RequestURI,
-				stdr.Proto, metric.StatusCode, metric.Duration, metric.ReqSize,
-				metric.RespSize, ctx.Tags())
+			log := &accessLog{
+				Time:        fasttime.Format(startAt, fasttime.RFC3339Milli),
+				RemoteAddr:  stdr.RemoteAddr,
+				RealIP:      req.RealIP(),
+				Method:      stdr.Method,
+				URI:         stdr.RequestURI,
+				Proto:       stdr.Proto,
+				StatusCode:  metric.StatusCode,
+				Duration:    metric.Duration,
+				ReqSize:     metric.ReqSize,
+				RespSize:    metric.RespSize,
+				Tags:        ctx.Tags(),
+				ReqHeaders:  printHeader(req.Header()),
+				RespHeaders: printHeader(metric.RespHeader),
+			}
+			return mi.alogFormatter.format(log)
 		})
 	}()
 
@@ -430,4 +466,35 @@ func (mi *muxInstance) exportPrometheusMetrics(stat *httpstat.Metric, backend st
 	mi.metrics.RequestsDurationPercentage.With(labels).Observe(float64(stat.Duration.Milliseconds()))
 	mi.metrics.RequestSizeBytesPercentage.With(labels).Observe(float64(stat.ReqSize))
 	mi.metrics.ResponseSizeBytesPercentage.With(labels).Observe(float64(stat.RespSize))
+}
+
+func newAccessLogFormatter(format string) *accessLogFormatter {
+	if format == "" {
+		format = defaultAccessLogFormat
+	}
+	escapeReg := regexp.MustCompile(`(\{|\})`)
+	expr := escapeReg.ReplaceAllString(format, "{{`$1`}}")
+	varReg := regexp.MustCompile(`\$([a-zA-z]*)`)
+	expr = varReg.ReplaceAllString(expr, "{{.$1}}")
+	tpl := template.Must(template.New("").Parse(expr))
+	return &accessLogFormatter{template: tpl}
+}
+
+func (formatter *accessLogFormatter) format(log *accessLog) string {
+	var buf bytes.Buffer
+	if err := formatter.template.Execute(&buf, log); err != nil {
+		logger.Errorf("format access log failed: %v", err)
+	}
+	return buf.String()
+}
+
+func printHeader(header protocols.Header) string {
+	buf := bytes.Buffer{}
+	if header != nil {
+		header.Walk(func(key string, values interface{}) bool {
+			buf.WriteString(fmt.Sprintf("%v: %v, ", key, values))
+			return true
+		})
+	}
+	return buf.String()
 }
