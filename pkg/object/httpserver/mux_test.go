@@ -638,7 +638,7 @@ func TestAccessLog(t *testing.T) {
 		Method: "GET",
 		URI:    "127.0.0.1",
 	}
-	formatter := newAccessLogFormatter("$Method {$RequestURL}")
+	formatter := newAccessLogFormatter("$Method {$URI}")
 	s := formatter.format(log)
 	assert.Equal(t, "GET {127.0.0.1}", s)
 }
