@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	grpcpool "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -92,6 +92,9 @@ var (
 		ClientStreams: true,
 		ServerStreams: true,
 	}
+	defaultDialOpts = []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithCodec(GetCodecInstance())}
 )
 
 // ServerPool defines a server pool.
@@ -105,7 +108,9 @@ type ServerPool struct {
 	filter                RequestMatcher
 	loadBalancer          atomic.Value
 	timeout               time.Duration
+	connectTimeout        time.Duration
 	circuitBreakerWrapper resilience.Wrapper
+	dialOpts              []grpc.DialOption
 }
 
 // ServerPoolSpec is the spec for a server pool.
@@ -118,6 +123,8 @@ type ServerPoolSpec struct {
 	ServiceName          string              `yaml:"serviceName" jsonschema:"omitempty"`
 	LoadBalance          *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
 	Timeout              string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
+	ConnectTimeout       string              `yaml:"connectTimeout" jsonschema:"omitempty,format=duration"`
+	BlockUntilConnected  bool                `yaml:"blockUntilConnected" jsonschema:"omitempty"`
 	CircuitBreakerPolicy string              `yaml:"circuitBreakerPolicy" jsonschema:"omitempty"`
 }
 
@@ -136,6 +143,16 @@ func (sps *ServerPoolSpec) Validate() error {
 	if serversGotWeight > 0 && serversGotWeight < len(sps.Servers) {
 		msgFmt := "not all servers have weight(%d/%d)"
 		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
+	}
+
+	if sps.BlockUntilConnected && sps.ConnectTimeout == "" {
+		return fmt.Errorf("connect timeout must be specified when block until connected")
+	}
+
+	if sps.ConnectTimeout != "" {
+		if connectTimeout, err := time.ParseDuration(sps.ConnectTimeout); err != nil || connectTimeout == 0 {
+			return fmt.Errorf("grpc client wait connection ready timeout %s invalid", sps.ConnectTimeout)
+		}
 	}
 
 	return nil
@@ -162,6 +179,12 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 
 	if spec.Timeout != "" {
 		sp.timeout, _ = time.ParseDuration(spec.Timeout)
+	}
+	sp.dialOpts = defaultDialOpts
+
+	if spec.BlockUntilConnected {
+		sp.dialOpts = append(sp.dialOpts, grpc.WithBlock())
+		sp.connectTimeout, _ = time.ParseDuration(spec.ConnectTimeout)
 	}
 
 	return sp
@@ -343,15 +366,19 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	}
 	send2ProviderCtx, cancelContext := stdcontext.WithCancel(metadata.NewOutgoingContext(ctx, spCtx.req.RawHeader().GetMD()))
 	defer cancelContext()
-
-	conn, err := sp.dialWithConnPool(svr.URL)
+	dialCtx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	if sp.spec.BlockUntilConnected {
+		dialCtx, cancel = stdcontext.WithTimeout(dialCtx, sp.connectTimeout)
+	}
+	defer cancel()
+	conn, err := grpc.DialContext(dialCtx, svr.URL, sp.dialOpts...)
 	if err != nil {
 		logger.Infof("create new conn without pool fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
 		return serverPoolError{status: status.Convert(err), result: resultInternalError}
 	}
 	proxyAsClientStream, err := conn.NewStream(send2ProviderCtx, desc, fullMethodName)
-	conn.ReturnPool()
+	defer conn.Close()
 	if err != nil {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
@@ -407,14 +434,6 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 	}
 	return serverPoolError{status.Newf(codes.Internal, "gRPC proxying should never reach this stage."), resultInternalError}
 
-}
-
-func (sp *ServerPool) dialWithConnPool(targetAddr string) (*grpcpool.ClientConn, error) {
-	conn, err := sp.proxy.pool.Get(targetAddr)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
-	}
-	return conn.(*grpcpool.ClientConn), nil
 }
 
 func (sp *ServerPool) buildOutputResponse(spCtx *serverPoolContext, s *status.Status) {

@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters/grpcproxy"
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
-	customgrpc "github.com/megaease/easegress/pkg/util/connectionpool/grpc"
 	"github.com/megaease/easegress/pkg/util/limitlistener"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
@@ -242,7 +242,7 @@ func (r *runtime) startServer() {
 		r.setError(err)
 		return
 	}
-	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(customgrpc.GetCodecInstance())}
+	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(grpcprxoy.GetCodecInstance())}
 	keepaliveOpts := r.buildServerKeepaliveOpt()
 
 	if len(keepaliveOpts) != 0 {

@@ -14,20 +14,19 @@ Its design and implementation largely refer to the original HTTP Server, so I hi
 ### Configure Whether to Use Connection Pool
 
 create a gRPC forward proxy filter to handler traffic
+notice: `connectTimeout` takes effect if and only when `blockUntilConnected` be specified as true
 
 ``` yaml
 filters:
   - kind: GRPCProxy
-    port: 8081
-    connectionsPerHost: 2
-    connectTimeout: 200ms
-    borrowTimeout: 1000ms
     pools:
       - loadBalance:
           # Using the forward load balancing strategy 
           policy: forward
           forwardKey: forward
         serviceName: "easegress-forward"
+        blockUntilConnected: true
+        connectTimeout: 300ms
     name: grpcforwardproxy
 flow:
   - filter: grpcforwardproxy

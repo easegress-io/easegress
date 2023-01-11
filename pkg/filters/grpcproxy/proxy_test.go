@@ -54,11 +54,12 @@ func TestInvalidSpec(t *testing.T) {
 	assertions := assert.New(t)
 	s := `
 kind: GRPCProxy
-connectionsPerHost: 0
 pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
+    connectTimeout: 3s
+    blockUntilConnected: false
 name: grpcforwardproxy
 `
 	rawSpec := make(map[string]interface{})
@@ -66,17 +67,15 @@ name: grpcforwardproxy
 	assertions.NoError(err)
 
 	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.Error(err)
+	assertions.NoError(err)
 
 	s = `
 kind: GRPCProxy
-connectionsPerHost: 1
-borrowTimeout: 3s
-connectTimeout: 3s
 pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
+    blockUntilConnected: true
 name: grpcforwardproxy
 `
 	rawSpec = make(map[string]interface{})
@@ -91,33 +90,27 @@ func TestReload(t *testing.T) {
 	assertions := assert.New(t)
 	s := `
 kind: GRPCProxy
-maxConnsPerHost: 1
-borrowTimeout: 2000ms
-connectTimeout: 1000ms
 pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
+    blockUntilConnected: false
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	assertions.NotNil(p.pool)
+	assertions.Equal(p.mainPool.dialOpts, defaultDialOpts)
 
 	s = `
 kind: GRPCProxy
-maxConnsPerHost: 1
-borrowTimeout: 2000ms
-connectTimeout: 1000ms
 pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
+    blockUntilConnected: true
+    connectTimeout: 3s
 name: grpcforwardproxy
 `
 
 	p = newTestProxy(s, assertions)
-	assertions.NotNil(p.pool)
-
-	p.Close()
-	assertions.Nil(p.pool)
+	assertions.True(len(p.mainPool.dialOpts) > len(defaultDialOpts))
 }

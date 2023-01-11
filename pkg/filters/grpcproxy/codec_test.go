@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
-package connectionpool
+package grpcprxoy
 
-import "context"
+import (
+	"testing"
 
-type (
-	// Pool is the interface of the connection pool
-	Pool interface {
-		Get(addr string) (interface{}, error)
-		Close()
-	}
-	// CreateConnFactory is the func interface of the behavior creating a connection
-	CreateConnFactory func(ctx context.Context, addr string) (interface{}, error)
+	"github.com/stretchr/testify/assert"
 )
+
+func TestSingleInstance(t *testing.T) {
+	assertions := assert.New(t)
+	assertions.True(GetCodecInstance() == GetCodecInstance())
+}
