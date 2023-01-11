@@ -118,6 +118,10 @@ func main() {
 
 	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the Easegress endpoint")
+	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.ForceTLS,
+		"force-tls", false, "Whether to forcibly use HTTPS, if not, client will auto upgrade to HTTPS on-demand")
+	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.InsecureSkipVerify,
+		"insecure-skip-verify", false, "Whether to verify the server's certificate chain and host name")
 	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
 		"output", "o", "yaml", "Output format(json, yaml)")
 

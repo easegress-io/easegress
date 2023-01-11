@@ -19,12 +19,15 @@ package proxy
 
 import (
 	"net/http"
+	"sync"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
@@ -90,7 +93,10 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(&Proxy{}, spec, "test")
+	p := &Proxy{}
+	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+	sp := NewServerPool(p, spec, "test")
 	policies := map[string]resilience.Policy{}
 
 	assert.Panics(func() { sp.InjectResiliencePolicy(policies) })
@@ -129,7 +135,10 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(&Proxy{}, spec, "test")
+	p := &Proxy{}
+	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+	sp := NewServerPool(p, spec, "test")
 	spCtx := &serverPoolContext{
 		Context: context.New(tracing.NoopSpan),
 	}
@@ -169,7 +178,10 @@ func TestCopyCORSHeaders(t *testing.T) {
 	src.Add("X-Src", "src")
 	dst.Add("X-Dst", "dst")
 
-	sp := NewServerPool(&Proxy{}, &ServerPoolSpec{}, "test")
+	p := &Proxy{}
+	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+	sp := NewServerPool(p, &ServerPoolSpec{}, "test")
 	dst = sp.mergeResponseHeader(dst, src)
 
 	assert.Equal(1, len(dst.Values("Access-Control-Allow-Origin")))
@@ -200,7 +212,10 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	sp := NewServerPool(&Proxy{}, spec, "test")
+	p := &Proxy{}
+	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+		nil, false, nil, nil)
+	sp := NewServerPool(p, spec, "test")
 	svr := sp.LoadBalancer().ChooseServer(nil)
 	assert.Equal("http://192.168.1.1", svr.URL)
 
