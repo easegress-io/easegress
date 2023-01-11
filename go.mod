@@ -107,7 +107,6 @@ require (
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/agiledragon/gomonkey/v2 v2.8.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.18 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20211221011931-643d94fcab96 // indirect
 	github.com/armon/go-metrics v0.4.0 // indirect
