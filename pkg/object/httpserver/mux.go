@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"text/template"
@@ -50,7 +49,7 @@ import (
 )
 
 const (
-	defaultAccessLogFormat = "[$Time] [$RemoteAddr $RealIP $Method $URI $Proto $StatusCode] [$Duration rx:$ReqSize tx:$RespSize] [$Tags]"
+	defaultAccessLogFormat = "[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]"
 )
 
 type (
@@ -97,8 +96,8 @@ type (
 		Proto       string
 		StatusCode  int
 		Duration    time.Duration
-		ReqSize     string
-		RespSize    string
+		ReqSize     uint64
+		RespSize    uint64
 		ReqHeaders  string
 		RespHeaders string
 		Tags        string
@@ -311,8 +310,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,
-				ReqSize:     strconv.FormatUint(metric.ReqSize, 10) + "B",
-				RespSize:    strconv.FormatUint(metric.RespSize, 10) + "B",
+				ReqSize:     metric.ReqSize,
+				RespSize:    metric.RespSize,
 				Tags:        ctx.Tags(),
 				ReqHeaders:  printHeader(stdr.Header),
 				RespHeaders: printHeader(respHeader),
@@ -473,10 +472,10 @@ func newAccessLogFormatter(format string) *accessLogFormatter {
 	if format == "" {
 		format = defaultAccessLogFormat
 	}
-	escapeReg := regexp.MustCompile(`(\{|\}|\[|\])`)
-	expr := escapeReg.ReplaceAllString(format, "{{`$1`}}")
-	varReg := regexp.MustCompile(`\$([a-zA-z]*)`)
-	expr = varReg.ReplaceAllString(expr, "{{.$1}}")
+	varReg := regexp.MustCompile(`\{\{([a-zA-z]*)\}\}`)
+	expr := varReg.ReplaceAllString(format, "{{.$1}}")
+	escapeReg := regexp.MustCompile(`(\[|\])`)
+	expr = escapeReg.ReplaceAllString(expr, "{{`$1`}}")
 	tpl := template.Must(template.New("").Parse(expr))
 	return &accessLogFormatter{template: tpl}
 }

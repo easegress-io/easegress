@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -638,9 +637,9 @@ func TestAccessLog(t *testing.T) {
 	log := &accessLog{
 		Method:  "GET",
 		URI:     "127.0.0.1",
-		ReqSize: strconv.FormatUint(100, 10) + "B",
+		ReqSize: 100,
 	}
-	formatter := newAccessLogFormatter("$Method {$URI} [$ReqSize]")
+	formatter := newAccessLogFormatter("{{Method}} {{URI}} [{{ReqSize}}]")
 	s := formatter.format(log)
-	assert.Equal(t, "GET {127.0.0.1} [100B]", s)
+	assert.Equal(t, "GET 127.0.0.1 [100]", s)
 }
