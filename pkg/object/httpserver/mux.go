@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"text/template"
@@ -310,8 +311,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,
-				ReqSize:     fmt.Sprintf("%vB", metric.ReqSize),
-				RespSize:    fmt.Sprintf("%vB", metric.RespSize),
+				ReqSize:     strconv.FormatUint(metric.ReqSize, 10) + "B",
+				RespSize:    strconv.FormatUint(metric.RespSize, 10) + "B",
 				Tags:        ctx.Tags(),
 				ReqHeaders:  printHeader(stdr.Header),
 				RespHeaders: printHeader(respHeader),

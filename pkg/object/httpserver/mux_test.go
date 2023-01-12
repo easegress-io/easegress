@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -637,7 +638,7 @@ func TestAccessLog(t *testing.T) {
 	log := &accessLog{
 		Method:  "GET",
 		URI:     "127.0.0.1",
-		ReqSize: printSize(100),
+		ReqSize: strconv.FormatUint(100, 10) + "B",
 	}
 	formatter := newAccessLogFormatter("$Method {$URI} [$ReqSize]")
 	s := formatter.format(log)
