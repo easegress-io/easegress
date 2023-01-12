@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	defaultAccessLogFormat = "[$Time] [$RemoteAddr $RealIP $Method $URI $Proto $StatusCode] [$Duration rx:$ReqSize tx:$RespSize] [$Tags] [$ReqHeaders] [$RespHeaders]"
+	defaultAccessLogFormat = "[$Time] [$RemoteAddr $RealIP $Method $URI $Proto $StatusCode] [$Duration rx:$ReqSize tx:$RespSize] [$Tags]"
 )
 
 type (
