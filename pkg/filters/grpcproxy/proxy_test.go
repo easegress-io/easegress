@@ -59,7 +59,6 @@ pools:
       policy: forward
     serviceName: "easegress"
     connectTimeout: 3s
-    blockUntilConnected: false
 name: grpcforwardproxy
 `
 	rawSpec := make(map[string]interface{})
@@ -75,7 +74,6 @@ pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
-    blockUntilConnected: true
 name: grpcforwardproxy
 `
 	rawSpec = make(map[string]interface{})
@@ -83,7 +81,7 @@ name: grpcforwardproxy
 	assertions.NoError(err)
 
 	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.Error(err)
+	assertions.NoError(err)
 }
 
 func TestReload(t *testing.T) {
@@ -94,7 +92,6 @@ pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
-    blockUntilConnected: false
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
@@ -106,7 +103,6 @@ pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
-    blockUntilConnected: true
     connectTimeout: 3s
 name: grpcforwardproxy
 `

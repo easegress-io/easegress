@@ -18,9 +18,6 @@
 package grpcprxoy
 
 import (
-	"sync"
-
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -28,30 +25,17 @@ const (
 	codecName = "easegress-raw"
 )
 
-// grpcCodec impl grpc.Codec instead of encoding.Codec, because encoding.Codec would changed grpc.header
+// GrpcCodec impl grpc.Codec instead of encoding.Codec, because encoding.Codec would changed grpc.header
 // eg: if use encoding.Codec, then header's content-type=application/grpc -> content-type=application/grpc+xxx
 // xxx from encoding.Codec.Name()
-type grpcCodec struct{}
-
-var (
-	once     = sync.Once{}
-	instance *grpcCodec
-)
-
-// GetCodecInstance return codec single instance
-func GetCodecInstance() grpc.Codec {
-	once.Do(func() {
-		instance = &grpcCodec{}
-	})
-	return instance
-}
+type GrpcCodec struct{}
 
 type frame struct {
 	payload []byte
 }
 
 // Marshal object to []byte
-func (grpcCodec) Marshal(v interface{}) ([]byte, error) {
+func (GrpcCodec) Marshal(v interface{}) ([]byte, error) {
 	out, ok := v.(*frame)
 	if !ok {
 		return proto.Marshal(v.(proto.Message))
@@ -60,7 +44,7 @@ func (grpcCodec) Marshal(v interface{}) ([]byte, error) {
 }
 
 // Unmarshal []byte to object
-func (grpcCodec) Unmarshal(data []byte, v interface{}) error {
+func (GrpcCodec) Unmarshal(data []byte, v interface{}) error {
 	if s, ok := v.(*frame); ok {
 		(*s).payload = data
 		return nil
@@ -69,6 +53,6 @@ func (grpcCodec) Unmarshal(data []byte, v interface{}) error {
 }
 
 // String return codec name
-func (grpcCodec) String() string {
+func (GrpcCodec) String() string {
 	return codecName
 }

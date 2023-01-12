@@ -94,7 +94,7 @@ var (
 	}
 	defaultDialOpts = []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithCodec(GetCodecInstance())}
+		grpc.WithCodec(&GrpcCodec{})}
 )
 
 // ServerPool defines a server pool.
@@ -124,7 +124,6 @@ type ServerPoolSpec struct {
 	LoadBalance          *LoadBalanceSpec    `yaml:"loadBalance" jsonschema:"omitempty"`
 	Timeout              string              `yaml:"timeout" jsonschema:"omitempty,format=duration"`
 	ConnectTimeout       string              `yaml:"connectTimeout" jsonschema:"omitempty,format=duration"`
-	BlockUntilConnected  bool                `yaml:"blockUntilConnected" jsonschema:"omitempty"`
 	CircuitBreakerPolicy string              `yaml:"circuitBreakerPolicy" jsonschema:"omitempty"`
 }
 
@@ -143,10 +142,6 @@ func (sps *ServerPoolSpec) Validate() error {
 	if serversGotWeight > 0 && serversGotWeight < len(sps.Servers) {
 		msgFmt := "not all servers have weight(%d/%d)"
 		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
-	}
-
-	if sps.BlockUntilConnected && sps.ConnectTimeout == "" {
-		return fmt.Errorf("connect timeout must be specified when block until connected")
 	}
 
 	if sps.ConnectTimeout != "" {
@@ -182,7 +177,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	}
 	sp.dialOpts = defaultDialOpts
 
-	if spec.BlockUntilConnected {
+	if spec.ConnectTimeout != "" {
 		sp.dialOpts = append(sp.dialOpts, grpc.WithBlock())
 		sp.connectTimeout, _ = time.ParseDuration(spec.ConnectTimeout)
 	}
@@ -367,7 +362,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	send2ProviderCtx, cancelContext := stdcontext.WithCancel(metadata.NewOutgoingContext(ctx, spCtx.req.RawHeader().GetMD()))
 	defer cancelContext()
 	dialCtx, cancel := stdcontext.WithCancel(stdcontext.Background())
-	if sp.spec.BlockUntilConnected {
+	if sp.spec.ConnectTimeout != "" {
 		dialCtx, cancel = stdcontext.WithTimeout(dialCtx, sp.connectTimeout)
 	}
 	defer cancel()
@@ -400,19 +395,13 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 	c2sErrChan := sp.forwardE2E(ctx.stdr, proxyAsClientStream, nil)
 	s2cErrChan := sp.forwardE2E(proxyAsClientStream, ctx.stdw, ctx.resp.RawHeader())
 	// We don't know which side is going to stop sending first, so we need a select between the two.
-	state := stateNormal
-	for state != stateException {
+	for {
 		select {
 		case c2sErr := <-c2sErrChan:
 			if c2sErr == io.EOF {
 				// this is the happy case where the sender has encountered io.EOF, and won't be sending anymore./
-				// the clientStream>serverStream may continue pumping though.
+				// the server --> client may continue pumping though.
 				proxyAsClientStream.CloseSend()
-				if state == stateNormal {
-					state = stateCloseWait
-				} else {
-					state = stateException
-				}
 			} else {
 				// however, we may have gotten a receive error (stream disconnected, a read error etc) in which case we need
 				// to cancel the clientStream to the backend, let all of its goroutines be freed up by the CancelFunc and
@@ -423,7 +412,6 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 			// This happens when the clientStream has nothing else to offer (io.EOF), returned a gRPC error. In those two
 			// cases we may have received Trailers as part of the call. In case of other errors (stream closed) the trailers
 			// will be nil.
-
 			ctx.resp.SetTrailer(grpcprot.NewTrailer(proxyAsClientStream.Trailer()))
 			// c2sErr will contain RPC error from client code. If not io.EOF return the RPC error as server stream error.
 			if s2cErr != io.EOF {
@@ -432,7 +420,6 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 			return nil
 		}
 	}
-	return serverPoolError{status.Newf(codes.Internal, "gRPC proxying should never reach this stage."), resultInternalError}
 
 }
 
@@ -469,7 +456,7 @@ func (sp *ServerPool) forwardE2E(src grpc.Stream, dst grpc.Stream, header *grpcp
 						md = metadata.Join(header.GetMD(), md)
 					}
 
-					if err := dst.(grpc.ServerStream).SendHeader(md); err != nil {
+					if err = dst.(grpc.ServerStream).SendHeader(md); err != nil {
 						ret <- err
 						return
 					}

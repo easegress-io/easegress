@@ -242,7 +242,7 @@ func (r *runtime) startServer() {
 		r.setError(err)
 		return
 	}
-	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(grpcprxoy.GetCodecInstance())}
+	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(&grpcprxoy.GrpcCodec{})}
 	keepaliveOpts := r.buildServerKeepaliveOpt()
 
 	if len(keepaliveOpts) != 0 {
