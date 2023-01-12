@@ -25,7 +25,6 @@ import (
 
 	metrics "github.com/rcrowley/go-metrics"
 
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/util/codecounter"
 	"github.com/megaease/easegress/pkg/util/easemonitor"
 	"github.com/megaease/easegress/pkg/util/sampler"
@@ -68,7 +67,6 @@ type (
 		Duration   time.Duration
 		ReqSize    uint64
 		RespSize   uint64
-		RespHeader protocols.Header
 	}
 
 	// RequestMetric contains request metrics.

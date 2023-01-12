@@ -635,10 +635,11 @@ rules:
 
 func TestAccessLog(t *testing.T) {
 	log := &accessLog{
-		Method: "GET",
-		URI:    "127.0.0.1",
+		Method:  "GET",
+		URI:     "127.0.0.1",
+		ReqSize: printSize(100),
 	}
-	formatter := newAccessLogFormatter("$Method {$URI}")
+	formatter := newAccessLogFormatter("$Method {$URI} [$ReqSize]")
 	s := formatter.format(log)
-	assert.Equal(t, "GET {127.0.0.1}", s)
+	assert.Equal(t, "GET {127.0.0.1} [100B]", s)
 }

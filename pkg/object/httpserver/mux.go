@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/protocols"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/pkg/object/globalfilter"
@@ -50,7 +49,7 @@ import (
 )
 
 const (
-	defaultAccessLogFormat = "$Time $RemoteAddr $RealIP $Method $URI $Proto $StatusCode $Duration $ReqSize $RespSize ReqHeaders:{$ReqHeaders} RespHeaders:{$RespHeaders} Tags:{$Tags}"
+	defaultAccessLogFormat = "[$Time] [$RemoteAddr $RealIP $Method $URI $Proto $StatusCode] [$Duration rx:$ReqSize tx:$RespSize] [$Tags] [$ReqHeaders] [$RespHeaders]"
 )
 
 type (
@@ -62,12 +61,12 @@ type (
 	}
 
 	muxInstance struct {
-		superSpec     *supervisor.Spec
-		spec          *Spec
-		httpStat      *httpstat.HTTPStat
-		topN          *httpstat.TopN
-		metrics       *metrics
-		alogFormatter *accessLogFormatter
+		superSpec          *supervisor.Spec
+		spec               *Spec
+		httpStat           *httpstat.HTTPStat
+		topN               *httpstat.TopN
+		metrics            *metrics
+		accessLogFormatter *accessLogFormatter
 
 		muxMapper context.MuxMapper
 
@@ -97,8 +96,8 @@ type (
 		Proto       string
 		StatusCode  int
 		Duration    time.Duration
-		ReqSize     uint64
-		RespSize    uint64
+		ReqSize     string
+		RespSize    string
 		ReqHeaders  string
 		RespHeaders string
 		Tags        string
@@ -176,15 +175,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec:     superSpec,
-		spec:          spec,
-		muxMapper:     muxMapper,
-		httpStat:      m.httpStat,
-		topN:          m.topN,
-		metrics:       oldInst.metrics,
-		ipFilter:      ipfilter.New(spec.IPFilterSpec),
-		tracer:        tracer,
-		alogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
+		superSpec:          superSpec,
+		spec:               spec,
+		muxMapper:          muxMapper,
+		httpStat:           m.httpStat,
+		topN:               m.topN,
+		metrics:            oldInst.metrics,
+		ipFilter:           ipfilter.New(spec.IPFilterSpec),
+		tracer:             tracer,
+		accessLogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}
 	spec.Rules.Init()
 	inst.router = routers.Create(routerKind, spec.Rules)
@@ -220,7 +219,7 @@ func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Respon
 	return resp
 }
 
-func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, protocols.Header) {
+func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header) {
 	var resp *httpprot.Response
 	if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
 		logger.Errorf("%s: response is nil", mi.superSpec.Name())
@@ -240,7 +239,7 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	stdw.WriteHeader(resp.StatusCode())
 	respBodySize, _ := io.Copy(stdw, resp.GetPayload())
 
-	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize()), resp.Header()
+	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize()), header
 }
 
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
@@ -268,12 +267,13 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	routeCtx := routers.NewContext(req)
 	route := mi.search(routeCtx)
+	var respHeader http.Header
 
 	defer func() {
 		metric, _ := ctx.GetData("HTTP_METRIC").(*httpstat.Metric)
 
 		if metric == nil {
-			statusCode, respSize, respHeader := mi.sendResponse(ctx, stdw)
+			statusCode, respSize, header := mi.sendResponse(ctx, stdw)
 			ctx.Finish()
 
 			// Drain off the body if it has not been, so that we can get the
@@ -284,8 +284,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				StatusCode: statusCode,
 				ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
 				RespSize:   respSize,
-				RespHeader: respHeader,
 			}
+			respHeader = header
 		} else { // hijacked, websocket and etc.
 			ctx.Finish()
 		}
@@ -310,13 +310,13 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,
-				ReqSize:     metric.ReqSize,
-				RespSize:    metric.RespSize,
+				ReqSize:     printSize(metric.ReqSize),
+				RespSize:    printSize(metric.RespSize),
 				Tags:        ctx.Tags(),
-				ReqHeaders:  printHeader(req.Header()),
-				RespHeaders: printHeader(metric.RespHeader),
+				ReqHeaders:  printHeader(stdr.Header),
+				RespHeaders: printHeader(respHeader),
 			}
-			return mi.alogFormatter.format(log)
+			return mi.accessLogFormatter.format(log)
 		})
 	}()
 
@@ -472,7 +472,7 @@ func newAccessLogFormatter(format string) *accessLogFormatter {
 	if format == "" {
 		format = defaultAccessLogFormat
 	}
-	escapeReg := regexp.MustCompile(`(\{|\})`)
+	escapeReg := regexp.MustCompile(`(\{|\}|\[|\])`)
 	expr := escapeReg.ReplaceAllString(format, "{{`$1`}}")
 	varReg := regexp.MustCompile(`\$([a-zA-z]*)`)
 	expr = varReg.ReplaceAllString(expr, "{{.$1}}")
@@ -488,13 +488,19 @@ func (formatter *accessLogFormatter) format(log *accessLog) string {
 	return buf.String()
 }
 
-func printHeader(header protocols.Header) string {
+func printHeader(header http.Header) string {
 	buf := bytes.Buffer{}
-	if header != nil {
-		header.Walk(func(key string, values interface{}) bool {
-			buf.WriteString(fmt.Sprintf("%v: %v, ", key, values))
-			return true
-		})
+	i := 0
+	for key, values := range header {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%v: %v", key, values))
+		i++
 	}
 	return buf.String()
+}
+
+func printSize(size uint64) string {
+	return fmt.Sprintf("%vB", size)
 }

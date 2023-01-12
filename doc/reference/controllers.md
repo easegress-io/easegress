@@ -114,7 +114,7 @@ rules:
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
 | globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No |
-| accessLogFormat | string | Format of access log, default is `$Time $RemoteAddr $RealIP $Method $URI $Proto $StatusCode $Duration $ReqSize $RespSize ReqHeaders:{$ReqHeaders} RespHeaders:{$RespHeaders} Tags:{$Tags}`, variables supported can refer [Access Log Variable](#accesslogvariable)  | No |
+| accessLogFormat | string | Format of access log, default is `[$Time] [$RemoteAddr $RealIP $Method $URI $Proto $StatusCode] [$Duration rx:$ReqSize tx:$RespSize] [$Tags]`, variables supported can refer [Access Log Variable](#accesslogvariable)  | No |
 
 ### AccessLogVariable
 
@@ -128,8 +128,8 @@ rules:
 | $Proto            | Protocol version for the request
 | $StatusCode       | HTTP status code for the response
 | $Duration         | Duration time for handing the request
-| $ReqSize          | Bytes size read from the request
-| $RespSize         | Bytes size write to the response
+| $ReqSize          | Size read from the request
+| $RespSize         | Size write to the response
 | $ReqHeaders       | Request HTTP headers
 | $RespHeaders      | Response HTTP headers
 | $Tags             | Tags for handing the request
