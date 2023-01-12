@@ -310,8 +310,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,
-				ReqSize:     printSize(metric.ReqSize),
-				RespSize:    printSize(metric.RespSize),
+				ReqSize:     fmt.Sprintf("%vB", metric.ReqSize),
+				RespSize:    fmt.Sprintf("%vB", metric.RespSize),
 				Tags:        ctx.Tags(),
 				ReqHeaders:  printHeader(stdr.Header),
 				RespHeaders: printHeader(respHeader),
@@ -499,8 +499,4 @@ func printHeader(header http.Header) string {
 		i++
 	}
 	return buf.String()
-}
-
-func printSize(size uint64) string {
-	return fmt.Sprintf("%vB", size)
 }
