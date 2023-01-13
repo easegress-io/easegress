@@ -53,7 +53,7 @@ type (
 
 	// Rule is first level entry of router.
 	Rule struct {
-		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `yaml`
+		// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
 		// when it has `omitempty` in tag `jsonschema`.
 		// Otherwise it will output null value, which is invalid in json schema (the type is object).
 		// the original reason is the jsonscheme(genjs) has not support multiple types.

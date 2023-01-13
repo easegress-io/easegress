@@ -36,12 +36,12 @@ type RequestMatcher interface {
 
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
-	Policy          string                    `yaml:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
-	MatchAllHeaders bool                      `yaml:"matchAllHeaders" jsonschema:"omitempty"`
-	Headers         map[string]*StringMatcher `yaml:"headers" jsonschema:"omitempty"`
-	URLs            []*URLMatcher             `yaml:"urls" jsonschema:"omitempty"`
-	Permil          uint32                    `yaml:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
-	HeaderHashKey   string                    `yaml:"headerHashKey" jsonschema:"omitempty"`
+	Policy          string                    `json:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	MatchAllHeaders bool                      `json:"matchAllHeaders" jsonschema:"omitempty"`
+	Headers         map[string]*StringMatcher `json:"headers" jsonschema:"omitempty"`
+	URLs            []*URLMatcher             `json:"urls" jsonschema:"omitempty"`
+	Permil          uint32                    `json:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
+	HeaderHashKey   string                    `json:"headerHashKey" jsonschema:"omitempty"`
 }
 
 // Validate validtes the RequestMatcherSpec.
@@ -220,7 +220,7 @@ func (gm *generalMatcher) matchURL(req *grpcprot.Request) bool {
 
 // URLMatcher defines the match rule of a grpc request
 type URLMatcher struct {
-	URL *StringMatcher `yaml:"url" jsonschema:"required"`
+	URL *StringMatcher `json:"url" jsonschema:"required"`
 }
 
 // Validate validates the MethodAndURLMatcher.
@@ -239,10 +239,10 @@ func (r *URLMatcher) Match(req *grpcprot.Request) bool {
 
 // StringMatcher defines the match rule of a string
 type StringMatcher struct {
-	Exact  string `yaml:"exact" jsonschema:"omitempty"`
-	Prefix string `yaml:"prefix" jsonschema:"omitempty"`
-	RegEx  string `yaml:"regex" jsonschema:"omitempty,format=regexp"`
-	Empty  bool   `yaml:"empty" jsonschema:"omitempty"`
+	Exact  string `json:"exact" jsonschema:"omitempty"`
+	Prefix string `json:"prefix" jsonschema:"omitempty"`
+	RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
+	Empty  bool   `json:"empty" jsonschema:"omitempty"`
 	re     *regexp.Regexp
 }
 

@@ -43,9 +43,9 @@ type ReusableServerLB interface {
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string `yaml:"policy" jsonschema:"enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash,enum=forward"`
-	HeaderHashKey string `yaml:"headerHashKey" jsonschema:"omitempty"`
-	ForwardKey    string `yaml:"forwardKey" jsonschema:"omitempty"`
+	Policy        string `json:"policy" jsonschema:"enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash,enum=forward"`
+	HeaderHashKey string `json:"headerHashKey" jsonschema:"omitempty"`
+	ForwardKey    string `json:"forwardKey" jsonschema:"omitempty"`
 }
 
 // NewLoadBalancer creates a load balancer for servers according to spec.
