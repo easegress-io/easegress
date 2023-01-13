@@ -19,11 +19,12 @@ package ingresscontroller
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
 	"github.com/megaease/easegress/pkg/logger"
