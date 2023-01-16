@@ -38,3 +38,11 @@ func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
 func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
 	panic("not implemented")
 }
+
+func (p *Protocol) SetRef(ref interface{}) {
+	panic("not implemented")
+}
+
+func (p *Protocol) GetRef() interface{} {
+	panic("not implemented")
+}

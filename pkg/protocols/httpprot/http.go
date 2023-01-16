@@ -78,7 +78,9 @@ func (h *Header) Walk(fn func(key string, value interface{}) bool) {
 }
 
 // Protocol implements protocols.Protocol for HTTP.
-type Protocol struct{}
+type Protocol struct {
+	ref *Request
+}
 
 var _ protocols.Protocol = (*Protocol)(nil)
 
@@ -104,6 +106,14 @@ func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
 func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
 	r, _ := resp.(*http.Response)
 	return NewResponse(r)
+}
+
+func (p *Protocol) SetRef(ref interface{}) {
+	p.ref = ref.(*Request)
+}
+
+func (p *Protocol) GetRef() interface{} {
+	return p.ref
 }
 
 func parseJSONBody(body []byte) (interface{}, error) {

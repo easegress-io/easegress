@@ -133,6 +133,8 @@ type Header interface {
 type Protocol interface {
 	CreateRequest(req interface{}) (Request, error)
 	CreateResponse(resp interface{}) (Response, error)
+	SetRef(ref interface{})
+	GetRef() interface{}
 
 	NewRequestInfo() interface{}
 	BuildRequest(reqInfo interface{}) (Request, error)

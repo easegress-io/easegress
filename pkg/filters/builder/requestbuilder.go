@@ -73,9 +73,9 @@ func (spec *RequestBuilderSpec) Validate() error {
 		return fmt.Errorf("sourceNamespace or template must be specified")
 	}
 
-	if spec.SourceNamespace != "" && spec.Template != "" {
-		return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
-	}
+	//if spec.SourceNamespace != "" && spec.Template != "" {
+	//	return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
+	//}
 
 	return spec.Spec.Validate()
 }
@@ -113,9 +113,13 @@ func (rb *RequestBuilder) reload() {
 
 // Handle builds request.
 func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
+	p := protocols.Get(rb.spec.Protocol)
 	if rb.spec.SourceNamespace != "" {
 		ctx.CopyRequest(rb.spec.SourceNamespace)
-		return ""
+		if rb.spec.Template == "" {
+			return ""
+		}
+		p.SetRef(ctx.GetOutputRequest())
 	}
 
 	data, err := prepareBuilderData(ctx)
@@ -124,7 +128,6 @@ func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	p := protocols.Get(rb.spec.Protocol)
 	ri := p.NewRequestInfo()
 	if err = rb.build(data, ri); err != nil {
 		msgFmt := "RequestBuilder(%s): failed to build request info: %v"
