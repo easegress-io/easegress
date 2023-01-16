@@ -106,9 +106,9 @@ func (rb *RequestBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *RequestBuilder) reload() {
-	if rb.spec.SourceNamespace == "" {
-		rb.Builder.reload(&rb.spec.Spec)
-	}
+	//if rb.spec.SourceNamespace == "" {
+	rb.Builder.reload(&rb.spec.Spec)
+	//}
 }
 
 // Handle builds request.
