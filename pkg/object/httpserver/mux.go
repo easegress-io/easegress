@@ -18,12 +18,16 @@
 package httpserver
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync/atomic"
+	"text/template"
+	"time"
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
@@ -41,6 +45,11 @@ import (
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/megaease/easegress/pkg/util/readers"
 	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
+const (
+	defaultAccessLogFormat = "[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]"
 )
 
 type (
@@ -52,10 +61,12 @@ type (
 	}
 
 	muxInstance struct {
-		superSpec *supervisor.Spec
-		spec      *Spec
-		httpStat  *httpstat.HTTPStat
-		topN      *httpstat.TopN
+		superSpec          *supervisor.Spec
+		spec               *Spec
+		httpStat           *httpstat.HTTPStat
+		topN               *httpstat.TopN
+		metrics            *metrics
+		accessLogFormatter *accessLogFormatter
 
 		muxMapper context.MuxMapper
 
@@ -70,6 +81,26 @@ type (
 	cachedRoute struct {
 		code  int
 		route routers.Route
+	}
+
+	accessLogFormatter struct {
+		template *template.Template
+	}
+
+	accessLog struct {
+		Time        string
+		RemoteAddr  string
+		RealIP      string
+		Method      string
+		URI         string
+		Proto       string
+		StatusCode  int
+		Duration    time.Duration
+		ReqSize     uint64
+		RespSize    uint64
+		ReqHeaders  string
+		RespHeaders string
+		Tags        string
 	}
 )
 
@@ -97,7 +128,8 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *cachedRoute) {
 	}
 }
 
-func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.MuxMapper) *mux {
+func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN,
+	metrics *metrics, mapper context.MuxMapper) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
@@ -109,6 +141,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN, mapper context.Mux
 		muxMapper: mapper,
 		httpStat:  httpStat,
 		topN:      topN,
+		metrics:   metrics,
 	})
 
 	return m
@@ -142,13 +175,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	}
 
 	inst := &muxInstance{
-		superSpec: superSpec,
-		spec:      spec,
-		muxMapper: muxMapper,
-		httpStat:  m.httpStat,
-		topN:      m.topN,
-		ipFilter:  ipfilter.New(spec.IPFilterSpec),
-		tracer:    tracer,
+		superSpec:          superSpec,
+		spec:               spec,
+		muxMapper:          muxMapper,
+		httpStat:           m.httpStat,
+		topN:               m.topN,
+		metrics:            oldInst.metrics,
+		ipFilter:           ipfilter.New(spec.IPFilterSpec),
+		tracer:             tracer,
+		accessLogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}
 	spec.Rules.Init()
 	inst.router = routers.Create(routerKind, spec.Rules)
@@ -184,7 +219,7 @@ func buildFailureResponse(ctx *context.Context, statusCode int) *httpprot.Respon
 	return resp
 }
 
-func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64) {
+func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header) {
 	var resp *httpprot.Response
 	if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
 		logger.Errorf("%s: response is nil", mi.superSpec.Name())
@@ -204,7 +239,7 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	stdw.WriteHeader(resp.StatusCode())
 	respBodySize, _ := io.Copy(stdw, resp.GetPayload())
 
-	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize())
+	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize()), header
 }
 
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
@@ -214,7 +249,9 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	stdr.Body = body
 
 	startAt := fasttime.Now()
-	span := mi.tracer.NewSpanWithStart(mi.superSpec.Name(), startAt)
+
+	span := mi.tracer.NewSpanWithStart(stdr.Context(), mi.superSpec.Name(), startAt)
+
 	ctx := context.New(span)
 	ctx.SetData("HTTP_RESPONSE_WRITER", stdw)
 
@@ -228,11 +265,15 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// get topN here, as the path could be modified later.
 	topN := mi.topN.Stat(req.Path())
 
+	routeCtx := routers.NewContext(req)
+	route := mi.search(routeCtx)
+	var respHeader http.Header
+
 	defer func() {
 		metric, _ := ctx.GetData("HTTP_METRIC").(*httpstat.Metric)
 
 		if metric == nil {
-			statusCode, respSize := mi.sendResponse(ctx, stdw)
+			statusCode, respSize, header := mi.sendResponse(ctx, stdw)
 			ctx.Finish()
 
 			// Drain off the body if it has not been, so that we can get the
@@ -244,6 +285,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				ReqSize:    uint64(reqMetaSize) + uint64(body.BytesRead()),
 				RespSize:   respSize,
 			}
+			respHeader = header
 		} else { // hijacked, websocket and etc.
 			ctx.Finish()
 		}
@@ -251,28 +293,33 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 		metric.Duration = fasttime.Since(startAt)
 		topN.Stat(metric)
 		mi.httpStat.Stat(metric)
+		if route.code == 0 {
+			mi.exportPrometheusMetrics(metric, route.route.GetBackend())
+		}
 
-		span.Finish()
+		span.End()
 
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
-			// log format:
-			//
-			// [$startTime]
-			// [$remoteAddr $realIP $method $requestURL $proto $statusCode]
-			// [$contextDuration $readBytes $writeBytes]
-			// [$tags]
-			const logFmt = "[%s] [%s %s %s %s %s %d] [%v rx:%dB tx:%dB] [%s]"
-			return fmt.Sprintf(logFmt,
-				fasttime.Format(startAt, fasttime.RFC3339Milli),
-				stdr.RemoteAddr, req.RealIP(), stdr.Method, stdr.RequestURI,
-				stdr.Proto, metric.StatusCode, metric.Duration, metric.ReqSize,
-				metric.RespSize, ctx.Tags())
+			log := &accessLog{
+				Time:        fasttime.Format(startAt, fasttime.RFC3339Milli),
+				RemoteAddr:  stdr.RemoteAddr,
+				RealIP:      req.RealIP(),
+				Method:      stdr.Method,
+				URI:         stdr.RequestURI,
+				Proto:       stdr.Proto,
+				StatusCode:  metric.StatusCode,
+				Duration:    metric.Duration,
+				ReqSize:     metric.ReqSize,
+				RespSize:    metric.RespSize,
+				Tags:        ctx.Tags(),
+				ReqHeaders:  printHeader(stdr.Header),
+				RespHeaders: printHeader(respHeader),
+			}
+			return mi.accessLogFormatter.format(log)
 		})
 	}()
 
-	routeCtx := routers.NewContext(req)
-	route := mi.search(routeCtx)
 	if route.code != 0 {
 		logger.Errorf("%s: status code of result route for [%s %s]: %d", mi.superSpec.Name(), req.Method(), req.RequestURI, route.code)
 		buildFailureResponse(ctx, route.code)
@@ -401,4 +448,55 @@ func (mi *muxInstance) close() {
 
 func (m *mux) close() {
 	m.inst.Load().(*muxInstance).close()
+}
+
+func (mi *muxInstance) exportPrometheusMetrics(stat *httpstat.Metric, backend string) {
+	labels := prometheus.Labels{
+		"routerKind": mi.spec.RouterKind,
+		"backend":    backend,
+	}
+	mi.metrics.TotalRequests.With(labels).Inc()
+	mi.metrics.TotalResponses.With(labels).Inc()
+	if stat.StatusCode >= 400 {
+		mi.metrics.TotalErrorRequests.With(labels).Inc()
+	}
+	mi.metrics.RequestsDuration.With(labels).Observe(float64(stat.Duration.Milliseconds()))
+	mi.metrics.RequestSizeBytes.With(labels).Observe(float64(stat.ReqSize))
+	mi.metrics.ResponseSizeBytes.With(labels).Observe(float64(stat.RespSize))
+	mi.metrics.RequestsDurationPercentage.With(labels).Observe(float64(stat.Duration.Milliseconds()))
+	mi.metrics.RequestSizeBytesPercentage.With(labels).Observe(float64(stat.ReqSize))
+	mi.metrics.ResponseSizeBytesPercentage.With(labels).Observe(float64(stat.RespSize))
+}
+
+func newAccessLogFormatter(format string) *accessLogFormatter {
+	if format == "" {
+		format = defaultAccessLogFormat
+	}
+	varReg := regexp.MustCompile(`\{\{([a-zA-z]*)\}\}`)
+	expr := varReg.ReplaceAllString(format, "{{.$1}}")
+	escapeReg := regexp.MustCompile(`(\[|\])`)
+	expr = escapeReg.ReplaceAllString(expr, "{{`$1`}}")
+	tpl := template.Must(template.New("").Parse(expr))
+	return &accessLogFormatter{template: tpl}
+}
+
+func (formatter *accessLogFormatter) format(log *accessLog) string {
+	var buf bytes.Buffer
+	if err := formatter.template.Execute(&buf, log); err != nil {
+		logger.Errorf("format access log failed: %v", err)
+	}
+	return buf.String()
+}
+
+func printHeader(header http.Header) string {
+	buf := bytes.Buffer{}
+	i := 0
+	for key, values := range header {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(fmt.Sprintf("%v: %v", key, values))
+		i++
+	}
+	return buf.String()
 }

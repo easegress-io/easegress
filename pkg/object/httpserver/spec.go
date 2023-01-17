@@ -61,6 +61,8 @@ type (
 		Rules        routers.Rules  `json:"rules" jsonschema:"omitempty"`
 
 		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
+
+		AccessLogFormat string `json:"accessLogFormat" jsonshema:"omitempty"`
 	}
 )
 

@@ -1,7 +1,7 @@
 # Easegress
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)
-[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/megaease/easegress/test.yml?branch=main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -95,8 +95,7 @@ The architecture of Easegress:
 - **Operation**
   - **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
   - **Distributed Tracing**
-    - Built-in [Open Zipkin](https://zipkin.io/)
-    - [Open Tracing](https://opentracing.io/) for vendor-neutral APIs
+    - Built-in [OpenTelemetry](https://opentelemetry.io/), which provides a vendor-neutral API.
   - **Observability**
     - **Node:** role(primary, secondary), raft leader status, healthy or not, last heartbeat time, and so on
     - **Traffic:** in multi-dimension: server and backend.
@@ -126,7 +125,6 @@ The following examples show how to use Easegress for different scenarios.
 - [WebAssembly](./doc/cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./doc/cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./doc/cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
-
 
 For full list, see [Cookbook](./doc/README.md#1-cookbook--how-to-guide).
 
@@ -396,7 +394,7 @@ Execute the below command, your slack will receive the article list of the RSS
 feed.
 
 ```bash
-$ curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:10080/rss
+curl -H X-Rss-Url:https://hnrss.org/newest?count=5 http://127.0.0.1:10080/rss
 ```
 
 Please note the maximum message size Slack allowed is about 3K, so you will

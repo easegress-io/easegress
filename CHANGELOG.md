@@ -1,5 +1,41 @@
 # Changelog
 
+
+## [v2.3.1](https://github.com/megaease/easegress/tree/v2.3.1) (2022-12-28)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.3.0...v2.3.1)
+
+**Significant changes:**
+* Support OpenTelemetry for tracing.
+* Add new filter Redirector to handle HTTP 3xx redirects.
+* Add prometheus support for Proxy and HTTPServer.
+
+**Implemented enhancements:**
+* Add LDAP mode for basic authentication.
+* Add Broker mode for MQTTProxy.
+* Support HTTPS for egctl and easegress-server.
+* Enhance egctl delete.
+
+## [v2.3.0](https://github.com/megaease/easegress/tree/v2.3.0) (2022-11-28)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.2.0...v2.3.0)
+
+**Significant changes:**
+* HTTPServer: support radix tree router and routing by client IP.
+* Add new filter OPAFilter for Open Policy Agent.
+
+**Implemented enhancements:**
+* Load Balance: support session and server health check.
+* Making running objects dump interval configurable.
+* Simplify CORSAdaptor.
+
+**Fixed bugs:**
+* Fix unexpected EOF when compression is enabled.
+* Remove duplicated code in codectool.
+* Update keyfunc for compatibility and bug fixes.
+* Fix mqtt test random fail.
+
+
 ## [v2.2.0](https://github.com/megaease/easegress/tree/v2.2.0) (2022-10-18)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.1.1...v2.2.0)

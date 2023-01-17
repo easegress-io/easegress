@@ -1,7 +1,7 @@
 # Easegress
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)
-[![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/megaease/easegress/Test/main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/megaease/easegress/test.yml?branch=main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
@@ -94,8 +94,7 @@
 - **操作**
   - **易于集成**：命令行(`egctl`)、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
   - **分布式跟踪**
-    - 内置 [Open Zipkin](https://zipkin.io/)
-    - [Open Tracing](https://opentracing.io/)，提供厂商中立的 API。
+    - 内置 [OpenTelemetry](https://opentelemetry.io/)，提供厂商中立的 API。
   - **可观察性**
     - **节点**：角色（primary、secondary）、是不是Leader，健康状态、最后一次心跳时间，等等。
     - **多维度的服务器和后端流量数据**

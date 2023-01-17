@@ -142,7 +142,7 @@ func New(opt *option.Options) (Cluster, error) {
 		return nil, fmt.Errorf("invalid cluster request timeout: %v", err)
 	}
 
-	// Member file，members.ClusterMembers and members.KnownMembers will be deprecated in the future.
+	// Member file, members.ClusterMembers and members.KnownMembers will be deprecated in the future.
 	// When the new configuration way (cluster.initial-cluster or cluster.primary-listen-peer-urls) is used, let's not create member
 	// instance but let's read member information from pkg/option/options.go's Options.ClusterOptions directly.
 	var membersFile *members

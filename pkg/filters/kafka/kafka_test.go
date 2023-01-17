@@ -43,6 +43,34 @@ type mockAsyncProducer struct {
 	closed  int32
 }
 
+func (m *mockAsyncProducer) IsTransactional() bool {
+	return false
+}
+
+func (m *mockAsyncProducer) TxnStatus() sarama.ProducerTxnStatusFlag {
+	return 0
+}
+
+func (m *mockAsyncProducer) BeginTxn() error {
+	return nil
+}
+
+func (m *mockAsyncProducer) CommitTxn() error {
+	return nil
+}
+
+func (m *mockAsyncProducer) AbortTxn() error {
+	return nil
+}
+
+func (m *mockAsyncProducer) AddOffsetsToTxn(offsets map[string][]*sarama.PartitionOffsetMetadata, groupId string) error {
+	return nil
+}
+
+func (m *mockAsyncProducer) AddMessageToTxn(msg *sarama.ConsumerMessage, groupId string, metadata *string) error {
+	return nil
+}
+
 func (m *mockAsyncProducer) AsyncClose()                               {}
 func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
 func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return m.errorCh }

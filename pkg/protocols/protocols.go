@@ -81,6 +81,9 @@ type Response interface {
 	// Header returns the header of the response.
 	Header() Header
 
+	// Trailer returns the trailer of the response
+	Trailer() Trailer
+
 	// IsStream returns whether the payload is a stream, which cannot be
 	// read for more than once.
 	IsStream() bool
@@ -128,6 +131,8 @@ type Header interface {
 	Walk(fn func(key string, value interface{}) bool)
 	Clone() Header
 }
+
+type Trailer = Header
 
 // Protocol is the interface of a protocol.
 type Protocol interface {

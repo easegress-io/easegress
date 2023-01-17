@@ -19,14 +19,15 @@ package httpserver
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"testing/iotest"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -45,7 +46,7 @@ func init() {
 
 func TestMuxReload(t *testing.T) {
 	assert := assert.New(t)
-	m := newMux(&httpstat.HTTPStat{}, &httpstat.TopN{}, nil)
+	m := newMux(&httpstat.HTTPStat{}, &httpstat.TopN{}, newMockMetrics(), nil)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -69,9 +70,13 @@ https: false
 cacheSize: 100
 tracing:
   serviceName: test
-  zipkin:
-    serverURL: http://test.megaease.com/zipkin
-    sampleRate: 0.1
+  sampleRate: 0.1
+  spanLimits:
+    attributeCountLimit: 20
+  exporter:
+    zipkin:
+      endpoint: http://test.megaease.com/zipkin
+
 rules:
 - host: www.megaease.com
   paths:
@@ -118,7 +123,7 @@ func TestServerACME(t *testing.T) {
 	assert := assert.New(t)
 
 	mm := &contexttest.MockedMuxMapper{}
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), mm)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), mm)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -150,7 +155,7 @@ func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
 
 	mm := &contexttest.MockedMuxMapper{}
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), mm)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), mm)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -212,7 +217,7 @@ rules:
 func TestMuxInstanceSearch(t *testing.T) {
 	assert := assert.New(t)
 
-	m := newMux(httpstat.New(), httpstat.NewTopN(10), nil)
+	m := newMux(httpstat.New(), httpstat.NewTopN(10), newMockMetrics(), nil)
 	assert.NotNil(m)
 	assert.NotNil(m.inst.Load())
 
@@ -626,4 +631,15 @@ rules:
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
+}
+
+func TestAccessLog(t *testing.T) {
+	log := &accessLog{
+		Method:  "GET",
+		URI:     "127.0.0.1",
+		ReqSize: 100,
+	}
+	formatter := newAccessLogFormatter("{{Method}} {{URI}} [{{ReqSize}}]")
+	s := formatter.format(log)
+	assert.Equal(t, "GET 127.0.0.1 [100]", s)
 }

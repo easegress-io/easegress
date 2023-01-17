@@ -35,7 +35,9 @@ import (
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/pkg/util/prometheushelper"
 	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // serverPoolError is the error returned by handler function of
@@ -64,7 +66,7 @@ func (spe serverPoolError) Result() string {
 // handler function.
 type serverPoolContext struct {
 	*context.Context
-	span      tracing.Span
+	span      *tracing.Span
 	startTime time.Time
 
 	req     *httpprot.Request
@@ -170,6 +172,7 @@ type ServerPool struct {
 
 	httpStat    *httpstat.HTTPStat
 	memoryCache *MemoryCache
+	metrics     *metrics
 }
 
 // ServerPoolSpec is the spec for a server pool.
@@ -214,6 +217,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 		sp.failureCodes[code] = struct{}{}
 	}
 
+	sp.metrics = sp.newMetrics(name)
 	return sp
 }
 
@@ -262,6 +266,7 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 	collect := func() {
 		metric.Duration = fasttime.Since(spCtx.startTime)
 		sp.httpStat.Stat(metric)
+		sp.exportPrometheusMetrics(metric)
 		spCtx.LazyAddTag(func() string {
 			return sp.name + "#duration: " + metric.Duration.String()
 		})
@@ -354,7 +359,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 			spanName = sp.name
 		}
 		spCtx.span = ctx.Span().NewChild(spanName)
-		defer spCtx.span.Finish()
+		defer spCtx.span.End()
 
 		return sp.doHandle(stdctx, spCtx)
 	}
@@ -590,4 +595,86 @@ func (sp *ServerPool) inFailureCodes(code int) bool {
 
 	_, exists := sp.failureCodes[code]
 	return exists
+}
+
+type (
+	// ProxyMetrics is the Prometheus Metrics of ProxyMetrics Object.
+	metrics struct {
+		TotalConnections           *prometheus.CounterVec
+		TotalErrorConnections      *prometheus.CounterVec
+		RequestBodySize            prometheus.ObserverVec
+		ResponseBodySize           prometheus.ObserverVec
+		RequestBodySizePercentage  prometheus.ObserverVec
+		ResponseBodySizePercentage prometheus.ObserverVec
+	}
+)
+
+// newMetrics create the ProxyMetrics.
+func (sp *ServerPool) newMetrics(name string) *metrics {
+	commonLabels := prometheus.Labels{
+		"proxyName":    name,
+		"kind":         Kind,
+		"clusterName":  sp.proxy.super.Options().ClusterName,
+		"clusterRole":  sp.proxy.super.Options().ClusterRole,
+		"instanceName": sp.proxy.super.Options().Name,
+	}
+	proxyLabels := []string{"clusterName", "clusterRole", "instanceName",
+		"proxyName", "kind", "loadBalancePolicy", "filterPolicy"}
+	return &metrics{
+		TotalConnections: prometheushelper.NewCounter("proxy_total_connections",
+			"the total count of proxy connections",
+			proxyLabels).MustCurryWith(commonLabels),
+		TotalErrorConnections: prometheushelper.NewCounter("proxy_total_error_connections",
+			"the total count of proxy error connections",
+			proxyLabels).MustCurryWith(commonLabels),
+		RequestBodySize: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "proxy_request_body_size",
+				Help:    "a histogram of the total size of the request.",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
+		ResponseBodySize: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "proxy_response_body_size",
+				Help:    "a histogram of the total size of the response.",
+				Buckets: prometheushelper.DefaultBodySizeBuckets(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
+		RequestBodySizePercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "proxy_request_body_size_percentage",
+				Help:       "a summary of the total size of the request.",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
+		ResponseBodySizePercentage: prometheushelper.NewSummary(
+			prometheus.SummaryOpts{
+				Name:       "proxy_response_body_size_percentage",
+				Help:       "a summary of the total size of the response.",
+				Objectives: prometheushelper.DefaultObjectives(),
+			},
+			proxyLabels).MustCurryWith(commonLabels),
+	}
+}
+
+func (sp *ServerPool) exportPrometheusMetrics(stat *httpstat.Metric) {
+	labels := prometheus.Labels{
+		"loadBalancePolicy": "",
+		"filterPolicy":      "",
+	}
+	if sp.spec.LoadBalance != nil {
+		labels["loadBalancePolicy"] = sp.spec.LoadBalance.Policy
+	}
+	if sp.spec.Filter != nil {
+		labels["filterPolicy"] = sp.spec.Filter.Policy
+	}
+	sp.metrics.TotalConnections.With(labels).Inc()
+	if stat.StatusCode >= 400 {
+		sp.metrics.TotalErrorConnections.With(labels).Inc()
+	}
+	sp.metrics.RequestBodySize.With(labels).Observe(float64(stat.ReqSize))
+	sp.metrics.ResponseBodySize.With(labels).Observe(float64(stat.RespSize))
+	sp.metrics.RequestBodySizePercentage.With(labels).Observe(float64(stat.ReqSize))
+	sp.metrics.ResponseBodySizePercentage.With(labels).Observe(float64(stat.RespSize))
 }
