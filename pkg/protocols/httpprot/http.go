@@ -108,10 +108,14 @@ func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) 
 	return NewResponse(r)
 }
 
+// SetRef store the Request reference when `sourceNamespace` be placed.
+// Will be added to Response either in the next time.
 func (p *Protocol) SetRef(ref interface{}) {
 	p.ref = ref.(*Request)
 }
 
+// GetRef get the Request reference if when `sourceNamespace` be placed.
+// Will be added to Response either in the next time.
 func (p *Protocol) GetRef() interface{} {
 	return p.ref
 }

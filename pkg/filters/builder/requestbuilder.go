@@ -73,10 +73,6 @@ func (spec *RequestBuilderSpec) Validate() error {
 		return fmt.Errorf("sourceNamespace or template must be specified")
 	}
 
-	//if spec.SourceNamespace != "" && spec.Template != "" {
-	//	return fmt.Errorf("sourceNamespace and template cannot be specified at the same time")
-	//}
-
 	return spec.Spec.Validate()
 }
 
