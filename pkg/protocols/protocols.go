@@ -138,11 +138,10 @@ type Trailer = Header
 type Protocol interface {
 	CreateRequest(req interface{}) (Request, error)
 	CreateResponse(resp interface{}) (Response, error)
-	SetRef(ref interface{})
-	GetRef() interface{}
 
 	NewRequestInfo() interface{}
 	BuildRequest(reqInfo interface{}) (Request, error)
+	BuildRequestWithRef(refReq, reqInfo interface{}) (Request, error)
 
 	NewResponseInfo() interface{}
 	BuildResponse(respInfo interface{}) (Response, error)

@@ -18,6 +18,8 @@
 package httpprot
 
 import (
+	"bytes"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -197,5 +199,54 @@ name: 123
 `
 		_, err := parseYAMLBody([]byte(body))
 		assert.Nil(err)
+	}
+}
+
+var maxPayloadSize int64 = 10485760
+
+func getLargeBody() []byte {
+	var str = make([]byte, maxPayloadSize)
+	var i int64
+	for i = 0; i < maxPayloadSize; i++ {
+		str[i] = byte('a')
+	}
+	return str
+}
+
+func TestProtocol2(t *testing.T) {
+	assert := assert.New(t)
+	p := &Protocol{}
+	stdReq, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:8888", bytes.NewReader(getLargeBody()))
+	defaultReq, _ := NewRequest(stdReq)
+	{
+		// build request with reference
+		info := p.NewRequestInfo().(*requestInfo)
+		info.Method = http.MethodPost
+		info.URL = "http://127.0.0.1:8888"
+		info.Headers = make(map[string][]string)
+		info.Headers["X-Header"] = []string{"value"}
+
+		req, err := p.BuildRequestWithRef(defaultReq, info)
+		assert.Nil(err)
+		httpReq := req.(*Request)
+		assert.Equal(http.MethodPost, httpReq.Std().Method)
+		//assert.Equal(stdReq.URL, httpReq.URL)
+		assert.Equal(info.URL, httpReq.Std().URL.String())
+		assert.Equal("value", httpReq.Std().Header.Get("X-Header"))
+		assert.Equal(stdReq.Body, httpReq.Std().Body)
+	}
+	{
+		// build request with reference and set new body
+		info := p.NewRequestInfo().(*requestInfo)
+		info.Body = "hello world"
+
+		req, err := p.BuildRequestWithRef(defaultReq, info)
+		assert.Nil(err)
+		httpReq := req.(*Request)
+		assert.Equal(http.MethodGet, httpReq.Std().Method)
+		assert.Equal("/", httpReq.Std().URL.String())
+		assert.Equal("", httpReq.Std().Header.Get("X-Header"))
+		str, _ := ioutil.ReadAll(httpReq.GetPayload())
+		assert.Equal(info.Body, string(str))
 	}
 }

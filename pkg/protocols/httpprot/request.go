@@ -429,7 +429,6 @@ func (p *Protocol) NewRequestInfo() interface{} {
 
 // BuildRequest builds and returns a request according to the given reqInfo.
 func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) {
-	refReq := p.GetRef().(*Request)
 	ri, ok := reqInfo.(*requestInfo)
 	if !ok {
 		return nil, fmt.Errorf("invalid request info type: %T", reqInfo)
@@ -437,16 +436,10 @@ func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) 
 
 	if ri.URL == "" {
 		ri.URL = "/"
-		if refReq != nil {
-			ri.URL = refReq.URL().String()
-		}
 	}
 
 	if ri.Method == "" {
 		ri.Method = http.MethodGet
-		if refReq != nil {
-			ri.Method = refReq.Method()
-		}
 	} else {
 		ri.Method = strings.ToUpper(ri.Method)
 	}
@@ -466,14 +459,6 @@ func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) 
 	}
 
 	req, _ := NewRequest(stdReq)
-	if refReq != nil {
-		refReq.Request.URL = req.Request.URL
-		refReq.Request.Method = req.Request.Method
-		if len(req.Request.Header) > 0 {
-			refReq.Request.Header = req.Request.Header
-		}
-		req = refReq
-	}
 	if ri.Body != "" {
 		req.SetPayload([]byte(ri.Body))
 		return req, nil
@@ -497,6 +482,28 @@ func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) 
 	form.Close()
 	req.HTTPHeader().Set("Content-Type", form.FormDataContentType())
 	req.SetPayload(buf.Bytes())
-
 	return req, nil
+}
+
+// BuildRequestWithRef builds and returns a request according to the given reqInfo.
+func (p *Protocol) BuildRequestWithRef(ref, reqInfo interface{}) (protocols.Request, error) {
+	protoRequest, err := p.BuildRequest(reqInfo)
+	if err != nil {
+		return nil, err
+	}
+	req := protoRequest.(*Request)
+	refReq := ref.(*Request)
+	ri, _ := reqInfo.(*requestInfo)
+	refReq.Request.URL = req.Request.URL
+	refReq.Request.Host = req.Request.Host
+	refReq.Request.Method = req.Request.Method
+	refReq.Request.Header = req.Request.Header
+	if ri.Body != "" {
+		refReq.SetPayload([]byte(ri.Body))
+		return refReq, nil
+	}
+	if ri.FormData != nil {
+		refReq.SetPayload(req.GetPayload())
+	}
+	return refReq, nil
 }

@@ -109,13 +109,13 @@ func (rb *RequestBuilder) reload() {
 
 // Handle builds request.
 func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
-	p := protocols.Get(rb.spec.Protocol)
+	var ref protocols.Request
 	if rb.spec.SourceNamespace != "" {
 		ctx.CopyRequest(rb.spec.SourceNamespace)
 		if rb.spec.Template == "" {
 			return ""
 		}
-		p.SetRef(ctx.GetOutputRequest())
+		ref = ctx.GetOutputRequest()
 	}
 
 	data, err := prepareBuilderData(ctx)
@@ -124,6 +124,7 @@ func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
+	p := protocols.Get(rb.spec.Protocol)
 	ri := p.NewRequestInfo()
 	if err = rb.build(data, ri); err != nil {
 		msgFmt := "RequestBuilder(%s): failed to build request info: %v"
@@ -131,7 +132,12 @@ func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 		return resultBuildErr
 	}
 
-	req, err := p.BuildRequest(ri)
+	var req protocols.Request
+	if ref == nil {
+		req, err = p.BuildRequest(ri)
+	} else {
+		req, err = p.BuildRequestWithRef(ctx.GetOutputRequest(), ri)
+	}
 	if err != nil {
 		logger.Warnf(err.Error())
 		return resultBuildErr

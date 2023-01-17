@@ -39,10 +39,6 @@ func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) 
 	panic("not implemented")
 }
 
-func (p *Protocol) SetRef(ref interface{}) {
-	panic("not implemented")
-}
-
-func (p *Protocol) GetRef() interface{} {
+func (p *Protocol) BuildRequestWithRef(ref, reqInfo interface{}) (protocols.Request, error) {
 	panic("not implemented")
 }
