@@ -56,3 +56,10 @@ func (p *Protocol) NewResponseInfo() interface{} {
 func (p *Protocol) BuildResponse(respInfo interface{}) (protocols.Response, error) {
 	panic("implement me")
 }
+func (p *Protocol) SetRef(ref interface{}) {
+	panic("not implemented")
+}
+
+func (p *Protocol) GetRef() interface{} {
+	panic("not implemented")
+}
