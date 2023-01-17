@@ -44,7 +44,7 @@ var (
 		"url":              _url,
 	}
 
-	urlCharsRegexp = regexp.MustCompile(`^[A-Za-z0-9\-_\.~]{1,253}$`)
+	urlCharsRegexp = regexp.MustCompile(`^[\p{L}0-9\-_\.~]{1,253}$`)
 )
 
 func getFormatFunc(format string) (FormatFunc, bool) {
