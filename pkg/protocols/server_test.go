@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package protocols
 
 import (
 	"testing"
@@ -42,30 +42,30 @@ func TestCheckAddrPattern(t *testing.T) {
 
 	// regard invalid url as IP:port
 	server.URL = "@@+=%^httpsidfssjflsdkjfsjf"
-	server.checkAddrPattern()
-	assert.False(server.addrIsHostName, "address should be IP:port")
+	server.CheckAddrPattern()
+	assert.False(server.AddrIsHostName, "address should be IP:port")
 
 	server.URL = "http://127.0.0.1:1111"
-	server.checkAddrPattern()
-	assert.False(server.addrIsHostName, "address should be IP:port")
+	server.CheckAddrPattern()
+	assert.False(server.AddrIsHostName, "address should be IP:port")
 
 	server.URL = "https://127.0.0.1:1111"
-	server.checkAddrPattern()
-	assert.False(server.addrIsHostName, "address should be IP:port")
+	server.CheckAddrPattern()
+	assert.False(server.AddrIsHostName, "address should be IP:port")
 
 	server.URL = "https://[FE80:CD00:0000:0CDE:1257:0000:211E:729C]:1111"
-	server.checkAddrPattern()
-	assert.False(server.addrIsHostName, "address should be IP:port")
+	server.CheckAddrPattern()
+	assert.False(server.AddrIsHostName, "address should be IP:port")
 
 	server.URL = "https://www.megaease.com:1111"
-	server.checkAddrPattern()
-	assert.True(server.addrIsHostName, "address should be host name")
+	server.CheckAddrPattern()
+	assert.True(server.AddrIsHostName, "address should be host name")
 
 	server.URL = "https://www.megaease.com"
-	server.checkAddrPattern()
-	assert.True(server.addrIsHostName, "address should be host name")
+	server.CheckAddrPattern()
+	assert.True(server.AddrIsHostName, "address should be host name")
 
 	server.URL = "faas-func-name.default.example.com"
-	server.checkAddrPattern()
-	assert.True(server.addrIsHostName, "address should not be IP:port")
+	server.CheckAddrPattern()
+	assert.True(server.AddrIsHostName, "address should not be IP:port")
 }

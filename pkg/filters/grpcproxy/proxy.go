@@ -19,8 +19,10 @@ package grpcprxoy
 
 import (
 	"fmt"
+
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -80,6 +82,9 @@ type (
 		filters.BaseSpec `json:",inline"`
 		Pools            []*ServerPoolSpec `json:"pools" jsonschema:"required"`
 	}
+
+	// Server is the backend server.
+	Server = protocols.Server
 )
 
 // Validate validates Spec.

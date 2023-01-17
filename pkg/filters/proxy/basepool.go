@@ -124,7 +124,7 @@ func (bsp *BaseServerPool) LoadBalancer() LoadBalancer {
 
 func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {
 	for _, server := range servers {
-		server.checkAddrPattern()
+		server.CheckAddrPattern()
 	}
 
 	if spec == nil {

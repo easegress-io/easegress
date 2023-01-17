@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package protocols
 
 import (
 	"fmt"
@@ -26,17 +26,17 @@ import (
 	"github.com/megaease/easegress/pkg/logger"
 )
 
-// Server is proxy server.
+// Server is a backend proxy server.
 type Server struct {
-	URL            string   `json:"url" jsonschema:"required,format=url"`
-	Tags           []string `json:"tags" jsonschema:"omitempty,uniqueItems=true"`
-	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
-	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
-	addrIsHostName bool
-	health         *ServerHealth
+	URL            string        `json:"url" jsonschema:"required,format=url"`
+	Tags           []string      `json:"tags" jsonschema:"omitempty,uniqueItems=true"`
+	Weight         int           `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
+	KeepHost       bool          `json:"keepHost" jsonschema:"omitempty,default=false"`
+	AddrIsHostName bool          `json:"-"`
+	health         *ServerHealth `json:"-"`
 }
 
-// ServerHealth is health status of server
+// ServerHealth is health status of a Server
 type ServerHealth struct {
 	healthy bool
 	fails   int
@@ -53,9 +53,9 @@ func (s *Server) ID() string {
 	return s.URL
 }
 
-// checkAddrPattern checks whether the server address is host name or ip:port,
+// CheckAddrPattern checks whether the server address is host name or ip:port,
 // not all error cases are handled.
-func (s *Server) checkAddrPattern() {
+func (s *Server) CheckAddrPattern() {
 	u, err := url.Parse(s.URL)
 	if err != nil {
 		return
@@ -75,11 +75,11 @@ func (s *Server) checkAddrPattern() {
 		host = host[1:square]
 	}
 
-	s.addrIsHostName = net.ParseIP(host) == nil
+	s.AddrIsHostName = net.ParseIP(host) == nil
 }
 
-// recordHealth records health status, return healthy status and true if status changes
-func (s *Server) recordHealth(pass bool, passThreshold, failThreshold int) (bool, bool) {
+// RecordHealth records health status, return healthy status and true if status changes
+func (s *Server) RecordHealth(pass bool, passThreshold, failThreshold int) (bool, bool) {
 	if s.health == nil {
 		s.health = &ServerHealth{healthy: true}
 	}

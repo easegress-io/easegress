@@ -231,7 +231,7 @@ func (blb *BaseLoadBalancer) probeServers() {
 	healthyServers := make([]*Server, 0, len(blb.Servers))
 	for _, svr := range blb.Servers {
 		pass := blb.probeHTTP(svr.URL)
-		healthy, change := svr.recordHealth(pass, blb.spec.HealthCheck.Passes, blb.spec.HealthCheck.Fails)
+		healthy, change := svr.RecordHealth(pass, blb.spec.HealthCheck.Passes, blb.spec.HealthCheck.Fails)
 		if change {
 			statusChange = true
 		}

@@ -192,7 +192,7 @@ func (sp *ServerPool) LoadBalancer() LoadBalancer {
 
 func (sp *ServerPool) createLoadBalancer(servers []*Server) {
 	for _, server := range servers {
-		server.checkAddrPattern()
+		server.CheckAddrPattern()
 	}
 
 	spec := sp.spec.LoadBalance

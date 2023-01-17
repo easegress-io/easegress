@@ -146,7 +146,7 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 
 	// only set host when server address is not host name OR
 	// server is explicitly told to keep the host of the request.
-	if !svr.addrIsHostName || svr.KeepHost {
+	if !svr.AddrIsHostName || svr.KeepHost {
 		stdr.Host = req.Host()
 	}
 

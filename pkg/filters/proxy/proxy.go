@@ -29,6 +29,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -126,6 +127,9 @@ type (
 		KeyBase64      string `json:"keyBase64" jsonschema:"required,format=base64"`
 		RootCertBase64 string `json:"rootCertBase64" jsonschema:"required,format=base64"`
 	}
+
+	// Server is the backend server.
+	Server = protocols.Server
 )
 
 // Validate validates Spec.
