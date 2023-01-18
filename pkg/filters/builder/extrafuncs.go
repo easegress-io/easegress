@@ -90,7 +90,7 @@ func mergeObject(objs ...map[string]interface{}) interface{} {
 	return out
 }
 
-var extraFuncs = template.FuncMap{
+var ExtraFuncs = template.FuncMap{
 	"addf": func(a, b interface{}) float64 {
 		x, y := toFloat64(a), toFloat64(b)
 		return x + y

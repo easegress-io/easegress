@@ -18,7 +18,6 @@
 package requestadaptor
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 	"time"
@@ -137,20 +136,6 @@ type (
 		signer *signer.Signer
 	}
 
-	// Spec is HTTPAdaptor Spec.
-	Spec struct {
-		filters.BaseSpec `json:",inline"`
-
-		Host       string                `json:"host" jsonschema:"omitempty"`
-		Method     string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path       *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
-		Header     *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
-		Body       string                `json:"body" jsonschema:"omitempty"`
-		Compress   string                `json:"compress" jsonschema:"omitempty"`
-		Decompress string                `json:"decompress" jsonschema:"omitempty"`
-		Sign       *SignerSpec           `json:"sign,omitempty" jsonschema:"omitempty"`
-	}
-
 	// SignerSpec is the spec of the request signer.
 	SignerSpec struct {
 		signer.Spec `json:",inline"`
@@ -163,33 +148,6 @@ type (
 		headerHoisting *signer.HeaderHoisting
 	}
 )
-
-// Validate verifies that at least one of the validations is defined.
-func (spec *Spec) Validate() error {
-	if spec.Decompress != "" && spec.Decompress != "gzip" {
-		return fmt.Errorf("RequestAdaptor only support decompress type of gzip")
-	}
-	if spec.Compress != "" && spec.Compress != "gzip" {
-		return fmt.Errorf("RequestAdaptor only support decompress type of gzip")
-	}
-	if spec.Compress != "" && spec.Decompress != "" {
-		return fmt.Errorf("RequestAdaptor can only do compress or decompress for given request body, not both")
-	}
-	if spec.Body != "" && spec.Decompress != "" {
-		return fmt.Errorf("No need to decompress when body is specified in RequestAdaptor spec")
-	}
-	if spec.Sign == nil {
-		return nil
-	}
-	s := spec.Sign
-	if s.APIProvider != "" {
-		if _, ok := signerConfigs[s.APIProvider]; !ok {
-			return fmt.Errorf("%q is not a supported API provider", s.APIProvider)
-		}
-	}
-
-	return nil
-}
 
 // Name returns the name of the RequestAdaptor filter instance.
 func (ra *RequestAdaptor) Name() string {
@@ -228,6 +186,9 @@ func (ra *RequestAdaptor) reload() {
 		}
 		ra.signer = signer.CreateFromSpec(&s.Spec)
 	}
+	if ra.spec.HeaderTemplate != "" {
+		ra.spec.reload()
+	}
 }
 
 func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
@@ -260,11 +221,24 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 		}
 		req.SetPath(adaptedPath)
 	}
-
 	if ra.spec.Header != nil {
 		adaptHeader(req, ra.spec.Header)
 	}
+	if ra.spec.HeaderTemplate != "" {
+		err := ra.spec.prepareBuilderData(ctx)
+		if err != nil {
+			logger.Warnf("PrepareBuilderData failed: %v", err)
+			return resultBuildErr
+		}
 
+		as := &httpheader.AdaptSpec{}
+		if err = ra.spec.build("header", as); err != nil {
+			msgFmt := "RequestAdaptor(%s): failed to build adaptor info: %v"
+			logger.Warnf(msgFmt, ra.Name(), err)
+			return resultBuildErr
+		}
+		adaptHeader(req, as)
+	}
 	if len(ra.spec.Body) != 0 {
 		req.SetPayload([]byte(ra.spec.Body))
 		req.Std().Header.Del("Content-Encoding")

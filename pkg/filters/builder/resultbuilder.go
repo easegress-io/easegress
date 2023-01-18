@@ -108,9 +108,9 @@ func (rb *ResultBuilder) reload() {
 
 // Handle builds result.
 func (rb *ResultBuilder) Handle(ctx *context.Context) (result string) {
-	data, err := prepareBuilderData(ctx)
+	data, err := PrepareBuilderData(ctx)
 	if err != nil {
-		logger.Warnf("prepareBuilderData failed: %v", err)
+		logger.Warnf("PrepareBuilderData failed: %v", err)
 		return resultBuildErr
 	}
 

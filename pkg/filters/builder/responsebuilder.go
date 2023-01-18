@@ -118,9 +118,9 @@ func (rb *ResponseBuilder) Handle(ctx *context.Context) (result string) {
 		return ""
 	}
 
-	data, err := prepareBuilderData(ctx)
+	data, err := PrepareBuilderData(ctx)
 	if err != nil {
-		logger.Warnf("prepareBuilderData failed: %v", err)
+		logger.Warnf("PrepareBuilderData failed: %v", err)
 		return resultBuildErr
 	}
 

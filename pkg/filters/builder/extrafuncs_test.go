@@ -46,20 +46,20 @@ func TestToFloat64(t *testing.T) {
 
 func TestExtraFuncs(t *testing.T) {
 	assert := assert.New(t)
-	assert.Equal(float64(123), extraFuncs["addf"].(func(a, b interface{}) float64)(120, 3))
-	assert.Equal(float64(117), extraFuncs["subf"].(func(a, b interface{}) float64)(120, 3))
-	assert.Equal(float64(360), extraFuncs["mulf"].(func(a, b interface{}) float64)(120, 3))
-	assert.Equal(float64(40), extraFuncs["divf"].(func(a, b interface{}) float64)(120, 3))
-	assert.Panics(func() { extraFuncs["divf"].(func(a, b interface{}) float64)(120, 0) })
+	assert.Equal(float64(123), ExtraFuncs["addf"].(func(a, b interface{}) float64)(120, 3))
+	assert.Equal(float64(117), ExtraFuncs["subf"].(func(a, b interface{}) float64)(120, 3))
+	assert.Equal(float64(360), ExtraFuncs["mulf"].(func(a, b interface{}) float64)(120, 3))
+	assert.Equal(float64(40), ExtraFuncs["divf"].(func(a, b interface{}) float64)(120, 3))
+	assert.Panics(func() { ExtraFuncs["divf"].(func(a, b interface{}) float64)(120, 0) })
 
-	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("debug", "debug"))
-	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("info", "info"))
-	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("warn", "warn"))
-	assert.Equal("", extraFuncs["log"].(func(level, msg string) string)("error", "error"))
+	assert.Equal("", ExtraFuncs["log"].(func(level, msg string) string)("debug", "debug"))
+	assert.Equal("", ExtraFuncs["log"].(func(level, msg string) string)("info", "info"))
+	assert.Equal("", ExtraFuncs["log"].(func(level, msg string) string)("warn", "warn"))
+	assert.Equal("", ExtraFuncs["log"].(func(level, msg string) string)("error", "error"))
 
-	assert.Equal(`abcd\"ABCD`, extraFuncs["jsonEscape"].(func(s string) string)(`abcd"ABCD`))
+	assert.Equal(`abcd\"ABCD`, ExtraFuncs["jsonEscape"].(func(s string) string)(`abcd"ABCD`))
 
-	assert.Panics(func() { extraFuncs["panic"].(func(v interface{}))("") })
+	assert.Panics(func() { ExtraFuncs["panic"].(func(v interface{}))("") })
 }
 
 func TestMergeObject(t *testing.T) {

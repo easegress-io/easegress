@@ -51,7 +51,7 @@ func (spec *Spec) Validate() error {
 
 func (b *Builder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
-	t.Funcs(sprig.TxtFuncMap()).Funcs(extraFuncs)
+	t.Funcs(sprig.TxtFuncMap()).Funcs(ExtraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
@@ -74,7 +74,7 @@ func (b *Builder) Status() interface{} {
 func (b *Builder) Close() {
 }
 
-func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
+func PrepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
 	requests := make(map[string]interface{})
 	responses := make(map[string]interface{})
 
