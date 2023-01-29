@@ -421,7 +421,7 @@ field2: value2
 		assert.Equal("/", testReq.Std().URL.String())
 	}
 
-	// build request failed
+	// Build request failed
 	yamlConfig = `template: |
   url: http://192.168.0.%31:8080/
 `

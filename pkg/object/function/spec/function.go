@@ -19,10 +19,10 @@ package spec
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/filters/builder/requestadaptor"
 
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 )
 

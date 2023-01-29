@@ -52,7 +52,7 @@ func init() {
 	for i := 0; i < maxResults; i++ {
 		results = append(results, fmt.Sprintf("result%d", i))
 	}
-	results = append(results, resultBuildErr, resultUnknown)
+	results = append(results, ResultBuildErr, resultUnknown)
 	resultBuilderKind.Results = results
 
 	filters.Register(resultBuilderKind)
@@ -103,22 +103,22 @@ func (rb *ResultBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (rb *ResultBuilder) reload() {
-	rb.Builder.reload(&rb.spec.Spec)
+	rb.Builder.Reload(&rb.spec.Spec)
 }
 
 // Handle builds result.
 func (rb *ResultBuilder) Handle(ctx *context.Context) (result string) {
-	data, err := prepareBuilderData(ctx)
+	data, err := PrepareBuilderData(ctx)
 	if err != nil {
-		logger.Warnf("prepareBuilderData failed: %v", err)
-		return resultBuildErr
+		logger.Warnf("PrepareBuilderData failed: %v", err)
+		return ResultBuildErr
 	}
 
 	var r string
-	if err = rb.build(data, &r); err != nil {
-		msgFmt := "ResultBuilder(%s): failed to build request info: %v"
+	if err = rb.Build(data, &r); err != nil {
+		msgFmt := "ResultBuilder(%s): failed to Build request info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
-		return resultBuildErr
+		return ResultBuildErr
 	}
 
 	if r == "" {

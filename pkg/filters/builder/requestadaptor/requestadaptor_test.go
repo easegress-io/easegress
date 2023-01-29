@@ -20,6 +20,8 @@ package requestadaptor
 import (
 	"bytes"
 	"compress/gzip"
+	"github.com/megaease/easegress/pkg/filters/builder"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"io"
 	"net/http"
 	"testing"
@@ -263,7 +265,7 @@ func TestCompress(t *testing.T) {
 func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
-	spec := defaultFilterSpec(&Spec{
+	requestAdaptorSpec := &Spec{
 		Method: http.MethodDelete,
 		Host:   "127.0.0.2",
 		Body:   "123",
@@ -275,7 +277,8 @@ func TestHandle(t *testing.T) {
 			Replace: "/path",
 		},
 		Sign: &SignerSpec{APIProvider: "aws4"},
-	})
+	}
+	spec := defaultFilterSpec(requestAdaptorSpec)
 	ra := kind.CreateInstance(spec)
 	ra.Init()
 
@@ -310,4 +313,64 @@ func TestHandle(t *testing.T) {
 	assert.Equal("/path", path)
 
 	assert.Contains(req.Header.Get("Authorization"), " SignedHeaders=host;x-add;x-amz-date;x-set,")
+}
+
+func TestTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlConfig := `template: |
+      header:
+        add:
+          X-Add: add-template-value
+`
+	tempSpec := &Spec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), tempSpec)
+	spec := defaultFilterSpec(&Spec{
+		Method: http.MethodDelete,
+		Host:   "127.0.0.2",
+		Body:   "123",
+		Header: &httpheader.AdaptSpec{
+			Add: map[string]string{"X-Add": "add-value"},
+			Set: map[string]string{"X-Set": "set-value"},
+		},
+		Path: &pathadaptor.Spec{
+			Replace: "/path",
+		},
+		Sign: &SignerSpec{APIProvider: "aws4"},
+		Spec: builder.Spec{Template: tempSpec.Template},
+	})
+	ra := kind.CreateInstance(spec)
+	ra.Init()
+
+	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
+	assert.Nil(err)
+
+	ctx := context.New(nil)
+	setRequest(t, ctx, req)
+
+	ans := ra.Handle(ctx)
+	assert.Equal("", ans)
+	ctx.Finish()
+
+	httpreq := ctx.GetInputRequest().(*httpprot.Request)
+	method := httpreq.Method()
+	assert.Equal(http.MethodDelete, method)
+
+	host := httpreq.Host()
+	assert.Equal("127.0.0.2", host)
+
+	body, err := io.ReadAll(httpreq.GetPayload())
+	assert.Nil(err)
+	assert.Equal("123", string(body))
+
+	headerValue := httpreq.Std().Header.Get("X-Add")
+	assert.Equal("add-template-value", headerValue)
+
+	headerValue = httpreq.Std().Header.Get("X-Set")
+	assert.Equal("", headerValue)
+
+	path := httpreq.Path()
+	assert.Equal("/path", path)
+
+	assert.Contains(req.Header.Get("Authorization"), " SignedHeaders=host;x-add;x-amz-date,")
 }

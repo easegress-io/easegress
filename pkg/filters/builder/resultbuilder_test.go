@@ -82,7 +82,7 @@ func TestResultBuider(t *testing.T) {
 
 		ctx := context.New(nil)
 		res := rb.Handle(ctx)
-		assert.Equal(resultBuildErr, res)
+		assert.Equal(ResultBuildErr, res)
 	}
 
 	yamlConfig = `template: "{{index .resultx 1}}"`
@@ -96,6 +96,6 @@ func TestResultBuider(t *testing.T) {
 		ctx := context.New(nil)
 
 		res := rb.Handle(ctx)
-		assert.Equal(resultBuildErr, res)
+		assert.Equal(ResultBuildErr, res)
 	}
 }

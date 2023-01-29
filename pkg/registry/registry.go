@@ -20,6 +20,7 @@ package registry
 import (
 	// Filters
 	_ "github.com/megaease/easegress/pkg/filters/builder"
+	_ "github.com/megaease/easegress/pkg/filters/builder/requestadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/certextractor"
 	_ "github.com/megaease/easegress/pkg/filters/connectcontrol"
 	_ "github.com/megaease/easegress/pkg/filters/corsadaptor"
@@ -38,7 +39,6 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filters/redirector"
 	_ "github.com/megaease/easegress/pkg/filters/remotefilter"
-	_ "github.com/megaease/easegress/pkg/filters/requestadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/responseadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/topicmapper"
 	_ "github.com/megaease/easegress/pkg/filters/validator"

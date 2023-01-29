@@ -19,6 +19,7 @@ package requestadaptor
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/filters/builder"
 	"io"
 	"strconv"
 	"time"
@@ -132,6 +133,7 @@ type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
 		spec *Spec
+		builder.Builder
 
 		pa     *pathadaptor.PathAdaptor
 		signer *signer.Signer
@@ -140,6 +142,7 @@ type (
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
+		builder.Spec     `json:",inline"`
 
 		Host       string                `json:"host" jsonschema:"omitempty"`
 		Method     string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
@@ -228,6 +231,9 @@ func (ra *RequestAdaptor) reload() {
 		}
 		ra.signer = signer.CreateFromSpec(&s.Spec)
 	}
+	if ra.spec.Template != "" {
+		ra.Builder.Reload(&ra.spec.Spec)
+	}
 }
 
 func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
@@ -247,6 +253,22 @@ func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
 func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	method, path := req.Method(), req.Path()
+
+	if ra.spec.Template != "" {
+		data, err := builder.PrepareBuilderData(ctx)
+		if err != nil {
+			logger.Warnf("PrepareBuilderData failed: %v", err)
+			return builder.ResultBuildErr
+		}
+
+		tempSpec := &Spec{}
+		if err = ra.Builder.Build(data, tempSpec); err != nil {
+			msgFmt := "RequestAdaptor(%s): failed to build adaptor info: %v"
+			logger.Warnf(msgFmt, ra.Name(), err)
+			return builder.ResultBuildErr
+		}
+		ra.adaptSpecWithTemplate(tempSpec)
+	}
 
 	if ra.spec.Method != "" && ra.spec.Method != method {
 		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", ra.spec.Method))
@@ -296,6 +318,41 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	}
 
 	return ""
+}
+
+// adaptSpecWithTemplate this will override the one-by-one spec
+func (ra *RequestAdaptor) adaptSpecWithTemplate(tempSpec *Spec) {
+	if tempSpec.Method != "" {
+		ra.spec.Method = tempSpec.Method
+	}
+	if tempSpec.Path != nil {
+		ra.pa = pathadaptor.New(ra.spec.Path)
+	}
+	if tempSpec.Header != nil {
+		ra.spec.Header = tempSpec.Header
+	}
+	if tempSpec.Body != "" {
+		ra.spec.Body = tempSpec.Body
+	}
+	if tempSpec.Host != "" {
+		ra.spec.Host = tempSpec.Host
+	}
+	if tempSpec.Decompress != "" {
+		ra.spec.Decompress = tempSpec.Decompress
+	}
+	if tempSpec.Compress != "" {
+		ra.spec.Compress = tempSpec.Compress
+	}
+	if tempSpec.Sign != nil {
+		s := tempSpec.Sign
+		sc, ok := signerConfigs[s.APIProvider]
+		if ok {
+			s.Literal = sc.literal
+			s.HeaderHoisting = sc.headerHoisting
+		}
+		ra.signer = signer.CreateFromSpec(&s.Spec)
+		ra.spec.Sign = tempSpec.Sign
+	}
 }
 
 func (ra *RequestAdaptor) processCompress(req *httpprot.Request) string {

@@ -34,7 +34,7 @@ const (
 var requestBuilderKind = &filters.Kind{
 	Name:        RequestBuilderKind,
 	Description: "RequestBuilder builds a request",
-	Results:     []string{resultBuildErr},
+	Results:     []string{ResultBuildErr},
 	DefaultSpec: func() filters.Spec {
 		return &RequestBuilderSpec{Protocol: "http"}
 	},
@@ -107,7 +107,7 @@ func (rb *RequestBuilder) Inherit(previousGeneration filters.Filter) {
 
 func (rb *RequestBuilder) reload() {
 	if rb.spec.SourceNamespace == "" {
-		rb.Builder.reload(&rb.spec.Spec)
+		rb.Builder.Reload(&rb.spec.Spec)
 	}
 }
 
@@ -118,24 +118,24 @@ func (rb *RequestBuilder) Handle(ctx *context.Context) (result string) {
 		return ""
 	}
 
-	data, err := prepareBuilderData(ctx)
+	data, err := PrepareBuilderData(ctx)
 	if err != nil {
-		logger.Warnf("prepareBuilderData failed: %v", err)
-		return resultBuildErr
+		logger.Warnf("PrepareBuilderData failed: %v", err)
+		return ResultBuildErr
 	}
 
 	p := protocols.Get(rb.spec.Protocol)
 	ri := p.NewRequestInfo()
-	if err = rb.build(data, ri); err != nil {
-		msgFmt := "RequestBuilder(%s): failed to build request info: %v"
+	if err = rb.Build(data, ri); err != nil {
+		msgFmt := "RequestBuilder(%s): failed to Build request info: %v"
 		logger.Warnf(msgFmt, rb.Name(), err)
-		return resultBuildErr
+		return ResultBuildErr
 	}
 
 	req, err := p.BuildRequest(ri)
 	if err != nil {
 		logger.Warnf(err.Error())
-		return resultBuildErr
+		return ResultBuildErr
 	}
 
 	ctx.SetOutputRequest(req)
