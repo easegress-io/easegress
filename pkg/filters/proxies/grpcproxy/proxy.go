@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package grpcprxoy
+package grpcproxy
 
 import (
 	"fmt"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -84,7 +84,7 @@ type (
 	}
 
 	// Server is the backend server.
-	Server = protocols.Server
+	Server = proxies.Server
 )
 
 // Validate validates Spec.

@@ -15,16 +15,17 @@
  * limitations under the License.
  */
 
-package grpcprxoy
+package grpcproxy
 
 import (
 	"context"
 	"fmt"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	"google.golang.org/grpc/metadata"
 	"math/rand"
 	"strconv"
 	"testing"
+
+	"github.com/megaease/easegress/pkg/protocols/grpcprot"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/stretchr/testify/assert"
 )

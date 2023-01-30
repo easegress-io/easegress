@@ -15,36 +15,24 @@
  * limitations under the License.
  */
 
-package proxy
+package proxies
 
-import (
-	"fmt"
-	"sync"
-	"sync/atomic"
-
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/stringtool"
-)
-
+/*
 // BaseServerPool defines a server pool.
 type BaseServerPool struct {
 	name         string
 	done         chan struct{}
 	wg           sync.WaitGroup
-	filter       RequestMatcher
 	loadBalancer atomic.Value
 }
 
 // BaseServerPoolSpec is the spec for a base server pool.
 type BaseServerPoolSpec struct {
-	Filter          *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	ServerTags      []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers         []*Server           `json:"servers" jsonschema:"omitempty"`
-	ServiceRegistry string              `json:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName     string              `json:"serviceName" jsonschema:"omitempty"`
-	LoadBalance     *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
+	ServerTags      []string         `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
+	Servers         []*Server        `json:"servers" jsonschema:"omitempty"`
+	ServiceRegistry string           `json:"serviceRegistry" jsonschema:"omitempty"`
+	ServiceName     string           `json:"serviceName" jsonschema:"omitempty"`
+	LoadBalance     *LoadBalanceSpec `json:"loadBalance" jsonschema:"omitempty"`
 }
 
 // Validate validates ServerPoolSpec.
@@ -75,10 +63,6 @@ func (sps *BaseServerPoolSpec) Validate() error {
 func (bsp *BaseServerPool) Init(super *supervisor.Supervisor, name string, spec *BaseServerPoolSpec) {
 	bsp.name = name
 	bsp.done = make(chan struct{})
-
-	if spec.Filter != nil {
-		bsp.filter = NewRequestMatcher(spec.Filter)
-	}
 
 	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
 		bsp.createLoadBalancer(spec.LoadBalance, spec.Servers)
@@ -175,3 +159,5 @@ func (bsp *BaseServerPool) close() {
 		lb.Close()
 	}
 }
+
+*/

@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package grpcprxoy
+package grpcproxy
 
 import (
 	"context"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
-	"testing"
 )
 
 func TestForwardLB(t *testing.T) {

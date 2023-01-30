@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package httpproxy
 
 import (
 	stdcontext "context"
@@ -162,6 +162,7 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 type ServerPool struct {
 	BaseServerPool
 
+	filter       RequestMatcher
 	proxy        *Proxy
 	spec         *ServerPoolSpec
 	failureCodes map[int]struct{}
@@ -179,12 +180,13 @@ type ServerPool struct {
 type ServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
 
-	SpanName             string           `json:"spanName" jsonschema:"omitempty"`
-	ServerMaxBodySize    int64            `json:"serverMaxBodySize" jsonschema:"omitempty"`
-	Timeout              string           `json:"timeout" jsonschema:"omitempty,format=duration"`
-	RetryPolicy          string           `json:"retryPolicy" jsonschema:"omitempty"`
-	CircuitBreakerPolicy string           `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
-	MemoryCache          *MemoryCacheSpec `json:"memoryCache,omitempty" jsonschema:"omitempty"`
+	Filter               *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
+	SpanName             string              `json:"spanName" jsonschema:"omitempty"`
+	ServerMaxBodySize    int64               `json:"serverMaxBodySize" jsonschema:"omitempty"`
+	Timeout              string              `json:"timeout" jsonschema:"omitempty,format=duration"`
+	RetryPolicy          string              `json:"retryPolicy" jsonschema:"omitempty"`
+	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
+	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty" jsonschema:"omitempty"`
 
 	// FailureCodes would be 5xx if it isn't assigned any value.
 	FailureCodes []int `json:"failureCodes" jsonschema:"omitempty,uniqueItems=true"`
@@ -202,6 +204,10 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 		spec:     spec,
 		httpStat: httpstat.New(),
 	}
+	if spec.Filter != nil {
+		sp.filter = NewRequestMatcher(spec.Filter)
+	}
+
 	sp.BaseServerPool.Init(proxy.super, name, &spec.BaseServerPoolSpec)
 
 	if spec.MemoryCache != nil {

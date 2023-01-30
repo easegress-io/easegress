@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package httpproxy
 
 import (
 	"crypto/tls"
@@ -28,8 +28,8 @@ import (
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -129,7 +129,7 @@ type (
 	}
 
 	// Server is the backend server.
-	Server = protocols.Server
+	Server = proxies.Server
 )
 
 // Validate validates Spec.

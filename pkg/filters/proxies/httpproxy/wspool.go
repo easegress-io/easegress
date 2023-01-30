@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package httpproxy
 
 import (
 	"fmt"
@@ -37,6 +37,7 @@ import (
 type WebSocketServerPool struct {
 	BaseServerPool
 
+	filter   RequestMatcher
 	proxy    *WebSocketProxy
 	spec     *WebSocketServerPoolSpec
 	httpStat *httpstat.HTTPStat
@@ -45,6 +46,7 @@ type WebSocketServerPool struct {
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
+	Filter             *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.
@@ -53,6 +55,9 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 		proxy:    proxy,
 		spec:     spec,
 		httpStat: httpstat.New(),
+	}
+	if spec.Filter != nil {
+		sp.filter = NewRequestMatcher(spec.Filter)
 	}
 	sp.Init(proxy.super, name, &spec.BaseServerPoolSpec)
 	return sp

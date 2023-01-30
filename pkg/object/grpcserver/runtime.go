@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters/grpcproxy"
+	"github.com/megaease/easegress/pkg/filters/proxies/grpcproxy"
 	"github.com/megaease/easegress/pkg/graceupdate"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -242,7 +242,7 @@ func (r *runtime) startServer() {
 		r.setError(err)
 		return
 	}
-	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(&grpcprxoy.GrpcCodec{})}
+	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(&grpcproxy.GrpcCodec{})}
 	keepaliveOpts := r.buildServerKeepaliveOpt()
 
 	if len(keepaliveOpts) != 0 {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/filters/mock"
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/util/urlrule"

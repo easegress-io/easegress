@@ -23,7 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/meshadaptor"
 	"github.com/megaease/easegress/pkg/filters/mock"
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/pipeline"
@@ -262,11 +262,11 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 				}
 				candidatePools[i] = &proxy.ServerPoolSpec{
 					BaseServerPoolSpec: proxy.BaseServerPoolSpec{
-						Filter: &proxy.RequestMatcherSpec{
-							MatchAllHeaders: true,
-							Headers:         headers,
-						},
 						LoadBalance: param.lb,
+					},
+					Filter: &proxy.RequestMatcherSpec{
+						MatchAllHeaders: true,
+						Headers:         headers,
 					},
 					Timeout:              param.timeout,
 					RetryPolicy:          param.retryPolicy,

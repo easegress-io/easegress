@@ -26,7 +26,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/pipeline"

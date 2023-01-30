@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package grpcprxoy
+package grpcproxy
 
 import (
 	stdcontext "context"

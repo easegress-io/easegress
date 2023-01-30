@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package protocols
+package proxies
 
 import (
 	"testing"

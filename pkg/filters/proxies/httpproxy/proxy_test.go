@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package proxy
+package httpproxy
 
 import (
 	"fmt"
