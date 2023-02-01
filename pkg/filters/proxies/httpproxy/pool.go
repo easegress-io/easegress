@@ -29,6 +29,7 @@ import (
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
@@ -208,7 +209,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 		sp.filter = NewRequestMatcher(spec.Filter)
 	}
 
-	sp.BaseServerPool.Init(proxy.super, name, &spec.BaseServerPoolSpec)
+	sp.BaseServerPool.Init(sp, proxy.super, name, &spec.BaseServerPoolSpec)
 
 	if spec.MemoryCache != nil {
 		sp.memoryCache = NewMemoryCache(spec.MemoryCache)
@@ -225,6 +226,12 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 
 	sp.metrics = sp.newMetrics(name)
 	return sp
+}
+
+func (sp *ServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
+	lb := proxies.NewGeneralLoadBalancer(spec, servers)
+	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	return lb
 }
 
 func (sp *ServerPool) status() *ServerPoolStatus {
@@ -274,7 +281,7 @@ func (sp *ServerPool) collectMetrics(spCtx *serverPoolContext) {
 		sp.httpStat.Stat(metric)
 		sp.exportPrometheusMetrics(metric)
 		spCtx.LazyAddTag(func() string {
-			return sp.name + "#duration: " + metric.Duration.String()
+			return sp.Name + "#duration: " + metric.Duration.String()
 		})
 	}
 
@@ -310,7 +317,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 
 	err := spCtx.prepareRequest(svr, spCtx.req.Context(), true)
 	if err != nil {
-		logger.Errorf("%s: failed to prepare request: %v", sp.name, err)
+		logger.Errorf("%s: failed to prepare request: %v", sp.Name, err)
 		return
 	}
 
@@ -362,7 +369,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 
 		spanName := sp.spec.SpanName
 		if spanName == "" {
-			spanName = sp.name
+			spanName = sp.Name
 		}
 		spCtx.span = ctx.Span().NewChild(spanName)
 		defer spCtx.span.End()
@@ -388,7 +395,7 @@ func (sp *ServerPool) handle(ctx *context.Context, mirror bool) string {
 	// CircuitBreaker is the most outside resiliencer, if the error
 	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
-		logger.Errorf("%s: short circuited by circuit break policy", sp.name)
+		logger.Errorf("%s: short circuited by circuit break policy", sp.Name)
 		spCtx.AddTag("short circuited")
 		sp.buildFailureResponse(spCtx, http.StatusServiceUnavailable)
 		return resultShortCircuited
@@ -412,7 +419,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 
 	// if there's no available server.
 	if svr == nil {
-		logger.Errorf("%s: no available server", sp.name)
+		logger.Errorf("%s: no available server", sp.Name)
 		return serverPoolError{http.StatusServiceUnavailable, resultInternalError}
 	}
 
@@ -420,13 +427,13 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	statResult := &gohttpstat.Result{}
 	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
 	if err := spCtx.prepareRequest(svr, stdctx, false); err != nil {
-		logger.Errorf("%s: failed to prepare request: %v", sp.name, err)
+		logger.Errorf("%s: failed to prepare request: %v", sp.Name, err)
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
 
 	resp, err := fnSendRequest(spCtx.stdReq, sp.proxy.client)
 	if err != nil {
-		logger.Errorf("%s: failed to send request: %v", sp.name, err)
+		logger.Errorf("%s: failed to send request: %v", sp.Name, err)
 
 		statResult.End(fasttime.Now())
 		spCtx.LazyAddTag(func() string {
@@ -494,7 +501,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 
 	resp, err := httpprot.NewResponse(spCtx.stdResp)
 	if err != nil {
-		logger.Errorf("%s: NewResponse returns an error: %v", sp.name, err)
+		logger.Errorf("%s: NewResponse returns an error: %v", sp.Name, err)
 		body.Close()
 		return err
 	}
@@ -504,7 +511,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		maxBodySize = sp.proxy.spec.ServerMaxBodySize
 	}
 	if err = resp.FetchPayload(maxBodySize); err != nil {
-		logger.Errorf("%s: failed to fetch response payload: %v", sp.name, err)
+		logger.Errorf("%s: failed to fetch response payload: %v", sp.Name, err)
 		body.Close()
 		return err
 	}

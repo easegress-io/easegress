@@ -155,10 +155,10 @@ func (p *WebSocketProxy) Status() interface{} {
 
 // Close closes WebSocketProxy.
 func (p *WebSocketProxy) Close() {
-	p.mainPool.close()
+	p.mainPool.Close()
 
 	for _, v := range p.candidatePools {
-		v.close()
+		v.Close()
 	}
 }
 

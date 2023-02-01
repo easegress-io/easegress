@@ -17,19 +17,7 @@
 
 package grpcproxy
 
-import (
-	"fmt"
-	"hash/fnv"
-	"math/rand"
-	"net"
-	"sync"
-	"sync/atomic"
-
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-
-	"github.com/megaease/easegress/pkg/logger"
-)
-
+/*
 // LoadBalancer is the interface of an gRPC load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *grpcprot.Request) *Server
@@ -250,3 +238,4 @@ func (f *forwardLoadBalancer) ChooseServer(req *grpcprot.Request) *Server {
 func (f *forwardLoadBalancer) ReturnServer(s *Server) {
 	f.server.Put(s)
 }
+*/

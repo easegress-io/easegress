@@ -17,17 +17,33 @@
 
 package proxies
 
-/*
-// BaseServerPool defines a server pool.
-type BaseServerPool struct {
-	name         string
+import (
+	"fmt"
+	"sync"
+	"sync/atomic"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+)
+
+// ServerPoolImpl is the interface for server pool.
+type ServerPoolImpl interface {
+	CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer
+}
+
+// ServerPoolBase defines a base server pool.
+type ServerPoolBase struct {
+	spImpl       ServerPoolImpl
+	Name         string
 	done         chan struct{}
 	wg           sync.WaitGroup
 	loadBalancer atomic.Value
 }
 
-// BaseServerPoolSpec is the spec for a base server pool.
-type BaseServerPoolSpec struct {
+// ServerPoolBaseSpec is the spec for a base server pool.
+type ServerPoolBaseSpec struct {
 	ServerTags      []string         `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
 	Servers         []*Server        `json:"servers" jsonschema:"omitempty"`
 	ServiceRegistry string           `json:"serviceRegistry" jsonschema:"omitempty"`
@@ -36,7 +52,7 @@ type BaseServerPoolSpec struct {
 }
 
 // Validate validates ServerPoolSpec.
-func (sps *BaseServerPoolSpec) Validate() error {
+func (sps *ServerPoolBaseSpec) Validate() error {
 	if sps.ServiceName == "" && len(sps.Servers) == 0 {
 		return fmt.Errorf("both serviceName and servers are empty")
 	}
@@ -60,12 +76,12 @@ func (sps *BaseServerPoolSpec) Validate() error {
 }
 
 // Init initialize the base server pool according to the spec.
-func (bsp *BaseServerPool) Init(super *supervisor.Supervisor, name string, spec *BaseServerPoolSpec) {
-	bsp.name = name
-	bsp.done = make(chan struct{})
+func (spb *ServerPoolBase) Init(spImpl ServerPoolImpl, super *supervisor.Supervisor, name string, spec *ServerPoolBaseSpec) {
+	spb.Name = name
+	spb.done = make(chan struct{})
 
 	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
-		bsp.createLoadBalancer(spec.LoadBalance, spec.Servers)
+		spb.createLoadBalancer(spec.LoadBalance, spec.Servers)
 		return
 	}
 
@@ -77,36 +93,36 @@ func (bsp *BaseServerPool) Init(super *supervisor.Supervisor, name string, spec 
 	if err != nil {
 		msgFmt := "first try to use service %s/%s failed(will try again): %v"
 		logger.Warnf(msgFmt, spec.ServiceRegistry, spec.ServiceName, err)
-		bsp.createLoadBalancer(spec.LoadBalance, spec.Servers)
+		spb.createLoadBalancer(spec.LoadBalance, spec.Servers)
 	}
 
-	bsp.useService(spec, instances)
+	spb.useService(spec, instances)
 
 	watcher := registry.NewServiceWatcher(spec.ServiceRegistry, spec.ServiceName)
-	bsp.wg.Add(1)
+	spb.wg.Add(1)
 	go func() {
 		for {
 			select {
-			case <-bsp.done:
+			case <-spb.done:
 				watcher.Stop()
-				bsp.wg.Done()
+				spb.wg.Done()
 				return
 			case event := <-watcher.Watch():
-				bsp.useService(spec, event.Instances)
+				spb.useService(spec, event.Instances)
 			}
 		}
 	}()
 }
 
 // LoadBalancer returns the load balancer of the server pool.
-func (bsp *BaseServerPool) LoadBalancer() LoadBalancer {
-	if v := bsp.loadBalancer.Load(); v != nil {
+func (spb *ServerPoolBase) LoadBalancer() LoadBalancer {
+	if v := spb.loadBalancer.Load(); v != nil {
 		return v.(LoadBalancer)
 	}
 	return nil
 }
 
-func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {
+func (spb *ServerPoolBase) createLoadBalancer(spec *LoadBalanceSpec, servers []*Server) {
 	for _, server := range servers {
 		server.CheckAddrPattern()
 	}
@@ -115,13 +131,13 @@ func (bsp *BaseServerPool) createLoadBalancer(spec *LoadBalanceSpec, servers []*
 		spec = &LoadBalanceSpec{}
 	}
 
-	lb := NewLoadBalancer(spec, servers)
-	if old := bsp.loadBalancer.Swap(lb); old != nil {
+	lb := spb.spImpl.CreateLoadBalancer(spec, servers)
+	if old := spb.loadBalancer.Swap(lb); old != nil {
 		old.(LoadBalancer).Close()
 	}
 }
 
-func (bsp *BaseServerPool) useService(spec *BaseServerPoolSpec, instances map[string]*serviceregistry.ServiceInstanceSpec) {
+func (spb *ServerPoolBase) useService(spec *ServerPoolBaseSpec, instances map[string]*serviceregistry.ServiceInstanceSpec) {
 	servers := make([]*Server, 0)
 
 	for _, instance := range instances {
@@ -149,15 +165,17 @@ func (bsp *BaseServerPool) useService(spec *BaseServerPoolSpec, instances map[st
 		servers = spec.Servers
 	}
 
-	bsp.createLoadBalancer(spec.LoadBalance, servers)
+	spb.createLoadBalancer(spec.LoadBalance, servers)
 }
 
-func (bsp *BaseServerPool) close() {
-	close(bsp.done)
-	bsp.wg.Wait()
-	if lb := bsp.LoadBalancer(); lb != nil {
+func (spb *ServerPoolBase) Done() <-chan struct{} {
+	return spb.done
+}
+
+func (spb *ServerPoolBase) Close() {
+	close(spb.done)
+	spb.wg.Wait()
+	if lb := spb.LoadBalancer(); lb != nil {
 		lb.Close()
 	}
 }
-
-*/

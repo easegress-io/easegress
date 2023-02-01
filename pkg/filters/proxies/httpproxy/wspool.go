@@ -59,8 +59,12 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 	if spec.Filter != nil {
 		sp.filter = NewRequestMatcher(spec.Filter)
 	}
-	sp.Init(proxy.super, name, &spec.BaseServerPoolSpec)
+	sp.Init(sp, proxy.super, name, &spec.BaseServerPoolSpec)
 	return sp
+}
+
+func (sp *WebSocketServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
+	return nil
 }
 
 func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, statusCode int) {
@@ -153,7 +157,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 
 	// if there's no available server.
 	if svr == nil {
-		logger.Errorf("%s: no available server", sp.name)
+		logger.Errorf("%s: no available server", sp.Name)
 		sp.buildFailureResponse(ctx, http.StatusServiceUnavailable)
 		metric.StatusCode = http.StatusServiceUnavailable
 		return resultInternalError
@@ -161,7 +165,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 
 	stdw, _ := ctx.GetData("HTTP_RESPONSE_WRITER").(http.ResponseWriter)
 	if stdw == nil {
-		logger.Errorf("%s: cannot get response writer from context", sp.name)
+		logger.Errorf("%s: cannot get response writer from context", sp.Name)
 		sp.buildFailureResponse(ctx, http.StatusInternalServerError)
 		metric.StatusCode = http.StatusInternalServerError
 		return resultInternalError
@@ -172,7 +176,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		// dial to the server
 		svrConn, err := sp.dialServer(svr, req)
 		if err != nil {
-			logger.Errorf("%s: dial to %s failed: %v", sp.name, svr.URL, err)
+			logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
 			return
 		}
 
@@ -201,7 +205,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 			select {
 			case <-stop:
 				break
-			case <-sp.done:
+			case <-sp.Done():
 				svrConn.Close()
 				clntConn.Close()
 			}
@@ -230,9 +234,4 @@ func (sp *WebSocketServerPool) status() *ServerPoolStatus {
 	return &ServerPoolStatus{
 		Stat: sp.httpStat.Status(),
 	}
-}
-
-func (sp *WebSocketServerPool) close() {
-	close(sp.done)
-	sp.wg.Wait()
 }

@@ -18,22 +18,7 @@
 package httpproxy
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
-	"fmt"
-	"hash/fnv"
-	"hash/maphash"
-	"math/rand"
-	"net/http"
-	"sync/atomic"
 	"time"
-
-	"github.com/buraksezer/consistent"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/spaolacci/murmur3"
 )
 
 const (
@@ -69,6 +54,7 @@ const (
 	HealthCheckDefaultPassThreshold = 1
 )
 
+/*
 // LoadBalancer is the interface of an HTTP load balancer.
 type LoadBalancer interface {
 	ChooseServer(req *httpprot.Request) *Server
@@ -534,3 +520,5 @@ func (lb *headerHashLoadBalancer) ChooseServer(req *httpprot.Request) *Server {
 	hash.Write([]byte(v))
 	return lb.HealthyServers()[hash.Sum32()%uint32(len(lb.HealthyServers()))]
 }
+
+*/

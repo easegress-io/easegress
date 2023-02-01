@@ -129,7 +129,11 @@ type (
 	}
 
 	// Server is the backend server.
-	Server = proxies.Server
+	Server             = proxies.Server
+	LoadBalancer       = proxies.LoadBalancer
+	LoadBalanceSpec    = proxies.LoadBalanceSpec
+	BaseServerPool     = proxies.ServerPoolBase
+	BaseServerPoolSpec = proxies.ServerPoolBaseSpec
 )
 
 // Validate validates Spec.
@@ -284,14 +288,14 @@ func (p *Proxy) Status() interface{} {
 
 // Close closes Proxy.
 func (p *Proxy) Close() {
-	p.mainPool.close()
+	p.mainPool.Close()
 
 	for _, v := range p.candidatePools {
-		v.close()
+		v.Close()
 	}
 
 	if p.mirrorPool != nil {
-		p.mirrorPool.close()
+		p.mirrorPool.Close()
 	}
 }
 

@@ -21,8 +21,6 @@ import (
 	stdcontext "context"
 	"fmt"
 	"io"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
@@ -36,9 +34,7 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 
 	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 const (
@@ -99,14 +95,12 @@ var (
 
 // ServerPool defines a server pool.
 type ServerPool struct {
+	BaseServerPool
+
 	proxy *Proxy
 	spec  *ServerPoolSpec
-	done  chan struct{}
-	wg    sync.WaitGroup
-	name  string
 
 	filter                RequestMatcher
-	loadBalancer          atomic.Value
 	timeout               time.Duration
 	connectTimeout        time.Duration
 	circuitBreakerWrapper resilience.Wrapper
@@ -115,13 +109,10 @@ type ServerPool struct {
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
+	BaseServerPoolSpec `json:",inline"`
+
 	SpanName             string              `json:"spanName" jsonschema:"omitempty"`
 	Filter               *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	ServerTags           []string            `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers              []*Server           `json:"servers" jsonschema:"omitempty"`
-	ServiceRegistry      string              `json:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName          string              `json:"serviceName" jsonschema:"omitempty"`
-	LoadBalance          *LoadBalanceSpec    `json:"loadBalance" jsonschema:"omitempty"`
 	Timeout              string              `json:"timeout" jsonschema:"omitempty,format=duration"`
 	ConnectTimeout       string              `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
 	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
@@ -158,19 +149,13 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	sp := &ServerPool{
 		proxy: proxy,
 		spec:  spec,
-		done:  make(chan struct{}),
-		name:  name,
 	}
 
 	if spec.Filter != nil {
 		sp.filter = NewRequestMatcher(spec.Filter)
 	}
 
-	if spec.ServiceRegistry == "" || spec.ServiceName == "" {
-		sp.createLoadBalancer(sp.spec.Servers)
-	} else {
-		sp.watchServers()
-	}
+	sp.BaseServerPool.Init(sp, proxy.super, name, &spec.BaseServerPoolSpec)
 
 	if spec.Timeout != "" {
 		sp.timeout, _ = time.ParseDuration(spec.Timeout)
@@ -185,83 +170,8 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	return sp
 }
 
-// LoadBalancer returns the load balancer of the server pool.
-func (sp *ServerPool) LoadBalancer() LoadBalancer {
-	return sp.loadBalancer.Load().(LoadBalancer)
-}
-
-func (sp *ServerPool) createLoadBalancer(servers []*Server) {
-	for _, server := range servers {
-		server.CheckAddrPattern()
-	}
-
-	spec := sp.spec.LoadBalance
-	if spec == nil {
-		spec = &LoadBalanceSpec{}
-	}
-
-	lb := NewLoadBalancer(spec, servers)
-	sp.loadBalancer.Store(lb)
-}
-
-func (sp *ServerPool) watchServers() {
-	entity := sp.proxy.super.MustGetSystemController(serviceregistry.Kind)
-	registry := entity.Instance().(*serviceregistry.ServiceRegistry)
-
-	instances, err := registry.ListServiceInstances(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	if err != nil {
-		msgFmt := "first try to use service %s/%s failed(will try again): %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, err)
-		sp.createLoadBalancer(sp.spec.Servers)
-	}
-
-	sp.useService(instances)
-
-	watcher := registry.NewServiceWatcher(sp.spec.ServiceRegistry, sp.spec.ServiceName)
-	sp.wg.Add(1)
-	go func() {
-		for {
-			select {
-			case <-sp.done:
-				watcher.Stop()
-				sp.wg.Done()
-				return
-			case event := <-watcher.Watch():
-				sp.useService(event.Instances)
-			}
-		}
-	}()
-}
-
-func (sp *ServerPool) useService(instances map[string]*serviceregistry.ServiceInstanceSpec) {
-	servers := make([]*Server, 0)
-
-	for _, instance := range instances {
-		// default to true in case of sp.spec.ServerTags is empty
-		match := true
-
-		for _, tag := range sp.spec.ServerTags {
-			if match = stringtool.StrInSlice(tag, instance.Tags); match {
-				break
-			}
-		}
-
-		if match {
-			servers = append(servers, &Server{
-				URL:    instance.URL(),
-				Tags:   instance.Tags,
-				Weight: instance.Weight,
-			})
-		}
-	}
-
-	if len(servers) == 0 {
-		msgFmt := "%s/%s: no service instance satisfy tags: %v"
-		logger.Warnf(msgFmt, sp.spec.ServiceRegistry, sp.spec.ServiceName, sp.spec.ServerTags)
-		servers = sp.spec.Servers
-	}
-
-	sp.createLoadBalancer(servers)
+func (sp *ServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
+	return nil
 }
 
 // InjectResiliencePolicy injects resilience policies to the server pool.
@@ -326,7 +236,7 @@ func (sp *ServerPool) handle(ctx *context.Context) string {
 	// CircuitBreaker is the most outside resiliencer, if the error
 	// is ErrShortCircuited, we are sure the response is nil.
 	if err == resilience.ErrShortCircuited {
-		logger.Debugf("%s: short circuited by circuit break policy", sp.name)
+		logger.Debugf("%s: short circuited by circuit break policy", sp.Name)
 		spCtx.AddTag("short circuited")
 		sp.buildOutputResponse(spCtx, status.Newf(codes.Unavailable, "short circuited by circuit break policy"))
 		return resultShortCircuited
@@ -348,12 +258,11 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	svr := lb.ChooseServer(spCtx.req)
 	// if there's no available server.
 	if svr == nil {
-		logger.Debugf("%s: no available server", sp.name)
+		logger.Debugf("%s: no available server", sp.Name)
 		return serverPoolError{status.New(codes.InvalidArgument, "no available server"), resultClientError}
 	}
-	if f, ok := lb.(ReusableServerLB); ok {
-		defer f.ReturnServer(svr)
-	}
+	defer lb.ReturnServer(svr, spCtx.req, spCtx.resp)
+
 	// maybe be rewrite by grpcserver.MuxPath#rewrite
 	fullMethodName := spCtx.req.FullMethod()
 	if fullMethodName == "" {
@@ -426,11 +335,6 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 func (sp *ServerPool) buildOutputResponse(spCtx *serverPoolContext, s *status.Status) {
 	spCtx.resp.SetStatus(s)
 	spCtx.SetOutputResponse(spCtx.resp)
-}
-
-func (sp *ServerPool) close() {
-	close(sp.done)
-	sp.wg.Wait()
 }
 
 func (sp *ServerPool) forwardE2E(src grpc.Stream, dst grpc.Stream, header *grpcprot.Header) chan error {

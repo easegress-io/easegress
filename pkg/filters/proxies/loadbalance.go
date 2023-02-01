@@ -1,37 +1,38 @@
+/*
+ * Copyright (c) 2017, MegaEase
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package proxies
 
-import "github.com/megaease/easegress/pkg/protocols"
+import (
+	"fmt"
+	"hash/fnv"
+	"math/rand"
+	"sync/atomic"
+	"time"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols"
+)
 
 // LoadBalancer is the interface of a load balancer.
-type LoadBalancer[Request protocols.Request, Response protocols.Response] interface {
-	ChooseServer(req Request) *Server
-	ReturnServer(server *Server, req Request, resp Response)
+type LoadBalancer interface {
+	ChooseServer(req protocols.Request) *Server
+	ReturnServer(server *Server, req protocols.Request, resp protocols.Response)
 	Close()
-}
-
-// StickySessionSpec is the spec for sticky session.
-type StickySessionSpec struct {
-	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash,enum=DurationBased,enum=ApplicationBased"`
-	// AppCookieName is the user-defined cookie name in CookieConsistentHash and ApplicationBased mode.
-	AppCookieName string `json:"appCookieName" jsonschema:"omitempty"`
-	// LBCookieName is the generated cookie name in DurationBased and ApplicationBased mode.
-	LBCookieName string `json:"lbCookieName" jsonschema:"omitempty"`
-	// LBCookieExpire is the expire seconds of generated cookie in DurationBased and ApplicationBased mode.
-	LBCookieExpire string `json:"lbCookieExpire" jsonschema:"omitempty,format=duration"`
-}
-
-// HealthCheckSpec is the spec for health check.
-type HealthCheckSpec struct {
-	// Interval is the interval duration for health check.
-	Interval string `json:"interval" jsonschema:"omitempty,format=duration"`
-	// Path is the health check path for server
-	Path string `json:"path" jsonschema:"omitempty"`
-	// Timeout is the timeout duration for health check, default is 3.
-	Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
-	// Fails is the consecutive fails count for assert fail, default is 1.
-	Fails int `json:"fails" jsonschema:"omitempty,minimum=1"`
-	// Passes is the consecutive passes count for assert pass, default is 1.
-	Passes int `json:"passes" jsonschema:"omitempty,minimum=1"`
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
@@ -42,236 +43,231 @@ type LoadBalanceSpec struct {
 	HealthCheck   *HealthCheckSpec   `json:"healthCheck" jsonschema:"omitempty"`
 }
 
-/*
-// BaseLoadBalancer implement the common part of load balancer.
-type BaseLoadBalancer[TRequest Request, TResponse Response] struct {
+// LoadBalancePolicy is the interface of a load balance policy.
+type LoadBalancePolicy interface {
+	ChooseServer(req protocols.Request, sg *ServerGroup) *Server
+	Close()
+}
+
+// GeneralLoadBalancer implements a general purpose load balancer.
+type GeneralLoadBalancer struct {
 	spec           *LoadBalanceSpec
-	Servers        []*Server
-	healthyServers atomic.Value
-	consistentHash *consistent.Consistent
-	cookieExpire   time.Duration
-	done           chan bool
-	probeClient    *http.Client
-	probeInterval  time.Duration
-	probeTimeout   time.Duration
+	servers        []*Server
+	healthyServers atomic.Pointer[ServerGroup]
+
+	done chan struct{}
+
+	lbp LoadBalancePolicy
+	ss  SessionSticker
+	hc  HealthChecker
 }
 
-// HealthyServers return healthy servers
-func (blb *BaseLoadBalancer[TRequest, TResponse]) HealthyServers() []*Server {
-	return blb.healthyServers.Load().([]*Server)
+// NewGeneralLoadBalancer creates a new GeneralLoadBalancer.
+func NewGeneralLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *GeneralLoadBalancer {
+	lb := &GeneralLoadBalancer{
+		spec:    spec,
+		servers: servers,
+	}
+	lb.healthyServers.Store(newServerGroup(servers))
+	return lb
 }
 
-// init initializes load balancer
-func (blb *BaseLoadBalancer[TRequest, TResponse]) init(spec *LoadBalanceSpec, servers []*Server) {
-	blb.spec = spec
-	blb.Servers = servers
-	blb.healthyServers.Store(servers)
+// Init initializes the load balancer.
+func (glb *GeneralLoadBalancer) Init(
+	fnNewSessionSticker func(*StickySessionSpec) SessionSticker,
+	fnNewHealthChecker func(*HealthCheckSpec) HealthChecker,
+	aa any,
+) {
+	//	glb.lbp = lbp
 
-	blb.initStickySession(spec.StickySession, blb.HealthyServers())
-	blb.initHealthCheck(spec.HealthCheck, servers)
-}
+	if glb.spec.StickySession != nil {
+		ss := fnNewSessionSticker(glb.spec.StickySession)
+		ss.UpdateServers(glb.servers)
+		glb.ss = ss
+	}
 
-// initStickySession initializes for sticky session
-func (blb *BaseLoadBalancer[TRequest, TResponse]) initStickySession(spec *StickySessionSpec, servers []*Server) {
-	if spec == nil || len(servers) == 0 {
+	if glb.spec.HealthCheck == nil {
 		return
 	}
 
-	switch spec.Mode {
-	case StickySessionModeCookieConsistentHash:
-		blb.initConsistentHash()
-	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
-		blb.configLBCookie()
-	}
-}
-
-// initHealthCheck initializes for health check
-func (blb *BaseLoadBalancer[TRequest, TResponse]) initHealthCheck(spec *HealthCheckSpec, servers []*Server) {
-	if spec == nil || len(servers) == 0 {
-		return
+	if glb.spec.HealthCheck.Fails <= 0 {
+		glb.spec.HealthCheck.Fails = 1
 	}
 
-	blb.probeInterval, _ = time.ParseDuration(spec.Interval)
-	if blb.probeInterval <= 0 {
-		blb.probeInterval = HealthCheckDefaultInterval
+	if glb.spec.HealthCheck.Passes <= 0 {
+		glb.spec.HealthCheck.Passes = 1
 	}
-	blb.probeTimeout, _ = time.ParseDuration(spec.Timeout)
-	if blb.probeTimeout <= 0 {
-		blb.probeTimeout = HealthCheckDefaultTimeout
+
+	glb.hc = fnNewHealthChecker(glb.spec.HealthCheck)
+
+	interval, _ := time.ParseDuration(glb.spec.HealthCheck.Interval)
+	if interval <= 0 {
+		interval = time.Minute
 	}
-	if spec.Fails == 0 {
-		spec.Fails = HealthCheckDefaultFailThreshold
-	}
-	if spec.Passes == 0 {
-		spec.Passes = HealthCheckDefaultPassThreshold
-	}
-	blb.probeClient = &http.Client{Timeout: blb.probeTimeout}
-	ticker := time.NewTicker(blb.probeInterval)
-	blb.done = make(chan bool)
+
+	ticker := time.NewTicker(interval)
+	glb.done = make(chan struct{})
 	go func() {
 		for {
 			select {
-			case <-blb.done:
+			case <-glb.done:
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				blb.probeServers()
+				glb.checkServers()
 			}
 		}
 	}()
 }
 
-// probeServers checks health status of servers
-func (blb *BaseLoadBalancer[TRequest, TResponse]) probeServers() {
-	statusChange := false
-	healthyServers := make([]*Server, 0, len(blb.Servers))
-	for _, svr := range blb.Servers {
-		pass := blb.probeHTTP(svr.URL)
-		healthy, change := svr.RecordHealth(pass, blb.spec.HealthCheck.Passes, blb.spec.HealthCheck.Fails)
-		if change {
-			statusChange = true
+func (glb *GeneralLoadBalancer) checkServers() {
+	changed := false
+
+	servers := make([]*Server, 0, len(glb.servers))
+	for _, svr := range glb.servers {
+		succ := glb.hc.Check(svr)
+		if succ {
+			if svr.HealthCounter < 0 {
+				svr.HealthCounter = 0
+			}
+			svr.HealthCounter++
+			if svr.Unhealth && svr.HealthCounter >= glb.spec.HealthCheck.Passes {
+				logger.Warnf("server:%v becomes healthy.", svr.ID())
+				svr.Unhealth = false
+				changed = true
+			}
+		} else {
+			if svr.HealthCounter > 0 {
+				svr.HealthCounter = 0
+			}
+			svr.HealthCounter--
+			if svr.Healthy() && svr.HealthCounter <= -glb.spec.HealthCheck.Fails {
+				logger.Warnf("server:%v becomes healthy.", svr.ID())
+				svr.Unhealth = true
+				changed = true
+			}
 		}
-		if healthy {
-			healthyServers = append(healthyServers, svr)
-		}
-	}
-	if statusChange {
-		blb.healthyServers.Store(healthyServers)
-		// init consistent hash in sticky session when servers change
-		blb.initStickySession(blb.spec.StickySession, blb.HealthyServers())
-	}
-}
 
-// probeHTTP checks http url status
-func (blb *BaseLoadBalancer[TRequest, TResponse]) probeHTTP(url string) bool {
-	if blb.spec.HealthCheck.Path != "" {
-		url += blb.spec.HealthCheck.Path
-	}
-	res, err := blb.probeClient.Get(url)
-	if err != nil || res.StatusCode > 500 {
-		return false
-	}
-	return true
-}
-
-// initConsistentHash initializes for consistent hash mode
-func (blb *BaseLoadBalancer[TRequest, TResponse]) initConsistentHash() {
-	members := make([]consistent.Member, len(blb.HealthyServers()))
-	for i, s := range blb.HealthyServers() {
-		members[i] = hashMember{server: s}
-	}
-
-	cfg := consistent.Config{
-		PartitionCount:    1024,
-		ReplicationFactor: 50,
-		Load:              1.25,
-		Hasher:            hasher{},
-	}
-	blb.consistentHash = consistent.New(members, cfg)
-}
-
-// configLBCookie configures properties for load balancer-generated cookie
-func (blb *BaseLoadBalancer[TRequest, TResponse]) configLBCookie() {
-	if blb.spec.StickySession.LBCookieName == "" {
-		blb.spec.StickySession.LBCookieName = StickySessionDefaultLBCookieName
-	}
-
-	blb.cookieExpire, _ = time.ParseDuration(blb.spec.StickySession.LBCookieExpire)
-	if blb.cookieExpire <= 0 {
-		blb.cookieExpire = StickySessionDefaultLBCookieExpire
-	}
-}
-
-// ChooseServer chooses the sticky server if enable
-func (blb *BaseLoadBalancer[TRequest, TResponse]) ChooseServer(req *httpprot.Request) *Server {
-	if blb.spec.StickySession == nil {
-		return nil
-	}
-
-	switch blb.spec.StickySession.Mode {
-	case StickySessionModeCookieConsistentHash:
-		return blb.chooseServerByConsistentHash(req)
-	case StickySessionModeDurationBased, StickySessionModeApplicationBased:
-		return blb.chooseServerByLBCookie(req)
-	}
-
-	return nil
-}
-
-// chooseServerByConsistentHash chooses server using consistent hash on cookie
-func (blb *BaseLoadBalancer[TRequest, TResponse]) chooseServerByConsistentHash(req *httpprot.Request) *Server {
-	cookie, err := req.Cookie(blb.spec.StickySession.AppCookieName)
-	if err != nil {
-		return nil
-	}
-
-	m := blb.consistentHash.LocateKey([]byte(cookie.Value))
-	if m != nil {
-		return m.(hashMember).server
-	}
-
-	return nil
-}
-
-// chooseServerByLBCookie chooses server by load balancer-generated cookie
-func (blb *BaseLoadBalancer[TRequest, TResponse]) chooseServerByLBCookie(req *httpprot.Request) *Server {
-	cookie, err := req.Cookie(blb.spec.StickySession.LBCookieName)
-	if err != nil {
-		return nil
-	}
-
-	signed, err := hex.DecodeString(cookie.Value)
-	if err != nil || len(signed) != KeyLen+sha256.Size {
-		return nil
-	}
-
-	key := signed[:KeyLen]
-	macBytes := signed[KeyLen:]
-	for _, s := range blb.HealthyServers() {
-		mac := hmac.New(sha256.New, key)
-		mac.Write([]byte(s.ID()))
-		expected := mac.Sum(nil)
-		if hmac.Equal(expected, macBytes) {
-			return s
+		if svr.Healthy() {
+			servers = append(servers, svr)
 		}
 	}
 
-	return nil
-}
-
-// ReturnServer does some custom work before return server
-func (blb *BaseLoadBalancer[TRequest, TResponse]) ReturnServer(server *Server, req *httpprot.Request, resp *httpprot.Response) {
-	if blb.spec.StickySession == nil {
+	if !changed {
 		return
 	}
 
-	setCookie := false
-	switch blb.spec.StickySession.Mode {
-	case StickySessionModeDurationBased:
-		setCookie = true
-	case StickySessionModeApplicationBased:
-		for _, c := range resp.Cookies() {
-			if c.Name == blb.spec.StickySession.AppCookieName {
-				setCookie = true
-				break
-			}
-		}
-	}
-	if setCookie {
-		cookie := &http.Cookie{
-			Name:    blb.spec.StickySession.LBCookieName,
-			Value:   sign([]byte(server.ID())),
-			Expires: time.Now().Add(blb.cookieExpire),
-		}
-		resp.SetCookie(cookie)
+	glb.healthyServers.Store(newServerGroup(servers))
+	if glb.ss != nil {
+		glb.ss.UpdateServers(servers)
 	}
 }
 
-// Close closes resources
-func (blb *BaseLoadBalancer[TRequest, TResponse]) Close() {
-	if blb.done != nil {
-		close(blb.done)
+// ChooseServer chooses a server according to the load balancing spec.
+func (glb *GeneralLoadBalancer) ChooseServer(req protocols.Request) *Server {
+	sg := glb.healthyServers.Load()
+	if len(sg.Servers) == 0 {
+		return nil
+	}
+
+	if glb.ss != nil {
+		if svr := glb.ss.GetServer(req, sg); svr != nil {
+			return svr
+		}
+	}
+
+	return glb.lbp.ChooseServer(req, sg)
+}
+
+// ReturnServer returns a server to the load balancer.
+func (glb *GeneralLoadBalancer) ReturnServer(server *Server, req protocols.Request, resp protocols.Response) {
+	if glb.ss != nil {
+		glb.ss.ReturnServer(server, req, resp)
 	}
 }
 
-*/
+// Close closes the load balancer
+func (glb *GeneralLoadBalancer) Close() {
+	if glb.hc != nil {
+		glb.hc.Close()
+	}
+	if glb.ss != nil {
+		glb.ss.Close()
+	}
+	glb.lbp.Close()
+}
+
+// RandomLoadBalancePolicy is a load balance policy that chooses a server randomly.
+type RandomLoadBalancePolicy struct {
+}
+
+// ChooseServer chooses a server randomly.
+func (lbp *RandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
+	return sg.Servers[rand.Intn(len(sg.Servers))]
+}
+
+// RoundRobinLoadBalancePolicy is a load balance policy that chooses a server by round robin.
+type RoundRobinLoadBalancePolicy struct {
+	counter uint64
+}
+
+// ChooseServer chooses a server by round robin.
+func (lbp *RoundRobinLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
+	counter := atomic.AddUint64(&lbp.counter, 1) - 1
+	return sg.Servers[int(counter)%len(sg.Servers)]
+}
+
+// WeightedRandomLoadBalancePolicy is a load balance policy that chooses a server randomly by weight.
+type WeightedRandomLoadBalancePolicy struct {
+}
+
+// ChooseServer chooses a server randomly by weight.
+func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
+	w := rand.Intn(sg.TotalWeight)
+	for _, svr := range sg.Servers {
+		w -= svr.Weight
+		if w < 0 {
+			return svr
+		}
+	}
+
+	panic(fmt.Errorf("BUG: should not run to here, total weight=%d", sg.TotalWeight))
+}
+
+// IPHashLoadBalancePolicy is a load balance policy that chooses a server by ip hash.
+type IPHashLoadBalancePolicy struct {
+}
+
+// ChooseServer chooses a server by ip hash.
+func (lbp *IPHashLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
+	type realIPer interface {
+		RealIP() string
+	}
+
+	ri, ok := req.(realIPer)
+	if !ok {
+		panic("IPHashLoadBalancePolicy only support request with RealIP()")
+	}
+
+	ip := ri.RealIP()
+	hash := fnv.New32()
+	hash.Write([]byte(ip))
+	return sg.Servers[hash.Sum32()%uint32(len(sg.Servers))]
+}
+
+// HeaderHashLoadBalancePolicy is a load balance policy that chooses a server by header hash.
+type HeaderHashLoadBalancePolicy struct {
+	spec *LoadBalanceSpec
+}
+
+// ChooseServer chooses a server by header hash.
+func (lbp *HeaderHashLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
+	v, ok := req.Header().Get(lbp.spec.HeaderHashKey).(string)
+	if !ok {
+		panic("HeaderHashLoadBalancePolicy only support headers with string values")
+	}
+
+	hash := fnv.New32()
+	hash.Write([]byte(v))
+	return sg.Servers[hash.Sum32()%uint32(len(sg.Servers))]
+}
