@@ -158,7 +158,7 @@ make
 
 > **Note**:
 >
-> - This repo requires Go 1.18+ compiler for the build.
+> - This repo requires Go 1.19+ compiler for the build.
 > - If you need the WebAssembly feature, please run `make wasm`.
 
 Then we can add the binary directory to the `PATH` and execute the server:
