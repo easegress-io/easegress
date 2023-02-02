@@ -18,6 +18,8 @@
 package responseadaptor
 
 import (
+	"github.com/megaease/easegress/pkg/filters/builder"
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -225,4 +227,43 @@ func TestCompressDecompress(t *testing.T) {
 		res := ra.Handle(ctx)
 		assert.Equal(resultDecompressFailed, res)
 	}
+}
+
+func TestTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlConfig := `template: |
+      header:
+        add:
+          X-Add: add-template-value
+      body: hello
+`
+	tempSpec := &Spec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), tempSpec)
+	spec := &Spec{
+		Header: &httpheader.AdaptSpec{
+			Add: map[string]string{"X-Mock": "mockedHeaderValue"},
+		},
+		Compress: "gzip",
+		Spec:     builder.Spec{Template: tempSpec.Template},
+	}
+	ra := &ResponseAdaptor{
+		spec: spec,
+	}
+	ra.Init()
+	w := httptest.NewRecorder()
+	resp := w.Result()
+	//resp.Header.Set(keyContentEncoding, "gzip")
+	ctx := getCtx(t, resp)
+
+	zr := readers.NewGZipCompressReader(strings.NewReader("hello"))
+	data, err := io.ReadAll(zr)
+	assert.Nil(err)
+	zr.Close()
+
+	res := ra.Handle(ctx)
+	assert.Equal("", res)
+	assert.Equal("add-template-value", ctx.GetOutputResponse().Header().Get("X-Add"))
+	assert.Equal("", ctx.GetOutputResponse().Header().Get("X-Mock"))
+	assert.Equal(data, ctx.GetOutputResponse().RawPayload())
 }

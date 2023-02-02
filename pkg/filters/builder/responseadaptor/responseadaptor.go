@@ -18,6 +18,7 @@
 package responseadaptor
 
 import (
+	"github.com/megaease/easegress/pkg/filters/builder"
 	"io"
 	"strconv"
 	"strings"
@@ -66,11 +67,13 @@ type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
 		spec *Spec
+		builder.Builder
 	}
 
 	// Spec is HTTPAdaptor Spec.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
+		builder.Spec     `json:",inline"`
 
 		Header     *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
 		Body       string                `json:"body" jsonschema:"omitempty"`
@@ -117,7 +120,9 @@ func (ra *ResponseAdaptor) Inherit(previousGeneration filters.Filter) {
 }
 
 func (ra *ResponseAdaptor) reload() {
-	// Nothing to do.
+	if ra.spec.Template != "" {
+		ra.Builder.Reload(&ra.spec.Spec)
+	}
 }
 
 func adaptHeader(req *httpprot.Response, as *httpheader.AdaptSpec) {
@@ -141,6 +146,22 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	}
 	egresp := resp.(*httpprot.Response)
 
+	if ra.spec.Template != "" {
+		data, err := builder.PrepareBuilderData(ctx)
+		if err != nil {
+			logger.Warnf("PrepareBuilderData failed: %v", err)
+			return builder.ResultBuildErr
+		}
+
+		tempSpec := &Spec{}
+		if err = ra.Builder.Build(data, tempSpec); err != nil {
+			msgFmt := "ResponseAdaptor(%s): failed to build adaptor info: %v"
+			logger.Warnf(msgFmt, ra.Name(), err)
+			return builder.ResultBuildErr
+		}
+		ra.adaptSpecWithTemplate(tempSpec)
+	}
+
 	if ra.spec.Header != nil {
 		adaptHeader(egresp, ra.spec.Header)
 	}
@@ -163,6 +184,22 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	}
 
 	return ""
+}
+
+// adaptSpecWithTemplate this will override the one-by-one spec
+func (ra *ResponseAdaptor) adaptSpecWithTemplate(tempSpec *Spec) {
+	if tempSpec.Header != nil {
+		ra.spec.Header = tempSpec.Header
+	}
+	if tempSpec.Body != "" {
+		ra.spec.Body = tempSpec.Body
+	}
+	if tempSpec.Decompress != "" {
+		ra.spec.Decompress = tempSpec.Decompress
+	}
+	if tempSpec.Compress != "" {
+		ra.spec.Compress = tempSpec.Compress
+	}
 }
 
 func (ra *ResponseAdaptor) compress(resp *httpprot.Response) string {

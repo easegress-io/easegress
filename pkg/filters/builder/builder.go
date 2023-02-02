@@ -27,6 +27,7 @@ import (
 )
 
 const (
+	// ResultBuildErr build error
 	ResultBuildErr = "buildErr"
 )
 
