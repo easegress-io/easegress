@@ -228,6 +228,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	return sp
 }
 
+// CreateLoadBalancer creates a load balancer according to spec.
 func (sp *ServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := proxies.NewGeneralLoadBalancer(spec, servers)
 	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)

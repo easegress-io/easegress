@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
@@ -63,8 +64,11 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 	return sp
 }
 
+// CreateLoadBalancer creates a load balancer according to spec.
 func (sp *WebSocketServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
-	return nil
+	lb := proxies.NewGeneralLoadBalancer(spec, servers)
+	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	return lb
 }
 
 func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, statusCode int) {

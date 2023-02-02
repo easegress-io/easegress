@@ -23,6 +23,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -170,8 +171,15 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	return sp
 }
 
+// CreateLoadBalancer creates a load balancer according to spec.
 func (sp *ServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
-	return nil
+	if spec.Policy == "forward" {
+		return newForwardLoadBalancer(spec)
+	}
+
+	lb := proxies.NewGeneralLoadBalancer(spec, servers)
+	lb.Init(nil, nil, nil)
+	return lb
 }
 
 // InjectResiliencePolicy injects resilience policies to the server pool.

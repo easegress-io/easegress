@@ -28,6 +28,19 @@ import (
 	"github.com/megaease/easegress/pkg/protocols"
 )
 
+const (
+	// LoadBalancePolicyRoundRobin is the load balance policy of round robin.
+	LoadBalancePolicyRoundRobin = "roundRobin"
+	// LoadBalancePolicyRandom is the load balance policy of random.
+	LoadBalancePolicyRandom = "random"
+	// LoadBalancePolicyWeightedRandom is the load balance policy of weighted random.
+	LoadBalancePolicyWeightedRandom = "weightedRandom"
+	// LoadBalancePolicyIPHash is the load balance policy of IP hash.
+	LoadBalancePolicyIPHash = "ipHash"
+	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
+	LoadBalancePolicyHeaderHash = "headerHash"
+)
+
 // LoadBalancer is the interface of a load balancer.
 type LoadBalancer interface {
 	ChooseServer(req protocols.Request) *Server
@@ -37,8 +50,9 @@ type LoadBalancer interface {
 
 // LoadBalanceSpec is the spec to create a load balancer.
 type LoadBalanceSpec struct {
-	Policy        string             `json:"policy" jsonschema:"omitempty,enum=,enum=roundRobin,enum=random,enum=weightedRandom,enum=ipHash,enum=headerHash"`
+	Policy        string             `json:"policy" jsonschema:"omitempty"`
 	HeaderHashKey string             `json:"headerHashKey" jsonschema:"omitempty"`
+	ForwardKey    string             `json:"forwardKey" jsonschema:"omitempty"`
 	StickySession *StickySessionSpec `json:"stickySession" jsonschema:"omitempty"`
 	HealthCheck   *HealthCheckSpec   `json:"healthCheck" jsonschema:"omitempty"`
 }
@@ -46,7 +60,6 @@ type LoadBalanceSpec struct {
 // LoadBalancePolicy is the interface of a load balance policy.
 type LoadBalancePolicy interface {
 	ChooseServer(req protocols.Request, sg *ServerGroup) *Server
-	Close()
 }
 
 // GeneralLoadBalancer implements a general purpose load balancer.
@@ -76,9 +89,26 @@ func NewGeneralLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *GeneralLo
 func (glb *GeneralLoadBalancer) Init(
 	fnNewSessionSticker func(*StickySessionSpec) SessionSticker,
 	fnNewHealthChecker func(*HealthCheckSpec) HealthChecker,
-	aa any,
+	lbp LoadBalancePolicy,
 ) {
-	//	glb.lbp = lbp
+	if lbp == nil {
+		switch glb.spec.Policy {
+		case LoadBalancePolicyRoundRobin, "":
+			lbp = &RoundRobinLoadBalancePolicy{}
+		case LoadBalancePolicyRandom:
+			lbp = &RandomLoadBalancePolicy{}
+		case LoadBalancePolicyWeightedRandom:
+			lbp = &WeightedRandomLoadBalancePolicy{}
+		case LoadBalancePolicyIPHash:
+			lbp = &IPHashLoadBalancePolicy{}
+		case LoadBalancePolicyHeaderHash:
+			lbp = &HeaderHashLoadBalancePolicy{}
+		default:
+			logger.Errorf("unsupported load balancing policy: %s", glb.spec.Policy)
+			lbp = &RoundRobinLoadBalancePolicy{}
+		}
+	}
+	glb.lbp = lbp
 
 	if glb.spec.StickySession != nil {
 		ss := fnNewSessionSticker(glb.spec.StickySession)
@@ -194,7 +224,6 @@ func (glb *GeneralLoadBalancer) Close() {
 	if glb.ss != nil {
 		glb.ss.Close()
 	}
-	glb.lbp.Close()
 }
 
 // RandomLoadBalancePolicy is a load balance policy that chooses a server randomly.
