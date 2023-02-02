@@ -15,29 +15,33 @@
  * limitations under the License.
  */
 
-package grpcproxy
+package proxies
 
 import (
-	"context"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/metadata"
 )
 
-func TestForwardLB(t *testing.T) {
-	assertions := assert.New(t)
-	key := "forward-target"
-	lb := newForwardLoadBalancer(&LoadBalanceSpec{Policy: "forward", ForwardKey: key})
+type MockHealthChecker struct {
+	result bool
+}
 
-	sm := grpcprot.NewFakeServerStream(metadata.NewIncomingContext(context.Background(), metadata.MD{}))
-	req := grpcprot.NewRequestWithServerStream(sm)
+func (c *MockHealthChecker) Check(svr *Server) bool {
+	return c.result
+}
 
-	target := "127.0.0.1:8849"
-	assertions.Nil(lb.ChooseServer(req))
+func (c *MockHealthChecker) Close() {
+}
 
-	req.Header().Set(key, target)
+func TestHTTPHealthChecker(t *testing.T) {
+	spec := &HealthCheckSpec{}
+	c := NewHTTPHealthChecker(spec)
+	assert.NotNil(t, c)
 
-	assertions.Equal(target, lb.ChooseServer(req).URL)
+	spec = &HealthCheckSpec{Timeout: "100ms"}
+	c = NewHTTPHealthChecker(spec)
+	c.Check(&Server{URL: "https://www.megaease.com"})
+
+	c.Close()
 }

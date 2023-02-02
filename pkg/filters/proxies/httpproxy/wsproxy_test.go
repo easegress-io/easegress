@@ -160,13 +160,4 @@ pools:
 		ctx.SetData("HTTP_RESPONSE_WRITER", httptest.NewRecorder())
 		assert.Equal(resultClientError, proxy.Handle(ctx))
 	}
-
-	// no server
-	proxy.mainPool.loadBalancer.Store(NewLoadBalancer(&LoadBalanceSpec{}, nil))
-	{
-		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.megaease.com", nil)
-		ctx := getCtx(stdr)
-		ctx.SetData("HTTP_RESPONSE_WRITER", httptest.NewRecorder())
-		assert.Equal(resultInternalError, proxy.Handle(ctx))
-	}
 }

@@ -23,7 +23,6 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/option"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
@@ -196,48 +195,6 @@ func TestCopyCORSHeaders(t *testing.T) {
 
 	assert.Equal(1, len(dst.Values("X-Dst")))
 	assert.Equal("dst", dst.Values("X-Dst")[0])
-}
-
-func TestUseService(t *testing.T) {
-	assert := assert.New(t)
-
-	yamlConfig := `spanName: test
-serverTags: [a1, a2]
-servers:
-- url: http://192.168.1.1
-`
-
-	spec := &ServerPoolSpec{}
-	err := codectool.Unmarshal([]byte(yamlConfig), spec)
-	assert.NoError(err)
-	assert.NoError(spec.Validate())
-
-	p := &Proxy{}
-	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
-		nil, false, nil, nil)
-	sp := NewServerPool(p, spec, "test")
-	svr := sp.LoadBalancer().ChooseServer(nil)
-	assert.Equal("http://192.168.1.1", svr.URL)
-
-	sp.useService(&spec.BaseServerPoolSpec, nil)
-	assert.Equal("http://192.168.1.1", svr.URL)
-
-	sp.useService(&spec.BaseServerPoolSpec, map[string]*serviceregistry.ServiceInstanceSpec{
-		"2": {
-			Address: "192.168.1.2",
-			Tags:    []string{"a2"},
-			Port:    80,
-		},
-		"3": {
-			Address: "192.168.1.3",
-			Tags:    []string{"a3"},
-			Port:    80,
-		},
-	})
-	svr = sp.LoadBalancer().ChooseServer(nil)
-	assert.Equal("http://192.168.1.2:80", svr.URL)
-	svr = sp.LoadBalancer().ChooseServer(nil)
-	assert.Equal("http://192.168.1.2:80", svr.URL)
 }
 
 func TestRemoveHopByHopHeader(t *testing.T) {

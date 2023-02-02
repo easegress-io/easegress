@@ -68,7 +68,7 @@ func (sps *ServerPoolBaseSpec) Validate() error {
 		return fmt.Errorf(msgFmt, serversGotWeight, len(sps.Servers))
 	}
 
-	if sps.ServiceName != "" && sps.LoadBalance.HealthCheck != nil {
+	if sps.ServiceName != "" && sps.LoadBalance != nil && sps.LoadBalance.HealthCheck != nil {
 		return fmt.Errorf("can not open health check for service discovery")
 	}
 
@@ -77,6 +77,7 @@ func (sps *ServerPoolBaseSpec) Validate() error {
 
 // Init initialize the base server pool according to the spec.
 func (spb *ServerPoolBase) Init(spImpl ServerPoolImpl, super *supervisor.Supervisor, name string, spec *ServerPoolBaseSpec) {
+	spb.spImpl = spImpl
 	spb.Name = name
 	spb.done = make(chan struct{})
 
@@ -168,10 +169,12 @@ func (spb *ServerPoolBase) useService(spec *ServerPoolBaseSpec, instances map[st
 	spb.createLoadBalancer(spec.LoadBalance, servers)
 }
 
+// Done returns the done channel, which indicates the closing of the server pool.
 func (spb *ServerPoolBase) Done() <-chan struct{} {
 	return spb.done
 }
 
+// Close closes the server pool.
 func (spb *ServerPoolBase) Close() {
 	close(spb.done)
 	spb.wg.Wait()

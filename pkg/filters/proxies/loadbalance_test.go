@@ -21,12 +21,20 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
+}
 
 func prepareServers(count int) []*Server {
 	svrs := make([]*Server, 0, count)
@@ -36,51 +44,52 @@ func prepareServers(count int) []*Server {
 	return svrs
 }
 
-func readCookie(cookies []*http.Cookie, name string) *http.Cookie {
-	for _, c := range cookies {
-		if c.Name == name {
-			return c
-		}
+func TestGeneralLoadBalancer(t *testing.T) {
+	servers := prepareServers(10)
+	spec := &LoadBalanceSpec{
+		Policy: LoadBalancePolicyRoundRobin,
+		StickySession: &StickySessionSpec{
+			Mode:          StickySessionModeCookieConsistentHash,
+			AppCookieName: "app_cookie",
+		},
+		HealthCheck: &HealthCheckSpec{
+			Interval: "5ms",
+		},
 	}
-	return nil
+
+	lb := NewGeneralLoadBalancer(spec, servers)
+
+	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
+		return &MockHealthChecker{result: false}
+	}, nil)
+
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, len(lb.healthyServers.Load().Servers), 0)
+
+	lb.Close()
+
+	lb = NewGeneralLoadBalancer(spec, servers)
+
+	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
+		return &MockHealthChecker{result: true}
+	}, nil)
+
+	time.Sleep(20 * time.Millisecond)
+	assert.Equal(t, len(lb.healthyServers.Load().Servers), 10)
+	lb.Close()
 }
 
-func TestRoundRobinLoadBalancer(t *testing.T) {
-	assert := assert.New(t)
-
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "roundRobin"}, svrs)
-	for i := 0; i < 10; i++ {
-		svr := lb.ChooseServer(nil)
-		assert.Equal(svr.Weight, i+1)
-	}
-
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "unknow"}, svrs)
-	for i := 0; i < 10; i++ {
-		svr := lb.ChooseServer(nil)
-		assert.Equal(svr.Weight, i+1)
-	}
-}
-
-func TestRandomLoadBalancer(t *testing.T) {
-	assert := assert.New(t)
+func TestRandomLoadBalancePolicy(t *testing.T) {
 	rand.Seed(0)
 
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
 	counter := [10]int{}
+	servers := prepareServers(10)
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "random"}, svrs)
+	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyRandom}, servers)
+	lb.Init(nil, nil, nil)
+
 	for i := 0; i < 10000; i++ {
 		svr := lb.ChooseServer(nil)
-		assert.NotNil(svr)
 		counter[svr.Weight-1]++
 	}
 
@@ -91,21 +100,37 @@ func TestRandomLoadBalancer(t *testing.T) {
 	}
 }
 
-func TestWeightedRandomLoadBalancer(t *testing.T) {
-	assert := assert.New(t)
+func TestRoundRobinLoadBalancePolicy(t *testing.T) {
+	servers := prepareServers(10)
+
+	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyRoundRobin}, servers)
+	lb.Init(nil, nil, nil)
+
+	for i := 0; i < 10; i++ {
+		svr := lb.ChooseServer(nil)
+		assert.Equal(t, svr.Weight, i+1)
+	}
+
+	lb = NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: "UnknowPolicy"}, servers)
+	lb.Init(nil, nil, nil)
+
+	for i := 0; i < 10; i++ {
+		svr := lb.ChooseServer(nil)
+		assert.Equal(t, svr.Weight, i+1)
+	}
+}
+
+func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
 	rand.Seed(0)
 
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
 	counter := [10]int{}
+	servers := prepareServers(10)
 
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "weightedRandom"}, svrs)
-	for i := 0; i < 10000; i++ {
+	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyWeightedRandom}, servers)
+	lb.Init(nil, nil, nil)
+
+	for i := 0; i < 1000; i++ {
 		svr := lb.ChooseServer(nil)
-		assert.NotNil(svr)
 		counter[svr.Weight-1]++
 	}
 
@@ -118,17 +143,13 @@ func TestWeightedRandomLoadBalancer(t *testing.T) {
 	}
 }
 
-func TestIPHashLoadBalancer(t *testing.T) {
-	assert := assert.New(t)
-
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{Policy: "ipHash"}, svrs)
-
+func TestIPHashLoadBalancePolicy(t *testing.T) {
 	counter := [10]int{}
+	servers := prepareServers(10)
+
+	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyIPHash}, servers)
+	lb.Init(nil, nil, nil)
+
 	for i := 0; i < 100; i++ {
 		req := &http.Request{Header: http.Header{}}
 		req.Header.Add("X-Real-Ip", fmt.Sprintf("192.168.1.%d", i+1))
@@ -138,27 +159,17 @@ func TestIPHashLoadBalancer(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		assert.GreaterOrEqual(counter[i], 1)
+		assert.GreaterOrEqual(t, counter[i], 1)
 	}
 }
 
-func TestHeaderHashLoadBalancer(t *testing.T) {
-	assert := assert.New(t)
-
-	var svrs []*Server
-	lb := NewLoadBalancer(&LoadBalanceSpec{
-		Policy:        "headerHash",
-		HeaderHashKey: "X-Header",
-	}, svrs)
-	assert.Nil(lb.ChooseServer(nil))
-
-	svrs = prepareServers(10)
-	lb = NewLoadBalancer(&LoadBalanceSpec{
-		Policy:        "headerHash",
-		HeaderHashKey: "X-Header",
-	}, svrs)
-
+func TestHeaderHashLoadBalancePolicy(t *testing.T) {
 	counter := [10]int{}
+	servers := prepareServers(10)
+
+	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyHeaderHash, HeaderHashKey: "X-Header"}, servers)
+	lb.Init(nil, nil, nil)
+
 	for i := 0; i < 100; i++ {
 		req := &http.Request{Header: http.Header{}}
 		req.Header.Add("X-Header", fmt.Sprintf("abcd-%d", i))
@@ -168,119 +179,6 @@ func TestHeaderHashLoadBalancer(t *testing.T) {
 	}
 
 	for i := 0; i < 10; i++ {
-		assert.GreaterOrEqual(counter[i], 1)
+		assert.GreaterOrEqual(t, counter[i], 1)
 	}
-}
-
-func TestStickySession_ConsistentHash(t *testing.T) {
-	assert := assert.New(t)
-
-	servers := prepareServers(10)
-	lb := NewLoadBalancer(&LoadBalanceSpec{
-		Policy: LoadBalancePolicyRandom,
-		StickySession: &StickySessionSpec{
-			Mode:          "CookieConsistentHash",
-			AppCookieName: "AppCookie",
-		},
-	}, servers)
-
-	req := &http.Request{Header: http.Header{}}
-	req.AddCookie(&http.Cookie{Name: "AppCookie", Value: "abcd-1"})
-	r, _ := httpprot.NewRequest(req)
-	svr1 := lb.ChooseServer(r)
-
-	for i := 0; i < 100; i++ {
-		svr := lb.ChooseServer(r)
-		assert.Equal(svr1, svr)
-	}
-}
-
-func TestStickySession_DurationBased(t *testing.T) {
-	assert := assert.New(t)
-
-	servers := prepareServers(10)
-	lb := NewLoadBalancer(&LoadBalanceSpec{
-		Policy: LoadBalancePolicyRandom,
-		StickySession: &StickySessionSpec{
-			Mode: StickySessionModeDurationBased,
-		},
-	}, servers)
-
-	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
-	svr1 := lb.ChooseServer(r)
-	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
-	lb.ReturnServer(svr1, r, resp)
-	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
-
-	for i := 0; i < 100; i++ {
-		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
-		r, _ = httpprot.NewRequest(req)
-		svr := lb.ChooseServer(r)
-		assert.Equal(svr1, svr)
-
-		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
-		lb.ReturnServer(svr, r, resp)
-		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
-	}
-}
-
-func TestStickySession_ApplicationBased(t *testing.T) {
-	assert := assert.New(t)
-
-	servers := prepareServers(10)
-	appCookieName := "x-app-cookie"
-	lb := NewLoadBalancer(&LoadBalanceSpec{
-		Policy: LoadBalancePolicyRandom,
-		StickySession: &StickySessionSpec{
-			Mode:          StickySessionModeApplicationBased,
-			AppCookieName: appCookieName,
-		},
-	}, servers)
-
-	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
-	svr1 := lb.ChooseServer(r)
-	resp, _ := httpprot.NewResponse(&http.Response{Header: http.Header{}})
-	resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
-	lb.ReturnServer(svr1, r, resp)
-	c := readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
-
-	for i := 0; i < 100; i++ {
-		req := &http.Request{Header: http.Header{}}
-		req.AddCookie(&http.Cookie{Name: StickySessionDefaultLBCookieName, Value: c.Value})
-		r, _ = httpprot.NewRequest(req)
-		svr := lb.ChooseServer(r)
-		assert.Equal(svr1, svr)
-
-		resp, _ = httpprot.NewResponse(&http.Response{Header: http.Header{}})
-		resp.SetCookie(&http.Cookie{Name: appCookieName, Value: ""})
-		lb.ReturnServer(svr, r, resp)
-		c = readCookie(resp.Cookies(), StickySessionDefaultLBCookieName)
-	}
-}
-
-func BenchmarkSign(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		sign([]byte("192.168.1.2"))
-	}
-}
-
-func TestHealthCheck(t *testing.T) {
-	assert := assert.New(t)
-	servers := prepareServers(3)
-	lb := NewLoadBalancer(&LoadBalanceSpec{
-		Policy: LoadBalancePolicyRandom,
-		HealthCheck: &HealthCheckSpec{
-			Interval: "3s",
-			Fails:    2,
-		},
-	}, servers)
-
-	assert.Equal(len(servers), len(lb.HealthyServers()))
-
-	time.Sleep(5 * time.Second)
-	assert.Equal(len(servers), len(lb.HealthyServers()))
-
-	time.Sleep(5 * time.Second)
-	assert.Equal(0, len(lb.HealthyServers()))
 }

@@ -49,6 +49,10 @@ type LoadBalancer interface {
 }
 
 // LoadBalanceSpec is the spec to create a load balancer.
+//
+// TODO: this spec currently include all options for all load balance policies,
+// this is not good as new policies could be added in the future, we should
+// convert it to a map later.
 type LoadBalanceSpec struct {
 	Policy        string             `json:"policy" jsonschema:"omitempty"`
 	HeaderHashKey string             `json:"headerHashKey" jsonschema:"omitempty"`
@@ -91,6 +95,7 @@ func (glb *GeneralLoadBalancer) Init(
 	fnNewHealthChecker func(*HealthCheckSpec) HealthChecker,
 	lbp LoadBalancePolicy,
 ) {
+	// load balance policy
 	if lbp == nil {
 		switch glb.spec.Policy {
 		case LoadBalancePolicyRoundRobin, "":
@@ -102,7 +107,7 @@ func (glb *GeneralLoadBalancer) Init(
 		case LoadBalancePolicyIPHash:
 			lbp = &IPHashLoadBalancePolicy{}
 		case LoadBalancePolicyHeaderHash:
-			lbp = &HeaderHashLoadBalancePolicy{}
+			lbp = &HeaderHashLoadBalancePolicy{spec: glb.spec}
 		default:
 			logger.Errorf("unsupported load balancing policy: %s", glb.spec.Policy)
 			lbp = &RoundRobinLoadBalancePolicy{}
@@ -110,12 +115,14 @@ func (glb *GeneralLoadBalancer) Init(
 	}
 	glb.lbp = lbp
 
+	// sticky session
 	if glb.spec.StickySession != nil {
 		ss := fnNewSessionSticker(glb.spec.StickySession)
 		ss.UpdateServers(glb.servers)
 		glb.ss = ss
 	}
 
+	// health check
 	if glb.spec.HealthCheck == nil {
 		return
 	}
@@ -196,7 +203,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 // ChooseServer chooses a server according to the load balancing spec.
 func (glb *GeneralLoadBalancer) ChooseServer(req protocols.Request) *Server {
 	sg := glb.healthyServers.Load()
-	if len(sg.Servers) == 0 {
+	if sg == nil || len(sg.Servers) == 0 {
 		return nil
 	}
 

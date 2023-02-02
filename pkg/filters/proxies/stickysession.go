@@ -41,6 +41,9 @@ const (
 	// StickySessionModeApplicationBased uses a load balancer-generated cookie depends on app cookie for stickiness.
 	StickySessionModeApplicationBased = "ApplicationBased"
 
+	// StickySessionDefaultLBCookieName is the default name of the load balancer-generated cookie.
+	StickySessionDefaultLBCookieName = "EG_SESSION"
+
 	// KeyLen is the key length used by HMAC.
 	KeyLen = 8
 )
@@ -91,6 +94,10 @@ type HTTPSessionSticker struct {
 
 // NewHTTPSessionSticker creates a new HTTPSessionSticker.
 func NewHTTPSessionSticker(spec *StickySessionSpec) SessionSticker {
+	if spec.LBCookieName == "" {
+		spec.LBCookieName = StickySessionDefaultLBCookieName
+	}
+
 	ss := &HTTPSessionSticker{spec: spec}
 
 	ss.cookieExpire, _ = time.ParseDuration(spec.LBCookieExpire)
@@ -104,6 +111,11 @@ func NewHTTPSessionSticker(spec *StickySessionSpec) SessionSticker {
 // UpdateServers update the servers for the HTTPSessionSticker.
 func (ss *HTTPSessionSticker) UpdateServers(servers []*Server) {
 	if ss.spec.Mode != StickySessionModeCookieConsistentHash {
+		return
+	}
+
+	if len(servers) == 0 {
+		// TODO: consistentHash panics in this case, we need to handle it.
 		return
 	}
 
