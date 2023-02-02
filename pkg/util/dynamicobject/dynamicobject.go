@@ -31,9 +31,11 @@ type DynamicObject map[string]interface{}
 // `map[string]interface{}`.
 //
 // Note there's a bug with this function:
-//   do := DynamicObject{}
-//   yaml.Unmarshal([]byte(`{"a": 1}`), &do)
-//   yaml.Unmarshal([]byte(`{"b": 2}`), &do)
+//
+//	do := DynamicObject{}
+//	yaml.Unmarshal([]byte(`{"a": 1}`), &do)
+//	yaml.Unmarshal([]byte(`{"b": 2}`), &do)
+//
 // the result of above code should be `{"a": 1, "b": 2}`, but it is
 // `{"b": 2}`.
 func (do *DynamicObject) UnmarshalYAML(unmarshal func(interface{}) error) error {

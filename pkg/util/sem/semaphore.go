@@ -26,10 +26,11 @@ import (
 
 const maxCapacity int64 = 20_000_000
 
-//Semaphore supports to change the max sema amount at runtime.
-//  Semaphore employs golang.org/x/sync/semaphore.Weighted with a maxCapacity.
-//  And tuning the realCapacity by an Acquire and Release in the background.
-//  the realCapacity can not exceed the maxCapacity.
+// Semaphore supports to change the max sema amount at runtime.
+//
+//	Semaphore employs golang.org/x/sync/semaphore.Weighted with a maxCapacity.
+//	And tuning the realCapacity by an Acquire and Release in the background.
+//	the realCapacity can not exceed the maxCapacity.
 type Semaphore struct {
 	sem          *semaphore.Weighted
 	lock         sync.Mutex
@@ -65,8 +66,10 @@ func (s *Semaphore) Release() {
 // SetMaxCount set the size of 's' to 'n', this is an async operation and
 // the caller can watch the returned 'done' channel like below if it wants
 // to be notified at the completion:
-//       done := s.SetMaxCount(100)
-//       <-done
+//
+//	done := s.SetMaxCount(100)
+//	<-done
+//
 // Note after receiving the notification, the caller should NOT assume the
 // size of 's' is 'n' unless it knows there are no concurrent calls to
 // 'SetMaxCount'.

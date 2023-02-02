@@ -363,8 +363,10 @@ func (ctx *Context) getCanonicalQuery(u *url.URL) string {
 }
 
 // for each str in strs
-//   trim leading & trailing spaces
-//   convert sequential spaces to single space
+//
+//	trim leading & trailing spaces
+//	convert sequential spaces to single space
+//
 // then join all the strs with comma
 func buildCanonicalHeaderValue(strs []string) string {
 	var buf bytes.Buffer
