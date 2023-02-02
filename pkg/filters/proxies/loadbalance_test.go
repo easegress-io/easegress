@@ -68,6 +68,7 @@ func TestGeneralLoadBalancer(t *testing.T) {
 
 	lb.Close()
 
+	servers = prepareServers(10)
 	lb = NewGeneralLoadBalancer(spec, servers)
 
 	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
