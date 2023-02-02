@@ -146,6 +146,7 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	}
 	egresp := resp.(*httpprot.Response)
 
+	tempSpec := &Spec{}
 	if ra.spec.Template != "" {
 		data, err := builder.PrepareBuilderData(ctx)
 		if err != nil {
@@ -153,31 +154,30 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 			return builder.ResultBuildErr
 		}
 
-		tempSpec := &Spec{}
 		if err = ra.Builder.Build(data, tempSpec); err != nil {
 			msgFmt := "ResponseAdaptor(%s): failed to build adaptor info: %v"
 			logger.Warnf(msgFmt, ra.Name(), err)
 			return builder.ResultBuildErr
 		}
-		ra.adaptSpecWithTemplate(tempSpec)
+	}
+	ra.adaptSpecWithTemplate(tempSpec)
+
+	if tempSpec.Header != nil {
+		adaptHeader(egresp, tempSpec.Header)
 	}
 
-	if ra.spec.Header != nil {
-		adaptHeader(egresp, ra.spec.Header)
-	}
-
-	if len(ra.spec.Body) != 0 {
-		egresp.SetPayload([]byte(ra.spec.Body))
+	if len(tempSpec.Body) != 0 {
+		egresp.SetPayload([]byte(tempSpec.Body))
 		egresp.HTTPHeader().Del("Content-Encoding")
 	}
 
-	if ra.spec.Compress != "" {
+	if tempSpec.Compress != "" {
 		if res := ra.compress(egresp); res != "" {
 			return res
 		}
 	}
 
-	if ra.spec.Decompress != "" {
+	if tempSpec.Decompress != "" {
 		if res := ra.decompress(egresp); res != "" {
 			return res
 		}
@@ -188,17 +188,17 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 
 // adaptSpecWithTemplate this will override the one-by-one spec
 func (ra *ResponseAdaptor) adaptSpecWithTemplate(tempSpec *Spec) {
-	if tempSpec.Header != nil {
-		ra.spec.Header = tempSpec.Header
+	if tempSpec.Header == nil {
+		tempSpec.Header = ra.spec.Header
 	}
-	if tempSpec.Body != "" {
-		ra.spec.Body = tempSpec.Body
+	if tempSpec.Body == "" {
+		tempSpec.Body = ra.spec.Body
 	}
-	if tempSpec.Decompress != "" {
-		ra.spec.Decompress = tempSpec.Decompress
+	if tempSpec.Decompress == "" {
+		tempSpec.Decompress = ra.spec.Decompress
 	}
-	if tempSpec.Compress != "" {
-		ra.spec.Compress = tempSpec.Compress
+	if tempSpec.Compress == "" {
+		tempSpec.Compress = ra.spec.Compress
 	}
 }
 

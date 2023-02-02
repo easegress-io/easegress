@@ -254,25 +254,24 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	method, path := req.Method(), req.Path()
 
+	tempSpec := &Spec{}
 	if ra.spec.Template != "" {
 		data, err := builder.PrepareBuilderData(ctx)
 		if err != nil {
 			logger.Warnf("PrepareBuilderData failed: %v", err)
 			return builder.ResultBuildErr
 		}
-
-		tempSpec := &Spec{}
 		if err = ra.Builder.Build(data, tempSpec); err != nil {
 			msgFmt := "RequestAdaptor(%s): failed to build adaptor info: %v"
 			logger.Warnf(msgFmt, ra.Name(), err)
 			return builder.ResultBuildErr
 		}
-		ra.adaptSpecWithTemplate(tempSpec)
 	}
+	ra.adaptSpecWithTemplate(tempSpec)
 
-	if ra.spec.Method != "" && ra.spec.Method != method {
-		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", ra.spec.Method))
-		req.SetMethod(ra.spec.Method)
+	if tempSpec.Method != "" && ra.spec.Method != method {
+		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", tempSpec.Method))
+		req.SetMethod(tempSpec.Method)
 	}
 
 	if ra.pa != nil {
@@ -283,27 +282,27 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 		req.SetPath(adaptedPath)
 	}
 
-	if ra.spec.Header != nil {
-		adaptHeader(req, ra.spec.Header)
+	if tempSpec.Header != nil {
+		adaptHeader(req, tempSpec.Header)
 	}
 
-	if len(ra.spec.Body) != 0 {
-		req.SetPayload([]byte(ra.spec.Body))
+	if len(tempSpec.Body) != 0 {
+		req.SetPayload([]byte(tempSpec.Body))
 		req.Std().Header.Del("Content-Encoding")
 	}
 
-	if len(ra.spec.Host) != 0 {
-		req.SetHost(ra.spec.Host)
+	if len(tempSpec.Host) != 0 {
+		req.SetHost(tempSpec.Host)
 	}
 
-	if ra.spec.Compress != "" {
+	if tempSpec.Compress != "" {
 		res := ra.processCompress(req)
 		if res != "" {
 			return res
 		}
 	}
 
-	if ra.spec.Decompress != "" {
+	if tempSpec.Decompress != "" {
 		res := ra.processDecompress(req)
 		if res != "" {
 			return res
@@ -322,36 +321,23 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 
 // adaptSpecWithTemplate this will override the one-by-one spec
 func (ra *RequestAdaptor) adaptSpecWithTemplate(tempSpec *Spec) {
-	if tempSpec.Method != "" {
-		ra.spec.Method = tempSpec.Method
+	if tempSpec.Method == "" {
+		tempSpec.Method = ra.spec.Method
 	}
-	if tempSpec.Path != nil {
-		ra.pa = pathadaptor.New(ra.spec.Path)
+	if tempSpec.Header == nil {
+		tempSpec.Header = ra.spec.Header
 	}
-	if tempSpec.Header != nil {
-		ra.spec.Header = tempSpec.Header
+	if tempSpec.Body == "" {
+		tempSpec.Body = ra.spec.Body
 	}
-	if tempSpec.Body != "" {
-		ra.spec.Body = tempSpec.Body
+	if tempSpec.Host == "" {
+		tempSpec.Host = ra.spec.Host
 	}
-	if tempSpec.Host != "" {
-		ra.spec.Host = tempSpec.Host
+	if tempSpec.Decompress == "" {
+		tempSpec.Decompress = ra.spec.Decompress
 	}
-	if tempSpec.Decompress != "" {
-		ra.spec.Decompress = tempSpec.Decompress
-	}
-	if tempSpec.Compress != "" {
-		ra.spec.Compress = tempSpec.Compress
-	}
-	if tempSpec.Sign != nil {
-		s := tempSpec.Sign
-		sc, ok := signerConfigs[s.APIProvider]
-		if ok {
-			s.Literal = sc.literal
-			s.HeaderHoisting = sc.headerHoisting
-		}
-		ra.signer = signer.CreateFromSpec(&s.Spec)
-		ra.spec.Sign = tempSpec.Sign
+	if tempSpec.Compress == "" {
+		tempSpec.Compress = ra.spec.Compress
 	}
 }
 

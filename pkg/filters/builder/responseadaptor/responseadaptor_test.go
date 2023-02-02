@@ -253,7 +253,6 @@ func TestTemplate(t *testing.T) {
 	ra.Init()
 	w := httptest.NewRecorder()
 	resp := w.Result()
-	//resp.Header.Set(keyContentEncoding, "gzip")
 	ctx := getCtx(t, resp)
 
 	zr := readers.NewGZipCompressReader(strings.NewReader("hello"))
