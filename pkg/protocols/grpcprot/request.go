@@ -227,8 +227,7 @@ func (r *Request) Service() string {
 	return r.sts.path
 }
 
-// SetFullMethod sets full method name o
-//f the grpc request.
+// SetFullMethod sets full method name of the grpc request.
 func (r *Request) SetFullMethod(path string) {
 	r.sts.setMethod(path)
 }

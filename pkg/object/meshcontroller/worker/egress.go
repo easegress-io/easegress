@@ -355,9 +355,10 @@ func (egs *EgressServer) listServiceOfTrafficTarget(tts []*spec.TrafficTarget) m
 }
 
 // regex rule: ^(\w+\.)*vet-services\.(\w+)\.svc\..+$
-//  can match e.g. _tcp.vet-services.easemesh.svc.cluster.local
-//   		   vet-services.easemesh.svc.cluster.local
-//   		   _zip._tcp.vet-services.easemesh.svc.com
+//
+//	can match e.g. _tcp.vet-services.easemesh.svc.cluster.local
+//	 		   vet-services.easemesh.svc.cluster.local
+//	 		   _zip._tcp.vet-services.easemesh.svc.com
 func (egs *EgressServer) buildHostRegex(serviceName string) string {
 	return `^(\w+\.)*` + serviceName + `\.(\w+)\.svc\..+`
 }
