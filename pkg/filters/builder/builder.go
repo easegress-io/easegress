@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	// ResultBuildErr build error
-	ResultBuildErr = "buildErr"
+	resultBuildErr = "buildErr"
 )
 
 type (
@@ -50,13 +49,13 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
-func (b *Builder) Reload(spec *Spec) {
+func (b *Builder) reload(spec *Spec) {
 	t := template.New("").Delims(spec.LeftDelim, spec.RightDelim)
 	t.Funcs(sprig.TxtFuncMap()).Funcs(extraFuncs)
 	b.template = template.Must(t.Parse(spec.Template))
 }
 
-func (b *Builder) Build(data map[string]interface{}, v interface{}) error {
+func (b *Builder) build(data map[string]interface{}, v interface{}) error {
 	var result bytes.Buffer
 
 	if err := b.template.Execute(&result, data); err != nil {
@@ -75,7 +74,7 @@ func (b *Builder) Status() interface{} {
 func (b *Builder) Close() {
 }
 
-func PrepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
+func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
 	requests := make(map[string]interface{})
 	responses := make(map[string]interface{})
 

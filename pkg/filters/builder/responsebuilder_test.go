@@ -43,7 +43,7 @@ func getResponseBuilder(spec *ResponseBuilderSpec) *ResponseBuilder {
 	return rb
 }
 
-func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
+func setRequestWithNS(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	r, err := httpprot.NewRequest(req)
 	r.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
@@ -116,7 +116,7 @@ func TestResponseHeader(t *testing.T) {
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com?field1=value1&field2=value2", nil)
 		assert.Nil(err)
 		req1.Header.Add("X-Request", "from-request1")
-		setRequest(t, ctx, "request1", req1)
+		setRequestWithNS(t, ctx, "request1", req1)
 
 		resp1 := &http.Response{}
 		resp1.Header = http.Header{}
@@ -173,7 +173,7 @@ func TestResponseBody(t *testing.T) {
 
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader("123"))
 		assert.Nil(err)
-		setRequest(t, ctx, "request1", req1)
+		setRequestWithNS(t, ctx, "request1", req1)
 
 		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
@@ -198,7 +198,7 @@ func TestResponseBody(t *testing.T) {
 
 		req1, err := http.NewRequest(http.MethodDelete, "http://www.google.com", strings.NewReader(`{"field1":"value1", "field2": "value2"}`))
 		assert.Nil(err)
-		setRequest(t, ctx, "request1", req1)
+		setRequestWithNS(t, ctx, "request1", req1)
 
 		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)
@@ -226,7 +226,7 @@ field1: value1
 field2: value2
 `))
 		assert.Nil(err)
-		setRequest(t, ctx, "request1", req1)
+		setRequestWithNS(t, ctx, "request1", req1)
 
 		ctx.UseNamespace("test")
 		res := rb.Handle(ctx)

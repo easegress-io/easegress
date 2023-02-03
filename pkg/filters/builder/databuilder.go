@@ -33,7 +33,7 @@ const (
 var dataBuilderKind = &filters.Kind{
 	Name:        DataBuilderKind,
 	Description: "DataBuilder builds and stores data",
-	Results:     []string{ResultBuildErr},
+	Results:     []string{resultBuildErr},
 	DefaultSpec: func() filters.Spec {
 		return &DataBuilderSpec{}
 	},
@@ -100,23 +100,23 @@ func (db *DataBuilder) Inherit(previousGeneration filters.Filter) {
 }
 
 func (db *DataBuilder) reload() {
-	db.Builder.Reload(&db.spec.Spec)
+	db.Builder.reload(&db.spec.Spec)
 }
 
 // Handle builds request.
 func (db *DataBuilder) Handle(ctx *context.Context) (result string) {
-	data, err := PrepareBuilderData(ctx)
+	data, err := prepareBuilderData(ctx)
 
 	if err != nil {
-		logger.Warnf("PrepareBuilderData failed: %v", err)
-		return ResultBuildErr
+		logger.Warnf("prepareBuilderData failed: %v", err)
+		return resultBuildErr
 	}
 
 	var r interface{}
-	if err = db.Build(data, &r); err != nil {
-		msgFmt := "DataBuilder(%s): failed to Build data: %v"
+	if err = db.build(data, &r); err != nil {
+		msgFmt := "DataBuilder(%s): failed to build data: %v"
 		logger.Warnf(msgFmt, db.Name(), err)
-		return ResultBuildErr
+		return resultBuildErr
 	}
 
 	ctx.SetData(db.spec.DataKey, r)
