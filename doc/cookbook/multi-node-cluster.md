@@ -199,7 +199,7 @@ Please note that it is not recommended to add additional node with `primary` clu
 
 *What are `advertise-peer-urls` and `listen-client-urls`?*
 
-`advertise-client-urls`, `listen-client-urls`, `listen-peer-urls` and `listen-client-urls` are arguments necessary for *primary* cluster members to communicate with other peers (members).
+`advertise-client-urls`, `listen-client-urls`, `listen-peer-urls` and `initial-advertise-peer-urls` are arguments necessary for *primary* cluster members to communicate with other peers (members).
 
 | argument   |  description  |
 |-----|-----|
