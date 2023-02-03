@@ -23,6 +23,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/meshadaptor"
 	"github.com/megaease/easegress/pkg/filters/mock"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
@@ -257,7 +258,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 
 			if candidatePools[i] == nil {
 				headers := canary.TrafficRules.Clone().Headers
-				headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
+				headers[ServiceCanaryHeaderKey] = &proxies.StringMatcher{
 					Exact: canary.Name,
 				}
 				candidatePools[i] = &proxy.ServerPoolSpec{
@@ -265,8 +266,10 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 						LoadBalance: param.lb,
 					},
 					Filter: &proxy.RequestMatcherSpec{
-						MatchAllHeaders: true,
-						Headers:         headers,
+						RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
+							MatchAllHeaders: true,
+							Headers:         headers,
+						},
 					},
 					Timeout:              param.timeout,
 					RetryPolicy:          param.retryPolicy,
@@ -326,13 +329,15 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
 		// if `X-Mesh-Service-Canary` does not exist and other headers are matching.
 		headers := canary.TrafficRules.Clone().Headers
-		headers[ServiceCanaryHeaderKey] = &proxy.StringMatcher{
+		headers[ServiceCanaryHeaderKey] = &proxies.StringMatcher{
 			Empty: true,
 		}
 		adaptors[i] = &meshadaptor.ServiceCanaryAdaptor{
 			Filter: &proxy.RequestMatcherSpec{
-				MatchAllHeaders: true,
-				Headers:         headers,
+				RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
+					MatchAllHeaders: true,
+					Headers:         headers,
+				},
 			},
 			Header: &httpheader.AdaptSpec{
 				Set: map[string]string{

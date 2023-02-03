@@ -24,7 +24,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/filters/mock"
 	"github.com/megaease/easegress/pkg/filters/proxies"
-	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
@@ -239,7 +238,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*proxies.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -947,7 +946,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*proxies.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -977,7 +976,7 @@ func TestAppendMeshAdaptor(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*proxies.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},

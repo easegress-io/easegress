@@ -274,12 +274,12 @@ func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, 
 type IPHashLoadBalancePolicy struct {
 }
 
+type realIPer interface {
+	RealIP() string
+}
+
 // ChooseServer chooses a server by ip hash.
 func (lbp *IPHashLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
-	type realIPer interface {
-		RealIP() string
-	}
-
 	ri, ok := req.(realIPer)
 	if !ok {
 		panic("IPHashLoadBalancePolicy only support request with RealIP()")

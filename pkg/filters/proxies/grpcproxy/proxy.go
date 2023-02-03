@@ -85,6 +85,7 @@ type (
 
 	// Server is the backend server.
 	Server             = proxies.Server
+	RequestMatcher     = proxies.RequestMatcher
 	LoadBalancer       = proxies.LoadBalancer
 	LoadBalanceSpec    = proxies.LoadBalanceSpec
 	BaseServerPool     = proxies.ServerPoolBase
