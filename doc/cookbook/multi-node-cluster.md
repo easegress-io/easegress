@@ -96,7 +96,7 @@ easegress-server \
 Now you can list cluster members
 
 ```bash
-egctl --server $HOST1:2381 member list | grep -i " name"
+egctl --server $HOST1:2381 member list | grep " Name"
 ```
 should print 
 ```bash
@@ -122,7 +122,7 @@ Here `primary-listen-peer-urls` tell, where to find a *primary* cluster members 
 
 We can now see also the 4th instance:
 ```bash
-egctl --server $HOST1:2381 member list | grep -i " name"
+egctl --server $HOST1:2381 member list | grep " Name"
 ```
 prints to output:
 ```bash
