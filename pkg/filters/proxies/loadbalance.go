@@ -179,7 +179,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 			}
 			svr.HealthCounter--
 			if svr.Healthy() && svr.HealthCounter <= -glb.spec.HealthCheck.Fails {
-				logger.Warnf("server:%v becomes healthy.", svr.ID())
+				logger.Warnf("server:%v becomes unhealthy.", svr.ID())
 				svr.Unhealth = true
 				changed = true
 			}
@@ -226,6 +226,7 @@ func (glb *GeneralLoadBalancer) ReturnServer(server *Server, req protocols.Reque
 // Close closes the load balancer
 func (glb *GeneralLoadBalancer) Close() {
 	if glb.hc != nil {
+		close(glb.done)
 		glb.hc.Close()
 	}
 	if glb.ss != nil {
