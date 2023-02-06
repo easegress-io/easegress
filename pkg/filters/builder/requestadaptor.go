@@ -152,6 +152,7 @@ type (
 		Compress   string                `json:"compress" jsonschema:"omitempty"`
 		Decompress string                `json:"decompress" jsonschema:"omitempty"`
 		Sign       *SignerSpec           `json:"sign,omitempty" jsonschema:"omitempty"`
+		pa         *pathadaptor.PathAdaptor
 	}
 
 	// SignerSpec is the spec of the request signer.
@@ -275,8 +276,14 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 		req.SetMethod(newMethod)
 	}
 
-	if ra.pa != nil {
-		adaptedPath := ra.pa.Adapt(path)
+	var newPa *pathadaptor.PathAdaptor
+	if templateSpec.Path == nil {
+		newPa = ra.pa
+	} else {
+		newPa = pathadaptor.New(templateSpec.Path)
+	}
+	if newPa != nil {
+		adaptedPath := newPa.Adapt(path)
 		if adaptedPath != path {
 			ctx.AddTag(stringtool.Cat("requestAdaptor: path ", path, " adapted to ", adaptedPath))
 		}

@@ -38,12 +38,12 @@ func init() {
 	logger.InitNop()
 }
 
-func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+func setRequest(t *testing.T, ctx *context.Context, ns string, stdReq *http.Request) {
 	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
 	err = req.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetInputRequest(req)
+	ctx.SetRequest(ns, req)
 }
 
 func defaultFilterSpec(spec *RequestAdaptorBuilderSpec) filters.Spec {
@@ -140,7 +140,7 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -161,7 +161,7 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal(resultDecompressFailed, ans)
@@ -186,7 +186,7 @@ func TestCompress(t *testing.T) {
 		assert.Nil(err)
 
 		ctx := context.New(nil)
-		setRequest(t, ctx, req)
+		setRequest(t, ctx, "DEFAULT", req)
 
 		ans := ra.Handle(ctx)
 		assert.Equal("", ans)
@@ -219,7 +219,7 @@ func TestCompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -242,7 +242,7 @@ func TestCompress(t *testing.T) {
 			assert.Nil(err)
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -285,7 +285,7 @@ func TestHandle(t *testing.T) {
 	assert.Nil(err)
 
 	ctx := context.New(nil)
-	setRequest(t, ctx, req)
+	setRequest(t, ctx, "DEFAULT", req)
 
 	ans := ra.Handle(ctx)
 	assert.Equal("", ans)
@@ -345,7 +345,7 @@ func TestRequestAdaptorTemplate(t *testing.T) {
 	assert.Nil(err)
 
 	ctx := context.New(nil)
-	setRequest(t, ctx, req)
+	setRequest(t, ctx, "DEFAULT", req)
 
 	ans := ra.Handle(ctx)
 	assert.Equal("", ans)

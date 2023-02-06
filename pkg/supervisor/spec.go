@@ -105,7 +105,7 @@ func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
 		panic(verr)
 	}
 
-	// build final json config and raw spec.
+	// Build final json config and raw spec.
 	var rawSpec map[string]interface{}
 	objectBuff := codectool.MustMarshalJSON(objectSpec)
 	codectool.MustUnmarshal(objectBuff, &rawSpec)
