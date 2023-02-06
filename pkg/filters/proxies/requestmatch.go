@@ -114,12 +114,7 @@ type ipHashMatcher struct {
 
 // Match implements protocols.Matcher.
 func (iphm ipHashMatcher) Match(req protocols.Request) bool {
-	ri, ok := req.(realIPer)
-	if !ok {
-		panic("IPHashLoadBalancePolicy only support request with RealIP()")
-	}
-
-	ip := ri.RealIP()
+	ip := req.RealIP()
 	hash := fnv.New32()
 	hash.Write([]byte(ip))
 	return hash.Sum32()%1000 < iphm.permill
