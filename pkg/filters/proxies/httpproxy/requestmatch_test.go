@@ -23,6 +23,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,16 +37,16 @@ func TestRequestMatcherSpecValidate(t *testing.T) {
 	spec.Permil = 100
 	assert.Error(spec.Validate())
 
-	spec.Headers = map[string]*proxies.StringMatcher{}
-	spec.Headers["X-Test"] = &proxies.StringMatcher{
+	spec.Headers = map[string]*stringtool.StringMatcher{}
+	spec.Headers["X-Test"] = &stringtool.StringMatcher{
 		Empty: true,
 		Exact: "abc",
 	}
 	assert.Error(spec.Validate())
 
-	spec.Headers["X-Test"] = &proxies.StringMatcher{Exact: "abc"}
+	spec.Headers["X-Test"] = &stringtool.StringMatcher{Exact: "abc"}
 	spec.URLs = append(spec.URLs, &MethodAndURLMatcher{
-		URL: &proxies.StringMatcher{
+		URL: &stringtool.StringMatcher{
 			Empty: true,
 			Exact: "abc",
 		},
@@ -53,7 +54,7 @@ func TestRequestMatcherSpecValidate(t *testing.T) {
 	assert.Error(spec.Validate())
 
 	spec.URLs[0] = &MethodAndURLMatcher{
-		URL: &proxies.StringMatcher{Empty: true},
+		URL: &stringtool.StringMatcher{Empty: true},
 	}
 	assert.Error(spec.Validate())
 
@@ -68,7 +69,7 @@ func TestGeneralMatche(t *testing.T) {
 	rm := NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
 			MatchAllHeaders: true,
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Exact: "test2"},
 			},
@@ -87,7 +88,7 @@ func TestGeneralMatche(t *testing.T) {
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
 			MatchAllHeaders: true,
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Empty: true, Exact: "test2"},
 			},
@@ -100,7 +101,7 @@ func TestGeneralMatche(t *testing.T) {
 	// match one header
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Empty: true, Exact: "test2"},
 			},
@@ -113,7 +114,7 @@ func TestGeneralMatche(t *testing.T) {
 
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Exact: "test2"},
 			},
@@ -126,7 +127,7 @@ func TestGeneralMatche(t *testing.T) {
 
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Exact: "test2"},
 			},
@@ -134,7 +135,7 @@ func TestGeneralMatche(t *testing.T) {
 		URLs: []*MethodAndURLMatcher{
 			{
 				Methods: []string{http.MethodGet},
-				URL: &proxies.StringMatcher{
+				URL: &stringtool.StringMatcher{
 					Exact: "/abc",
 				},
 			},
@@ -144,7 +145,7 @@ func TestGeneralMatche(t *testing.T) {
 
 	rm = NewRequestMatcher(&RequestMatcherSpec{
 		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
-			Headers: map[string]*proxies.StringMatcher{
+			Headers: map[string]*stringtool.StringMatcher{
 				"X-Test1": {Exact: "test1"},
 				"X-Test2": {Exact: "test2"},
 			},
@@ -152,7 +153,7 @@ func TestGeneralMatche(t *testing.T) {
 		URLs: []*MethodAndURLMatcher{
 			{
 				Methods: []string{http.MethodGet},
-				URL: &proxies.StringMatcher{
+				URL: &stringtool.StringMatcher{
 					Exact: "/abcd",
 				},
 			},
@@ -165,7 +166,7 @@ func TestMethodAndURLMatcher(t *testing.T) {
 	assert := assert.New(t)
 
 	m := &MethodAndURLMatcher{
-		URL: &proxies.StringMatcher{
+		URL: &stringtool.StringMatcher{
 			Exact: "/abc",
 		},
 	}

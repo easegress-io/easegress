@@ -23,10 +23,10 @@ import (
 
 	"github.com/megaease/easegress/pkg/cluster/customdata"
 	"github.com/megaease/easegress/pkg/filters/mock"
-	"github.com/megaease/easegress/pkg/filters/proxies"
 	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 
 	v1 "k8s.io/api/core/v1"
@@ -230,9 +230,9 @@ type (
 
 	// CanaryRule is one matching rule for canary.
 	CanaryRule struct {
-		ServiceInstanceLabels map[string]string                 `json:"serviceInstanceLabels" jsonschema:"required"`
-		Headers               map[string]*proxies.StringMatcher `json:"headers" jsonschema:"required"`
-		URLs                  []*urlrule.URLRule                `json:"urls" jsonschema:"required"`
+		ServiceInstanceLabels map[string]string                    `json:"serviceInstanceLabels" jsonschema:"required"`
+		Headers               map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"required"`
+		URLs                  []*urlrule.URLRule                   `json:"urls" jsonschema:"required"`
 	}
 
 	// ServiceCanary is the service canary entry.
@@ -248,7 +248,7 @@ type (
 
 	// TrafficRules is the rules of traffic.
 	TrafficRules struct {
-		Headers map[string]*proxies.StringMatcher `json:"headers" jsonschema:"required"`
+		Headers map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"required"`
 	}
 
 	// LoadBalance is the spec of service load balance.
@@ -481,7 +481,7 @@ func (sc ServiceCanary) Validate() error {
 
 // Clone clones TrafficRules.
 func (tr *TrafficRules) Clone() *TrafficRules {
-	headers := map[string]*proxies.StringMatcher{}
+	headers := map[string]*stringtool.StringMatcher{}
 	for k, v := range tr.Headers {
 		stringMatch := *v
 		headers[k] = &stringMatch

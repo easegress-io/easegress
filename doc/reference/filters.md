@@ -58,15 +58,15 @@
   - [DataBuilder](#databuilder)
     - [Configuration](#configuration-18)
     - [Results](#results-18)
-  - [OIDCAdaptor](#OIDCAdaptor)
+  - [OIDCAdaptor](#oidcadaptor)
     - [Configuration](#configuration-19)
     - [Results](#results-19)
-  - [OPAFilter](#OPAFilter)
+  - [OPAFilter](#opafilter)
     - [Configuration](#configuration-20)
-    - [Results](#results-20) 
-  - [Redirector](#Redirector)
+    - [Results](#results-20)
+  - [Redirector](#redirector)
     - [Configuration](#configuration-21)
-    - [Results](#results-21) 
+    - [Results](#results-21)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -75,9 +75,10 @@
     - [proxy.Server](#proxyserver)
     - [proxy.LoadBalanceSpec](#proxyloadbalancespec)
     - [proxy.StickySessionSpec](#proxystickysessionspec)
+    - [proxy.HealthCheckSpec](#proxyhealthcheckspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
-    - [proxy.StringMatcher](#proxystringmatcher)
+    - [StringMatcher](#stringmatcher)
     - [proxy.MethodAndURLMatcher](#proxymethodandurlmatcher)
     - [urlrule.URLRule](#urlruleurlrule)
     - [proxy.Compression](#proxycompression)
@@ -88,6 +89,8 @@
     - [ratelimiter.Policy](#ratelimiterpolicy)
     - [httpheader.ValueValidator](#httpheadervaluevalidator)
     - [validator.JWTValidatorSpec](#validatorjwtvalidatorspec)
+    - [validator.BasicAuthValidatorSpec](#validatorbasicauthvalidatorspec)
+    - [basicAuth.LDAPSpec](#basicauthldapspec)
     - [signer.Spec](#signerspec)
     - [signer.HeaderHoisting](#signerheaderhoisting)
     - [signer.Literal](#signerliteral)
@@ -1394,13 +1397,13 @@ Polices:
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 ｜ policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
-| headers     | map[string][proxy.StringMatcher](#proxystringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
+| headers     | map[string][StringMatcher](#stringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
 | urls        | [][proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)                  | Request URL match criteria                                                                                                  | No       |
 | permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
 | matchAllHeaders | bool | All rules in headers should be match | No |
 | headerHashKey | string | Used by policy `headerHash`. | No |
 
-### proxy.StringMatcher
+### StringMatcher
 
 The relationship between `exact`, `prefix`, and `regex` is `OR`.
 
@@ -1418,7 +1421,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name    | Type                                       | Description                                                      | Required |
 | ------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url     | [proxy.StringMatcher](#proxystringmatcher) | Criteria to match a  URL                                          | Yes      |
+| url     | [StringMatcher](#stringmatcher) | Criteria to match a  URL                                          | Yes      |
 
 ### urlrule.URLRule
 
@@ -1427,7 +1430,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name      | Type                                       | Description                                                      | Required |
 | --------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods   | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url       | [urlrule.StringMatch](#urlruleStringMatch) | Criteria to match a URL                                          | Yes      |
+| url       | [StringMatcher](#StringMatcher) | Criteria to match a URL                                          | Yes      |
 | policyRef | string                                     | Name of resilience policy for matched requests                   | No       |
 
 
@@ -1472,7 +1475,7 @@ The relationship between `methods` and `url` is `AND`.
 | path       | string            | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule                 | No       |
 | pathPrefix | string            | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No       |
 | matchAllHeaders | bool          | Whether to match all headers | No       |
-| headers    | map[string][url.StringMatch](#urlrulestringmatch) | Headers to match, key is a header name, value is the rule to match the header value | No |
+| headers    | map[string][StringMatcher](#stringmatcher) | Headers to match, key is a header name, value is the rule to match the header value | No |
 
 
 ### ratelimiter.Policy

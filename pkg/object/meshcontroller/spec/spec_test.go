@@ -29,6 +29,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 )
@@ -238,7 +239,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxies.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -610,7 +611,7 @@ func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 				URLs: []*ratelimiter.URLRule{{
 					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: urlrule.StringMatch{
+						URL: stringtool.StringMatcher{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",
@@ -716,7 +717,7 @@ func TestPipelineBuilder(t *testing.T) {
 		URLs: []*ratelimiter.URLRule{{
 			URLRule: urlrule.URLRule{
 				Methods: []string{"GET"},
-				URL: urlrule.StringMatch{
+				URL: stringtool.StringMatcher{
 					Exact:  "/path1",
 					Prefix: "/path2/",
 					RegEx:  "^/path3/[0-9]+$",
@@ -946,7 +947,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxies.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -976,7 +977,7 @@ func TestAppendMeshAdaptor(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxies.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},

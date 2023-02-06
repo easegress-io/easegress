@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
@@ -258,7 +259,7 @@ func (b *pipelineSpecBuilder) appendProxyWithCanary(param *proxyParam) *pipeline
 
 			if candidatePools[i] == nil {
 				headers := canary.TrafficRules.Clone().Headers
-				headers[ServiceCanaryHeaderKey] = &proxies.StringMatcher{
+				headers[ServiceCanaryHeaderKey] = &stringtool.StringMatcher{
 					Exact: canary.Name,
 				}
 				candidatePools[i] = &proxy.ServerPoolSpec{
@@ -329,7 +330,7 @@ func (b *pipelineSpecBuilder) appendMeshAdaptor(canaries []*ServiceCanary) *pipe
 		// NOTE: It means that setting `X-Mesh-Service-Canary: canaryName`
 		// if `X-Mesh-Service-Canary` does not exist and other headers are matching.
 		headers := canary.TrafficRules.Clone().Headers
-		headers[ServiceCanaryHeaderKey] = &proxies.StringMatcher{
+		headers[ServiceCanaryHeaderKey] = &stringtool.StringMatcher{
 			Empty: true,
 		}
 		adaptors[i] = &meshadaptor.ServiceCanaryAdaptor{

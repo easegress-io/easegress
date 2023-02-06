@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"hash/fnv"
 	"math/rand"
-	"regexp"
-	"strings"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 // RequestMatcher is the interface to match requests.
@@ -35,11 +34,11 @@ type RequestMatcher interface {
 
 // RequestMatcherBaseSpec describe RequestMatcher
 type RequestMatcherBaseSpec struct {
-	Policy          string                    `json:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
-	MatchAllHeaders bool                      `json:"matchAllHeaders" jsonschema:"omitempty"`
-	Headers         map[string]*StringMatcher `json:"headers" jsonschema:"omitempty"`
-	Permil          uint32                    `json:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
-	HeaderHashKey   string                    `json:"headerHashKey" jsonschema:"omitempty"`
+	Policy          string                               `json:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	MatchAllHeaders bool                                 `json:"matchAllHeaders" jsonschema:"omitempty"`
+	Headers         map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"omitempty"`
+	Permil          uint32                               `json:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
+	HeaderHashKey   string                               `json:"headerHashKey" jsonschema:"omitempty"`
 }
 
 // Validate validtes the RequestMatcherBaseSpec.
@@ -118,74 +117,4 @@ func (iphm ipHashMatcher) Match(req protocols.Request) bool {
 	hash := fnv.New32()
 	hash.Write([]byte(ip))
 	return hash.Sum32()%1000 < iphm.permill
-}
-
-// StringMatcher defines the match rule of a string
-type StringMatcher struct {
-	Exact  string `json:"exact" jsonschema:"omitempty"`
-	Prefix string `json:"prefix" jsonschema:"omitempty"`
-	RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
-	Empty  bool   `json:"empty" jsonschema:"omitempty"`
-	re     *regexp.Regexp
-}
-
-// Validate validates the StringMatcher.
-func (sm *StringMatcher) Validate() error {
-	if sm.Empty {
-		if sm.Exact != "" || sm.Prefix != "" || sm.RegEx != "" {
-			return fmt.Errorf("empty is conflict with other patterns")
-		}
-		return nil
-	}
-
-	if sm.Exact != "" {
-		return nil
-	}
-
-	if sm.Prefix != "" {
-		return nil
-	}
-
-	if sm.RegEx != "" {
-		return nil
-	}
-
-	return fmt.Errorf("all patterns are empty")
-}
-
-func (sm *StringMatcher) Init() {
-	if sm.RegEx != "" {
-		sm.re = regexp.MustCompile(sm.RegEx)
-	}
-}
-
-// Match matches a string.
-func (sm *StringMatcher) Match(value string) bool {
-	if sm.Empty && value == "" {
-		return true
-	}
-
-	if sm.Exact != "" && value == sm.Exact {
-		return true
-	}
-
-	if sm.Prefix != "" && strings.HasPrefix(value, sm.Prefix) {
-		return true
-	}
-
-	if sm.re == nil {
-		return false
-	}
-
-	return sm.re.MatchString(value)
-}
-
-// MatchAny return true if any of the values matches.
-func (sm *StringMatcher) MatchAny(values []string) bool {
-	for _, v := range values {
-		if sm.Match(v) {
-			return true
-		}
-	}
-	return false
 }

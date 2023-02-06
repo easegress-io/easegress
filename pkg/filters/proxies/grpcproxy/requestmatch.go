@@ -21,12 +21,13 @@ import (
 	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
 	proxies.RequestMatcherBaseSpec `json:",inline"`
-	Methods                        []*proxies.StringMatcher `json:"methods" jsonschema:"omitempty"`
+	Methods                        []*stringtool.StringMatcher `json:"methods" jsonschema:"omitempty"`
 }
 
 // Validate validtes the RequestMatcherSpec.
@@ -63,8 +64,8 @@ func NewRequestMatcher(spec *RequestMatcherSpec) RequestMatcher {
 // generalMatcher implements general grpc matcher.
 type generalMatcher struct {
 	matchAllHeaders bool
-	headers         map[string]*proxies.StringMatcher
-	methods         []*proxies.StringMatcher
+	headers         map[string]*stringtool.StringMatcher
+	methods         []*stringtool.StringMatcher
 }
 
 func (gm *generalMatcher) init() {

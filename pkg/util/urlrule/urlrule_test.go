@@ -20,6 +20,8 @@ package urlrule
 import (
 	"net/http"
 	"testing"
+
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 func TestURLRULEMatch(t *testing.T) {
@@ -29,7 +31,7 @@ func TestURLRULEMatch(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Prefix: "/",
 		},
 	}
@@ -56,7 +58,7 @@ func TestURLRegxMatch(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			RegEx: "^\\/app\\/.+$",
 		},
 	}
@@ -80,7 +82,7 @@ func TestURLExactMatch(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/app/v2/user",
 		},
 	}
@@ -103,7 +105,7 @@ func TestURLExactNotMatch(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/app/v2/user",
 		},
 	}
@@ -126,7 +128,7 @@ func TestURLPrefixNotMatch(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Prefix: "/app/v3",
 		},
 	}
@@ -148,7 +150,7 @@ func TestURLRULENoMatchMethod(t *testing.T) {
 		Methods: []string{
 			"DELETE",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Prefix: "/",
 		},
 	}
@@ -168,7 +170,7 @@ func TestURLRULENoMatchURL(t *testing.T) {
 		Methods: []string{
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/user",
 		},
 	}
@@ -184,7 +186,7 @@ func TestURLRULENoMatchURL(t *testing.T) {
 }
 
 func TestFailStringMatch(t *testing.T) {
-	sm := StringMatch{}
+	sm := stringtool.StringMatcher{}
 
 	err := sm.Validate()
 	if err == nil {
@@ -199,7 +201,7 @@ func TestDeepEqual(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/app/v2/user",
 		},
 	}
@@ -210,7 +212,7 @@ func TestDeepEqual(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/app/v2/user",
 		},
 	}
@@ -222,7 +224,7 @@ func TestDeepEqual(t *testing.T) {
 			"POST",
 			"DELETE",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			RegEx: "^/app/v2",
 		},
 	}
@@ -233,7 +235,7 @@ func TestDeepEqual(t *testing.T) {
 			"POST",
 			"PATCH",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Prefix: "/app/v3/user",
 		},
 	}
@@ -244,7 +246,7 @@ func TestDeepEqual(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact: "/app/v3/user",
 		},
 	}
@@ -255,7 +257,7 @@ func TestDeepEqual(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact:  "/app/v2/user",
 			Prefix: "/app",
 		},
@@ -267,7 +269,7 @@ func TestDeepEqual(t *testing.T) {
 			"GET",
 			"POST",
 		},
-		URL: StringMatch{
+		URL: stringtool.StringMatcher{
 			Exact:  "/app/v2/user",
 			Prefix: "/app",
 			RegEx:  "^.*$",

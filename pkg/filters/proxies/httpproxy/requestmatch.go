@@ -64,7 +64,7 @@ func NewRequestMatcher(spec *RequestMatcherSpec) proxies.RequestMatcher {
 // generalMatcher implements general HTTP matcher.
 type generalMatcher struct {
 	matchAllHeaders bool
-	headers         map[string]*proxies.StringMatcher
+	headers         map[string]*stringtool.StringMatcher
 	urls            []*MethodAndURLMatcher
 }
 
@@ -150,8 +150,8 @@ func (gm *generalMatcher) matchURL(req *httpprot.Request) bool {
 
 // MethodAndURLMatcher defines the match rule of a http request
 type MethodAndURLMatcher struct {
-	Methods []string               `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-	URL     *proxies.StringMatcher `json:"url" jsonschema:"required"`
+	Methods []string                  `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+	URL     *stringtool.StringMatcher `json:"url" jsonschema:"required"`
 }
 
 // Validate validates the MethodAndURLMatcher.
