@@ -186,8 +186,9 @@ type (
 	// Span is the span of the Tracing.
 	Span struct {
 		trace.Span
-		tracer *Tracer
-		ctx    context.Context
+		tracer  *Tracer
+		ctx     context.Context
+		cdnSpan CDNSpan
 	}
 )
 
@@ -487,6 +488,7 @@ func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
 }
 
 // IsNoopTracer checks whether tracer is noop tracer.
+// IsNoopTracer checks whether tracer is noop tracer.
 func (t *Tracer) IsNoopTracer() bool {
 	return t == NoopTracer
 }
@@ -500,9 +502,12 @@ func (t *Tracer) NewSpan(ctx context.Context, name string) *Span {
 }
 
 // NewSpanWithStart creates a span with specify start time.
-func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
+func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time, req *http.Request) *Span {
 	if t.IsNoopTracer() {
 		return NoopSpan
+	}
+	if enableCDN(req) {
+		return t.newSpanWithCDN(ctx, name, req)
 	}
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
@@ -510,6 +515,17 @@ func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time
 func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
 	ctx, span := t.Tracer.Start(ctx, name, trace.WithTimestamp(startAt))
 	return &Span{Span: span, ctx: ctx, tracer: t}
+}
+
+func (t *Tracer) newSpanWithCDN(ctx context.Context, name string, req *http.Request) *Span {
+	cfs := new(CloudflareSpan)
+	ctx = cfs.injectTraceInfo(ctx, req)
+	span := cfs.NewSpan(ctx, t, name)
+	if span == nil {
+		return t.newSpanWithStart(ctx, name, fasttime.Now())
+	}
+	span.cdnSpan = cfs
+	return span
 }
 
 // Close trace.
@@ -558,4 +574,12 @@ func (s *Span) newChildWithStart(name string, startAt time.Time) *Span {
 // InjectHTTP injects span context into an HTTP request.
 func (s *Span) InjectHTTP(r *http.Request) {
 	s.tracer.propagator.Inject(s.ctx, propagation.HeaderCarrier(r.Header))
+}
+
+// End completes the Span. Override trace.Span.End function.
+func (s *Span) End(options ...trace.SpanEndOption) {
+	if s.cdnSpan != nil {
+		s.cdnSpan.End(options...)
+	}
+	s.Span.End(options...)
 }

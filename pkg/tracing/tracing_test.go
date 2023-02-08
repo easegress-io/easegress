@@ -18,12 +18,14 @@
 package tracing
 
 import (
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/stretchr/testify/assert"
-	"go.opentelemetry.io/otel/sdk/trace"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func init() {
@@ -84,7 +86,7 @@ func TestNewSampler(t *testing.T) {
 		},
 	}
 	s := spec.newSampler()
-	assert.Equal(trace.NeverSample(), s)
+	assert.Equal(sdktrace.NeverSample(), s)
 
 	spec = &Spec{
 		SampleRate: 1,
@@ -93,7 +95,7 @@ func TestNewSampler(t *testing.T) {
 		},
 	}
 	s = spec.newSampler()
-	assert.Equal(trace.AlwaysSample(), s)
+	assert.Equal(sdktrace.AlwaysSample(), s)
 
 	spec = &Spec{
 		SampleRate: 0.5,
@@ -102,5 +104,47 @@ func TestNewSampler(t *testing.T) {
 		},
 	}
 	s = spec.newSampler()
-	assert.Equal(trace.TraceIDRatioBased(0.5), s)
+	assert.Equal(sdktrace.TraceIDRatioBased(0.5), s)
+}
+
+func TestNewSpanWithStart(t *testing.T) {
+	assert := assert.New(t)
+
+	spec := &Spec{
+		ServiceName: "test",
+		Attributes:  map[string]string{"k": "v"},
+		SpanLimits:  nil,
+		SampleRate:  0.5,
+		BatchLimits: nil,
+		Exporter: &ExporterSpec{
+			Zipkin: &ZipkinSpec{Endpoint: "http://localhost:2181"},
+		},
+	}
+
+	tracer, err := New(spec)
+	assert.Nil(err)
+
+	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com/.well-known/acme-challenge/abc", http.NoBody)
+	span := tracer.NewSpanWithStart(stdr.Context(), "testSpan", time.Now(), stdr)
+	assert.Nil(span.cdnSpan)
+
+	stdr.Header.Set(cfRayHeader, "792a875b68972ab9-ndm")
+	span = tracer.NewSpanWithStart(stdr.Context(), "testSpan", time.Now(), stdr)
+	assert.Nil(span.cdnSpan)
+
+	stdr.Header.Set(cfSecHeader, "1675751394")
+	span = tracer.NewSpanWithStart(stdr.Context(), "testSpan", time.Now(), stdr)
+	assert.Nil(span.cdnSpan)
+	cfRayID, ok := span.ctx.Value(cfRayHeader).(string)
+	assert.True(ok)
+	assert.Equal("792a875b68972ab9-ndm", cfRayID)
+	_, ok = span.ctx.Value("cf-timestamp").(int64)
+	assert.False(ok)
+
+	stdr.Header.Set(cfMsecHeader, "876")
+	span = tracer.NewSpanWithStart(stdr.Context(), "testSpan", time.Now(), stdr)
+	ts, ok := span.ctx.Value(cfTs).(int64)
+	assert.True(ok)
+	assert.Equal(int64(1675751394876), ts)
+	assert.NotNil(span.cdnSpan)
 }
