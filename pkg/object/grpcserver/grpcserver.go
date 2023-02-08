@@ -59,6 +59,26 @@ func (g *GRPCServer) DefaultSpec() interface{} {
 	}
 }
 
+// Init first create GrpcServer by Spec.name
+func (g *GRPCServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
+	g.runtime = newRuntime(superSpec, muxMapper)
+
+	g.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		muxMapper:     muxMapper,
+	}
+}
+
+// Inherit inherits previous generation of GrpcServer.
+func (g *GRPCServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
+	g.runtime = previousGeneration.(*GRPCServer).runtime
+
+	g.runtime.eventChan <- &eventReload{
+		nextSuperSpec: superSpec,
+		muxMapper:     muxMapper,
+	}
+}
+
 // Status returns the status of GrpcServer.
 func (g *GRPCServer) Status() *supervisor.Status {
 	return &supervisor.Status{
@@ -69,22 +89,4 @@ func (g *GRPCServer) Status() *supervisor.Status {
 // Close close GrpcServer
 func (g *GRPCServer) Close() {
 	g.runtime.Close()
-}
-
-// Init first create GrpcServer by Spec.name
-func (g *GRPCServer) Init(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
-	g.runtime = newRuntime(superSpec, muxMapper)
-	g.runtime.eventChan <- &eventReload{
-		nextSuperSpec: superSpec,
-		muxMapper:     muxMapper,
-	}
-}
-
-// Inherit inherits previous generation of GrpcServer.
-func (g *GRPCServer) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
-	g.runtime = previousGeneration.(*GRPCServer).runtime
-	g.runtime.eventChan <- &eventReload{
-		nextSuperSpec: superSpec,
-		muxMapper:     muxMapper,
-	}
 }

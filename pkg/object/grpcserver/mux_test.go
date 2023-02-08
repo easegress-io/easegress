@@ -19,13 +19,14 @@ package grpcserver
 
 import (
 	stdcontext "context"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/context/contexttest"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"testing"
 )
 
 func newTestMux(yamlSpec string, at *assert.Assertions) (*mux, *muxInstance) {
@@ -105,7 +106,7 @@ ipFilter:
 	assert.Equal(codes.NotFound, ins.search(req).code)
 }
 
-func TestSearchPath(t *testing.T) {
+func TestSearchMethod(t *testing.T) {
 	assertions := assert.New(t)
 
 	yamlSpec := `
@@ -116,8 +117,8 @@ port: 8850
 name: server-grpc
 rules:
 - host: 127.0.0.1
-  paths: 
-  - path: "/abd"
+  methods: 
+  - method: "/abd"
     backend: "test-demo"
 `
 	_, ins := newTestMux(yamlSpec, assertions)
@@ -140,7 +141,7 @@ rules:
 	request.SetFullMethod("/abd")
 	search = ins.search(request)
 	assertions.Equal(codes.OK, search.code)
-	assertions.Equal("test-demo", search.path.backend)
+	assertions.Equal("test-demo", search.method.backend)
 }
 
 func TestHeader(t *testing.T) {
@@ -153,7 +154,7 @@ maxConnectionIdle: 60s
 port: 8850
 name: server-grpc
 rules:
- - paths:
+ - methods:
    - backend: "test-demo"
      headers:
        - key: "array"
