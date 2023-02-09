@@ -183,8 +183,7 @@ flow:
   namespace: demo3
 - filter: proxy-demo1
   namespace: demo1
-  jumpIf:
-    serverError: "proxy-demo2"
+  jumpIf: { serverError: proxy-demo2 }
 - filter: proxy-demo2
   namespace: demo2
 - filter: proxy-demo3
