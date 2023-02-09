@@ -124,18 +124,18 @@ func TestNewSpanWithStart(t *testing.T) {
 	assert.Nil(err)
 
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com/.well-known/acme-challenge/abc", http.NoBody)
-	span := tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
+	span := tracer.NewSpanForHTTP(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfRayHeader, "792a875b68972ab9-ndm")
-	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
+	span = tracer.NewSpanForHTTP(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfSecHeader, "1675751394")
-	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
+	span = tracer.NewSpanForHTTP(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfMsecHeader, "876")
-	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
+	span = tracer.NewSpanForHTTP(stdr.Context(), "testSpan", stdr)
 	assert.NotNil(span.cdnSpan)
 }

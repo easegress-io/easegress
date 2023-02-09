@@ -186,9 +186,9 @@ type (
 	// Span is the span of the Tracing.
 	Span struct {
 		trace.Span
+		cdnSpan trace.Span
 		tracer  *Tracer
 		ctx     context.Context
-		cdnSpan CDNSpan
 	}
 )
 
@@ -204,6 +204,7 @@ const (
 	otlpProtocolGRPC otlpProtocol = "grpc"
 )
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (spec *Spec) UnmarshalJSON(data []byte) error {
 	type innerSpec Spec
 	inner := &innerSpec{
@@ -508,37 +509,23 @@ func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time
 	return t.newSpanWithStart(ctx, name, startAt)
 }
 
-// NewSpanWithHttp creates a span with http request.
-func (t *Tracer) NewSpanWithHttp(ctx context.Context, name string, req *http.Request) *Span {
-	if t.IsNoopTracer() {
-		return NoopSpan
-	}
-	if enableCDN(req) {
-		return t.newSpanWithCDN(ctx, name, req)
-	}
-	return t.newSpanWithStart(ctx, name, fasttime.Now())
-}
-
 func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
 	ctx, span := t.Tracer.Start(ctx, name, trace.WithTimestamp(startAt))
 	return &Span{Span: span, ctx: ctx, tracer: t}
 }
 
-func (t *Tracer) newSpanWithCDN(ctx context.Context, name string, req *http.Request) *Span {
-	if enableCloudflare(req) {
-		return t.newSpanWithCloudflare(ctx, name, req)
+// NewSpanForHTTP creates a span for http request.
+func (t *Tracer) NewSpanForHTTP(ctx context.Context, name string, req *http.Request) *Span {
+	if t.IsNoopTracer() {
+		return NoopSpan
 	}
-	return t.newSpanWithStart(ctx, name, fasttime.Now())
-}
 
-func (t *Tracer) newSpanWithCloudflare(ctx context.Context, name string, req *http.Request) *Span {
-	cfs := new(CloudflareSpan)
-	span := cfs.NewSpan(ctx, t, name, req)
-	if span == nil {
-		return t.newSpanWithStart(ctx, name, fasttime.Now())
+	span := newSpanForCloudflare(ctx, t, name, req)
+	if span != nil {
+		return span
 	}
-	span.cdnSpan = cfs
-	return span
+
+	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
 
 // Close trace.
