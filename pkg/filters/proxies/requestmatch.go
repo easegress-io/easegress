@@ -41,7 +41,7 @@ type RequestMatcherBaseSpec struct {
 	HeaderHashKey   string                               `json:"headerHashKey" jsonschema:"omitempty"`
 }
 
-// Validate validtes the RequestMatcherBaseSpec.
+// Validate validates the RequestMatcherBaseSpec.
 func (s *RequestMatcherBaseSpec) Validate() error {
 	if s.Policy == "general" || s.Policy == "" {
 		if len(s.Headers) == 0 {

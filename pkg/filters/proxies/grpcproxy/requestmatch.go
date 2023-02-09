@@ -30,7 +30,7 @@ type RequestMatcherSpec struct {
 	Methods                        []*stringtool.StringMatcher `json:"methods" jsonschema:"omitempty"`
 }
 
-// Validate validtes the RequestMatcherSpec.
+// Validate validates the RequestMatcherSpec.
 func (s *RequestMatcherSpec) Validate() error {
 	if err := s.RequestMatcherBaseSpec.Validate(); err != nil {
 		return err
