@@ -501,14 +501,6 @@ func (t *Tracer) NewSpan(ctx context.Context, name string) *Span {
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
 
-// NewSpanWithStart creates a span with specify start time.
-func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
-	if t.IsNoopTracer() {
-		return NoopSpan
-	}
-	return t.newSpanWithStart(ctx, name, startAt)
-}
-
 func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
 	ctx, span := t.Tracer.Start(ctx, name, trace.WithTimestamp(startAt))
 	return &Span{Span: span, ctx: ctx, tracer: t}
