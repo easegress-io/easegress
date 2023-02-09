@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -489,7 +488,6 @@ func (spec *OTLPSpec) newExporter() (sdktrace.SpanExporter, error) {
 }
 
 // IsNoopTracer checks whether tracer is noop tracer.
-// IsNoopTracer checks whether tracer is noop tracer.
 func (t *Tracer) IsNoopTracer() bool {
 	return t == NoopTracer
 }
@@ -507,8 +505,16 @@ func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time
 	if t.IsNoopTracer() {
 		return NoopSpan
 	}
-	if enableCDN(ctx) {
-		return t.newSpanWithCDN(ctx, name)
+	return t.newSpanWithStart(ctx, name, startAt)
+}
+
+// NewSpanWithHttp creates a span with http request.
+func (t *Tracer) NewSpanWithHttp(ctx context.Context, name string, req *http.Request) *Span {
+	if t.IsNoopTracer() {
+		return NoopSpan
+	}
+	if enableCDN(req) {
+		return t.newSpanWithCDN(ctx, name, req)
 	}
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
@@ -518,16 +524,16 @@ func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time
 	return &Span{Span: span, ctx: ctx, tracer: t}
 }
 
-func (t *Tracer) newSpanWithCDN(ctx context.Context, name string) *Span {
-	if enableCloudflare(ctx) {
-		return t.newSpanWithCloudflare(ctx, name)
+func (t *Tracer) newSpanWithCDN(ctx context.Context, name string, req *http.Request) *Span {
+	if enableCloudflare(req) {
+		return t.newSpanWithCloudflare(ctx, name, req)
 	}
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
 
-func (t *Tracer) newSpanWithCloudflare(ctx context.Context, name string) *Span {
+func (t *Tracer) newSpanWithCloudflare(ctx context.Context, name string, req *http.Request) *Span {
 	cfs := new(CloudflareSpan)
-	span := cfs.NewSpan(ctx, t, name)
+	span := cfs.NewSpan(ctx, t, name, req)
 	if span == nil {
 		return t.newSpanWithStart(ctx, name, fasttime.Now())
 	}
@@ -589,23 +595,4 @@ func (s *Span) End(options ...trace.SpanEndOption) {
 		s.cdnSpan.End(options...)
 	}
 	s.Span.End(options...)
-}
-
-// InjectTraceInfoWithHttpRequest prepare injects trace info into context.
-func InjectTraceInfoWithHttpRequest(ctx context.Context, req *http.Request) context.Context {
-	ctx = injectCloudflareTraceInfo(ctx, req)
-	return ctx
-}
-
-func injectCloudflareTraceInfo(ctx context.Context, req *http.Request) context.Context {
-	ctx = context.WithValue(ctx, cfRayHeader, req.Header.Get(cfRayHeader))
-	sec := req.Header.Get(cfSecHeader)
-	msec := req.Header.Get(cfMsecHeader)
-	if sec != "" && msec != "" {
-		ts := fmt.Sprintf("%s%s", sec, msec)
-		if timestamp, err := strconv.ParseInt(ts, 10, 64); err == nil {
-			ctx = context.WithValue(ctx, cfTs, timestamp)
-		}
-	}
-	return ctx
 }

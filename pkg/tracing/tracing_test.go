@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/stretchr/testify/assert"
@@ -125,30 +124,18 @@ func TestNewSpanWithStart(t *testing.T) {
 	assert.Nil(err)
 
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com/.well-known/acme-challenge/abc", http.NoBody)
-	httpContext := InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
-	span := tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
+	span := tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfRayHeader, "792a875b68972ab9-ndm")
-	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
-	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
+	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfSecHeader, "1675751394")
-	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
-	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
+	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
 	assert.Nil(span.cdnSpan)
-	cfRayID, ok := span.ctx.Value(cfRayHeader).(string)
-	assert.True(ok)
-	assert.Equal("792a875b68972ab9-ndm", cfRayID)
-	_, ok = span.ctx.Value("cf-timestamp").(int64)
-	assert.False(ok)
 
 	stdr.Header.Set(cfMsecHeader, "876")
-	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
-	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
-	ts, ok := span.ctx.Value(cfTs).(int64)
-	assert.True(ok)
-	assert.Equal(int64(1675751394876), ts)
+	span = tracer.NewSpanWithHttp(stdr.Context(), "testSpan", stdr)
 	assert.NotNil(span.cdnSpan)
 }

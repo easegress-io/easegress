@@ -19,6 +19,8 @@ package tracing
 
 import (
 	"context"
+	"net/http"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -29,8 +31,9 @@ type (
 	// CDNSpan is a generic interface that defines the span of edge network of different CDN vendors.
 	CDNSpan interface {
 		// NewSpan creates a span and a context.Context containing the newly-created span.
-		// The newly-created span's id should be the unique ID provided by the CDN vendor, and timestamp should be the timestamp of the traffic entering the edge network.
-		NewSpan(ctx context.Context, t *Tracer, spanName string) *Span
+		// The newly-created span's id should be the unique ID provided by the CDN vendor,
+		// and timestamp should be the timestamp of the traffic entering the edge network.
+		NewSpan(ctx context.Context, t *Tracer, spanName string, req *http.Request) *Span
 
 		// End completes the Span.
 		End(options ...trace.SpanEndOption)
@@ -47,19 +50,25 @@ const (
 	cfRayHeader        = "cf-ray"
 	cfSecHeader        = "x-ts-sec"
 	cfMsecHeader       = "x-ts-msec"
-	cfTs               = "cfTimestamp"
 )
 
 // NewSpan create a span, which describes the traffic entering Cloudflare.
-func (cfs *CloudflareSpan) NewSpan(ctx context.Context, t *Tracer, spanName string) *Span {
-	timestamp, ok := ctx.Value(cfTs).(int64)
-	if !ok {
+func (cfs *CloudflareSpan) NewSpan(ctx context.Context, t *Tracer, spanName string, req *http.Request) *Span {
+	sec := req.Header.Get(cfSecHeader)
+	if sec == "" {
 		return nil
 	}
-	cloudflareSpan := t.newSpanWithStart(ctx, cloudFlareSpanName, time.UnixMilli(timestamp))
-	cloudflareSpan.Span.SetAttributes(attribute.String("cf.ray", ctx.Value(cfRayHeader).(string)))
-	cfs.span = cloudflareSpan
-	return cloudflareSpan.NewChild(spanName)
+	msec := req.Header.Get(cfMsecHeader)
+	if msec == "" {
+		return nil
+	}
+	if timestamp, err := strconv.ParseInt(sec+msec, 10, 64); err == nil {
+		cloudflareSpan := t.newSpanWithStart(ctx, cloudFlareSpanName, time.UnixMilli(timestamp))
+		cloudflareSpan.Span.SetAttributes(attribute.String("cf.ray", req.Header.Get(cfRayHeader)))
+		cfs.span = cloudflareSpan
+		return cloudflareSpan.NewChild(spanName)
+	}
+	return nil
 }
 
 // End completes the Span.
@@ -67,12 +76,12 @@ func (cfs *CloudflareSpan) End(options ...trace.SpanEndOption) {
 	cfs.span.End(options...)
 }
 
-func enableCloudflare(ctx context.Context) bool {
-	return ctx.Value(cfRayHeader).(string) != ""
+func enableCloudflare(req *http.Request) bool {
+	return req.Header.Get(cfRayHeader) != ""
 }
 
-func enableCDN(ctx context.Context) bool {
-	if enableCloudflare(ctx) {
+func enableCDN(req *http.Request) bool {
+	if enableCloudflare(req) {
 		return true
 	}
 	return false
