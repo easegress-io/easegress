@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package informer provides the informer for mesh controller.
 package informer
 
 import (

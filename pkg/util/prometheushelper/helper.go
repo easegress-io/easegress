@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package prometheushelper provides helper functions for prometheus.
 package prometheushelper
 
 import (

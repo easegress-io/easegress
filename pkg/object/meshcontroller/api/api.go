@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package api provides the API for mesh controller.
 package api
 
 import (

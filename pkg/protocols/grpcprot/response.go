@@ -18,11 +18,12 @@
 package grpcprot
 
 import (
+	"io"
+
 	"github.com/megaease/easegress/pkg/protocols"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	"io"
 )
 
 // Response wrapper status.Status
@@ -38,6 +39,7 @@ var (
 	_ protocols.Response = (*Response)(nil)
 )
 
+// NewResponse returns a new Response.
 func NewResponse() *Response {
 	return &Response{
 		Status:  nil,
@@ -46,22 +48,27 @@ func NewResponse() *Response {
 	}
 }
 
+// SetTrailer sets the trailer of the response.
 func (r *Response) SetTrailer(trailer *Trailer) {
 	r.trailer.md = trailer.md
 }
 
+// Trailer returns the trailer of the response.
 func (r *Response) Trailer() protocols.Trailer {
 	return r.trailer
 }
 
+// RawTrailer returns the trailer of the response.
 func (r *Response) RawTrailer() *Trailer {
 	return r.trailer
 }
 
+// GetStatus returns the status of the response.
 func (r *Response) GetStatus() *status.Status {
 	return r.Status
 }
 
+// SetStatus sets the status of the response.
 func (r *Response) SetStatus(s *status.Status) {
 	if s == nil {
 		r.Status = status.New(codes.OK, "OK")
@@ -70,6 +77,7 @@ func (r *Response) SetStatus(s *status.Status) {
 	r.Status = s
 }
 
+// StatusCode returns the status code of the response.
 func (r *Response) StatusCode() int {
 	if r.Status == nil {
 		return int(codes.OK)
@@ -77,10 +85,12 @@ func (r *Response) StatusCode() int {
 	return int(r.Status.Code())
 }
 
+// SetHeader sets the header of the response.
 func (r *Response) SetHeader(header *Header) {
 	r.header.md = header.md
 }
 
+// Header returns the header of the response.
 func (r *Response) Header() protocols.Header {
 	return r.header
 }
@@ -90,30 +100,37 @@ func (r *Response) RawHeader() *Header {
 	return r.header
 }
 
+// IsStream returns true if the response is a stream.
 func (r *Response) IsStream() bool {
 	return true
 }
 
+// SetPayload sets the payload of the response.
 func (r *Response) SetPayload(payload interface{}) {
 	panic("implement me")
 }
 
+// GetPayload returns the payload of the response.
 func (r *Response) GetPayload() io.Reader {
 	panic("implement me")
 }
 
+// RawPayload returns the payload of the response.
 func (r *Response) RawPayload() []byte {
 	panic("implement me")
 }
 
+// PayloadSize returns the size of the payload.
 func (r *Response) PayloadSize() int64 {
 	panic("implement me")
 }
 
+// ToBuilderResponse wraps the response and returns the wrapper, the
+// return value can be used in the template of the Builder filters.
 func (r *Response) ToBuilderResponse(name string) interface{} {
 	panic("implement me")
 }
 
+// Close closes the response.
 func (r *Response) Close() {
-
 }

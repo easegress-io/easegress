@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package supervisor implements the supervisor of all objects.
 package supervisor
 
 import (

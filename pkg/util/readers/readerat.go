@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package readers provides several readers.
 package readers
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package stringtool provides string utilities.
 package stringtool
 
 import (
@@ -127,6 +128,7 @@ func (sm *StringMatcher) Validate() error {
 	return fmt.Errorf("all patterns are empty")
 }
 
+// Init initializes the StringMatcher.
 func (sm *StringMatcher) Init() {
 	if sm.RegEx != "" {
 		sm.re = regexp.MustCompile(sm.RegEx)

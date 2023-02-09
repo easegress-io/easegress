@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpheader provides HTTP Header related functions.
 package httpheader
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package kafka implements a kafka proxy for HTTP requests.
 package kafka
 
 import (
@@ -38,7 +39,7 @@ const (
 
 var kind = &filters.Kind{
 	Name:        Kind,
-	Description: "Kafka is a backend of MQTTProxy",
+	Description: "Kafka is a kafka proxy for HTTP requests",
 	Results:     []string{resultParseErr},
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
@@ -53,7 +54,7 @@ func init() {
 }
 
 type (
-	// Kafka is kafka backend for MQTT proxy
+	// Kafka is a kafka proxy for HTTP requests.
 	Kafka struct {
 		spec     *Spec
 		producer sarama.AsyncProducer

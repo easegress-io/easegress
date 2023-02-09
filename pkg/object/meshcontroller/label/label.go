@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package label defines labels.
 package label
 
 const (

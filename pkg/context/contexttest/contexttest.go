@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package contexttest provides utilities for testing context.
 package contexttest
 
 import "github.com/megaease/easegress/pkg/context"

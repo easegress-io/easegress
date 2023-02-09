@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package opafilter implements OpenPolicyAgent function.
 package opafilter
 
 import (
@@ -60,12 +61,14 @@ var kind = &filters.Kind{
 	},
 }
 
+// OPAFilter is the filter for OpenPolicyAgent.
 type OPAFilter struct {
 	spec                  *Spec
 	includedHeadersParsed []string `yaml:"includedHeadersParsed"`
 	regoQuery             *rego.PreparedEvalQuery
 }
 
+// Spec is the spec of the OPAFilter.
 type Spec struct {
 	filters.BaseSpec `yaml:",inline"`
 	DefaultStatus    int    `yaml:"defaultStatus"`
@@ -78,18 +81,22 @@ func init() {
 	filters.Register(kind)
 }
 
+// Name returns the name of the OPAFilter filter instance.
 func (o *OPAFilter) Name() string {
 	return o.spec.Name()
 }
 
+// Spec returns the spec of the OPAFilter filter instance.
 func (o *OPAFilter) Spec() filters.Spec {
 	return o.spec
 }
 
+// Kind returns the kind of the OPAFilter filter instance.
 func (o *OPAFilter) Kind() *filters.Kind {
 	return kind
 }
 
+// Init initialize the filter instance.
 func (o *OPAFilter) Init() {
 	o.includedHeadersParsed = strings.Split(o.spec.IncludedHeaders, ",")
 	if o.spec.DefaultStatus == 0 {
@@ -117,11 +124,13 @@ func (o *OPAFilter) Init() {
 	}
 }
 
+// Inherit inherits previous generation of filter instance.
 func (o *OPAFilter) Inherit(previousGeneration filters.Filter) {
 	o.Init()
 	previousGeneration.Close()
 }
 
+// Handle handles the request.
 func (o *OPAFilter) Handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	var rw *httpprot.Response
@@ -132,10 +141,12 @@ func (o *OPAFilter) Handle(ctx *context.Context) (result string) {
 	return o.evalRequest(req, rw)
 }
 
+// Status returns the status of the filter instance.
 func (o *OPAFilter) Status() interface{} {
 	return nil
 }
 
+// Close closes the filter instance.
 func (o *OPAFilter) Close() {
 }
 

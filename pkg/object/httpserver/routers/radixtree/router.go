@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package radixtree provides the router implementation of radix tree routing policy.
 package radixtree
 
 import (

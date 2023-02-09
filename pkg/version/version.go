@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package version defines the version of Easegress.
 package version
 
 import "fmt"

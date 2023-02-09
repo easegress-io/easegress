@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package responseadaptor implements a filter to adapts responses.
 package responseadaptor
 
 import (

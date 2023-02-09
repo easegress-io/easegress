@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package filters implements common functionality of filters.
 package filters
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package main is the entry point of the simple Easegress remote server.
 package main
 
 import (

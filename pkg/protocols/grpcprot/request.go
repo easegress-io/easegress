@@ -60,6 +60,7 @@ type (
 )
 
 const (
+	// Authority is the key of authority in grpc metadata
 	Authority = ":authority"
 )
 
@@ -109,6 +110,7 @@ func NewRequestWithContext(ctx context.Context) *Request {
 	return r
 }
 
+// Network returns the network type of the address.
 func (a *Addr) Network() string {
 	if a != nil {
 		// Per the documentation on net/http.Request.RemoteAddr, if this is
@@ -125,6 +127,7 @@ func (a *Addr) Network() string {
 	return ""
 }
 
+// String implements the Stringer interface.
 func (a *Addr) String() string { return a.addr }
 
 func (a *Addr) setAddr(addr string) {
@@ -247,6 +250,7 @@ func (r *Request) RealIP() string {
 	return ip
 }
 
+// SetRealIP set the client ip of the request.
 func (r *Request) SetRealIP(ip string) {
 	r.realIP = ""
 	if strings.ContainsRune(r.peer.Addr.String(), ':') {
@@ -262,6 +266,7 @@ func (r *Request) SourceHost() string {
 	return r.peer.Addr.(*Addr).String()
 }
 
+// SetSourceHost set the source host of the request.
 func (r *Request) SetSourceHost(sourceHost string) {
 	r.peer.Addr.(*Addr).setAddr(sourceHost)
 }
@@ -272,6 +277,7 @@ func (r *Request) Host() string {
 	return r.header.GetFirst(Authority)
 }
 
+// SetHost set the host of the request.
 func (r *Request) SetHost(host string) {
 	r.header.Set(Authority, host)
 }

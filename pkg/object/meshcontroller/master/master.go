@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package master provides master role of Easegress for mesh control plane.
 package master
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpproxy implements an HTTP proxy.
 package httpproxy
 
 import (
@@ -129,11 +130,16 @@ type (
 	}
 
 	// Server is the backend server.
-	Server             = proxies.Server
-	RequestMatcher     = proxies.RequestMatcher
-	LoadBalancer       = proxies.LoadBalancer
-	LoadBalanceSpec    = proxies.LoadBalanceSpec
-	BaseServerPool     = proxies.ServerPoolBase
+	Server = proxies.Server
+	// RequestMatcher is the interface of a request matcher
+	RequestMatcher = proxies.RequestMatcher
+	// LoadBalancer is the interface of a load balancer.
+	LoadBalancer = proxies.LoadBalancer
+	// LoadBalanceSpec is the spec of a load balancer.
+	LoadBalanceSpec = proxies.LoadBalanceSpec
+	// BaseServerPool is the base of a server pool.
+	BaseServerPool = proxies.ServerPoolBase
+	// BaseServerPoolSpec is the spec of BaseServerPool.
 	BaseServerPoolSpec = proxies.ServerPoolBaseSpec
 )
 

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package certmanager provides the cert manager for mesh controller.
 package certmanager
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package builder implements builder filters.
 package builder
 
 import (

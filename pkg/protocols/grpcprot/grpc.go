@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
+// Package grpcprot implements the grpc protocol.
 package grpcprot
 
 import (
 	"fmt"
+
 	"github.com/megaease/easegress/pkg/protocols"
 	"google.golang.org/grpc"
 )
@@ -29,30 +31,36 @@ type Protocol struct {
 
 var _ protocols.Protocol = (*Protocol)(nil)
 
+// CreateRequest creates a Request.
 func (p *Protocol) CreateRequest(req interface{}) (protocols.Request, error) {
-	if r, ok := req.(grpc.ServerStream); ok {
+	r, ok := req.(grpc.ServerStream)
+	if ok {
 		return NewRequestWithServerStream(r), nil
-	} else {
-		return nil, fmt.Errorf("input param's type should be grpc.ServerStream")
 	}
+	return nil, fmt.Errorf("input param's type should be grpc.ServerStream")
 }
 
+// CreateResponse creates a Response.
 func (p *Protocol) CreateResponse(resp interface{}) (protocols.Response, error) {
 	return NewResponse(), nil
 }
 
+// NewRequestInfo creates a RequestInfo.
 func (p *Protocol) NewRequestInfo() interface{} {
 	panic("implement me")
 }
 
+// BuildRequest builds a Request from request info.
 func (p *Protocol) BuildRequest(reqInfo interface{}) (protocols.Request, error) {
 	panic("implement me")
 }
 
+// NewResponseInfo creates a ResponseInfo.
 func (p *Protocol) NewResponseInfo() interface{} {
 	panic("implement me")
 }
 
+// BuildResponse builds a Response from response info.
 func (p *Protocol) BuildResponse(respInfo interface{}) (protocols.Response, error) {
 	panic("implement me")
 }

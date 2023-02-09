@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package mock provides Mock filter.
 package mock
 
 import (

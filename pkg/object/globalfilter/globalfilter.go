@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package globalfilter provides GlobalFilter.
 package globalfilter
 
 import (

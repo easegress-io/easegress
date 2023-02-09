@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package sampler provides utilities for sampling.
 package sampler
 
 import (

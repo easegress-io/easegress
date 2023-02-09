@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package timetool provides time utilities.
 package timetool
 
 import (

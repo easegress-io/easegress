@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package codecounter provides a goroutine unsafe HTTP status code counter.
 package codecounter
 
 import "sync/atomic"

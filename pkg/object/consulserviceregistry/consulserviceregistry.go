@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package consulserviceregistry provides ConsulServiceRegistry.
 package consulserviceregistry
 
 import (

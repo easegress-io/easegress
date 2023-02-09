@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package redirector implements a filter to handle HTTP redirects.
 package redirector
 
 import (
@@ -87,6 +88,7 @@ type (
 	}
 )
 
+// Validate validates the spec.
 func (s *Spec) Validate() error {
 	if _, ok := statusCodeMap[s.StatusCode]; !ok {
 		return errors.New("invalid status code of Redirector, support 300, 301, 302, 303, 304, 307, 308")

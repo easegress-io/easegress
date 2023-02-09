@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package requestadaptor implements a filter to adapts requests.
 package requestadaptor
 
 import (

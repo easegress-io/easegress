@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package grpcserver implements the GRPCServer.
 package grpcserver
 
 import (

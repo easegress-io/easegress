@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package context provides the context for traffic handlers.
 package context
 
 import (

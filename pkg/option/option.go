@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package option implements the start-up options.
 package option
 
 import (

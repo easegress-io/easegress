@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package pipeline provides the pipeline of Easegress.
 package pipeline
 
 import (

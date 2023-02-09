@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package k8s provides kubernetes utilities.
 package k8s
 
 import (

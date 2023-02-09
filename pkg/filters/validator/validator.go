@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package validator provides Validator filter to validates HTTP requests.
 package validator
 
 import (

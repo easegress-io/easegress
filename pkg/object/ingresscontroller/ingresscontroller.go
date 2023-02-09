@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package ingresscontroller implements a K8s ingress controller.
 package ingresscontroller
 
 import (

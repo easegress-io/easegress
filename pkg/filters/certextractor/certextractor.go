@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package certextractor implements a filter to extract given field from TLS.
 package certextractor
 
 import (

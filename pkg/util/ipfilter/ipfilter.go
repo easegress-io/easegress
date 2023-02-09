@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package ipfilter provides IPFilter.
 package ipfilter
 
 import (

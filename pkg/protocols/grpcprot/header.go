@@ -33,26 +33,31 @@ type (
 	Trailer = Header
 )
 
+// NewHeader returns a new Header
 func NewHeader(md metadata.MD) *Header {
 	return &Header{
 		md: md.Copy(),
 	}
 }
 
+// NewTrailer returns a new Trailer
 func NewTrailer(md metadata.MD) *Trailer {
 	return &Trailer{
 		md: md.Copy(),
 	}
 }
 
+// GetMD returns the metadata.MD
 func (h *Header) GetMD() metadata.MD {
 	return h.md.Copy()
 }
 
+// RawAdd adds the key, value pair to the header.
 func (h *Header) RawAdd(key string, values ...string) {
 	h.md.Append(key, values...)
 }
 
+// Add adds the key, value pair to the header.
 func (h *Header) Add(key string, value interface{}) {
 	switch value.(type) {
 	case string:
@@ -64,10 +69,12 @@ func (h *Header) Add(key string, value interface{}) {
 	}
 }
 
+// RawSet sets the header entries associated with key to the given value.
 func (h *Header) RawSet(key string, values ...string) {
 	h.md.Set(key, values...)
 }
 
+// Set sets the header entries associated with key to the given value.
 func (h *Header) Set(key string, value interface{}) {
 	switch value.(type) {
 	case string:
@@ -79,14 +86,17 @@ func (h *Header) Set(key string, value interface{}) {
 	}
 }
 
+// RawGet gets the values associated with the given key.
 func (h *Header) RawGet(key string) []string {
 	return h.md.Get(key)
 }
 
+// Get gets the values associated with the given key.
 func (h *Header) Get(key string) interface{} {
 	return h.md.Get(key)
 }
 
+// Del deletes the values associated with key.
 func (h *Header) Del(key string) {
 	h.md.Delete(key)
 }
@@ -118,6 +128,7 @@ func (h *Header) Walk(fn func(key string, value interface{}) bool) {
 	}
 }
 
+// Clone returns a copy of the header.
 func (h *Header) Clone() protocols.Header {
 	return &Header{
 		md: h.md.Copy(),

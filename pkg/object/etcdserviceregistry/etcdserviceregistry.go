@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package eserviceregistry provides EtcdServiceRegistry.
 package eserviceregistry
 
 import (

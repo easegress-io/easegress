@@ -45,6 +45,7 @@ func (r *Response) IsStream() bool {
 	return false
 }
 
+// Trailer returns the trailer of the response.
 func (r *Response) Trailer() protocols.Trailer {
 	panic("implement me")
 }

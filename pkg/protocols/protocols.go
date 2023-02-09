@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package protocols defines the common interface of protocols used in Easegress.
 package protocols
 
 import (
@@ -135,6 +136,7 @@ type Header interface {
 	Clone() Header
 }
 
+// Trailer is the trailers of a request or response.
 type Trailer = Header
 
 // Protocol is the interface of a protocol.

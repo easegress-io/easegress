@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package autocertmanager provides AutoCertManager to manage certificates automatically.
 package autocertmanager
 
 import (

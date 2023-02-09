@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package tracing implements the tracing.
 package tracing
 
 import (

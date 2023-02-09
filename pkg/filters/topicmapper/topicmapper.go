@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package topicmapper maps MQTT topic to Kafka topics and key-value headers
 package topicmapper
 
 import (

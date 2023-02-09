@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package storage provides the storage for FaaS.
 package storage
 
 import (

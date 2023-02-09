@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package mqttclientauth implements authentication for MQTT clients.
 package mqttclientauth
 
 import (

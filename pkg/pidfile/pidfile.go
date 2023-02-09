@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package pidfile provides pidfile related functions.
 package pidfile
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package ratelimiter implements a rate limiter.
 package ratelimiter
 
 import (

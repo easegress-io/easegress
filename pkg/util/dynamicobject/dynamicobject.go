@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package dynamicobject provides a dynamic object.
 package dynamicobject
 
 // DynamicObject defines a dynamic object which is a map of string to

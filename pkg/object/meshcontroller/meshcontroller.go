@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package meshcontroller provides the service mesh controller.
 package meshcontroller
 
 import (
