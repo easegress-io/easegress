@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -502,12 +503,12 @@ func (t *Tracer) NewSpan(ctx context.Context, name string) *Span {
 }
 
 // NewSpanWithStart creates a span with specify start time.
-func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time, req *http.Request) *Span {
+func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
 	if t.IsNoopTracer() {
 		return NoopSpan
 	}
-	if enableCDN(req) {
-		return t.newSpanWithCDN(ctx, name, req)
+	if enableCDN(ctx) {
+		return t.newSpanWithCDN(ctx, name)
 	}
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
@@ -517,9 +518,15 @@ func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time
 	return &Span{Span: span, ctx: ctx, tracer: t}
 }
 
-func (t *Tracer) newSpanWithCDN(ctx context.Context, name string, req *http.Request) *Span {
+func (t *Tracer) newSpanWithCDN(ctx context.Context, name string) *Span {
+	if enableCloudflare(ctx) {
+		return t.newSpanWithCloudflare(ctx, name)
+	}
+	return t.newSpanWithStart(ctx, name, fasttime.Now())
+}
+
+func (t *Tracer) newSpanWithCloudflare(ctx context.Context, name string) *Span {
 	cfs := new(CloudflareSpan)
-	ctx = cfs.injectTraceInfo(ctx, req)
 	span := cfs.NewSpan(ctx, t, name)
 	if span == nil {
 		return t.newSpanWithStart(ctx, name, fasttime.Now())
@@ -582,4 +589,23 @@ func (s *Span) End(options ...trace.SpanEndOption) {
 		s.cdnSpan.End(options...)
 	}
 	s.Span.End(options...)
+}
+
+// InjectTraceInfo prepare injects trace info into context.
+func InjectTraceInfo(ctx context.Context, req *http.Request) context.Context {
+	ctx = injectCloudflareTraceInfo(ctx, req)
+	return ctx
+}
+
+func injectCloudflareTraceInfo(ctx context.Context, req *http.Request) context.Context {
+	ctx = context.WithValue(ctx, cfRayHeader, req.Header.Get(cfRayHeader))
+	sec := req.Header.Get(cfSecHeader)
+	msec := req.Header.Get(cfMsecHeader)
+	if sec != "" && msec != "" {
+		ts := fmt.Sprintf("%s%s", sec, msec)
+		if timestamp, err := strconv.ParseInt(ts, 10, 64); err == nil {
+			ctx = context.WithValue(ctx, cfTs, timestamp)
+		}
+	}
+	return ctx
 }

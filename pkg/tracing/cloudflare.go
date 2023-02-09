@@ -19,9 +19,6 @@ package tracing
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -70,25 +67,12 @@ func (cfs *CloudflareSpan) End(options ...trace.SpanEndOption) {
 	cfs.span.End(options...)
 }
 
-func (cfs *CloudflareSpan) injectTraceInfo(ctx context.Context, req *http.Request) context.Context {
-	ctx = context.WithValue(ctx, cfRayHeader, req.Header.Get(cfRayHeader))
-	sec := req.Header.Get(cfSecHeader)
-	msec := req.Header.Get(cfMsecHeader)
-	if sec != "" && msec != "" {
-		ts := fmt.Sprintf("%s%s", sec, msec)
-		if timestamp, err := strconv.ParseInt(ts, 10, 64); err == nil {
-			ctx = context.WithValue(ctx, cfTs, timestamp)
-		}
-	}
-	return ctx
+func enableCloudflare(ctx context.Context) bool {
+	return ctx.Value(cfRayHeader).(string) != ""
 }
 
-func enableCloudflare(req *http.Request) bool {
-	return req.Header.Get(cfRayHeader) != ""
-}
-
-func enableCDN(req *http.Request) bool {
-	if enableCloudflare(req) {
+func enableCDN(ctx context.Context) bool {
+	if enableCloudflare(ctx) {
 		return true
 	}
 	return false
