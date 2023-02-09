@@ -16,7 +16,7 @@ require (
 	github.com/go-zookeeper/zk v1.0.3
 	github.com/goccy/go-json v0.10.0
 	github.com/golang-jwt/jwt v3.2.1+incompatible
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v4 v4.4.3
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/consul/api v1.18.0
 	github.com/hashicorp/golang-lru v0.6.0
