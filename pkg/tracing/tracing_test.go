@@ -125,17 +125,17 @@ func TestNewSpanWithStart(t *testing.T) {
 	assert.Nil(err)
 
 	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com/.well-known/acme-challenge/abc", http.NoBody)
-	httpContext := InjectTraceInfo(stdr.Context(), stdr)
+	httpContext := InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
 	span := tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfRayHeader, "792a875b68972ab9-ndm")
-	httpContext = InjectTraceInfo(stdr.Context(), stdr)
+	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
 	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
 	assert.Nil(span.cdnSpan)
 
 	stdr.Header.Set(cfSecHeader, "1675751394")
-	httpContext = InjectTraceInfo(stdr.Context(), stdr)
+	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
 	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
 	assert.Nil(span.cdnSpan)
 	cfRayID, ok := span.ctx.Value(cfRayHeader).(string)
@@ -145,7 +145,7 @@ func TestNewSpanWithStart(t *testing.T) {
 	assert.False(ok)
 
 	stdr.Header.Set(cfMsecHeader, "876")
-	httpContext = InjectTraceInfo(stdr.Context(), stdr)
+	httpContext = InjectTraceInfoWithHttpRequest(stdr.Context(), stdr)
 	span = tracer.NewSpanWithStart(httpContext, "testSpan", time.Now())
 	ts, ok := span.ctx.Value(cfTs).(int64)
 	assert.True(ok)

@@ -591,8 +591,8 @@ func (s *Span) End(options ...trace.SpanEndOption) {
 	s.Span.End(options...)
 }
 
-// InjectTraceInfo prepare injects trace info into context.
-func InjectTraceInfo(ctx context.Context, req *http.Request) context.Context {
+// InjectTraceInfoWithHttpRequest prepare injects trace info into context.
+func InjectTraceInfoWithHttpRequest(ctx context.Context, req *http.Request) context.Context {
 	ctx = injectCloudflareTraceInfo(ctx, req)
 	return ctx
 }
