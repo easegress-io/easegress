@@ -55,10 +55,10 @@ var requestAdaptorKind = &filters.Kind{
 		resultCompressFailed,
 	},
 	DefaultSpec: func() filters.Spec {
-		return &RequestAdaptorBuilderSpec{}
+		return &RequestAdaptorSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &RequestAdaptor{spec: spec.(*RequestAdaptorBuilderSpec)}
+		return &RequestAdaptor{spec: spec.(*RequestAdaptorSpec)}
 	},
 }
 
@@ -132,27 +132,31 @@ func init() {
 type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
-		spec *RequestAdaptorBuilderSpec
+		spec *RequestAdaptorSpec
 		Builder
 
 		pa     *pathadaptor.PathAdaptor
 		signer *signer.Signer
 	}
 
-	// RequestAdaptorBuilderSpec is HTTPAdaptor RequestAdaptorBuilderSpec.
-	RequestAdaptorBuilderSpec struct {
+	// RequestAdaptorSpec is HTTPAdaptor RequestAdaptorSpec.
+	RequestAdaptorSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
 
-		Host       string                `json:"host" jsonschema:"omitempty"`
-		Method     string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path       *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
-		Header     *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
-		Body       string                `json:"body" jsonschema:"omitempty"`
-		Compress   string                `json:"compress" jsonschema:"omitempty"`
-		Decompress string                `json:"decompress" jsonschema:"omitempty"`
-		Sign       *SignerSpec           `json:"sign,omitempty" jsonschema:"omitempty"`
-		pa         *pathadaptor.PathAdaptor
+		*RequestAdaptorTemplate
+		Compress   string      `json:"compress" jsonschema:"omitempty"`
+		Decompress string      `json:"decompress" jsonschema:"omitempty"`
+		Sign       *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
+	}
+
+	RequestAdaptorTemplate struct {
+		Host    string                `json:"host" jsonschema:"omitempty"`
+		Method  string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path    *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
+		PathStr string                `json:"pathStr,omitempty" jsonschema:"omitempty"`
+		Header  *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
+		Body    string                `json:"body" jsonschema:"omitempty"`
 	}
 
 	// SignerSpec is the spec of the request signer.
@@ -169,7 +173,7 @@ type (
 )
 
 // Validate verifies that at least one of the validations is defined.
-func (spec *RequestAdaptorBuilderSpec) Validate() error {
+func (spec *RequestAdaptorSpec) Validate() error {
 	if spec.Decompress != "" && spec.Decompress != "gzip" {
 		return fmt.Errorf("RequestAdaptor only support decompress type of gzip")
 	}
@@ -254,7 +258,7 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	method, path := req.Method(), req.Path()
 
-	templateSpec := &RequestAdaptorBuilderSpec{}
+	templateSpec := &RequestAdaptorTemplate{}
 	if ra.spec.Template != "" {
 		data, err := prepareBuilderData(ctx)
 		if err != nil {

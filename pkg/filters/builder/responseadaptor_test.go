@@ -119,8 +119,9 @@ func TestCompressDecompress(t *testing.T) {
 	assert := assert.New(t)
 	{
 		// invalid decompress parameter
-		spec := &ResponseAdaptorBuilderSpec{
-			Decompress: "invalid",
+		spec := &ResponseAdaptorSpec{
+			Decompress:              "invalid",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -130,8 +131,9 @@ func TestCompressDecompress(t *testing.T) {
 
 	{
 		// invalid compress parameter
-		spec := &ResponseAdaptorBuilderSpec{
-			Compress: "invalid",
+		spec := &ResponseAdaptorSpec{
+			Compress:                "invalid",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -140,9 +142,10 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// both set compress and decompress parameter
-		spec := &ResponseAdaptorBuilderSpec{
-			Decompress: "gzip",
-			Compress:   "gzip",
+		spec := &ResponseAdaptorSpec{
+			Decompress:              "gzip",
+			Compress:                "gzip",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -152,8 +155,9 @@ func TestCompressDecompress(t *testing.T) {
 
 	{
 		// test compress
-		spec := &ResponseAdaptorBuilderSpec{
-			Compress: "gzip",
+		spec := &ResponseAdaptorSpec{
+			Compress:                "gzip",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -175,8 +179,9 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// test decompress
-		spec := &ResponseAdaptorBuilderSpec{
-			Decompress: "gzip",
+		spec := &ResponseAdaptorSpec{
+			Decompress:              "gzip",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -200,8 +205,9 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// test decompress fail
-		spec := &ResponseAdaptorBuilderSpec{
-			Decompress: "gzip",
+		spec := &ResponseAdaptorSpec{
+			Decompress:              "gzip",
+			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -229,11 +235,13 @@ func TestResponseAdaptorTemplate(t *testing.T) {
           X-Add: add-template-value
       body: hello
 `
-	templateSpec := &ResponseAdaptorBuilderSpec{}
+	templateSpec := &Spec{}
 	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
-	spec := &ResponseAdaptorBuilderSpec{
-		Header: &httpheader.AdaptSpec{
-			Add: map[string]string{"X-Mock": "mockedHeaderValue"},
+	spec := &ResponseAdaptorSpec{
+		ResponseAdaptorTemplate: &ResponseAdaptorTemplate{
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Mock": "mockedHeaderValue"},
+			},
 		},
 		Compress: "gzip",
 		Spec:     Spec{Template: templateSpec.Template},

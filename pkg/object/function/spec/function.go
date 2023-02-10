@@ -75,7 +75,7 @@ type (
 		RequestCPU     string `json:"requestCPU" jsonschema:"omitempty"`
 		RequestMemory  string `json:"requestMemory" jsonschema:"omitempty"`
 
-		RequestAdaptor *builder.RequestAdaptorBuilderSpec `json:"requestAdaptor" jsonschema:"required"`
+		RequestAdaptor *builder.RequestAdaptorSpec `json:"requestAdaptor" jsonschema:"required"`
 	}
 
 	// Status is the status of faas function.

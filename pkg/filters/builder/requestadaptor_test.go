@@ -46,7 +46,7 @@ func setRequest(t *testing.T, ctx *context.Context, ns string, stdReq *http.Requ
 	ctx.SetRequest(ns, req)
 }
 
-func defaultFilterSpec(spec *RequestAdaptorBuilderSpec) filters.Spec {
+func defaultFilterSpec(spec *RequestAdaptorSpec) filters.Spec {
 	spec.BaseSpec.MetaSpec.Kind = RequestAdaptorKind
 	spec.BaseSpec.MetaSpec.Name = "request-adaptor"
 	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
@@ -66,7 +66,7 @@ func TestRequestAdaptor(t *testing.T) {
 	assert := assert.New(t)
 	{
 		// normal case
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
 		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
 		assert.Equal(RequestAdaptorKind, ra.Kind().Name)
@@ -81,40 +81,44 @@ func TestRequestAdaptor(t *testing.T) {
 
 	{
 		// invalid compress type
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{Compress: "zip"})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Compress: "zip", RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
 		assert.Nil(spec)
 	}
 
 	{
 		// invalid decompress type
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{Decompress: "zip"})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Decompress: "zip", RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
 		assert.Nil(spec)
 	}
 
 	{
 		// compress and decompress are set together
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
-			Decompress: "gzip",
-			Compress:   "gzip",
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
+			Decompress:             "gzip",
+			Compress:               "gzip",
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
 		})
 		assert.Nil(spec)
 	}
 
 	{
 		// set body and Decompress
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Decompress: "gzip",
-			Body:       "body",
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{
+				Body: "body",
+			},
 		})
 		assert.Nil(spec)
 	}
 
 	{
 		// unknown API provider
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Sign: &SignerSpec{
 				APIProvider: "aws3",
 			},
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
 		})
 		assert.Nil(spec)
 	}
@@ -125,8 +129,9 @@ func TestDecompress(t *testing.T) {
 
 	{
 		// decompress without body in spec
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
-			Decompress: "gzip",
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
+			Decompress:             "gzip",
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
 		})
 
 		ra := requestAdaptorKind.CreateInstance(spec)
@@ -175,8 +180,9 @@ func TestCompress(t *testing.T) {
 
 	{
 		// compress without body in spec
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
-			Compress: "gzip",
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
+			Compress:               "gzip",
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
 		})
 		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
@@ -204,8 +210,10 @@ func TestCompress(t *testing.T) {
 
 	{
 		// compress with body in spec
-		spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
-			Body:     "spec_body",
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
+			RequestAdaptorTemplate: &RequestAdaptorTemplate{
+				Body: "spec_body",
+			},
 			Compress: "gzip",
 		})
 		ra := requestAdaptorKind.CreateInstance(spec)
@@ -264,16 +272,18 @@ func TestCompress(t *testing.T) {
 func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
-	requestAdaptorSpec := &RequestAdaptorBuilderSpec{
-		Method: http.MethodDelete,
-		Host:   "127.0.0.2",
-		Body:   "123",
-		Header: &httpheader.AdaptSpec{
-			Add: map[string]string{"X-Add": "add-value"},
-			Set: map[string]string{"X-Set": "set-value"},
-		},
-		Path: &pathadaptor.Spec{
-			Replace: "/path",
+	requestAdaptorSpec := &RequestAdaptorSpec{
+		RequestAdaptorTemplate: &RequestAdaptorTemplate{
+			Method: http.MethodDelete,
+			Host:   "127.0.0.2",
+			Body:   "123",
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Add": "add-value"},
+				Set: map[string]string{"X-Set": "set-value"},
+			},
+			Path: &pathadaptor.Spec{
+				Replace: "/path",
+			},
 		},
 		Sign: &SignerSpec{APIProvider: "aws4"},
 	}
@@ -322,18 +332,20 @@ func TestRequestAdaptorTemplate(t *testing.T) {
         add:
           X-Add: add-template-value
 `
-	templateSpec := &RequestAdaptorBuilderSpec{}
+	templateSpec := &RequestAdaptorSpec{}
 	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
-	spec := defaultFilterSpec(&RequestAdaptorBuilderSpec{
-		Method: http.MethodDelete,
-		Host:   "127.0.0.2",
-		Body:   "123",
-		Header: &httpheader.AdaptSpec{
-			Add: map[string]string{"X-Add": "add-value"},
-			Set: map[string]string{"X-Set": "set-value"},
-		},
-		Path: &pathadaptor.Spec{
-			Replace: "/path",
+	spec := defaultFilterSpec(&RequestAdaptorSpec{
+		RequestAdaptorTemplate: &RequestAdaptorTemplate{
+			Method: http.MethodDelete,
+			Host:   "127.0.0.2",
+			Body:   "123",
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Add": "add-value"},
+				Set: map[string]string{"X-Set": "set-value"},
+			},
+			Path: &pathadaptor.Spec{
+				Replace: "/path",
+			},
 		},
 		Sign: &SignerSpec{APIProvider: "aws4"},
 		Spec: Spec{Template: templateSpec.Template},

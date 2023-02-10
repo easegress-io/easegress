@@ -46,10 +46,10 @@ var responseAdaptorKind = &filters.Kind{
 		resultDecompressFailed,
 	},
 	DefaultSpec: func() filters.Spec {
-		return &ResponseAdaptorBuilderSpec{}
+		return &ResponseAdaptorSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &ResponseAdaptor{spec: spec.(*ResponseAdaptorBuilderSpec)}
+		return &ResponseAdaptor{spec: spec.(*ResponseAdaptorSpec)}
 	},
 }
 
@@ -60,19 +60,23 @@ func init() {
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		spec *ResponseAdaptorBuilderSpec
+		spec *ResponseAdaptorSpec
 		Builder
 	}
 
-	// ResponseAdaptorBuilderSpec is HTTPAdaptor ResponseAdaptorBuilderSpec.
-	ResponseAdaptorBuilderSpec struct {
+	// ResponseAdaptorSpec is HTTPAdaptor ResponseAdaptorSpec.
+	ResponseAdaptorSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
 
-		Header     *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
-		Body       string                `json:"body" jsonschema:"omitempty"`
-		Compress   string                `json:"compress" jsonschema:"omitempty"`
-		Decompress string                `json:"decompress" jsonschema:"omitempty"`
+		*ResponseAdaptorTemplate
+		Compress   string `json:"compress" jsonschema:"omitempty"`
+		Decompress string `json:"decompress" jsonschema:"omitempty"`
+	}
+
+	ResponseAdaptorTemplate struct {
+		Header *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
+		Body   string                `json:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -127,7 +131,7 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	}
 	egresp := resp.(*httpprot.Response)
 
-	templateSpec := &ResponseAdaptorBuilderSpec{}
+	templateSpec := &ResponseAdaptorTemplate{}
 	if ra.spec.Template != "" {
 		data, err := prepareBuilderData(ctx)
 		if err != nil {
