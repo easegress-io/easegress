@@ -2,8 +2,6 @@
 
 set -e
 
-RED='\033[0;31m'
-NC='\033[0m'
 
 # First - check OS.
 OS="$(uname)"
@@ -13,8 +11,7 @@ if [[ "${OS}" == "Linux" ]]; then
 elif [[ "${OS}" == "Darwin" ]];then
     OS=darwin
 else
-    echo -e "Error: ${RED}Unsupport OS - ${OS}${NC}"
-    exit
+    abort "Unsupport OS - ${OS}"
 fi
 
 # Second - check the CPU arch
@@ -24,11 +21,10 @@ if [[ $ARCH == x86_64 ]]; then
     ARCH=amd64
 elif  [[ $ARCH == i686 || $ARCH == i386 ]]; then
     ARCH=386
-elif  [[ $ARCH == aarch64* || $ARCH == armv8* || $ARCH == arm64* ]]; then
+elif  [[ $ARCH == aarch64* || $ARCH == armv8* ]]; then
     ARCH=arm64
 else
-    echo -e "Error: ${RED}Unsupport CPU - ${ARCH}${NC}"
-    exit
+    abort "Unsupport CPU - ${ARCH}"
 fi
 
 # Third - download the binaries
@@ -48,7 +44,7 @@ echo "Create the directory - \"${DIR}\" successfully."
 echo "Downloading the release file - \"${ARTIFACT}\" ..."
 curl -sL ${ARTIFACT_URL} -o ${DIR}/${ARTIFACT}
 echo "Downloaded \"${ARTIFACT}\""
-tar -zxf ${DIR}/${ARTIFACT} -C "${DIR}"
+tar -zxf ${DIR}/${ARTIFACT} -C easegress 
 echo "Extract the files successfully"
 
 # Fourth - configure the easegress
@@ -83,9 +79,6 @@ if [[ "${OS}" == "linux" ]]; then
     sudo systemctl start easegress
     
     #check the status
-    systemctl -q is-active easegress.service  && \
-        echo "Easegress service is running!" || \
-        systemctl status easegress.service
+    sleep 2
+    systemctl status easegress
 fi
-
-echo "Installed successfully"
