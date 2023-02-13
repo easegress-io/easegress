@@ -49,6 +49,7 @@ func newSpanForCloudflare(ctx context.Context, t *Tracer, spanName string, req *
 	defer func() {
 		if span == nil {
 			span = t.newSpanWithStart(ctx, spanName, fasttime.Now())
+			span.SetAttributes(attribute.String("cf.ray", rayID))
 		}
 	}()
 
