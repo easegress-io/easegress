@@ -116,17 +116,18 @@ rules:
 
 ## Usage with Cloudflare
 
-1. Add headers for the timestamps when the traffic enters Cloudflare.
-   1. Go to your website in Cloudflare dashboard.
-   2. Go to Rules -> Transform Rules -> Modify Request Header then create a rule
-   3. Add two dynamic headers:
-      - "x-ts-msec"："http.request.timestamp.msec"
-      - "x-ts-sec"："http.request.timestamp.sec"
+If a request comes from Cloudflare, the HttpServer span will have a `cf.ray` tag with the value of the Cloudflare RayID automatically.
 
-![cloudflare-transform-rule-header](../imgs/tracing-cloudflare-transform-header.png)
-
-2. No need to change any Easegress configuration
-
-3. On your tracing UI, you'll find a span called `cloudflare`. This span has a tag called `cf.ray` whose value is a Cloudflare Ray ID. You can use Ray ID for further troubleshooting on Cloudflare.
+You can also have a Cloudflare span over the HttpServer span. 
 
 ![cloudflare-span](../imgs/tracing-cloudflare-span.png)
+
+To achieve that you need to add headers of the timestamps when the traffic enters Cloudflare.
+
+1. Go to your website in Cloudflare dashboard.
+2. Go to Rules -> Transform Rules -> Modify Request Header then create a rule.
+3. Add two dynamic headers:
+   - "x-ts-msec"："http.request.timestamp.msec"
+   - "x-ts-sec"："http.request.timestamp.sec"
+
+![cloudflare-transform-rule-header](../imgs/tracing-cloudflare-transform-header.png)
