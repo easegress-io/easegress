@@ -2,6 +2,8 @@
 
 set -e
 
+RED='\033[0;31m'
+NC='\033[0m'
 
 # First - check OS.
 OS="$(uname)"
@@ -11,7 +13,8 @@ if [[ "${OS}" == "Linux" ]]; then
 elif [[ "${OS}" == "Darwin" ]];then
     OS=darwin
 else
-    abort "Unsupport OS - ${OS}"
+    echo -e "Error: ${RED}Unsupport OS - ${OS}${NC}"
+    exit
 fi
 
 # Second - check the CPU arch
@@ -21,10 +24,11 @@ if [[ $ARCH == x86_64 ]]; then
     ARCH=amd64
 elif  [[ $ARCH == i686 || $ARCH == i386 ]]; then
     ARCH=386
-elif  [[ $ARCH == aarch64* || $ARCH == armv8* ]]; then
+elif  [[ $ARCH == aarch64* || $ARCH == armv8* || $ARCH == arm64* ]]; then
     ARCH=arm64
 else
-    abort "Unsupport CPU - ${ARCH}"
+    echo -e "Error: ${RED}Unsupport CPU - ${ARCH}${NC}"
+    exit
 fi
 
 # Third - download the binaries
@@ -44,7 +48,8 @@ echo "Create the directory - \"${DIR}\" successfully."
 echo "Downloading the release file - \"${ARTIFACT}\" ..."
 curl -sL ${ARTIFACT_URL} -o ${DIR}/${ARTIFACT}
 echo "Downloaded \"${ARTIFACT}\""
-tar -zxf ${DIR}/${ARTIFACT} -C easegress 
+tar -zxf ${DIR}/${ARTIFACT} -C "${DIR}"
+rm ${DIR}/${ARTIFACT}
 echo "Extract the files successfully"
 
 # Fourth - configure the easegress
@@ -82,3 +87,5 @@ if [[ "${OS}" == "linux" ]]; then
     sleep 2
     systemctl status easegress
 fi
+
+echo "Installed successfully"
