@@ -120,8 +120,7 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// invalid decompress parameter
 		spec := &ResponseAdaptorSpec{
-			Decompress:              "invalid",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Decompress: "invalid",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -132,8 +131,7 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// invalid compress parameter
 		spec := &ResponseAdaptorSpec{
-			Compress:                "invalid",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Compress: "invalid",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -143,9 +141,8 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// both set compress and decompress parameter
 		spec := &ResponseAdaptorSpec{
-			Decompress:              "gzip",
-			Compress:                "gzip",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Decompress: "gzip",
+			Compress:   "gzip",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -156,8 +153,7 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// test compress
 		spec := &ResponseAdaptorSpec{
-			Compress:                "gzip",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Compress: "gzip",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -180,8 +176,7 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// test decompress
 		spec := &ResponseAdaptorSpec{
-			Decompress:              "gzip",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Decompress: "gzip",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -206,8 +201,7 @@ func TestCompressDecompress(t *testing.T) {
 	{
 		// test decompress fail
 		spec := &ResponseAdaptorSpec{
-			Decompress:              "gzip",
-			ResponseAdaptorTemplate: &ResponseAdaptorTemplate{},
+			Decompress: "gzip",
 		}
 		ra := &ResponseAdaptor{
 			spec: spec,
@@ -238,7 +232,7 @@ func TestResponseAdaptorTemplate(t *testing.T) {
 	templateSpec := &Spec{}
 	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
 	spec := &ResponseAdaptorSpec{
-		ResponseAdaptorTemplate: &ResponseAdaptorTemplate{
+		ResponseAdaptorTemplate: ResponseAdaptorTemplate{
 			Header: &httpheader.AdaptSpec{
 				Add: map[string]string{"X-Mock": "mockedHeaderValue"},
 			},

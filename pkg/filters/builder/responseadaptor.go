@@ -69,9 +69,9 @@ type (
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
 
-		*ResponseAdaptorTemplate
-		Compress   string `json:"compress" jsonschema:"omitempty"`
-		Decompress string `json:"decompress" jsonschema:"omitempty"`
+		ResponseAdaptorTemplate `json:",inline"`
+		Compress                string `json:"compress" jsonschema:"omitempty"`
+		Decompress              string `json:"decompress" jsonschema:"omitempty"`
 	}
 
 	ResponseAdaptorTemplate struct {

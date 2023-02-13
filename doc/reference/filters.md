@@ -418,19 +418,19 @@ path:
 
 ### Configuration
 
-| Name       | Type                                         | Description                                                                                                                                                                                                         | Required |
-| -----------| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
-| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
-| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body       | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
-| host       | string                                       | If provided the host of the original request is replaced by the value of this option. | No       |
-| decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                                                                          | No       |
-| compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                                                              | No       |
+| Name       | Type                                         | Description                                                                                                                                                            | Required |
+| -----------| -------------------------------------------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------| -------- |
+| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                | No       |
+| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                           | No       |
+| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                         | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option.                                                                                  | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option.                                                                                  | No       |
+| decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                             | No       |
+| compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                 | No       |
 | sign   | [requestadaptor.SignerSpec](#requestadaptorsignerspec) | If provided, sign the request using the [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) signing process with the configuration | No       |
-| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-builder-filters) for more information        | No       |
-| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
-| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+| template        | string | template to create request adaptor, please refer the [template](#template-of-builder-filters) for more information                                                       | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`                                                                                                                 | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}`                                                                                                                | No       |
 NOTE: template field takes higher priority than the static field with the same name.
 
 ### Results
@@ -551,15 +551,15 @@ header:
 
 ### Configuration
 
-| Name   | Type     | Description   | Required |
-| ------ | -------- |-------------- | -------- |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
-| body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |
-| compress | string | compress body, currently only support gzip | No |
-| decompress | string | decompress body, currently only support gzip | No |
-| template        | string | template to create request, the schema of this option must conform with `protocol`, please refer the [template](#template-of-builder-filters) for more information        | No       |
-| leftDelim       | string | left action delimiter of the template, default is `{{`  | No       |
-| rightDelim      | string | right action delimiter of the template, default is `}}` | No       |
+| Name   | Type     | Description                                                                                                         | Required |
+| ------ | -------- |---------------------------------------------------------------------------------------------------------------------| -------- |
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                      | No       |
+| body   | string   | If provided the body of the original request is replaced by the value of this option.                               | No       |
+| compress | string | compress body, currently only support gzip                                                                          | No |
+| decompress | string | decompress body, currently only support gzip                                                                        | No |
+| template        | string | template to create response adaptor, please refer the [template](#template-of-builder-filters) for more information | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`                                                              | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}`                                                             | No       |
 NOTE: template field takes higher priority than the static field with the same name.
 
 ### Results

@@ -66,7 +66,7 @@ func TestRequestAdaptor(t *testing.T) {
 	assert := assert.New(t)
 	{
 		// normal case
-		spec := defaultFilterSpec(&RequestAdaptorSpec{RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{})
 		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
 		assert.Equal(RequestAdaptorKind, ra.Kind().Name)
@@ -81,22 +81,21 @@ func TestRequestAdaptor(t *testing.T) {
 
 	{
 		// invalid compress type
-		spec := defaultFilterSpec(&RequestAdaptorSpec{Compress: "zip", RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Compress: "zip"})
 		assert.Nil(spec)
 	}
 
 	{
 		// invalid decompress type
-		spec := defaultFilterSpec(&RequestAdaptorSpec{Decompress: "zip", RequestAdaptorTemplate: &RequestAdaptorTemplate{}})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Decompress: "zip"})
 		assert.Nil(spec)
 	}
 
 	{
 		// compress and decompress are set together
 		spec := defaultFilterSpec(&RequestAdaptorSpec{
-			Decompress:             "gzip",
-			Compress:               "gzip",
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
+			Decompress: "gzip",
+			Compress:   "gzip",
 		})
 		assert.Nil(spec)
 	}
@@ -105,7 +104,7 @@ func TestRequestAdaptor(t *testing.T) {
 		// set body and Decompress
 		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Decompress: "gzip",
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{
+			RequestAdaptorTemplate: RequestAdaptorTemplate{
 				Body: "body",
 			},
 		})
@@ -118,7 +117,6 @@ func TestRequestAdaptor(t *testing.T) {
 			Sign: &SignerSpec{
 				APIProvider: "aws3",
 			},
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
 		})
 		assert.Nil(spec)
 	}
@@ -130,8 +128,7 @@ func TestDecompress(t *testing.T) {
 	{
 		// decompress without body in spec
 		spec := defaultFilterSpec(&RequestAdaptorSpec{
-			Decompress:             "gzip",
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
+			Decompress: "gzip",
 		})
 
 		ra := requestAdaptorKind.CreateInstance(spec)
@@ -181,8 +178,7 @@ func TestCompress(t *testing.T) {
 	{
 		// compress without body in spec
 		spec := defaultFilterSpec(&RequestAdaptorSpec{
-			Compress:               "gzip",
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{},
+			Compress: "gzip",
 		})
 		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
@@ -211,7 +207,7 @@ func TestCompress(t *testing.T) {
 	{
 		// compress with body in spec
 		spec := defaultFilterSpec(&RequestAdaptorSpec{
-			RequestAdaptorTemplate: &RequestAdaptorTemplate{
+			RequestAdaptorTemplate: RequestAdaptorTemplate{
 				Body: "spec_body",
 			},
 			Compress: "gzip",
@@ -273,7 +269,7 @@ func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
 	requestAdaptorSpec := &RequestAdaptorSpec{
-		RequestAdaptorTemplate: &RequestAdaptorTemplate{
+		RequestAdaptorTemplate: RequestAdaptorTemplate{
 			Method: http.MethodDelete,
 			Host:   "127.0.0.2",
 			Body:   "123",
@@ -335,7 +331,7 @@ func TestRequestAdaptorTemplate(t *testing.T) {
 	templateSpec := &RequestAdaptorSpec{}
 	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
 	spec := defaultFilterSpec(&RequestAdaptorSpec{
-		RequestAdaptorTemplate: &RequestAdaptorTemplate{
+		RequestAdaptorTemplate: RequestAdaptorTemplate{
 			Method: http.MethodDelete,
 			Host:   "127.0.0.2",
 			Body:   "123",

@@ -144,19 +144,18 @@ type (
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
 
-		*RequestAdaptorTemplate
-		Compress   string      `json:"compress" jsonschema:"omitempty"`
-		Decompress string      `json:"decompress" jsonschema:"omitempty"`
-		Sign       *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
+		RequestAdaptorTemplate `json:",inline"`
+		Compress               string      `json:"compress" jsonschema:"omitempty"`
+		Decompress             string      `json:"decompress" jsonschema:"omitempty"`
+		Sign                   *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
 	}
 
 	RequestAdaptorTemplate struct {
-		Host    string                `json:"host" jsonschema:"omitempty"`
-		Method  string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path    *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
-		PathStr string                `json:"pathStr,omitempty" jsonschema:"omitempty"`
-		Header  *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
-		Body    string                `json:"body" jsonschema:"omitempty"`
+		Host   string                `json:"host" jsonschema:"omitempty"`
+		Method string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path   *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
+		Body   string                `json:"body" jsonschema:"omitempty"`
 	}
 
 	// SignerSpec is the spec of the request signer.
