@@ -1710,6 +1710,6 @@ result YAML varies from filters and protocols.
 * **Schema of ResponseAdaptor**
 
 | Name | Type | Description | Required |
-  |------|------|-------------|----------|
+|------|------|-------------|----------|
 | header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
 | body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |
