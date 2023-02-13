@@ -90,7 +90,7 @@ build_docker:
 	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
 	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.19-alpine make build DOCKER=true
+	megaease/golang:1.20-alpine make build DOCKER=true
 	docker buildx build --platform linux/amd64 --load -t ${IMAGE_NAME}:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag ${IMAGE_NAME}:${RELEASE} ${IMAGE_NAME}:latest
 	docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:server-sidecar
