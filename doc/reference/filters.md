@@ -1700,7 +1700,7 @@ result YAML varies from filters and protocols.
 * **Schema of RequestAdaptor**
 
 | Name | Type | Description | Required |
-  |------|------|-------------|----------|
+|------|------|-------------|----------|
 | method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
 | path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
 | header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
