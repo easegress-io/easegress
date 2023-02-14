@@ -49,7 +49,6 @@ echo "Downloading the release file - \"${ARTIFACT}\" ..."
 curl -sL ${ARTIFACT_URL} -o ${DIR}/${ARTIFACT}
 echo "Downloaded \"${ARTIFACT}\""
 tar -zxf ${DIR}/${ARTIFACT} -C "${DIR}"
-rm ${DIR}/${ARTIFACT}
 echo "Extract the files successfully"
 
 # Fourth - configure the easegress
