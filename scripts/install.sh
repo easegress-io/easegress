@@ -83,8 +83,9 @@ if [[ "${OS}" == "linux" ]]; then
     sudo systemctl start easegress
     
     #check the status
-    sleep 2
-    systemctl status easegress
+    systemctl -q is-active easegress.service  && \
+        echo "Easegress service is running!" || \
+        systemctl status easegress.service
 fi
 
 echo "Installed successfully"
