@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package requestadaptor
+package builder
 
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -35,8 +36,8 @@ import (
 )
 
 const (
-	// Kind is the kind of RequestAdaptor.
-	Kind = "RequestAdaptor"
+	// RequestAdaptorKind is the kind of RequestAdaptor.
+	RequestAdaptorKind = "RequestAdaptor"
 
 	resultDecompressFailed = "decompressFailed"
 	resultCompressFailed   = "compressFailed"
@@ -46,18 +47,18 @@ const (
 	keyContentEncoding = "Content-Encoding"
 )
 
-var kind = &filters.Kind{
-	Name:        Kind,
+var requestAdaptorKind = &filters.Kind{
+	Name:        RequestAdaptorKind,
 	Description: "RequestAdaptor adapts request.",
 	Results: []string{
 		resultDecompressFailed,
 		resultCompressFailed,
 	},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{}
+		return &RequestAdaptorSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &RequestAdaptor{spec: spec.(*Spec)}
+		return &RequestAdaptor{spec: spec.(*RequestAdaptorSpec)}
 	},
 }
 
@@ -125,30 +126,36 @@ var signerConfigs = map[string]signerConfig{
 }
 
 func init() {
-	filters.Register(kind)
+	filters.Register(requestAdaptorKind)
 }
 
 type (
 	// RequestAdaptor is filter RequestAdaptor.
 	RequestAdaptor struct {
-		spec *Spec
+		spec *RequestAdaptorSpec
+		Builder
 
 		pa     *pathadaptor.PathAdaptor
 		signer *signer.Signer
 	}
 
-	// Spec is HTTPAdaptor Spec.
-	Spec struct {
+	// RequestAdaptorSpec is HTTPAdaptor RequestAdaptorSpec.
+	RequestAdaptorSpec struct {
 		filters.BaseSpec `json:",inline"`
+		Spec             `json:",inline"`
 
-		Host       string                `json:"host" jsonschema:"omitempty"`
-		Method     string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
-		Path       *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
-		Header     *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
-		Body       string                `json:"body" jsonschema:"omitempty"`
-		Compress   string                `json:"compress" jsonschema:"omitempty"`
-		Decompress string                `json:"decompress" jsonschema:"omitempty"`
-		Sign       *SignerSpec           `json:"sign,omitempty" jsonschema:"omitempty"`
+		RequestAdaptorTemplate `json:",inline"`
+		Compress               string      `json:"compress" jsonschema:"omitempty"`
+		Decompress             string      `json:"decompress" jsonschema:"omitempty"`
+		Sign                   *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
+	}
+
+	RequestAdaptorTemplate struct {
+		Host   string                `json:"host" jsonschema:"omitempty"`
+		Method string                `json:"method" jsonschema:"omitempty,format=httpmethod"`
+		Path   *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
+		Body   string                `json:"body" jsonschema:"omitempty"`
 	}
 
 	// SignerSpec is the spec of the request signer.
@@ -165,7 +172,7 @@ type (
 )
 
 // Validate verifies that at least one of the validations is defined.
-func (spec *Spec) Validate() error {
+func (spec *RequestAdaptorSpec) Validate() error {
 	if spec.Decompress != "" && spec.Decompress != "gzip" {
 		return fmt.Errorf("RequestAdaptor only support decompress type of gzip")
 	}
@@ -198,7 +205,7 @@ func (ra *RequestAdaptor) Name() string {
 
 // Kind returns the kind of RequestAdaptor.
 func (ra *RequestAdaptor) Kind() *filters.Kind {
-	return kind
+	return requestAdaptorKind
 }
 
 // Spec returns the spec used by the RequestAdaptor
@@ -228,10 +235,12 @@ func (ra *RequestAdaptor) reload() {
 		}
 		ra.signer = signer.CreateFromSpec(&s.Spec)
 	}
+	if ra.spec.Template != "" {
+		ra.Builder.reload(&ra.spec.Spec)
+	}
 }
 
-func adaptHeader(req *httpprot.Request, as *httpheader.AdaptSpec) {
-	h := req.Std().Header
+func adaptHeader(h http.Header, as *httpheader.AdaptSpec) {
 	for _, key := range as.Del {
 		h.Del(key)
 	}
@@ -248,30 +257,65 @@ func (ra *RequestAdaptor) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	method, path := req.Method(), req.Path()
 
-	if ra.spec.Method != "" && ra.spec.Method != method {
-		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", ra.spec.Method))
-		req.SetMethod(ra.spec.Method)
+	templateSpec := &RequestAdaptorTemplate{}
+	if ra.spec.Template != "" {
+		data, err := prepareBuilderData(ctx)
+		if err != nil {
+			logger.Warnf("prepareBuilderData failed: %v", err)
+			return resultBuildErr
+		}
+		if err = ra.Builder.build(data, templateSpec); err != nil {
+			msgFmt := "RequestAdaptor(%s): failed to build adaptor info: %v"
+			logger.Warnf(msgFmt, ra.Name(), err)
+			return resultBuildErr
+		}
+	}
+	newMethod := templateSpec.Method
+	if newMethod == "" {
+		newMethod = ra.spec.Method
+	}
+	if newMethod != "" && newMethod != method {
+		ctx.AddTag(stringtool.Cat("requestAdaptor: method ", method, " adapted to ", newMethod))
+		req.SetMethod(newMethod)
 	}
 
-	if ra.pa != nil {
-		adaptedPath := ra.pa.Adapt(path)
+	var newPa *pathadaptor.PathAdaptor
+	if templateSpec.Path == nil {
+		newPa = ra.pa
+	} else {
+		newPa = pathadaptor.New(templateSpec.Path)
+	}
+	if newPa != nil {
+		adaptedPath := newPa.Adapt(path)
 		if adaptedPath != path {
 			ctx.AddTag(stringtool.Cat("requestAdaptor: path ", path, " adapted to ", adaptedPath))
 		}
 		req.SetPath(adaptedPath)
 	}
 
-	if ra.spec.Header != nil {
-		adaptHeader(req, ra.spec.Header)
+	newHeader := templateSpec.Header
+	if newHeader == nil {
+		newHeader = ra.spec.Header
+	}
+	if newHeader != nil {
+		adaptHeader(req.Std().Header, newHeader)
 	}
 
-	if len(ra.spec.Body) != 0 {
-		req.SetPayload([]byte(ra.spec.Body))
+	newBody := templateSpec.Body
+	if newBody == "" {
+		newBody = ra.spec.Body
+	}
+	if len(newBody) != 0 {
+		req.SetPayload([]byte(newBody))
 		req.Std().Header.Del("Content-Encoding")
 	}
 
-	if len(ra.spec.Host) != 0 {
-		req.SetHost(ra.spec.Host)
+	newHost := templateSpec.Host
+	if newHost == "" {
+		newHost = ra.spec.Host
+	}
+	if len(newHost) != 0 {
+		req.SetHost(newHost)
 	}
 
 	if ra.spec.Compress != "" {

@@ -19,11 +19,11 @@ package worker
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/pkg/filters/builder"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/filters/proxy"
-	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/httpserver"
@@ -137,7 +137,7 @@ func (b *pipelineSpecBuilder) appendReqAdaptor(funcSpec *spec.Spec, faasNamespac
 	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: adaptorName})
 
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":   requestadaptor.Kind,
+		"kind":   builder.RequestAdaptorKind,
 		"name":   adaptorName,
 		"method": funcSpec.RequestAdaptor.Method,
 		"path":   funcSpec.RequestAdaptor.Path,

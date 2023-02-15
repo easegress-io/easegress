@@ -38,8 +38,6 @@ import (
 	_ "github.com/megaease/easegress/pkg/filters/ratelimiter"
 	_ "github.com/megaease/easegress/pkg/filters/redirector"
 	_ "github.com/megaease/easegress/pkg/filters/remotefilter"
-	_ "github.com/megaease/easegress/pkg/filters/requestadaptor"
-	_ "github.com/megaease/easegress/pkg/filters/responseadaptor"
 	_ "github.com/megaease/easegress/pkg/filters/topicmapper"
 	_ "github.com/megaease/easegress/pkg/filters/validator"
 	_ "github.com/megaease/easegress/pkg/filters/wasmhost"
