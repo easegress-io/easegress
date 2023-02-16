@@ -19,10 +19,9 @@ package spec
 
 import (
 	"fmt"
-
+	"github.com/megaease/easegress/pkg/filters/builder"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/megaease/easegress/pkg/filters/requestadaptor"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 )
 
@@ -76,7 +75,7 @@ type (
 		RequestCPU     string `json:"requestCPU" jsonschema:"omitempty"`
 		RequestMemory  string `json:"requestMemory" jsonschema:"omitempty"`
 
-		RequestAdaptor *requestadaptor.Spec `json:"requestAdaptor" jsonschema:"required"`
+		RequestAdaptor *builder.RequestAdaptorSpec `json:"requestAdaptor" jsonschema:"required"`
 	}
 
 	// Status is the status of faas function.

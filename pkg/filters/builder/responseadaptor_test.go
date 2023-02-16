@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package responseadaptor
+package builder
 
 import (
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/tracing"
 	"github.com/megaease/easegress/pkg/util/codectool"
@@ -35,12 +34,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	logger.InitNop()
-	code := m.Run()
-	os.Exit(code)
-}
 
 func TestResponseAdaptor(t *testing.T) {
 	assert := assert.New(t)
@@ -58,7 +51,7 @@ body: "copyright"
 `
 	ra := doTest(t, yamlSpec, nil)
 	assert.Equal("ra", ra.Name())
-	assert.Equal(kind, ra.Kind())
+	assert.Equal(responseAdaptorKind, ra.Kind())
 	assert.Equal("ResponseAdaptor", ra.Spec().Kind())
 
 	yamlSpec = `
@@ -86,7 +79,7 @@ func doTest(t *testing.T, yamlSpec string, prev *ResponseAdaptor) *ResponseAdapt
 		t.Errorf("unexpected error: %v", e)
 	}
 
-	ra := kind.CreateInstance(spec)
+	ra := responseAdaptorKind.CreateInstance(spec)
 	if prev == nil {
 		ra.Init()
 	} else {
@@ -126,7 +119,7 @@ func TestCompressDecompress(t *testing.T) {
 	assert := assert.New(t)
 	{
 		// invalid decompress parameter
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Decompress: "invalid",
 		}
 		ra := &ResponseAdaptor{
@@ -137,7 +130,7 @@ func TestCompressDecompress(t *testing.T) {
 
 	{
 		// invalid compress parameter
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Compress: "invalid",
 		}
 		ra := &ResponseAdaptor{
@@ -147,7 +140,7 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// both set compress and decompress parameter
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Decompress: "gzip",
 			Compress:   "gzip",
 		}
@@ -159,7 +152,7 @@ func TestCompressDecompress(t *testing.T) {
 
 	{
 		// test compress
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Compress: "gzip",
 		}
 		ra := &ResponseAdaptor{
@@ -182,7 +175,7 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// test decompress
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Decompress: "gzip",
 		}
 		ra := &ResponseAdaptor{
@@ -207,7 +200,7 @@ func TestCompressDecompress(t *testing.T) {
 	}
 	{
 		// test decompress fail
-		spec := &Spec{
+		spec := &ResponseAdaptorSpec{
 			Decompress: "gzip",
 		}
 		ra := &ResponseAdaptor{
@@ -225,4 +218,44 @@ func TestCompressDecompress(t *testing.T) {
 		res := ra.Handle(ctx)
 		assert.Equal(resultDecompressFailed, res)
 	}
+}
+
+func TestResponseAdaptorTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlConfig := `template: |
+      header:
+        add:
+          X-Add: add-template-value
+      body: hello
+`
+	templateSpec := &Spec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
+	spec := &ResponseAdaptorSpec{
+		ResponseAdaptorTemplate: ResponseAdaptorTemplate{
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Mock": "mockedHeaderValue"},
+			},
+		},
+		Compress: "gzip",
+		Spec:     Spec{Template: templateSpec.Template},
+	}
+	ra := &ResponseAdaptor{
+		spec: spec,
+	}
+	ra.Init()
+	w := httptest.NewRecorder()
+	resp := w.Result()
+	ctx := getCtx(t, resp)
+
+	zr := readers.NewGZipCompressReader(strings.NewReader("hello"))
+	data, err := io.ReadAll(zr)
+	assert.Nil(err)
+	zr.Close()
+
+	res := ra.Handle(ctx)
+	assert.Equal("", res)
+	assert.Equal("add-template-value", ctx.GetOutputResponse().Header().Get("X-Add"))
+	assert.Equal("", ctx.GetOutputResponse().Header().Get("X-Mock"))
+	assert.Equal(data, ctx.GetOutputResponse().RawPayload())
 }

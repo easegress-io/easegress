@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package responseadaptor
+package builder
 
 import (
 	"io"
@@ -31,19 +31,14 @@ import (
 )
 
 const (
-	// Kind is the kind of ResponseAdaptor.
-	Kind = "ResponseAdaptor"
+	// ResponseAdaptorKind is the kind of ResponseAdaptor.
+	ResponseAdaptorKind = "ResponseAdaptor"
 
 	resultResponseNotFound = "responseNotFound"
-	resultDecompressFailed = "decompressFailed"
-	resultCompressFailed   = "compressFailed"
-
-	keyContentLength   = "Content-Length"
-	keyContentEncoding = "Content-Encoding"
 )
 
-var kind = &filters.Kind{
-	Name:        Kind,
+var responseAdaptorKind = &filters.Kind{
+	Name:        ResponseAdaptorKind,
 	Description: "ResponseAdaptor adapts response.",
 	Results: []string{
 		resultResponseNotFound,
@@ -51,31 +46,37 @@ var kind = &filters.Kind{
 		resultDecompressFailed,
 	},
 	DefaultSpec: func() filters.Spec {
-		return &Spec{}
+		return &ResponseAdaptorSpec{}
 	},
 	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &ResponseAdaptor{spec: spec.(*Spec)}
+		return &ResponseAdaptor{spec: spec.(*ResponseAdaptorSpec)}
 	},
 }
 
 func init() {
-	filters.Register(kind)
+	filters.Register(responseAdaptorKind)
 }
 
 type (
 	// ResponseAdaptor is filter ResponseAdaptor.
 	ResponseAdaptor struct {
-		spec *Spec
+		spec *ResponseAdaptorSpec
+		Builder
 	}
 
-	// Spec is HTTPAdaptor Spec.
-	Spec struct {
+	// ResponseAdaptorSpec is HTTPAdaptor ResponseAdaptorSpec.
+	ResponseAdaptorSpec struct {
 		filters.BaseSpec `json:",inline"`
+		Spec             `json:",inline"`
 
-		Header     *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
-		Body       string                `json:"body" jsonschema:"omitempty"`
-		Compress   string                `json:"compress" jsonschema:"omitempty"`
-		Decompress string                `json:"decompress" jsonschema:"omitempty"`
+		ResponseAdaptorTemplate `json:",inline"`
+		Compress                string `json:"compress" jsonschema:"omitempty"`
+		Decompress              string `json:"decompress" jsonschema:"omitempty"`
+	}
+
+	ResponseAdaptorTemplate struct {
+		Header *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
+		Body   string                `json:"body" jsonschema:"omitempty"`
 	}
 )
 
@@ -86,7 +87,7 @@ func (ra *ResponseAdaptor) Name() string {
 
 // Kind returns the kind of ResponseAdaptor.
 func (ra *ResponseAdaptor) Kind() *filters.Kind {
-	return kind
+	return responseAdaptorKind
 }
 
 // Spec returns the spec used by the ResponseAdaptor
@@ -117,19 +118,8 @@ func (ra *ResponseAdaptor) Inherit(previousGeneration filters.Filter) {
 }
 
 func (ra *ResponseAdaptor) reload() {
-	// Nothing to do.
-}
-
-func adaptHeader(req *httpprot.Response, as *httpheader.AdaptSpec) {
-	h := req.Std().Header
-	for _, key := range as.Del {
-		h.Del(key)
-	}
-	for key, value := range as.Set {
-		h.Set(key, value)
-	}
-	for key, value := range as.Add {
-		h.Add(key, value)
+	if ra.spec.Template != "" {
+		ra.Builder.reload(&ra.spec.Spec)
 	}
 }
 
@@ -141,12 +131,35 @@ func (ra *ResponseAdaptor) Handle(ctx *context.Context) string {
 	}
 	egresp := resp.(*httpprot.Response)
 
-	if ra.spec.Header != nil {
-		adaptHeader(egresp, ra.spec.Header)
+	templateSpec := &ResponseAdaptorTemplate{}
+	if ra.spec.Template != "" {
+		data, err := prepareBuilderData(ctx)
+		if err != nil {
+			logger.Warnf("prepareBuilderData failed: %v", err)
+			return resultBuildErr
+		}
+
+		if err = ra.Builder.build(data, templateSpec); err != nil {
+			msgFmt := "ResponseAdaptor(%s): failed to build adaptor info: %v"
+			logger.Warnf(msgFmt, ra.Name(), err)
+			return resultBuildErr
+		}
 	}
 
-	if len(ra.spec.Body) != 0 {
-		egresp.SetPayload([]byte(ra.spec.Body))
+	newHeader := templateSpec.Header
+	if newHeader == nil {
+		newHeader = ra.spec.Header
+	}
+	if newHeader != nil {
+		adaptHeader(egresp.Std().Header, newHeader)
+	}
+
+	newBody := templateSpec.Body
+	if newBody == "" {
+		newBody = ra.spec.Body
+	}
+	if len(newBody) != 0 {
+		egresp.SetPayload([]byte(newBody))
 		egresp.HTTPHeader().Del("Content-Encoding")
 	}
 
