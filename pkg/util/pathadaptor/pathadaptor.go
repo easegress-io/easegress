@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package pathadaptor provides a path adaptor.
 package pathadaptor
 
 import (

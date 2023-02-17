@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package ordered provides the router implementation of ordered routing policy.
 package ordered
 
 import (

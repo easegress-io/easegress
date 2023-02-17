@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package env provides functions for environment variables.
 package env
 
 import (

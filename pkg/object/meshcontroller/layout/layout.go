@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package layout defines the layout of the data in etcd.
 package layout
 
 import (

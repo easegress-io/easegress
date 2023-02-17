@@ -19,18 +19,22 @@ package grpcprot
 
 import (
 	"context"
+
 	"google.golang.org/grpc"
 )
 
+// FakeServerStream is a fake grpc.ServerStream for testing.
 type FakeServerStream struct {
 	grpc.ServerStream
 	ctx context.Context
 }
 
+// NewFakeServerStream returns a new FakeServerStream.
 func NewFakeServerStream(ctx context.Context) *FakeServerStream {
 	return &FakeServerStream{ctx: ctx}
 }
 
+// Context returns the context of the stream.
 func (f *FakeServerStream) Context() context.Context {
 	return f.ctx
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package eurekaserviceregistry provides EurekaServiceRegistry.
 package eurekaserviceregistry
 
 import (

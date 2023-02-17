@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package limitlistener provides a Listener that accepts at most n simultaneous.
 package limitlistener
 
 import (

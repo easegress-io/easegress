@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package headertojson implements a filter to convert HTTP request header to json.
 package headertojson
 
 import (

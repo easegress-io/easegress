@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package codectool provides some codec tools for JSON and YAML marshaling.
 package codectool
 
 import (

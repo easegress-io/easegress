@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package urlrule impelments match rule for HTTP requests.
 package urlrule
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package mqttprot implements the MQTT protocol.
 package mqttprot
 
 import "github.com/megaease/easegress/pkg/protocols"

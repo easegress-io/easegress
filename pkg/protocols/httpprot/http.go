@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpprot implements the HTTP protocol.
 package httpprot
 
 import (

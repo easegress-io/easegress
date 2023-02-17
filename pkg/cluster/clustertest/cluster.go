@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package clustertest provides a mocked cluster for testing.
 package clustertest
 
 import (
@@ -124,6 +125,7 @@ func (mc *MockedCluster) Put(key, value string) error {
 	return nil
 }
 
+// PutUnderTimeout implements interface function PutUnderTimeout
 func (mc *MockedCluster) PutUnderTimeout(key, value string, timeout time.Duration) error {
 	if mc.MockedPutUnderTimeout != nil {
 		return mc.MockedPutUnderTimeout(key, value, timeout)

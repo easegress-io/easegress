@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package circuitbreaker implements the circuit breaker logic.
 package circuitbreaker
 
 import (

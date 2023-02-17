@@ -150,6 +150,7 @@ type (
 		Sign                   *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
 	}
 
+	// RequestAdaptorTemplate is the template of the request adaptor.
 	RequestAdaptorTemplate struct {
 		Host   string                `json:"host" jsonschema:"omitempty"`
 		Method string                `json:"method" jsonschema:"omitempty,format=httpmethod"`

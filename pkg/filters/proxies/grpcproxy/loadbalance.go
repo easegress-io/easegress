@@ -79,5 +79,5 @@ func (f *forwardLoadBalancer) ReturnServer(s *Server, req protocols.Request, res
 }
 
 // Close closes the load balancer.
-func (lb *forwardLoadBalancer) Close() {
+func (f *forwardLoadBalancer) Close() {
 }

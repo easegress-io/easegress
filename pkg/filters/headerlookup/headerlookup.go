@@ -15,6 +15,8 @@
 * limitations under the License.
  */
 
+// Package headerlookup implements a filter that enriches request headers
+// per request, looking up values from etcd.
 package headerlookup
 
 import (

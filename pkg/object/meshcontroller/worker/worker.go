@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package worker provides the worker for mesh controller.
 package worker
 
 import (

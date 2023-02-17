@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package registry is the registry of filters and objects in Easegress.
 package registry
 
 import (
@@ -61,6 +62,7 @@ import (
 	_ "github.com/megaease/easegress/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/pkg/object/zookeeperserviceregistry"
 
+	// Routers
 	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
 	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
 )

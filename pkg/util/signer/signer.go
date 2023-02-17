@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package signer provides a signer for HTTP requests.
 package signer
 
 import (

@@ -74,6 +74,7 @@ type (
 		Decompress              string `json:"decompress" jsonschema:"omitempty"`
 	}
 
+	// ResponseAdaptorTemplate is the template of ResponseAdaptor.
 	ResponseAdaptorTemplate struct {
 		Header *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
 		Body   string                `json:"body" jsonschema:"omitempty"`

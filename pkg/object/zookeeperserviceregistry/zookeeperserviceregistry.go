@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package zookeeperserviceregistry implements the ZookeeperServiceRegistry.
 package zookeeperserviceregistry
 
 import (

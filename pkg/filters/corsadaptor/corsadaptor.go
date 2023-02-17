@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package corsadaptor implements a filter that adapts CORS stuff.
 package corsadaptor
 
 import (

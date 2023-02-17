@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package remotefilter implements the RemoteFilter filter to invokes remote apis.
 package remotefilter
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package storage provides the storage APIs.
 package storage
 
 import (

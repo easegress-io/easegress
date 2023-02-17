@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package easemonitor provides the common fields and interfaces for EaseMonitor metrics.
 package easemonitor
 
 import (

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package common provides several common utilities for other packages.
 package common
 
 import (

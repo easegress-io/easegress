@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
+// Package logger provides logger for Easegress.
 package logger
 
 import (
-	"github.com/go-logr/zapr"
-	"go.opentelemetry.io/otel"
 	"io"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/go-logr/zapr"
+	"go.opentelemetry.io/otel"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

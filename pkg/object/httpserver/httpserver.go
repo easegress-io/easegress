@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpserver implements the HTTPServer.
 package httpserver
 
 import (

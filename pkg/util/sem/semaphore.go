@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package sem provides a semaphore with a max capacity.
 package sem
 
 import (

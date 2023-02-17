@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package rawconfigtrafficcontroller implements the RawConfigTrafficController.
 package rawconfigtrafficcontroller
 
 import (

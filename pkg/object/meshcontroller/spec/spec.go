@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package spec defines the spec for various objects in mesh.
 package spec
 
 import (

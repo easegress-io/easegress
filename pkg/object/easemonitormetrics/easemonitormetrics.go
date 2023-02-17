@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package easemonitormetrics provides EaseMonitorMetrics.
 package easemonitormetrics
 
 import (

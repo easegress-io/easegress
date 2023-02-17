@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package trafficcontroller implements the TrafficController.
 package trafficcontroller
 
 import (

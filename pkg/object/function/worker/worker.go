@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package worker provides the worker for FaaSController.
 package worker
 
 import (

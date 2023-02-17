@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package customdata provides a way to store custom data in Easegress cluster.
 package customdata
 
 import (

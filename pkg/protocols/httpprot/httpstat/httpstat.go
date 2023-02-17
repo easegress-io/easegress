@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpstat implements the statistics tool for HTTP traffic.
 package httpstat
 
 import (

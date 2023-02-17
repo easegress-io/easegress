@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package nacosserviceregistry provides the NacosServiceRegistry.
 package nacosserviceregistry
 
 import (
