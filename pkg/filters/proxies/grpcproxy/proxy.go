@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package grpcproxy provides the proxy filter of gRPC.
 package grpcproxy
 
 import (

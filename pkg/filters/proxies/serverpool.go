@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package proxies provides the common interface and implementation of proxies.
 package proxies
 
 import (

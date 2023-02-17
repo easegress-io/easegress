@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package httpproxy provides the Proxy of HTTP.
 package httpproxy
 
 import (
