@@ -94,7 +94,7 @@ func (h *Header) initHeaderRoute() {
 	h.headerRE = regexp.MustCompile(h.Regexp)
 }
 
-// Validate validates Path.
+// Validate validates Method.
 func (m *Method) Validate() error {
 	return nil
 }

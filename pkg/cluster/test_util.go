@@ -53,7 +53,7 @@ func CreateOptionsForTest(tempDir string) *option.Options {
 	opt.LogDir = fmt.Sprintf("%s/log", tempDir)
 	opt.MemberDir = fmt.Sprintf("%s/member", tempDir)
 
-	_, err = opt.Parse()
+	err = opt.Parse()
 	check(err)
 
 	env.InitServerDir(opt)

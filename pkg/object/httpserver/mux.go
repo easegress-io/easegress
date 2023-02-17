@@ -250,7 +250,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	startAt := fasttime.Now()
 
-	span := mi.tracer.NewSpanWithStart(stdr.Context(), mi.superSpec.Name(), startAt)
+	span := mi.tracer.NewSpanForHTTP(stdr.Context(), mi.superSpec.Name(), stdr)
 
 	ctx := context.New(span)
 	ctx.SetData("HTTP_RESPONSE_WRITER", stdw)

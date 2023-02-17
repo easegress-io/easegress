@@ -187,8 +187,9 @@ type (
 	// Span is the span of the Tracing.
 	Span struct {
 		trace.Span
-		tracer *Tracer
-		ctx    context.Context
+		cdnSpan trace.Span
+		tracer  *Tracer
+		ctx     context.Context
 	}
 )
 
@@ -204,6 +205,7 @@ const (
 	otlpProtocolGRPC otlpProtocol = "grpc"
 )
 
+// UnmarshalJSON implements json.Unmarshaler.
 func (spec *Spec) UnmarshalJSON(data []byte) error {
 	type innerSpec Spec
 	inner := &innerSpec{
@@ -500,17 +502,23 @@ func (t *Tracer) NewSpan(ctx context.Context, name string) *Span {
 	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
 
-// NewSpanWithStart creates a span with specify start time.
-func (t *Tracer) NewSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
-	if t.IsNoopTracer() {
-		return NoopSpan
-	}
-	return t.newSpanWithStart(ctx, name, fasttime.Now())
-}
-
 func (t *Tracer) newSpanWithStart(ctx context.Context, name string, startAt time.Time) *Span {
 	ctx, span := t.Tracer.Start(ctx, name, trace.WithTimestamp(startAt))
 	return &Span{Span: span, ctx: ctx, tracer: t}
+}
+
+// NewSpanForHTTP creates a span for http request.
+func (t *Tracer) NewSpanForHTTP(ctx context.Context, name string, req *http.Request) *Span {
+	if t.IsNoopTracer() {
+		return NoopSpan
+	}
+
+	span := newSpanForCloudflare(ctx, t, name, req)
+	if span != nil {
+		return span
+	}
+
+	return t.newSpanWithStart(ctx, name, fasttime.Now())
 }
 
 // Close trace.
@@ -559,4 +567,12 @@ func (s *Span) newChildWithStart(name string, startAt time.Time) *Span {
 // InjectHTTP injects span context into an HTTP request.
 func (s *Span) InjectHTTP(r *http.Request) {
 	s.tracer.propagator.Inject(s.ctx, propagation.HeaderCarrier(r.Header))
+}
+
+// End completes the Span. Override trace.Span.End function.
+func (s *Span) End(options ...trace.SpanEndOption) {
+	if s.cdnSpan != nil {
+		s.cdnSpan.End(options...)
+	}
+	s.Span.End(options...)
 }

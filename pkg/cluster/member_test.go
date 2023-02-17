@@ -53,7 +53,7 @@ func mockTestOpt(ports []int) *option.Options {
 	opt.MemberDir = "member"
 	opt.Debug = false
 
-	if _, err := opt.Parse(); err != nil {
+	if err := opt.Parse(); err != nil {
 		panic(fmt.Errorf("parse option failed: %v", err))
 	}
 

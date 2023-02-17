@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-// Package grpcproxy implements a gRPC proxy.
 package grpcproxy
 
 import (

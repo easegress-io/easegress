@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package requestadaptor
+package builder
 
 import (
 	"bytes"
 	"compress/gzip"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"io"
 	"net/http"
 	"testing"
@@ -37,16 +38,16 @@ func init() {
 	logger.InitNop()
 }
 
-func setRequest(t *testing.T, ctx *context.Context, stdReq *http.Request) {
+func setRequest(t *testing.T, ctx *context.Context, ns string, stdReq *http.Request) {
 	req, err := httpprot.NewRequest(stdReq)
 	assert.Nil(t, err)
 	err = req.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
-	ctx.SetInputRequest(req)
+	ctx.SetRequest(ns, req)
 }
 
-func defaultFilterSpec(spec *Spec) filters.Spec {
-	spec.BaseSpec.MetaSpec.Kind = Kind
+func defaultFilterSpec(spec *RequestAdaptorSpec) filters.Spec {
+	spec.BaseSpec.MetaSpec.Kind = RequestAdaptorKind
 	spec.BaseSpec.MetaSpec.Name = "request-adaptor"
 	result, _ := filters.NewSpec(nil, "pipeline-demo", spec)
 	return result
@@ -65,34 +66,34 @@ func TestRequestAdaptor(t *testing.T) {
 	assert := assert.New(t)
 	{
 		// normal case
-		spec := defaultFilterSpec(&Spec{})
-		ra := kind.CreateInstance(spec)
+		spec := defaultFilterSpec(&RequestAdaptorSpec{})
+		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
-		assert.Equal(Kind, ra.Kind().Name)
+		assert.Equal(RequestAdaptorKind, ra.Kind().Name)
 		assert.Nil(ra.Status())
 		assert.Equal(spec.Name(), ra.Name())
 		assert.Equal(spec, ra.Spec())
 
-		newRA := kind.CreateInstance(spec)
+		newRA := requestAdaptorKind.CreateInstance(spec)
 		newRA.Inherit(ra)
 		newRA.Close()
 	}
 
 	{
 		// invalid compress type
-		spec := defaultFilterSpec(&Spec{Compress: "zip"})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Compress: "zip"})
 		assert.Nil(spec)
 	}
 
 	{
 		// invalid decompress type
-		spec := defaultFilterSpec(&Spec{Decompress: "zip"})
+		spec := defaultFilterSpec(&RequestAdaptorSpec{Decompress: "zip"})
 		assert.Nil(spec)
 	}
 
 	{
 		// compress and decompress are set together
-		spec := defaultFilterSpec(&Spec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Decompress: "gzip",
 			Compress:   "gzip",
 		})
@@ -101,16 +102,18 @@ func TestRequestAdaptor(t *testing.T) {
 
 	{
 		// set body and Decompress
-		spec := defaultFilterSpec(&Spec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Decompress: "gzip",
-			Body:       "body",
+			RequestAdaptorTemplate: RequestAdaptorTemplate{
+				Body: "body",
+			},
 		})
 		assert.Nil(spec)
 	}
 
 	{
 		// unknown API provider
-		spec := defaultFilterSpec(&Spec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Sign: &SignerSpec{
 				APIProvider: "aws3",
 			},
@@ -124,11 +127,11 @@ func TestDecompress(t *testing.T) {
 
 	{
 		// decompress without body in spec
-		spec := defaultFilterSpec(&Spec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Decompress: "gzip",
 		})
 
-		ra := kind.CreateInstance(spec)
+		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
 
 		{
@@ -139,7 +142,7 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -160,7 +163,7 @@ func TestDecompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal(resultDecompressFailed, ans)
@@ -174,10 +177,10 @@ func TestCompress(t *testing.T) {
 
 	{
 		// compress without body in spec
-		spec := defaultFilterSpec(&Spec{
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
 			Compress: "gzip",
 		})
-		ra := kind.CreateInstance(spec)
+		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
 
 		data := "123"
@@ -185,7 +188,7 @@ func TestCompress(t *testing.T) {
 		assert.Nil(err)
 
 		ctx := context.New(nil)
-		setRequest(t, ctx, req)
+		setRequest(t, ctx, "DEFAULT", req)
 
 		ans := ra.Handle(ctx)
 		assert.Equal("", ans)
@@ -203,11 +206,13 @@ func TestCompress(t *testing.T) {
 
 	{
 		// compress with body in spec
-		spec := defaultFilterSpec(&Spec{
-			Body:     "spec_body",
+		spec := defaultFilterSpec(&RequestAdaptorSpec{
+			RequestAdaptorTemplate: RequestAdaptorTemplate{
+				Body: "spec_body",
+			},
 			Compress: "gzip",
 		})
-		ra := kind.CreateInstance(spec)
+		ra := requestAdaptorKind.CreateInstance(spec)
 		ra.Init()
 
 		{
@@ -218,7 +223,7 @@ func TestCompress(t *testing.T) {
 			req.Header.Add("Content-Encoding", "gzip")
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -241,7 +246,7 @@ func TestCompress(t *testing.T) {
 			assert.Nil(err)
 
 			ctx := context.New(nil)
-			setRequest(t, ctx, req)
+			setRequest(t, ctx, "DEFAULT", req)
 
 			ans := ra.Handle(ctx)
 			assert.Equal("", ans)
@@ -263,27 +268,30 @@ func TestCompress(t *testing.T) {
 func TestHandle(t *testing.T) {
 	assert := assert.New(t)
 
-	spec := defaultFilterSpec(&Spec{
-		Method: http.MethodDelete,
-		Host:   "127.0.0.2",
-		Body:   "123",
-		Header: &httpheader.AdaptSpec{
-			Add: map[string]string{"X-Add": "add-value"},
-			Set: map[string]string{"X-Set": "set-value"},
-		},
-		Path: &pathadaptor.Spec{
-			Replace: "/path",
+	requestAdaptorSpec := &RequestAdaptorSpec{
+		RequestAdaptorTemplate: RequestAdaptorTemplate{
+			Method: http.MethodDelete,
+			Host:   "127.0.0.2",
+			Body:   "123",
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Add": "add-value"},
+				Set: map[string]string{"X-Set": "set-value"},
+			},
+			Path: &pathadaptor.Spec{
+				Replace: "/path",
+			},
 		},
 		Sign: &SignerSpec{APIProvider: "aws4"},
-	})
-	ra := kind.CreateInstance(spec)
+	}
+	spec := defaultFilterSpec(requestAdaptorSpec)
+	ra := requestAdaptorKind.CreateInstance(spec)
 	ra.Init()
 
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
 	assert.Nil(err)
 
 	ctx := context.New(nil)
-	setRequest(t, ctx, req)
+	setRequest(t, ctx, "DEFAULT", req)
 
 	ans := ra.Handle(ctx)
 	assert.Equal("", ans)
@@ -310,4 +318,66 @@ func TestHandle(t *testing.T) {
 	assert.Equal("/path", path)
 
 	assert.Contains(req.Header.Get("Authorization"), " SignedHeaders=host;x-add;x-amz-date;x-set,")
+}
+
+func TestRequestAdaptorTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	yamlConfig := `template: |
+      header:
+        add:
+          X-Add: add-template-value
+`
+	templateSpec := &RequestAdaptorSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), templateSpec)
+	spec := defaultFilterSpec(&RequestAdaptorSpec{
+		RequestAdaptorTemplate: RequestAdaptorTemplate{
+			Method: http.MethodDelete,
+			Host:   "127.0.0.2",
+			Body:   "123",
+			Header: &httpheader.AdaptSpec{
+				Add: map[string]string{"X-Add": "add-value"},
+				Set: map[string]string{"X-Set": "set-value"},
+			},
+			Path: &pathadaptor.Spec{
+				Replace: "/path",
+			},
+		},
+		Sign: &SignerSpec{APIProvider: "aws4"},
+		Spec: Spec{Template: templateSpec.Template},
+	})
+	ra := requestAdaptorKind.CreateInstance(spec)
+	ra.Init()
+
+	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", nil)
+	assert.Nil(err)
+
+	ctx := context.New(nil)
+	setRequest(t, ctx, "DEFAULT", req)
+
+	ans := ra.Handle(ctx)
+	assert.Equal("", ans)
+	ctx.Finish()
+
+	httpreq := ctx.GetInputRequest().(*httpprot.Request)
+	method := httpreq.Method()
+	assert.Equal(http.MethodDelete, method)
+
+	host := httpreq.Host()
+	assert.Equal("127.0.0.2", host)
+
+	body, err := io.ReadAll(httpreq.GetPayload())
+	assert.Nil(err)
+	assert.Equal("123", string(body))
+
+	headerValue := httpreq.Std().Header.Get("X-Add")
+	assert.Equal("add-template-value", headerValue)
+
+	headerValue = httpreq.Std().Header.Get("X-Set")
+	assert.Equal("", headerValue)
+
+	path := httpreq.Path()
+	assert.Equal("/path", path)
+
+	assert.Contains(req.Header.Get("Authorization"), " SignedHeaders=host;x-add;x-amz-date,")
 }
