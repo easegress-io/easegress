@@ -181,7 +181,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		httpStat:           m.httpStat,
 		topN:               m.topN,
 		metrics:            oldInst.metrics,
-		ipFilter:           ipfilter.New(spec.IPFilterSpec),
+		ipFilter:           ipfilter.New(spec.IPFilter),
 		tracer:             tracer,
 		accessLogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}

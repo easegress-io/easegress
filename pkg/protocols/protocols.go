@@ -39,6 +39,9 @@ type Request interface {
 	// Header returns the header of the request.
 	Header() Header
 
+	// RealIP returns the real IP of the request.
+	RealIP() string
+
 	// IsStream returns whether the payload is a stream, which cannot be
 	// read for more than once.
 	IsStream() bool

@@ -140,6 +140,11 @@ func (r *Request) Header() protocols.Header {
 	return nil
 }
 
+// RealIP returns the real IP of the request.
+func (r *Request) RealIP() string {
+	panic("not implemented")
+}
+
 // SetPayload set the payload of the request to payload.
 func (r *Request) SetPayload(payload interface{}) {
 	p, ok := payload.([]byte)

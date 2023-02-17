@@ -19,15 +19,16 @@ package grpcserver
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"regexp"
+
+	"github.com/megaease/easegress/pkg/util/ipfilter"
 )
 
 type (
 	// Spec describe gRPC server
 	Spec struct {
 		Port           uint16 `json:"port" jsonschema:"required,minimum=1025"`
-		MaxConnections uint16 `json:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		MaxConnections uint32 `json:"maxConnections" jsonschema:"omitempty,minimum=1"`
 
 		// MinTime see keepalive.EnforcementPolicy
 		MinTime string `json:"minTimeClientSendPing" jsonschema:"omitempty,format=duration"`
@@ -63,15 +64,15 @@ type (
 		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 		Host       string         `json:"host" jsonschema:"omitempty"`
 		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Paths      []*Path        `json:"paths" jsonschema:"omitempty"`
+		Methods    []*Method      `json:"methods" jsonschema:"omitempty"`
 	}
 
-	// Path is second level entry of router.
-	Path struct {
+	// Method is second level entry of router.
+	Method struct {
 		IPFilter       *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Path           string         `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix     string         `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathRegexp     string         `json:"pathRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Method         string         `json:"method,omitempty" jsonschema:"omitempty,pattern=^/"`
+		MethodPrefix   string         `json:"methodPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		MethodRegexp   string         `json:"methodRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
 		Backend        string         `json:"backend" jsonschema:"required"`
 		Headers        []*Header      `json:"headers" jsonschema:"omitempty"`
 		MatchAllHeader bool           `json:"matchAllHeader" jsonschema:"omitempty"`
@@ -93,8 +94,8 @@ func (h *Header) initHeaderRoute() {
 	h.headerRE = regexp.MustCompile(h.Regexp)
 }
 
-// Validate validates Path.
-func (p *Path) Validate() error {
+// Validate validates Method.
+func (m *Method) Validate() error {
 	return nil
 }
 

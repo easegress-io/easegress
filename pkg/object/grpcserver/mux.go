@@ -19,6 +19,7 @@ package grpcserver
 
 import (
 	"fmt"
+
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/util/fasttime"
 	"google.golang.org/grpc"
@@ -66,18 +67,18 @@ type (
 		host       string
 		hostRegexp string
 		hostRE     *regexp.Regexp
-		paths      []*MuxPath
+		methods    []*MuxMethod
 	}
 
-	// MuxPath describes httpserver's path
-	MuxPath struct {
+	// MuxMethod describes gRPCserver's method
+	MuxMethod struct {
 		ipFilter      *ipfilter.IPFilter
 		ipFilterChain *ipfilter.IPFilters
 
-		path           string
-		pathPrefix     string
-		pathRegexp     string
-		pathRE         *regexp.Regexp
+		method         string
+		methodPrefix   string
+		methodRegexp   string
+		methodRE       *regexp.Regexp
 		backend        string
 		headers        []*Header
 		matchAllHeader bool
@@ -86,49 +87,13 @@ type (
 	route struct {
 		code    codes.Code
 		message string
-		path    *MuxPath
+		method  *MuxMethod
 	}
 )
 
-// newIPFilterChain returns nil if the number of final filters is zero.
-func newIPFilterChain(parentIPFilters *ipfilter.IPFilters, childSpec *ipfilter.Spec) *ipfilter.IPFilters {
-	var ipFilters *ipfilter.IPFilters
-	if parentIPFilters != nil {
-		ipFilters = ipfilter.NewIPFilters(parentIPFilters.Filters()...)
-	} else {
-		ipFilters = ipfilter.NewIPFilters()
-	}
-
-	if childSpec != nil {
-		ipFilters.Append(ipfilter.New(childSpec))
-	}
-
-	if len(ipFilters.Filters()) == 0 {
-		return nil
-	}
-
-	return ipFilters
-}
-
-func newIPFilter(spec *ipfilter.Spec) *ipfilter.IPFilter {
-	if spec == nil {
-		return nil
-	}
-
-	return ipfilter.New(spec)
-}
-
-func allowIP(ipFilter *ipfilter.IPFilter, ip string) bool {
-	if ipFilter == nil {
-		return true
-	}
-
-	return ipFilter.Allow(ip)
-}
-
-func (mi *muxInstance) getRouteFromCache(host, path string) *route {
+func (mi *muxInstance) getRouteFromCache(host, method string) *route {
 	if mi.cache != nil {
-		key := stringtool.Cat(host, path)
+		key := stringtool.Cat(host, method)
 		if value, ok := mi.cache.Get(key); ok {
 			return value.(*route)
 		}
@@ -136,14 +101,14 @@ func (mi *muxInstance) getRouteFromCache(host, path string) *route {
 	return nil
 }
 
-func (mi *muxInstance) putRouteToCache(host, path string, r *route) {
-	if mi.cache != nil && host != "" && path != "" {
-		key := stringtool.Cat(host, path)
+func (mi *muxInstance) putRouteToCache(host, method string, r *route) {
+	if mi.cache != nil && host != "" && method != "" {
+		key := stringtool.Cat(host, method)
 		mi.cache.Add(key, r)
 	}
 }
 
-func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPath) *muxRule {
+func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, methods []*MuxMethod) *muxRule {
 	var hostRE *regexp.Regexp
 
 	if rule.HostRegexp != "" {
@@ -156,13 +121,13 @@ func newMuxRule(parentIPFilters *ipfilter.IPFilters, rule *Rule, paths []*MuxPat
 	}
 
 	return &muxRule{
-		ipFilter:      newIPFilter(rule.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, rule.IPFilter),
+		ipFilter:      ipfilter.New(rule.IPFilter),
+		ipFilterChain: ipfilter.NewIPFilterChain(parentIPFilters, rule.IPFilter),
 
 		host:       rule.Host,
 		hostRegexp: rule.HostRegexp,
 		hostRE:     hostRE,
-		paths:      paths,
+		methods:    methods,
 	}
 }
 
@@ -181,48 +146,48 @@ func (mr *muxRule) match(host string) bool {
 	return false
 }
 
-func newMuxPath(parentIPFilters *ipfilter.IPFilters, path *Path) *MuxPath {
-	var pathRE *regexp.Regexp
-	if path.PathRegexp != "" {
+func newMuxMethod(parentIPFilters *ipfilter.IPFilters, method *Method) *MuxMethod {
+	var methodRE *regexp.Regexp
+	if method.MethodRegexp != "" {
 		var err error
-		pathRE, err = regexp.Compile(path.PathRegexp)
+		methodRE, err = regexp.Compile(method.MethodRegexp)
 		// defensive programming
 		if err != nil {
-			logger.Errorf("BUG: compile %s failed: %v", path.PathRegexp, err)
+			logger.Errorf("BUG: compile %s failed: %v", method.MethodRegexp, err)
 		}
 	}
 
-	for _, p := range path.Headers {
+	for _, p := range method.Headers {
 		p.initHeaderRoute()
 	}
 
-	return &MuxPath{
-		ipFilter:      newIPFilter(path.IPFilter),
-		ipFilterChain: newIPFilterChain(parentIPFilters, path.IPFilter),
+	return &MuxMethod{
+		ipFilter:      ipfilter.New(method.IPFilter),
+		ipFilterChain: ipfilter.NewIPFilterChain(parentIPFilters, method.IPFilter),
 
-		path:           path.Path,
-		pathPrefix:     path.PathPrefix,
-		pathRegexp:     path.PathRegexp,
-		pathRE:         pathRE,
-		backend:        path.Backend,
-		headers:        path.Headers,
-		matchAllHeader: path.MatchAllHeader,
+		method:         method.Method,
+		methodPrefix:   method.MethodPrefix,
+		methodRegexp:   method.MethodRegexp,
+		methodRE:       methodRE,
+		backend:        method.Backend,
+		headers:        method.Headers,
+		matchAllHeader: method.MatchAllHeader,
 	}
 }
 
-func (mp *MuxPath) matchPath(path string) bool {
-	if mp.path == "" && mp.pathPrefix == "" && mp.pathRE == nil {
+func (mm *MuxMethod) matchMethod(method string) bool {
+	if mm.method == "" && mm.methodPrefix == "" && mm.methodRE == nil {
 		return true
 	}
 
-	if mp.path != "" && mp.path == path {
+	if mm.method != "" && mm.method == method {
 		return true
 	}
-	if mp.pathPrefix != "" && strings.HasPrefix(path, mp.pathPrefix) {
+	if mm.methodPrefix != "" && strings.HasPrefix(method, mm.methodPrefix) {
 		return true
 	}
-	if mp.pathRE != nil {
-		return mp.pathRE.MatchString(path)
+	if mm.methodRE != nil {
+		return mm.methodRE.MatchString(method)
 	}
 
 	return false
@@ -239,9 +204,9 @@ func matchHeader(header string, h *Header) bool {
 	return false
 }
 
-func (mp *MuxPath) matchHeaders(r *grpcprot.Request) bool {
-	if mp.matchAllHeader {
-		for _, h := range mp.headers {
+func (mm *MuxMethod) matchHeaders(r *grpcprot.Request) bool {
+	if mm.matchAllHeader {
+		for _, h := range mm.headers {
 			v := r.RawHeader().RawGet(h.Key)
 			if len(v) == 0 {
 				if !matchHeader("", h) {
@@ -256,7 +221,7 @@ func (mp *MuxPath) matchHeaders(r *grpcprot.Request) bool {
 			}
 		}
 	} else {
-		for _, h := range mp.headers {
+		for _, h := range mm.headers {
 			v := r.RawHeader().RawGet(h.Key)
 			if len(v) == 0 {
 				if matchHeader("", h) {
@@ -272,7 +237,7 @@ func (mp *MuxPath) matchHeaders(r *grpcprot.Request) bool {
 		}
 	}
 
-	return mp.matchAllHeader
+	return mm.matchAllHeader
 }
 
 func newMux(mapper context.MuxMapper) *mux {
@@ -293,8 +258,8 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		superSpec:    superSpec,
 		spec:         spec,
 		muxMapper:    muxMapper,
-		ipFilter:     newIPFilter(spec.IPFilter),
-		ipFilterChan: newIPFilterChain(nil, spec.IPFilter),
+		ipFilter:     ipfilter.New(spec.IPFilter),
+		ipFilterChan: ipfilter.NewIPFilterChain(nil, spec.IPFilter),
 		rules:        make([]*muxRule, len(spec.Rules)),
 	}
 
@@ -309,15 +274,15 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 	for i := 0; i < len(inst.rules); i++ {
 		specRule := spec.Rules[i]
 
-		ruleIPFilterChain := newIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
+		ruleIPFilterChain := ipfilter.NewIPFilterChain(inst.ipFilterChan, specRule.IPFilter)
 
-		paths := make([]*MuxPath, len(specRule.Paths))
-		for j := 0; j < len(paths); j++ {
-			paths[j] = newMuxPath(ruleIPFilterChain, specRule.Paths[j])
+		methods := make([]*MuxMethod, len(specRule.Methods))
+		for j := 0; j < len(methods); j++ {
+			methods[j] = newMuxMethod(ruleIPFilterChain, specRule.Methods[j])
 		}
 
 		// NOTE: Given the parent ipFilters not its own.
-		inst.rules[i] = newMuxRule(inst.ipFilterChan, specRule, paths)
+		inst.rules[i] = newMuxRule(inst.ipFilterChan, specRule, methods)
 	}
 
 	m.inst.Store(inst)
@@ -369,7 +334,7 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 			// log format:
 			//
 			// [$startTime]
-			// [$clientAddr $path $statusCode]
+			// [$clientAddr $method $statusCode]
 			// [$tags]
 			const logFmt = "[grpc][%s] [%s %s %d] [%s]"
 			return fmt.Sprintf(logFmt,
@@ -385,10 +350,10 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 		return
 	}
 
-	handler, ok := mi.muxMapper.GetHandler(rt.path.backend)
+	handler, ok := mi.muxMapper.GetHandler(rt.method.backend)
 	if !ok {
-		logger.Debugf("%s: backend %q not found", mi.superSpec.Name(), rt.path.backend)
-		buildFailureResponse(ctx, status.Newf(codes.NotFound, "%s: backend %q not found", mi.superSpec.Name(), rt.path.backend))
+		logger.Debugf("%s: backend %q not found", mi.superSpec.Name(), rt.method.backend)
+		buildFailureResponse(ctx, status.Newf(codes.NotFound, "%s: backend %q not found", mi.superSpec.Name(), rt.method.backend))
 		return
 	}
 
@@ -419,8 +384,8 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	}
 
 	// grpc's method equals request.path in standard lib
-	method := request.FullMethod()
-	if method == "" {
+	fullMethod := request.FullMethod()
+	if fullMethod == "" {
 		logger.Debugf("invalid grpc stream: can not get called method info")
 		return &route{
 			code:    codes.NotFound,
@@ -429,18 +394,17 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	}
 
 	// The key of the cache is grpc server address + called method
-	// in grpc, called method means url path
-	// and if a path is cached, we are sure it does not contain any
+	// and if a method is cached, we are sure it does not contain any
 	// headers.
-	r := mi.getRouteFromCache(request.Host(), method)
+	r := mi.getRouteFromCache(request.Host(), fullMethod)
 	if r != nil {
 		if r.code != 0 {
 			return r
 		}
-		if r.path.ipFilterChain == nil {
+		if r.method.ipFilterChain == nil {
 			return r
 		}
-		if r.path.ipFilterChain.Allow(ip) {
+		if r.method.ipFilterChain.Allow(ip) {
 			return r
 		}
 		return &route{
@@ -449,7 +413,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 		}
 	}
 
-	if !allowIP(mi.ipFilter, ip) {
+	if !mi.ipFilter.Allow(ip) {
 		return &route{
 			code:    codes.PermissionDenied,
 			message: "request isn't allowed",
@@ -461,35 +425,35 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 			continue
 		}
 
-		if !allowIP(rs.ipFilter, ip) {
+		if !rs.ipFilter.Allow(ip) {
 			return &route{
 				code:    codes.PermissionDenied,
 				message: "request isn't allowed",
 			}
 		}
 
-		for _, path := range rs.paths {
-			if !path.matchPath(method) {
+		for _, method := range rs.methods {
+			if !method.matchMethod(fullMethod) {
 				continue
 			}
 
-			// The path can be put into the cache if it has no headers.
-			if len(path.headers) == 0 {
-				r = &route{code: 0, path: path}
-				mi.putRouteToCache(request.Host(), method, r)
-			} else if !path.matchHeaders(request) {
+			// The method can be put into the cache if it has no headers.
+			if len(method.headers) == 0 {
+				r = &route{code: 0, method: method}
+				mi.putRouteToCache(request.Host(), fullMethod, r)
+			} else if !method.matchHeaders(request) {
 				headerMismatch = true
 				continue
 			}
 
-			if !allowIP(path.ipFilter, ip) {
+			if !method.ipFilter.Allow(ip) {
 				return &route{
 					code:    codes.PermissionDenied,
 					message: "request isn't allowed",
 				}
 			}
 
-			return &route{code: 0, path: path}
+			return &route{code: 0, method: method}
 		}
 	}
 
@@ -504,7 +468,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 		code:    codes.NotFound,
 		message: "grpc stream miss match any conditions",
 	}
-	mi.putRouteToCache(request.Host(), method, notFound)
+	mi.putRouteToCache(request.Host(), fullMethod, notFound)
 	return notFound
 }
 

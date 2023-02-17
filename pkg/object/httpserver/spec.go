@@ -57,8 +57,8 @@ type (
 
 		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Ordered,enum=RadixTree"`
 
-		IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules        routers.Rules  `json:"rules" jsonschema:"omitempty"`
+		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
+		Rules    routers.Rules  `json:"rules" jsonschema:"omitempty"`
 
 		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
 

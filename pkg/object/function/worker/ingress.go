@@ -19,14 +19,14 @@ package worker
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/filters/builder"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	"github.com/megaease/easegress/pkg/filters/builder"
+	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/function/spec"
 	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
