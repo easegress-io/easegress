@@ -205,7 +205,7 @@ func (b *Broker) connectWatcher() {
 		for k, v := range sessions {
 			watcherEvent[k] = &v
 		}
-		b.processWatcherEvent(watcherEvent)
+		b.processWatcherEvent(watcherEvent, true)
 	}
 
 	clients := []*Client{}
@@ -236,13 +236,13 @@ func (b *Broker) watch(ch <-chan map[string]*string, closeFunc func()) {
 				go b.connectWatcher()
 				return
 			}
-			b.processWatcherEvent(m)
+			b.processWatcherEvent(m, false)
 		}
 	}
 }
 
-func (b *Broker) processWatcherEvent(event map[string]*string) {
-	syncMap := make(map[string]*SessionInfo)
+func (b *Broker) processWatcherEvent(event map[string]*string, sync bool) {
+	sessMap := make(map[string]*SessionInfo)
 	for k, v := range event {
 		clientID := strings.TrimPrefix(k, sessionStoreKey(""))
 		if v != nil {
@@ -255,7 +255,7 @@ func (b *Broker) processWatcherEvent(event map[string]*string) {
 					continue
 				}
 				info = session.info
-				syncMap[clientID] = session.info
+				sessMap[clientID] = session.info
 			}
 			// the new session created, the scenario could indicate
 			// that a device reconnect to a broker of the MQTT cluster,
@@ -279,8 +279,12 @@ func (b *Broker) processWatcherEvent(event map[string]*string) {
 		}
 	}
 
-	if b.spec.BrokerMode && len(syncMap) > 0 {
-		b.sessionCacheMgr.sync(syncMap)
+	if b.spec.BrokerMode && len(sessMap) > 0 {
+		if sync {
+			b.sessionCacheMgr.sync(sessMap)
+			return
+		}
+		b.sessionCacheMgr.update(sessMap)
 	}
 }
 

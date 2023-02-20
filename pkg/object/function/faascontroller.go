@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package function provides FaasController.
 package function
 
 import (

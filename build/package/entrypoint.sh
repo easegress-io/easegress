@@ -2,7 +2,7 @@
 
 # Support the following running mode
 # 1) run easegress without any arguments
-# 2) run easegress with easegress argumetns
+# 2) run easegress with easegress arguments
 # 3) run the command in easegress container
 
 # docker run megaease/easegress

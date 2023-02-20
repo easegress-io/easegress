@@ -16,7 +16,7 @@ INTEGRATION_TEST_PATH := build/test
 IMAGE_NAME?=megaease/easegress
 
 # Version
-RELEASE?=v2.3.0
+RELEASE?=v2.3.1
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
@@ -90,7 +90,7 @@ build_docker:
 	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
 	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.19-alpine make build DOCKER=true
+	megaease/golang:1.20-alpine make build DOCKER=true
 	docker buildx build --platform linux/amd64 --load -t ${IMAGE_NAME}:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag ${IMAGE_NAME}:${RELEASE} ${IMAGE_NAME}:latest
 	docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:server-sidecar
@@ -101,7 +101,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
+	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
 
 integration_test: build
 	{ \

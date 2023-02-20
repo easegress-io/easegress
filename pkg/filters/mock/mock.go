@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package mock provides Mock filter.
 package mock
 
 import (
@@ -25,7 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/urlrule"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 const (
@@ -77,10 +78,10 @@ type (
 
 	// MatchRule is the rule to match a request
 	MatchRule struct {
-		Path            string                          `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix      string                          `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		Headers         map[string]*urlrule.StringMatch `json:"headers" jsonschema:"omitempty"`
-		MatchAllHeaders bool                            `json:"matchAllHeaders" jsonschema:"omitempty"`
+		Path            string                               `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
+		PathPrefix      string                               `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
+		Headers         map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"omitempty"`
+		MatchAllHeaders bool                                 `json:"matchAllHeaders" jsonschema:"omitempty"`
 	}
 )
 
@@ -149,7 +150,7 @@ func (m *Mock) match(ctx *context.Context) *Rule {
 		return strings.HasPrefix(path, rule.Match.PathPrefix)
 	}
 
-	matchOneHeader := func(key string, rule *urlrule.StringMatch) bool {
+	matchOneHeader := func(key string, rule *stringtool.StringMatcher) bool {
 		values := header.Values(key)
 		if len(values) == 0 {
 			return rule.Empty

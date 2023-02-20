@@ -19,14 +19,15 @@ package httpserver
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"testing/iotest"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -630,4 +631,15 @@ rules:
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(routers.NewContext(req)).code)
 
+}
+
+func TestAccessLog(t *testing.T) {
+	log := &accessLog{
+		Method:  "GET",
+		URI:     "127.0.0.1",
+		ReqSize: 100,
+	}
+	formatter := newAccessLogFormatter("{{Method}} {{URI}} [{{ReqSize}}]")
+	s := formatter.format(log)
+	assert.Equal(t, "GET 127.0.0.1 [100]", s)
 }

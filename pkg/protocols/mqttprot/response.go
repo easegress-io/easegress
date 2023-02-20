@@ -45,6 +45,11 @@ func (r *Response) IsStream() bool {
 	return false
 }
 
+// Trailer returns the trailer of the response.
+func (r *Response) Trailer() protocols.Trailer {
+	panic("implement me")
+}
+
 // SetDrop means the packet in context will be drop.
 func (r *Response) SetDrop() {
 	r.drop = true

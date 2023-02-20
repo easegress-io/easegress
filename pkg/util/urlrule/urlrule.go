@@ -15,87 +15,24 @@
  * limitations under the License.
  */
 
+// Package urlrule impelments match rule for HTTP requests.
 package urlrule
 
 import (
-	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
 type (
-	// StringMatch defines the match rule of a string
-	StringMatch struct {
-		Exact  string `json:"exact" jsonschema:"omitempty"`
-		Prefix string `json:"prefix" jsonschema:"omitempty"`
-		RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
-		Empty  bool   `json:"empty" jsonschema:"omitempty"`
-		re     *regexp.Regexp
-	}
-
 	// URLRule defines the match rule of a http request
 	URLRule struct {
 		id        string
-		Methods   []string    `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		URL       StringMatch `json:"url" jsonschema:"required"`
-		PolicyRef string      `json:"policyRef" jsonschema:"omitempty"`
+		Methods   []string                 `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		URL       stringtool.StringMatcher `json:"url" jsonschema:"required"`
+		PolicyRef string                   `json:"policyRef" jsonschema:"omitempty"`
 	}
 )
-
-// Validate validates the StringMatch object
-func (sm StringMatch) Validate() error {
-	if sm.Empty {
-		if sm.Exact != "" || sm.Prefix != "" || sm.RegEx != "" {
-			return fmt.Errorf("empty is conflict with other patterns")
-		}
-		return nil
-	}
-
-	if sm.Exact != "" {
-		return nil
-	}
-
-	if sm.Prefix != "" {
-		return nil
-	}
-
-	if sm.RegEx != "" {
-		return nil
-	}
-
-	return fmt.Errorf("all patterns is empty")
-}
-
-// Init initializes an StringMatch
-func (sm *StringMatch) Init() {
-	if sm.RegEx != "" {
-		sm.re = regexp.MustCompile(sm.RegEx)
-	}
-}
-
-// Match matches a string to the pattern
-func (sm *StringMatch) Match(value string) bool {
-	if sm.Empty && value == "" {
-		return true
-	}
-
-	if sm.Exact != "" && value == sm.Exact {
-		return true
-	}
-
-	if sm.Prefix != "" && strings.HasPrefix(value, sm.Prefix) {
-		return true
-	}
-
-	if sm.re == nil {
-		return false
-	}
-
-	return sm.re.MatchString(value)
-}
 
 // ID returns the ID of the URLRule.
 // ID is the first valid one of Exact, Prefix, RegEx.
@@ -112,9 +49,7 @@ func (r *URLRule) Init() {
 	} else {
 		r.id = r.URL.RegEx
 	}
-	if r.URL.RegEx != "" {
-		r.URL.re = regexp.MustCompile(r.URL.RegEx)
-	}
+	r.URL.Init()
 }
 
 // Match matches a URL to the rule

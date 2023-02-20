@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -72,45 +74,39 @@ func TestRedirector(t *testing.T) {
 	// test different spec configurations
 	for i, t := range []testCase{
 		{
-			spec: getSpec("(.*)", "", "$1", 0), // use default, uri, 301
+			spec: getSpec("(.*)", "uri", "prefix${1}", 301), // uri, 301
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar?baz=qux", 301, "Moved Permanently"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "prefix/foo/bar?baz=qux", 301, "Moved Permanently"),
 			},
 		},
 		{
-			spec: getSpec("(.*)", "uri", "$1", 301), // uri, 301
+			spec: getSpec("(.*)", "full", "$1/123", 302), // full, 302
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar?baz=qux", 301, "Moved Permanently"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "http://a.com:8080/foo/bar?baz=qux/123", 302, "Found"),
 			},
 		},
 		{
-			spec: getSpec("(.*)", "full", "$1", 302), // full, 302
+			spec: getSpec("(.*)", "path", "prefix${1}", 303), // path, 303
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "http://a.com:8080/foo/bar?baz=qux", 302, "Found"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "prefix/foo/bar", 303, "See Other"),
 			},
 		},
 		{
-			spec: getSpec("(.*)", "path", "$1", 303), // path, 303
+			spec: getSpec("(.*)", "path", "prefix${1}", 304), // path, 304
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 303, "See Other"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "prefix/foo/bar", 304, "Not Modified"),
 			},
 		},
 		{
-			spec: getSpec("(.*)", "path", "$1", 304), // path, 304
+			spec: getSpec("(.*)", "path", "prefix$1", 307), // path, 307
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 304, "Not Modified"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "prefix/foo/bar", 307, "Temporary Redirect"),
 			},
 		},
 		{
-			spec: getSpec("(.*)", "path", "$1", 307), // path, 307
+			spec: getSpec("(.*)", "path", "prefix$1", 308), // path, 308
 			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 307, "Temporary Redirect"),
-			},
-		},
-		{
-			spec: getSpec("(.*)", "path", "$1", 308), // path, 308
-			matches: []match{
-				getMatch("http://a.com:8080/foo/bar?baz=qux", "/foo/bar", 308, "Permanent Redirect"),
+				getMatch("http://a.com:8080/foo/bar?baz=qux", "prefix/foo/bar", 308, "Permanent Redirect"),
 			},
 		},
 	} {
@@ -134,21 +130,6 @@ func TestRedirector(t *testing.T) {
 		}
 	}
 
-	// test invalid spec change to default or case-insensitive match part
-	for i, t := range []*Spec{
-		getSpec("(.*)", "all", "$1", 800),   // invalid match part
-		getSpec("(.*)", "other", "$1", 200), // invalid status code
-		getSpec("(.*)", "URI", "$1", 200),   // invalid status code
-		getSpec("(.*)", "uRi", "$1", 200),   // invalid status code
-		getSpec("(.*)", "urI", "$1", 200),   // invalid status code
-	} {
-		msg := fmt.Sprintf("case %d failed.", i)
-		r := &Redirector{spec: t}
-		r.Init()
-		assert.Equal("uri", r.spec.MatchPart, msg)
-		assert.Equal(301, r.spec.StatusCode, msg)
-	}
-
 	// test complicated regex
 	for i, t := range []testCase{
 		{
@@ -157,8 +138,6 @@ func TestRedirector(t *testing.T) {
 				getMatch("http://a.com:8080/users/123", "display?user=123", 301, "Moved Permanently"),
 				getMatch("http://a.com:8080/users/9", "display?user=9", 301, "Moved Permanently"),
 				getMatch("http://a.com:8080/users/34", "display?user=34", 301, "Moved Permanently"),
-				getMatch("http://a.com:8080/users/a123", "/users/a123", 301, "Moved Permanently"),
-				getMatch("http://a.com:8080/profile/users/a123", "/profile/users/a123", 301, "Moved Permanently"),
 			},
 		},
 		{
@@ -227,6 +206,78 @@ func TestRedirector(t *testing.T) {
 			assert.Equal(m.expectedURL, resp.Header().Get("Location"), msg)
 			assert.Equal(m.expectedCode, resp.StatusCode(), msg)
 			assert.Equal(m.expectedBody, string(resp.RawPayload()), msg)
+		}
+	}
+}
+
+func TestSpecValidate(t *testing.T) {
+	assert := assert.New(t)
+	{
+		// check default values
+		yamlStr := `
+name: filter
+kind: Redirector
+match: ".*"
+replacement: "123"
+`
+		rawSpec := map[string]interface{}{}
+		codectool.MustUnmarshal([]byte(yamlStr), &rawSpec)
+		s, err := filters.NewSpec(nil, "pipeline1", rawSpec)
+		assert.Nil(err)
+		spec := s.(*Spec)
+		assert.Equal("uri", spec.MatchPart)
+		assert.Equal(301, spec.StatusCode)
+	}
+
+	{
+		// check invalid spec
+
+		// invalid matchPart
+		yaml1 := `
+name: filter
+kind: Redirector
+match: ".*"
+replacement: "123"
+matchPart: "invalid"
+`
+
+		// invalid statusCode
+		yaml2 := `
+name: filter
+kind: Redirector
+match: ".*"
+replacement: "123"
+statusCode: 999
+`
+
+		// invalid match
+		yaml3 := `
+name: filter
+kind: Redirector
+match: ""
+`
+
+		// invalid replacement
+		yaml4 := `
+name: filter
+kind: Redirector
+match: ".*"
+replacement: ""
+`
+
+		// invalid match
+		yaml5 := `
+name: filter
+kind: Redirector
+match: "++"
+replacement: "123"
+`
+
+		for _, y := range []string{yaml1, yaml2, yaml3, yaml4, yaml5} {
+			rawSpec := map[string]interface{}{}
+			codectool.MustUnmarshal([]byte(y), &rawSpec)
+			_, err := filters.NewSpec(nil, "pipeline1", rawSpec)
+			assert.NotNil(err, y)
 		}
 	}
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package registrycenter provides registry center server.
 package registrycenter
 
 import (

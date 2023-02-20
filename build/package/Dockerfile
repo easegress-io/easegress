@@ -5,7 +5,7 @@
 #
 # To build docker images from this file, please build with command:
 #    make build_docker
-FROM alpine:3.15
+FROM alpine:3.17
 
 WORKDIR /opt/easegress
 

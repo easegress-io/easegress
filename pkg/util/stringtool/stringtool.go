@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
+// Package stringtool provides string utilities.
 package stringtool
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -89,5 +92,76 @@ func IsAnyEmpty(strs ...string) bool {
 		}
 	}
 
+	return false
+}
+
+// StringMatcher defines the match rule of a string
+type StringMatcher struct {
+	Exact  string `json:"exact" jsonschema:"omitempty"`
+	Prefix string `json:"prefix" jsonschema:"omitempty"`
+	RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
+	Empty  bool   `json:"empty" jsonschema:"omitempty"`
+	re     *regexp.Regexp
+}
+
+// Validate validates the StringMatcher.
+func (sm *StringMatcher) Validate() error {
+	if sm.Empty {
+		if sm.Exact != "" || sm.Prefix != "" || sm.RegEx != "" {
+			return fmt.Errorf("empty is conflict with other patterns")
+		}
+		return nil
+	}
+
+	if sm.Exact != "" {
+		return nil
+	}
+
+	if sm.Prefix != "" {
+		return nil
+	}
+
+	if sm.RegEx != "" {
+		return nil
+	}
+
+	return fmt.Errorf("all patterns are empty")
+}
+
+// Init initializes the StringMatcher.
+func (sm *StringMatcher) Init() {
+	if sm.RegEx != "" {
+		sm.re = regexp.MustCompile(sm.RegEx)
+	}
+}
+
+// Match matches a string.
+func (sm *StringMatcher) Match(value string) bool {
+	if sm.Empty && value == "" {
+		return true
+	}
+
+	if sm.Exact != "" && value == sm.Exact {
+		return true
+	}
+
+	if sm.Prefix != "" && strings.HasPrefix(value, sm.Prefix) {
+		return true
+	}
+
+	if sm.re == nil {
+		return false
+	}
+
+	return sm.re.MatchString(value)
+}
+
+// MatchAny return true if any of the values matches.
+func (sm *StringMatcher) MatchAny(values []string) bool {
+	for _, v := range values {
+		if sm.Match(v) {
+			return true
+		}
+	}
 	return false
 }

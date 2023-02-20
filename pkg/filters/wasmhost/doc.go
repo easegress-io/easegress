@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 
+// Package wasmhost implements a host environment for WebAssembly.
 package wasmhost

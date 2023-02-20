@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package mqttproxy implements the MQTTProxy.
 package mqttproxy
 
 import (

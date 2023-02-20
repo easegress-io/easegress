@@ -95,7 +95,7 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		opt.LogDir = "log"
 		opt.MemberDir = "member"
 		opt.Debug = false
-		_, err = opt.Parse() // create directories
+		err = opt.Parse() // create directories
 		if err != nil {
 			panic(fmt.Errorf("parse option failed: %v", err))
 		}
@@ -184,7 +184,7 @@ func createSecondaryNode(clusterName string, primaryListenPeerURLs []string) *cl
 	opt.Cluster.PrimaryListenPeerURLs = primaryListenPeerURLs
 	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[0])
 
-	_, err = opt.Parse()
+	err = opt.Parse()
 	check(err)
 
 	env.InitServerDir(opt)

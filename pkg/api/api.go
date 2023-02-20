@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package api implements the HTTP API of Easegress.
 package api
 
 import (

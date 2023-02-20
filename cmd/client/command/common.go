@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command implements commands of Easegress client.
 package command
 
 import (
@@ -117,10 +118,10 @@ const (
 	// MeshIngressURL is the mesh ingress path.
 	MeshIngressURL = apiURL + "/mesh/ingresses/%s"
 
-	// HTTPProtocal is prefix for HTTP protocal
-	HTTPProtocal = "http://"
-	// HTTPSProtocal is prefix for HTTPS protocal
-	HTTPSProtocal = "https://"
+	// HTTPProtocol is prefix for HTTP protocol
+	HTTPProtocol = "http://"
+	// HTTPSProtocol is prefix for HTTPS protocol
+	HTTPSProtocol = "https://"
 )
 
 func makeURL(urlTemplate string, a ...interface{}) string {
@@ -141,9 +142,9 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		}
 	}
 
-	p := HTTPProtocal
+	p := HTTPProtocol
 	if CommandlineGlobalFlags.ForceTLS {
-		p = HTTPSProtocal
+		p = HTTPSProtocol
 	}
 	tr := http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: CommandlineGlobalFlags.InsecureSkipVerify},
@@ -152,8 +153,8 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	resp, body := doRequest(httpMethod, p+url, jsonBody, client, cmd)
 
 	msg := string(body)
-	if p == HTTPProtocal && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
-		resp, body = doRequest(httpMethod, HTTPSProtocal+url, jsonBody, client, cmd)
+	if p == HTTPProtocol && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
+		resp, body = doRequest(httpMethod, HTTPSProtocol+url, jsonBody, client, cmd)
 	}
 
 	if !successfulStatusCode(resp.StatusCode) {

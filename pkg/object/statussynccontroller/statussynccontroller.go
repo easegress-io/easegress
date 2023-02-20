@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+// Package statussynccontroller implements the StatusSyncController.
 package statussynccontroller
 
 import (

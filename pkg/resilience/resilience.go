@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package resilience implements the resilience policies.
 package resilience
 
 import (

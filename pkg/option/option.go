@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package option implements the start-up options.
 package option
 
 import (
@@ -32,7 +33,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/version"
 )
 
 // ClusterOptions defines the cluster members.
@@ -159,7 +159,7 @@ func New() *Options {
 
 	opt.flags.IntVar(&opt.StatusUpdateMaxBatchSize, "status-update-max-batch-size", 20, "Number of object statuses to update at maximum in one transaction.")
 
-	opt.viper.BindPFlags(opt.flags)
+	_ = opt.viper.BindPFlags(opt.flags)
 
 	return opt
 }
@@ -181,27 +181,24 @@ func (opt *Options) renameLegacyClusterRoles() {
 	fmtLogger := fmt.Printf // Importing logger here is an import cycle, so use fmt instead.
 	if opt.ClusterRole == "writer" {
 		opt.ClusterRole = "primary"
-		fmtLogger(warning, "writer", "primary")
+		_, _ = fmtLogger(warning, "writer", "primary")
 	}
 	if opt.ClusterRole == "reader" {
 		opt.ClusterRole = "secondary"
-		fmtLogger(warning, "reader", "secondary")
+		_, _ = fmtLogger(warning, "reader", "secondary")
 	}
 }
 
-// Parse parses all arguments, returns normal message without error if --help/--version set.
-func (opt *Options) Parse() (string, error) {
+// Parse parses all arguments, when the user wants to display version information or view help,
+// we do not execute subsequent logic and return directly.
+func (opt *Options) Parse() error {
 	err := opt.flags.Parse(os.Args[1:])
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	if opt.ShowVersion {
-		return version.Short, nil
-	}
-
-	if opt.ShowHelp {
-		return opt.flags.FlagUsages(), nil
+	if opt.ShowVersion || opt.ShowHelp {
+		return nil
 	}
 
 	opt.viper.AutomaticEnv()
@@ -213,7 +210,7 @@ func (opt *Options) Parse() (string, error) {
 		opt.viper.SetConfigType("yaml")
 		err := opt.viper.ReadInConfig()
 		if err != nil {
-			return "", fmt.Errorf("read config file %s failed: %v",
+			return fmt.Errorf("read config file %s failed: %v",
 				opt.ConfigFile, err)
 		}
 	}
@@ -234,7 +231,7 @@ func (opt *Options) Parse() (string, error) {
 		c.TagName = "yaml"
 	})
 	if err != nil {
-		return "", fmt.Errorf("yaml file unmarshal failed, please make sure you provide valid yaml file, %v", err)
+		return fmt.Errorf("yaml file unmarshal failed, please make sure you provide valid yaml file, %v", err)
 	}
 
 	opt.renameLegacyClusterRoles()
@@ -248,17 +245,17 @@ func (opt *Options) Parse() (string, error) {
 
 	err = opt.validate()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	err = opt.prepare()
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	buff, err := codectool.MarshalYAML(opt)
 	if err != nil {
-		return "", fmt.Errorf("marshal config to yaml failed: %v", err)
+		return fmt.Errorf("marshal config to yaml failed: %v", err)
 	}
 	opt.yamlStr = string(buff)
 
@@ -266,7 +263,12 @@ func (opt *Options) Parse() (string, error) {
 		fmt.Printf("%s", opt.yamlStr)
 	}
 
-	return "", nil
+	return nil
+}
+
+// FlagUsages export original flag usages, see FlagSet.FlagUsages.
+func (opt *Options) FlagUsages() string {
+	return opt.flags.FlagUsages()
 }
 
 // ParseURLs parses list of strings to url.URL objects.

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+// Package routers provides the router interface and the implementation of
+// different routing policies.
 package routers
 
 import (

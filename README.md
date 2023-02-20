@@ -158,7 +158,7 @@ make
 
 > **Note**:
 >
-> - This repo requires Go 1.18+ compiler for the build.
+> - This repo requires Go 1.19+ compiler for the build.
 > - If you need the WebAssembly feature, please run `make wasm`.
 
 Then we can add the binary directory to the `PATH` and execute the server:
@@ -193,13 +193,13 @@ configuration file or command-line arguments that are explained well in
 `easegress-server --help`.
 
 ```bash
-$ egctl member list | grep "cluster-role"
-    cluster-role: primary
-$ egctl member list | grep "api-addr"
-    api-addr: localhost:2381
-$ egctl member list | grep "name"
-    name: eg-default-name
-    cluster-name: eg-cluster-default-name
+$ egctl member list | grep "ClusterRole"
+    ClusterRole: primary
+$ egctl member list | grep "APIAddr"
+    APIAddr: localhost:2381
+$ egctl member list | grep "Name"
+    ClusterName: eg-cluster-default-name
+    Name: eg-default-name
 $ egctl member list | grep "id"
     id: 689e371e88f78b6a
 ```

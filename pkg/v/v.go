@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package v implements the common validation logic of Easegress.
 package v
 
 import (

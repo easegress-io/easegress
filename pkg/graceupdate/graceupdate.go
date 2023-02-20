@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package graceupdate provides graceful update for easegress.
 package graceupdate
 
 import (

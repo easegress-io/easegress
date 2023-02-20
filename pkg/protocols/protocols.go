@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package protocols defines the common interface of protocols used in Easegress.
 package protocols
 
 import (
@@ -38,6 +39,9 @@ func Get(name string) Protocol {
 type Request interface {
 	// Header returns the header of the request.
 	Header() Header
+
+	// RealIP returns the real IP of the request.
+	RealIP() string
 
 	// IsStream returns whether the payload is a stream, which cannot be
 	// read for more than once.
@@ -80,6 +84,9 @@ type Request interface {
 type Response interface {
 	// Header returns the header of the response.
 	Header() Header
+
+	// Trailer returns the trailer of the response
+	Trailer() Trailer
 
 	// IsStream returns whether the payload is a stream, which cannot be
 	// read for more than once.
@@ -128,6 +135,9 @@ type Header interface {
 	Walk(fn func(key string, value interface{}) bool)
 	Clone() Header
 }
+
+// Trailer is the trailers of a request or response.
+type Trailer = Header
 
 // Protocol is the interface of a protocol.
 type Protocol interface {

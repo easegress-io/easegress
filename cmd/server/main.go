@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package main is the entry point of Easegress server.
 package main
 
 import (
@@ -42,15 +43,18 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	opt := option.New()
-	msg, err := opt.Parse()
-	if err != nil {
+	if err := opt.Parse(); err != nil {
 		common.Exit(1, err.Error())
 	}
-	if msg != "" {
-		common.Exit(0, msg)
+
+	if opt.ShowVersion {
+		common.Exit(0, version.Short)
+	}
+	if opt.ShowHelp {
+		common.Exit(0, opt.FlagUsages())
 	}
 
-	err = env.InitServerDir(opt)
+	err := env.InitServerDir(opt)
 	if err != nil {
 		log.Printf("failed to init env: %v", err)
 		os.Exit(1)

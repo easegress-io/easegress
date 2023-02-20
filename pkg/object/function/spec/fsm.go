@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package spec provides the spec for FaaS.
 package spec
 
 import (

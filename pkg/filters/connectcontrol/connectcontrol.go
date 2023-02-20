@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package connectcontrol implements filter for controlling connections of MQTT clients
 package connectcontrol
 
 import (

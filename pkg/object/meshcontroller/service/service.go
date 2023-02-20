@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package service provides business layer between mesh and store.
 package service
 
 import (

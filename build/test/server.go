@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package test is for integration testing.
 package test
 
 import (

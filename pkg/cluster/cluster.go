@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package cluster provides the cluster management.
 package cluster
 
 import (

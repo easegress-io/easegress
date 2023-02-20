@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package pipeline provides the pipeline of Easegress.
 package pipeline
 
 import (
@@ -73,7 +74,7 @@ type (
 	FlowNode struct {
 		FilterName  string            `json:"filter" jsonschema:"required,format=urlname"`
 		FilterAlias string            `json:"alias" jsonschema:"omitempty"`
-		Namespace   string            `json:"namespace" jsonshema:"omitempty"`
+		Namespace   string            `json:"namespace" jsonschema:"omitempty"`
 		JumpIf      map[string]string `json:"jumpIf" jsonschema:"omitempty"`
 		filter      filters.Filter
 	}

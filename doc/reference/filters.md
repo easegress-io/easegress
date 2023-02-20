@@ -63,8 +63,8 @@
     - [Results](#results-19)
   - [OPAFilter](#opafilter)
     - [Configuration](#configuration-20)
-    - [Results](#results-20) 
-  - [Redirector](#Redirector)
+    - [Results](#results-20)
+  - [Redirector](#redirector)
     - [Configuration](#configuration-21)
     - [Results](#results-21)
   - [Common Types](#common-types)
@@ -78,7 +78,7 @@
     - [proxy.HealthCheckSpec](#proxyhealthcheckspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
-    - [proxy.StringMatcher](#proxystringmatcher)
+    - [StringMatcher](#stringmatcher)
     - [proxy.MethodAndURLMatcher](#proxymethodandurlmatcher)
     - [urlrule.URLRule](#urlruleurlrule)
     - [proxy.Compression](#proxycompression)
@@ -421,16 +421,20 @@ path:
 
 ### Configuration
 
-| Name       | Type                                         | Description                                                                                                                                                                                                         | Required |
-| -----------| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
-| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
-| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
-| body       | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
-| host       | string                                       | If provided the host of the original request is replaced by the value of this option. | No       |
-| decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                                                                          | No       |
-| compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                                                              | No       |
+| Name       | Type                                         | Description                                                                                                                                                            | Required |
+| -----------| -------------------------------------------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------| -------- |
+| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                | No       |
+| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                           | No       |
+| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                         | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option.                                                                                  | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option.                                                                                  | No       |
+| decompress | string                                       | If provided, the request body is replaced by the value of decompressed body. Now support "gzip" decompress                                                             | No       |
+| compress   | string                                       | If provided, the request body is replaced by the value of compressed body. Now support "gzip" compress                                                                 | No       |
 | sign   | [requestadaptor.SignerSpec](#requestadaptorsignerspec) | If provided, sign the request using the [Amazon Signature V4](https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html) signing process with the configuration | No       |
+| template        | string | template to create request adaptor, please refer the [template](#template-of-builder-filters) for more information                                                       | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`                                                                                                                 | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}`                                                                                                                | No       |
+NOTE: template field takes higher priority than the static field with the same name.
 
 ### Results
 
@@ -550,12 +554,16 @@ header:
 
 ### Configuration
 
-| Name   | Type     | Description   | Required |
-| ------ | -------- |-------------- | -------- |
-| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
-| body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |
-| compress | string | compress body, currently only support gzip | No |
-| decompress | string | decompress body, currently only support gzip | No |
+| Name   | Type     | Description                                                                                                         | Required |
+| ------ | -------- |---------------------------------------------------------------------------------------------------------------------| -------- |
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                      | No       |
+| body   | string   | If provided the body of the original request is replaced by the value of this option.                               | No       |
+| compress | string | compress body, currently only support gzip                                                                          | No |
+| decompress | string | decompress body, currently only support gzip                                                                        | No |
+| template        | string | template to create response adaptor, please refer the [template](#template-of-builder-filters) for more information | No       |
+| leftDelim       | string | left action delimiter of the template, default is `{{`                                                              | No       |
+| rightDelim      | string | right action delimiter of the template, default is `}}`                                                             | No       |
+NOTE: template field takes higher priority than the static field with the same name.
 
 ### Results
 
@@ -1289,8 +1297,9 @@ output: https://example.com/api/user/123
 | replacement | string | Replacement when the match succeeds. Placeholders like `$1`, `$2` can be used to represent the sub-matches in `regexp` | Yes | 
 | statusCode | int | Status code of response. Supported values: 301, 302, 303, 304, 307, 308. Default: 301. | No | 
 ### Results
-
-`Redirector` has no results. 
+| Value | Description |
+| ----- | ----------- |
+| redirected | The request has been redirected |
 
 ## Common Types
 
@@ -1396,13 +1405,13 @@ Polices:
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
-| headers     | map[string][proxy.StringMatcher](#proxystringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
+| headers     | map[string][StringMatcher](#stringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
 | urls        | [][proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)                  | Request URL match criteria                                                                                                  | No       |
 | permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
 | matchAllHeaders | bool | All rules in headers should be match | No |
 | headerHashKey | string | Used by policy `headerHash`. | No |
 
-### proxy.StringMatcher
+### StringMatcher
 
 The relationship between `exact`, `prefix`, and `regex` is `OR`.
 
@@ -1420,7 +1429,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name    | Type                                       | Description                                                      | Required |
 | ------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url     | [proxy.StringMatcher](#proxystringmatcher) | Criteria to match a  URL                                          | Yes      |
+| url     | [StringMatcher](#stringmatcher) | Criteria to match a  URL                                          | Yes      |
 
 ### urlrule.URLRule
 
@@ -1429,7 +1438,7 @@ The relationship between `methods` and `url` is `AND`.
 | Name      | Type                                       | Description                                                      | Required |
 | --------- | ------------------------------------------ | ---------------------------------------------------------------- | -------- |
 | methods   | []string                                   | HTTP method criteria, Default is an empty list means all methods | No       |
-| url       | [urlrule.StringMatch](#urlruleStringMatch) | Criteria to match a URL                                          | Yes      |
+| url       | [StringMatcher](#StringMatcher) | Criteria to match a URL                                          | Yes      |
 | policyRef | string                                     | Name of resilience policy for matched requests                   | No       |
 
 
@@ -1474,7 +1483,7 @@ The relationship between `methods` and `url` is `AND`.
 | path       | string            | Path match criteria, if request path is the value of this option, then the response of the request is mocked according to this rule                 | No       |
 | pathPrefix | string            | Path prefix match criteria, if request path begins with the value of this option, then the response of the request is mocked according to this rule | No       |
 | matchAllHeaders | bool          | Whether to match all headers | No       |
-| headers    | map[string][url.StringMatch](#urlrulestringmatch) | Headers to match, key is a header name, value is the rule to match the header value | No |
+| headers    | map[string][StringMatcher](#stringmatcher) | Headers to match, key is a header name, value is the rule to match the header value | No |
 
 
 ### ratelimiter.Policy
@@ -1691,3 +1700,20 @@ result YAML varies from filters and protocols.
   | statusCode | int | HTTP status code, default is 200.  | No |
   | headers | map[string][]string | Headers of the result request. | No |
   | body | string | Body of the result request. | No |
+
+* **Schema of RequestAdaptor**
+
+| Name | Type | Description | Required |
+|------|------|-------------|----------|
+| method     | string                                       | If provided, the method of the original request is replaced by the value of this option                                                                                                                             | No       |
+| path       | [pathadaptor.Spec](#pathadaptorSpec)         | Rules to revise request path                                                                                                                                                                                        | No       |
+| header     | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header                                                                                                                                                                                      | No       |
+| body       | string                                       | If provided the body of the original request is replaced by the value of this option. | No       |
+| host       | string                                       | If provided the host of the original request is replaced by the value of this option. | No       |
+
+* **Schema of ResponseAdaptor**
+
+| Name | Type | Description | Required |
+|------|------|-------------|----------|
+| header | [httpheader.AdaptSpec](#httpheaderAdaptSpec) | Rules to revise request header    | No       |
+| body   | string   | If provided the body of the original request is replaced by the value of this option. | No       |

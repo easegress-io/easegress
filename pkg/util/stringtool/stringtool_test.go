@@ -60,3 +60,46 @@ func TestIsAnyEmpty(t *testing.T) {
 	assert.False(IsAnyEmpty("a", "a", "a"))
 	assert.False(IsAnyEmpty([]string{"a", "a", "a"}...))
 }
+
+func TestStringMatcher(t *testing.T) {
+	assert := assert.New(t)
+
+	// validation
+	sm := &StringMatcher{Empty: true}
+	assert.NoError(sm.Validate())
+	sm.Init()
+
+	sm = &StringMatcher{Empty: true, Exact: "abc"}
+	assert.Error(sm.Validate())
+
+	sm = &StringMatcher{}
+	assert.Error(sm.Validate())
+
+	sm = &StringMatcher{RegEx: "^abc[0-9]+$"}
+	assert.NoError(sm.Validate())
+	sm.Init()
+
+	sm.Prefix = "/xyz"
+	assert.NoError(sm.Validate())
+
+	sm.Exact = "/abc"
+	assert.NoError(sm.Validate())
+
+	// match
+	sm = &StringMatcher{Empty: true}
+	assert.True(sm.Match(""))
+	assert.False(sm.Match("abc"))
+
+	sm = &StringMatcher{RegEx: "^abc[0-9]+$"}
+	sm.Init()
+	assert.True(sm.Match("abc123"))
+	assert.False(sm.Match("abc123d"))
+
+	sm.Prefix = "/xyz"
+	assert.True(sm.Match("/xyz123"))
+	assert.False(sm.Match("/Xyz123"))
+
+	sm.Exact = "/hello"
+	assert.True(sm.Match("/hello"))
+	assert.False(sm.Match("/Hello"))
+}

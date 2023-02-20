@@ -25,6 +25,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 )
 
+// TopicManager is the interface of a topic manager.
 type TopicManager interface {
 	subscribe(topics []string, qoss []byte, clientID string) error
 	unsubscribe(topics []string, clientID string) error

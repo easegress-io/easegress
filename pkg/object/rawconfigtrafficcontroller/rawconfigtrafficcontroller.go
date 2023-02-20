@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package rawconfigtrafficcontroller implements the RawConfigTrafficController.
 package rawconfigtrafficcontroller
 
 import (
@@ -184,9 +185,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 
 // Status returns the status of RawConfigTrafficController.
 // StatusInSameNamespace:
-//  - Namespace: default -> DefaultNamespace
-//  - TrafficGates: map[objectName]objectStatus
-//  - Pipelines: map[objectName]objectStatus
+//   - Namespace: default -> DefaultNamespace
+//   - TrafficGates: map[objectName]objectStatus
+//   - Pipelines: map[objectName]objectStatus
 func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 	return &supervisor.Status{
 		ObjectStatus: struct{}{},

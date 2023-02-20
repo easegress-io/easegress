@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package ingresscontroller implements the ingress controller for service mesh.
 package ingresscontroller
 
 import (

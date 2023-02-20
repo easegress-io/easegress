@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
+// Package meshadaptor provides MeshAdaptor filter.
 package meshadaptor
 
 import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 	"github.com/megaease/easegress/pkg/util/pathadaptor"

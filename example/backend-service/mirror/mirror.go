@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package main is the entry point of the simple mirror server.
 package main
 
 import (

@@ -114,6 +114,25 @@ rules:
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
 | caCertBase64     | string                             | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
 | globalFilter     | string                             | Name of [GlobalFilter](#globalfilter) for all backends                                   | No                   |
+| accessLogFormat | string | Format of access log, default is `[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]`, variable is delimited by "{{" and "}}", please refer [Access Log Variable](#accesslogvariable) for all built-in variables | No |
+
+### AccessLogVariable
+
+| Name             | Description                                                       | 
+| ---------------- | ----------------------------------------------------------------- | 
+| Time             | Start time for handling the request
+| RemoteAddr       | Network address that sent the request
+| RealIP           | Real IP of the request
+| Method           | HTTP method (GET, POST, PUT, etc.) for the request
+| URI              | Unmodified request-target of the Request-Line
+| Proto            | Protocol version for the request
+| StatusCode       | HTTP status code for the response
+| Duration         | Duration time for handing the request
+| ReqSize          | Size read from the request
+| RespSize         | Size write to the response
+| ReqHeaders       | Request HTTP headers
+| RespHeaders      | Response HTTP headers
+| Tags             | Tags for handing the request
 
 #### Pipeline
 

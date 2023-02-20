@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package filterwriter provides a filter writer.
 package filterwriter
 
 import (

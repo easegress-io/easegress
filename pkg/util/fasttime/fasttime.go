@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package fasttime provides fast time.Now() and time.Since() and time.Format().
 package fasttime
 
 import (

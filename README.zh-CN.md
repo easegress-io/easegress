@@ -152,7 +152,7 @@ make
 
 > **注意事项**：
 >
-> - 我们需要 Go 1.18 以上版本的编译器
+> - 我们需要 Go 1.19 以上版本的编译器
 > - 如果需要支持 WebAssembly 的版本，你需要运行 `make wasm`
 
 然后把二进制所在目录添加到 `PATH` 中，并启动服务：
@@ -181,13 +181,13 @@ Makefile 默认会将两个二进制文件编译到 `bin/` 目录中。`bin/ease
 如果启动时不指定任何参数，`easegress-server` 会默认使用端口 2379、2380 和 2381。我们可以在配置文件中更改默认端口，或者在命令行启动时指定相关参数（参数具体释义可通过执行 `easegress-server --help` 命令获取）。
 
 ```bash
-$ egctl member list | grep "cluster-role"
-    cluster-role: primary
-$ egctl member list | grep "api-addr"
-    api-addr: localhost:2381
-$ egctl member list | grep "name"
-    name: eg-default-name
-    cluster-name: eg-cluster-default-name
+$ egctl member list | grep "ClusterRole"
+    ClusterRole: primary
+$ egctl member list | grep "APIAddr"
+    APIAddr: localhost:2381
+$ egctl member list | grep "Name"
+    ClusterName: eg-cluster-default-name
+    Name: eg-default-name
 $ egctl member list | grep "id"
     id: 689e371e88f78b6a
 ```

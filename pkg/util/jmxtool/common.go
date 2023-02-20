@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package jmxtool provides some tools for jmx
 package jmxtool
 
 import (

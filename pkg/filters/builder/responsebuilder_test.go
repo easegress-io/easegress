@@ -43,13 +43,6 @@ func getResponseBuilder(spec *ResponseBuilderSpec) *ResponseBuilder {
 	return rb
 }
 
-func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
-	r, err := httpprot.NewRequest(req)
-	r.FetchPayload(1024 * 1024)
-	assert.Nil(t, err)
-	ctx.SetRequest(ns, r)
-}
-
 func TestStatusCode(t *testing.T) {
 	assert := assert.New(t)
 

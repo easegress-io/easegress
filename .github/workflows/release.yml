@@ -6,7 +6,7 @@ on:
       - "v*"
 
 env:
-  GO_VERSION: 1.18
+  GO_VERSION: 1.19
 
 permissions:
   contents: write
@@ -80,7 +80,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: goreleaser/goreleaser-action@v3
+      - uses: goreleaser/goreleaser-action@v4
         with:
           version: latest
           args: release --rm-dist

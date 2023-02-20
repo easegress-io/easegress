@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package profile provides profile related functions.
 package profile
 
 import (

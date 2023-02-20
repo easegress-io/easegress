@@ -68,11 +68,12 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: "[{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]"
+    body: |
+      [{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]
 '  | egctl object create
 ```
 
-1. Creating an HTTPServer for forwarding the traffic to this pipeline.
+2. Creating an HTTPServer for forwarding the traffic to this pipeline.
 
 ``` bash
 echo '
@@ -147,7 +148,8 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: "{{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}"
+    body: |
+      {{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}
 '  | egctl object update
 ```
 
@@ -181,6 +183,7 @@ flow:
   namespace: demo3
 - filter: proxy-demo1
   namespace: demo1
+  jumpIf: { serverError: proxy-demo2 }
 - filter: proxy-demo2
   namespace: demo2
 - filter: proxy-demo3

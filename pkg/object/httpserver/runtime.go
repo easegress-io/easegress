@@ -28,8 +28,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/lucas-clemente/quic-go"
-	"github.com/lucas-clemente/quic-go/http3"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/graceupdate"
@@ -66,7 +66,7 @@ type (
 
 	eventCheckFailed struct{}
 	eventServeFailed struct {
-		startNum uint64
+		roundNum uint64
 		err      error
 	}
 	eventReload struct {
@@ -81,7 +81,7 @@ type (
 		server    *http.Server
 		server3   *http3.Server
 		mux       *mux
-		startNum  uint64
+		roundNum  uint64
 		eventChan chan interface{}
 
 		// status
@@ -239,7 +239,7 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 	x.CacheSize, y.CacheSize = 0, 0
 	x.XForwardedFor, y.XForwardedFor = false, false
 	x.Tracing, y.Tracing = nil, nil
-	x.IPFilterSpec, y.IPFilterSpec = nil, nil
+	x.IPFilter, y.IPFilter = nil, nil
 	x.Rules, y.Rules = nil, nil
 
 	// The update of rules need not to shutdown server.
@@ -247,7 +247,7 @@ func (r *runtime) needRestartServer(nextSpec *Spec) bool {
 }
 
 func (r *runtime) startServer() {
-	r.startNum++
+	r.roundNum++
 	r.setState(stateRunning)
 	r.setError(nil)
 
@@ -279,14 +279,14 @@ func (r *runtime) startHTTP3Server() {
 	}
 
 	// to avoid data race
-	startNum := r.startNum
+	roundNum := r.roundNum
 	srv := r.server3
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			r.eventChan <- &eventServeFailed{
 				err:      err,
-				startNum: startNum,
+				roundNum: roundNum,
 			}
 		}
 	}()
@@ -320,7 +320,7 @@ func (r *runtime) startHTTP1And2Server() {
 
 	// to avoid data race
 	spec := r.spec
-	startNum := r.startNum
+	roundNum := r.roundNum
 	srv := r.server
 
 	go func() {
@@ -335,7 +335,7 @@ func (r *runtime) startHTTP1And2Server() {
 		if err != http.ErrServerClosed {
 			r.eventChan <- &eventServeFailed{
 				err:      err,
-				startNum: startNum,
+				roundNum: roundNum,
 			}
 		}
 	}()
@@ -382,7 +382,7 @@ func (r *runtime) handleEventCheckFailed(e *eventCheckFailed) {
 }
 
 func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
-	if r.startNum > e.startNum {
+	if r.roundNum > e.roundNum {
 		return
 	}
 	r.setState(stateFailed)
@@ -441,14 +441,14 @@ type (
 // newMetrics create the HttpServerMetrics.
 func (r *runtime) newMetrics(name string) *metrics {
 	commonLabels := prometheus.Labels{
-		"name":         name,
-		"kind":         Kind,
-		"clusterName":  r.superSpec.Super().Options().ClusterName,
-		"clusterRole":  r.superSpec.Super().Options().ClusterRole,
-		"instanceName": r.superSpec.Super().Options().Name,
+		"httpServerName": name,
+		"kind":           Kind,
+		"clusterName":    r.superSpec.Super().Options().ClusterName,
+		"clusterRole":    r.superSpec.Super().Options().ClusterRole,
+		"instanceName":   r.superSpec.Super().Options().Name,
 	}
 	httpserverLabels := []string{"clusterName", "clusterRole",
-		"instanceName", "name", "kind", "routerKind", "backend"}
+		"instanceName", "httpServerName", "kind", "routerKind", "backend"}
 	return &metrics{
 		Health: prometheushelper.NewGauge(
 			"httpserver_health",

@@ -23,12 +23,13 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/filters/mock"
-	"github.com/megaease/easegress/pkg/filters/proxy"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/pkg/logger"
 	_ "github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/megaease/easegress/pkg/util/urlrule"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 )
@@ -195,7 +196,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "delivery-mesh",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -238,7 +239,7 @@ func TestSidecarEgressPipelineSpec(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -258,7 +259,7 @@ func TestSidecarEgressPipelineWithCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-002-canary",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -422,7 +423,7 @@ func TestSidecarEgressPipelineWithMultipleCanarySpec(t *testing.T) {
 	s := &Service{
 		Name: "order-003-canary-array",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -471,7 +472,7 @@ func TestSidecarEgressPipelineWithCanaryNoInstanceSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-004-canary-no-instance",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -520,7 +521,7 @@ func TestSidecarEgressPipelineWithCanaryInstanceMultipleLabelSpec(t *testing.T) 
 	s := &Service{
 		Name: "order-005-canary-instance-multiple-label",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -589,7 +590,7 @@ func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyRandom,
+			Policy: proxies.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -610,7 +611,7 @@ func TestSidecarIngressWithResiliencePipelineSpec(t *testing.T) {
 				URLs: []*ratelimiter.URLRule{{
 					URLRule: urlrule.URLRule{
 						Methods: []string{"GET"},
-						URL: urlrule.StringMatch{
+						URL: stringtool.StringMatcher{
 							Exact:  "/path1",
 							Prefix: "/path2/",
 							RegEx:  "^/path3/[0-9]+$",
@@ -630,7 +631,7 @@ func TestSidecarEgressResiliencePipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyIPHash,
+			Policy: proxies.LoadBalancePolicyIPHash,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -716,7 +717,7 @@ func TestPipelineBuilder(t *testing.T) {
 		URLs: []*ratelimiter.URLRule{{
 			URLRule: urlrule.URLRule{
 				Methods: []string{"GET"},
-				URL: urlrule.StringMatch{
+				URL: stringtool.StringMatcher{
 					Exact:  "/path1",
 					Prefix: "/path2/",
 					RegEx:  "^/path3/[0-9]+$",
@@ -738,7 +739,7 @@ func TestIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyRandom,
+			Policy: proxies.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -790,7 +791,7 @@ func TestSidecarIngressPipelineSpecCert(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyRandom,
+			Policy: proxies.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -835,7 +836,7 @@ func TestSidecarIngressPipelineSpec(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyRandom,
+			Policy: proxies.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -865,7 +866,7 @@ func TestEgressName(t *testing.T) {
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{
-			Policy: proxy.LoadBalancePolicyRandom,
+			Policy: proxies.LoadBalancePolicyRandom,
 		},
 		Sidecar: &Sidecar{
 			Address:         "127.0.0.1",
@@ -946,7 +947,7 @@ func TestAppendProxyWithCanary(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
@@ -976,7 +977,7 @@ func TestAppendMeshAdaptor(t *testing.T) {
 				},
 			},
 			TrafficRules: &TrafficRules{
-				Headers: map[string]*proxy.StringMatcher{
+				Headers: map[string]*stringtool.StringMatcher{
 					"X-Location": {
 						Exact: "Beijing",
 					},
