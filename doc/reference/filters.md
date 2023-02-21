@@ -1524,19 +1524,18 @@ The relationship between `methods` and `url` is `AND`.
 
 ### basicAuth.LDAPSpec
 
-| Name         | Type   | Description                                                                                                                                           | Required |
-|--------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| host         | string | The host of the LDAP server      | Yes      |
-| port         | int    | The port of the LDAP server      | Yes      |
-| baseDN       | string | The base dn of the LDAP server, e.g. `ou=users,dc=example,dc=org`                                                    | Yes      |
-| uid          | string | The user attribute used to bind user, e.g. `cn`                                                       | Yes      |
-| useSSL       | bool   | Whether to use SSL               | No       |
-| skipTLS      | bool   | Whether to skip `StartTLS`       | No       |
-| insecure     | bool   | Whether to skip verifying LDAP server's
-	certificate chain and host name                          | No       |
-| serverName   | string | Server name used to verify certificate when `insecure` is `false`                                                    | No       |
-| certBase64   | string | Base64 encoded certificate       | No       |
-| keyBase64    | string | Base64 encoded key               | No       |
+| Name         | Type   | Description                                                             | Required |
+|--------------|--------|-------------------------------------------------------------------------|----------|
+| host         | string | The host of the LDAP server                                             | Yes      |
+| port         | int    | The port of the LDAP server                                             | Yes      |
+| baseDN       | string | The base dn of the LDAP server, e.g. `ou=users,dc=example,dc=org`       | Yes      |
+| uid          | string | The user attribute used to bind user, e.g. `cn`                         | Yes      |
+| useSSL       | bool   | Whether to use SSL                                                      | No       |
+| skipTLS      | bool   | Whether to skip `StartTLS`                                              | No       |
+| insecure     | bool   | Whether to skip verifying LDAP server's certificate chain and host name | No       |
+| serverName   | string | Server name used to verify certificate when `insecure` is `false`       | No       |
+| certBase64   | string | Base64 encoded certificate                                              | No       |
+| keyBase64    | string | Base64 encoded key                                                      | No       |
 
 ### signer.Spec
 
@@ -1553,10 +1552,11 @@ The relationship between `methods` and `url` is `AND`.
 
 ### signer.HeaderHoisting
 
-| Name | Type | Description | Required |
-| allowedPrefix | []string | Allowed prefix for headers | No |
-| disallowedPrefix | []string | Disallowed prefix for headers | No |
-| disallowed | []string | Disallowed headers | No |
+| Name             | Type     | Description                   | Required |
+|------------------|----------|-------------------------------|----------|
+| allowedPrefix    | []string | Allowed prefix for headers    | No       |
+| disallowedPrefix | []string | Disallowed prefix for headers | No       |
+| disallowed       | []string | Disallowed headers            | No       |
 
 ### signer.Literal
 
