@@ -434,7 +434,8 @@ path:
 | template        | string | template to create request adaptor, please refer the [template](#template-of-builder-filters) for more information                                                       | No       |
 | leftDelim       | string | left action delimiter of the template, default is `{{`                                                                                                                 | No       |
 | rightDelim      | string | right action delimiter of the template, default is `}}`                                                                                                                | No       |
-NOTE: template field takes higher priority than the static field with the same name.
+
+**NOTE**: template field takes higher priority than the static field with the same name.
 
 ### Results
 
@@ -563,7 +564,8 @@ header:
 | template        | string | template to create response adaptor, please refer the [template](#template-of-builder-filters) for more information | No       |
 | leftDelim       | string | left action delimiter of the template, default is `{{`                                                              | No       |
 | rightDelim      | string | right action delimiter of the template, default is `}}`                                                             | No       |
-NOTE: template field takes higher priority than the static field with the same name.
+
+**NOTE**: template field takes higher priority than the static field with the same name.
 
 ### Results
 
