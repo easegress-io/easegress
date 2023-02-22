@@ -362,6 +362,12 @@ func (wh *WasmHost) Handle(ctx *context.Context) (result string) {
 		}
 	}()
 
+	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+	ctx.SetOutputResponse(resp)
+
 	r := vm.Run() // execute wasm code
 	n, ok := r.(int32)
 	if !ok || n < 0 || n > maxWasmResult {
