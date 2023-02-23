@@ -421,8 +421,8 @@ filters:
     kind: WasmHost
     parameters:                                        # +
       startTime: "2021-08-08T00:00:00+00:00"           # +
-      blockRatio: 0.4                                  # +
-      maxPermission: 3                                 # +
+      blockRatio: "0.4"                                # +
+      maxPermission: "3"                               # +
 ```
 
 And then revise the `constructor` of the program to read in these parameters:
