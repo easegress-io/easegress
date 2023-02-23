@@ -48,7 +48,7 @@ func (s *Server) isFilterExist(pipeline, filter, kind string) bool {
 	}
 
 	for i := range filters {
-		f, _ := filters[i].(map[interface{}]interface{})
+		f, _ := filters[i].(map[string]interface{})
 		if f == nil {
 			continue
 		}
