@@ -1,4 +1,4 @@
-There are two implementation versions of `objectpool`, one is based on `sync.Lock`, and the other is lock-free. Their benchmark results in my PC (goos: windows/goarch: amd64/cpu: Intel(R) Xeon(R) Gold 6151 CPU @ 3.00GHz) are shown in the following list.You can also execute a command like `go test -bench="^Benchmar" -benchtime=30s -count=3 -cpu=1,2,4,8 -timeout=1h` to get its performance results on your machine.
+There are two implementation versions of `objectpool`, one is based on `sync.Mutex`, and the other is lock-free. Their benchmark results in my PC (goos: windows/goarch: amd64/cpu: Intel(R) Xeon(R) Gold 6151 CPU @ 3.00GHz) are shown in the following list.You can also execute a command like `go test -bench="^Benchmar" -benchtime=30s -count=3 -cpu=1,2,4,8 -timeout=1h` to get its performance results on your machine.
 
 | func name                                                          | sync.free ns/op | sync.Lock ns/op |
 |:-------------------------------------------------------------------|:---------------:|:---------------:|

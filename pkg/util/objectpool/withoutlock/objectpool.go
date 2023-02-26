@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package withoutlock provides Pool of IPoolObject base on sync-free
 package withoutlock
 
 import (

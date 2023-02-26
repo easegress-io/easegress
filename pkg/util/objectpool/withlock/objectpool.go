@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package withlock provides Pool of IPoolObject base on sync.Mutex
 package withlock
 
 import (
@@ -141,7 +142,7 @@ func (p *Pool) createIPoolObject() IPoolObject {
 	defer p.lock.Unlock()
 	for i := 0; i < int(p.maxSize-p.size); i++ {
 		if iPoolObject, err := p.new(); err == nil && (!p.checkWhenGet || (p.checkWhenGet && iPoolObject.HealthCheck())) {
-			p.size += 1
+			p.size++
 			return iPoolObject
 		}
 	}
@@ -151,7 +152,7 @@ func (p *Pool) createIPoolObject() IPoolObject {
 func (p *Pool) destroyIPoolObject(object IPoolObject) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	p.size -= 1
+	p.size--
 	object.Destroy()
 }
 
