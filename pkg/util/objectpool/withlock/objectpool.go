@@ -22,8 +22,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/megaease/easegress/pkg/logger"
+	"runtime"
 	"sync"
-	"sync/atomic"
+)
+
+const (
+	maxBackoff = 16
 )
 
 // IPoolObject is definition of object that managed by pool
@@ -38,7 +42,7 @@ type (
 		initSize     int32                       // initial size
 		maxSize      int32                       // max size
 		size         int32                       // current size
-		new          func() (IPoolObject, error) // create a new object
+		new          func() (IPoolObject, error) // create a new object, it must return a health object or err
 		store        chan IPoolObject            // store the object
 		lock         sync.Mutex                  // lock for sync
 		checkWhenGet bool                        // whether to health check when get IPoolObject
@@ -106,7 +110,7 @@ func (p *Pool) init() error {
 			logger.Errorf("create pool object failed or object of pool is not healthy when init pool:, err %v", err)
 			continue
 		}
-		atomic.AddInt32(&p.size, 1)
+		p.size++
 		p.store <- iPoolObject
 	}
 	return nil
@@ -116,6 +120,7 @@ func (p *Pool) init() error {
 // if no free object, it will create a new one if the pool is not full
 // if the pool is full, it will block until an object is returned to the pool
 func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
+	backoff := 1
 	for {
 		select {
 		case <-ctx.Done():
@@ -133,6 +138,12 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 			if iPoolObject := p.createIPoolObject(); iPoolObject != nil {
 				return iPoolObject, nil
 			}
+			for i := 0; i < backoff; i++ {
+				runtime.Gosched()
+			}
+			if backoff < maxBackoff {
+				backoff <<= 1
+			}
 		}
 	}
 }
@@ -141,7 +152,7 @@ func (p *Pool) createIPoolObject() IPoolObject {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	for i := 0; i < int(p.maxSize-p.size); i++ {
-		if iPoolObject, err := p.new(); err == nil && (!p.checkWhenGet || (p.checkWhenGet && iPoolObject.HealthCheck())) {
+		if iPoolObject, err := p.new(); err == nil {
 			p.size++
 			return iPoolObject
 		}

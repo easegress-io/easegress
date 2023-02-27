@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"github.com/megaease/easegress/pkg/logger"
 	"runtime"
-	"strconv"
-	"strings"
 	"sync/atomic"
 )
 
@@ -42,7 +40,7 @@ type (
 		initSize     int32                       // initial size
 		maxSize      int32                       // max size
 		size         int32                       // current size
-		new          func() (IPoolObject, error) // create a new object
+		new          func() (IPoolObject, error) // create a new object, it must return a health object or err
 		store        chan IPoolObject            // store the object
 		checkWhenGet bool                        // whether to health check when get IPoolObject
 		checkWhenPut bool                        // whether to health check when put IPoolObject
@@ -109,7 +107,7 @@ func (p *Pool) init() error {
 			logger.Errorf("create pool object failed or object of pool is not healthy when init pool:, err %v", err)
 			continue
 		}
-		atomic.AddInt32(&p.size, 1)
+		p.size++
 		p.store <- iPoolObject
 	}
 	return nil
@@ -125,25 +123,18 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case poolObject := <-p.store:
-			//fmt.Printf("[%d] id %d size %d got oj from channel\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 			if p.checkWhenGet && !poolObject.HealthCheck() {
-				//fmt.Printf("[%d] id %d size %d would destroy oj\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 				p.destroyIPoolObject(poolObject)
 				if poolObject = p.createIPoolObject(); poolObject != nil {
-					//fmt.Printf("[%d] id %d size %d created new ob after destroy\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 					return poolObject, nil
 				}
 				continue
 			}
-			//fmt.Printf("[%d] id %d size %d checked ob from channel\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 			return poolObject, nil
 		default:
-			//fmt.Printf("[%d] id %d size %d enter default case\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 			if iPoolObject := p.createIPoolObject(); iPoolObject != nil {
-				//fmt.Printf("[%d] id %d size %d created new oj when default case\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 				return iPoolObject, nil
 			}
-			//fmt.Printf("[%d] id %d size %d would go backoff\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 			for i := 0; i < backoff; i++ {
 				runtime.Gosched()
 			}
@@ -161,23 +152,12 @@ func (p *Pool) createIPoolObject() IPoolObject {
 	}
 
 	for i := 0; i <= int(p.maxSize); i++ {
-		if iPoolObject, err := p.new(); err == nil && (!p.checkWhenGet || (p.checkWhenGet && iPoolObject.HealthCheck())) {
+		if iPoolObject, err := p.new(); err == nil {
 			return iPoolObject
 		}
 	}
 	atomic.AddInt32(&p.size, -1)
 	return nil
-}
-
-func goID() int {
-	var buf [64]byte
-	n := runtime.Stack(buf[:], false)
-	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
-	id, err := strconv.Atoi(idField)
-	if err != nil {
-		panic(fmt.Sprintf("cannot get goroutine id: %v", err))
-	}
-	return id
 }
 
 func (p *Pool) destroyIPoolObject(object IPoolObject) {
@@ -191,11 +171,9 @@ func (p *Pool) Put(obj IPoolObject) {
 		return
 	}
 	if p.checkWhenPut && !obj.HealthCheck() {
-		//fmt.Printf("[%d] id %d size %d destroy ob when put back\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 		p.destroyIPoolObject(obj)
 		return
 	}
-	//fmt.Printf("[%d] id %d size %d done put\n", time.Now().UnixMicro(), goID(), atomic.LoadInt32(&p.size))
 	p.store <- obj
 	return
 }
