@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/MicahParks/keyfunc v1.9.0
-	github.com/Shopify/sarama v1.37.2
+	github.com/Shopify/sarama v1.38.1
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.4.1
 	github.com/fatih/color v1.14.1
@@ -143,7 +143,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/eapache/go-resiliency v1.3.0 // indirect
-	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
+	github.com/eapache/go-xerial-snappy v0.0.0-20230111030713-bf00bc1b83b6 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
@@ -201,7 +201,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
-	github.com/klauspost/compress v1.15.11 // indirect
+	github.com/klauspost/compress v1.15.14 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
