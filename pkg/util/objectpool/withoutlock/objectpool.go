@@ -146,16 +146,20 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 }
 
 func (p *Pool) createIPoolObject() IPoolObject {
-	if atomic.AddInt32(&p.size, 1) > p.maxSize {
-		atomic.AddInt32(&p.size, -1)
-		return nil
-	}
-
-	for i := 0; i <= int(p.maxSize); i++ {
-		if iPoolObject, err := p.new(); err == nil {
-			return iPoolObject
+	for {
+		size := atomic.LoadInt32(&p.size)
+		if size > p.maxSize {
+			return nil
+		}
+		if atomic.CompareAndSwapInt32(&p.size, size, size+1) {
+			break
 		}
 	}
+
+	if iPoolObject, err := p.new(); err == nil {
+		return iPoolObject
+	}
+
 	atomic.AddInt32(&p.size, -1)
 	return nil
 }

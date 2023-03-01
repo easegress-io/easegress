@@ -151,11 +151,11 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 func (p *Pool) createIPoolObject() IPoolObject {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	for i := 0; i < int(p.maxSize-p.size); i++ {
-		if iPoolObject, err := p.new(); err == nil {
-			p.size++
-			return iPoolObject
-		}
+
+	if iPoolObject, err := p.new(); err == nil {
+		p.size++
+		return iPoolObject
+
 	}
 	return nil
 }
