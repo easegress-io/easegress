@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package withlock
+package objectpool
 
 import (
 	"context"
@@ -37,18 +37,18 @@ func TestValidate(t *testing.T) {
 	assertions := assert.New(t)
 
 	spec := &Spec{
-		initSize: 3,
-		maxSize:  2,
+		InitSize: 3,
+		MaxSize:  2,
 	}
 
 	err := spec.Validate()
 	assertions.Nil(err)
-	assertions.True(spec.maxSize == spec.initSize)
+	assertions.True(spec.MaxSize == spec.InitSize)
 
-	spec.maxSize = 0
+	spec.MaxSize = 0
 	assertions.NoError(spec.Validate())
 
-	spec.initSize, spec.maxSize = 0, 0
+	spec.InitSize, spec.MaxSize = 0, 0
 	assertions.Error(spec.Validate())
 }
 
@@ -69,22 +69,22 @@ func (f *fakeNormalPoolObject) HealthCheck() bool {
 	return random != 8
 }
 
-// fakeUnHealthPoolObject 80% unhealthy poolObject
-type fakeUnHealthPoolObject struct {
+// fakeAlmostUnHealthPoolObject 80% unhealthy poolObject
+type fakeAlmostUnHealthPoolObject struct {
 }
 
-func (f *fakeUnHealthPoolObject) Destroy() {
+func (f *fakeAlmostUnHealthPoolObject) Destroy() {
 
 }
 
-func (f *fakeUnHealthPoolObject) HealthCheck() bool {
+func (f *fakeAlmostUnHealthPoolObject) HealthCheck() bool {
 	random := rand.Intn(10)
 	return random >= 8
 }
 
 func TestNewSimplePool(t *testing.T) {
 	init, max := 2, 4
-	pool := NewSimplePool(int32(init), int32(max), func() (IPoolObject, error) {
+	pool := New(int32(init), int32(max), func() (IPoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
 	})
 
@@ -101,7 +101,7 @@ func getAndPut(pool *Pool) {
 }
 
 func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake IPoolObject, b *testing.B) {
-	pool := NewSimplePool(int32(iPoolObjNum/2), int32(iPoolObjNum), func() (IPoolObject, error) {
+	pool := New(int32(iPoolObjNum/2), int32(iPoolObjNum), func() (IPoolObject, error) {
 		return fake, nil
 	})
 	ch := make(chan struct{})
@@ -145,9 +145,9 @@ func BenchmarkGoroutine4TimesIPoolObject(b *testing.B) {
 }
 
 func BenchmarkGoroutine2TimesIPoolObjectWithAlmostUnHealthIPoolObject(b *testing.B) {
-	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 4, &fakeUnHealthPoolObject{}, b)
+	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 4, &fakeAlmostUnHealthPoolObject{}, b)
 }
 
 func BenchmarkGoroutine4TimesIPoolObjectWithAlmostUnHealthIPoolObject(b *testing.B) {
-	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 8, &fakeUnHealthPoolObject{}, b)
+	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 8, &fakeAlmostUnHealthPoolObject{}, b)
 }

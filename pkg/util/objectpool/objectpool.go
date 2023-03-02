@@ -15,20 +15,18 @@
  * limitations under the License.
  */
 
-// Package withlock provides Pool of IPoolObject base on sync.Mutex
-package withlock
+// Package objectpool provides Pool of IPoolObject base on sync-free
+package objectpool
 
 import (
 	"context"
 	"fmt"
 	"github.com/megaease/easegress/pkg/logger"
 	"runtime"
-	"sync"
+	"sync/atomic"
 )
 
-const (
-	maxBackoff = 16
-)
+const maxBackoff = 16
 
 // IPoolObject is definition of object that managed by pool
 type IPoolObject interface {
@@ -44,41 +42,40 @@ type (
 		size         int32                       // current size
 		new          func() (IPoolObject, error) // create a new object, it must return a health object or err
 		store        chan IPoolObject            // store the object
-		lock         sync.Mutex                  // lock for sync
 		checkWhenGet bool                        // whether to health check when get IPoolObject
 		checkWhenPut bool                        // whether to health check when put IPoolObject
 	}
 
 	// Spec Pool's spec
 	Spec struct {
-		initSize     int32                       // initial size
-		maxSize      int32                       // max size
-		new          func() (IPoolObject, error) // create a new object
-		checkWhenGet bool                        // whether to health check when get IPoolObject
-		checkWhenPut bool                        // whether to health check when put IPoolObject
+		InitSize     int32                       // initial size
+		MaxSize      int32                       // max size
+		New          func() (IPoolObject, error) // create a new object
+		CheckWhenGet bool                        // whether to health check when get IPoolObject
+		CheckWhenPut bool                        // whether to health check when put IPoolObject
 	}
 )
 
-// NewSimplePool returns a new pool
-func NewSimplePool(initSize, maxSize int32, new func() (IPoolObject, error)) *Pool {
-	return NewPoolWithSpec(Spec{
-		initSize:     initSize,
-		maxSize:      maxSize,
-		new:          new,
-		checkWhenGet: true,
-		checkWhenPut: true,
+// New returns a new pool
+func New(initSize, maxSize int32, new func() (IPoolObject, error)) *Pool {
+	return NewWithSpec(Spec{
+		InitSize:     initSize,
+		MaxSize:      maxSize,
+		New:          new,
+		CheckWhenGet: true,
+		CheckWhenPut: true,
 	})
 }
 
-// NewPoolWithSpec returns a new pool
-func NewPoolWithSpec(spec Spec) *Pool {
+// NewWithSpec returns a new pool
+func NewWithSpec(spec Spec) *Pool {
 	p := &Pool{
-		initSize:     spec.initSize,
-		maxSize:      spec.maxSize,
-		new:          spec.new,
-		checkWhenPut: spec.checkWhenPut,
-		checkWhenGet: spec.checkWhenGet,
-		store:        make(chan IPoolObject, spec.maxSize),
+		initSize:     spec.InitSize,
+		maxSize:      spec.MaxSize,
+		new:          spec.New,
+		checkWhenPut: spec.CheckWhenPut,
+		checkWhenGet: spec.CheckWhenGet,
+		store:        make(chan IPoolObject, spec.MaxSize),
 	}
 	if err := p.init(); err != nil {
 		logger.Errorf("new pool failed %v", err)
@@ -89,13 +86,13 @@ func NewPoolWithSpec(spec Spec) *Pool {
 
 // Validate validate
 func (s *Spec) Validate() error {
-	if s.initSize > s.maxSize {
-		s.maxSize = s.initSize
+	if s.InitSize > s.MaxSize {
+		s.MaxSize = s.InitSize
 	}
-	if s.maxSize <= 0 {
+	if s.MaxSize <= 0 {
 		return fmt.Errorf("pool max size must be positive")
 	}
-	if s.initSize < 0 {
+	if s.InitSize < 0 {
 		return fmt.Errorf("pool init size must greate than or equals 0")
 	}
 
@@ -149,21 +146,26 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 }
 
 func (p *Pool) createIPoolObject() IPoolObject {
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	for {
+		size := atomic.LoadInt32(&p.size)
+		if size > p.maxSize {
+			return nil
+		}
+		if atomic.CompareAndSwapInt32(&p.size, size, size+1) {
+			break
+		}
+	}
 
 	if iPoolObject, err := p.new(); err == nil {
-		p.size++
 		return iPoolObject
-
 	}
+
+	atomic.AddInt32(&p.size, -1)
 	return nil
 }
 
 func (p *Pool) destroyIPoolObject(object IPoolObject) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	p.size--
+	atomic.AddInt32(&p.size, -1)
 	object.Destroy()
 }
 
