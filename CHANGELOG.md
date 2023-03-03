@@ -16,7 +16,7 @@
 **Fixed bugs:**
 * WASM apply data command not working.
 * install.sh not work as expectation on some platforms.
-* Fix typo and other minor fixes in the documentation. 
+* Fix typo and other minor problems in the documentation. 
 
 
 ## [v2.3.1](https://github.com/megaease/easegress/tree/v2.3.1) (2022-12-28)
