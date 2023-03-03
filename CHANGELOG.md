@@ -1,5 +1,23 @@
 # Changelog
 
+## [v2.4.0](https://github.com/megaease/easegress/tree/v2.4.0) (2023-03-03)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.3.1...v2.4.0)
+
+**Significant changes:**
+* Support GRPC protocol.
+
+**Implemented enhancements:**
+* Enhancement to access log.
+* Enlarge charset allowed in object names.
+* Enhance tracing to support Cloudflare.
+* RequestAdaptor and ResponseAdaptor support template.
+
+**Fixed bugs:**
+* WASM apply data command not working.
+* install.sh not work as expectation on some platforms.
+* Fix typo and other minor fixes in the documentation. 
+
 
 ## [v2.3.1](https://github.com/megaease/easegress/tree/v2.3.1) (2022-12-28)
 
