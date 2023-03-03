@@ -18,7 +18,7 @@ A flash sale is a discount or promotion offered by an eCommerce store for a shor
 
 However, significant discounts, limited quantity, and a short period leading to a significant high traffic spike, which often results in slow service, denial of service, or even downtime.
 
-This document illustrates how to leverage the [WasmHost Filter](https://github.com/megaease/easegress/blob/main/doc/wasmhost.md) to protect the backend service in a flash sale. The WebAssembly code is written in [AssemblyScript](https://www.assemblyscript.org/) by using the [Easegress AssemblyScript SDK](https://github.com/megaease/easegress-assemblyscript-sdk).
+This document illustrates how to leverage the [WasmHost Filter](https://github.com/megaease/easegress/blob/main/doc/reference/wasmhost.md) to protect the backend service in a flash sale. The WebAssembly code is written in [AssemblyScript](https://www.assemblyscript.org/) by using the [Easegress AssemblyScript SDK](https://github.com/megaease/easegress-assemblyscript-sdk).
 
 Before we start, we need to introduce why we use a service gateway with WebAssembly.  Firstly, Easegress as a service gateway is more responsible for the control logic. Secondly, the business logic like the flash sale would be a more customized thing and could be changed frequently.  Using Javascript or other high-level languages to write business logic could bring good productivity and lower technical barriers. With WebAssembly technology, the high-level languages code can be compiled to WASM and loaded dynamically at runtime. Furthermore, the WebAssembly code has good enough performance and security. So this combination can provide a perfect solution in terms of security, high performance, and customization extensions.
 
@@ -421,8 +421,8 @@ filters:
     kind: WasmHost
     parameters:                                        # +
       startTime: "2021-08-08T00:00:00+00:00"           # +
-      blockRatio: 0.4                                  # +
-      maxPermission: 3                                 # +
+      blockRatio: "0.4"                                # +
+      maxPermission: "3"                               # +
 ```
 
 And then revise the `constructor` of the program to read in these parameters:
