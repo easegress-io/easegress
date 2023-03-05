@@ -200,6 +200,48 @@ pools:
 | serverError   | Server-side network error                              |
 | failureCode   | Resp failure code matches failureCodes set in poolSpec |
 
+## SimpleHTTPProxy
+
+The SimpleHTTPProxy filter is a simplified version of the Proxy filter, designed to handle HTTP requests in a more straightforward manner while providing basic proxy functionality for backend services.
+
+Below is an example of a basic SimpleHTTPProxy configuration that sends GET requests to http://127.0.0.1:9095.
+
+```yaml
+name: simple-http-proxy
+kind: Pipeline
+flow:
+  - filter: requestBuilder
+  - filter: proxy
+
+filters:
+  - kind: RequestBuilder
+    name: requestBuilder
+    template: |
+      url: http://127.0.0.1:9095
+      method: GET
+
+  - kind: SimpleHTTPProxy
+    name: proxy
+```
+
+### Configuration
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| retryPolicy | string | Retry policy name | No |
+| timeout | string | Request calceled when timeout | No |
+| compression | [proxy.Compression](#proxyCompression) | Response compression options | No |
+| maxIdleConns | int | Controls the maximum number of idle (keep-alive) connections across all hosts. Default is 10240 | No |
+| maxIdleConnsPerHost | int | Controls the maximum idle (keep-alive) connections to keep per-host. Default is 1024 | No |
+| serverMaxBodySize | int64 | Max size of response body. the default value is 4MB. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
+
+### Results
+
+| Value         | Description                                            |
+| ------------- | -------------------------------------------------------|
+| internalError | Encounters an internal error                           |
+| clientError   | Client-side (Easegress) network error                  |
+| serverError   | Server-side network error                              |
+
 ## WebSocketProxy
 
 The WebSocketProxy filter is a proxy of the websocket backend service.

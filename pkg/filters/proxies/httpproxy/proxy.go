@@ -19,6 +19,7 @@
 package httpproxy
 
 import (
+	stdctx "context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -30,7 +31,6 @@ import (
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -171,6 +171,37 @@ func (s *Spec) Validate() error {
 	return nil
 }
 
+func HTTPClient(tlsCfg *tls.Config, maxIdleConns, maxIdleConnsPerHost int, timeout time.Duration) *http.Client {
+
+	dialFunc := func(ctx stdctx.Context, network, addr string) (net.Conn, error) {
+		return (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 60 * time.Second,
+		}).DialContext(ctx, network, addr)
+	}
+
+	return &http.Client{
+		// NOTE: Timeout could be no limit, real client or server could cancel it.
+		Timeout: timeout,
+		Transport: &http.Transport{
+			Proxy:              http.ProxyFromEnvironment,
+			DialContext:        dialFunc,
+			TLSClientConfig:    tlsCfg,
+			DisableCompression: false,
+			// NOTE: The large number of Idle Connections can
+			// reduce overhead of building connections.
+			MaxIdleConns:          maxIdleConns,
+			MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+}
+
 // Name returns the name of the Proxy filter instance.
 func (p *Proxy) Name() string {
 	return p.spec.Name()
@@ -205,13 +236,13 @@ func (p *Proxy) tlsConfig() (*tls.Config, error) {
 
 	certPem, _ := base64.StdEncoding.DecodeString(mtls.CertBase64)
 	keyPem, _ := base64.StdEncoding.DecodeString(mtls.KeyBase64)
+	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
+
 	cert, err := tls.X509KeyPair(certPem, keyPem)
 	if err != nil {
-		logger.Errorf("proxy generates x509 key pair failed: %v", err)
-		return &tls.Config{InsecureSkipVerify: true}, err
+		return nil, fmt.Errorf("failed to parse certificate: %v", err)
 	}
 
-	rootCertPem, _ := base64.StdEncoding.DecodeString(mtls.RootCertBase64)
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(rootCertPem)
 
@@ -250,30 +281,7 @@ func (p *Proxy) reload() {
 	}
 
 	tlsCfg, _ := p.tlsConfig()
-	p.client = &http.Client{
-		// NOTE: Timeout could be no limit, real client or server could cancel it.
-		Timeout: 0,
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 60 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			TLSClientConfig:    tlsCfg,
-			DisableCompression: false,
-			// NOTE: The large number of Idle Connections can
-			// reduce overhead of building connections.
-			MaxIdleConns:          p.spec.MaxIdleConns,
-			MaxIdleConnsPerHost:   p.spec.MaxIdleConnsPerHost,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	p.client = HTTPClient(tlsCfg, p.spec.MaxIdleConns, p.spec.MaxIdleConnsPerHost, 0)
 }
 
 // Status returns Proxy status.
