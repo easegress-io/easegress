@@ -85,9 +85,9 @@ func wasmApplyDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildSpecVisitor(specFile, cmd)
-			visitor.Visit(func(s *spec) error {
-				handleRequest(http.MethodPost, makeURL(objectsURL), []byte(s.doc), cmd)
+			visitor := buildYAMLVisitor(specFile, cmd)
+			visitor.Visit(func(yamlDoc []byte) error {
+				handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()

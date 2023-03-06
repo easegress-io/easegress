@@ -52,12 +52,12 @@ func (vm *WasmVM) readDataFromWasm(addr int32) []byte {
 }
 
 func (vm *WasmVM) writeDataToWasm(data []byte) int32 {
-	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-
-	vaddr, e := vm.fnAlloc.Call(vm.store, len(data)+4)
+	vaddr, e := vm.fnAlloc.Call(vm.store, int32(len(data)+4))
 	if e != nil {
 		panic(e)
 	}
+
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	addr := vaddr.(int32)
 
 	binary.LittleEndian.PutUint32(mem[addr:], uint32(len(data)))
@@ -76,12 +76,12 @@ func (vm *WasmVM) readStringFromWasm(addr int32) string {
 
 // a string is serialized as 4 byte length + content + trailing zero
 func (vm *WasmVM) writeStringToWasm(s string) int32 {
-	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
-
-	vaddr, e := vm.fnAlloc.Call(vm.store, len(s)+4+1)
+	vaddr, e := vm.fnAlloc.Call(vm.store, int32(len(s)+4+1))
 	if e != nil {
 		panic(e)
 	}
+
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	addr := vaddr.(int32)
 
 	binary.LittleEndian.PutUint32(mem[addr:], uint32(len(s)+1))
@@ -97,11 +97,12 @@ func (vm *WasmVM) writeStringArrayToWasm(strs []string) int32 {
 		size += len(s) + 4 + 1
 	}
 
-	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	vaddr, e := vm.fnAlloc.Call(vm.store, int32(size))
 	if e != nil {
 		panic(e)
 	}
+
+	mem := vm.inst.GetExport(vm.store, wasmMemory).Memory().UnsafeData(vm.store)
 	addr := vaddr.(int32)
 	pos := int(addr)
 
