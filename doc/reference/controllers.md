@@ -21,13 +21,13 @@
     - [AutoCertManager](#autocertmanager)
   - [Common Types](#common-types)
     - [tracing.Spec](#tracingspec)
-      - [spanlimits.Spec](#spanlimitsSpec)
-      - [batchlimits.Spec](#batchlimitsSpec)
-      - [exporter.Spec](#exporterSpec)
-        - [jaeger.Spec](#jaegerSpec)
-        - [zipkin.Spec](#zipkinSpec)
-        - [otlp.Spec](#otlpSpec)
-      - [zipkin.DeprecatedSpec](#zipkinDeprecatedSpec)
+      - [spanlimits.Spec](#spanlimitsspec)
+      - [batchlimits.Spec](#batchlimitsspec)
+      - [exporter.Spec](#exporterspec)
+      - [jaeger.Spec](#jaegerspec)
+      - [zipkin.Spec](#zipkinspec)
+      - [otlp.Spec](#otlpspec)
+      - [zipkin.DeprecatedSpec](#zipkindeprecatedspec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
     - [httpserver.Path](#httpserverpath)
@@ -103,17 +103,17 @@ rules:
 | cacheSize        | uint32                             | The size of cache, 0 means no cache                                                      | No                   |
 | xForwardedFor    | bool                               | Whether to set X-Forwarded-For header by own ip                                          | No                   |
 | tracing          | [tracing.Spec](#tracingSpec)       | Distributed tracing settings                                                             | No                   |
-| certBase64      | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
+| certBase64       | string                             | Public key of PEM encoded data in base64 encoded format                                  | No                   |
 | keyBase64        | string                             | Private key of PEM encoded data in base64 encoded format                                 | No                   |
 | certs            | map[string]string                  | Public keys of PEM encoded data, the key is the logic pair name, which must match keys   | No                   |
 | keys             | map[string]string                  | Private keys of PEM encoded data, the key is the logic pair name, which must match certs | No                   |
 | ipFilter         | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the server                                               | No                   |
-| routerKind       | string                             | Kind of router. see [routers](./routers.md)                                               | No (default: Order)  |
-| rules            | [httpserver.Rule](#httpserverrule) | Router rules                                                                             | No                   |
-| autoCert | bool | Do HTTP certification automatically | No |
+| routerKind       | string                             | Kind of router. see [routers](./routers.md)                                              | No (default: Order)  |
+| rules            | [][httpserver.Rule](#httpserverrule) | Router rules                                                                           | No                   |
+| autoCert         | bool                               | Do HTTP certification automatically                                                      | No                   |
 | clientMaxBodySize | int64 | Max size of request body. the default value is 4MB. Requests with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the request body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
-| caCertBase64 | string | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
-| globalFilter | string | Name of [GlobalFilter](#globalfilter) for all backends | No |
+| caCertBase64     | string                             | Define the root certificate authorities that servers use if required to verify a client certificate by the policy in TLS Client Authentication. | No |
+| globalFilter     | string                             | Name of [GlobalFilter](#globalfilter) for all backends                                   | No                   |
 | accessLogFormat | string | Format of access log, default is `[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]`, variable is delimited by "{{" and "}}", please refer [Access Log Variable](#accesslogvariable) for all built-in variables | No |
 
 ### AccessLogVariable
@@ -395,7 +395,7 @@ syncInterval: 10s
 | scheme       | string   | Communication scheme         | Yes (default: http)           |
 | datacenter   | string   | Datacenter name              | No                            |
 | token        | string   | ACL token for communication  | No                            |
-| Namespace    | string   | Namespace to use             | No                            |
+| namespace    | string   | Namespace to use             | No                            |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)            |
 | serviceTags  | []string | Service tags to query        | No                            |
 
@@ -450,7 +450,7 @@ syncInterval: 10s
 | ------------ | -------- | ---------------------------- | ----------------------------- |
 | zkservices   | []string | Zookeeper service addresses  | Yes (default: 127.0.0.1:2181) |
 | connTimeout  | string   | Timeout of connection        | Yes (default: 6s)             |
-| Prefix       | string   | Prefix of services           | Yes (default: /)              |
+| prefix       | string   | Prefix of services           | Yes (default: /)              |
 | syncInterval | string   | Interval to synchronize data | Yes (default: 10s)            |
 
 ### NacosServiceRegistry
@@ -532,7 +532,6 @@ domains:
 | eventCountLimit        | int   | EventCountLimit is the maximum allowed span event count| No (default:128)|
 | linkCountLimit        | int   | LinkCountLimit is the maximum allowed span link count| No (default:128)|
 | attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
-| attributePerEventCountLimit        | int   | AttributePerEventCountLimit is the maximum number of attributes allowed per span event| No (default:128)|
 | attributePerLinkCountLimit        | int   | AttributePerLinkCountLimit is the maximum number of attributes allowed per span link| No (default:128)|
 
 #### batchlimits.Spec
@@ -602,7 +601,7 @@ domains:
 | ipFilter   | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the rule                      | No       |
 | host       | string                             | Exact host to match, empty means to match all                 | No       |
 | hostRegexp | string                             | Host in regular expression to match, empty means to match all | No       |
-| paths      | [httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
+| paths      | [][httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
 
 ### httpserver.Path
 
