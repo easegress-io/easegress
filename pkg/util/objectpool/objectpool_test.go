@@ -84,7 +84,7 @@ func (f *fakeAlmostUnHealthPoolObject) HealthCheck() bool {
 
 func TestNewSimplePool(t *testing.T) {
 	init, max := 2, 4
-	pool := New(int32(init), int32(max), func() (IPoolObject, error) {
+	pool := New(int32(init), int32(max), func() (PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
 	})
 
@@ -100,31 +100,36 @@ func getAndPut(pool *Pool) {
 	}
 }
 
-func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake IPoolObject, b *testing.B) {
-	pool := New(int32(iPoolObjNum/2), int32(iPoolObjNum), func() (IPoolObject, error) {
+func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake PoolObject, b *testing.B) {
+	pool := New(int32(iPoolObjNum/2), int32(iPoolObjNum), func() (PoolObject, error) {
 		return fake, nil
 	})
 	ch := make(chan struct{})
-	wg := sync.WaitGroup{}
-	wg.Add(goRoutineNum - 1)
+	startedWait := sync.WaitGroup{}
+	startedWait.Add(goRoutineNum - 1)
 	for i := 0; i < goRoutineNum-1; i++ {
 		go func() {
-			wg.Done()
+			done := false
 			for {
 				select {
 				case <-ch:
 					return
 				default:
+					if !done {
+						startedWait.Done()
+						done = true
+					}
 					getAndPut(pool)
 				}
 			}
 		}()
 	}
-	wg.Wait()
+	startedWait.Wait()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		getAndPut(pool)
 	}
+	b.StopTimer()
 	close(ch)
 }
 
@@ -150,4 +155,20 @@ func BenchmarkGoroutine2TimesIPoolObjectWithAlmostUnHealthIPoolObject(b *testing
 
 func BenchmarkGoroutine4TimesIPoolObjectWithAlmostUnHealthIPoolObject(b *testing.B) {
 	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 8, &fakeAlmostUnHealthPoolObject{}, b)
+}
+
+// fakeUnHealthPoolObject 100% unhealthy poolObject
+type fakeUnHealthPoolObject struct {
+}
+
+func (f *fakeUnHealthPoolObject) Destroy() {
+
+}
+
+func (f *fakeUnHealthPoolObject) HealthCheck() bool {
+	return false
+}
+
+func BenchmarkGoroutine2TimesIPoolObjectWithUnhHealthyPool(b *testing.B) {
+	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 4, &fakeUnHealthPoolObject{}, b)
 }

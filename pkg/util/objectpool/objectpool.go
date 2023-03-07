@@ -15,49 +15,48 @@
  * limitations under the License.
  */
 
-// Package objectpool provides Pool of IPoolObject base on sync-free
+// Package objectpool provides Pool of interface PoolObject
 package objectpool
 
 import (
 	"context"
 	"fmt"
 	"github.com/megaease/easegress/pkg/logger"
-	"runtime"
+	"sync"
 	"sync/atomic"
 )
 
-const maxBackoff = 16
-
-// IPoolObject is definition of object that managed by pool
-type IPoolObject interface {
+// PoolObject is an interface that about definition of object that managed by pool
+type PoolObject interface {
 	Destroy()          // destroy the object
 	HealthCheck() bool // check the object is health or not
 }
 
 type (
-	// Pool manage the IPoolObject
+	// Pool manage the PoolObject
 	Pool struct {
-		initSize     int32                       // initial size
-		maxSize      int32                       // max size
-		size         int32                       // current size
-		new          func() (IPoolObject, error) // create a new object, it must return a health object or err
-		store        chan IPoolObject            // store the object
-		checkWhenGet bool                        // whether to health check when get IPoolObject
-		checkWhenPut bool                        // whether to health check when put IPoolObject
+		initSize     int32                      // initial size
+		maxSize      int32                      // max size
+		size         int32                      // current size
+		new          func() (PoolObject, error) // create a new object, it must return a health object or err
+		store        chan PoolObject            // store the object
+		cond         *sync.Cond                 // when conditions are met, it wakes all goroutines waiting on sync.Cond
+		checkWhenGet bool                       // whether to health check when get PoolObject
+		checkWhenPut bool                       // whether to health check when put PoolObject
 	}
 
 	// Spec Pool's spec
 	Spec struct {
-		InitSize     int32                       // initial size
-		MaxSize      int32                       // max size
-		New          func() (IPoolObject, error) // create a new object
-		CheckWhenGet bool                        // whether to health check when get IPoolObject
-		CheckWhenPut bool                        // whether to health check when put IPoolObject
+		InitSize     int32                      // initial size
+		MaxSize      int32                      // max size
+		New          func() (PoolObject, error) // create a new object
+		CheckWhenGet bool                       // whether to health check when get PoolObject
+		CheckWhenPut bool                       // whether to health check when put PoolObject
 	}
 )
 
 // New returns a new pool
-func New(initSize, maxSize int32, new func() (IPoolObject, error)) *Pool {
+func New(initSize, maxSize int32, new func() (PoolObject, error)) *Pool {
 	return NewWithSpec(Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
@@ -75,7 +74,8 @@ func NewWithSpec(spec Spec) *Pool {
 		new:          spec.New,
 		checkWhenPut: spec.CheckWhenPut,
 		checkWhenGet: spec.CheckWhenGet,
-		store:        make(chan IPoolObject, spec.MaxSize),
+		store:        make(chan PoolObject, spec.MaxSize),
+		cond:         sync.NewCond(&sync.Mutex{}),
 	}
 	if err := p.init(); err != nil {
 		logger.Errorf("new pool failed %v", err)
@@ -116,8 +116,9 @@ func (p *Pool) init() error {
 // Get returns an object from the pool,
 // if no free object, it will create a new one if the pool is not full
 // if the pool is full, it will block until an object is returned to the pool
-func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
-	backoff := 1
+func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
 	for {
 		select {
 		case <-ctx.Done():
@@ -135,20 +136,15 @@ func (p *Pool) Get(ctx context.Context) (IPoolObject, error) {
 			if iPoolObject := p.createIPoolObject(); iPoolObject != nil {
 				return iPoolObject, nil
 			}
-			for i := 0; i < backoff; i++ {
-				runtime.Gosched()
-			}
-			if backoff < maxBackoff {
-				backoff <<= 1
-			}
+			p.cond.Wait()
 		}
 	}
 }
 
-func (p *Pool) createIPoolObject() IPoolObject {
+func (p *Pool) createIPoolObject() PoolObject {
 	for {
 		size := atomic.LoadInt32(&p.size)
-		if size > p.maxSize {
+		if size >= p.maxSize {
 			return nil
 		}
 		if atomic.CompareAndSwapInt32(&p.size, size, size+1) {
@@ -164,21 +160,25 @@ func (p *Pool) createIPoolObject() IPoolObject {
 	return nil
 }
 
-func (p *Pool) destroyIPoolObject(object IPoolObject) {
+func (p *Pool) destroyIPoolObject(object PoolObject) {
 	atomic.AddInt32(&p.size, -1)
+	p.cond.Broadcast()
 	object.Destroy()
 }
 
 // Put return the object to the pool
-func (p *Pool) Put(obj IPoolObject) {
+func (p *Pool) Put(obj PoolObject) {
 	if obj == nil {
 		return
 	}
+	p.cond.L.Lock()
+	defer p.cond.L.Unlock()
 	if p.checkWhenPut && !obj.HealthCheck() {
 		p.destroyIPoolObject(obj)
 		return
 	}
 	p.store <- obj
+	p.cond.Broadcast()
 	return
 }
 
