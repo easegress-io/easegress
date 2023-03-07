@@ -209,8 +209,8 @@ filters:
       cookieName: auth
       algorithm: HS256
       secret: 6d7973656372657
-       - name: proxy
   - kind: Proxy
+    name: proxy
     pools:
     - servers:
       - url: http://127.0.0.1:9095
