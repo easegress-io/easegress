@@ -162,7 +162,6 @@ func (p *Pool) createIPoolObject() PoolObject {
 
 func (p *Pool) destroyIPoolObject(object PoolObject) {
 	atomic.AddInt32(&p.size, -1)
-	p.cond.Broadcast()
 	object.Destroy()
 }
 
@@ -171,14 +170,12 @@ func (p *Pool) Put(obj PoolObject) {
 	if obj == nil {
 		return
 	}
-	p.cond.L.Lock()
-	defer p.cond.L.Unlock()
+	defer p.cond.Broadcast()
 	if p.checkWhenPut && !obj.HealthCheck() {
 		p.destroyIPoolObject(obj)
 		return
 	}
 	p.store <- obj
-	p.cond.Broadcast()
 	return
 }
 
