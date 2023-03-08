@@ -20,6 +20,7 @@ To make things easier, MegaEase and the community released SDKs to help users to
 
 * [AssemblyScript](https://github.com/megaease/easegress-assemblyscript-sdk)
 * [Golang](https://github.com/xmh19936688/easegress-go-sdk) (developed by @[xmh19936688](https://github.com/xmh19936688))
+* [Rust](https://github.com/megaease/easegress-rust-sdk)
 
 We can follow the documentation of these SDKs to write business logic and compile it to Wasm.
 
