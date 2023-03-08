@@ -1,210 +1,280 @@
 # Canary Release With Cloudflare
 
 - [Canary Release With Cloudflare](#Canary-Release-With-Cloudflare)
-  - [Introduction to Canary Release](#Introduction-to-Canary-Release)
-  - [Key Points of Canary Release](#Key-Points-of-Canary-Release)
-  - [How to implement canary release with Easegress and Cloudflare](#How-to-implement-canary-release-with-Easegress-and-Cloudflare)
-    - [Scenario 1: Implementing Cancary Release based on geographic location](#Implementing-Cancary-Release-based-on-geographic-location)
-      - [Add location header to HTTP request through Cloudflare's Transform](#add-location-header-to-http-request-through-cloudflares-transform)
-      - [Config traffic scheduling through Easegress](#config-traffic-scheduling-through-easegress)
-    - [Scenario 2: Implementing Cancary Release based on user devices](#Implementing-Cancary-Release-based-on-user-devices)
-      - [Implementation through Cloudflare's Worker](#implementation-through-cloudflares-worker)
-        - [Deploy Worker](#deploy-worker)
-        - [Config traffic scheduling through Easegress](#config-traffic-scheduling-through-easegress-1)
-      - [Implementation through Easegress's WASM](#implementation-through-easegresss-wasm)
-        - [Deploy WASM](#deploy-wasm)
-        - [Config traffic scheduling through Easegress](#config-traffic-scheduling-through-easegress-1)
+  - [Background](#Background)
+    - [Advantages](#Advantages)
+    - [Key Points](#Key-Point)
+  - [Why use Easegress and Cloudflare](#Why-use-Easegress-and-Cloudflare)
+  - [Case Study: based on geographic location](#based-on-geographic-location)
+  - [Case Study: based on user devices](#based-on-user-devices)
+  - [Case Study: based on user OS](#based-on-user-OS)
 
-## Introduction to Canary Release
+## Background
 
-Canary release is a software deployment technique that allows for a gradual and controlled rollout of new features or updates to a small subset of users or servers before being released to the entire user base. The name "canary" comes from the use of canaries in coal mines to detect poisonous gases. In the same way, canary releases are used to detect petential problems or bugs in new code before it reaches a wider audience.
+A [canary release](https://martinfowler.com/bliki/CanaryRelease.html) is a software testing technique used to reduce the risk of introducing a new software version into production by gradually rolling out the change to a small subset of users, before rolling it out to the entire platform/infrastructure.
 
-In a canary release, a small percentage of users or servers are selected to receive the new code, while the majority of users or servers continue to use the previous version. This allows for real-world testing and monitoring of the new code in a controlled environment, and any issues or bugs can be detected and addressed before rolling out the new code to the entire user base.
+### Advantages
 
-Canary releases are often used in large-scale web applications, where a bug or downtime can have significant consequences. By testing new features on a small scale before releasing them to a wider audience, the risk of negative impact is reduced, and users can enjoy a smoother, more stable experience.
+* **Service Evaluation**: You can evaluate multiple service versions side by side using canary release in real-world environments with actual users and use cases.
+* **Zero downtime**: Canary release does not cause downtime
+* **Simple Rollback Mechanism**: You can always easily roll back to the previous version.
 
-## Key points of Canary Release
+### Key point
 
-To achieve canary release, we need to consider the following points:
+* **Traffic tagging**: We can label the traffic with various business tags, such as user devices, geographic locations, user business labels etc. Also note that user tags should not use IP addresses, which are inaccurate and inconsistent.
+* **Traffic scheduling**: After label the traffic, we can specify traffic rules to schedule a certain part of the user’s traffic to a certain Canary, for example, the IPhone user from Beijing is scheduled to the 2.0 Canary version of Service A.
 
-* Traffic scheduling: Traffic scheduling is a network management technique used to direct network traffic to different servers based on a set of rules.
-* Traffic tagging: Traffic tagging is a network management technique used to add tags or identifiers to network packets to identify and differentiate different types of traffic. It allows network administrators to have more granular control over network traffic, including prioritization and restriction.
+## Why use Easegress and Cloudflare
 
-## How to implement canary release with Easegress and Cloudflare
+* For traffic tagging, Using [Cloudflare](https://www.cloudflare.com/) we can easily label the traffic.
+  * geographic location: Cloudflare provides [Managed Transforms](https://developers.cloudflare.com/rules/transform/managed-transforms/reference/) features that can be used to identify the geographic location of the user.
+  * user device or OS: We can get user device and OS from the user-agent filed of HTTP request by [Workers](https://developers.cloudflare.com/workers/).
+  * user's business label: Cloudflare provides [Rules](https://developers.cloudflare.com/rules/transform/request-header-modification/) features that can be used to identify the user's business label.
 
-* [Cloudflare](https://www.cloudflare.com/) is a content delivery network (CDN) and DNS provider. It provides a variety of services, including DNS, CDN, DDoS protection, and security. Cloudflare's [Transform](https://developers.cloudflare.com/rules/transform/) feature allows you to modify HTTP requests and responses. It can be used to implement Canary Release.
-* Easegress provides a variety of traffic scheduling and tagging features, including header filter and header hash. It can be used to implement Canary Release.
+* For traffic scheduling, Easegress provides `Filter` and `Proxy` features that can be used to schedule traffic to different canaries.
 
-Let's take a look at how to implement canary release with Easegress and Cloudflare. Following are two scenarios:
+## based on geographic location
 
-### Implementing Cancary Release based on geographic location
+![case 1](../imgs/canary-release-case-1.png)
 
-Upgrade the service `/old-demo` to `/new-demo`. After the upgrade, according to geographic location, the traffic from Beijing and 20% of non-Beijing locations should be directed to `/new-demo`. The geographic location judgment is based on the `CF-IPCity` field in Cloudflare's HTTP header.
+Suppose we operate an E-Commerce service as shown, and we have recently upgrade the Order Service from V1 to V2. In order to ensure that our users have the best experience possible, we would like to direct users who are accessing our service from Beijing to use the new order service (v2). 
 
-#### Add location header to HTTP request through Cloudflare's Transform
+1. Traffic tagging: the geographic location judgment is based on the `CF-IPCity` field in Cloudflare's HTTP header. Add the location header to HTTP request through Cloudflare's Transform feature.
 
-Cloudflare's Transform feature can be enabled through either of the following two methods:
+   * Cloudflare Dashboard -> Rules -> Transform Rules -> Managed Transforms -> [enabled “Add visitor location headers”](https://developers.cloudflare.com/rules/transform/managed-transforms/configure/)
 
-* Cloudflare Dashboard -> Rules -> Transform Rules -> Managed Transforms -> [enabled “Add visitor location headers”](https://developers.cloudflare.com/rules/transform/managed-transforms/configure/)
-* Call [API](https://developers.cloudflare.com/api/operations/managed-transforms-update-status-of-managed-transforms)
+2. Traffic scheduling rules:
 
-```bash
-curl --request PATCH \
---url https://api.cloudflare.com/client/v4/zones/<zone-id>/managed_headers \
---header 'Content-Type: application/json' \
---header 'Authorization: Bearer 1234' \
---data '{
-  "managed_request_headers": [
-    {
-      "enabled": true,
-      "id": "add_visitor_location_headers"
-    }
-  ]
-}'
-```
-
-#### Config traffic scheduling through Easegress
+Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers with yours.
 
 ```yaml
-kind: Proxy
-name: canaryrelease-example
-pools:
-- servers:
-  - url: http://<old-demo>
-- filter:
-    headers:
-      cf-ipcity:
-        exact: Beijing
-  servers:
-  - url: http://new-demo
-- filter:
-    permil: 200
-    policy: headerHash
-    headerHashKey: cf-ipcity
-  servers:
-  - url: http://<new-demo>
+name: ecommerce-pipeline
+kind: Pipeline
+flow:
+- filter: buildOrderRequest
+  namespace: order
+- filter: order-service
+  namespace: order
+- filter: buildResponse
+filters:
+- name: buildOrderRequest
+  kind: RequestBuilder
+  template: |
+    url: /order
+- name: order-service
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://megaease.com/api/v2  # new version
+  - filter:
+      headers:
+        cf-ipcity: # Cloudflare geographic location header
+          exact: Beijing # the traffic from Beijing should be directed to the new version
+    servers:
+    - url: http://megaease.com/api/v1 # old version
+- name: buildResponse
+  kind: ResponseBuilder
+  template: |
+    statusCode: {{.responses.order.StatusCode}}
+    body: |
+      [{{.responses.notify.Body}}]
 ```
 
-### Implementing Cancary Release based on user devices
+Then create the E-commerce pipeline with the command:
 
-Upgrade the service /old-demo to /new-demo. After the upgrade, the requests from Mac devices should be directed to /new-demo. Easegress provides the [user-agent parser](https://github.com/megaease/easegress-rust-uaparser), which can parse user devices and os information.
+```bash
+egctl object create -f ecommerce-service.yaml
+```
 
-We have two ways to get the user device information: One is to use Cloudflare's Worker, and the other is to use Easegress's WASM.
+Save below YAML to ecommerce-server.yaml.
 
-#### Implementation through Cloudflare's Worker
+```yaml
+kind: HTTPServer
+name: ecommerce-server
+port: 8080
+https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - pathPrefix: /ecommerce
+      backend: ecommerce-pipeline
+```
 
-##### Deploy Worker
+Then create the HTTP server with command:
 
-1. Download `easegress-rust-uaparser`
+```bash
+egctl object create -f ecommerce-server.yaml
+```
+
+## based on user devices
+
+![case 2](../imgs/canary-release-case-2.png)
+
+In the real world, services are rarely ever standalone entities, but rather are often interconnected and dependent on one another to provide a holistic experience for the customer. As shown, we have recently upgraded our notify service from v1 to v2. we would like to direct users who are accessing our service from a Mac device to use the new notify service (v2).
+
+1. Traffic tagging: the user device judgment is based on the `user-agent` field in HTTP request. We can get user device and system from the user-agent filed of HTTP request by [Workers](https://developers.cloudflare.com/workers/).
+
+We provided easy way to parse user-agent in [easegress-rust-uaparser](https://github.com/megaease/easegress-rust-uaparser). Download `easegress-rust-uaparser`
 
 ```bash
 git clone https://github.com/megaease/easegress-rust-uaparser.git
 ```
 
-2. Enter the `easegress-rust-uaparser/cloudflare` directory and deploy the worker using the wrangler command
+Enter the `easegress-rust-uaparser/cloudflare` directory and deploy the worker using the wrangler command
 
 ```bash
 npx wrangler publish
 ```
 
-3. Enter the Cloudflare website configuration page and configure Workers Routes as you needed.
+Enter the Cloudflare website configuration page and configure Workers Routes as you needed.
 
-##### Configure traffic scheduling through Easegress
+2. Traffic scheduling rules:
 
-* Create HTTPServer
-
-```yaml
-kind: HTTPServer
-name: http-server-cloudflare
-port: 80
-keepAlive: true
-https: false
-rules:
-- paths:
-  - pathPrefix: /cloudflare
-    backend: cloudflare-pipeline
-```
-
-* Create Pipeline
+Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers with yours.
 
 ```yaml
-name: cloudflare-pipeline
+name: ecommerce-pipeline
 kind: Pipeline
 flow:
-- filter: proxy-demo
-
+- filter: buildOrderRequest
+  namespace: order
+- filter: order-service
+  namespace: order
+- filter: buildNotifyRequest
+  namespace: notify
+- filter: notify-service
+  namespace: notify
+- filter: buildResponse
 filters:
-- name: proxy-demo
+- name: buildOrderRequest
+  kind: RequestBuilder
+  template: |
+    url: /order
+- name: order-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://<old-demo>
+    - url: http://megaease.com/api/v2
+- name: buildNotifyRequest
+  kind: RequestBuilder  # use order response as notify request body
+  template: |
+    url: /notify
+    method: POST
+    body: |
+      {"order": "{{.responses.order.Body | jsonEscape}}"}
+- name: notify-service
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://megaease.com/api/v1
   - filter:
       headers:
-        x-ua-device:
-          exact: Mac
+        x-ua-device: # Cloudflare's user device header
+          exact: Mac # the traffic from Mac should be directed to the new version
     servers:
-    - url: http://<new-demo>
+    - url: http://megaease.com/api/v2
+- name: buildResponse
+  kind: ResponseBuilder
+  template: |
+    statusCode: {{.responses.notify.StatusCode}}
+    body: |
+      [{{.responses.notify.Body}}]
 ```
 
-#### Implementation through Easegress's WASM
+Then update the E-commerce pipeline with the command:
 
-##### Deploy WASM
+```bash
+egctl object update -f ecommerce-service.yaml
+```
 
-1. Download `easegress-rust-uaparser`
+## based on user OS
+
+![case 3](../imgs/canary-release-case-3.png)
+
+Suppose order service and notify service have upgraded at the same time. The user who is accessing our service from a Mac device should be directed to the new version of the order service (v2), and from MacOS should be directed to the new version of the notify service (v2). 
+
+You may think Cloudflare's Worker is not suitable for you, there is another easy way to parse user-agent with Easegress's WASM.
+
+1. Traffic tagging: using Easegress's WASM to parse user-agent. 
+
+Download `easegress-rust-uaparser`
 
 ```bash
 git clone https://github.com/megaease/easegress-rust-uaparser.git
 ```
 
-2. Navigate to the `easegress-rust-uaparser/binary` directory and use the `easegress.wasm` file directly, or If you want to customize the parser's behavior, you can modify `regexes.yaml` and then compile it by yourself:
+Navigate to the `easegress-rust-uaparser/binary` directory and use the `easegress.wasm` file directly. It will parse user-agent and add the `x-ua-device` and `x-ua-os` headers to the HTTP request.
 
-  - Navigate to the `easegress-rust-uaparser/easegress directory` and compile easegress.wasm:
+2. Traffic scheduling rules:
 
-     ```bash
-    cargo build --release --target wasm32-unknown-unknown
-    ```
-
-##### Config traffic scheduling through Easegress
-
-* Create HTTPServer
+Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers and wasm file path with yours.
 
 ```yaml
-kind: HTTPServer
-name: http-server-cloudflare
-port: 80
-keepAlive: true
-https: false
-rules:
-- paths:
-  - pathPrefix: /easegress
-    backend: easegress-pipeline
-```
-
-* Create Pipeline
-
-```yaml
-name: easegress-pipeline
+name: ecommerce-pipeline
 kind: Pipeline
 flow:
 - filter: wasm
-- filter: proxy-demo
-
+- filter: buildOrderRequest
+  namespace: order
+- filter: order-service
+  namespace: order
+- filter: buildNotifyRequest
+  namespace: notify
+- filter: notify-service
+  namespace: notify
+- filter: buildResponse
 filters:
-- name: wasm
+- name: wasm # parse user-agent, add `x-ua-device` and `x-ua-os` headers to the HTTP request.
   kind: WasmHost
   maxConcurrency: 2
-  code: <easegress.wasm path>
+  code: /<Path>/easegress.wasm  # easegress.wasm file path
   timeout: 100ms
-- name: proxy-demo
+- name: buildOrderRequest
+  kind: RequestBuilder
+  template: |
+    url: /order
+- name: order-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://<old-demo>
+    - url: http://megaease.com/api/v1
   - filter:
       headers:
-        x-ua-device:
-          exact: Mac
+        x-ua-device: # Easegress's user device header
+          exact: Mac # the traffic from Mac should be directed to the new version
     servers:
-    - url: http://<new-demo>
+    - url: http://megaease.com/api/v2
+- name: buildNotifyRequest
+  kind: RequestBuilder  # use order response as notify request body
+  template: |
+    url: /notify
+    method: POST
+    body: |
+      {"order": "{{.responses.order.Body | jsonEscape}}"}
+- name: notify-service
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://megaease.com/api/v1
+  - filter:
+      headers:
+        x-ua-os: # Easegress's user os header
+          exact: MacOS # the traffic from MacOS should be directed to the new version
+    servers:
+    - url: http://megaease.com/api/v2
+- name: buildResponse
+  kind: ResponseBuilder
+  template: |
+    statusCode: {{.responses.notify.StatusCode}}
+    body: |
+      [{{.responses.notify.Body}}]
+```
+
+Then update the E-commerce pipeline with the command:
+
+```bash
+egctl object update -f ecommerce-service.yaml
 ```
