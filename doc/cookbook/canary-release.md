@@ -21,31 +21,31 @@ A [canary release](https://martinfowler.com/bliki/CanaryRelease.html) is a softw
 
 ### Key point
 
-* **Traffic tagging**: We can label the traffic with various business tags, such as user devices, geographic locations, user business labels etc. Also note that user tags should not use IP addresses, which are inaccurate and inconsistent.
-* **Traffic scheduling**: After label the traffic, we can specify traffic rules to schedule a certain part of the user’s traffic to a certain Canary, for example, the IPhone user from Beijing is scheduled to the 2.0 Canary version of Service A.
+* **Traffic tagging**: To categorize traffic based on various business attributes such as **user devices**, **geographic locations**, or user attributes(e.g. age, gender, level, etc.), we can apply different labels or tags to the traffic. It's important to note that IP addresses should not be used as user tags as they can be inaccurate and inconsistent.
+* **Traffic scheduling**: Once traffic is tagged, we can use traffic rules to schedule specific traffic to a designated Canary. For instance, traffic from an iPhone user in Beijing could be directed to a new version of a service.
 
 ## Why use Easegress and Cloudflare
 
 * For traffic tagging, Using [Cloudflare](https://www.cloudflare.com/) we can easily label the traffic.
-  * geographic location: Cloudflare provides [Managed Transforms](https://developers.cloudflare.com/rules/transform/managed-transforms/reference/) features that can be used to identify the geographic location of the user.
-  * user device or OS: We can get user device and OS from the user-agent filed of HTTP request by [Workers](https://developers.cloudflare.com/workers/).
-  * user's business label: Cloudflare provides [Rules](https://developers.cloudflare.com/rules/transform/request-header-modification/) features that can be used to identify the user's business label.
+  - **Geographic Location**: Cloudflare offers a feature called [Managed Transforms](https://developers.cloudflare.com/rules/transform/managed-transforms/reference/), which can be used to identify the geographic location of a user.
+  - **User Device**: Using [Workers](https://developers.cloudflare.com/workers/), we can extract information about the user's device, operating system, and web browser from the `User-Agent` field of the HTTP request.
+  - **User's Customized Label**: Using Cloudflare [Rules](https://developers.cloudflare.com/rules/transform/request-header-modification/), it is easy to extract the user's customized business label from HTTP request headers (such as: Cookies, etc.)
 
-* For traffic scheduling, Easegress provides `Filter` and `Proxy` features that can be used to schedule traffic to different canaries.
+- For traffic scheduling, Easegress offers two features, `Filter` and `Proxy`, that can be used to route traffic to different canary releases.
 
 ## based on geographic location
 
 ![case 1](../imgs/canary-release-case-1.png)
 
-Suppose we operate an E-Commerce service as shown, and we have recently upgrade the Order Service from V1 to V2. In order to ensure that our users have the best experience possible, we would like to direct users who are accessing our service from Beijing to use the new order service (v2). 
+Suppose we run an e-Commerce service, and we recently upgraded our Order Service from version 1 to version 2. To ensure that our users have the best experience, we want to route the users who are accessing our service from Beijing to use the new Order service (version 2).  
 
-1. Traffic tagging: the geographic location judgment is based on the `CF-IPCity` field in Cloudflare's HTTP header. Add the location header to HTTP request through Cloudflare's Transform feature.
+**1. Traffic tagging**
 
-   * Cloudflare Dashboard -> Rules -> Transform Rules -> Managed Transforms -> [enabled “Add visitor location headers”](https://developers.cloudflare.com/rules/transform/managed-transforms/configure/)
+To determine the geographic location of a user, we can leverage the `CF-IPCity` field in Cloudflare's HTTP header. We need to first enable the "Add visitor location headers" option in the Cloudflare dashboard.  (_Cloudflare Dashboard_ -> _Rules_ -> _Transform Rules_ -> _Managed Transforms_ -> [enabled “Add visitor location headers”](https://developers.cloudflare.com/rules/transform/managed-transforms/configure/) )
 
-2. Traffic scheduling rules:
+**2. Traffic scheduling rules:**
 
-Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers with yours.
+Save the following YAML code to `ecommerce-service.yaml` and make sure to replace the `servers` configuration with your own. 
 
 ```yaml
 name: ecommerce-pipeline
@@ -80,13 +80,13 @@ filters:
       [{{.responses.notify.Body}}]
 ```
 
-Then create the E-commerce pipeline with the command:
+Then create the e-Commerce pipeline with the command:
 
 ```bash
 egctl object create -f ecommerce-service.yaml
 ```
 
-Save below YAML to ecommerce-server.yaml.
+Save below YAML to `ecommerce-server.yaml`.
 
 ```yaml
 kind: HTTPServer
@@ -109,31 +109,43 @@ Then create the HTTP server with command:
 egctl object create -f ecommerce-server.yaml
 ```
 
+Send a request to e-Commerce service:
+
+```bash
+curl http://127.0.0.1:10080/ecommerce -H "cf-ipcity: Beijing"
+[{"order_id":"5245000", "role_id":"44312", "order_status":1, "order_version": "v2"}]
+
+curl http://127.0.0.1:10080/ecommerce -H "cf-ipcity: Shanghai"
+[{"order_id":"5245000", "role_id":"44312", "order_status":1, "order_version": "v1"}]
+```
+
 ## based on user devices
 
 ![case 2](../imgs/canary-release-case-2.png)
 
-In the real world, services are rarely ever standalone entities, but rather are often interconnected and dependent on one another to provide a holistic experience for the customer. As shown, we have recently upgraded our notify service from v1 to v2. we would like to direct users who are accessing our service from a Mac device to use the new notify service (v2).
+In real-world scenarios, services are usually interconnected and depend on each other to provide a seamless experience for the customer. In our case, we recently upgraded our Notify Service from version 1 to version 2. To ensure that our users have a holistic experience, we want to route users who are accessing our service from a Mac device to use the new version of our Notify Service (version 2).
 
-1. Traffic tagging: the user device judgment is based on the `user-agent` field in HTTP request. We can get user device and system from the user-agent filed of HTTP request by [Workers](https://developers.cloudflare.com/workers/).
+**1. Traffic tagging**
 
-We provided easy way to parse user-agent in [easegress-rust-uaparser](https://github.com/megaease/easegress-rust-uaparser). Download `easegress-rust-uaparser`
+To determine the user's device and system, we can extract it from the `User-Agent` field in HTTP request by [Workers](https://developers.cloudflare.com/workers/).
+
+We offer an easy way to parse `User-Agent` in [easegress-rust-uaparser](https://github.com/megaease/easegress-rust-uaparser) library. 
 
 ```bash
 git clone https://github.com/megaease/easegress-rust-uaparser.git
 ```
 
-Enter the `easegress-rust-uaparser/cloudflare` directory and deploy the worker using the wrangler command
+Go to the `easegress-rust-uaparser/cloudflare` directory and deploy the worker by using the `wrangler` command.
 
 ```bash
 npx wrangler publish
 ```
 
-Enter the Cloudflare website configuration page and configure Workers Routes as you needed.
+Go to the Cloudflare website configuration page and configure _Workers Routes_.
 
-2. Traffic scheduling rules:
+**2. Traffic scheduling rules**
 
-Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers with yours.
+Save the following YAML code to `ecommerce-service.yaml`, and make sure to replace the `servers` configuration with your own.
 
 ```yaml
 name: ecommerce-pipeline
@@ -184,21 +196,33 @@ filters:
       [{{.responses.notify.Body}}]
 ```
 
-Then update the E-commerce pipeline with the command:
+Then update the e-Commerce pipeline with the command:
 
 ```bash
 egctl object update -f ecommerce-service.yaml
+```
+
+Send a request to e-Commerce service:
+
+```bash
+curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.117 Mobile Safari/537.36"
+[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "notify_version": "v1"}]
+
+curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "notify_version": "v2"}]
 ```
 
 ## based on user OS
 
 ![case 3](../imgs/canary-release-case-3.png)
 
-Suppose order service and notify service have upgraded at the same time. The user who is accessing our service from a Mac device should be directed to the new version of the order service (v2), and from MacOS should be directed to the new version of the notify service (v2). 
+Suppose both the Order service and Notify service have been upgraded simultaneously. The user who is accessing our service from a Mac device should be routed to the new version of the Order service (v2), and from MacOS should be routed to the new version of the Notify service (v2).  
 
-You may think Cloudflare's Worker is not suitable for you, there is another easy way to parse user-agent with Easegress's WASM.
+You may think Cloudflare's Workers is not suitable for your needs, there is another easy way to parse `User-Agent` with Easegress's WASM.
 
-1. Traffic tagging: using Easegress's WASM to parse user-agent. 
+**1. Traffic tagging**
+
+Using Easegress's WASM to parse the `User-Agent`.  
 
 Download `easegress-rust-uaparser`
 
@@ -206,11 +230,11 @@ Download `easegress-rust-uaparser`
 git clone https://github.com/megaease/easegress-rust-uaparser.git
 ```
 
-Navigate to the `easegress-rust-uaparser/binary` directory and use the `easegress.wasm` file directly. It will parse user-agent and add the `x-ua-device` and `x-ua-os` headers to the HTTP request.
+Go to the `easegress-rust-uaparser/binary` directory and just use the `easegress.wasm` file directly. It will parse the `User-Agent` and add the `x-ua-device` and `x-ua-os` headers to the HTTP request.
 
-2. Traffic scheduling rules:
+**2. Traffic scheduling rules**
 
-Save the below YAML to ecommerce-service.yaml, and make sure you have replaced the servers and wasm file path with yours.
+Save the following YAML code to `ecommerce-service.yaml`, and make sure to replace the `servers` configuration and wasm file path with your own.
 
 ```yaml
 name: ecommerce-pipeline
@@ -273,8 +297,18 @@ filters:
       [{{.responses.notify.Body}}]
 ```
 
-Then update the E-commerce pipeline with the command:
+Then update the e-Commerce pipeline with the command:
 
 ```bash
 egctl object update -f ecommerce-service.yaml
+```
+
+Send a request to e-Commerce service:
+
+```bash
+curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.117 Mobile Safari/537.36"
+[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "order_version": "v1", "notify_version": "v1"}]
+
+curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "order_version": "v2", "notify_version": "v2"}]
 ```
