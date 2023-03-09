@@ -110,6 +110,7 @@
 
 - [API 聚合](./doc/cookbook/api-aggregation.md) - 将多个 API 聚合为一个。
 - [Easegress 集群化部署](./doc/cookbook/multi-node-cluster.md) - Easegress 如何进行集群化多点部署。
+- [灰度部署](./doc/cookbook/canary-release.md) - 如何使用 Easegress 进行灰度部署。
 - [分布式调用链](./doc/cookbook/distributed-tracing.md) - 如何使用 Zipkin 进行 APM 追踪。
 - [函数即服务 FaaS](./doc/cookbook/faas.md) - 支持 Knative FaaS 集成。
 - [高并发秒杀](./doc/cookbook/flash-sale.md) - 如何使用 Easegress 进行高并发的秒杀活动。

@@ -17,6 +17,7 @@ This is a cookbook that lists a number of useful and practical examples on how t
 
 - [API Aggregator](./cookbook/api-aggregation.md) - Aggregating many APIs into a single API.
 - [Cluster Deployment](./cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Canary Release](./cookbook/canary-release.md) - How to do canary release with Easegress.
 - [Distributed Tracing](./cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress

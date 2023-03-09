@@ -37,7 +37,9 @@ A [canary release](https://martinfowler.com/bliki/CanaryRelease.html) is a softw
 
 ![case 1](../imgs/canary-release-case-1.png)
 
-Suppose we run an e-Commerce service, and we recently upgraded our Order Service from version 1 to version 2. To ensure that our users have the best experience, we want to route the users who are accessing our service from Beijing to use the new Order service (version 2).  
+Suppose we run an e-Commerce service, and we recently upgraded our Order Service from version 1 to version 2. To ensure that our users have the best experience, we want to route the users who are accessing our service from Beijing to use the new Order service (version 2).
+
+Download the latest Service code from [canary-case-1](https://github.com/megaease/easegress-canary-example/tree/main/case1)
 
 **1. Traffic tagging**
 
@@ -45,45 +47,31 @@ To determine the geographic location of a user, we can leverage the `CF-IPCity` 
 
 **2. Traffic scheduling rules:**
 
-Save the following YAML code to `ecommerce-service.yaml` and make sure to replace the `servers` configuration with your own. 
+Save the following YAML code to `order-service.yaml` and make sure to replace the `servers` configuration with your own. 
 
 ```yaml
-name: ecommerce-pipeline
+name: order-pipeline
 kind: Pipeline
 flow:
-- filter: buildOrderRequest
-  namespace: order
 - filter: order-service
-  namespace: order
-- filter: buildResponse
 filters:
-- name: buildOrderRequest
-  kind: RequestBuilder
-  template: |
-    url: /order
 - name: order-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://megaease.com/api/v2  # new version
-  - filter:
+    - url: http://0.0.0.0:5002  # new version
+    filter:
       headers:
         cf-ipcity: # Cloudflare geographic location header
           exact: Beijing # the traffic from Beijing should be directed to the new version
-    servers:
-    - url: http://megaease.com/api/v1 # old version
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: {{.responses.order.StatusCode}}
-    body: |
-      [{{.responses.notify.Body}}]
+  - servers:
+    - url: http://0.0.0.0:5001  # old version
 ```
 
-Then create the e-Commerce pipeline with the command:
+Then create the order pipeline with the command:
 
 ```bash
-egctl object create -f ecommerce-service.yaml
+egctl object create -f order-service.yaml
 ```
 
 Save below YAML to `ecommerce-server.yaml`.
@@ -91,7 +79,7 @@ Save below YAML to `ecommerce-server.yaml`.
 ```yaml
 kind: HTTPServer
 name: ecommerce-server
-port: 8080
+port: 8888
 https: false
 keepAlive: true
 keepAliveTimeout: 75s
@@ -99,8 +87,10 @@ maxConnection: 10240
 cacheSize: 0
 rules:
   - paths:
-    - pathPrefix: /ecommerce
-      backend: ecommerce-pipeline
+    - pathPrefix: /order
+      backend: order-pipeline
+    - pathPrefix: /notify
+      backend: notify-pipeline
 ```
 
 Then create the HTTP server with command:
@@ -112,11 +102,11 @@ egctl object create -f ecommerce-server.yaml
 Send a request to e-Commerce service:
 
 ```bash
-curl http://127.0.0.1:10080/ecommerce -H "cf-ipcity: Beijing"
-[{"order_id":"5245000", "role_id":"44312", "order_status":1, "order_version": "v2"}]
+curl http://127.0.0.1:8888/order -H "cf-ipcity: Beijing"
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v2"}
 
-curl http://127.0.0.1:10080/ecommerce -H "cf-ipcity: Shanghai"
-[{"order_id":"5245000", "role_id":"44312", "order_status":1, "order_version": "v1"}]
+curl http://127.0.0.1:8888/order -H "cf-ipcity: Shanghai"
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v1"}
 ```
 
 ## based on user devices
@@ -124,6 +114,8 @@ curl http://127.0.0.1:10080/ecommerce -H "cf-ipcity: Shanghai"
 ![case 2](../imgs/canary-release-case-2.png)
 
 In real-world scenarios, services are usually interconnected and depend on each other to provide a seamless experience for the customer. In our case, we recently upgraded our Notify Service from version 1 to version 2. To ensure that our users have a holistic experience, we want to route users who are accessing our service from a Mac device to use the new version of our Notify Service (version 2).
+
+Download the latest Service code from [canary-case-2](https://github.com/megaease/easegress-canary-example/tree/main/case2)
 
 **1. Traffic tagging**
 
@@ -145,80 +137,73 @@ Go to the Cloudflare website configuration page and configure _Workers Routes_.
 
 **2. Traffic scheduling rules**
 
-Save the following YAML code to `ecommerce-service.yaml`, and make sure to replace the `servers` configuration with your own.
+Save the following YAML code to `order-service.yaml`, and make sure to replace the `servers` configuration with your own.
 
 ```yaml
-name: ecommerce-pipeline
+name: order-pipeline
 kind: Pipeline
 flow:
-- filter: buildOrderRequest
-  namespace: order
 - filter: order-service
-  namespace: order
-- filter: buildNotifyRequest
-  namespace: notify
-- filter: notify-service
-  namespace: notify
-- filter: buildResponse
 filters:
-- name: buildOrderRequest
-  kind: RequestBuilder
-  template: |
-    url: /order
 - name: order-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://megaease.com/api/v2
-- name: buildNotifyRequest
-  kind: RequestBuilder  # use order response as notify request body
-  template: |
-    url: /notify
-    method: POST
-    body: |
-      {"order": "{{.responses.order.Body | jsonEscape}}"}
+    - url: http://0.0.0.0:5003 # order service
+```
+
+Then update the order pipeline with the command:
+
+```bash
+egctl object update -f order-service.yaml
+```
+
+Save the following YAML code to `notify-service.yaml`, and make sure to replace the `servers` configuration with your own.
+
+```yaml
+name: notify-pipeline
+kind: Pipeline
+flow:
+- filter: notify-service
+filters:
 - name: notify-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://megaease.com/api/v1
-  - filter:
+    - url: http://0.0.0.0:5002  # new version
+    filter:
       headers:
-        x-ua-device: # Cloudflare's user device header
-          exact: Mac # the traffic from Mac should be directed to the new version
-    servers:
-    - url: http://megaease.com/api/v2
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: {{.responses.notify.StatusCode}}
-    body: |
-      [{{.responses.notify.Body}}]
+        x-ua-device:
+          exact: Mac # the traffic from Mac device should be directed to the new version
+  - servers:
+    - url: http://0.0.0.0:5001  # old version
 ```
 
-Then update the e-Commerce pipeline with the command:
+Then create the notify pipeline with the command:
 
 ```bash
-egctl object update -f ecommerce-service.yaml
+egctl object create -f notify-service.yaml
 ```
 
 Send a request to e-Commerce service:
 
 ```bash
 curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.117 Mobile Safari/537.36"
-[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "notify_version": "v1"}]
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v2","notify_status":1,"notify_version":"v1"}
 
 curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "notify_version": "v2"}]
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v2","notify_status":1,"notify_version":"v2"}
 ```
 
 ## based on user OS
 
 ![case 3](../imgs/canary-release-case-3.png)
 
-Suppose both the Order service and Notify service have been upgraded simultaneously. The user who is accessing our service from a Mac device should be routed to the new version of the Order service (v2), and from MacOS should be routed to the new version of the Notify service (v2).  
+Suppose both the Order service and Notify service have been upgraded simultaneously. The user who is accessing our service from a MacOS should be routed to the new version of the Order service (v2), and from Mac device should be routed to the new version of the Notify service (v2).  
 
 You may think Cloudflare's Workers is not suitable for your needs, there is another easy way to parse `User-Agent` with Easegress's WASM.
+
+Download the latest Service code from [canary-case-3](https://github.com/megaease/easegress-canary-example/tree/main/case3)
 
 **1. Traffic tagging**
 
@@ -234,81 +219,45 @@ Go to the `easegress-rust-uaparser/binary` directory and just use the `easegress
 
 **2. Traffic scheduling rules**
 
-Save the following YAML code to `ecommerce-service.yaml`, and make sure to replace the `servers` configuration and wasm file path with your own.
+Save the following YAML code to `order-service.yaml`, and make sure to replace the `servers` configuration and wasm file path with your own.
 
 ```yaml
-name: ecommerce-pipeline
+name: order-pipeline
 kind: Pipeline
 flow:
 - filter: wasm
-- filter: buildOrderRequest
-  namespace: order
 - filter: order-service
-  namespace: order
-- filter: buildNotifyRequest
-  namespace: notify
-- filter: notify-service
-  namespace: notify
-- filter: buildResponse
 filters:
 - name: wasm # parse user-agent, add `x-ua-device` and `x-ua-os` headers to the HTTP request.
   kind: WasmHost
   maxConcurrency: 2
   code: /<Path>/easegress.wasm  # easegress.wasm file path
   timeout: 100ms
-- name: buildOrderRequest
-  kind: RequestBuilder
-  template: |
-    url: /order
 - name: order-service
   kind: Proxy
   pools:
   - servers:
-    - url: http://megaease.com/api/v1
-  - filter:
+    - url: http://0.0.0.0:5002 # new version of order service
+    filter:
       headers:
-        x-ua-device: # Easegress's user device header
-          exact: Mac # the traffic from Mac should be directed to the new version
-    servers:
-    - url: http://megaease.com/api/v2
-- name: buildNotifyRequest
-  kind: RequestBuilder  # use order response as notify request body
-  template: |
-    url: /notify
-    method: POST
-    body: |
-      {"order": "{{.responses.order.Body | jsonEscape}}"}
-- name: notify-service
-  kind: Proxy
-  pools:
-  - servers:
-    - url: http://megaease.com/api/v1
-  - filter:
-      headers:
-        x-ua-os: # Easegress's user os header
+        x-ua-os: # Easegress's user OS header
           exact: MacOS # the traffic from MacOS should be directed to the new version
-    servers:
-    - url: http://megaease.com/api/v2
-- name: buildResponse
-  kind: ResponseBuilder
-  template: |
-    statusCode: {{.responses.notify.StatusCode}}
-    body: |
-      [{{.responses.notify.Body}}]
+  - servers:
+    - url: http://0.0.0.0:5001 # old version of order service
 ```
 
-Then update the e-Commerce pipeline with the command:
+Then update the order pipeline with the command:
 
 ```bash
-egctl object update -f ecommerce-service.yaml
+egctl object update -f order-service.yaml
 ```
 
 Send a request to e-Commerce service:
 
 ```bash
 curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Linux; Android 4.4.2; GT-I9505 Build/KOT49H) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.117 Mobile Safari/537.36"
-[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "order_version": "v1", "notify_version": "v1"}]
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v1","notify_status":1,"notify_version":"v1"}
 
 curl http://127.0.0.1:10080/ecommerce -H "user-agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-[{"order_id":"5245000", "role_id":"44312", "notify_status":1, "order_version": "v2", "notify_version": "v2"}]
+{"order_id":"5245000","role_id":"44312","order_status":1,"order_version":"v2","notify_status":1,"notify_version":"v2"}
 ```
