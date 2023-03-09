@@ -118,6 +118,7 @@ The following examples show how to use Easegress for different scenarios.
 - [Kubernetes Ingress Controller](./doc/cookbook/k8s-ingress-controller.md) - How to integrate with Kubernetes as ingress controller
 - [LoadBalancer](./doc/cookbook/load-balancer.md) - A number of the strategies of load balancing
 - [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Multiple API Orchestration](./doc/cookbook/translation-bot.md) - An Telegram translation bot.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))

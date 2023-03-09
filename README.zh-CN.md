@@ -117,6 +117,7 @@
 - [Kubernetes入口控制器](./doc/cookbook/k8s-ingress-controller.md) - 如何作为入口控制器与 Kubernetes 集成。
 - [负载均衡](./doc/cookbook/load-balancer.md) - 各种负载均衡策略。
 - [MQTT代理](./doc/cookbook/mqtt-proxy.md) - 支持 Kafka 作为后端的 MQTT 代理
+- [多 API 编排](./doc/cookbook/translation-bot.md) - 通过多 API 编排实现 Telegram 翻译机器人.
 - [高性能](./doc/cookbook/performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](./doc/cookbook/pipeline.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](./doc/cookbook/resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
