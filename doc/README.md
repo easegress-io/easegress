@@ -17,13 +17,15 @@ This is a cookbook that lists a number of useful and practical examples on how t
 
 - [API Aggregator](./cookbook/api-aggregation.md) - Aggregating many APIs into a single API.
 - [Cluster Deployment](./cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Canary Release](./cookbook/canary-release.md) - How to do canary release with Easegress.
 - [Distributed Tracing](./cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
 - [Kubernetes Ingress Controller](./cookbook/k8s-ingress-controller.md) - How to integrated with Kubernetes as ingress controller, and [K8s Ingress Controller](./reference/ingresscontroller.md) for full manual.
 - [LoadBalancer](./cookbook/load-balancer.md) - A number of strategy of load balancing
-- [MQTTProxy](./cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
 - [Migrate v1.x Filter To v2.x](./cookbook/migrate-v1-filter-to-v2.md) - How to migrate a v1.x filter to v2.x.
+- [MQTTProxy](./cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Multiple API Orchestration](./cookbook/translation-bot.md) - An Telegram translation bot.
 - [Performance](./cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./cookbook/resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
@@ -32,7 +34,6 @@ This is a cookbook that lists a number of useful and practical examples on how t
 - [WebAssembly](./cookbook/wasm.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](./cookbook/websocket.md) - WebSocket proxy for Easegress
 - [Workflow](./cookbook/workflow.md) - An Example to make a workflow for a number of APIs.
-- [Multiple API Orchestration](./cookbook/translation-bot.md) - An Telegram translation bot.
 
 ## 2. Development Guide
 

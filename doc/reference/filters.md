@@ -140,16 +140,16 @@ name: proxy-example-2
 pools:
 - servers:
   - url: http://127.0.0.1:9095
-- filter:
+  filter:
     headers:
       X-Candidate:
         exact: candidate
-  servers:
+- servers:
   - url: http://127.0.0.1:9096
-- filter:
+  filter:
     permil: 400 # between 0 and 1000
     policy: random
-  servers:
+- servers:
   - url: http://127.0.0.1:9097
 ```
 

@@ -111,12 +111,14 @@ The following examples show how to use Easegress for different scenarios.
 
 - [API Aggregation](./doc/cookbook/api-aggregation.md) - Aggregating many APIs into a single API.
 - [Cluster Deployment](./doc/cookbook/multi-node-cluster.md) - How to deploy multiple Easegress cluster nodes.
+- [Canary Release](./doc/cookbook/canary-release.md) - How to do canary release with Easegress.
 - [Distributed Tracing](./doc/cookbook/distributed-tracing.md) - How to do APM tracing  - Zipkin.
 - [FaaS](./doc/cookbook/faas.md) - Supporting Knative FaaS integration
 - [Flash Sale](./doc/cookbook/flash-sale.md) - How to do high concurrent promotion sales with Easegress
 - [Kubernetes Ingress Controller](./doc/cookbook/k8s-ingress-controller.md) - How to integrate with Kubernetes as ingress controller
 - [LoadBalancer](./doc/cookbook/load-balancer.md) - A number of the strategies of load balancing
 - [MQTTProxy](./doc/cookbook/mqtt-proxy.md) - An Example to MQTT proxy with Kafka backend.
+- [Multiple API Orchestration](./doc/cookbook/translation-bot.md) - An Telegram translation bot.
 - [Performance](./doc/cookbook/performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](./doc/cookbook/pipeline.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](./doc/cookbook/resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
