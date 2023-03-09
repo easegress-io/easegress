@@ -31,7 +31,7 @@ A [canary release](https://martinfowler.com/bliki/CanaryRelease.html) is a softw
   - **User Device**: Using [Workers](https://developers.cloudflare.com/workers/), we can extract information about the user's device, operating system, and web browser from the `User-Agent` field of the HTTP request.
   - **User's Customized Label**: Using Cloudflare [Rules](https://developers.cloudflare.com/rules/transform/request-header-modification/), it is easy to extract the user's customized business label from HTTP request headers (such as: Cookies, etc.)
 
-- For traffic scheduling, Easegress offers two features, `Filter` and `Proxy`, that can be used to route traffic to different canary releases.
+- For traffic scheduling, Easegress can be used to route traffic to different canary releases.
 
 ## based on geographic location
 
