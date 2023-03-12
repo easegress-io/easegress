@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"github.com/megaease/easegress/pkg/logger"
 	"sync"
-	"sync/atomic"
 )
 
 // PoolObject is an interface that about definition of object that managed by pool
@@ -35,9 +34,9 @@ type PoolObject interface {
 type (
 	// Pool manage the PoolObject
 	Pool struct {
-		initSize     int32                      // initial size
-		maxSize      int32                      // max size
-		size         int32                      // current size
+		initSize     int                        // initial size
+		maxSize      int                        // max size
+		size         int                        // current size
 		new          func() (PoolObject, error) // create a new object, it must return a health object or err
 		store        chan PoolObject            // store the object
 		cond         *sync.Cond                 // when conditions are met, it wakes all goroutines waiting on sync.Cond
@@ -47,8 +46,8 @@ type (
 
 	// Spec Pool's spec
 	Spec struct {
-		InitSize     int32                      // initial size
-		MaxSize      int32                      // max size
+		InitSize     int                        // initial size
+		MaxSize      int                        // max size
 		New          func() (PoolObject, error) // create a new object
 		CheckWhenGet bool                       // whether to health check when get PoolObject
 		CheckWhenPut bool                       // whether to health check when put PoolObject
@@ -56,7 +55,7 @@ type (
 )
 
 // New returns a new pool
-func New(initSize, maxSize int32, new func() (PoolObject, error)) *Pool {
+func New(initSize, maxSize int, new func() (PoolObject, error)) *Pool {
 	return NewWithSpec(Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
@@ -77,10 +76,17 @@ func NewWithSpec(spec Spec) *Pool {
 		store:        make(chan PoolObject, spec.MaxSize),
 		cond:         sync.NewCond(&sync.Mutex{}),
 	}
-	if err := p.init(); err != nil {
-		logger.Errorf("new pool failed %v", err)
-		return nil
+
+	for i := 0; i < p.initSize; i++ {
+		obj, err := p.new()
+		if err != nil {
+			logger.Errorf("create pool object failed: %v", err)
+			continue
+		}
+		p.size++
+		p.store <- obj
 	}
+
 	return p
 }
 
@@ -99,91 +105,111 @@ func (s *Spec) Validate() error {
 	return nil
 }
 
-// initializes the pool with initSize of objects
-func (p *Pool) init() error {
-	for i := 0; i < int(p.initSize); i++ {
-		iPoolObject, err := p.new()
-		if err != nil || !iPoolObject.HealthCheck() {
-			logger.Errorf("create pool object failed or object of pool is not healthy when init pool:, err %v", err)
-			continue
-		}
-		p.size++
-		p.store <- iPoolObject
+// The fast path, try get an object from the pool directly
+func (p *Pool) fastGet() PoolObject {
+	select {
+	case obj := <-p.store:
+		return obj
+	default:
+		return nil
 	}
-	return nil
 }
 
-// Get returns an object from the pool,
-// if no free object, it will create a new one if the pool is not full
-// if the pool is full, it will block until an object is returned to the pool
-func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
+// The slow path, we need to wait for an object or create a new one.
+func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
+	// we need to watch ctx.Done in another goroutine, so that we can stop
+	// the slow path when the context is done.
+	// we also need to stop the watch when the slow path is done.
+	stop := make(chan struct{})
+	defer close(stop)
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			p.cond.Broadcast()
+		case <-stop:
+		}
+	}()
+
 	p.cond.L.Lock()
 	defer p.cond.L.Unlock()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case poolObject := <-p.store:
-			if p.checkWhenGet && !poolObject.HealthCheck() {
-				p.destroyIPoolObject(poolObject)
-				if poolObject = p.createIPoolObject(); poolObject != nil {
-					return poolObject, nil
-				}
-				continue
-			}
-			return poolObject, nil
+
+		case obj := <-p.store:
+			return obj, nil
+
 		default:
-			if iPoolObject := p.createIPoolObject(); iPoolObject != nil {
-				return iPoolObject, nil
+		}
+
+		// try creating a new object
+		if p.size < p.maxSize {
+			if obj, err := p.new(); err == nil {
+				p.size++
+				return obj, nil
 			}
-			p.cond.Wait()
 		}
+
+		// the pool reaches its max size and there is no object available
+		p.cond.Wait()
 	}
 }
 
-func (p *Pool) createIPoolObject() PoolObject {
+// Get returns an object from the pool,
+//
+// if there's an available object, it will return it directly;
+// if there's no free object, it will create a one if the pool is not full;
+// if the pool is full, it will block until an object is returned to the pool.
+func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
 	for {
-		size := atomic.LoadInt32(&p.size)
-		if size >= p.maxSize {
-			return nil
+		obj := p.fastGet()
+		if obj == nil {
+			var err error
+			obj, err = p.slowGet(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
-		if atomic.CompareAndSwapInt32(&p.size, size, size+1) {
-			break
+
+		if !p.checkWhenGet || obj.HealthCheck() {
+			return obj, nil
 		}
-	}
 
-	if iPoolObject, err := p.new(); err == nil {
-		return iPoolObject
+		p.putUnhealthyObject(obj)
 	}
-
-	atomic.AddInt32(&p.size, -1)
-	return nil
 }
 
-func (p *Pool) destroyIPoolObject(object PoolObject) {
-	atomic.AddInt32(&p.size, -1)
-	object.Destroy()
+func (p *Pool) putUnhealthyObject(obj PoolObject) {
+	p.cond.L.Lock()
+	p.size--
+	p.cond.L.Unlock()
+
+	p.cond.Signal()
+	obj.Destroy()
 }
 
 // Put return the object to the pool
 func (p *Pool) Put(obj PoolObject) {
 	if obj == nil {
-		return
+		panic("pool: put nil object")
 	}
-	defer p.cond.Broadcast()
+
 	if p.checkWhenPut && !obj.HealthCheck() {
-		p.destroyIPoolObject(obj)
+		p.putUnhealthyObject(obj)
 		return
 	}
+
 	p.store <- obj
-	return
+	p.cond.Signal()
 }
 
-// Destroy destroys the pool and clean all the objects
-func (p *Pool) Destroy() {
+// Close closes the pool and clean all the objects
+func (p *Pool) Close() {
 	close(p.store)
-	for iPoolObject := range p.store {
-		p.destroyIPoolObject(iPoolObject)
+	for obj := range p.store {
+		obj.Destroy()
 	}
-	return
 }
