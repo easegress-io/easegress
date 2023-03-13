@@ -84,7 +84,7 @@ func (f *fakeAlmostUnHealthPoolObject) HealthCheck() bool {
 
 func TestNewSimplePool(t *testing.T) {
 	init, max := 2, 4
-	pool := New(int32(init), int32(max), func() (PoolObject, error) {
+	pool := New(init, max, func() (PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
 	})
 
@@ -101,7 +101,7 @@ func getAndPut(pool *Pool) {
 }
 
 func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake PoolObject, b *testing.B) {
-	pool := New(int32(iPoolObjNum/2), int32(iPoolObjNum), func() (PoolObject, error) {
+	pool := New(iPoolObjNum/2, iPoolObjNum, func() (PoolObject, error) {
 		return fake, nil
 	})
 	ch := make(chan struct{})
