@@ -1,0 +1,13 @@
+kind: HTTPServer
+name: httpserver
+port: 8443                # telegram requires the port to be 80, 88, 443 or 8443
+https: true
+autoCert: true            # please set it to false if you don't use AutoCertManager
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+- paths:
+  - path: /chatgpt
+    backend: chatgpt-pipeline
