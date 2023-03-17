@@ -105,7 +105,7 @@ filters:
 
 ### 4.3 Send Request to ChatGPT
 
-Build a request to send to ChatGPT. See more details in [OpenAI API](https://platform.openai.com/docs/guides/chate). Make sure to replace the `{Your OpenAI API Key}` with your own API key.
+Build a request to send to ChatGPT. See more details in [OpenAI API](https://platform.openai.com/docs/guides/chat). Make sure to replace the `{Your OpenAI API Key}` with your own API key.
 
 ```yaml
 - kind: RequestBuilder
