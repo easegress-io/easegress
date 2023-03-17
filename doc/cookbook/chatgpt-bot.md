@@ -1,15 +1,15 @@
 # Build A Telegram ChatGPT Bot With Easegress
 
-Before reading this article, please read the [Multiple API Orchestration](./translation-bot.md) article to ensure understanding of Easegress API orchestration and Telegram robot.
+Before reading this article, please read the [Multiple API Orchestration](./translation-bot.md) article to ensure an understanding of Easegress API orchestration and Telegram bot.
 
-In this article, we will introduce how to build a Telegram ChatGPT robot with Easegress. This robot can generate a response based on the user's input.
+In this article, we will introduce how to build a Telegram ChatGPT bot with Easegress. This bot can generate a response based on the user's input.
 
 ## 1. Prerequisites
 
-Since the bot needs to receive Telegram message notifications and call third-party APIs, we must prepare the following in advance:
+Since the bot needs to receive Telegram message notifications and call ChatGPT APIs, we must prepare the following in advance:
 
 * Install the latest version of Easegress according to [this document](https://github.com/megaease/easegress#setting-up-easegress) and make sure that external applications can access the Easegress instance on at least one of ports 80, 88, 443, or 8443.
-* Create a Telegram bot by following [this document](https://core.telegram.org/bots#3-how-do-i-create-a-bot), set its name (EaseTranslateBot is used in this article), write down its token, and [set up a Webhook](https://core.telegram.org/bots/api#setwebhook) that points to the Easegress instance installed in the previous step. Our bot will receive notifications of new messages through this Webhook.
+* Create a Telegram bot by following [this document](https://core.telegram.org/bots#3-how-do-i-create-a-bot), set its name (EaseChatGPTBot is used in this article), write down its token, and [set up a Webhook](https://core.telegram.org/bots/api#setwebhook) that points to the Easegress instance installed in the previous step. Our bot will receive notifications of new messages through this Webhook.
 * Create a [OpenAI](https://openai.com/blog/openai-api/) account and write down its API key.
 
 ## 2. How it works
@@ -22,7 +22,7 @@ Upon receiving a notification of a new message from the Telegram server via webh
 
 ## 3. Pipeline
 
-First, let's check the overall flow that Pipeline orchestrates:
+First, let's check the overall flow of the Pipeline:
 
 ```yaml
 name: chatgpt-pipeline
@@ -64,7 +64,7 @@ flow:
 
 ### 4.1 Backend Proxies
 
-We need to create two proxies to send requests to the ChatGPT API and Telegram API. The configuration of the two proxies is as follows:
+We need to create two proxies to send requests to the ChatGPT API server and the Telegram API server. The configuration of the two proxies is as follows:
 
 ```yaml
 - name: proxyChatGPT
@@ -82,7 +82,7 @@ We need to create two proxies to send requests to the ChatGPT API and Telegram A
 
 ### 4.2 Check and Extract Text
 
-The processing details is consistent with that in [Multiple API Orchestration](./translation-bot.md) and will not be described again.
+The processing details are the same as that in [Multiple API Orchestration](./translation-bot.md).
 
 ```yaml
 filters:
@@ -105,7 +105,7 @@ filters:
 
 ### 4.3 Send Request to ChatGPT
 
-Build a request to send to the ChatGPT API. See more details in [OpenAI API](https://platform.openai.com/docs/guides/chate). Make sure to replace the `{Your OpenAI API Key}` with your own API key.
+Build a request to send to ChatGPT. See more details in [OpenAI API](https://platform.openai.com/docs/guides/chate). Make sure to replace the `{Your OpenAI API Key}` with your own API key.
 
 ```yaml
 - kind: RequestBuilder
