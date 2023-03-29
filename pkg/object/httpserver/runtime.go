@@ -492,124 +492,128 @@ func (r *runtime) newMetrics(name string) *metrics {
 		RequestsDuration: prometheushelper.NewHistogram(
 			prometheus.HistogramOpts{
 				Name:    "httpserver_requests_duration",
-				Help:    "request processing duration histogram",
+				Help:    "request processing duration histogram of a backend",
 				Buckets: prometheushelper.DefaultDurationBuckets(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		RequestSizeBytes: prometheushelper.NewHistogram(
 			prometheus.HistogramOpts{
 				Name:    "httpserver_requests_size_bytes",
-				Help:    "a histogram of the total size of the request. Includes body",
+				Help:    "a histogram of the total size of the request to a backend. Includes body",
 				Buckets: prometheushelper.DefaultBodySizeBuckets(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		ResponseSizeBytes: prometheushelper.NewHistogram(
 			prometheus.HistogramOpts{
 				Name:    "httpserver_responses_size_bytes",
-				Help:    "a histogram of the total size of the returned response body",
+				Help:    "a histogram of the total size of the returned response body from a backend",
 				Buckets: prometheushelper.DefaultBodySizeBuckets(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		RequestsDurationPercentage: prometheushelper.NewSummary(
 			prometheus.SummaryOpts{
 				Name:       "httpserver_requests_duration_percentage",
-				Help:       "request processing duration summary",
+				Help:       "request processing duration summary of a backend",
 				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		RequestSizeBytesPercentage: prometheushelper.NewSummary(
 			prometheus.SummaryOpts{
 				Name:       "httpserver_requests_size_bytes_percentage",
-				Help:       "a summary of the total size of the request. Includes body",
+				Help:       "a summary of the total size of the request to a backend. Includes body",
 				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		ResponseSizeBytesPercentage: prometheushelper.NewSummary(
 			prometheus.SummaryOpts{
 				Name:       "httpserver_responses_size_bytes_percentage",
-				Help:       "a summary of the total size of the returned response body",
+				Help:       "a summary of the total size of the returned response body from a backend",
 				Objectives: prometheushelper.DefaultObjectives(),
 			},
 			httpserverLabels).MustCurryWith(commonLabels),
 		M1: prometheushelper.NewGauge(
 			"httpserver_m1",
-			"the m1 of the http server",
+			"The http request executions per second (exponentially-weighted moving average) in last 1 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M5: prometheushelper.NewGauge(
 			"httpserver_m5",
-			"the m5 of the http server",
+			"The http request executions per second (exponentially-weighted moving average) in last 5 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M15: prometheushelper.NewGauge(
 			"httpserver_m15",
-			"the m15 of the http server",
+			"The http request executions per second (exponentially-weighted moving average) in last 15 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M1Err: prometheushelper.NewGauge(
 			"httpserver_m1_err",
-			"the m1 error of the http server",
+			"The http error request executions per second (exponentially-weighted moving average) in last 1 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M5Err: prometheushelper.NewGauge(
 			"httpserver_m5_err",
-			"the m5 error of the http server",
+			"The http error request executions per second (exponentially-weighted moving average) in last 5 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M15Err: prometheushelper.NewGauge(
 			"httpserver_m15_err",
-			"the m15 error of the http server",
+			"The http error request executions per second (exponentially-weighted moving average) in last 15 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M1ErrPercent: prometheushelper.NewGauge(
 			"httpserver_m1_err_percent",
-			"the m1 error percent of the http server",
+			"error percentage in last 1 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M5ErrPercent: prometheushelper.NewGauge(
 			"httpserver_m5_err_percent",
-			"the m5 error percent of the http server",
+			"error percentage in last 5 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M15ErrPercent: prometheushelper.NewGauge(
 			"httpserver_m15_err_percent",
-			"the m15 error percent of the http server",
+			"error percentage in last 15 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		Min: prometheushelper.NewGauge(
 			"httpserver_min",
-			"the min of the http server",
+			"The http-request minimal execution duration in milliseconds",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		Max: prometheushelper.NewGauge(
 			"httpserver_max",
-			"the max of the http server",
+			"The http-request maximal execution duration in milliseconds",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		Mean: prometheushelper.NewGauge(
 			"httpserver_mean",
-			"the mean of the http server",
+			"The http-request mean execution duration in milliseconds",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P25: prometheushelper.NewGauge(
 			"httpserver_p25",
-			"the p25 of the http server",
+			"TP25: The http-request execution duration in milliseconds for 25% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P50: prometheushelper.NewGauge(
 			"httpserver_p50",
-			"the p50 of the http server",
+			"TP50: The http-request execution duration in milliseconds for 50% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P75: prometheushelper.NewGauge(
 			"httpserver_p75",
-			"the p75 of the http server",
+			"TP75: The http-request execution duration in milliseconds for 75% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P95: prometheushelper.NewGauge(
 			"httpserver_p95",
-			"the p95 of the http server",
+			"TP95: The http-request execution duration in milliseconds for 95% user of the http server.",
+			httpserverLabels[:5]).MustCurryWith(commonLabels),
+		P98: prometheushelper.NewGauge(
+			"httpserver_p98",
+			"TP98: The http-request execution duration in milliseconds for 98% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P99: prometheushelper.NewGauge(
 			"httpserver_p99",
-			"the p99 of the http server",
+			"TP99: The http-request execution duration in milliseconds for 99% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P999: prometheushelper.NewGauge(
 			"httpserver_p999",
-			"the p999 of the http server",
+			"TP999: The http-request execution duration in milliseconds for 99.9% user of the http server.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		ReqSize: prometheushelper.NewGauge(
 			"httpserver_req_size",
-			"the request size of the http server",
+			"The total size of the http requests in this statistic window",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		RespSize: prometheushelper.NewGauge(
 			"httpserver_resp_size",
-			"the response size of the http server",
+			"The total size of the http responses in this statistic window",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 	}
 }
@@ -639,6 +643,7 @@ func (r *runtime) exportPrometheusMetrics(status *httpstat.Status) {
 	r.metrics.P50.WithLabelValues().Set(status.P50)
 	r.metrics.P75.WithLabelValues().Set(status.P75)
 	r.metrics.P95.WithLabelValues().Set(status.P95)
+	r.metrics.P98.WithLabelValues().Set(status.P98)
 	r.metrics.P99.WithLabelValues().Set(status.P99)
 	r.metrics.P999.WithLabelValues().Set(status.P999)
 	r.metrics.ReqSize.WithLabelValues().Set(float64(status.ReqSize))
