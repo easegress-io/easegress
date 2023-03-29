@@ -1,0 +1,92 @@
+name: chatgpt-pipeline
+kind: Pipeline
+
+flow:
+- filter: buildFinalResponse
+
+- filter: checkRequestType
+  jumpIf:
+    result0: processText
+    "": END
+
+# process text message
+- filter: requestBuilderExtractText
+  alias: processText
+  namespace: extract
+
+# send to ChatGPT
+- filter: requestBuilderChatGPT
+  alias: chatGPT
+  namespace: gpt
+- filter: proxyChatGPT
+  namespace: gpt
+
+# send reply message to Telegram
+- filter: requestBuilderReply
+  namespace: tg
+- filter: proxyTelegram
+  namespace: tg
+
+filters:
+- kind: ResultBuilder
+  name: checkRequestType
+  template: |
+    {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
+    {{- if $msg.text}}result0{{end -}}
+- kind: RequestBuilder
+  name: requestBuilderExtractText
+  template: |
+    {{- $msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post -}}
+    body: |
+      {
+         "exclude": true,
+         "text": "{{$msg.text | jsonEscape}}"
+      }
+- kind: RequestBuilder
+  name: requestBuilderChatGPT
+  template: |
+    method: POST
+    url: /v1/chat/completions
+    headers:
+      "Authorization": ["Bearer {Your OpenAI API Key}"]
+      "Content-Type": ["application/json"]
+    body: |
+      {
+         "model": "gpt-3.5-turbo",
+         "messages": [{
+            "role": "user",
+            "content": "{{.requests.extract.JSONBody.text | jsonEscape}}"
+         }]
+      }
+- kind: RequestBuilder
+  name: requestBuilderReply
+  template: |
+    {{$msg := or .requests.DEFAULT.JSONBody.message .requests.DEFAULT.JSONBody.channel_post}}
+    {{$resp := index .responses.gpt.JSONBody.choices 0}}
+    method: POST
+    # Please replace it with the url of your bot
+    url: https://api.telegram.org/bot{YOUR BOT TOKEN}/sendMessage
+    headers:
+      "Content-Type": ["application/json"]
+    body: |
+      {
+        "chat_id": {{$msg.chat.id}},
+        "reply_to_message_id": {{$msg.message_id}},
+        "text": "{{$resp.message.content | jsonEscape}}"
+      }
+- name: proxyChatGPT
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://api.openai.com
+
+- name: proxyTelegram
+  kind: Proxy
+  pools:
+  - servers:
+    - url: https://api.telegram.org
+
+- kind: ResponseBuilder
+  name: buildFinalResponse
+  template: |
+    statusCode: 200
