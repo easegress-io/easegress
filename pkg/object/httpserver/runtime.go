@@ -533,27 +533,27 @@ func (r *runtime) newMetrics(name string) *metrics {
 			httpserverLabels).MustCurryWith(commonLabels),
 		M1: prometheushelper.NewGauge(
 			"httpserver_m1",
-			"The http request executions per second (exponentially-weighted moving average) in last 1 minute",
+			"QPS (exponentially-weighted moving average) in last 1 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M5: prometheushelper.NewGauge(
 			"httpserver_m5",
-			"The http request executions per second (exponentially-weighted moving average) in last 5 minute",
+			"QPS (exponentially-weighted moving average) in last 5 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M15: prometheushelper.NewGauge(
 			"httpserver_m15",
-			"The http request executions per second (exponentially-weighted moving average) in last 15 minute",
+			"QPS (exponentially-weighted moving average) in last 15 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M1Err: prometheushelper.NewGauge(
 			"httpserver_m1_err",
-			"The http error request executions per second (exponentially-weighted moving average) in last 1 minute",
+			"QPS (exponentially-weighted moving average) in last 1 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M5Err: prometheushelper.NewGauge(
 			"httpserver_m5_err",
-			"The http error request executions per second (exponentially-weighted moving average) in last 5 minute",
+			"QPS (exponentially-weighted moving average) in last 5 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M15Err: prometheushelper.NewGauge(
 			"httpserver_m15_err",
-			"The http error request executions per second (exponentially-weighted moving average) in last 15 minute",
+			"QPS (exponentially-weighted moving average) in last 15 minute",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		M1ErrPercent: prometheushelper.NewGauge(
 			"httpserver_m1_err_percent",
@@ -581,31 +581,31 @@ func (r *runtime) newMetrics(name string) *metrics {
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P25: prometheushelper.NewGauge(
 			"httpserver_p25",
-			"TP25: The http-request execution duration in milliseconds for 25% user of the http server.",
+			"TP25: The processing time for 25% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P50: prometheushelper.NewGauge(
 			"httpserver_p50",
-			"TP50: The http-request execution duration in milliseconds for 50% user of the http server.",
+			"TP50: The processing time for 50% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P75: prometheushelper.NewGauge(
 			"httpserver_p75",
-			"TP75: The http-request execution duration in milliseconds for 75% user of the http server.",
+			"TP75: The processing time for 75% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P95: prometheushelper.NewGauge(
 			"httpserver_p95",
-			"TP95: The http-request execution duration in milliseconds for 95% user of the http server.",
+			"TP95: The processing time for 95% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P98: prometheushelper.NewGauge(
 			"httpserver_p98",
-			"TP98: The http-request execution duration in milliseconds for 98% user of the http server.",
+			"TP98: The processing time for 98% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P99: prometheushelper.NewGauge(
 			"httpserver_p99",
-			"TP99: The http-request execution duration in milliseconds for 99% user of the http server.",
+			"TP99: The processing time for 99% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		P999: prometheushelper.NewGauge(
 			"httpserver_p999",
-			"TP999: The http-request execution duration in milliseconds for 99.9% user of the http server.",
+			"TP999: The processing time for 99.9% of the requests, in milliseconds.",
 			httpserverLabels[:5]).MustCurryWith(commonLabels),
 		ReqSize: prometheushelper.NewGauge(
 			"httpserver_req_size",
