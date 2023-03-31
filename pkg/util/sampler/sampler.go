@@ -26,8 +26,8 @@ import (
 type (
 	// DurationSampler is the sampler for sampling duration.
 	DurationSampler struct {
-		count     uint64
-		durations []uint32
+		count     uint64   // total number of samples
+		durations []uint32 // number of samples in each duration
 	}
 
 	// DurationSegment defines resolution for a duration segment
@@ -53,13 +53,13 @@ var segments = []DurationSegment{
 
 // NewDurationSampler creates a DurationSampler.
 func NewDurationSampler() *DurationSampler {
-	slots := 1
+	slots := 0
 	for _, s := range segments {
 		slots += s.slots
 	}
-	return &DurationSampler{
-		durations: make([]uint32, slots),
-	}
+	// reserved an extra slot for samples which are larger than the maximum
+	// duration that the segments can hold.
+	return &DurationSampler{durations: make([]uint32, slots+1)}
 }
 
 // Update updates the sample. This function could be called concurrently,
@@ -67,7 +67,11 @@ func NewDurationSampler() *DurationSampler {
 func (ds *DurationSampler) Update(d time.Duration) {
 	idx := 0
 	for _, s := range segments {
+		// bound is the upper bound of current segment.
 		bound := s.resolution * time.Duration(s.slots)
+
+		// check if d fall into current segment, note that
+		// segment is a half-open interval
 		if d < bound-s.resolution/2 {
 			idx += int((d + s.resolution/2) / s.resolution)
 			break
@@ -93,14 +97,28 @@ func (ds *DurationSampler) Percentiles() []float64 {
 	percentiles := []float64{0.25, 0.5, 0.75, 0.95, 0.98, 0.99, 0.999}
 
 	result := make([]float64, len(percentiles))
+
+	// total is the total number of samples, count is the number of samples
+	// we have seen so far.
 	count, total := uint64(0), float64(ds.count)
+
+	// no samples, the result is all 0
+	if total == 0 {
+		return result
+	}
+
+	// di is the index of ds.durations, pi is the index of percentiles
 	di, pi := 0, 0
 	base := time.Duration(0)
 	for _, s := range segments {
 		for i := 0; i < s.slots; i++ {
 			count += uint64(ds.durations[di])
 			di++
+			// calculate the percentile of samples we have seen against
+			// total samples
 			p := float64(count) / total
+
+			// fill the result, note one sample may fill multiple percentiles
 			for p >= percentiles[pi] {
 				d := base + s.resolution*time.Duration(i)
 				result[pi] = float64(d / time.Millisecond)
@@ -113,9 +131,14 @@ func (ds *DurationSampler) Percentiles() []float64 {
 		base += s.resolution * time.Duration(s.slots)
 	}
 
+	// take samples which are larger than the maximum duration into account,
+	// now we have 100% of the samples counted, so we consider all the rest of
+	// the result to be the maximum duration (this is not accurate, but we
+	// don't have a better solution).
 	for pi < len(percentiles) {
-		result[pi] = 9999999
+		result[pi] = float64(base / time.Millisecond)
 		pi++
 	}
+
 	return result
 }
