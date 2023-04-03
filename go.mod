@@ -14,7 +14,7 @@ require (
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0
 	github.com/go-zookeeper/zk v1.0.3
-	github.com/goccy/go-json v0.10.0
+	github.com/goccy/go-json v0.10.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.3.0
@@ -29,9 +29,9 @@ require (
 	github.com/libdns/dnspod v0.0.3
 	github.com/libdns/duckdns v0.1.1
 	github.com/libdns/hetzner v0.0.1
-	github.com/libdns/libdns v0.2.1
+	github.com/libdns/libdns v0.2.2-0.20230227175549-2dc480633939
 	github.com/libdns/route53 v1.3.0
-	github.com/libdns/vultr v0.0.0-20220906182619-5ea9da3d9625
+	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/jsonschema v0.5.1
@@ -71,10 +71,10 @@ require (
 	golang.org/x/net v0.7.0
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.6.0
-	k8s.io/api v0.26.2
-	k8s.io/apimachinery v0.26.2
+	k8s.io/api v0.26.3
+	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v0.26.2
-	knative.dev/client v0.36.0
+	knative.dev/client v0.36.2
 	knative.dev/serving v0.36.2
 )
 
@@ -93,6 +93,7 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.1.1 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+	github.com/vultr/govultr/v3 v3.0.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.14.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.14.0 // indirect
 	go.opentelemetry.io/otel/metric v0.37.0 // indirect
@@ -237,7 +238,6 @@ require (
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/toolkits/concurrent v0.0.0-20150624120057-a4371d70e3e3 // indirect
-	github.com/vultr/govultr/v2 v2.17.2 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xiang90/probing v0.0.0-20221125231312-a49e3df8f510 // indirect
@@ -266,7 +266,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230301171018-9ab4bdc49ad5 // indirect
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
