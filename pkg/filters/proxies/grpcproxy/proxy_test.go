@@ -58,7 +58,8 @@ pools:
   - loadBalance:
       policy: forward
     serviceName: "easegress"
-    connectTimeout: 3s
+connectTimeout: 3s
+maxIdleConnsPerHost: 10
 name: grpcforwardproxy
 `
 	rawSpec := make(map[string]interface{})
@@ -81,7 +82,7 @@ name: grpcforwardproxy
 	assertions.NoError(err)
 
 	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.NoError(err)
+	assertions.Error(err)
 }
 
 func TestReload(t *testing.T) {
@@ -89,24 +90,37 @@ func TestReload(t *testing.T) {
 	s := `
 kind: GRPCProxy
 pools:
-  - loadBalance:
-      policy: forward
-    serviceName: "easegress"
+ - loadBalance:
+     policy: forward
+   serviceName: easegress
+maxIdleConnsPerHost: 10
+initConnsPerHost: 1
+connectTimeout: 1s
+borrowTimeout: 1s
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	assertions.Equal(p.mainPool.dialOpts, defaultDialOpts)
+	oldPool := p.pool
 
 	s = `
 kind: GRPCProxy
 pools:
-  - loadBalance:
-      policy: forward
-    serviceName: "easegress"
-    connectTimeout: 3s
+ - loadBalance:
+    policy: forward
+   serviceName: easegress
+maxIdleConnsPerHost: 2
+initConnsPerHost: 2
+connectTimeout: 100ms
+borrowTimeout: 100ms
 name: grpcforwardproxy
 `
+	rawSpec := make(map[string]interface{})
+	_ = yaml.Unmarshal([]byte(s), &rawSpec)
+	_ = codectool.Unmarshal([]byte(s), &rawSpec)
 
-	p = newTestProxy(s, assertions)
-	assertions.True(len(p.mainPool.dialOpts) > len(defaultDialOpts))
+	spec, _ := filters.NewSpec(nil, "", rawSpec)
+	p.spec = spec.(*Spec)
+	p.reload()
+	assertions.True(oldPool == p.pool)
+
 }

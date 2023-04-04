@@ -31,54 +31,56 @@ type PoolObject interface {
 	HealthCheck() bool // check the object is health or not
 }
 
+const (
+	defaultKey = "default"
+)
+
 type (
+	// MultiPool manage multi Pool.
+	MultiPool struct {
+		pools sync.Map
+		lock  sync.Mutex
+		spec  *Spec
+	}
 	// Pool manage the PoolObject
 	Pool struct {
-		initSize     int                        // initial size
-		maxSize      int                        // max size
-		size         int                        // current size
-		new          func() (PoolObject, error) // create a new object, it must return a health object or err
-		store        chan PoolObject            // store the object
-		cond         *sync.Cond                 // when conditions are met, it wakes all goroutines waiting on sync.Cond
-		checkWhenGet bool                       // whether to health check when get PoolObject
-		checkWhenPut bool                       // whether to health check when put PoolObject
+		spec  *Spec
+		size  int             // current size
+		store chan PoolObject // store the object
+		cond  *sync.Cond      // when conditions are met, it wakes all goroutines waiting on sync.Cond
 	}
 
 	// Spec Pool's spec
 	Spec struct {
-		InitSize     int                        // initial size
-		MaxSize      int                        // max size
-		New          func() (PoolObject, error) // create a new object
-		CheckWhenGet bool                       // whether to health check when get PoolObject
-		CheckWhenPut bool                       // whether to health check when put PoolObject
+		InitSize     int                                           // initial size
+		MaxSize      int                                           // max size
+		New          func(ctx context.Context) (PoolObject, error) // create a new object, it must return a health object or err
+		CheckWhenGet bool                                          // whether to health check when get PoolObject
+		CheckWhenPut bool                                          // whether to health check when put PoolObject
 	}
 )
 
 // New returns a new pool
-func New(initSize, maxSize int, new func() (PoolObject, error)) *Pool {
-	return NewWithSpec(Spec{
+func New(initSize, maxSize int, new func(ctx context.Context) (PoolObject, error), ctx context.Context) *Pool {
+	return NewWithSpec(&Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
 		New:          new,
 		CheckWhenGet: true,
 		CheckWhenPut: true,
-	})
+	}, ctx)
 }
 
 // NewWithSpec returns a new pool
-func NewWithSpec(spec Spec) *Pool {
+func NewWithSpec(spec *Spec, ctx context.Context) *Pool {
 	p := &Pool{
-		initSize:     spec.InitSize,
-		maxSize:      spec.MaxSize,
-		new:          spec.New,
-		checkWhenPut: spec.CheckWhenPut,
-		checkWhenGet: spec.CheckWhenGet,
-		store:        make(chan PoolObject, spec.MaxSize),
-		cond:         sync.NewCond(&sync.Mutex{}),
+		spec:  spec,
+		store: make(chan PoolObject, spec.MaxSize),
+		cond:  sync.NewCond(&sync.Mutex{}),
 	}
 
-	for i := 0; i < p.initSize; i++ {
-		obj, err := p.new()
+	for i := 0; i < p.spec.InitSize; i++ {
+		obj, err := p.spec.New(ctx)
 		if err != nil {
 			logger.Errorf("create pool object failed: %v", err)
 			continue
@@ -88,6 +90,11 @@ func NewWithSpec(spec Spec) *Pool {
 	}
 
 	return p
+}
+
+// NewMultiWithSpec return a new MultiPool
+func NewMultiWithSpec(spec *Spec) *MultiPool {
+	return &MultiPool{spec: spec}
 }
 
 // Validate validate
@@ -101,7 +108,9 @@ func (s *Spec) Validate() error {
 	if s.InitSize < 0 {
 		return fmt.Errorf("pool init size must greate than or equals 0")
 	}
-
+	if s.New == nil {
+		return fmt.Errorf("func new must not be nil")
+	}
 	return nil
 }
 
@@ -146,8 +155,8 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 		}
 
 		// try creating a new object
-		if p.size < p.maxSize {
-			if obj, err := p.new(); err == nil {
+		if p.size < p.spec.MaxSize {
+			if obj, err := p.spec.New(ctx); err == nil {
 				p.size++
 				return obj, nil
 			}
@@ -156,6 +165,41 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 		// the pool reaches its max size and there is no object available
 		p.cond.Wait()
 	}
+}
+
+type (
+	separatedKey struct{}
+)
+
+func SetSeparatedKey(ctx context.Context, value string) context.Context {
+	return context.WithValue(ctx, separatedKey{}, value)
+}
+
+func GetSeparatedKey(ctx context.Context) string {
+	if value, ok := ctx.Value(separatedKey{}).(string); ok {
+		return value
+	} else {
+		return defaultKey
+	}
+}
+
+// Get returns an object from the pool,
+//
+// if there's an exists single, it will try to get an available object;
+// if there's no exists single, it will create a one and try to get an available object;
+func (m *MultiPool) Get(ctx context.Context) (PoolObject, error) {
+	var value interface{}
+	var ok bool
+	key := GetSeparatedKey(ctx)
+	if value, ok = m.pools.Load(key); !ok {
+		m.lock.Lock()
+		defer m.lock.Unlock()
+		if value, _ = m.pools.Load(key); !ok {
+			value = NewWithSpec(m.spec, ctx)
+			defer m.pools.Store(key, value)
+		}
+	}
+	return value.(*Pool).Get(ctx)
 }
 
 // Get returns an object from the pool,
@@ -174,7 +218,7 @@ func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
 			}
 		}
 
-		if !p.checkWhenGet || obj.HealthCheck() {
+		if !p.spec.CheckWhenGet || obj.HealthCheck() {
 			return obj, nil
 		}
 
@@ -191,13 +235,19 @@ func (p *Pool) putUnhealthyObject(obj PoolObject) {
 	obj.Destroy()
 }
 
+func (m *MultiPool) Put(ctx context.Context, obj PoolObject) {
+	if value, ok := m.pools.Load(GetSeparatedKey(ctx)); ok {
+		value.(*Pool).Put(obj)
+	}
+}
+
 // Put return the object to the pool
 func (p *Pool) Put(obj PoolObject) {
 	if obj == nil {
 		panic("pool: put nil object")
 	}
 
-	if p.checkWhenPut && !obj.HealthCheck() {
+	if p.spec.CheckWhenPut && !obj.HealthCheck() {
 		p.putUnhealthyObject(obj)
 		return
 	}
@@ -212,4 +262,12 @@ func (p *Pool) Close() {
 	for obj := range p.store {
 		obj.Destroy()
 	}
+}
+
+// Close closes the pool and clean all the objects
+func (m *MultiPool) Close() {
+	m.pools.Range(func(key, value any) bool {
+		value.(*Pool).Close()
+		return true
+	})
 }

@@ -19,6 +19,7 @@ package grpcserver
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/util/fasttime"
@@ -290,16 +291,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 
 // handler impl grpc.UnknownServiceHandler
 func (m *mux) handler(srv interface{}, proxyAsServerStream grpc.ServerStream) error {
-	// Forward to the current muxInstance to handle the request.
-	c := make(chan error, 1)
-	go m.inst.Load().(*muxInstance).handler(c, grpcprot.NewRequestWithServerStream(proxyAsServerStream))
-	select {
-	case <-proxyAsServerStream.Context().Done():
-		return status.Errorf(codes.Canceled, "client cancelled, abandoning...")
-	case v := <-c:
-		close(c)
-		return v
-	}
+	return m.inst.Load().(*muxInstance).handler(grpcprot.NewRequestWithServerStream(proxyAsServerStream))
 }
 
 func buildFailureResponse(ctx *context.Context, s *status.Status) *grpcprot.Response {
@@ -309,7 +301,7 @@ func buildFailureResponse(ctx *context.Context, s *status.Status) *grpcprot.Resp
 	return resp
 }
 
-func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
+func (mi *muxInstance) handler(request *grpcprot.Request) (result error) {
 	startAt := fasttime.Now()
 	ctx := context.New(tracing.NoopSpan)
 	ctx.SetRequest(context.DefaultNamespace, request)
@@ -317,7 +309,7 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 	defer func() {
 		var resp *grpcprot.Response
 		if err := recover(); err != nil {
-			logger.Warnf("gRPC server %s: panic %v", mi.superSpec.Name(), err)
+			logger.Warnf("gRPC server %s: panic %v, stack: \n%s\n", mi.superSpec.Name(), err, debug.Stack())
 			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "gRPC server %s: panic", mi.superSpec.Name()))
 		} else if v := ctx.GetResponse(context.DefaultNamespace); v == nil {
 			resp = buildFailureResponse(ctx, status.Newf(codes.Internal, "gRPC server %s: response is nil ", mi.superSpec.Name()))
@@ -326,8 +318,7 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 		} else {
 			resp = r
 		}
-
-		c <- resp.Err()
+		result = resp.Err()
 		ctx.Finish()
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
@@ -369,7 +360,7 @@ func (mi *muxInstance) handler(c chan<- error, request *grpcprot.Request) {
 	} else {
 		globalFilter.Handle(ctx, handler)
 	}
-
+	return
 }
 
 func (mi *muxInstance) search(request *grpcprot.Request) *route {
