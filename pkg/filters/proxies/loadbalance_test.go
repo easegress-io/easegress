@@ -22,6 +22,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,7 +46,8 @@ func prepareServers(count int) []*Server {
 }
 
 func TestGeneralLoadBalancer(t *testing.T) {
-	servers := prepareServers(10)
+	serverCount := 10
+	servers := prepareServers(serverCount)
 	spec := &LoadBalanceSpec{
 		Policy: LoadBalancePolicyRoundRobin,
 		StickySession: &StickySessionSpec{
@@ -58,11 +60,12 @@ func TestGeneralLoadBalancer(t *testing.T) {
 	}
 
 	lb := NewGeneralLoadBalancer(spec, servers)
-
+	wg := &sync.WaitGroup{}
+	wg.Add(serverCount)
 	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
-		return &MockHealthChecker{result: false}
+		return &MockHealthChecker{expect: int32(serverCount), wg: wg, result: false}
 	}, nil)
-
+	wg.Wait()
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, len(lb.healthyServers.Load().Servers), 0)
 
@@ -71,10 +74,11 @@ func TestGeneralLoadBalancer(t *testing.T) {
 	servers = prepareServers(10)
 	lb = NewGeneralLoadBalancer(spec, servers)
 
+	wg.Add(serverCount)
 	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
-		return &MockHealthChecker{result: true}
+		return &MockHealthChecker{expect: int32(serverCount), wg: wg, result: true}
 	}, nil)
-
+	wg.Wait()
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, len(lb.healthyServers.Load().Servers), 10)
 	lb.Close()
