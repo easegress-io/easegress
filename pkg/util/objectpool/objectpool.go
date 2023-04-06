@@ -31,10 +31,6 @@ type PoolObject interface {
 	HealthCheck() bool // check the object is health or not
 }
 
-const (
-	defaultKey = "default"
-)
-
 type (
 	// MultiPool manage multi Pool.
 	MultiPool struct {
@@ -179,7 +175,7 @@ func GetSeparatedKey(ctx context.Context) string {
 	if value, ok := ctx.Value(separatedKey{}).(string); ok {
 		return value
 	} else {
-		return defaultKey
+		panic("it must specify the separate key by call func `SetSeparatedKey`")
 	}
 }
 

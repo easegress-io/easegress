@@ -103,17 +103,19 @@ func TestNewSimpleMultiPool(t *testing.T) {
 	pool := NewMultiWithSpec(&Spec{InitSize: 1, MaxSize: 2, New: func(ctx context.Context) (PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
 	}})
-	oldObj1, err := pool.Get(context.Background())
-	pool.Put(context.Background(), oldObj1)
+	separateCtx := SetSeparatedKey(context.Background(), "123")
+	oldObj1, err := pool.Get(separateCtx)
+	pool.Put(separateCtx, oldObj1)
 	as := assert.New(t)
 	as.NoError(err)
 
-	oldObj2, err := pool.Get(context.Background())
-	pool.Put(context.Background(), oldObj2)
+	separateCtx = SetSeparatedKey(context.Background(), "123")
+	oldObj2, err := pool.Get(separateCtx)
+	pool.Put(separateCtx, oldObj2)
 	as.NoError(err)
 	as.True(oldObj2 == oldObj1)
 
-	ctx := SetSeparatedKey(context.Background(), "123")
+	ctx := SetSeparatedKey(context.Background(), "234")
 	newObj, err := pool.Get(ctx)
 	pool.Put(ctx, newObj)
 	as.NoError(err)
@@ -125,6 +127,10 @@ func TestNewSimpleMultiPool(t *testing.T) {
 		return true
 	})
 	as.Equal(2, count)
+
+	as.Panics(func() {
+		pool.Get(context.Background())
+	})
 
 }
 
