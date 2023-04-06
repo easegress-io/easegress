@@ -204,7 +204,7 @@ pools:
 
 The SimpleHTTPProxy filter is a simplified version of the Proxy filter, designed to handle HTTP requests in a more straightforward manner while providing basic proxy functionality for backend services.
 
-Below is an example of a basic SimpleHTTPProxy configuration that sends GET requests to http://127.0.0.1:9095.
+The following example demonstrates a basic configuration for `SimpleHTTPProxy`. Unlike the `Proxy` filter, the backend service's address is not specified in the `SimpleHTTPProxy` configuration. Instead, the request URL is used directly, allowing for the use of a single `SimpleHTTPProxy` instance for multiple backend services.
 
 ```yaml
 name: simple-http-proxy
