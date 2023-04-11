@@ -32,12 +32,6 @@ type PoolObject interface {
 }
 
 type (
-	// MultiPool manage multi Pool.
-	MultiPool struct {
-		pools sync.Map
-		lock  sync.Mutex
-		spec  *Spec
-	}
 	// Pool manage the PoolObject
 	Pool struct {
 		spec  *Spec
@@ -86,11 +80,6 @@ func NewWithSpec(spec *Spec, ctx context.Context) *Pool {
 	}
 
 	return p
-}
-
-// NewMultiWithSpec return a new MultiPool
-func NewMultiWithSpec(spec *Spec) *MultiPool {
-	return &MultiPool{spec: spec}
 }
 
 // Validate validate
@@ -163,41 +152,6 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 	}
 }
 
-type (
-	separatedKey struct{}
-)
-
-func SetSeparatedKey(ctx context.Context, value string) context.Context {
-	return context.WithValue(ctx, separatedKey{}, value)
-}
-
-func GetSeparatedKey(ctx context.Context) string {
-	if value, ok := ctx.Value(separatedKey{}).(string); ok {
-		return value
-	} else {
-		panic("it must specify the separate key by call func `SetSeparatedKey`")
-	}
-}
-
-// Get returns an object from the pool,
-//
-// if there's an exists single, it will try to get an available object;
-// if there's no exists single, it will create a one and try to get an available object;
-func (m *MultiPool) Get(ctx context.Context) (PoolObject, error) {
-	var value interface{}
-	var ok bool
-	key := GetSeparatedKey(ctx)
-	if value, ok = m.pools.Load(key); !ok {
-		m.lock.Lock()
-		defer m.lock.Unlock()
-		if value, _ = m.pools.Load(key); !ok {
-			value = NewWithSpec(m.spec, ctx)
-			defer m.pools.Store(key, value)
-		}
-	}
-	return value.(*Pool).Get(ctx)
-}
-
 // Get returns an object from the pool,
 //
 // if there's an available object, it will return it directly;
@@ -231,12 +185,6 @@ func (p *Pool) putUnhealthyObject(obj PoolObject) {
 	obj.Destroy()
 }
 
-func (m *MultiPool) Put(ctx context.Context, obj PoolObject) {
-	if value, ok := m.pools.Load(GetSeparatedKey(ctx)); ok {
-		value.(*Pool).Put(obj)
-	}
-}
-
 // Put return the object to the pool
 func (p *Pool) Put(obj PoolObject) {
 	if obj == nil {
@@ -258,12 +206,4 @@ func (p *Pool) Close() {
 	for obj := range p.store {
 		obj.Destroy()
 	}
-}
-
-// Close closes the pool and clean all the objects
-func (m *MultiPool) Close() {
-	m.pools.Range(func(key, value any) bool {
-		value.(*Pool).Close()
-		return true
-	})
 }

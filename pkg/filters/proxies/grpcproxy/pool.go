@@ -30,16 +30,69 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
+	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/resilience"
 )
 
-// serverPoolError is the error returned by handler function of
-// a server pool.
-type serverPoolError struct {
-	status *status.Status
-	result string
+type (
+	// serverPoolError is the error returned by handler function of
+	// a server pool.
+	serverPoolError struct {
+		status *status.Status
+		result string
+	}
+	// MultiPool manage multi Pool.
+	MultiPool struct {
+		pools sync.Map
+		lock  sync.Mutex
+		spec  *objectpool.Spec
+	}
+
+	separatedKey struct{}
+)
+
+// NewMultiWithSpec return a new MultiPool
+func NewMultiWithSpec(spec *objectpool.Spec) *MultiPool {
+	return &MultiPool{spec: spec}
+}
+
+func SetSeparatedKey(ctx stdcontext.Context, value string) stdcontext.Context {
+	return stdcontext.WithValue(ctx, separatedKey{}, value)
+}
+
+func GetSeparatedKey(ctx stdcontext.Context) string {
+	if value, ok := ctx.Value(separatedKey{}).(string); ok {
+		return value
+	} else {
+		panic("it must specify the separate key by call func `SetSeparatedKey`")
+	}
+}
+
+func (m *MultiPool) Put(ctx stdcontext.Context, obj objectpool.PoolObject) {
+	if value, ok := m.pools.Load(GetSeparatedKey(ctx)); ok {
+		value.(*objectpool.Pool).Put(obj)
+	}
+}
+
+// Get returns an object from the pool,
+//
+// if there's an exists single, it will try to get an available object;
+// if there's no exists single, it will create a one and try to get an available object;
+func (m *MultiPool) Get(ctx stdcontext.Context) (objectpool.PoolObject, error) {
+	var value interface{}
+	var ok bool
+	key := GetSeparatedKey(ctx)
+	if value, ok = m.pools.Load(key); !ok {
+		m.lock.Lock()
+		defer m.lock.Unlock()
+		if value, _ = m.pools.Load(key); !ok {
+			value = objectpool.NewWithSpec(m.spec, ctx)
+			defer m.pools.Store(key, value)
+		}
+	}
+	return value.(*objectpool.Pool).Get(ctx)
 }
 
 // Error implements error.
@@ -241,7 +294,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		return serverPoolError{status.New(codes.InvalidArgument, "unknown called method from context"), resultClientError}
 	}
 
-	borrowCtx, cancel := stdcontext.WithCancel(objectpool.SetSeparatedKey(stdcontext.Background(), svr.URL))
+	borrowCtx, cancel := stdcontext.WithCancel(SetSeparatedKey(stdcontext.Background(), svr.URL))
 	if sp.proxy.borrowTimeout != 0 {
 		borrowCtx, cancel = stdcontext.WithTimeout(borrowCtx, sp.proxy.borrowTimeout)
 	}

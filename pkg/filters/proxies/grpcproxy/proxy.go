@@ -88,7 +88,7 @@ type (
 
 		mainPool       *ServerPool
 		candidatePools []*ServerPool
-		pool           *objectpool.MultiPool
+		pool           *MultiPool
 		poolSpec       *objectpool.Spec
 		timeout        time.Duration
 		borrowTimeout  time.Duration
@@ -224,7 +224,7 @@ func (p *Proxy) reload() {
 			CheckWhenPut: true,
 			CheckWhenGet: true,
 			New: func(ctx stdcontext.Context) (objectpool.PoolObject, error) {
-				target := objectpool.GetSeparatedKey(ctx)
+				target := GetSeparatedKey(ctx)
 				dialCtx, cancel := stdcontext.WithCancel(stdcontext.Background())
 				if p.connectTimeout != 0 {
 					dialCtx, cancel = stdcontext.WithTimeout(dialCtx, p.connectTimeout)
@@ -238,11 +238,19 @@ func (p *Proxy) reload() {
 				return &clientConnWrapper{conn}, nil
 			},
 		}
-		p.pool = objectpool.NewMultiWithSpec(p.poolSpec)
+		p.pool = NewMultiWithSpec(p.poolSpec)
 	} else {
 		p.poolSpec.MaxSize = p.spec.MaxIdleConnsPerHost
 		p.poolSpec.InitSize = p.spec.InitConnsPerHost
 	}
+}
+
+// Close closes the pool and clean all the objects
+func (m *MultiPool) Close() {
+	m.pools.Range(func(key, value any) bool {
+		value.(*objectpool.Pool).Close()
+		return true
+	})
 }
 
 // Status returns Proxy status.
@@ -256,6 +264,10 @@ func (p *Proxy) Close() {
 
 	for _, v := range p.candidatePools {
 		v.Close()
+	}
+
+	if p.pool != nil {
+		p.pool.Close()
 	}
 }
 
