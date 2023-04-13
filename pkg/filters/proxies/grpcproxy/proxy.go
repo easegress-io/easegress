@@ -86,13 +86,13 @@ type (
 		super *supervisor.Supervisor
 		spec  *Spec
 
-		mainPool       *ServerPool
-		candidatePools []*ServerPool
-		pool           *MultiPool
-		poolSpec       *objectpool.Spec
-		timeout        time.Duration
-		borrowTimeout  time.Duration
-		connectTimeout time.Duration
+		mainPool           *ServerPool
+		candidatePools     []*ServerPool
+		connectionPool     *MultiPool
+		connectionPoolSpec *objectpool.Spec
+		timeout            time.Duration
+		borrowTimeout      time.Duration
+		connectTimeout     time.Duration
 	}
 
 	// Spec describes the Proxy.
@@ -217,8 +217,8 @@ func (p *Proxy) reload() {
 	p.timeout, _ = time.ParseDuration(p.spec.Timeout)
 	p.connectTimeout, _ = time.ParseDuration(p.spec.ConnectTimeout)
 
-	if p.pool == nil {
-		p.poolSpec = &objectpool.Spec{
+	if p.connectionPool == nil {
+		p.connectionPoolSpec = &objectpool.Spec{
 			InitSize:     p.spec.InitConnsPerHost,
 			MaxSize:      p.spec.MaxIdleConnsPerHost,
 			CheckWhenPut: true,
@@ -238,10 +238,10 @@ func (p *Proxy) reload() {
 				return &clientConnWrapper{conn}, nil
 			},
 		}
-		p.pool = NewMultiWithSpec(p.poolSpec)
+		p.connectionPool = NewMultiWithSpec(p.connectionPoolSpec)
 	} else {
-		p.poolSpec.MaxSize = p.spec.MaxIdleConnsPerHost
-		p.poolSpec.InitSize = p.spec.InitConnsPerHost
+		p.connectionPoolSpec.MaxSize = p.spec.MaxIdleConnsPerHost
+		p.connectionPoolSpec.InitSize = p.spec.InitConnsPerHost
 	}
 }
 
@@ -266,9 +266,8 @@ func (p *Proxy) Close() {
 		v.Close()
 	}
 
-	if p.pool != nil {
-		p.pool.Close()
-	}
+	p.connectionPool.Close()
+
 }
 
 // Handle handles GRPCContext.

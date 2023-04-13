@@ -299,7 +299,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		borrowCtx, cancel = stdcontext.WithTimeout(borrowCtx, sp.proxy.borrowTimeout)
 	}
 	defer cancel()
-	conn, err := sp.proxy.pool.Get(borrowCtx)
+	conn, err := sp.proxy.connectionPool.Get(borrowCtx)
 	if err != nil {
 		logger.Infof("get connection from pool fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
@@ -309,7 +309,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	defer cancelContext()
 
 	proxyAsClientStream, err := conn.(*clientConnWrapper).NewStream(send2ProviderCtx, desc, fullMethodName)
-	sp.proxy.pool.Put(borrowCtx, conn)
+	sp.proxy.connectionPool.Put(borrowCtx, conn)
 	if err != nil {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)

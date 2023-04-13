@@ -100,7 +100,7 @@ borrowTimeout: 1s
 name: grpcforwardproxy
 `
 	p := newTestProxy(s, assertions)
-	oldPool := p.pool
+	oldPool := p.connectionPool
 
 	s = `
 kind: GRPCProxy
@@ -121,6 +121,6 @@ name: grpcforwardproxy
 	spec, _ := filters.NewSpec(nil, "", rawSpec)
 	p.spec = spec.(*Spec)
 	p.reload()
-	assertions.True(oldPool == p.pool)
+	assertions.True(oldPool == p.connectionPool)
 
 }
