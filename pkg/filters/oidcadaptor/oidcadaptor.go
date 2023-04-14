@@ -227,7 +227,7 @@ func (o *OIDCAdaptor) initDiscoveryOIDCConf() {
 	}
 	o.oidcConfig = &oidcConf
 	var interval time.Duration
-	if len(o.jwksRefreshInterval) == 0 {
+	if len(o.jwksRefreshInterval) != 0 {
 		interval, err = time.ParseDuration(o.jwksRefreshInterval)
 		if err != nil {
 			logger.Errorf("parse jwksRefreshInterval[%s] duration error: %s", o.jwksRefreshInterval, err)
