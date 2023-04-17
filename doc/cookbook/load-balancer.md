@@ -51,7 +51,7 @@ name: pipeline-reverse-proxy
 kind: Pipeline
 flow:
   - filter: requestAdaptor
-  - fitter: proxy
+  - filter: proxy
   - filter: responseAdaptor
 filters:
   - name: requestAdaptor
@@ -88,7 +88,7 @@ name: pipeline-reverse-proxy
 kind: Pipeline
 flow:
   - filter: requestAdaptor
-  - fitter: proxy
+  - filter: proxy
   - filter: responseAdaptor
 filters:
   - name: requestAdaptor
