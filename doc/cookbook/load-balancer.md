@@ -59,7 +59,7 @@ filters:
     host: easegress.megaease.com
     method: POST
     path:
-    addPrefix: /apis/v2
+      addPrefix: /apis/v2
     header:
       set:
         X-Api-Version: v2
