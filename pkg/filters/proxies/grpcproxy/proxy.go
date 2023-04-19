@@ -97,13 +97,14 @@ type (
 
 	// Spec describes the Proxy.
 	Spec struct {
-		filters.BaseSpec    `json:",inline"`
-		Pools               []*ServerPoolSpec `json:"pools" jsonschema:"required"`
-		Timeout             string            `json:"timeout" jsonschema:"omitempty,format=duration"`
-		BorrowTimeout       string            `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
-		ConnectTimeout      string            `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
-		InitConnsPerHost    int               `json:"initConnsPerHost" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		filters.BaseSpec `json:",inline"`
+		Pools            []*ServerPoolSpec `json:"pools" jsonschema:"required"`
+		// Timeout could be specified in unary calls case, and in stream calls case, it should not be specified
+		Timeout             string `json:"timeout" jsonschema:"omitempty,format=duration"`
+		BorrowTimeout       string `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
+		ConnectTimeout      string `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
+		InitConnsPerHost    int    `json:"initConnsPerHost" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int    `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
 	}
 
 	// Server is the backend server.
