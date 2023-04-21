@@ -87,7 +87,7 @@ func (m *MultiPool) Get(ctx stdcontext.Context) (objectpool.PoolObject, error) {
 	if value, ok = m.pools.Load(key); !ok {
 		m.lock.Lock()
 		defer m.lock.Unlock()
-		if value, _ = m.pools.Load(key); !ok {
+		if value, ok = m.pools.Load(key); !ok {
 			value = objectpool.NewWithSpec(m.spec, ctx)
 			defer m.pools.Store(key, value)
 		}
