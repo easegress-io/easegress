@@ -64,6 +64,7 @@ func New(initSize, maxSize int, init func() (PoolObject, error), ctx context.Con
 }
 
 // NewWithSpec returns a new pool
+// Note: parameter `ctx` is just to fit the func `new`, and we may remove it when we find a more graceful solution
 func NewWithSpec(spec *Spec, ctx context.Context) *Pool {
 	p := &Pool{
 		spec:  spec,
