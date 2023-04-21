@@ -4,10 +4,8 @@
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.4.0...v2.4.1)
 
-**Significant changes:**
-* Add a new filter: Simple HTTP Proxy.
-
 **Implemented enhancements:**
+* Add a new filter: Simple HTTP Proxy.
 * Add a Canary Release cookbook.
 * Add a ChatGPT Bot cookbook.
 
