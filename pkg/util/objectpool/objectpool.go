@@ -42,20 +42,22 @@ type (
 
 	// Spec Pool's spec
 	Spec struct {
-		InitSize     int                                           // initial size
-		MaxSize      int                                           // max size
-		New          func(ctx context.Context) (PoolObject, error) // create a new object, it must return a health object or err
-		CheckWhenGet bool                                          // whether to health check when get PoolObject
-		CheckWhenPut bool                                          // whether to health check when put PoolObject
+		InitSize     int            // initial size
+		MaxSize      int            // max size
+		Init         CreateObjectFn // create init size object, it must return a health object or err
+		CheckWhenGet bool           // whether to health check when get PoolObject
+		CheckWhenPut bool           // whether to health check when put PoolObject
 	}
+	// CreateObjectFn create new object, it must return a health object or err
+	CreateObjectFn func() (PoolObject, error)
 )
 
 // New returns a new pool
-func New(initSize, maxSize int, new func(ctx context.Context) (PoolObject, error), ctx context.Context) *Pool {
+func New(initSize, maxSize int, init func() (PoolObject, error), ctx context.Context) *Pool {
 	return NewWithSpec(&Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
-		New:          new,
+		Init:         init,
 		CheckWhenGet: true,
 		CheckWhenPut: true,
 	}, ctx)
@@ -70,7 +72,7 @@ func NewWithSpec(spec *Spec, ctx context.Context) *Pool {
 	}
 
 	for i := 0; i < p.spec.InitSize; i++ {
-		obj, err := p.spec.New(ctx)
+		obj, err := p.spec.Init()
 		if err != nil {
 			logger.Errorf("create pool object failed: %v", err)
 			continue
@@ -93,8 +95,8 @@ func (s *Spec) Validate() error {
 	if s.InitSize < 0 {
 		return fmt.Errorf("pool init size must greate than or equals 0")
 	}
-	if s.New == nil {
-		return fmt.Errorf("func new must not be nil")
+	if (s.Init == nil && s.InitSize != 0) || (s.Init != nil && s.InitSize == 0) {
+		return fmt.Errorf("func init and init size must be either nil or not nil at the same time")
 	}
 	return nil
 }
@@ -110,7 +112,7 @@ func (p *Pool) fastGet() PoolObject {
 }
 
 // The slow path, we need to wait for an object or create a new one.
-func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
+func (p *Pool) slowGet(ctx context.Context, new CreateObjectFn) (PoolObject, error) {
 	// we need to watch ctx.Done in another goroutine, so that we can stop
 	// the slow path when the context is done.
 	// we also need to stop the watch when the slow path is done.
@@ -141,7 +143,7 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 
 		// try creating a new object
 		if p.size < p.spec.MaxSize {
-			if obj, err := p.spec.New(ctx); err == nil {
+			if obj, err := new(); err == nil {
 				p.size++
 				return obj, nil
 			}
@@ -157,12 +159,12 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 // if there's an available object, it will return it directly;
 // if there's no free object, it will create a one if the pool is not full;
 // if the pool is full, it will block until an object is returned to the pool.
-func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
+func (p *Pool) Get(ctx context.Context, new CreateObjectFn) (PoolObject, error) {
 	for {
 		obj := p.fastGet()
 		if obj == nil {
 			var err error
-			obj, err = p.slowGet(ctx)
+			obj, err = p.slowGet(ctx, new)
 			if err != nil {
 				return nil, err
 			}
