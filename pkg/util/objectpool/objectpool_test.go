@@ -39,7 +39,7 @@ func TestValidate(t *testing.T) {
 	spec := &Spec{
 		InitSize: 3,
 		MaxSize:  2,
-		New: func(ctx context.Context) (PoolObject, error) {
+		Init: func() (PoolObject, error) {
 			return nil, nil
 		},
 	}
@@ -54,7 +54,7 @@ func TestValidate(t *testing.T) {
 	spec.InitSize, spec.MaxSize = 0, 0
 	assertions.Error(spec.Validate())
 
-	spec.New = nil
+	spec.Init = nil
 	assertions.Error(spec.Validate())
 }
 
@@ -90,26 +90,27 @@ func (f *fakeAlmostUnHealthPoolObject) HealthCheck() bool {
 
 func TestNewSimplePool(t *testing.T) {
 	init, max := 2, 4
-	pool := New(init, max, func(ctx context.Context) (PoolObject, error) {
+	pool := New(init, max, func() (PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
-	}, nil)
+	})
 
 	as := assert.New(t)
 	as.Equal(len(pool.store), init)
 	as.Equal(cap(pool.store), max)
 }
 
-func getAndPut(pool *Pool) {
-	iPoolObject, _ := pool.Get(context.Background())
+func getAndPut(pool *Pool, new CreateObjectFn) {
+	iPoolObject, _ := pool.Get(context.Background(), new)
 	if iPoolObject != nil {
 		pool.Put(iPoolObject)
 	}
 }
 
 func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake PoolObject, b *testing.B) {
-	pool := New(iPoolObjNum/2, iPoolObjNum, func(ctx context.Context) (PoolObject, error) {
+	fn := func() (PoolObject, error) {
 		return fake, nil
-	}, nil)
+	}
+	pool := New(iPoolObjNum/2, iPoolObjNum, fn)
 	ch := make(chan struct{})
 	startedWait := sync.WaitGroup{}
 	startedWait.Add(goRoutineNum - 1)
@@ -125,7 +126,7 @@ func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, f
 						startedWait.Done()
 						done = true
 					}
-					getAndPut(pool)
+					getAndPut(pool, fn)
 				}
 			}
 		}()
@@ -133,7 +134,7 @@ func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, f
 	startedWait.Wait()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		getAndPut(pool)
+		getAndPut(pool, fn)
 	}
 	b.StopTimer()
 	close(ch)
