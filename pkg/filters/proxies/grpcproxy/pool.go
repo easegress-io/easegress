@@ -58,20 +58,8 @@ func NewMultiWithSpec(spec *objectpool.Spec) *MultiPool {
 	return &MultiPool{spec: spec}
 }
 
-func SetSeparatedKey(ctx stdcontext.Context, value string) stdcontext.Context {
-	return stdcontext.WithValue(ctx, separatedKey{}, value)
-}
-
-func GetSeparatedKey(ctx stdcontext.Context) string {
-	if value, ok := ctx.Value(separatedKey{}).(string); ok {
-		return value
-	} else {
-		panic("it must specify the separate key by call func `SetSeparatedKey`")
-	}
-}
-
-func (m *MultiPool) Put(ctx stdcontext.Context, obj objectpool.PoolObject) {
-	if value, ok := m.pools.Load(GetSeparatedKey(ctx)); ok {
+func (m *MultiPool) Put(key string, obj objectpool.PoolObject) {
+	if value, ok := m.pools.Load(key); ok {
 		value.(*objectpool.Pool).Put(obj)
 	}
 }
@@ -80,19 +68,18 @@ func (m *MultiPool) Put(ctx stdcontext.Context, obj objectpool.PoolObject) {
 //
 // if there's an exists single, it will try to get an available object;
 // if there's no exists single, it will create a one and try to get an available object;
-func (m *MultiPool) Get(ctx stdcontext.Context) (objectpool.PoolObject, error) {
+func (m *MultiPool) Get(key string, ctx stdcontext.Context, new objectpool.CreateObjectFn) (objectpool.PoolObject, error) {
 	var value interface{}
 	var ok bool
-	key := GetSeparatedKey(ctx)
 	if value, ok = m.pools.Load(key); !ok {
 		m.lock.Lock()
 		defer m.lock.Unlock()
 		if value, ok = m.pools.Load(key); !ok {
-			value = objectpool.NewWithSpec(m.spec, ctx)
+			value = objectpool.NewWithSpec(m.spec)
 			defer m.pools.Store(key, value)
 		}
 	}
-	return value.(*objectpool.Pool).Get(ctx)
+	return value.(*objectpool.Pool).Get(ctx, new)
 }
 
 // Error implements error.
@@ -294,12 +281,25 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		return serverPoolError{status.New(codes.InvalidArgument, "unknown called method from context"), resultClientError}
 	}
 
-	borrowCtx, cancel := stdcontext.WithCancel(SetSeparatedKey(stdcontext.Background(), svr.URL))
+	borrowCtx, cancel := stdcontext.WithCancel(stdcontext.Background())
 	if sp.proxy.borrowTimeout != 0 {
 		borrowCtx, cancel = stdcontext.WithTimeout(borrowCtx, sp.proxy.borrowTimeout)
 	}
 	defer cancel()
-	conn, err := sp.proxy.connectionPool.Get(borrowCtx)
+
+	conn, err := sp.proxy.connectionPool.Get(svr.URL, borrowCtx, func() (objectpool.PoolObject, error) {
+		dialCtx, dialCancel := stdcontext.WithCancel(stdcontext.Background())
+		if sp.proxy.connectTimeout != 0 {
+			dialCtx, dialCancel = stdcontext.WithTimeout(dialCtx, sp.proxy.connectTimeout)
+		}
+		defer dialCancel()
+		conn, err := grpc.DialContext(dialCtx, svr.URL, defaultDialOpts...)
+		if err != nil {
+			logger.Infof("create new grpc client connection for %s fail %v", svr.URL, err)
+			return nil, err
+		}
+		return &clientConnWrapper{conn}, nil
+	})
 	if err != nil {
 		logger.Infof("get connection from pool fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
@@ -309,7 +309,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	defer cancelContext()
 
 	proxyAsClientStream, err := conn.(*clientConnWrapper).NewStream(send2ProviderCtx, desc, fullMethodName)
-	sp.proxy.connectionPool.Put(borrowCtx, conn)
+	sp.proxy.connectionPool.Put(svr.URL, conn)
 	if err != nil {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
 			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)

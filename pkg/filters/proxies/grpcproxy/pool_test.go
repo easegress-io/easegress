@@ -26,10 +26,12 @@ import (
 	"testing"
 )
 
-func multiGetAndPut(pool *MultiPool, ctx context.Context) {
-	iPoolObject, _ := pool.Get(ctx)
+func multiGetAndPut(pool *MultiPool, key string, ctx context.Context) {
+	iPoolObject, _ := pool.Get(key, ctx, func() (objectpool.PoolObject, error) {
+		return &fakeNormalPoolObject{random: false, health: true}, nil
+	})
 	if iPoolObject != nil {
-		pool.Put(ctx, iPoolObject)
+		pool.Put(key, iPoolObject)
 	}
 }
 
@@ -51,24 +53,25 @@ func (f *fakeNormalPoolObject) HealthCheck() bool {
 }
 
 func TestNewSimpleMultiPool(t *testing.T) {
-	pool := NewMultiWithSpec(&objectpool.Spec{InitSize: 1, MaxSize: 2, New: func(ctx context.Context) (objectpool.PoolObject, error) {
+	pool := NewMultiWithSpec(&objectpool.Spec{MaxSize: 2})
+	oldObj1, err := pool.Get("123", context.Background(), func() (objectpool.PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
-	}})
-	separateCtx := SetSeparatedKey(context.Background(), "123")
-	oldObj1, err := pool.Get(separateCtx)
-	pool.Put(separateCtx, oldObj1)
+	})
+	pool.Put("123", oldObj1)
 	as := assert.New(t)
 	as.NoError(err)
 
-	separateCtx = SetSeparatedKey(context.Background(), "123")
-	oldObj2, err := pool.Get(separateCtx)
-	pool.Put(separateCtx, oldObj2)
+	oldObj2, err := pool.Get("123", context.Background(), func() (objectpool.PoolObject, error) {
+		return &fakeNormalPoolObject{random: false, health: true}, nil
+	})
+	pool.Put("123", oldObj2)
 	as.NoError(err)
 	as.True(oldObj2 == oldObj1)
 
-	ctx := SetSeparatedKey(context.Background(), "234")
-	newObj, err := pool.Get(ctx)
-	pool.Put(ctx, newObj)
+	newObj, err := pool.Get("234", context.Background(), func() (objectpool.PoolObject, error) {
+		return &fakeNormalPoolObject{random: false, health: true}, nil
+	})
+	pool.Put("234", newObj)
 	as.NoError(err)
 
 	as.True(newObj != oldObj1)
@@ -78,10 +81,6 @@ func TestNewSimpleMultiPool(t *testing.T) {
 		return true
 	})
 	as.Equal(2, count)
-
-	as.Panics(func() {
-		pool.Get(context.Background())
-	})
 
 }
 
@@ -94,7 +93,7 @@ func benchmarkMultiWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum i
 	pool := NewMultiWithSpec(&objectpool.Spec{
 		InitSize: iPoolObjNum / 2,
 		MaxSize:  iPoolObjNum,
-		New: func(ctx context.Context) (objectpool.PoolObject, error) {
+		Init: func() (objectpool.PoolObject, error) {
 			return fake, nil
 		},
 		CheckWhenGet: true,
@@ -115,8 +114,8 @@ func benchmarkMultiWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum i
 						startedWait.Done()
 						done = true
 					}
-					ctx := SetSeparatedKey(context.Background(), keys[rand.Intn(keyNum)])
-					multiGetAndPut(pool, ctx)
+
+					multiGetAndPut(pool, keys[rand.Intn(keyNum)], context.Background())
 				}
 			}
 		}()
@@ -124,8 +123,7 @@ func benchmarkMultiWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum i
 	startedWait.Wait()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		ctx := SetSeparatedKey(context.Background(), keys[rand.Intn(keyNum)])
-		multiGetAndPut(pool, ctx)
+		multiGetAndPut(pool, keys[rand.Intn(keyNum)], context.Background())
 	}
 	b.StopTimer()
 	close(ch)

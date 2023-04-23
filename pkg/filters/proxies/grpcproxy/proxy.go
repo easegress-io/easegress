@@ -19,12 +19,10 @@
 package grpcproxy
 
 import (
-	stdcontext "context"
 	"fmt"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -220,24 +218,9 @@ func (p *Proxy) reload() {
 
 	if p.connectionPool == nil {
 		p.connectionPoolSpec = &objectpool.Spec{
-			InitSize:     p.spec.InitConnsPerHost,
 			MaxSize:      p.spec.MaxIdleConnsPerHost,
 			CheckWhenPut: true,
 			CheckWhenGet: true,
-			New: func(ctx stdcontext.Context) (objectpool.PoolObject, error) {
-				target := GetSeparatedKey(ctx)
-				dialCtx, cancel := stdcontext.WithCancel(stdcontext.Background())
-				if p.connectTimeout != 0 {
-					dialCtx, cancel = stdcontext.WithTimeout(dialCtx, p.connectTimeout)
-				}
-				defer cancel()
-				conn, err := grpc.DialContext(dialCtx, target, defaultDialOpts...)
-				if err != nil {
-					logger.Infof("create new grpc client connection for %s fail %v", target, err)
-					return nil, err
-				}
-				return &clientConnWrapper{conn}, nil
-			},
 		}
 		p.connectionPool = NewMultiWithSpec(p.connectionPoolSpec)
 	} else {

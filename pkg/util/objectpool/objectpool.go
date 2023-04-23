@@ -53,19 +53,18 @@ type (
 )
 
 // New returns a new pool
-func New(initSize, maxSize int, init func() (PoolObject, error), ctx context.Context) *Pool {
+func New(initSize, maxSize int, init func() (PoolObject, error)) *Pool {
 	return NewWithSpec(&Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
 		Init:         init,
 		CheckWhenGet: true,
 		CheckWhenPut: true,
-	}, ctx)
+	})
 }
 
 // NewWithSpec returns a new pool
-// Note: parameter `ctx` is just to fit the func `new`, and we may remove it when we find a more graceful solution
-func NewWithSpec(spec *Spec, ctx context.Context) *Pool {
+func NewWithSpec(spec *Spec) *Pool {
 	p := &Pool{
 		spec:  spec,
 		store: make(chan PoolObject, spec.MaxSize),
