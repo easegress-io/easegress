@@ -190,6 +190,10 @@ func (p *Proxy) Init() {
 
 // Inherit inherits previous generation of Proxy.
 func (p *Proxy) Inherit(previousGeneration filters.Filter) {
+	if pre, ok := previousGeneration.(*Proxy); ok {
+		p.connectionPool = pre.connectionPool
+		p.connectionPoolSpec = pre.connectionPoolSpec
+	}
 	p.reload()
 }
 
@@ -249,8 +253,6 @@ func (p *Proxy) Close() {
 	for _, v := range p.candidatePools {
 		v.Close()
 	}
-
-	p.connectionPool.Close()
 
 }
 
