@@ -1,0 +1,8 @@
+# The official list of maintainers and reviewers for the project maintenance.
+#
+# Names should be added to this file like so:
+#     Individual's name <submission email address> (@GITHUB_HANDLE)
+#     Individual's name <submission email address> <email2> <emailN> (@GITHUB_HANDLE)
+
+Bomin Zhang <zhangbomin@megaease.com> (@localvar)
+Chen Su <suchen@megaease.com> (@suchen-sci)
