@@ -45,7 +45,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/quic-go/quic-go v0.33.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
-	github.com/rs/cors v1.8.3
+	github.com/rs/cors v1.9.0
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
