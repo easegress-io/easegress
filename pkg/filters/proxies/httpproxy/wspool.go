@@ -127,7 +127,7 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 	// present, so we delete it.
 	config.Header.Del("Sec-WebSocket-Extensions")
 
-	// 'Origin' must be deleted, or there will be two origins as we have alreay
+	// 'Origin' must be deleted, or there will be two origins as we have already
 	// set one when creating the config.
 	config.Header.Del("Origin")
 
