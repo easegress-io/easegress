@@ -123,6 +123,14 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 	// the original headers and add the above headers.
 	config.Header = req.HTTPHeader().Clone()
 
+	// The websocket library does not support 'Sec-WebSocket-Extensions' at
+	// present, so we delete it.
+	config.Header.Del("Sec-WebSocket-Extensions")
+
+	// 'Origin' must be deleted, or there will be two origins as we have already
+	// set one when creating the config.
+	config.Header.Del("Origin")
+
 	const xForwardedFor = "X-Forwarded-For"
 	xff := req.HTTPHeader().Get(xForwardedFor)
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
