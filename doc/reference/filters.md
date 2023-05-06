@@ -1509,8 +1509,10 @@ The relationship between `methods` and `url` is `AND`.
 | servers         | [][proxy.Server](#proxyServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
 | serviceName     | string                                 | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
 | serviceRegistry | string                                 | This option and `serviceName` are for dynamic server discovery                                               | No       |
-| loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                         | Yes      |
-| filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                                           | No       |
+| serverMaxMsgSize | int                                   | Max server message size, default is 32768.                                                                   | No       |
+| clientMaxMsgSize | int                                   | Max client message size, default is 32768.                                                                   | No       |
+| loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                     | Yes      |
+| filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                         | No       |
 
 ### mock.Rule
 

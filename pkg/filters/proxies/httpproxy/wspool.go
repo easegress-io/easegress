@@ -47,6 +47,8 @@ type WebSocketServerPool struct {
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
+	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize" jsonschema:"omitempty"`
+	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize" jsonschema:"omitempty"`
 	Filter             *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
 }
 
@@ -149,6 +151,9 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 	}
 
 	conn, _, err := websocket.Dial(stdctx.Background(), u, opts)
+	if err == nil && sp.spec.ServerMaxMsgSize > 0 {
+		conn.SetReadLimit(sp.spec.ServerMaxMsgSize)
+	}
 	return conn, err
 }
 
@@ -185,6 +190,9 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		sp.buildFailureResponse(ctx, http.StatusBadRequest)
 		metric.StatusCode = http.StatusBadRequest
 		return resultClientError
+	}
+	if sp.spec.ClientMaxMsgSize > 0 {
+		clntConn.SetReadLimit(sp.spec.ClientMaxMsgSize)
 	}
 
 	svrConn, err := sp.dialServer(svr, req)
