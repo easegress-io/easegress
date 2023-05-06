@@ -113,13 +113,16 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		return resultClientError
 	}
 
-	svrConn, resp, err := websocket.Dial(stdctx.Background(), svr.URL, nil)
+	svrConn, resp, err := websocket.Dial(stdctx.Background(), svr.URL, &websocket.DialOptions{
+		CompressionMode: websocket.CompressionDisabled,
+	})
 	if err != nil {
 		if resp != nil {
 			metric.StatusCode = resp.StatusCode
 		} else {
 			metric.StatusCode = http.StatusServiceUnavailable
 		}
+		clntConn.Close(websocket.StatusGoingAway, "")
 		logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
 		sp.buildFailureResponse(ctx, metric.StatusCode)
 		return resultServerError
@@ -136,12 +139,22 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		for {
 			t, m, err := clntConn.Read(stdctx.Background())
 			if err != nil {
-				logger.Errorf("%s: failed to read from client: %v", sp.Name, err)
+				if cs := websocket.CloseStatus(err); cs == websocket.StatusNormalClosure {
+					svrConn.Close(websocket.StatusNormalClosure, "")
+				} else {
+					svrConn.Close(cs, err.Error())
+					logger.Errorf("%s: failed to read from client: %v", sp.Name, err)
+				}
 				break
 			}
 			err = svrConn.Write(stdctx.Background(), t, m)
 			if err != nil {
-				logger.Errorf("%s: failed to write to server: %v", sp.Name, err)
+				if cs := websocket.CloseStatus(err); cs == websocket.StatusNormalClosure {
+					clntConn.Close(websocket.StatusNormalClosure, "")
+				} else {
+					clntConn.Close(cs, err.Error())
+					logger.Errorf("%s: failed to write to server: %v", sp.Name, err)
+				}
 				break
 			}
 			metric.ReqSize += uint64(len(m))
@@ -154,12 +167,22 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		for {
 			t, m, err := svrConn.Read(stdctx.Background())
 			if err != nil {
-				logger.Errorf("%s: failed to read from server: %v", sp.Name, err)
+				if cs := websocket.CloseStatus(err); cs == websocket.StatusNormalClosure {
+					clntConn.Close(websocket.StatusNormalClosure, "")
+				} else {
+					clntConn.Close(cs, err.Error())
+					logger.Errorf("%s: failed to read from server: %v", sp.Name, err)
+				}
 				break
 			}
 			err = clntConn.Write(stdctx.Background(), t, m)
 			if err != nil {
-				logger.Errorf("%s: failed to write to client: %v", sp.Name, err)
+				if cs := websocket.CloseStatus(err); cs == websocket.StatusNormalClosure {
+					svrConn.Close(websocket.StatusNormalClosure, "")
+				} else {
+					svrConn.Close(cs, err.Error())
+					logger.Errorf("%s: failed to write to client: %v", sp.Name, err)
+				}
 				break
 			}
 			metric.RespSize += uint64(len(m))
@@ -171,8 +194,8 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		case <-stop:
 		case <-sp.Done():
 		}
-		svrConn.Close(websocket.StatusNormalClosure, "")
-		clntConn.Close(websocket.StatusNormalClosure, "")
+		svrConn.Close(websocket.StatusBadGateway, "")
+		clntConn.Close(websocket.StatusBadGateway, "")
 	}()
 
 	wg.Wait()
