@@ -70,9 +70,7 @@ type (
 	// WebSocketProxySpec describes the WebSocketProxy.
 	WebSocketProxySpec struct {
 		filters.BaseSpec `json:",inline"`
-
-		DefaultOrigin string                     `json:"defaultOrigin" jsonschema:"omitempty,format=url"`
-		Pools         []*WebSocketServerPoolSpec `json:"pools" jsonschema:"required"`
+		Pools            []*WebSocketServerPoolSpec `json:"pools" jsonschema:"required"`
 	}
 )
 

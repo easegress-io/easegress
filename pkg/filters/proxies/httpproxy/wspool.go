@@ -18,11 +18,8 @@
 package httpproxy
 
 import (
-	"fmt"
-	"io"
-	"net"
+	stdctx "context"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -31,7 +28,7 @@ import (
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/pkg/util/fasttime"
-	"golang.org/x/net/websocket"
+	"nhooyr.io/websocket"
 )
 
 // WebSocketServerPool defines a server pool.
@@ -81,81 +78,6 @@ func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, status
 	ctx.SetOutputResponse(resp)
 }
 
-func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*websocket.Conn, error) {
-	origin := req.HTTPHeader().Get("Origin")
-	if len(origin) == 0 {
-		origin = sp.proxy.spec.DefaultOrigin
-	}
-
-	u := *req.URL()
-	u1, err := url.ParseRequestURI(svr.URL)
-	if err != nil {
-		return nil, err
-	}
-	u.Host = u1.Host
-	switch u1.Scheme {
-	case "ws", "wss":
-		u.Scheme = u1.Scheme
-		break
-	case "http":
-		u.Scheme = "ws"
-	case "https":
-		u.Scheme = "wss"
-	default:
-		return nil, fmt.Errorf("invalid scheme %s", u1.Scheme)
-	}
-
-	config, err := websocket.NewConfig(u.String(), origin)
-	if err != nil {
-		return nil, err
-	}
-
-	// copies headers from req to the dialer and forward them to the
-	// destination.
-	//
-	// According to https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm
-	// For load balancer, we add following key-value pairs to headers
-	// X-Forwarded-For: <original_client>, <proxy1>, <proxy2>
-	// X-Forwarded-Host: www.example.com:8080
-	// X-Forwarded-Proto: https
-	//
-	// The websocket library discards some of the headers, so we just clone
-	// the original headers and add the above headers.
-	config.Header = req.HTTPHeader().Clone()
-
-	// The websocket library does not support 'Sec-WebSocket-Extensions' at
-	// present, so we delete it.
-	config.Header.Del("Sec-WebSocket-Extensions")
-
-	// 'Origin' must be deleted, or there will be two origins as we have already
-	// set one when creating the config.
-	config.Header.Del("Origin")
-
-	const xForwardedFor = "X-Forwarded-For"
-	xff := req.HTTPHeader().Get(xForwardedFor)
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		if xff == "" {
-			config.Header.Set(xForwardedFor, clientIP)
-		} else {
-			config.Header.Set(xForwardedFor, fmt.Sprintf("%s, %s", xff, clientIP))
-		}
-	}
-
-	const xForwardedHost = "X-Forwarded-Host"
-	xfh := req.HTTPHeader().Get(xForwardedHost)
-	if xfh == "" && req.Host() != "" {
-		config.Header.Set(xForwardedHost, req.Host())
-	}
-
-	const xForwardedProto = "X-Forwarded-Proto"
-	config.Header.Set(xForwardedProto, "http")
-	if req.TLS != nil {
-		config.Header.Set(xForwardedProto, "https")
-	}
-
-	return websocket.DialConfig(config)
-}
-
 func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	svr := sp.LoadBalancer().ChooseServer(req)
@@ -183,59 +105,78 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		return resultInternalError
 	}
 
-	wssvr := websocket.Server{}
-	wssvr.Handler = func(clntConn *websocket.Conn) {
-		// dial to the server
-		svrConn, err := sp.dialServer(svr, req)
-		if err != nil {
-			logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
-			return
-		}
-
-		var wg sync.WaitGroup
-		wg.Add(2)
-
-		stop := make(chan struct{})
-
-		// copy messages from client to server
-		go func() {
-			defer wg.Done()
-			l, _ := io.Copy(svrConn, clntConn)
-			metric.ReqSize = uint64(l)
-			svrConn.Close()
-		}()
-
-		// copy messages from server to client
-		go func() {
-			defer wg.Done()
-			l, _ := io.Copy(clntConn, svrConn)
-			metric.RespSize = uint64(l)
-			clntConn.Close()
-		}()
-
-		go func() {
-			select {
-			case <-stop:
-				break
-			case <-sp.Done():
-				svrConn.Close()
-				clntConn.Close()
-			}
-		}()
-
-		wg.Wait()
-		close(stop)
+	clntConn, err := websocket.Accept(stdw, req.Std(), nil)
+	if err != nil {
+		logger.Errorf("%s: failed to establish client connection: %v", sp.Name, err)
+		sp.buildFailureResponse(ctx, http.StatusBadRequest)
+		metric.StatusCode = http.StatusBadRequest
+		return resultClientError
 	}
 
-	// ServeHTTP may panic due to failed to upgrade the protocol.
-	defer func() {
-		if err := recover(); err != nil {
-			result = resultClientError
-			sp.buildFailureResponse(ctx, http.StatusBadRequest)
-			metric.StatusCode = http.StatusBadRequest
+	svrConn, resp, err := websocket.Dial(stdctx.Background(), svr.URL, nil)
+	if err != nil {
+		if resp != nil {
+			metric.StatusCode = resp.StatusCode
+		} else {
+			metric.StatusCode = http.StatusServiceUnavailable
+		}
+		logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
+		sp.buildFailureResponse(ctx, metric.StatusCode)
+		return resultServerError
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	stop := make(chan struct{})
+
+	// copy messages from client to server
+	go func() {
+		defer wg.Done()
+		for {
+			t, m, err := clntConn.Read(stdctx.Background())
+			if err != nil {
+				logger.Errorf("%s: failed to read from client: %v", sp.Name, err)
+				break
+			}
+			err = svrConn.Write(stdctx.Background(), t, m)
+			if err != nil {
+				logger.Errorf("%s: failed to write to server: %v", sp.Name, err)
+				break
+			}
+			metric.ReqSize += uint64(len(m))
 		}
 	}()
-	wssvr.ServeHTTP(stdw, req.Request)
+
+	// copy messages from server to client
+	go func() {
+		defer wg.Done()
+		for {
+			t, m, err := svrConn.Read(stdctx.Background())
+			if err != nil {
+				logger.Errorf("%s: failed to read from server: %v", sp.Name, err)
+				break
+			}
+			err = clntConn.Write(stdctx.Background(), t, m)
+			if err != nil {
+				logger.Errorf("%s: failed to write to client: %v", sp.Name, err)
+				break
+			}
+			metric.RespSize += uint64(len(m))
+		}
+	}()
+
+	go func() {
+		select {
+		case <-stop:
+		case <-sp.Done():
+		}
+		svrConn.Close(websocket.StatusNormalClosure, "")
+		clntConn.Close(websocket.StatusNormalClosure, "")
+	}()
+
+	wg.Wait()
+	close(stop)
 
 	metric.StatusCode = http.StatusSwitchingProtocols
 	ctx.SetData("HTTP_METRIC", metric)
