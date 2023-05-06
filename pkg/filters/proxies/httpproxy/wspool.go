@@ -19,7 +19,10 @@ package httpproxy
 
 import (
 	stdctx "context"
+	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/context"
@@ -78,6 +81,77 @@ func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, status
 	ctx.SetOutputResponse(resp)
 }
 
+func buildServerURL(svr *Server, req *httpprot.Request) (string, error) {
+	u := *req.URL()
+	u1, err := url.ParseRequestURI(svr.URL)
+	if err != nil {
+		return "", err
+	}
+
+	u.Host = u1.Host
+
+	switch u1.Scheme {
+	case "ws", "wss":
+		u.Scheme = u1.Scheme
+		break
+	case "http":
+		u.Scheme = "ws"
+	case "https":
+		u.Scheme = "wss"
+	default:
+		return "", fmt.Errorf("invalid scheme %s", u1.Scheme)
+	}
+
+	return u.String(), nil
+}
+
+func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*websocket.Conn, error) {
+	u, err := buildServerURL(svr, req)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := &websocket.DialOptions{
+		HTTPHeader:      req.HTTPHeader().Clone(),
+		CompressionMode: websocket.CompressionDisabled,
+	}
+
+	opts.HTTPHeader.Del("Sec-WebSocket-Origin")
+	opts.HTTPHeader.Del("Sec-WebSocket-Protocol")
+	opts.HTTPHeader.Del("Sec-WebSocket-Accept")
+	opts.HTTPHeader.Del("Sec-WebSocket-Extensions")
+
+	// According to https://docs.oracle.com/en-us/iaas/Content/Balance/Reference/httpheaders.htm
+	// For load balancer, we add following key-value pairs to headers
+	// X-Forwarded-For: <original_client>, <proxy1>, <proxy2>
+	// X-Forwarded-Host: www.example.com:8080
+	// X-Forwarded-Proto: https
+	const xForwardedFor = "X-Forwarded-For"
+	xff := req.HTTPHeader().Get(xForwardedFor)
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if xff == "" {
+			opts.HTTPHeader.Set(xForwardedFor, clientIP)
+		} else {
+			opts.HTTPHeader.Set(xForwardedFor, fmt.Sprintf("%s, %s", xff, clientIP))
+		}
+	}
+
+	const xForwardedHost = "X-Forwarded-Host"
+	xfh := req.HTTPHeader().Get(xForwardedHost)
+	if xfh == "" && req.Host() != "" {
+		opts.HTTPHeader.Set(xForwardedHost, req.Host())
+	}
+
+	const xForwardedProto = "X-Forwarded-Proto"
+	opts.HTTPHeader.Set(xForwardedProto, "http")
+	if req.TLS != nil {
+		opts.HTTPHeader.Set(xForwardedProto, "https")
+	}
+
+	conn, _, err := websocket.Dial(stdctx.Background(), u, opts)
+	return conn, err
+}
+
 func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	svr := sp.LoadBalancer().ChooseServer(req)
@@ -113,18 +187,12 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		return resultClientError
 	}
 
-	svrConn, resp, err := websocket.Dial(stdctx.Background(), svr.URL, &websocket.DialOptions{
-		CompressionMode: websocket.CompressionDisabled,
-	})
+	svrConn, err := sp.dialServer(svr, req)
 	if err != nil {
-		if resp != nil {
-			metric.StatusCode = resp.StatusCode
-		} else {
-			metric.StatusCode = http.StatusServiceUnavailable
-		}
-		clntConn.Close(websocket.StatusGoingAway, "")
 		logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
-		sp.buildFailureResponse(ctx, metric.StatusCode)
+		clntConn.Close(websocket.StatusGoingAway, "")
+		sp.buildFailureResponse(ctx, http.StatusServiceUnavailable)
+		metric.StatusCode = http.StatusServiceUnavailable
 		return resultServerError
 	}
 
