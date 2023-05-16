@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// TeeWriter is an io.Writer wapper.
+// TeeWriter is an io.Writer wrapper.
 type TeeWriter struct {
 	writers []io.Writer
 }

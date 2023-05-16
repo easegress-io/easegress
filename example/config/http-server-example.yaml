@@ -10,7 +10,7 @@ keepAliveTimeout: 75s
 maxConnection: 10240
 cacheSize: 0
 #tracing:
-#  serviceName: httpServerExmple
+#  serviceName: httpServerExample
 #  zipkin:
 #    hostport: 0.0.0.0:10080
 #    serverURL: http://localhost:9412/api/v2/spans

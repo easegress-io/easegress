@@ -33,7 +33,7 @@ filters:
     kind: Fallback
     mockCode: 200
     mockHeaders:
-      Content-Type: applicaion/json
+      Content-Type: application/json
       X-Fallback: Okay
     mockBody: '{"message": "The feature turned off, please try it later."}'
   - name: rateLimiter
@@ -116,4 +116,4 @@ filters:
       set:
         Server: Easegress v1.0.0
       add:
-        X-Proxy-Name: http-proxy-exmaple
+        X-Proxy-Name: http-proxy-example

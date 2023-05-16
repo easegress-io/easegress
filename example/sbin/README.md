@@ -1,5 +1,5 @@
 ## Background
-It's error prone to start/stop the easegress executable binary directly in a multi-node easegress group. This is because the embedded etcd cluster may corrupted if one peer node starts more than one instances.
+It's error prone to start/stop the easegress executable binary directly in a multi-node easegress group. This is because the embedded etcd cluster may be corrupted if one peer node starts more than one instances.
 
 This **sbin** script suite specifies and regulates the basic directory structure, config file path, binary path, and provide **start.sh** and **stop.sh** to assist the admin does not start/stop the **easegress process** in any wrong way.
 
