@@ -39,6 +39,9 @@ func TestValidate(t *testing.T) {
 	spec := &Spec{
 		InitSize: 3,
 		MaxSize:  2,
+		Init: func() (PoolObject, error) {
+			return nil, nil
+		},
 	}
 
 	err := spec.Validate()
@@ -49,6 +52,9 @@ func TestValidate(t *testing.T) {
 	assertions.NoError(spec.Validate())
 
 	spec.InitSize, spec.MaxSize = 0, 0
+	assertions.Error(spec.Validate())
+
+	spec.Init = nil
 	assertions.Error(spec.Validate())
 }
 
@@ -93,17 +99,18 @@ func TestNewSimplePool(t *testing.T) {
 	as.Equal(cap(pool.store), max)
 }
 
-func getAndPut(pool *Pool) {
-	iPoolObject, _ := pool.Get(context.Background())
+func getAndPut(pool *Pool, new CreateObjectFn) {
+	iPoolObject, _ := pool.Get(context.Background(), new)
 	if iPoolObject != nil {
 		pool.Put(iPoolObject)
 	}
 }
 
 func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, fake PoolObject, b *testing.B) {
-	pool := New(iPoolObjNum/2, iPoolObjNum, func() (PoolObject, error) {
+	fn := func() (PoolObject, error) {
 		return fake, nil
-	})
+	}
+	pool := New(iPoolObjNum/2, iPoolObjNum, fn)
 	ch := make(chan struct{})
 	startedWait := sync.WaitGroup{}
 	startedWait.Add(goRoutineNum - 1)
@@ -119,7 +126,7 @@ func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, f
 						startedWait.Done()
 						done = true
 					}
-					getAndPut(pool)
+					getAndPut(pool, fn)
 				}
 			}
 		}()
@@ -127,7 +134,7 @@ func benchmarkWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum int, f
 	startedWait.Wait()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		getAndPut(pool)
+		getAndPut(pool, fn)
 	}
 	b.StopTimer()
 	close(ch)

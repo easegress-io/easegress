@@ -20,13 +20,17 @@ package grpcproxy
 
 import (
 	"fmt"
-
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/pkg/util/objectpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
+	"time"
 )
 
 const (
@@ -41,25 +45,31 @@ const (
 	resultShortCircuited = "shortCircuited"
 )
 
-var kind = &filters.Kind{
-	Name:        Kind,
-	Description: "GRPCProxy sets the proxy of grpc servers",
-	Results: []string{
-		resultInternalError,
-		resultClientError,
-		resultServerError,
-		resultShortCircuited,
-	},
-	DefaultSpec: func() filters.Spec {
-		return &Spec{}
-	},
-	CreateInstance: func(spec filters.Spec) filters.Filter {
-		return &Proxy{
-			super: spec.Super(),
-			spec:  spec.(*Spec),
-		}
-	},
-}
+var (
+	kind = &filters.Kind{
+		Name:        Kind,
+		Description: "GRPCProxy sets the proxy of grpc servers",
+		Results: []string{
+			resultInternalError,
+			resultClientError,
+			resultServerError,
+			resultShortCircuited,
+		},
+		DefaultSpec: func() filters.Spec {
+			return &Spec{}
+		},
+		CreateInstance: func(spec filters.Spec) filters.Filter {
+			return &Proxy{
+				super: spec.Super(),
+				spec:  spec.(*Spec),
+			}
+		},
+	}
+	defaultDialOpts = []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithCodec(&GrpcCodec{}),
+		grpc.WithBlock()}
+)
 
 var _ filters.Filter = (*Proxy)(nil)
 var _ filters.Resiliencer = (*Proxy)(nil)
@@ -74,14 +84,25 @@ type (
 		super *supervisor.Supervisor
 		spec  *Spec
 
-		mainPool       *ServerPool
-		candidatePools []*ServerPool
+		mainPool           *ServerPool
+		candidatePools     []*ServerPool
+		connectionPool     *MultiPool
+		connectionPoolSpec *objectpool.Spec
+		timeout            time.Duration
+		borrowTimeout      time.Duration
+		connectTimeout     time.Duration
 	}
 
 	// Spec describes the Proxy.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 		Pools            []*ServerPoolSpec `json:"pools" jsonschema:"required"`
+		// Timeout could be specified in unary calls case, and in stream calls case, it should not be specified
+		Timeout             string `json:"timeout" jsonschema:"omitempty,format=duration"`
+		BorrowTimeout       string `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
+		ConnectTimeout      string `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
+		InitConnsPerHost    int    `json:"initConnsPerHost" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int    `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
 	}
 
 	// Server is the backend server.
@@ -96,7 +117,18 @@ type (
 	BaseServerPool = proxies.ServerPoolBase
 	// BaseServerPoolSpec is the spec of BaseServerPool.
 	BaseServerPoolSpec = proxies.ServerPoolBaseSpec
+	clientConnWrapper  struct {
+		*grpc.ClientConn
+	}
 )
+
+func (c *clientConnWrapper) Destroy() {
+	c.Close()
+}
+
+func (c *clientConnWrapper) HealthCheck() bool {
+	return c.GetState() != connectivity.Shutdown
+}
 
 // Validate validates Spec.
 func (s *Spec) Validate() error {
@@ -113,6 +145,26 @@ func (s *Spec) Validate() error {
 	if numMainPool != 1 {
 		return fmt.Errorf("one and only one mainPool is required")
 	}
+	if s.ConnectTimeout != "" {
+		if _, err := time.ParseDuration(s.ConnectTimeout); err != nil {
+			return fmt.Errorf("grpc client wait connection ready timeout %s invalid", s.ConnectTimeout)
+		}
+	}
+	if s.BorrowTimeout != "" {
+		if _, err := time.ParseDuration(s.BorrowTimeout); err != nil {
+			return fmt.Errorf("grpc proxy filter wait get a conenction timeout %s invalid", s.BorrowTimeout)
+		}
+	}
+	if s.Timeout != "" {
+		if _, err := time.ParseDuration(s.Timeout); err != nil {
+			return fmt.Errorf("grpc proxy filter process request timeout %s invalid", s.BorrowTimeout)
+		}
+	}
+
+	if s.InitConnsPerHost < 0 || s.MaxIdleConnsPerHost <= 0 || s.MaxIdleConnsPerHost < s.InitConnsPerHost {
+		return fmt.Errorf("grpc max connection num %d or init connection num %d per host invalid", s.MaxIdleConnsPerHost, s.InitConnsPerHost)
+	}
+
 	return nil
 }
 
@@ -138,6 +190,10 @@ func (p *Proxy) Init() {
 
 // Inherit inherits previous generation of Proxy.
 func (p *Proxy) Inherit(previousGeneration filters.Filter) {
+	if pre, ok := previousGeneration.(*Proxy); ok {
+		p.connectionPool = pre.connectionPool
+		p.connectionPoolSpec = pre.connectionPoolSpec
+	}
 	p.reload()
 }
 
@@ -159,6 +215,30 @@ func (p *Proxy) reload() {
 			p.candidatePools = append(p.candidatePools, pool)
 		}
 	}
+
+	p.borrowTimeout, _ = time.ParseDuration(p.spec.BorrowTimeout)
+	p.timeout, _ = time.ParseDuration(p.spec.Timeout)
+	p.connectTimeout, _ = time.ParseDuration(p.spec.ConnectTimeout)
+
+	if p.connectionPool == nil {
+		p.connectionPoolSpec = &objectpool.Spec{
+			MaxSize:      p.spec.MaxIdleConnsPerHost,
+			CheckWhenPut: true,
+			CheckWhenGet: true,
+		}
+		p.connectionPool = NewMultiWithSpec(p.connectionPoolSpec)
+	} else {
+		p.connectionPoolSpec.MaxSize = p.spec.MaxIdleConnsPerHost
+		p.connectionPoolSpec.InitSize = p.spec.InitConnsPerHost
+	}
+}
+
+// Close closes the pool and clean all the objects
+func (m *MultiPool) Close() {
+	m.pools.Range(func(key, value any) bool {
+		value.(*objectpool.Pool).Close()
+		return true
+	})
 }
 
 // Status returns Proxy status.
@@ -173,6 +253,7 @@ func (p *Proxy) Close() {
 	for _, v := range p.candidatePools {
 		v.Close()
 	}
+
 }
 
 // Handle handles GRPCContext.

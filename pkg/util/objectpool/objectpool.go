@@ -34,51 +34,45 @@ type PoolObject interface {
 type (
 	// Pool manage the PoolObject
 	Pool struct {
-		initSize     int                        // initial size
-		maxSize      int                        // max size
-		size         int                        // current size
-		new          func() (PoolObject, error) // create a new object, it must return a health object or err
-		store        chan PoolObject            // store the object
-		cond         *sync.Cond                 // when conditions are met, it wakes all goroutines waiting on sync.Cond
-		checkWhenGet bool                       // whether to health check when get PoolObject
-		checkWhenPut bool                       // whether to health check when put PoolObject
+		spec  *Spec
+		size  int             // current size
+		store chan PoolObject // store the object
+		cond  *sync.Cond      // when conditions are met, it wakes all goroutines waiting on sync.Cond
 	}
 
 	// Spec Pool's spec
 	Spec struct {
-		InitSize     int                        // initial size
-		MaxSize      int                        // max size
-		New          func() (PoolObject, error) // create a new object
-		CheckWhenGet bool                       // whether to health check when get PoolObject
-		CheckWhenPut bool                       // whether to health check when put PoolObject
+		InitSize     int            // initial size
+		MaxSize      int            // max size
+		Init         CreateObjectFn // create init size object, it must return a health object or err
+		CheckWhenGet bool           // whether to health check when get PoolObject
+		CheckWhenPut bool           // whether to health check when put PoolObject
 	}
+	// CreateObjectFn create new object, it must return a health object or err
+	CreateObjectFn func() (PoolObject, error)
 )
 
 // New returns a new pool
-func New(initSize, maxSize int, new func() (PoolObject, error)) *Pool {
-	return NewWithSpec(Spec{
+func New(initSize, maxSize int, init func() (PoolObject, error)) *Pool {
+	return NewWithSpec(&Spec{
 		InitSize:     initSize,
 		MaxSize:      maxSize,
-		New:          new,
+		Init:         init,
 		CheckWhenGet: true,
 		CheckWhenPut: true,
 	})
 }
 
 // NewWithSpec returns a new pool
-func NewWithSpec(spec Spec) *Pool {
+func NewWithSpec(spec *Spec) *Pool {
 	p := &Pool{
-		initSize:     spec.InitSize,
-		maxSize:      spec.MaxSize,
-		new:          spec.New,
-		checkWhenPut: spec.CheckWhenPut,
-		checkWhenGet: spec.CheckWhenGet,
-		store:        make(chan PoolObject, spec.MaxSize),
-		cond:         sync.NewCond(&sync.Mutex{}),
+		spec:  spec,
+		store: make(chan PoolObject, spec.MaxSize),
+		cond:  sync.NewCond(&sync.Mutex{}),
 	}
 
-	for i := 0; i < p.initSize; i++ {
-		obj, err := p.new()
+	for i := 0; i < p.spec.InitSize; i++ {
+		obj, err := p.spec.Init()
 		if err != nil {
 			logger.Errorf("create pool object failed: %v", err)
 			continue
@@ -101,7 +95,9 @@ func (s *Spec) Validate() error {
 	if s.InitSize < 0 {
 		return fmt.Errorf("pool init size must greate than or equals 0")
 	}
-
+	if (s.Init == nil && s.InitSize != 0) || (s.Init != nil && s.InitSize == 0) {
+		return fmt.Errorf("func init and init size must be either nil or not nil at the same time")
+	}
 	return nil
 }
 
@@ -116,7 +112,7 @@ func (p *Pool) fastGet() PoolObject {
 }
 
 // The slow path, we need to wait for an object or create a new one.
-func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
+func (p *Pool) slowGet(ctx context.Context, new CreateObjectFn) (PoolObject, error) {
 	// we need to watch ctx.Done in another goroutine, so that we can stop
 	// the slow path when the context is done.
 	// we also need to stop the watch when the slow path is done.
@@ -146,8 +142,8 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 		}
 
 		// try creating a new object
-		if p.size < p.maxSize {
-			if obj, err := p.new(); err == nil {
+		if p.size < p.spec.MaxSize {
+			if obj, err := new(); err == nil {
 				p.size++
 				return obj, nil
 			}
@@ -163,18 +159,18 @@ func (p *Pool) slowGet(ctx context.Context) (PoolObject, error) {
 // if there's an available object, it will return it directly;
 // if there's no free object, it will create a one if the pool is not full;
 // if the pool is full, it will block until an object is returned to the pool.
-func (p *Pool) Get(ctx context.Context) (PoolObject, error) {
+func (p *Pool) Get(ctx context.Context, new CreateObjectFn) (PoolObject, error) {
 	for {
 		obj := p.fastGet()
 		if obj == nil {
 			var err error
-			obj, err = p.slowGet(ctx)
+			obj, err = p.slowGet(ctx, new)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		if !p.checkWhenGet || obj.HealthCheck() {
+		if !p.spec.CheckWhenGet || obj.HealthCheck() {
 			return obj, nil
 		}
 
@@ -197,7 +193,7 @@ func (p *Pool) Put(obj PoolObject) {
 		panic("pool: put nil object")
 	}
 
-	if p.checkWhenPut && !obj.HealthCheck() {
+	if p.spec.CheckWhenPut && !obj.HealthCheck() {
 		p.putUnhealthyObject(obj)
 		return
 	}
