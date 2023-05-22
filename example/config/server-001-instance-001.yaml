@@ -1,6 +1,6 @@
 registryName: etcd-service-registry-example
 serviceName: service-001
-instanceID: intance-001
+instanceID: instance-001
 scheme: http
 hostIP: 127.0.0.1
 port: 9091
