@@ -56,7 +56,10 @@ var (
 			resultShortCircuited,
 		},
 		DefaultSpec: func() filters.Spec {
-			return &Spec{}
+			return &Spec{
+				InitConnsPerHost:    2,
+				MaxIdleConnsPerHost: 1024,
+			}
 		},
 		CreateInstance: func(spec filters.Spec) filters.Filter {
 			return &Proxy{

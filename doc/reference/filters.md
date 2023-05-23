@@ -70,6 +70,9 @@
   - [Redirector](#redirector)
     - [Configuration](#configuration-22)
     - [Results](#results-22)
+  - [GRPCFilter](#grpcproxy)
+    - [Configuration](#configuration-23)
+    - [Results](#results-23)
   - [Common Types](#common-types)
     - [pathadaptor.Spec](#pathadaptorspec)
     - [pathadaptor.RegexpReplace](#pathadaptorregexpreplace)
@@ -1346,6 +1349,46 @@ output: https://example.com/api/user/123
 | Value | Description |
 | ----- | ----------- |
 | redirected | The request has been redirected |
+
+## GRPCProxy
+
+The gRPC filter is a proxy of the gRPC backend service,it used the package `pkg/util/objectpool` that is a highly abstract and general connection pool to manage the connection between the instance of easegress and the servers.You can read the `Configuration` below to understand the parameters of connection pool.
+
+Below is one of the simplest gRPC configurations, it forwards the gRPC connection to `127.0.0.1:9095`.
+
+```yaml
+kind: GRPCProxy
+name: grpc-proxy-example-1
+pools:
+- servers:
+  - url: http://127.0.0.1:9095
+```
+
+Same as the `Proxy` filter:
+* a `filter` can be configured on a pool. And multi pool use the same connection pool.
+* the servers of a pool can be dynamically configured via service discovery.
+* when there are multiple servers in a pool, the pool can do a load balance between them.
+
+Note, 
+* Based on HTTP2, multiple clients can share the same connection between the instance of easegress and the servers. So it is not suitable for applications that manage connections independently by themselves. For example, the client application design is directly connected to the server, and the client and the server can request to close the connection and check it in some business scenarios. However, this situation is broken after using easegress, because of connection sharing. Once easegress closes the connection with the server according to the requirements of one of the clients, it will affect other clients.
+
+### Configuration
+
+| Name                | Type                                         | Description                                                                                                                                                                                                                                                                                                                                                                                 | Required |
+|---------------------|----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| pools               | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes      |
+| timeout             | string                                       | The total time from easegress received request to recevied response. Specified it only when using unary call                                                                                                                                                                                                                                                                                | No       |
+| borrowTimeout       | string                                       | Timeout of borrow a connection from pool                                                                                                                                                                                                                                                                                                                                                    | No       |
+| connectTimeout      | string                                       | Timeout until a new connection is fully established.                                                                                                                                                                                                                                                                                                                                        | No       |
+| MaxIdleConnsPerHost | int                                          | For a address, the maximum of connections allowed to create. Default value is 1024                                                                                                                                                                                                                                                                                                          | No       |
+
+### Results
+
+| Value          | Description                  |
+|----------------|------------------------------|
+| internalError  | Encounters an internal error |
+| clientError    | Client-side error            |
+| serverError    | Server-side error            |
 
 ## Common Types
 
