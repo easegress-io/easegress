@@ -57,7 +57,6 @@ var (
 		},
 		DefaultSpec: func() filters.Spec {
 			return &Spec{
-				InitConnsPerHost:    2,
 				MaxIdleConnsPerHost: 1024,
 			}
 		},
@@ -104,7 +103,6 @@ type (
 		Timeout             string `json:"timeout" jsonschema:"omitempty,format=duration"`
 		BorrowTimeout       string `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
 		ConnectTimeout      string `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
-		InitConnsPerHost    int    `json:"initConnsPerHost" jsonschema:"omitempty"`
 		MaxIdleConnsPerHost int    `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
 	}
 
@@ -164,8 +162,8 @@ func (s *Spec) Validate() error {
 		}
 	}
 
-	if s.InitConnsPerHost < 0 || s.MaxIdleConnsPerHost <= 0 || s.MaxIdleConnsPerHost < s.InitConnsPerHost {
-		return fmt.Errorf("grpc max connection num %d or init connection num %d per host invalid", s.MaxIdleConnsPerHost, s.InitConnsPerHost)
+	if s.MaxIdleConnsPerHost <= 0 {
+		return fmt.Errorf("grpc max connection num %d per host invalid", s.MaxIdleConnsPerHost)
 	}
 
 	return nil
@@ -225,14 +223,14 @@ func (p *Proxy) reload() {
 
 	if p.connectionPool == nil {
 		p.connectionPoolSpec = &objectpool.Spec{
-			MaxSize:      p.spec.MaxIdleConnsPerHost,
+			MaxSize: p.spec.MaxIdleConnsPerHost,
+
 			CheckWhenPut: true,
 			CheckWhenGet: true,
 		}
 		p.connectionPool = NewMultiWithSpec(p.connectionPoolSpec)
 	} else {
 		p.connectionPoolSpec.MaxSize = p.spec.MaxIdleConnsPerHost
-		p.connectionPoolSpec.InitSize = p.spec.InitConnsPerHost
 	}
 }
 
