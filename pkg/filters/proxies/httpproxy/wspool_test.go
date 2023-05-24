@@ -30,9 +30,7 @@ func TestDialServer(t *testing.T) {
 	assert := assert.New(t)
 	sp := &WebSocketServerPool{
 		proxy: &WebSocketProxy{
-			spec: &WebSocketProxySpec{
-				DefaultOrigin: "http://127.0.0.1/hello",
-			},
+			spec: &WebSocketProxySpec{},
 		},
 	}
 

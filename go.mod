@@ -76,6 +76,7 @@ require (
 	k8s.io/client-go v0.26.2
 	knative.dev/client v0.36.2
 	knative.dev/serving v0.36.2
+	nhooyr.io/websocket v1.8.7
 )
 
 require (

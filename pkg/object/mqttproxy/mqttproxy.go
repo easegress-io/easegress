@@ -150,7 +150,7 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 	mp.broker.registerAPIs()
 }
 
-// Inherit inherits previous generation of WebSocketServer.
+// Inherit inherits previous generation of MQTTProxy.
 func (mp *MQTTProxy) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object, muxMapper context.MuxMapper) {
 	previousGeneration.Close()
 	mp.Init(superSpec, muxMapper)
