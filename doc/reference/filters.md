@@ -1352,7 +1352,7 @@ output: https://example.com/api/user/123
 
 ## GRPCProxy
 
-The gRPC filter is a proxy of the gRPC backend service. It supports both unary and stream and used the package `pkg/util/objectpool` that is a highly abstract and general connection pool to manage the connection between the instance of easegress and the servers.You can read the `Configuration` below to understand the parameters of connection pool.
+The gRPC filter is a proxy of the gRPC backend service. It supports both unary and stream, and used the package `pkg/util/objectpool` that is a highly abstract and general connection pool to manage the connection between the instance of easegress and the servers.You can read the `Configuration` below to understand the parameters of connection pool.
 
 Below is one of the simplest gRPC configurations, it forwards the gRPC connection to `127.0.0.1:9095`.
 
