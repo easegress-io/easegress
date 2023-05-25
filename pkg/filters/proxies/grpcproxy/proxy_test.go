@@ -71,6 +71,7 @@ name: grpcforwardproxy
 
 	s = `
 kind: GRPCProxy
+maxIdleConnsPerHost: 0
 pools:
   - loadBalance:
       policy: forward
