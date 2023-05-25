@@ -223,8 +223,7 @@ func (p *Proxy) reload() {
 
 	if p.connectionPool == nil {
 		p.connectionPoolSpec = &objectpool.Spec{
-			MaxSize: p.spec.MaxIdleConnsPerHost,
-
+			MaxSize:      p.spec.MaxIdleConnsPerHost,
 			CheckWhenPut: true,
 			CheckWhenGet: true,
 		}

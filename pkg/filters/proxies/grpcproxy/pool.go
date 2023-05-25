@@ -279,7 +279,7 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 	parse, err := url.Parse(svr.URL)
 	if err != nil {
 		logger.Debugf("%s: server url %s invalid", sp.Name, svr.URL)
-		return serverPoolError{status.New(codes.InvalidArgument, "server url invalid"), resultInternalError}
+		return serverPoolError{status.New(codes.Internal, "server url invalid"), resultInternalError}
 	}
 	target := parse.Host
 
