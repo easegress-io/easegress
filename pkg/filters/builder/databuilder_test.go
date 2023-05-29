@@ -26,9 +26,9 @@ import (
 )
 
 func getDataBuilder(spec *DataBuilderSpec) *DataBuilder {
-	db := &DataBuilder{spec: spec}
-	db.Init()
-	return db
+	inst := dataBuilderKind.CreateInstance(spec)
+	inst.Init()
+	return inst.(*DataBuilder)
 }
 
 func TestDataBuilder(t *testing.T) {
@@ -41,12 +41,12 @@ template: |
   {}
 `
 	{
-		spec := &DataBuilderSpec{}
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 
 		db := getDataBuilder(spec)
 		db.Init()
-		assert.NoError(db.spec.Validate())
+		assert.NoError(db.Spec().(*DataBuilderSpec).Validate())
 		defer db.Close()
 
 		assert.Equal(dataBuilderKind, db.Kind())
@@ -72,7 +72,7 @@ template: |
   }
 `
 	{
-		spec := &DataBuilderSpec{}
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		db := getDataBuilder(spec)
 		db.Init()
@@ -80,6 +80,7 @@ template: |
 		defer db.Close()
 
 		assert.Equal(dataBuilderKind, db.Kind())
+		assert.Equal(db.Name(), spec.Name())
 		ctx := context.New(nil)
 
 		res := db.Handle(ctx)
@@ -112,7 +113,7 @@ template: |
   }]
 `
 	{
-		spec := &DataBuilderSpec{}
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		db := getDataBuilder(spec)
 
@@ -152,7 +153,7 @@ template: |
   }]
 `
 	{
-		spec := &DataBuilderSpec{}
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		db := getDataBuilder(spec)
 
@@ -173,18 +174,29 @@ template: |
 		expected[0] = map[string]interface{}{"name": "Bob", "age": 18, "address": map[string]interface{}{"city": "Beijing", "street": "Changan street"}, "friends": []interface{}{"Alice", "Tom", "Jack"}}
 		assert.EqualValues(expected, data)
 	}
+}
 
-	// test dataKey is empty
-	yamlConfig = `
+func TestDataBuilderSpecValidate(t *testing.T) {
+	assert := assert.New(t)
+
+	// dataKey is empty
+	yamlConfig := `
 template: |
   {}
 `
 	{
-		spec := &DataBuilderSpec{}
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
-		db := getDataBuilder(spec)
-		db.Init()
-		assert.Error(db.spec.Validate())
-		defer db.Close()
+		assert.Error(spec.Validate())
+	}
+
+	// template is empty
+	yamlConfig = `
+dataKey: testKey
+`
+	{
+		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
+		codectool.MustUnmarshal([]byte(yamlConfig), spec)
+		assert.Error(spec.Validate())
 	}
 }
