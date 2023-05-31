@@ -18,7 +18,10 @@
 package v
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type (
@@ -136,4 +139,13 @@ func TestOnStructs(t *testing.T) {
 	if *pointerValues["key"].validateCount != 2 {
 		t.Errorf("expected validateCount to be 2, got %d", *pointerValues["key"].validateCount)
 	}
+}
+
+func TestGetSchema(t *testing.T) {
+	assert := assert.New(t)
+
+	strType := reflect.TypeOf("")
+	schema, err := GetSchema(strType)
+	assert.Nil(err)
+	assert.Equal("string", schema.Type)
 }
