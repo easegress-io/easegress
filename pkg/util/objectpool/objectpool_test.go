@@ -269,10 +269,18 @@ func TestPool(t *testing.T) {
 	assert.NotNil(obj)
 	assert.Equal(putObj, obj)
 
-	pool.Close()
-
 	// put unhealthy object
 	putObj = &fakeNormalPoolObject{random: false, health: false}
 	pool.Put(putObj)
 	assert.Equal(0, len(pool.store))
+
+	// put nil
+	assert.Panics(func() {
+		pool.Put(nil)
+	})
+	obj, err = createObjectFn()
+	assert.Nil(err)
+	pool.Put(obj)
+
+	pool.Close()
 }
