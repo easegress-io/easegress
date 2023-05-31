@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -62,6 +63,12 @@ func TestUseService(t *testing.T) {
 	spec := &ServerPoolBaseSpec{
 		ServerTags:  []string{"a2"},
 		LoadBalance: &LoadBalanceSpec{},
+		Servers: []*Server{
+			{
+				URL:  "http://192.168.1.1:80",
+				Tags: []string{"a2"},
+			},
+		},
 	}
 
 	sp := &ServerPoolBase{
@@ -84,4 +91,28 @@ func TestUseService(t *testing.T) {
 	assert.Equal("http://192.168.1.2:80", svr.URL)
 	svr = sp.LoadBalancer().ChooseServer(nil)
 	assert.Equal("http://192.168.1.2:80", svr.URL)
+
+	spec.LoadBalance = nil
+	sp.useService(spec, map[string]*serviceregistry.ServiceInstanceSpec{})
+	svr = sp.LoadBalancer().ChooseServer(nil)
+	assert.Equal("http://192.168.1.1:80", svr.URL)
+}
+
+func TestServerPoolInit(t *testing.T) {
+	spec := &ServerPoolBaseSpec{
+		ServerTags:  []string{"a2"},
+		LoadBalance: &LoadBalanceSpec{},
+		Servers: []*Server{
+			{
+				URL:  "http://192.168.1.1:80",
+				Tags: []string{"a2"},
+			},
+		},
+	}
+
+	sp := &ServerPoolBase{}
+	sp.Init(&MockServerPoolImpl{}, supervisor.NewDefaultMock(), "test", spec)
+	assert.NotNil(t, sp.Done())
+	assert.NotNil(t, sp.LoadBalancer())
+	sp.Close()
 }

@@ -25,7 +25,32 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestRequestMatcherBaseSpecValidate(t *testing.T) {
+	spec := &RequestMatcherBaseSpec{}
+	assert.Error(t, spec.Validate())
+	spec.Headers = map[string]*stringtool.StringMatcher{
+		"test": {},
+	}
+	assert.Error(t, spec.Validate())
+
+	spec.Headers = map[string]*stringtool.StringMatcher{
+		"test": {Exact: "abc"},
+	}
+	assert.NoError(t, spec.Validate())
+
+	spec.Policy = "headerHash"
+	assert.Error(t, spec.Validate())
+
+	spec.Permil = 100
+	assert.Error(t, spec.Validate())
+
+	spec.HeaderHashKey = "X-Test"
+	assert.NoError(t, spec.Validate())
+}
 
 func TestRandomMatcher(t *testing.T) {
 	rand.Seed(0)
