@@ -15,30 +15,32 @@
  * limitations under the License.
  */
 
-package grpcprot
+package grpcproxy
 
 import (
-	"context"
+	"testing"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"github.com/stretchr/testify/assert"
 )
 
-// FakeServerStream is a fake grpc.ServerStream for testing.
-type FakeServerStream struct {
-	grpc.ServerStream
-	ctx context.Context
+func TestGrpcCodecString(t *testing.T) {
+	grpcCodec := GrpcCodec{}
+	assert.Equal(t, codecName, grpcCodec.String())
 }
 
-// NewFakeServerStream returns a new FakeServerStream.
-func NewFakeServerStream(ctx context.Context) *FakeServerStream {
-	return &FakeServerStream{ctx: ctx}
-}
+func TestCodecMarshalUnmarshal(t *testing.T) {
+	grpcCodec := GrpcCodec{}
+	f1 := &frame{payload: []byte("test")}
+	data, err := grpcCodec.Marshal(f1)
+	assert.NoError(t, err)
+	assert.Equal(t, f1.payload, data)
 
-// Context returns the context of the stream.
-func (f *FakeServerStream) Context() context.Context {
-	return f.ctx
-}
+	f2 := &frame{}
+	err = grpcCodec.Unmarshal(data, f2)
+	assert.NoError(t, err)
+	assert.Equal(t, f1.payload, f2.payload)
 
-func (f *FakeServerStream) SetTrailer(md metadata.MD) {
+	m1 := "abcd"
+	assert.Panics(t, func() { grpcCodec.Marshal(m1) })
+	assert.Panics(t, func() { grpcCodec.Unmarshal(data, m1) })
 }

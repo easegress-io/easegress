@@ -111,6 +111,7 @@ func TestServerPoolInit(t *testing.T) {
 	}
 
 	sp := &ServerPoolBase{}
+	assert.Nil(t, sp.LoadBalancer())
 	sp.Init(&MockServerPoolImpl{}, supervisor.NewDefaultMock(), "test", spec)
 	assert.NotNil(t, sp.Done())
 	assert.NotNil(t, sp.LoadBalancer())
