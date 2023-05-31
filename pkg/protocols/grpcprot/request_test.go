@@ -146,3 +146,53 @@ func TestClone(t *testing.T) {
 	assertions.Equal(src.RawHeader().GetFirst("test"), dst.RawHeader().GetFirst("test"))
 
 }
+
+func TestAddr(t *testing.T) {
+	assert := assert.New(t)
+
+	var a *Addr
+	assert.Equal("", a.Network())
+
+	a = &Addr{addr: "123.123.123.123"}
+	assert.Equal("tcp", a.Network())
+	assert.Equal("123.123.123.123", a.String())
+
+	a.setAddr("1.1.1.1")
+	assert.Equal("1.1.1.1", a.String())
+}
+
+func TestGetServerStream(t *testing.T) {
+	assert := assert.New(t)
+	ss := NewFakeServerStream(context.Background())
+	req := NewRequestWithServerStream(ss)
+	assert.Equal(ss, req.GetServerStream())
+}
+
+func TestSimpleRequestFunctions(t *testing.T) {
+	ss := NewFakeServerStream(context.Background())
+	req := NewRequestWithServerStream(ss)
+
+	assert.True(t, req.IsStream())
+	assert.Panics(t, func() { req.SetPayload(nil) })
+	assert.Panics(t, func() { req.GetPayload() })
+	assert.Panics(t, func() { req.RawPayload() })
+	assert.Panics(t, func() { req.PayloadSize() })
+	assert.Panics(t, func() { req.ToBuilderRequest("") })
+	assert.NotPanics(t, func() { req.Close() })
+	assert.NotPanics(t, func() { req.SetSourceHost("1.1.1.1") })
+
+}
+
+func TestServiceAndMethod(t *testing.T) {
+	assert := assert.New(t)
+	fake := NewFakeServerStream(context.Background())
+	request := NewRequestWithServerStream(fake)
+	assert.Empty(request.FullMethod())
+	request.SetFullMethod("/foo/bar")
+	assert.Equal("bar", request.Method())
+	assert.Equal("/foo", request.Service())
+
+	request.SetFullMethod("foobar")
+	assert.Equal("foobar", request.Method())
+	assert.Equal("foobar", request.Service())
+}

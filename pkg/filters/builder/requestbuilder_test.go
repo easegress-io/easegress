@@ -491,3 +491,40 @@ sourceNamespace: request1
 		assert.Equal(req1, testReq)
 	}
 }
+
+func TestRequestBuilderSpecValidate(t *testing.T) {
+	assert := assert.New(t)
+
+	// invalid protocol
+	yamlConfig := `
+name: requestBuilder
+kind: RequestBuilder
+protocol: foo
+`
+	spec := &RequestBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+
+	// source namespace and template are both empty
+	yamlConfig = `
+name: requestBuilder
+kind: RequestBuilder
+protocol: http
+`
+	spec = &RequestBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+
+	// source namespace and template are both specified
+	yamlConfig = `
+name: requestBuilder
+kind: RequestBuilder
+protocol: http
+sourceNamespace: request1
+template: |
+  method: Delete
+`
+	spec = &RequestBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+}

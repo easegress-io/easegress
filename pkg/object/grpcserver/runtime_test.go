@@ -18,12 +18,13 @@
 package grpcserver
 
 import (
-	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/megaease/easegress/pkg/context/contexttest"
+	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNormal(t *testing.T) {
@@ -34,6 +35,7 @@ maxConnections: 1024
 maxConnectionIdle: 60s
 port: 8850
 name: server-grpc
+minTime: 1s
 `
 	spec, err := supervisor.NewSpec(s)
 	at.NoError(err)
@@ -76,4 +78,19 @@ name: server-grpc
 
 	at.False(flag)
 	c <- struct{}{}
+}
+
+func TestBuildServerKeepaliveOpt(t *testing.T) {
+	r := &runtime{
+		spec: &Spec{
+			MinTime:               "1s",
+			MaxConnectionAge:      "10s",
+			MaxConnectionIdle:     "60s",
+			MaxConnectionAgeGrace: "10s",
+			Time:                  "3s",
+			Timeout:               "4s",
+		},
+	}
+	opts := r.buildServerKeepaliveOpt()
+	assert.Equal(t, 2, len(opts))
 }
