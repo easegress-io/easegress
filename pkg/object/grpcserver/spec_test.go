@@ -18,9 +18,10 @@
 package grpcserver
 
 import (
+	"testing"
+
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestPort(t *testing.T) {
@@ -71,4 +72,11 @@ maxConnectionIdle: 10
 
 	_, err = supervisor.NewSpec(superSpecYaml)
 	assert.Error(err)
+}
+
+func TestHeaderValidate(t *testing.T) {
+	h := &Header{}
+	assert.Error(t, h.Validate())
+	h.Values = []string{"a"}
+	assert.NoError(t, h.Validate())
 }

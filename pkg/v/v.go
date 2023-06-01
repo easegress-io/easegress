@@ -52,16 +52,6 @@ var (
 	schemaMetas      = map[reflect.Type]*schemaMeta{}
 )
 
-// GetSchemaInJSON return the json schema of t in json format.
-func GetSchemaInJSON(t reflect.Type) ([]byte, error) {
-	sm, err := getSchemaMeta(t)
-	if err != nil {
-		return nil, err
-	}
-
-	return sm.jsonFormat, nil
-}
-
 // GetSchema returns the json schema of t.
 func GetSchema(t reflect.Type) (*genjs.Schema, error) {
 	sm, err := getSchemaMeta(t)

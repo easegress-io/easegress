@@ -19,26 +19,27 @@ package grpcprot
 
 import (
 	"context"
+	"testing"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	"github.com/stretchr/testify/assert"
 )
 
-// FakeServerStream is a fake grpc.ServerStream for testing.
-type FakeServerStream struct {
-	grpc.ServerStream
-	ctx context.Context
-}
+func TestProtocol(t *testing.T) {
+	assert := assert.New(t)
 
-// NewFakeServerStream returns a new FakeServerStream.
-func NewFakeServerStream(ctx context.Context) *FakeServerStream {
-	return &FakeServerStream{ctx: ctx}
-}
+	p := &Protocol{}
 
-// Context returns the context of the stream.
-func (f *FakeServerStream) Context() context.Context {
-	return f.ctx
-}
+	_, err := p.CreateRequest(nil)
+	assert.Error(err)
 
-func (f *FakeServerStream) SetTrailer(md metadata.MD) {
+	_, err = p.CreateRequest(NewFakeServerStream(context.Background()))
+	assert.NoError(err)
+
+	_, err = p.CreateResponse(nil)
+	assert.NoError(err)
+
+	assert.Panics(func() { p.NewRequestInfo() })
+	assert.Panics(func() { p.BuildRequest(nil) })
+	assert.Panics(func() { p.NewResponseInfo() })
+	assert.Panics(func() { p.BuildResponse(nil) })
 }

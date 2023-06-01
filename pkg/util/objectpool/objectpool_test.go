@@ -19,12 +19,15 @@ package objectpool
 
 import (
 	"context"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/stretchr/testify/assert"
+	"errors"
 	"math/rand"
 	"os"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/megaease/easegress/pkg/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -33,29 +36,75 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestValidate(t *testing.T) {
-	assertions := assert.New(t)
+func TestNew(t *testing.T) {
+	assert := assert.New(t)
 
-	spec := &Spec{
-		InitSize: 3,
-		MaxSize:  2,
+	p := New(1, 2, func() (PoolObject, error) { return nil, nil })
+	assert.Equal(1, p.spec.InitSize)
+	assert.Equal(2, p.spec.MaxSize)
+	assert.Equal(true, p.spec.CheckWhenGet)
+	assert.Equal(true, p.spec.CheckWhenPut)
+	obj, err := p.spec.Init()
+	assert.Nil(err)
+	assert.Nil(obj)
+
+	p = NewWithSpec(&Spec{
+		InitSize: 2,
+		MaxSize:  3,
 		Init: func() (PoolObject, error) {
 			return nil, nil
 		},
+		CheckWhenGet: false,
+		CheckWhenPut: false,
+	})
+	assert.Equal(2, p.spec.InitSize)
+	assert.Equal(3, p.spec.MaxSize)
+	assert.Equal(false, p.spec.CheckWhenGet)
+	assert.Equal(false, p.spec.CheckWhenPut)
+	obj, err = p.spec.Init()
+	assert.Nil(err)
+	assert.Nil(obj)
+
+	p = New(1, 2, func() (PoolObject, error) { return nil, errors.New("error") })
+	obj, err = p.spec.Init()
+	assert.NotNil(err)
+	assert.Nil(obj)
+}
+
+func TestValidate(t *testing.T) {
+	assert := assert.New(t)
+
+	createSpec := func(initSize, maxSize int, init CreateObjectFn) *Spec {
+		return &Spec{
+			InitSize: initSize,
+			MaxSize:  maxSize,
+			Init:     init,
+		}
 	}
 
-	err := spec.Validate()
-	assertions.Nil(err)
-	assertions.True(spec.MaxSize == spec.InitSize)
+	createObjFn := func() (PoolObject, error) {
+		return nil, nil
+	}
 
-	spec.MaxSize = 0
-	assertions.NoError(spec.Validate())
+	testCases := []struct {
+		spec *Spec
+		err  bool
+	}{
+		{spec: createSpec(1, 2, createObjFn), err: false},
+		{spec: createSpec(3, 2, createObjFn), err: false},
+		{spec: createSpec(-1, -2, createObjFn), err: true},
+		{spec: createSpec(0, 1, nil), err: false},
+		{spec: createSpec(-1, 2, createObjFn), err: true},
+		{spec: createSpec(1, 2, nil), err: true},
+	}
 
-	spec.InitSize, spec.MaxSize = 0, 0
-	assertions.Error(spec.Validate())
-
-	spec.Init = nil
-	assertions.Error(spec.Validate())
+	for _, tc := range testCases {
+		if tc.err {
+			assert.NotNil(tc.spec.Validate())
+		} else {
+			assert.Nil(tc.spec.Validate())
+		}
+	}
 }
 
 type fakeNormalPoolObject struct {
@@ -178,4 +227,60 @@ func (f *fakeUnHealthPoolObject) HealthCheck() bool {
 
 func BenchmarkGoroutine2TimesIPoolObjectWithUnhHealthyPool(b *testing.B) {
 	benchmarkWithIPoolObjectNumAndGoroutineNum(2, 4, &fakeUnHealthPoolObject{}, b)
+}
+
+func TestPool(t *testing.T) {
+	assert := assert.New(t)
+
+	createObjectFn := func() (PoolObject, error) {
+		return &fakeNormalPoolObject{random: false, health: true}, nil
+	}
+
+	pool := New(1, 2, createObjectFn)
+
+	// fast get
+	obj, err := pool.Get(context.Background(), createObjectFn)
+	assert.Nil(err)
+	assert.NotNil(obj)
+	assert.True(obj.HealthCheck())
+
+	// slow get
+	obj, err = pool.Get(context.Background(), createObjectFn)
+	assert.Nil(err)
+	assert.NotNil(obj)
+	assert.True(obj.HealthCheck())
+
+	// slow get, wait for timeout
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	defer cancel()
+	obj, err = pool.Get(ctx, createObjectFn)
+	assert.Nil(obj)
+	assert.NotNil(err)
+	assert.Equal(ctx.Err(), err)
+
+	// slow get, wait for put
+	putObj := &fakeNormalPoolObject{random: false, health: true}
+	go func() {
+		time.Sleep(time.Second)
+		pool.Put(putObj)
+	}()
+	obj, err = pool.Get(context.Background(), createObjectFn)
+	assert.Nil(err)
+	assert.NotNil(obj)
+	assert.Equal(putObj, obj)
+
+	// put unhealthy object
+	putObj = &fakeNormalPoolObject{random: false, health: false}
+	pool.Put(putObj)
+	assert.Equal(0, len(pool.store))
+
+	// put nil
+	assert.Panics(func() {
+		pool.Put(nil)
+	})
+	obj, err = createObjectFn()
+	assert.Nil(err)
+	pool.Put(obj)
+
+	pool.Close()
 }

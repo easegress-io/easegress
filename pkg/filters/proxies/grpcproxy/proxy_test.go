@@ -18,11 +18,17 @@
 package grpcproxy
 
 import (
+	stdctx "context"
 	"os"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
@@ -45,45 +51,67 @@ func newTestProxy(yamlSpec string, assert *assert.Assertions) *Proxy {
 	proxy := kind.CreateInstance(spec).(*Proxy)
 	proxy.Init()
 
+	assert.Nil(proxy.Status())
 	assert.Equal(kind, proxy.Kind())
 	assert.Equal(spec, proxy.Spec())
 	return proxy
 }
 
-func TestInvalidSpec(t *testing.T) {
-	assertions := assert.New(t)
-	s := `
-kind: GRPCProxy
-pools:
-  - loadBalance:
-      policy: forward
-    serviceName: "easegress"
-connectTimeout: 3s
-maxIdleConnsPerHost: 10
-name: grpcforwardproxy
-`
-	rawSpec := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(s), &rawSpec)
-	assertions.NoError(err)
+func TestSpecValidate(t *testing.T) {
+	spec := &Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: "grpcforwardproxy",
+				Kind: "GRPCProxy",
+			},
+		},
+		ConnectTimeout:      "3q",
+		BorrowTimeout:       "4q",
+		Timeout:             "5q",
+		MaxIdleConnsPerHost: -1,
+		Pools: []*ServerPoolSpec{
+			{
+				BaseServerPoolSpec: proxies.ServerPoolBaseSpec{
+					ServiceName: "easegress",
+					LoadBalance: &LoadBalanceSpec{
+						Policy: "forward",
+					},
+				},
+			},
+			{},
+		},
+	}
+	assert.Error(t, spec.Validate())
 
-	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.NoError(err)
+	spec.Pools[1] = &ServerPoolSpec{
+		BaseServerPoolSpec: proxies.ServerPoolBaseSpec{
+			ServiceName: "easegress",
+			LoadBalance: &LoadBalanceSpec{
+				Policy: "forward",
+			},
+		},
+	}
+	assert.Error(t, spec.Validate())
 
-	s = `
-kind: GRPCProxy
-maxIdleConnsPerHost: 0
-pools:
-  - loadBalance:
-      policy: forward
-    serviceName: "easegress"
-name: grpcforwardproxy
-`
-	rawSpec = make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(s), &rawSpec)
-	assertions.NoError(err)
+	spec.Pools[1].Filter = &RequestMatcherSpec{}
+	assert.Error(t, spec.Validate())
 
-	_, err = filters.NewSpec(nil, "", rawSpec)
-	assertions.Error(err)
+	spec.ConnectTimeout = "3s"
+	assert.Error(t, spec.Validate())
+
+	spec.BorrowTimeout = "4s"
+	assert.Error(t, spec.Validate())
+
+	spec.Timeout = "5s"
+	assert.Error(t, spec.Validate())
+
+	spec.MaxIdleConnsPerHost = 10
+	assert.NoError(t, spec.Validate())
+
+	spec.ConnectTimeout = ""
+	spec.BorrowTimeout = ""
+	spec.Timeout = ""
+	assert.NoError(t, spec.Validate())
 }
 
 func TestReload(t *testing.T) {
@@ -107,8 +135,14 @@ name: grpcforwardproxy
 kind: GRPCProxy
 pools:
  - loadBalance:
-    policy: forward
+     policy: forward
    serviceName: easegress
+ - loadBalance:
+     policy: forward
+   serviceName: easegress
+   filter:
+     policy: random
+     permil: 50
 maxIdleConnsPerHost: 2
 initConnsPerHost: 2
 connectTimeout: 100ms
@@ -124,4 +158,52 @@ name: grpcforwardproxy
 	p.reload()
 	assertions.True(oldPool == p.connectionPool)
 
+	p1 := &Proxy{spec: p.spec}
+	p1.Inherit(p)
+	p.Close()
+	p1.Close()
+}
+
+func TestHandle(t *testing.T) {
+	assertions := assert.New(t)
+
+	s := `
+kind: GRPCProxy
+pools:
+ - loadBalance:
+     policy: forward
+   serviceName: easegress
+   circuitBreakerPolicy: circuitbreak
+ - loadBalance:
+     policy: forward
+   serviceName: easegress
+   filter:
+     policy: random
+     permil: 50
+maxIdleConnsPerHost: 2
+initConnsPerHost: 2
+connectTimeout: 100ms
+borrowTimeout: 100ms
+name: grpcforwardproxy
+`
+	p := newTestProxy(s, assertions)
+	assert.Panics(t, func() {
+		p.InjectResiliencePolicy(map[string]resilience.Policy{
+			"circuitbreak": resilience.RetryKind.DefaultPolicy(),
+		})
+	})
+	p.InjectResiliencePolicy(map[string]resilience.Policy{
+		"circuitbreak": resilience.CircuitBreakerKind.DefaultPolicy(),
+	})
+	ctx := context.New(nil)
+
+	stream := grpcprot.NewFakeServerStream(stdctx.Background())
+	req := grpcprot.NewRequestWithServerStream(stream)
+	ctx.SetInputRequest(req)
+
+	result := p.Handle(ctx)
+	assert.NotEmpty(t, result)
+
+	assert.Nil(t, p.Status())
+	p.Close()
 }

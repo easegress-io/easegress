@@ -299,3 +299,40 @@ sourceNamespace: response1
 		assert.Equal(stdResp, testResp)
 	}
 }
+
+func TestResponseBuilderSpecValidate(t *testing.T) {
+	assert := assert.New(t)
+
+	// invalid protocol
+	yamlConfig := `
+name: responseBuilder
+kind: ResponseBuilder
+protocol: foo
+`
+	spec := &ResponseBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+
+	// source namespace and template are both empty
+	yamlConfig = `
+name: responseBuilder
+kind: ResponseBuilder
+protocol: http
+`
+	spec = &ResponseBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+
+	// source namespace and template are both specified
+	yamlConfig = `
+name: responseBuilder
+kind: ResponseBuilder
+protocol: http
+sourceNamespace: request1
+template: |
+  method: Delete
+`
+	spec = &ResponseBuilderSpec{}
+	codectool.MustUnmarshal([]byte(yamlConfig), spec)
+	assert.Error(spec.Validate())
+}

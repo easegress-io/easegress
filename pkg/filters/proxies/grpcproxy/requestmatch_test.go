@@ -19,10 +19,13 @@ package grpcproxy
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/megaease/easegress/pkg/filters/proxies"
 	"github.com/megaease/easegress/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"google.golang.org/grpc/metadata"
 
@@ -58,9 +61,38 @@ func TestRequestMatcherSpecValidate(t *testing.T) {
 
 	spec.HeaderHashKey = "X-Test"
 	assert.NoError(spec.Validate())
+
+	spec.Methods = append(spec.Methods, &stringtool.StringMatcher{})
+	assert.Error(spec.Validate())
 }
 
-func TestGeneralMatche(t *testing.T) {
+func TestNewRequestMatcher(t *testing.T) {
+	spec := RequestMatcherSpec{
+		RequestMatcherBaseSpec: proxies.RequestMatcherBaseSpec{
+			MatchAllHeaders: true,
+			Headers: map[string]*stringtool.StringMatcher{
+				"X-Test1": {Exact: "test1"},
+				"X-Test2": {Exact: "test2"},
+			},
+		},
+	}
+
+	rm := NewRequestMatcher(&spec)
+	assert.IsType(t, &generalMatcher{}, rm)
+
+	spec.Policy = "general"
+	rm = NewRequestMatcher(&spec)
+	assert.IsType(t, &generalMatcher{}, rm)
+
+	spec.Policy = "foo"
+	rm = NewRequestMatcher(&spec)
+	assert.NotNil(t, rm)
+	if assert.ObjectsAreEqual(reflect.TypeOf(rm), reflect.TypeOf(&generalMatcher{})) {
+		assert.Fail(t, fmt.Sprintf("Object expected not to be of type %v", reflect.TypeOf(&generalMatcher{})))
+	}
+}
+
+func TestGeneralMatcher(t *testing.T) {
 	assert := assert.New(t)
 
 	// match all headers
@@ -72,6 +104,11 @@ func TestGeneralMatche(t *testing.T) {
 				"X-Test2": {Exact: "test2"},
 			},
 		},
+	})
+
+	assert.Panics(func() {
+		req, _ := httpprot.NewRequest(nil)
+		rm.Match(req)
 	})
 
 	sm := grpcprot.NewFakeServerStream(metadata.NewIncomingContext(context.Background(), metadata.MD{}))

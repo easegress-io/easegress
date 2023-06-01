@@ -19,11 +19,15 @@ package grpcproxy
 
 import (
 	"context"
-	"github.com/megaease/easegress/pkg/util/objectpool"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"sync"
 	"testing"
+
+	"github.com/megaease/easegress/pkg/filters/proxies"
+	"github.com/megaease/easegress/pkg/util/objectpool"
+	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func multiGetAndPut(pool *MultiPool, key string, ctx context.Context) {
@@ -131,4 +135,35 @@ func benchmarkMultiWithIPoolObjectNumAndGoroutineNum(iPoolObjNum, goRoutineNum i
 
 func BenchmarkMultiGoroutine2TimesIPoolObject(b *testing.B) {
 	benchmarkMultiWithIPoolObjectNumAndGoroutineNum(2, 4, &fakeNormalPoolObject{random: true}, b)
+}
+
+func TestServerPoolError(t *testing.T) {
+	spe := serverPoolError{
+		result: "ok",
+		status: status.New(codes.OK, "ok"),
+	}
+
+	assert.Equal(t, "ok", spe.Result())
+	assert.Equal(t, int(codes.OK), spe.Code())
+	assert.Equal(t, "server pool error, status code=rpc error: code = OK desc = ok, result=ok", spe.Error())
+}
+
+func TestServerPoolSpecValidate(t *testing.T) {
+	sps := &ServerPoolSpec{}
+	assert.Error(t, sps.Validate())
+
+	sps.Servers = []*proxies.Server{
+		{
+			URL:  "http://192.168.1.1:80",
+			Tags: []string{"a1"},
+		},
+		{
+			URL:  "http://192.168.1.2:80",
+			Tags: []string{"a1"},
+		},
+	}
+	assert.NoError(t, sps.Validate())
+
+	sps.Servers[0].Weight = 1
+	assert.Error(t, sps.Validate())
 }
