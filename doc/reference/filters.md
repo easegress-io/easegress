@@ -70,7 +70,7 @@
   - [Redirector](#redirector)
     - [Configuration](#configuration-22)
     - [Results](#results-22)
-  - [GRPCFilter](#grpcproxy)
+  - [GRPCProxy](#grpcproxy)
     - [Configuration](#configuration-23)
     - [Results](#results-23)
   - [Common Types](#common-types)
@@ -84,6 +84,8 @@
     - [proxy.HealthCheckSpec](#proxyhealthcheckspec)
     - [proxy.MemoryCacheSpec](#proxymemorycachespec)
     - [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)
+    - [grpcproxy.ServerPoolSpec](#grpcproxyserverpoolspec)
+    - [grpcproxy.RequestMatcherSpec](#grpcproxyrequestmatcherspec)
     - [StringMatcher](#stringmatcher)
     - [proxy.MethodAndURLMatcher](#proxymethodandurlmatcher)
     - [urlrule.URLRule](#urlruleurlrule)
@@ -1352,9 +1354,9 @@ output: https://example.com/api/user/123
 
 ## GRPCProxy
 
-The gRPC filter is a proxy of the gRPC backend service. It supports both unary and stream, and used the package `pkg/util/objectpool` that is a highly abstract and general connection pool to manage the connection between the instance of easegress and the servers.You can read the `Configuration` below to understand the parameters of connection pool.
+The `GRPCProxy` filter is a proxy for gRPC backend service. It supports both unary RPCs and streaming RPCs.
 
-Below is one of the simplest gRPC configurations, it forwards the gRPC connection to `127.0.0.1:9095`.
+Below is one of the simplest `GRPCProxy` configurations, it forwards incoming gRPC connections to `127.0.0.1:9095`.
 
 ```yaml
 kind: GRPCProxy
@@ -1365,22 +1367,30 @@ pools:
 ```
 
 Same as the `Proxy` filter:
-* a `filter` can be configured on a pool. And multi pool use the same connection pool.
-* the servers of a pool can be dynamically configured via service discovery.
+
+* a `filter` can be configured on a pool.
+* the servers of a pool can be configured dynamically via service discovery.
 * when there are multiple servers in a pool, the pool can do a load balance between them.
 
-Note, 
-* Based on HTTP2, multiple clients can share the same connection between the instance of easegress and the servers. So it is not suitable for applications that manage connections independently by themselves. For example, the client application design is directly connected to the server, and the client and the server can request to close the connection and check it in some business scenarios. However, this situation is broken after using easegress, because of connection sharing. Once easegress closes the connection with the server according to the requirements of one of the clients, it will affect other clients.
+Note that each gRPC client establishes a connection with Easegress. However,
+Easegress may utilize a single connection when forwarding requests from various
+clients to a gRPC server, due to its use of HTTP2. This action could potentially
+disrupt some client or server applications. For instance, if the client
+applications are structured to directly connect to the server, and both the
+client and server have the ability to request a connection closure, then
+problems may arise once Easegress is installed between them. If the server
+wants to close the connection of one client, it closes the shared connection
+with Easegress, thus affecting other clients.
 
 ### Configuration
 
-| Name                | Type                                         | Description                                                                                                                                                                                                                                                                                                                                                                                 | Required |
-|---------------------|----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
-| pools               | [proxy.ServerPoolSpec](#proxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `Proxy` must contain exactly one main pool. When `Proxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes      |
-| timeout             | string                                       | The total time from easegress receive request to receive response. Specified it only when using unary call                                                                                                                                                                                                                                                                                  | No       |
-| borrowTimeout       | string                                       | Timeout of borrow a connection from pool. Default never timeout, plz specified it according to business scenarios                                                                                                                                                                                                                                                                           | No       |
-| connectTimeout      | string                                       | Timeout until a new connection is fully established.  Default never timeout, plz specified it according to business scenarios                                                                                                                                                                                                                                                               | No       |
-| maxIdleConnsPerHost | int                                          | For a address, the maximum of connections allowed to create. Default value is 1024                                                                                                                                                                                                                                                                                                          | No       |
+| Name         | Type                                                   | Description                                                                 | Required |
+| ------------ | ------------------------------------------------------ | --------------------------------------------------------------------------- | -------- |
+| pools               | [grpcproxy.ServerPoolSpec](#grpcproxyserverpoolspec) | The pool without `filter` is considered the main pool, other pools with `filter` are considered candidate pools, and a `GRPCProxy` must contain exactly one main pool. When a `GRPCProxy` gets a request, it first goes through the candidate pools, and if one of the pool's filter matches the request, servers of this pool handle the request, otherwise, the request is passed to the main pool. | Yes      |
+| timeout             | string                                       | The total time from easegress receive request to receive response, default is never timeout, only apply to unary calls.                                                                                                                                              | No       |
+| borrowTimeout       | string                                       | Timeout of borrow a connection from pool. Default is never timeout.                   | No       |
+| connectTimeout      | string                                       | Timeout until a new connection is fully established.  Default is never timeout.       | No       |
+| maxIdleConnsPerHost | int                                          | For a address, the maximum of connections allowed to create. Default value is 1024 | No       |
 
 ### Results
 
@@ -1450,10 +1460,11 @@ Rules to revise request header.
 
 | Name          | Type   | Description                                                                                                 | Required |
 | ------------- | ------ | ----------------------------------------------------------------------------------------------------------- | -------- |
-| policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash` ,and `headerHash`  | Yes      |
+| policy        | string | Load balance policy, valid values are `roundRobin`, `random`, `weightedRandom`, `ipHash`, `headerHash` and `forward`, the last one is only used in `GRPCProxy`  | Yes      |
 | headerHashKey | string | When `policy` is `headerHash`, this option is the name of a header whose value is used for hash calculation | No       |
 | stickySession | [proxy.StickySession](#proxyStickySessionSpec) | Sticky session spec                                                 | No       |
 | healthCheck | [proxy.HealthCheck](#proxyHealthCheckSpec) | Health check spec, note that healthCheck is not needed if you are using service registry | No       |
+| forwardKey | string | The value of this field is a header name of the incoming request, the value of this header is address of the target server (host:port), and the request will be sent to this address | No |
 
 ### proxy.StickySessionSpec
 
@@ -1499,6 +1510,39 @@ Polices:
 | permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
 | matchAllHeaders | bool | All rules in headers should be match | No |
 | headerHashKey | string | Used by policy `headerHash`. | No |
+
+### grpcproxy.ServerPoolSpec
+
+| Name            | Type                                   | Description                                                                                                  | Required |
+| --------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------- |
+| spanName        | string                                 | Span name for tracing, if not specified, the `url` of the target server is used                              | No       |
+| serverTags      | []string                               | Server selector tags, only servers have tags in this array are included in this pool                         | No       |
+| servers         | [][proxy.Server](#proxyServer)         | An array of static servers. If omitted, `serviceName` and `serviceRegistry` must be provided, and vice versa | No       |
+| serviceName     | string                                 | This option and `serviceRegistry` are for dynamic server discovery                                           | No       |
+| serviceRegistry | string                                 | This option and `serviceName` are for dynamic server discovery                                               | No       |
+| loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                         | Yes      |
+| filter          | [grpcproxy.RequestMatcherSpec](#grpcproxyrequestmatcherspec)     | Filter options for candidate pools                                                                           | No       |
+| circuitBreakerPolicy | string | CircuitBreaker policy name | No |
+
+
+### grpcproxy.RequestMatcherSpec
+
+Polices:
+- If the policy is empty or `general`, matcher match requests with `headers`, `urls` and `methods`.
+- If the policy is `ipHash`, the matcher match requests if their IP hash value is less than `permil``.
+- If the policy is `headerHash`, the matcher match requests if their header hash value is less than `permil`, use the key of `headerHashKey`.
+- If the policy is `random`, the matcher matches requests with probability `permil`/1000.
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| policy | string | Policy used to match requests, support `general`, `ipHash`, `headerHash`, `random` | No |
+| headers     | map[string][StringMatcher](#stringmatcher) | Request header filter options. The key of this map is header name, and the value of this map is header value match criteria | No       |
+| urls        | [][proxy.MethodAndURLMatcher](#proxyMethodAndURLMatcher)                  | Request URL match criteria                                                                                                  | No       |
+| permil | uint32 | the probability of requests been matched. Value between 0 to 1000 | No       |
+| matchAllHeaders | bool | All rules in headers should be match | No |
+| headerHashKey | string | Used by policy `headerHash`. | No |
+| methods | [][StringMatcher](#stringmatcher) | Method name filter options. | No |
+
 
 ### StringMatcher
 
