@@ -220,7 +220,6 @@ func (s *Session) publish(span *model.SpanContext, client *Client, topic string,
 		logger.SpanErrorf(span, "publish message with qos=2 is not supported currently")
 		return
 	}
-
 	client.writePacket(p)
 }
 

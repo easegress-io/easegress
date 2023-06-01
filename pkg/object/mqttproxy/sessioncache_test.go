@@ -50,6 +50,11 @@ func TestSessionCacheManager(t *testing.T) {
 			EGName:   EGName,
 			ClientID: "client1",
 		},
+		"client3": {
+			Topics:   map[string]int{"topic1": 1},
+			EGName:   EGName,
+			ClientID: "client3",
+		},
 		"client2": {
 			Topics:   map[string]int{"topic1": 0},
 			EGName:   OtherEGName,
@@ -75,4 +80,13 @@ func TestSessionCacheManager(t *testing.T) {
 	// after delete, getEGName should return its own name for client2
 	sessCacheMgr.delete("client2")
 	finalEqual(t, EGName, func() any { return sessCacheMgr.getEGName("client2") })
+
+	sessCacheMgr.sync(map[string]*SessionInfo{
+		"client2": {
+			Topics:   map[string]int{"topic1": 0},
+			EGName:   OtherEGName,
+			ClientID: "client2",
+		},
+	})
+	finalEqual(t, OtherEGName, func() any { return sessCacheMgr.getEGName("client2") })
 }
