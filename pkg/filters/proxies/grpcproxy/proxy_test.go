@@ -68,8 +68,7 @@ func TestSpecValidate(t *testing.T) {
 		ConnectTimeout:      "3q",
 		BorrowTimeout:       "4q",
 		Timeout:             "5q",
-		MaxIdleConnsPerHost: 10,
-		InitConnsPerHost:    -1,
+		MaxIdleConnsPerHost: -1,
 		Pools: []*ServerPoolSpec{
 			{
 				BaseServerPoolSpec: proxies.ServerPoolBaseSpec{
@@ -106,7 +105,7 @@ func TestSpecValidate(t *testing.T) {
 	spec.Timeout = "5s"
 	assert.Error(t, spec.Validate())
 
-	spec.InitConnsPerHost = 1
+	spec.MaxIdleConnsPerHost = 10
 	assert.NoError(t, spec.Validate())
 
 	spec.ConnectTimeout = ""

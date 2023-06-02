@@ -71,7 +71,7 @@ func NewWithSpec(spec *Spec) *Pool {
 		cond:  sync.NewCond(&sync.Mutex{}),
 	}
 
-	for i := 0; i < p.spec.InitSize; i++ {
+	for i := 0; i < p.spec.InitSize && p.spec.Init != nil; i++ {
 		obj, err := p.spec.Init()
 		if err != nil {
 			logger.Errorf("create pool object failed: %v", err)

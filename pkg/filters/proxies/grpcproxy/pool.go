@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
+	"net/url"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
@@ -274,6 +275,13 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		return serverPoolError{status.New(codes.InvalidArgument, "no available server"), resultClientError}
 	}
 	defer lb.ReturnServer(svr, spCtx.req, spCtx.resp)
+	// gRPC only support ip:port
+	parse, err := url.Parse(svr.URL)
+	if err != nil {
+		logger.Debugf("%s: server url %s invalid", sp.Name, svr.URL)
+		return serverPoolError{status.New(codes.Internal, "server url invalid"), resultInternalError}
+	}
+	target := parse.Host
 
 	// maybe be rewritten by grpcserver.MuxPath#rewrite
 	fullMethodName := spCtx.req.FullMethod()
@@ -286,40 +294,39 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		borrowCtx, cancel = stdcontext.WithTimeout(borrowCtx, sp.proxy.borrowTimeout)
 	}
 	defer cancel()
-
-	conn, err := sp.proxy.connectionPool.Get(svr.URL, borrowCtx, func() (objectpool.PoolObject, error) {
+	conn, err := sp.proxy.connectionPool.Get(target, borrowCtx, func() (objectpool.PoolObject, error) {
 		dialCtx, dialCancel := stdcontext.WithCancel(stdcontext.Background())
 		if sp.proxy.connectTimeout != 0 {
 			dialCtx, dialCancel = stdcontext.WithTimeout(dialCtx, sp.proxy.connectTimeout)
 		}
 		defer dialCancel()
-		conn, err := grpc.DialContext(dialCtx, svr.URL, defaultDialOpts...)
+		conn, err := grpc.DialContext(dialCtx, target, defaultDialOpts...)
 		if err != nil {
-			logger.Infof("create new grpc client connection for %s fail %v", svr.URL, err)
+			logger.Infof("create new grpc client connection for %s fail %v", target, err)
 			return nil, err
 		}
 		return &clientConnWrapper{conn}, nil
 	})
 	if err != nil {
 		logger.Infof("get connection from pool fail %s for source addr %s, target addr %s, path %s",
-			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
+			err.Error(), spCtx.req.SourceHost(), target, fullMethodName)
 		return serverPoolError{status: status.Convert(err), result: resultInternalError}
 	}
 	send2ProviderCtx, cancelContext := stdcontext.WithCancel(metadata.NewOutgoingContext(ctx, spCtx.req.RawHeader().GetMD()))
 	defer cancelContext()
 
 	proxyAsClientStream, err := conn.(*clientConnWrapper).NewStream(send2ProviderCtx, desc, fullMethodName)
-	sp.proxy.connectionPool.Put(svr.URL, conn)
+	sp.proxy.connectionPool.Put(target, conn)
 	if err != nil {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
-			err.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
+			err.Error(), spCtx.req.SourceHost(), target, fullMethodName)
 		return serverPoolError{status: status.Convert(err), result: resultInternalError}
 	}
 
 	result := sp.biTransport(spCtx, proxyAsClientStream)
 	if result != nil && result != io.EOF {
 		logger.Infof("create new stream fail %s for source addr %s, target addr %s, path %s",
-			result.Error(), spCtx.req.SourceHost(), svr.URL, fullMethodName)
+			result.Error(), spCtx.req.SourceHost(), target, fullMethodName)
 	}
 	return result
 }
