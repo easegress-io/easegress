@@ -20,10 +20,11 @@ package builder
 import (
 	"bytes"
 	"compress/gzip"
-	"github.com/megaease/easegress/pkg/util/codectool"
 	"io"
 	"net/http"
 	"testing"
+
+	"github.com/megaease/easegress/pkg/util/codectool"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -380,4 +381,26 @@ func TestRequestAdaptorTemplate(t *testing.T) {
 	assert.Equal("/path", path)
 
 	assert.Contains(req.Header.Get("Authorization"), " SignedHeaders=host;x-add;x-amz-date,")
+}
+
+func TestRequestAdaptorProcessCompressDecompress(t *testing.T) {
+	assert := assert.New(t)
+
+	ra := &RequestAdaptor{spec: &RequestAdaptorSpec{Decompress: "gzip"}}
+	req, _ := httpprot.NewRequest(nil)
+
+	assert.Empty(ra.processCompress(req))
+	assert.Equal("gzip", req.HTTPHeader().Get(keyContentEncoding))
+
+	req.HTTPHeader().Del("Content-Encoding")
+	req.SetPayload(bytes.NewReader([]byte("123")))
+	assert.Empty(ra.processCompress(req))
+	assert.Equal("gzip", req.HTTPHeader().Get(keyContentEncoding))
+	assert.EqualValues(-1, req.ContentLength)
+
+	assert.Empty(ra.processCompress(req))
+	assert.Empty(ra.processDecompress(req))
+	assert.Empty(req.HTTPHeader().Get(keyContentEncoding))
+
+	assert.Empty(ra.processDecompress(req))
 }

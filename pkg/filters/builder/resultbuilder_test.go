@@ -34,6 +34,7 @@ func TestResultBuider(t *testing.T) {
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := resultBuilderKind.CreateInstance(spec).(*ResultBuilder)
 		rb.Init()
+		assert.NotNil(rb.Spec())
 		assert.NoError(rb.spec.Validate())
 		defer rb.Close()
 
@@ -50,7 +51,10 @@ func TestResultBuider(t *testing.T) {
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 		rb := resultBuilderKind.CreateInstance(spec)
 		rb.Init()
-		defer rb.Close()
+		rb2 := resultBuilderKind.CreateInstance(spec)
+		rb2.Inherit(rb)
+		rb.Close()
+		rb = rb2
 
 		ctx := context.New(nil)
 

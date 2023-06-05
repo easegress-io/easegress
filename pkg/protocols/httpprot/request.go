@@ -70,7 +70,7 @@ var (
 // nil, FetchPayload must be called before any read of the request body.
 func NewRequest(stdr *http.Request) (*Request, error) {
 	if stdr == nil {
-		stdr = &http.Request{Body: http.NoBody}
+		stdr = &http.Request{Header: http.Header{}, Body: http.NoBody}
 		return &Request{Request: stdr}, nil
 	}
 

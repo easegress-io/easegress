@@ -26,6 +26,7 @@ import (
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,6 +37,11 @@ func init() {
 
 func getSpec(match string, part string, replace string, code int) *Spec {
 	return &Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: "test-redirector",
+			},
+		},
 		Match:       match,
 		MatchPart:   part,
 		Replacement: replace,
@@ -110,8 +116,15 @@ func TestRedirector(t *testing.T) {
 			},
 		},
 	} {
-		r := &Redirector{spec: t.spec}
+		r := kind.CreateInstance(t.spec)
+		assert.Equal("test-redirector", r.Name())
+		assert.Equal(kind, r.Kind())
+		assert.Equal(t.spec, r.Spec())
 		r.Init()
+
+		r2 := kind.CreateInstance(t.spec)
+		r2.Inherit(r)
+
 		for j, m := range t.matches {
 			msg := getMsg(i, j)
 			req, err := http.NewRequest(http.MethodGet, m.reqURL, nil)
@@ -128,6 +141,8 @@ func TestRedirector(t *testing.T) {
 			assert.Equal(m.expectedCode, resp.StatusCode(), msg)
 			assert.Equal(m.expectedBody, string(resp.RawPayload()), msg)
 		}
+		assert.Nil(r.Status())
+		r.Close()
 	}
 
 	// test complicated regex
