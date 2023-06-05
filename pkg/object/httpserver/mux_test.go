@@ -643,3 +643,12 @@ func TestAccessLog(t *testing.T) {
 	s := formatter.format(log)
 	assert.Equal(t, "GET 127.0.0.1 [100]", s)
 }
+
+func TestPrintHeader(t *testing.T) {
+	h := http.Header{}
+	h.Set("a", "1")
+	h.Set("b", "2")
+	s := printHeader(h)
+
+	assert.Equal(t, "A: [1], B: [2]", s)
+}
