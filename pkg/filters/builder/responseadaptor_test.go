@@ -18,12 +18,14 @@
 package builder
 
 import (
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
@@ -258,4 +260,28 @@ func TestResponseAdaptorTemplate(t *testing.T) {
 	assert.Equal("add-template-value", ctx.GetOutputResponse().Header().Get("X-Add"))
 	assert.Equal("", ctx.GetOutputResponse().Header().Get("X-Mock"))
 	assert.Equal(data, ctx.GetOutputResponse().RawPayload())
+}
+
+func TestResponseAdaptorCompressDecompress(t *testing.T) {
+	assert := assert.New(t)
+
+	ra := &ResponseAdaptor{spec: &ResponseAdaptorSpec{}}
+	resp, _ := httpprot.NewResponse(nil)
+	assert.Empty(ra.decompress(resp))
+	ra.spec.Decompress = "gzip"
+	assert.Empty(ra.decompress(resp))
+
+	assert.Empty(ra.compress(resp))
+	assert.Equal("gzip", resp.HTTPHeader().Get(keyContentEncoding))
+	assert.Empty(ra.decompress(resp))
+
+	resp, _ = httpprot.NewResponse(nil)
+	resp.SetPayload(bytes.NewReader([]byte("hello")))
+	assert.Empty(ra.compress(resp))
+	assert.EqualValues(-1, resp.ContentLength)
+	assert.Equal("gzip", resp.HTTPHeader().Get(keyContentEncoding))
+
+	assert.Empty(ra.compress(resp))
+
+	assert.Empty(ra.decompress(resp))
 }

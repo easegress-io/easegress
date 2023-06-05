@@ -44,8 +44,9 @@ template: |
 		spec := dataBuilderKind.DefaultSpec().(*DataBuilderSpec)
 		codectool.MustUnmarshal([]byte(yamlConfig), spec)
 
-		db := getDataBuilder(spec)
-		db.Init()
+		db := dataBuilderKind.CreateInstance(spec).(*DataBuilder)
+		db.Inherit(getDataBuilder(spec))
+
 		assert.NoError(db.Spec().(*DataBuilderSpec).Validate())
 		defer db.Close()
 
