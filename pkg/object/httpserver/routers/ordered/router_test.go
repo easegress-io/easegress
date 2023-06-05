@@ -218,3 +218,63 @@ func TestSearch(t *testing.T) {
 
 	}
 }
+
+func TestRewrite(t *testing.T) {
+	assert := assert.New(t)
+
+	t.Run("no rewrite", func(t *testing.T) {
+		mp := newMuxPath(
+			&routers.Path{
+				RewriteTarget: "",
+			})
+
+		stdr, _ := http.NewRequest("GET", "https://www.megaease.com/foo?a=1&b=2", nil)
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := routers.NewContext(req)
+
+		mp.Rewrite(ctx)
+		assert.Equal("/foo", req.Path())
+	})
+
+	t.Run("rewrite by exact match", func(t *testing.T) {
+		mp := newMuxPath(
+			&routers.Path{
+				Path:          "/foo",
+				RewriteTarget: "/bar",
+			})
+
+		stdr, _ := http.NewRequest("GET", "https://www.megaease.com/foo?a=1&b=2", nil)
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := routers.NewContext(req)
+		mp.Rewrite(ctx)
+		assert.Equal("/bar", req.Path())
+	})
+
+	t.Run("rewrite by prefix", func(t *testing.T) {
+		mp := newMuxPath(
+			&routers.Path{
+				PathPrefix:    "/fo",
+				RewriteTarget: "/ba",
+			})
+
+		stdr, _ := http.NewRequest("GET", "https://www.megaease.com/foo?a=1&b=2", nil)
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := routers.NewContext(req)
+		mp.Rewrite(ctx)
+		assert.Equal("/bao", req.Path())
+	})
+
+	t.Run("rewrite by regexp", func(t *testing.T) {
+		mp := newMuxPath(
+			&routers.Path{
+				PathRegexp:    "/(fo).",
+				RewriteTarget: "/ba$1",
+			})
+
+		stdr, _ := http.NewRequest("GET", "https://www.megaease.com/foo?a=1&b=2", nil)
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := routers.NewContext(req)
+		mp.Rewrite(ctx)
+		assert.Equal("/bafo", req.Path())
+	})
+}
