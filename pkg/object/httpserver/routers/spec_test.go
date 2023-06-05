@@ -19,38 +19,70 @@ package routers
 
 import (
 	"net/http"
+	"os"
 	"testing"
 
+	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/util/ipfilter"
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
+}
+
 func TestRuleInit(t *testing.T) {
 	assert := assert.New(t)
 
-	rule := &Rule{
-		Host:       "www.megaease.com",
-		HostRegexp: `^[^.]+\.megaease\.com$`,
-		IPFilterSpec: &ipfilter.Spec{
-			AllowIPs: []string{"192.168.1.0/24"},
+	rules := Rules{
+		&Rule{
+			Host:       "www.megaease.com",
+			HostRegexp: `^[^.]+\.megaease\.com$`,
+			IPFilterSpec: &ipfilter.Spec{
+				AllowIPs: []string{"192.168.1.0/24"},
+			},
+			Paths: []*Path{
+				{
+					Path: "/api/test",
+				},
+			},
 		},
-		Paths: []*Path{
-			{
-				Path: "/api/test",
+		&Rule{
+			Host:       "www.megaease.com",
+			HostRegexp: `^[^.]+\.megaease\.com$`,
+			IPFilterSpec: &ipfilter.Spec{
+				AllowIPs: []string{"192.168.1.0/24"},
+			},
+			Paths: []*Path{
+				{
+					Path: "/api/test",
+					IPFilterSpec: &ipfilter.Spec{
+						AllowIPs: []string{"192.168.1.0/24"},
+					},
+				},
 			},
 		},
 	}
 
-	rule.Init()
+	rules.Init()
 
+	rule := rules[0]
 	assert.NotNil(rule.hostRE)
 	assert.NotNil(rule.ipFilter)
 	assert.Equal(len(rule.Paths), 1)
 
-	rule2 := &Rule{
+	rule = rules[1]
+	assert.NotNil(rule.hostRE)
+	assert.NotNil(rule.ipFilter)
+
+	assert.Equal(len(rule.Paths), 1)
+
+	rule = &Rule{
 		Host:       "www.megaease.com",
-		HostRegexp: `^[^.]+\.megaease\.com$`,
+		HostRegexp: `^([^.]+\.megaease\.com$`,
 		IPFilterSpec: &ipfilter.Spec{
 			AllowIPs: []string{"192.168.1.0/24"},
 		},
@@ -63,13 +95,8 @@ func TestRuleInit(t *testing.T) {
 			},
 		},
 	}
-
-	rule2.Init()
-
-	assert.NotNil(rule2.hostRE)
-	assert.NotNil(rule2.ipFilter)
-
-	assert.Equal(len(rule2.Paths), 1)
+	rule.Init()
+	assert.Nil(rule.hostRE)
 }
 
 func TestRuleMatch(t *testing.T) {
@@ -147,6 +174,8 @@ func TestPathInit(t *testing.T) {
 				Regexp: `^[^.]+\.megaease\.com$`,
 			},
 		},
+		Backend:           "foo",
+		ClientMaxBodySize: 1000,
 	}
 
 	path.Init(nil)
@@ -155,12 +184,34 @@ func TestPathInit(t *testing.T) {
 	assert.Equal(path.method, MALL)
 	assert.NotNil(path.Headers[0].re)
 	assert.NotNil(path.Queries[0].re)
+	assert.Equal("foo", path.GetBackend())
+	assert.EqualValues(1000, path.GetClientMaxBodySize())
 
 	path.Methods = []string{"GET", "POST"}
 	path.Init(nil)
 	assert.True(path.method&mGET != 0)
 	assert.True(path.method&mPOST != 0)
 	assert.True(path.method&mDELETE == 0)
+}
+
+func TestPathValidate(t *testing.T) {
+	p := &Path{RewriteTarget: "abc"}
+	assert.Error(t, p.Validate())
+
+	p.Path = "foo"
+	assert.NoError(t, p.Validate())
+
+	p.Path = ""
+	p.PathPrefix = "foo"
+	assert.NoError(t, p.Validate())
+
+	p.PathPrefix = ""
+	p.PathRegexp = "^foo"
+	assert.NoError(t, p.Validate())
+
+	p.PathRegexp = ""
+	p.RewriteTarget = ""
+	assert.NoError(t, p.Validate())
 }
 
 func TestPathInit2(t *testing.T) {
@@ -415,24 +466,24 @@ func TestHeadersInit(t *testing.T) {
 	}
 }
 
-func TestHeadersMatch(t *testing.T) {
-	var headers Headers = []*Header{
+func TestHeadersValidate(t *testing.T) {
+	headers := Headers{
 		{
-			Key:    "X-Test1",
-			Regexp: `^test1$`,
+			Key: "X-Test1",
 		},
 		{
 			Key:    "X-Test2",
-			Regexp: `^test2$`,
-		},
-		{
-			Key:    "X-Test3",
-			Values: []string{"test3"},
+			Regexp: `^abc$`,
 		},
 	}
 
-	headers.init()
+	assert.Error(t, headers.Validate())
 
+	headers[0].Values = []string{"abc"}
+	assert.NoError(t, headers.Validate())
+}
+
+func TestHeadersMatch(t *testing.T) {
 	tests := []struct {
 		headers          map[string][]string
 		result, matchAll bool
@@ -489,9 +540,43 @@ func TestHeadersMatch(t *testing.T) {
 			matchAll: true,
 			result:   true,
 		},
+		{
+			headers: map[string][]string{
+				"X-Test2": {"test2"},
+				"X-Test1": {"test1"},
+				"X-Test3": {"test4"},
+			},
+			matchAll: true,
+			result:   false,
+		},
 	}
 
 	assert := assert.New(t)
+
+	headers := Headers{}
+	headers.init()
+
+	for _, test := range tests {
+		result := headers.Match(test.headers, test.matchAll)
+		assert.True(result)
+	}
+
+	headers = Headers{
+		{
+			Key:    "X-Test1",
+			Regexp: `^test1$`,
+		},
+		{
+			Key:    "X-Test2",
+			Regexp: `^test2$`,
+		},
+		{
+			Key:    "X-Test3",
+			Values: []string{"test3"},
+		},
+	}
+	headers.init()
+
 	for _, test := range tests {
 		result := headers.Match(test.headers, test.matchAll)
 		assert.Equal(test.result, result)
@@ -518,24 +603,24 @@ func TestQueriesInit(t *testing.T) {
 	}
 }
 
-func TestQueriesMatch(t *testing.T) {
-	var queries Queries = []*Query{
+func TestQueriesValidate(t *testing.T) {
+	qs := Queries{
 		{
-			Key:    "X-Test1",
-			Regexp: `^test1$`,
+			Key: "X-Test1",
 		},
 		{
 			Key:    "X-Test2",
-			Regexp: `^test2$`,
-		},
-		{
-			Key:    "X-Test3",
-			Values: []string{"test3"},
+			Regexp: `^abc$`,
 		},
 	}
 
-	queries.init()
+	assert.Error(t, qs.Validate())
 
+	qs[0].Values = []string{"abc"}
+	assert.NoError(t, qs.Validate())
+}
+
+func TestQueriesMatch(t *testing.T) {
 	tests := []struct {
 		queries          map[string][]string
 		result, matchAll bool
@@ -592,9 +677,42 @@ func TestQueriesMatch(t *testing.T) {
 			matchAll: true,
 			result:   true,
 		},
+		{
+			queries: map[string][]string{
+				"X-Test2": {"test2"},
+				"X-Test1": {"test1"},
+				"X-Test3": {"test4"},
+			},
+			matchAll: true,
+			result:   false,
+		},
 	}
 
 	assert := assert.New(t)
+
+	queries := Queries{}
+	queries.init()
+	for _, test := range tests {
+		result := queries.Match(test.queries, test.matchAll)
+		assert.True(result)
+	}
+
+	queries = Queries{
+		{
+			Key:    "X-Test1",
+			Regexp: `^test1$`,
+		},
+		{
+			Key:    "X-Test2",
+			Regexp: `^test2$`,
+		},
+		{
+			Key:    "X-Test3",
+			Values: []string{"test3"},
+		},
+	}
+	queries.init()
+
 	for _, test := range tests {
 		result := queries.Match(test.queries, test.matchAll)
 		assert.Equal(test.result, result)

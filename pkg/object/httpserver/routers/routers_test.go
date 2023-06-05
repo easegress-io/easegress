@@ -25,6 +25,28 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestRegisterAndCreate(t *testing.T) {
+	assert := assert.New(t)
+	assert.Panics(func() {
+		Register(&Kind{})
+	})
+
+	Register(&Kind{
+		Name: "test",
+		CreateInstance: func(rules Rules) Router {
+			return nil
+		},
+	})
+	assert.NotNil(kinds["test"])
+
+	assert.Panics(func() {
+		Register(&Kind{Name: "test"})
+	})
+
+	assert.Nil(Create("test", nil))
+	assert.Nil(Create("foo", nil))
+}
+
 func TestGetCaptures(t *testing.T) {
 	assert := assert.New(t)
 
@@ -56,4 +78,18 @@ func TestGetCaptures(t *testing.T) {
 		"b": "2",
 		"c": "3",
 	}, res)
+}
+
+func TestGetQueries(t *testing.T) {
+	assert := assert.New(t)
+
+	stdr, _ := http.NewRequest(http.MethodGet, "http://www.megaease.com:8080/foo?a=1&b=2", nil)
+	req, _ := httpprot.NewRequest(stdr)
+	ctx := NewContext(req)
+
+	queries := ctx.GetQueries()
+	assert.Len(queries, 2)
+
+	queries = ctx.GetQueries()
+	assert.Len(queries, 2)
 }
