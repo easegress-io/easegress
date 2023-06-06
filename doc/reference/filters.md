@@ -210,9 +210,15 @@ pools:
 
 ## SimpleHTTPProxy
 
-The SimpleHTTPProxy filter is a simplified version of the Proxy filter, designed to handle HTTP requests in a more straightforward manner while providing basic proxy functionality for backend services.
+The `SimpleHTTPProxy` filter is a simplified version of the Proxy filter, unlike
+`Proxy`, which are mainly used as reverse proxy, this filter is mainly for
+forward proxies.
 
-The following example demonstrates a basic configuration for `SimpleHTTPProxy`. Unlike the `Proxy` filter, the backend service's address is not specified in the `SimpleHTTPProxy` configuration. Instead, the request URL is used directly, allowing for the use of a single `SimpleHTTPProxy` instance for multiple backend services.
+The following example demonstrates a basic configuration for `SimpleHTTPProxy`.
+Unlike the `Proxy` filter, the backend service's address is not specified in
+the `SimpleHTTPProxy` configuration. Instead, the request URL is used directly,
+allowing for the use of a single `SimpleHTTPProxy` instance for any backend
+services.
 
 ```yaml
 name: simple-http-proxy
