@@ -31,13 +31,6 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-// type Watcher interface {
-// 	Watch(ctx context.Context, key string, opts ...OpOption) WatchChan
-
-// 	RequestProgress(ctx context.Context) error
-
-//		Close() error
-//	}
 type mockWatcher struct {
 	mock.Mock
 }
