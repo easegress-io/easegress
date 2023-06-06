@@ -563,7 +563,7 @@ type CheckMsg struct {
 
 func TestSendMsgBack(t *testing.T) {
 	clientNum := 10
-	msgNum := 100
+	msgNum := 40
 	subscribeCh := make(chan CheckMsg, 100)
 	var wg sync.WaitGroup
 

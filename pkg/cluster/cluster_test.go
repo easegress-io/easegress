@@ -527,6 +527,11 @@ func TestMutexAndOP(t *testing.T) {
 	if err != nil {
 		t.Errorf("STM failed: %v", err)
 	}
+
+	err = c.PutUnderTimeout("/test/abcd", "value", 10*time.Second)
+	if err != nil {
+		t.Errorf("PutUnderTimeout failed: %v", err)
+	}
 }
 
 func TestUtilEqual(t *testing.T) {

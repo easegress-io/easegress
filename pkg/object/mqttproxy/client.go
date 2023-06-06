@@ -241,7 +241,11 @@ func (c *Client) runPipeline(packet packets.ControlPacket, packetType PacketType
 }
 
 func (c *Client) writePacket(packet packets.ControlPacket) {
-	c.writeCh <- packet
+	select {
+	case c.writeCh <- packet:
+	default:
+		logger.Warnf("writePacket: %s to client: %s failed: chan is full", packet.String(), c.ClientID())
+	}
 }
 
 func (c *Client) writeLoop() {

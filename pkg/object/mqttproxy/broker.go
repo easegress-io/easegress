@@ -290,10 +290,8 @@ func (b *Broker) processWatcherEvent(event map[string]*string, sync bool) {
 
 // processNewSession
 func (b *Broker) handleNewSessionInCluster(clientID string, v *string, sessionInfo *SessionInfo) {
-	b.Lock()
-	defer b.Unlock()
-	c, ok := b.clients[clientID]
-	if !ok {
+	c := b.getClient(clientID)
+	if c == nil {
 		// The current broker doesn't contain the new session, just ignore it.
 		return
 	}
@@ -327,7 +325,7 @@ func (b *Broker) handleNewSessionInCluster(clientID string, v *string, sessionIn
 	logger.Warnf("the client: %s was kicked out as the new session was eatablished on the broker: %s",
 		c.ClientID(), info.EGName)
 	c.kickOut()
-	delete(b.clients, clientID) // protected in the lock of the broker
+	b.removeClient(clientID)
 
 }
 
@@ -447,32 +445,48 @@ func (b *Broker) handleConn(conn net.Conn) {
 	if !valid {
 		return
 	}
-	cid := client.info.cid
 
-	b.Lock()
-	if oldClient, ok := b.clients[cid]; ok {
-		logger.SpanDebugf(nil, "client %v take over by new client with same name", oldClient.info.cid)
-		go oldClient.close()
-
-	} else if b.spec.MaxAllowedConnection > 0 {
-		if len(b.clients) >= b.spec.MaxAllowedConnection {
-			logger.SpanDebugf(nil, "client %v not get connect permission from rate limiter", connect.ClientIdentifier)
-			connack.ReturnCode = packets.ErrRefusedServerUnavailable
-			err = connack.Write(conn)
-			if err != nil {
-				logger.SpanErrorf(nil, "connack back to client %s failed: %s", connect.ClientIdentifier, err)
-			}
-			b.Unlock()
-			return
+	oldClient, err := func(clientID string) (*Client, error) {
+		b.Lock()
+		defer b.Unlock()
+		if _, ok := b.clients[clientID]; ok {
+			logger.SpanDebugf(nil, "client %v take over by new client with same name", clientID)
+			oldClient := b.clients[clientID]
+			b.clients[client.info.cid] = client
+			return oldClient, nil
 		}
+
+		if b.spec.MaxAllowedConnection > 0 {
+			if len(b.clients) >= b.spec.MaxAllowedConnection {
+				logger.Errorf("client %v not get connect permission from rate limiter", connect.ClientIdentifier)
+				connack.ReturnCode = packets.ErrRefusedServerUnavailable
+				err = connack.Write(conn)
+				if err != nil {
+					logger.Errorf("connack back to client %s failed: %s", connect.ClientIdentifier, err)
+				}
+				return nil, nil
+			}
+		}
+		b.clients[client.info.cid] = client
+		return nil, nil
+	}(client.info.cid)
+
+	if err != nil {
+		// Concurrent connection exceed maxium quotas, returned
+		return
 	}
-	b.clients[client.info.cid] = client
-	b.Unlock()
+
+	if oldClient != nil {
+		// delete old client
+		go oldClient.close()
+	}
 
 	b.setSession(client, connect)
+
 	err = connack.Write(conn)
 	if err != nil {
 		logger.SpanErrorf(nil, "send connack to client %s failed: %s", connect.ClientIdentifier, err)
+		// Don't clean client, dely to writeLoop or readLoop when error
 		return
 	}
 
@@ -552,7 +566,7 @@ func (b *Broker) sendMsgToClient(span *model.SpanContext, topic string, payload 
 		if client == nil {
 			logger.SpanDebugf(span, "client %v not on broker %v in eg %v", clientID, b.name, b.egName)
 		} else {
-			client.session.publish(span, topic, payload, qos)
+			client.session.publish(span, client, topic, payload, qos)
 		}
 	}
 }
@@ -584,7 +598,7 @@ func (b *Broker) sendMsgToLocalClient(span *model.SpanContext, publish *packets.
 		if client == nil {
 			logger.SpanDebugf(span, "client %v not on broker %v in eg %v", clientID, b.name, b.egName)
 		} else {
-			client.session.publish(span, publish.TopicName, publish.Payload, publish.Qos)
+			client.session.publish(span, client, publish.TopicName, publish.Payload, publish.Qos)
 		}
 	}
 }

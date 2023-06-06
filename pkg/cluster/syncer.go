@@ -111,11 +111,10 @@ func isKeyValueEqual(kv1, kv2 *mvccpb.KeyValue) bool {
 		return false
 	case kv1 != nil && kv2 == nil:
 		return false
-	case kv1 != nil && kv2 != nil:
+	default:
+		// case kv1 != nil && kv2 != nil:
 		return bytes.Equal(kv1.Key, kv2.Key) && bytes.Equal(kv1.Value, kv2.Value)
 	}
-
-	return false
 }
 
 func (s *syncer) run(key string, prefix bool, send func(data map[string]*mvccpb.KeyValue)) {

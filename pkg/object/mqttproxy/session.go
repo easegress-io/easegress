@@ -202,31 +202,25 @@ func (s *Session) getPacketFromMsg(topic string, payload []byte, qos byte) *pack
 	return p
 }
 
-func (s *Session) publish(span *model.SpanContext, topic string, payload []byte, qos byte) {
-	client := s.broker.getClient(s.info.ClientID)
-	if client == nil {
-		logger.SpanErrorf(span, "client %s is offline in eg %v", s.info.ClientID, s.broker.egName)
+func (s *Session) publish(span *model.SpanContext, client *Client, topic string, payload []byte, qos byte) {
+	p := func() packets.ControlPacket {
+		s.Lock()
+		defer s.Unlock()
+		logger.SpanDebugf(span, "session %v publish %v", s.info.ClientID, topic)
+		p := s.getPacketFromMsg(topic, payload, qos)
+		if qos == QoS1 {
+			msg := newMsg(topic, payload, qos)
+			s.pending[p.MessageID] = msg
+			s.pendingQueue = append(s.pendingQueue, p.MessageID)
+		}
+		return p
+	}()
+
+	if qos == QoS2 {
+		logger.SpanErrorf(span, "publish message with qos=2 is not supported currently")
 		return
 	}
-
-	s.Lock()
-	defer s.Unlock()
-
-	logger.SpanDebugf(span, "session %v publish %v", s.info.ClientID, topic)
-	p := s.getPacketFromMsg(topic, payload, qos)
-	if qos == QoS0 {
-		select {
-		case client.writeCh <- p:
-		default:
-		}
-	} else if qos == QoS1 {
-		msg := newMsg(topic, payload, qos)
-		s.pending[p.MessageID] = msg
-		s.pendingQueue = append(s.pendingQueue, p.MessageID)
-		client.writePacket(p)
-	} else {
-		logger.SpanErrorf(span, "publish message with qos=2 is not supported currently")
-	}
+	client.writePacket(p)
 }
 
 func (s *Session) puback(p *packets.PubackPacket) {
@@ -245,34 +239,43 @@ func (s *Session) close() {
 
 func (s *Session) doResend() {
 	client := s.broker.getClient(s.info.ClientID)
-	s.Lock()
-	defer s.Unlock()
-
-	if len(s.pending) == 0 {
-		s.pendingQueue = []uint16{}
-		return
-	}
-	for i, idx := range s.pendingQueue {
-		if val, ok := s.pending[idx]; ok {
-			// find first msg need to resend
-			s.pendingQueue = s.pendingQueue[i:]
-			p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
-			p.Qos = byte(val.QoS)
-			p.TopicName = val.Topic
-			payload, err := base64.StdEncoding.DecodeString(val.B64Payload)
-			if err != nil {
-				logger.SpanErrorf(nil, "base64 decode error for Message B64Payload %s", err)
-				return
-			}
-			p.Payload = payload
-			p.MessageID = idx
-			if client != nil {
-				client.writePacket(p)
-			} else {
-				logger.SpanDebugf(nil, "session %v do resend but client is nil", s.info.ClientID)
-			}
+	msg, messageID := func() (msg *Message, messageID uint16) {
+		s.Lock()
+		defer s.Unlock()
+		if len(s.pending) == 0 {
+			s.pendingQueue = []uint16{}
 			return
 		}
+		for i, idx := range s.pendingQueue {
+			if val, ok := s.pending[idx]; ok {
+				// find first msg need to resend
+				s.pendingQueue = s.pendingQueue[i:]
+				msg = val
+				messageID = idx
+				break
+			}
+		}
+		return
+	}()
+
+	if msg == nil {
+		return
+	}
+
+	p := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
+	p.Qos = byte(msg.QoS)
+	p.TopicName = msg.Topic
+	payload, err := base64.StdEncoding.DecodeString(msg.B64Payload)
+	if err != nil {
+		logger.Errorf("client:%s, base64 decode error for Message B64Payload %s ", s.info.ClientID, err)
+		return
+	}
+	p.Payload = payload
+	p.MessageID = messageID
+	if client != nil {
+		client.writePacket(p)
+	} else {
+		logger.Warnf("client %v do resend but client is nil, ignored", s.info.ClientID)
 	}
 }
 

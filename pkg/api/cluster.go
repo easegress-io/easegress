@@ -116,7 +116,7 @@ func (s *Server) _deleteObject(name string) {
 }
 
 func (s *Server) _getStatusObject(name string) map[string]string {
-	prefix := s.cluster.Layout().StatusObjectPrefix(name)
+	prefix := s.cluster.Layout().StatusObjectsPrefix()
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		ClusterPanic(err)

@@ -69,4 +69,7 @@ func TestLayout(t *testing.T) {
 
 	assert.Equal(customDataPrefix, l.CustomDataPrefix())
 	assert.Equal(customDataKindPrefix, l.CustomDataKindPrefix())
+
+	assert.Equal("eg-cluster", SystemNamespace("cluster"))
+	assert.Equal("eg-traffic-cluster", TrafficNamespace("cluster"))
 }

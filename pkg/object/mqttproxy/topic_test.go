@@ -15,32 +15,19 @@
  * limitations under the License.
  */
 
-package cluster
+package mqttproxy
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
-func TestGetOpOption(t *testing.T) {
-	tests := []struct {
-		wantFunc clientv3.OpOption
-		op       ClientOp
-	}{
-		{clientv3.WithPrefix(), OpPrefix},
-		{clientv3.WithFilterPut(), OpNotWatchPut},
-		{clientv3.WithFilterDelete(), OpNotWatchDelete},
-		{clientv3.WithKeysOnly(), OpKeysOnly},
-	}
-	for _, tc := range tests {
-		op1 := clientv3.Op{}
-		op2 := clientv3.Op{}
-		tc.wantFunc(&op1)
-		getOpOption(tc.op)(&op2)
-		assert.Equal(t, op1, op2)
-	}
+func TestIsTopicMatch(t *testing.T) {
+	assert := assert.New(t)
 
-	assert.Nil(t, getOpOption("unknown"))
+	assert.False(isTopicMatch([]string{"a", "b"}, []string{"a", "b", "c"}))
+	assert.False(isTopicMatch([]string{"a", "b"}, []string{"a"}))
+	assert.False(isTopicMatch([]string{"a", "b"}, []string{"a", "c"}))
+
 }

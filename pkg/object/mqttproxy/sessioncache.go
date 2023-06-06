@@ -17,7 +17,9 @@
 
 package mqttproxy
 
-import "sync"
+import (
+	"sync"
+)
 
 // SessionCacheManager is the interface for session cache.
 // SessionCache is used in broker mode only. It stores session info of clients from
@@ -57,7 +59,7 @@ type sessionCacheOp struct {
 
 func newSessionCacheManager(sepc *Spec, topicMgr TopicManager) SessionCacheManager {
 	mgr := &sessionCacheManager{
-		egName:   sepc.Name,
+		egName:   sepc.EGName,
 		topicMgr: topicMgr,
 		cache:    make(map[string]*SessionInfo),
 		writeCh:  make(chan *sessionCacheOp, 10000),
