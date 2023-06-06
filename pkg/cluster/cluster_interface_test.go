@@ -41,4 +41,6 @@ func TestGetOpOption(t *testing.T) {
 		getOpOption(tc.op)(&op2)
 		assert.Equal(t, op1, op2)
 	}
+
+	assert.Nil(t, getOpOption("unknown"))
 }

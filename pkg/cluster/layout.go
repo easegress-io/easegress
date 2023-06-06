@@ -112,11 +112,6 @@ func (l *Layout) StatusObjectsPrefix() string {
 	return statusObjectPrefix
 }
 
-// StatusObjectPrefix returns the prefix of object status.
-func (l *Layout) StatusObjectPrefix(name string) string {
-	return statusObjectPrefix
-}
-
 // StatusObjectKey returns the key of object status.
 func (l *Layout) StatusObjectKey(namespace, name string) string {
 	return fmt.Sprintf(statusObjectFormat, namespace, name, l.memberName)
