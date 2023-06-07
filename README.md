@@ -252,6 +252,13 @@ filters:
 The pipeline means it will forward traffic to 3 backend endpoints, using the
 `roundRobin` load balance policy.
 
+Additionally, we provide a [dashboard](https://cloud.megaease.com) that
+streamlines the aforementioned steps, this intuitive tool can help you create,
+manage HTTPServers, Pipelines and other Easegress configuration.
+
+![HTTP Server](doc/imgs/readme-httpserver.png)
+![Pipeline](doc/imgs/readme-pipeline.png)
+
 ### Test
 
 Now you can use an HTTP clients, such as `curl`, to test the feature:
