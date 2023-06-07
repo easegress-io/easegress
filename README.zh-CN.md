@@ -235,6 +235,12 @@ filters:
 
 这条 Pipeline 的定义是将请求按轮询的方式分发到三个后端服务实例上。
 
+此外，我们也提供一个 [仪表盘](https://cloud.megaease.cn) 来简化上述步骤。 您可以
+通过这个工具创建和管理 HTTPServer、Pipeline 以及其他 Easegress 配置。
+
+![HTTP Server](doc/imgs/readme-httpserver.png)
+![Pipeline](doc/imgs/readme-pipeline.png)
+
 ### 测试
 
 现在可以使用一个 HTTP 客户端，如 `curl` 进行测试：
