@@ -19,14 +19,15 @@ package httpproxy
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"testing"
+
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/pkg/resilience"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"net/http"
-	"testing"
 )
 
 func newTestSimpleHttpProxy(yamlConfig string, assert *assert.Assertions) *SimpleHTTPProxy {
@@ -117,7 +118,6 @@ maxBodySize: 1024
 		fmt.Println(err)
 		assert.Fail("read body error")
 	}
-
 }
 
 func TestSimpleHttpProxyWithRetry(t *testing.T) {
