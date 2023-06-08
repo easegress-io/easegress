@@ -1,5 +1,17 @@
 # Changelog
 
+## [v2.4.2](https://github.com/megaease/easegress/tree/v2.4.2) (2023-06-08)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.4.1...v2.4.2)
+
+**Implemented enhancements:**
+* GRPCProxy use connection pool to manage connections (#977).
+* Enhance SimpleHTTPProxy to support forward proxy (#1016).
+
+**Fixed bugs:**
+* Websocket does not work (#998).
+* Fix typo and other problems in the documentation (#999). 
+
 ## [v2.4.1](https://github.com/megaease/easegress/tree/v2.4.1) (2023-04-21)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.4.0...v2.4.1)
