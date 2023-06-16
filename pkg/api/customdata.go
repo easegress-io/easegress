@@ -103,9 +103,22 @@ func (s *Server) customDataAPIEntries() []*Entry {
 }
 
 func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
-	result, err := s.cds.ListKinds()
+	kinds, err := s.cds.ListKinds()
 	if err != nil {
 		ClusterPanic(err)
+	}
+
+	result := make([]*customdata.KindWithLen, 0, len(kinds))
+	for _, k := range kinds {
+		len, err := s.cds.DataLen(k.Name)
+		if err != nil {
+			ClusterPanic(err)
+		}
+
+		result = append(result, &customdata.KindWithLen{
+			Kind: *k,
+			Len:  len,
+		})
 	}
 
 	WriteBody(w, r, result)
@@ -118,7 +131,17 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	WriteBody(w, r, k)
+	l, err := s.cds.DataLen(k.Name)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	result := &customdata.KindWithLen{
+		Kind: *k,
+		Len:  l,
+	}
+
+	WriteBody(w, r, result)
 }
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {

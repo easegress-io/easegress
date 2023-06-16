@@ -44,6 +44,22 @@ type Kind struct {
 	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema" jsonschema:"omitempty"`
 }
 
+type KindWithLen struct {
+	Kind
+	Len int `json:"len"`
+}
+
+func (k *Kind) DataID(data *Data) string {
+	return k.dataID(*data)
+}
+
+func (k *Kind) GetIDField() string {
+	if k.IDField == "" {
+		return "name"
+	}
+	return k.IDField
+}
+
 func (k *Kind) dataID(data Data) string {
 	var id string
 	if k.IDField == "" {
@@ -190,6 +206,19 @@ func (s *Store) GetData(kind string, id string) (Data, error) {
 	}
 
 	return unmarshalData(kvs.Value)
+}
+
+func (s *Store) DataLen(kind string) (int, error) {
+	key := s.DataPrefix
+	if kind != "" {
+		key = s.dataPrefix(kind)
+	}
+
+	kvs, err := s.cluster.GetWithOp(key, cluster.OpPrefix, cluster.OpKeysOnly)
+	if err != nil {
+		return 0, err
+	}
+	return len(kvs), nil
 }
 
 // ListData lists custom data of specified kind.

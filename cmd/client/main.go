@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/megaease/easegress/cmd/client/command"
+	"github.com/megaease/easegress/cmd/client/commandv2"
+	"github.com/megaease/easegress/cmd/client/general"
 )
 
 func init() {
@@ -80,11 +82,11 @@ func main() {
 		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			switch command.CommandlineGlobalFlags.OutputFormat {
-			case "yaml", "json":
+			switch general.CmdGlobalFlags.OutputFormat {
+			case "yaml", "json", "default":
 			default:
-				command.ExitWithErrorf("unsupported output format: %s",
-					command.CommandlineGlobalFlags.OutputFormat)
+				general.ExitWithErrorf("unsupported output format: %s, only support (yaml, json and default)",
+					general.CmdGlobalFlags.OutputFormat)
 			}
 		},
 	}
@@ -99,7 +101,7 @@ func main() {
 			case "zsh":
 				rootCmd.GenZshCompletion(os.Stdout)
 			default:
-				command.ExitWithErrorf("unsupported shell %s, expecting bash or zsh", args[0])
+				general.ExitWithErrorf("unsupported shell %s, expecting bash or zsh", args[0])
 			}
 		},
 		Args: cobra.ExactArgs(1),
@@ -115,19 +117,21 @@ func main() {
 		command.CustomDataCmd(),
 		command.ProfileCmd(),
 		completionCmd,
+		commandv2.GetCmd(),
+		// commandv2.ApiResourceCmd(),
 	)
 
-	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
+	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the Easegress endpoint")
-	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.ForceTLS,
+	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.ForceTLS,
 		"force-tls", false, "Whether to forcibly use HTTPS, if not, client will auto upgrade to HTTPS on-demand")
-	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.InsecureSkipVerify,
+	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.InsecureSkipVerify,
 		"insecure-skip-verify", false, "Whether to verify the server's certificate chain and host name")
-	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
-		"output", "o", "yaml", "Output format(json, yaml)")
+	rootCmd.PersistentFlags().StringVarP(&general.CmdGlobalFlags.OutputFormat,
+		"output", "o", general.DefaultFormat, "Output format(default, json, yaml)")
 
 	err := rootCmd.Execute()
 	if err != nil {
-		command.ExitWithError(err)
+		general.ExitWithError(err)
 	}
 }
