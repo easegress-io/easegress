@@ -16,3 +16,19 @@
  */
 
 package commandv2
+
+import (
+	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/cmd/client/resources"
+	"github.com/spf13/cobra"
+)
+
+func DescribeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "describe",
+		Short: "Show details of a specific resource or group of resources",
+	}
+
+	resources.AddTo(cmd, general.DescribeCmd)
+	return cmd
+}

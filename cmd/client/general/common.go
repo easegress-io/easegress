@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/spf13/cobra"
 )
 
@@ -194,15 +195,27 @@ func NewTabWriter() *tabwriter.Writer {
 }
 
 func PrintTable(table [][]string) {
+	PrintTableWithPrefix(table, "")
+}
+
+func PrintTableWithPrefix(table [][]string, prefix string) {
 	w := NewTabWriter()
 	defer w.Flush()
 
 	for _, row := range table {
+		fmt.Fprintf(w, "%s", prefix)
 		for _, col := range row {
 			fmt.Fprintf(w, "%s\t", col)
 		}
 		fmt.Fprintf(w, "\n")
 	}
+}
+
+func Capitalize(str string) string {
+	if len(str) == 0 {
+		return ""
+	}
+	return strings.ToUpper(str[0:1]) + str[1:]
 }
 
 func DurationMostSignificantUnit(d time.Duration) string {
@@ -229,4 +242,59 @@ func DurationMostSignificantUnit(d time.Duration) string {
 	}
 
 	return "0s"
+}
+
+// PrintRawSpec prints the raw spec in yaml format. Specials are the keys print in front of other part.
+// Use "" in specials to print a blank line.
+// For example, if specials is ["name", "kind", "", "filters"]
+// then, "name", "kind" will in group one, and "filters" will in group two, others will in group three.
+func PrintRawSpec(specs []map[string]interface{}, specials []string) {
+	printKV := func(k string, v interface{}) {
+		value, err := codectool.MarshalYAML(v)
+		if err != nil {
+			ExitWithError(err)
+		}
+
+		lines := strings.Split(string(value), "\n")
+		lines = lines[0 : len(lines)-1]
+		if len(lines) == 1 {
+			fmt.Printf("%s: %s\n", Capitalize(k), lines[0])
+			return
+		}
+		fmt.Printf("%s:\n", Capitalize(k))
+		fmt.Printf("%s\n", strings.Repeat("=", len(k)+1))
+		for _, line := range lines {
+			fmt.Printf("  %s\n", line)
+		}
+	}
+
+	print := func(spec map[string]interface{}) {
+		specialFlag := false
+		for _, s := range specials {
+			if s == "" && specialFlag {
+				fmt.Println()
+			}
+			value, ok := spec[s]
+			if ok {
+				specialFlag = true
+				printKV(s, value)
+			} else {
+				specialFlag = false
+			}
+		}
+
+		for k, v := range spec {
+			if stringtool.StrInSlice(k, specials) {
+				continue
+			}
+			printKV(k, v)
+		}
+	}
+
+	for i, spec := range specs {
+		print(spec)
+		if len(specs) > 1 && i != len(specs)-1 {
+			fmt.Print("\n\n---\n\n")
+		}
+	}
 }

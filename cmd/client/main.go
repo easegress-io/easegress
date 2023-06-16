@@ -118,7 +118,7 @@ func main() {
 		command.ProfileCmd(),
 		completionCmd,
 		commandv2.GetCmd(),
-		// commandv2.ApiResourceCmd(),
+		commandv2.DescribeCmd(),
 	)
 
 	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,

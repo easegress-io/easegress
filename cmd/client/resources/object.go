@@ -43,6 +43,8 @@ func objectCmd(cmdType general.CmdType) []*cobra.Command {
 	switch cmdType {
 	case general.GetCmd:
 		return objectGetCmd()
+	case general.DescribeCmd:
+		return objectDescribeCmd()
 	default:
 		return nil
 	}
@@ -52,26 +54,31 @@ func objectGetCmd() []*cobra.Command {
 	return []*cobra.Command{getObject(), getObjectKinds()}
 }
 
-func getObject() *cobra.Command {
-	getURL := func(args []string) string {
+func httpGetObjectArgs(cmd *cobra.Command, args []string) error {
+	if len(args) > 1 {
+		return errors.New("requires at most one arg for object name")
+	}
+	return nil
+}
+
+func httpGetObject(cmd *cobra.Command, args []string) ([]byte, error) {
+	url := func(args []string) string {
 		if len(args) == 0 {
 			return makeURL(general.ObjectsURL)
 		}
 		return makeURL(general.ObjectURL, args[0])
-	}
+	}(args)
+	return handleReq(http.MethodGet, url, nil, cmd)
+}
 
+func getObject() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     ObjectName,
 		Short:   "Display one or many objects",
 		Aliases: ObjectAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("requires at most one arg for object name")
-			}
-			return nil
-		},
+		Args:    httpGetObjectArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, getURL(args), nil, cmd)
+			body, err := httpGetObject(cmd, args)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -146,4 +153,47 @@ func printObjectKinds(kinds []string) {
 		table = append(table, []string{kind})
 	}
 	general.PrintTable(table)
+}
+
+func objectDescribeCmd() []*cobra.Command {
+	return []*cobra.Command{describeObject()}
+}
+
+func describeObject() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     ObjectName,
+		Short:   "Describe one or many objects",
+		Aliases: ObjectAlias(),
+		Args:    httpGetObjectArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := httpGetObject(cmd, args)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			specs, err := unmarshalRawSpec(body, len(args) == 0)
+			if err != nil {
+				general.ExitWithErrorf("Display objects failed: %v", err)
+			}
+			specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
+			general.PrintRawSpec(specs, specials)
+		},
+	}
+	return cmd
+}
+
+func unmarshalRawSpec(body []byte, listBody bool) ([]map[string]interface{}, error) {
+	if listBody {
+		rawSpecs := []map[string]interface{}{}
+		err := codectool.Unmarshal(body, &rawSpecs)
+		return rawSpecs, err
+	}
+	rawSpec := map[string]interface{}{}
+	err := codectool.Unmarshal(body, &rawSpec)
+	return []map[string]interface{}{rawSpec}, err
 }
