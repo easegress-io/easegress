@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -35,6 +36,9 @@ const (
 
 	// ObjectKindsPrefix is the object-kinds prefix.
 	ObjectKindsPrefix = "/object-kinds"
+
+	// ObjectTemplatePrefix is the object-template prefix.
+	ObjectTemplatePrefix = "/objects-yaml"
 
 	// StatusObjectPrefix is the prefix of object status.
 	StatusObjectPrefix = "/status/objects"
@@ -61,6 +65,11 @@ func (s *Server) objectAPIEntries() []*Entry {
 			Path:    ObjectPrefix + "/{name}",
 			Method:  "GET",
 			Handler: s.getObject,
+		},
+		{
+			Path:    ObjectTemplatePrefix + "/{kind}/{name}",
+			Method:  "GET",
+			Handler: s.getObjectTemplate,
 		},
 		{
 			Path:    ObjectPrefix + "/{name}",
@@ -169,6 +178,43 @@ func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 		s.upgradeConfigVersion(w, r)
 	}
+}
+
+// getObjectTemplate returns the template of the object in yaml format.
+// The body is in yaml format to keep the order of fields.
+func (s *Server) getObjectTemplate(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	name := chi.URLParam(r, "name")
+
+	allKinds := supervisor.ObjectKinds()
+	for _, k := range allKinds {
+		if strings.EqualFold(k, kind) {
+			kind = k
+		}
+	}
+
+	obj := supervisor.GetObject(kind)
+	if obj == nil {
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
+		return
+	}
+
+	specByte, err := codectool.MarshalYAML(obj.DefaultSpec())
+	if err != nil {
+		HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	metaByte, err := codectool.MarshalYAML(supervisor.NewMeta(kind, name))
+	if err != nil {
+		HandleAPIError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	spec := fmt.Sprintf("%s\n%s", metaByte, specByte)
+
+	w.Header().Set("Content-Type", "text/x-yaml")
+	w.Write([]byte(spec))
 }
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {

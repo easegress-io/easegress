@@ -19,6 +19,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/megaease/easegress/cmd/client/general"
@@ -39,6 +40,12 @@ func ObjectKindAlias() []string {
 	return []string{"objectkinds", "ok"}
 }
 
+const ObjectTemplateName = "objecttemplate"
+
+func ObjectTemplateAlias() []string {
+	return []string{"objecttemplates", "ot"}
+}
+
 func objectCmd(cmdType general.CmdType) []*cobra.Command {
 	switch cmdType {
 	case general.GetCmd:
@@ -51,7 +58,36 @@ func objectCmd(cmdType general.CmdType) []*cobra.Command {
 }
 
 func objectGetCmd() []*cobra.Command {
-	return []*cobra.Command{getObject(), getObjectKinds()}
+	return []*cobra.Command{getObject(), getObjectKinds(), getObjectTemplate()}
+}
+
+// getObjectTemplate returns the object template for given object kind and name in yaml format.
+// The api return yaml body to keep the right order of fields.
+func getObjectTemplate() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     ObjectTemplateName,
+		Short:   "Display object templates for given object kind and name",
+		Aliases: ObjectTemplateAlias(),
+		Args:    cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			url := makeURL(general.ObjectTemplateURL, args[0], args[1])
+			body, err := handleReq(http.MethodGet, url, nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			if general.CmdGlobalFlags.OutputFormat == general.JsonFormat {
+				jsonBody, err := codectool.YAMLToJSON(body)
+				if err != nil {
+					general.ExitWithErrorf("yaml %s to json failed: %v", body, err)
+				}
+				general.PrintBody(jsonBody)
+				return
+			}
+			fmt.Printf("%s\n", string(body))
+		},
+	}
+	return cmd
 }
 
 func httpGetObjectArgs(cmd *cobra.Command, args []string) error {
@@ -176,24 +212,13 @@ func describeObject() *cobra.Command {
 				return
 			}
 
-			specs, err := unmarshalRawSpec(body, len(args) == 0)
+			specs, err := general.UnmarshalMapInterface(body, len(args) == 0)
 			if err != nil {
 				general.ExitWithErrorf("Display objects failed: %v", err)
 			}
 			specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
-			general.PrintRawSpec(specs, specials)
+			general.PrintMapInterface(specs, specials)
 		},
 	}
 	return cmd
-}
-
-func unmarshalRawSpec(body []byte, listBody bool) ([]map[string]interface{}, error) {
-	if listBody {
-		rawSpecs := []map[string]interface{}{}
-		err := codectool.Unmarshal(body, &rawSpecs)
-		return rawSpecs, err
-	}
-	rawSpec := map[string]interface{}{}
-	err := codectool.Unmarshal(body, &rawSpec)
-	return []map[string]interface{}{rawSpec}, err
 }

@@ -69,6 +69,14 @@ func NewSpec(config string) (*Spec, error) {
 	return globalSuper.NewSpec(config)
 }
 
+func NewMeta(kind, name string) *MetaSpec {
+	return &MetaSpec{
+		Name:    name,
+		Kind:    kind,
+		Version: DefaultSpecVersion,
+	}
+}
+
 // NewSpec creates a spec and validates it from the config in json format.
 // Config supports both json and yaml format.
 func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {

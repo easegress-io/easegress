@@ -20,6 +20,8 @@ package resources
 import (
 	"errors"
 	"net/http"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
@@ -38,9 +40,82 @@ func memberCmd(cmdType general.CmdType) []*cobra.Command {
 	switch cmdType {
 	case general.GetCmd:
 		return memberGetCmd()
+	case general.DescribeCmd:
+		return memberDescribeCmd()
 	default:
 		return nil
 	}
+}
+
+func memberDescribeCmd() []*cobra.Command {
+	cmd := &cobra.Command{
+		Use:     MemberName,
+		Short:   "Describe one or many members",
+		Aliases: MemberAlias(),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return errors.New("requires at most one arg for member name")
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil, cmd)
+			if err != nil {
+				general.ExitWithErrorf("get members failed: %v", err)
+			}
+
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			members := []*cluster.MemberStatus{}
+			err = codectool.Unmarshal(body, &members)
+			if err != nil {
+				general.ExitWithErrorf("get members failed: %v", err)
+			}
+			if len(args) == 0 {
+				printMemberStatusDescription(members)
+				return
+			}
+
+			for _, member := range members {
+				if member.Options.Name == args[0] {
+					printMemberStatusDescription([]*cluster.MemberStatus{member})
+					return
+				}
+			}
+			general.ExitWithErrorf("member %s not found", args[0])
+		},
+	}
+	return []*cobra.Command{cmd}
+}
+
+func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
+	statusToMapInterface := func(status *cluster.MemberStatus) map[string]interface{} {
+		result := map[string]interface{}{}
+		result["etcd"] = status.Etcd
+		result["lastHeartbeatTime"] = status.LastHeartbeatTime
+		result["lastDefragTime"] = status.LastDefragTime
+
+		options := reflect.ValueOf(status.Options)
+		for i := 0; i < options.NumField(); i++ {
+			if options.Field(i).CanInterface() {
+				key := options.Type().Field(i).Name
+				value := options.Field(i).Interface()
+				result[strings.ToLower(key)] = value
+			}
+		}
+		return result
+	}
+
+	results := []map[string]interface{}{}
+	for _, status := range memberStatus {
+		results = append(results, statusToMapInterface(status))
+	}
+	general.PrintMapInterface(results, []string{
+		"name", "lastHeartbeatTime", "", "etcd", "",
+	})
 }
 
 func memberGetCmd() []*cobra.Command {
@@ -71,13 +146,13 @@ func memberGetCmd() []*cobra.Command {
 				general.ExitWithErrorf("get members failed: %v", err)
 			}
 			if len(args) == 0 {
-				printMemberStatus(members)
+				printMemberStatusTable(members)
 				return
 			}
 
 			for _, member := range members {
 				if member.Options.Name == args[0] {
-					printMemberStatus([]*cluster.MemberStatus{member})
+					printMemberStatusTable([]*cluster.MemberStatus{member})
 					return
 				}
 			}
@@ -132,7 +207,7 @@ func newMember(ms *cluster.MemberStatus) *member {
 	return member
 }
 
-func printMemberStatus(memberStatus []*cluster.MemberStatus) {
+func printMemberStatusTable(memberStatus []*cluster.MemberStatus) {
 	table := [][]string{}
 	table = append(table, []string{"NAME", "ROLE", "AGE", "STATE", "API-ADDR", "HEARTBEAT"})
 	for _, ms := range memberStatus {

@@ -148,6 +148,11 @@ func ObjectKinds() []string {
 	return kinds
 }
 
+// GetObject returns object by kind.
+func GetObject(kind string) Object {
+	return objectRegistry[kind]
+}
+
 // TrafficObjectKinds is a map that contains all kinds of TrafficObject.
 var TrafficObjectKinds = make(map[string]struct{})
 

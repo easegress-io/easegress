@@ -26,6 +26,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -66,9 +67,10 @@ const (
 	MembersURL = ApiURL + "/status/members"
 	MemberURL  = ApiURL + "/status/members/%s"
 
-	ObjectKindsURL = ApiURL + "/object-kinds"
-	ObjectsURL     = ApiURL + "/objects"
-	ObjectURL      = ApiURL + "/objects/%s"
+	ObjectKindsURL    = ApiURL + "/object-kinds"
+	ObjectsURL        = ApiURL + "/objects"
+	ObjectURL         = ApiURL + "/objects/%s"
+	ObjectTemplateURL = ApiURL + "/objects-yaml/%s/%s"
 
 	StatusObjectURL  = ApiURL + "/status/objects/%s"
 	StatusObjectsURL = ApiURL + "/status/objects"
@@ -244,11 +246,11 @@ func DurationMostSignificantUnit(d time.Duration) string {
 	return "0s"
 }
 
-// PrintRawSpec prints the raw spec in yaml format. Specials are the keys print in front of other part.
+// PrintMapInterface prints the []map[string]interface{} in yaml format. Specials are the keys print in front of other part.
 // Use "" in specials to print a blank line.
 // For example, if specials is ["name", "kind", "", "filters"]
 // then, "name", "kind" will in group one, and "filters" will in group two, others will in group three.
-func PrintRawSpec(specs []map[string]interface{}, specials []string) {
+func PrintMapInterface(maps []map[string]interface{}, specials []string) {
 	printKV := func(k string, v interface{}) {
 		value, err := codectool.MarshalYAML(v)
 		if err != nil {
@@ -269,6 +271,19 @@ func PrintRawSpec(specs []map[string]interface{}, specials []string) {
 	}
 
 	print := func(spec map[string]interface{}) {
+		type kv struct {
+			key   string
+			value interface{}
+		}
+
+		var kvs []kv
+		for k, v := range spec {
+			kvs = append(kvs, kv{k, v})
+		}
+		sort.Slice(kvs, func(i, j int) bool {
+			return kvs[i].key < kvs[j].key
+		})
+
 		specialFlag := false
 		for _, s := range specials {
 			if s == "" && specialFlag {
@@ -283,18 +298,47 @@ func PrintRawSpec(specs []map[string]interface{}, specials []string) {
 			}
 		}
 
-		for k, v := range spec {
-			if stringtool.StrInSlice(k, specials) {
+		for _, kv := range kvs {
+			if stringtool.StrInSlice(kv.key, specials) {
 				continue
 			}
-			printKV(k, v)
+			printKV(kv.key, kv.value)
 		}
 	}
 
-	for i, spec := range specs {
-		print(spec)
-		if len(specs) > 1 && i != len(specs)-1 {
+	for i, m := range maps {
+		print(m)
+		if len(maps) > 1 && i != len(maps)-1 {
 			fmt.Print("\n\n---\n\n")
 		}
 	}
+}
+
+func UnmarshalMapInterface(body []byte, listBody bool) ([]map[string]interface{}, error) {
+	if listBody {
+		mapInterfaces := []map[string]interface{}{}
+		err := codectool.Unmarshal(body, &mapInterfaces)
+		return mapInterfaces, err
+	}
+	mapInterface := map[string]interface{}{}
+	err := codectool.Unmarshal(body, &mapInterface)
+	return []map[string]interface{}{mapInterface}, err
+}
+
+type Example struct {
+	Desc    string
+	Command string
+}
+
+// CreateExample creates cobra example by using one line examples.
+func CreateExample(examples []Example) string {
+	output := ""
+	for i, e := range examples {
+		output += fmt.Sprintf("  # %s\n", e.Desc)
+		output += fmt.Sprintf("  %s", e.Command)
+		if i != len(examples)-1 {
+			output += "\n\n"
+		}
+	}
+	return output
 }
