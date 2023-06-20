@@ -16,3 +16,19 @@
  */
 
 package commandv2
+
+import (
+	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/cmd/client/resources"
+	"github.com/spf13/cobra"
+)
+
+func ApplyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Apply a configuration to a resource by filename or stdin",
+	}
+
+	resources.AddTo(cmd, general.ApplyCmd)
+	return cmd
+}

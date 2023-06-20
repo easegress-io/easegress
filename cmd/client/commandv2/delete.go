@@ -16,3 +16,19 @@
  */
 
 package commandv2
+
+import (
+	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/cmd/client/resources"
+	"github.com/spf13/cobra"
+)
+
+func DeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete",
+		Short: "Delete a resource.",
+	}
+
+	resources.AddTo(cmd, general.DeleteCmd)
+	return cmd
+}

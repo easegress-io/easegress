@@ -28,13 +28,13 @@ const (
 	healthURL = general.HealthURL
 
 	membersURL = general.MembersURL
-	memberURL  = general.MemberURL
+	memberURL  = general.MemberItemURL
 
 	objectKindsURL = general.ObjectKindsURL
 	objectsURL     = general.ObjectsURL
-	objectURL      = general.ObjectURL
+	objectURL      = general.ObjectItemURL
 
-	statusObjectURL  = general.StatusObjectURL
+	statusObjectURL  = general.StatusObjectItemURL
 	statusObjectsURL = general.StatusObjectsURL
 
 	wasmCodeURL = general.WasmCodeURL

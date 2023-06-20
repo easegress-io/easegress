@@ -64,16 +64,16 @@ const (
 
 	HealthURL = ApiURL + "/healthz"
 
-	MembersURL = ApiURL + "/status/members"
-	MemberURL  = ApiURL + "/status/members/%s"
+	MembersURL    = ApiURL + "/status/members"
+	MemberItemURL = ApiURL + "/status/members/%s"
 
-	ObjectKindsURL    = ApiURL + "/object-kinds"
 	ObjectsURL        = ApiURL + "/objects"
-	ObjectURL         = ApiURL + "/objects/%s"
+	ObjectItemURL     = ApiURL + "/objects/%s"
+	ObjectKindsURL    = ApiURL + "/object-kinds"
 	ObjectTemplateURL = ApiURL + "/objects-yaml/%s/%s"
 
-	StatusObjectURL  = ApiURL + "/status/objects/%s"
-	StatusObjectsURL = ApiURL + "/status/objects"
+	StatusObjectsURL    = ApiURL + "/status/objects"
+	StatusObjectItemURL = ApiURL + "/status/objects/%s"
 
 	WasmCodeURL = ApiURL + "/wasm/code"
 	WasmDataURL = ApiURL + "/wasm/data/%s/%s"

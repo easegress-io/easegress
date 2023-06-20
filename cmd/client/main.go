@@ -119,6 +119,9 @@ func main() {
 		completionCmd,
 		commandv2.GetCmd(),
 		commandv2.DescribeCmd(),
+		commandv2.CreateCmd(),
+		commandv2.DeleteCmd(),
+		commandv2.ApplyCmd(),
 	)
 
 	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,

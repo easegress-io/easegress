@@ -52,6 +52,12 @@ func objectCmd(cmdType general.CmdType) []*cobra.Command {
 		return objectGetCmd()
 	case general.DescribeCmd:
 		return objectDescribeCmd()
+	case general.CreateCmd:
+		return objectCreateCmd()
+	case general.DeleteCmd:
+		return objectDeleteCmd()
+	case general.ApplyCmd:
+		return objectApplyCmd()
 	default:
 		return nil
 	}
@@ -102,7 +108,7 @@ func httpGetObject(cmd *cobra.Command, args []string) ([]byte, error) {
 		if len(args) == 0 {
 			return makeURL(general.ObjectsURL)
 		}
-		return makeURL(general.ObjectURL, args[0])
+		return makeURL(general.ObjectItemURL, args[0])
 	}(args)
 	return handleReq(http.MethodGet, url, nil, cmd)
 }
@@ -220,5 +226,148 @@ func describeObject() *cobra.Command {
 			general.PrintMapInterface(specs, specials)
 		},
 	}
+	return cmd
+}
+
+func objectCreateCmd() []*cobra.Command {
+	return []*cobra.Command{createObject()}
+}
+
+func createObject() *cobra.Command {
+	var specFile string
+	cmd := &cobra.Command{
+		Use:     ObjectName,
+		Short:   "Create an object from a yaml file or stdin",
+		Aliases: ObjectAlias(),
+		Run: func(cmd *cobra.Command, args []string) {
+			visitor := buildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *spec) error {
+				_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.doc), cmd)
+				if err != nil {
+					general.ExitWithError(err)
+				} else {
+					fmt.Printf("Create object %s successfully\n", s.Name)
+				}
+				return err
+			})
+			visitor.Close()
+		},
+	}
+
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+	return cmd
+}
+
+func objectDeleteCmd() []*cobra.Command {
+	return []*cobra.Command{deleteObject()}
+}
+
+func deleteObject() *cobra.Command {
+	var specFile string
+	var allFlag bool
+
+	argsFunc := func(cmd *cobra.Command, args []string) error {
+		if allFlag {
+			if (len(specFile) != 0) || (len(args) != 0) {
+				return errors.New("--all cannot be used with --file or <object_name>")
+			}
+			return nil
+		}
+
+		if len(args) == 0 && len(specFile) == 0 {
+			return errors.New("requires <object_name> or --file")
+		} else if len(args) != 0 && len(specFile) != 0 {
+			return errors.New("--file and <object_name> cannot be used together")
+		}
+		return nil
+	}
+
+	cmd := &cobra.Command{
+		Use:     ObjectName,
+		Short:   "Delete an object(s) from a yaml file or name",
+		Aliases: ObjectAlias(),
+		Args:    argsFunc,
+		Run: func(cmd *cobra.Command, args []string) {
+			var err error
+			defer func() {
+				if err != nil {
+					general.ExitWithError(err)
+				} else {
+					fmt.Println("Delete object(s) successfully")
+				}
+			}()
+
+			if allFlag {
+				_, err = handleReq(http.MethodDelete, makeURL(general.ObjectsURL+fmt.Sprintf("?all=%v", true)), nil, cmd)
+				return
+			}
+
+			if len(specFile) != 0 {
+				visitor := buildSpecVisitor(specFile, cmd)
+				visitor.Visit(func(s *spec) error {
+					_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, s.Name), nil, cmd)
+					return nil
+				})
+				visitor.Close()
+				return
+			}
+
+			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, args[0]), nil, cmd)
+		},
+	}
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+	cmd.Flags().BoolVarP(&allFlag, "all", "", false, "Delete all object.")
+	return cmd
+}
+
+func objectApplyCmd() []*cobra.Command {
+	return []*cobra.Command{applyObject()}
+}
+
+func applyObject() *cobra.Command {
+	var specFile string
+
+	checkObjExist := func(cmd *cobra.Command, name string) bool {
+		_, err := httpGetObject(cmd, []string{name})
+		return err == nil
+	}
+
+	createOrUpdate := func(cmd *cobra.Command, s *spec, exist bool) error {
+		if exist {
+			_, err := handleReq(http.MethodPut, makeURL(general.ObjectItemURL, s.Name), []byte(s.doc), cmd)
+			return err
+		}
+		_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.doc), cmd)
+		return err
+	}
+
+	cmd := &cobra.Command{
+		Use:     ObjectName,
+		Short:   "Apply a configuration to an object by filename or stdin",
+		Aliases: ObjectAlias(),
+		Run: func(cmd *cobra.Command, args []string) {
+			visitor := buildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *spec) error {
+				exist := checkObjExist(cmd, s.Name)
+				err := createOrUpdate(cmd, s, exist)
+
+				if err != nil {
+					general.ExitWithError(err)
+					return err
+				}
+
+				if exist {
+					fmt.Printf("Create object %s successfully\n", s.Name)
+				} else {
+					fmt.Printf("Update object %s successfully\n", s.Name)
+				}
+				return nil
+			})
+			visitor.Close()
+		},
+	}
+
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
+
 	return cmd
 }

@@ -16,3 +16,19 @@
  */
 
 package commandv2
+
+import (
+	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/cmd/client/resources"
+	"github.com/spf13/cobra"
+)
+
+func CreateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a resource from a file or from stdin.",
+	}
+
+	resources.AddTo(cmd, general.CreateCmd)
+	return cmd
+}
