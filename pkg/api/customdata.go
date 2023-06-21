@@ -195,6 +195,9 @@ func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ClusterPanic(err)
 	}
+	if data == nil {
+		return
+	}
 
 	WriteBody(w, r, data)
 }

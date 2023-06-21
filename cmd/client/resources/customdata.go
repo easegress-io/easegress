@@ -255,7 +255,7 @@ func applyCustomDataKind() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:     CustomDataKindName,
-		Short:   "Update a custom data from a yaml file or stdin",
+		Short:   "Apply a custom data kind from a yaml file or stdin",
 		Aliases: CustomDataKindAlias(),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
@@ -303,6 +303,8 @@ func customDataCmd(cmdType general.CmdType) []*cobra.Command {
 		return customDataCreateCmd()
 	case general.DeleteCmd:
 		return customDataDeleteCmd()
+	case general.ApplyCmd:
+		return customDataApplyCmd()
 	default:
 		return nil
 	}
@@ -322,6 +324,10 @@ func customDataCreateCmd() []*cobra.Command {
 
 func customDataDeleteCmd() []*cobra.Command {
 	return []*cobra.Command{deleteCustomData()}
+}
+
+func customDataApplyCmd() []*cobra.Command {
+	return []*cobra.Command{applyCustomData()}
 }
 
 func httpGetCustomData(cmd *cobra.Command, args []string) ([]byte, error) {
@@ -508,5 +514,99 @@ func deleteCustomData() *cobra.Command {
 		},
 	}
 
+	return cmd
+}
+
+func applyCustomData() *cobra.Command {
+	var specFile string
+	var batchUpdate bool
+
+	getKind := func(cmd *cobra.Command, name string) *customdata.Kind {
+		body, err := httpGetCustomDataKind(cmd, []string{name})
+		if err != nil {
+			general.ExitWithErrorf("Get custom data kind failed: %v", err)
+		}
+		kind := &customdata.Kind{}
+		err = codectool.Unmarshal(body, kind)
+		if err != nil {
+			general.ExitWithErrorf("Unmarshal custom data kind failed: %v", err)
+		}
+		return kind
+	}
+
+	getDataName := func(cmd *cobra.Command, kind *customdata.Kind, data []byte) string {
+		d := &customdata.Data{}
+		err := codectool.Unmarshal(data, d)
+		if err != nil {
+			general.ExitWithErrorf("Unmarshal custom data failed: %v", err)
+		}
+		return kind.DataID(d)
+	}
+
+	dataExist := func(cmd *cobra.Command, kindName, dataName string) bool {
+		body, err := httpGetCustomData(cmd, []string{kindName, dataName})
+		return err == nil && len(body) > 0
+	}
+
+	applySingle := func(cmd *cobra.Command, args []string) {
+		kind := getKind(cmd, args[0])
+		visitor := buildYAMLVisitor(specFile, cmd)
+
+		visitor.Visit(func(yamlDoc []byte) error {
+			dataName := getDataName(cmd, kind, yamlDoc)
+			if !dataExist(cmd, args[0], dataName) {
+				_, err := handleReq(http.MethodPost, makeURL(general.CustomDataURL, args[0]), yamlDoc, cmd)
+				if err != nil {
+					general.ExitWithError(err)
+				}
+				fmt.Println("Custom data created.")
+				return err
+			}
+
+			_, err := handleReq(http.MethodPut, makeURL(general.CustomDataURL, args[0]), yamlDoc, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			fmt.Println("Custom data updated.")
+			return err
+		})
+		visitor.Close()
+	}
+
+	applyBatch := func(cmd *cobra.Command, args []string) {
+		visitor := buildYAMLVisitor(specFile, cmd)
+		visitor.Visit(func(yamlDoc []byte) error {
+			_, err := handleReq(http.MethodPost, makeURL(general.CustomDataItemURL, args[0], "items"), yamlDoc, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			fmt.Println("Custom data batch updated.")
+			return err
+		})
+		visitor.Close()
+	}
+
+	cmd := &cobra.Command{
+		Use:     CustomDataName,
+		Short:   "Apply custom data from a yaml file or stdin",
+		Aliases: CustomDataAlias(),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires custom data kind to be retrieved")
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			if batchUpdate {
+				applyBatch(cmd, args)
+			} else {
+				applySingle(cmd, args)
+			}
+		},
+	}
+
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file containing custom data spec")
+	cmd.Flags().BoolVar(&batchUpdate, "batch-update", false, "Batch update custom data")
 	return cmd
 }

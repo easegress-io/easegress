@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package command
+package commandv2
 
 import (
 	"errors"
 	"net/http"
 
+	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/spf13/cobra"
 )
 
-// ProfileCmd defines member command.
 func ProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",
 		Short: "Start and stop CPU and memory profilers",
 	}
-
 	cmd.AddCommand(infoProfileCmd())
 	cmd.AddCommand(startProfilingCmd())
 	cmd.AddCommand(stopProfilingCmd())
@@ -42,10 +41,14 @@ func infoProfileCmd() *cobra.Command {
 		Use:   "info",
 		Short: "Show memory and CPU profile file paths",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(profileURL), nil, cmd)
+			body, err := handleReq(http.MethodGet, makeURL(general.ProfileURL), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
@@ -73,10 +76,17 @@ func startCPUCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			handleRequest(http.MethodPost, makeURL(profileStartURL, "cpu"), body, cmd)
+			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStartURL, "cpu"), body, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "CPU profiling started"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
@@ -93,10 +103,17 @@ func startMemoryCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			handleRequest(http.MethodPost, makeURL(profileStartURL, "memory"), body, cmd)
+			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStartURL, "memory"), body, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "Memory profiling started"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
@@ -106,9 +123,16 @@ func stopProfilingCmd() *cobra.Command {
 		Short:   "Stop profiling.",
 		Example: "egctl profile stop",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodPost, makeURL(profileStopURL), nil, cmd)
+			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStopURL), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "Profiling stopped"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }

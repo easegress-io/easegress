@@ -17,31 +17,90 @@
 
 package commandv2
 
-// func ApiResourceCmd() *cobra.Command {
-// 	cmd := &cobra.Command{
-// 		Use:   "api-resources",
-// 		Short: "Print the supported API resources",
-// 		Args:  cobra.NoArgs,
-// 		Run: func(cmd *cobra.Command, args []string) {
-// 			infos := resources.Infos()
+import (
+	"fmt"
+	"net/http"
+	"os"
+	"sort"
 
-// 			if !general.CmdGlobalFlags.DefaultFormat() {
-// 				data, err := codectool.MarshalJSON(infos)
-// 				if err != nil {
-// 					general.ExitWithErrorf("marshal API resources failed: %v", err)
-// 					return
-// 				}
-// 				general.PrintBody(data)
-// 				return
-// 			}
+	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/pkg/api"
+	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/spf13/cobra"
+)
 
-// 			table := [][]string{}
-// 			table = append(table, []string{"NAME", "ALIAS"})
-// 			for _, info := range infos {
-// 				table = append(table, []string{info.Name, strings.Join(info.Alias, ",")})
-// 			}
-// 			general.PrintTable(table)
-// 		},
-// 	}
-// 	return cmd
-// }
+func CompletionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                   "completion [bash|zsh]",
+		Short:                 "Generates completion script for the specified shell (bash or zsh)",
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+		Run: func(cmd *cobra.Command, args []string) {
+			switch args[0] {
+			case "bash":
+				cmd.Root().GenBashCompletion(os.Stdout)
+			case "zsh":
+				cmd.Root().GenZshCompletion(os.Stdout)
+			}
+		},
+	}
+	return cmd
+}
+
+func HealthCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "health",
+		Short: "Probe Easegress health",
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := handleReq(http.MethodGet, makeURL(general.HealthURL), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody([]byte("{msg: OK}"))
+				return
+			}
+			fmt.Println("OK")
+		},
+	}
+
+	return cmd
+}
+
+func APIsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "apis",
+		Short: "View Easegress APIs",
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := handleReq(http.MethodGet, makeURL(general.ApiURL), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			groups := []*api.Group{}
+			err = codectool.Unmarshal(body, &groups)
+			if err != nil {
+				general.ExitWithErrorf("unmarshal API groups failed: %v", err)
+			}
+
+			table := [][]string{}
+			for _, group := range groups {
+				for _, e := range group.Entries {
+					table = append(table, []string{e.Path, e.Method, general.ApiURL, group.Group})
+				}
+			}
+			sort.Slice(table, func(i, j int) bool {
+				return table[i][0] < table[j][0]
+			})
+			table = append([][]string{{"PATH", "METHOD", "VERSION", "GROUP"}}, table...)
+			general.PrintTable(table)
+		},
+	}
+
+	return cmd
+}

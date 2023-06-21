@@ -19,8 +19,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/megaease/easegress/cmd/client/command"
@@ -30,6 +28,21 @@ import (
 
 func init() {
 	cobra.EnablePrefixMatching = true
+}
+
+var deprecatedGroup = &cobra.Group{
+	ID:    "deprecated",
+	Title: `Deprecated Commands`,
+}
+
+var basicGroup = &cobra.Group{
+	ID:    "basic",
+	Title: `Basic Commands`,
+}
+
+var otherGroup = &cobra.Group{
+	ID:    "other",
+	Title: `Other Commands`,
 }
 
 var exampleUsage = `  # List APIs.
@@ -91,38 +104,41 @@ func main() {
 		},
 	}
 
-	completionCmd := &cobra.Command{
-		Use:   "completion bash|zsh",
-		Short: "Output shell completion code for the specified shell (bash or zsh)",
-		Run: func(cmd *cobra.Command, args []string) {
-			switch args[0] {
-			case "bash":
-				rootCmd.GenBashCompletion(os.Stdout)
-			case "zsh":
-				rootCmd.GenZshCompletion(os.Stdout)
-			default:
-				general.ExitWithErrorf("unsupported shell %s, expecting bash or zsh", args[0])
-			}
-		},
-		Args: cobra.ExactArgs(1),
+	addCommandWithGroup := func(group *cobra.Group, cmd ...*cobra.Command) {
+		for _, c := range cmd {
+			c.GroupID = group.ID
+		}
+		rootCmd.AddCommand(cmd...)
 	}
 
-	rootCmd.AddCommand(
-		command.APICmd(),
-		command.HealthCmd(),
-		command.ObjectCmd(),
-		command.MemberCmd(),
-		command.WasmCmd(),
-		command.CustomDataKindCmd(),
-		command.CustomDataCmd(),
-		command.ProfileCmd(),
-		completionCmd,
+	addCommandWithGroup(
+		basicGroup,
 		commandv2.GetCmd(),
 		commandv2.DescribeCmd(),
 		commandv2.CreateCmd(),
 		commandv2.DeleteCmd(),
 		commandv2.ApplyCmd(),
 	)
+
+	addCommandWithGroup(
+		otherGroup,
+		commandv2.APIsCmd(),
+		commandv2.CompletionCmd(),
+		commandv2.HealthCmd(),
+		commandv2.ProfileCmd(),
+	)
+
+	addCommandWithGroup(
+		deprecatedGroup,
+		command.APICmd(),
+		command.ObjectCmd(),
+		command.MemberCmd(),
+		command.WasmCmd(),
+		command.CustomDataKindCmd(),
+		command.CustomDataCmd(),
+	)
+
+	rootCmd.AddGroup(basicGroup, otherGroup, deprecatedGroup)
 
 	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the Easegress endpoint")
