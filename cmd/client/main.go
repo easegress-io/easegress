@@ -45,54 +45,10 @@ var otherGroup = &cobra.Group{
 	Title: `Other Commands`,
 }
 
-var exampleUsage = `  # List APIs.
-  egctl api list
-
-  # Probe health.
-  egctl health
-
-  # List member information.
-  egctl member list
-
-  # Purge a easegress member
-  egctl member purge <member name>
-
-  # List object kinds.
-  egctl object kinds
-
-  # Create an object from a yaml file.
-  egctl object create -f <object_spec.yaml>
-
-  # Create an object from stdout.
-  cat <object_spec.yaml> | egctl object create
-
-  # Delete an object.
-  egctl object delete <object_name>
-
-  # Get an object.
-  egctl object get <object_name>
-
-  # List objects.
-  egctl object list
-
-  # Update an object from a yaml file.
-  egctl object update -f <new_object_spec.yaml>
-
-  # Update an object from stdout.
-  cat <new_object_spec.yaml> | egctl object update
-
-  # list objects status
-  egctl object status list
-
-  # Get object status
-  egctl object status get <object_name>
-`
-
 func main() {
 	rootCmd := &cobra.Command{
 		Use:        "egctl",
 		Short:      "A command line admin tool for Easegress.",
-		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			switch general.CmdGlobalFlags.OutputFormat {
@@ -139,6 +95,10 @@ func main() {
 	)
 
 	rootCmd.AddGroup(basicGroup, otherGroup, deprecatedGroup)
+
+	for _, c := range rootCmd.Commands() {
+		general.GenerateExampleFromChild(c)
+	}
 
 	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,
 		"server", "localhost:2381", "The address of the Easegress endpoint")

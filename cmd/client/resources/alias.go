@@ -21,3 +21,4 @@ import "github.com/megaease/easegress/cmd/client/general"
 
 var makeURL = general.MakeURL
 var handleReq = general.HandleRequest
+var createExample = general.CreateExample

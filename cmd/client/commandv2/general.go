@@ -50,8 +50,9 @@ func CompletionCmd() *cobra.Command {
 
 func HealthCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "health",
-		Short: "Probe Easegress health",
+		Use:     "health",
+		Short:   "Probe Easegress health",
+		Example: createExample("Probe Easegress health", "egctl health"),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := handleReq(http.MethodGet, makeURL(general.HealthURL), nil, cmd)
 			if err != nil {
@@ -70,8 +71,9 @@ func HealthCmd() *cobra.Command {
 
 func APIsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "apis",
-		Short: "View Easegress APIs",
+		Use:     "apis",
+		Short:   "View Easegress APIs",
+		Example: createExample("List all apis", "egctl apis"),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := handleReq(http.MethodGet, makeURL(general.ApiURL), nil, cmd)
 			if err != nil {

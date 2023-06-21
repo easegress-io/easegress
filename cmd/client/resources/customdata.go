@@ -392,17 +392,6 @@ func getCustomData() *cobra.Command {
 }
 
 func describeCustomData() *cobra.Command {
-	examples := []general.Example{
-		{
-			Desc:    "Describe custom data in given kind",
-			Command: "egctl describe customdata <kind> ",
-		},
-		{
-			Desc:    "Describe custom data in given kind with given name",
-			Command: "egctl describe customdata <kind> <name>",
-		},
-	}
-
 	cmd := &cobra.Command{
 		Use:     CustomDataName,
 		Short:   "Describe one or many custom data of given kind",
@@ -413,7 +402,6 @@ func describeCustomData() *cobra.Command {
 			}
 			return nil
 		},
-		Example: general.CreateExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetCustomData(cmd, args)
 			if err != nil {

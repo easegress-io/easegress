@@ -277,8 +277,16 @@ type Example struct {
 	Command string
 }
 
+func CreateExample(desc, command string) string {
+	e := Example{
+		Desc:    desc,
+		Command: command,
+	}
+	return CreateMultiExample([]Example{e})
+}
+
 // CreateExample creates cobra example by using one line examples.
-func CreateExample(examples []Example) string {
+func CreateMultiExample(examples []Example) string {
 	output := ""
 	for i, e := range examples {
 		output += fmt.Sprintf("  # %s\n", e.Desc)
@@ -288,4 +296,22 @@ func CreateExample(examples []Example) string {
 		}
 	}
 	return output
+}
+
+func GenerateExampleFromChild(cmd *cobra.Command) {
+	if len(cmd.Commands()) == 0 {
+		return
+	}
+
+	example := ""
+	for i, c := range cmd.Commands() {
+		GenerateExampleFromChild(c)
+		if c.Example != "" {
+			example += c.Example
+		}
+		if i != len(cmd.Commands())-1 {
+			example += "\n\n"
+		}
+	}
+	cmd.Example = example
 }
