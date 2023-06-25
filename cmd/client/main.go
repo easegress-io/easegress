@@ -69,10 +69,10 @@ func main() {
 
 	addCommandWithGroup(
 		basicGroup,
-		commandv2.GetCmd(),
-		commandv2.DescribeCmd(),
 		commandv2.CreateCmd(),
 		commandv2.DeleteCmd(),
+		commandv2.GetCmd(),
+		commandv2.DescribeCmd(),
 		commandv2.ApplyCmd(),
 	)
 
@@ -82,6 +82,7 @@ func main() {
 		commandv2.CompletionCmd(),
 		commandv2.HealthCmd(),
 		commandv2.ProfileCmd(),
+		commandv2.APIResourcesCmd(),
 	)
 
 	addCommandWithGroup(

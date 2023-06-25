@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -75,6 +76,7 @@ func getObjectTemplate() *cobra.Command {
 		Short:   "Display object templates for given object kind and name",
 		Aliases: ObjectTemplateAlias(),
 		Args:    cobra.ExactArgs(2),
+		Example: createExample("Get object template for given object kind and name", "egctl get objecttemplate <object-kind> <object-name>"),
 		Run: func(cmd *cobra.Command, args []string) {
 			url := makeURL(general.ObjectTemplateURL, args[0], args[1])
 			body, err := handleReq(http.MethodGet, url, nil, cmd)
@@ -114,11 +116,17 @@ func httpGetObject(cmd *cobra.Command, args []string) ([]byte, error) {
 }
 
 func getObject() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get all objects", Command: "egctl get object"},
+		{Desc: "Get one object", Command: "egctl get object <object-name>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     ObjectName,
 		Short:   "Display one or many objects",
 		Aliases: ObjectAlias(),
 		Args:    httpGetObjectArgs,
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetObject(cmd, args)
 			if err != nil {
@@ -146,6 +154,7 @@ func getObjectKinds() *cobra.Command {
 		Short:   "Display available object kinds",
 		Aliases: ObjectKindAlias(),
 		Args:    cobra.ExactArgs(0),
+		Example: createExample("Display available object kinds", "egctl get objectkind"),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := handleReq(http.MethodGet, makeURL(general.ObjectKindsURL), nil, cmd)
 			if err != nil {
@@ -179,11 +188,19 @@ func unmarshalMetaSpec(body []byte, listBody bool) ([]*supervisor.MetaSpec, erro
 	return []*supervisor.MetaSpec{meta}, err
 }
 
+func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
+	createdAt, err := time.Parse(time.RFC3339, meta.CreatedAt)
+	if err != nil {
+		return "unknown"
+	}
+	return general.DurationMostSignificantUnit(time.Since(createdAt))
+}
+
 func printMetaSpec(metas []*supervisor.MetaSpec) {
 	table := [][]string{}
-	table = append(table, []string{"NAME", "KIND"})
+	table = append(table, []string{"NAME", "KIND", "AGE"})
 	for _, meta := range metas {
-		table = append(table, []string{meta.Name, meta.Kind})
+		table = append(table, []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)})
 	}
 	general.PrintTable(table)
 }
@@ -202,11 +219,17 @@ func objectDescribeCmd() []*cobra.Command {
 }
 
 func describeObject() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe all object", Command: "egctl describe object"},
+		{Desc: "Describe one object", Command: "egctl describe object <object-name>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     ObjectName,
 		Short:   "Describe one or many objects",
 		Aliases: ObjectAlias(),
 		Args:    httpGetObjectArgs,
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetObject(cmd, args)
 			if err != nil {
@@ -239,6 +262,7 @@ func createObject() *cobra.Command {
 		Use:     ObjectName,
 		Short:   "Create an object from a yaml file or stdin",
 		Aliases: ObjectAlias(),
+		Example: createExample("Create an object from a yaml file", "egctl create object -f <object>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildSpecVisitor(specFile, cmd)
 			visitor.Visit(func(s *spec) error {
@@ -263,6 +287,11 @@ func objectDeleteCmd() []*cobra.Command {
 }
 
 func deleteObject() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Delete all objects", Command: "egctl delete object --all"},
+		{Desc: "Delete one object", Command: "egctl delete object <object-name>"},
+	}
+
 	var specFile string
 	var allFlag bool
 
@@ -287,6 +316,7 @@ func deleteObject() *cobra.Command {
 		Short:   "Delete an object(s) from a yaml file or name",
 		Aliases: ObjectAlias(),
 		Args:    argsFunc,
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			var err error
 			defer func() {
@@ -345,6 +375,7 @@ func applyObject() *cobra.Command {
 		Use:     ObjectName,
 		Short:   "Apply a configuration to an object by filename or stdin",
 		Aliases: ObjectAlias(),
+		Example: createExample("Apply a configuration to an object by filename", "egctl apply object -f <object>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildSpecVisitor(specFile, cmd)
 			visitor.Visit(func(s *spec) error {

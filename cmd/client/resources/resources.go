@@ -29,6 +29,7 @@ var allResource []Resource = []Resource{
 	memberCmd,
 	customDataKindCmd,
 	customDataCmd,
+	wasmDataCmd,
 }
 
 func AddTo(cmd *cobra.Command, cmdType general.CmdType) {

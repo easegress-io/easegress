@@ -19,6 +19,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -42,12 +43,19 @@ func memberCmd(cmdType general.CmdType) []*cobra.Command {
 		return memberGetCmd()
 	case general.DescribeCmd:
 		return memberDescribeCmd()
+	case general.DeleteCmd:
+		return memberDeleteCmd()
 	default:
 		return nil
 	}
 }
 
 func memberDescribeCmd() []*cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe all members", Command: "egctl describe member"},
+		{Desc: "Describe one member", Command: "egctl describe member <member-name>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     MemberName,
 		Short:   "Describe one or many members",
@@ -58,6 +66,7 @@ func memberDescribeCmd() []*cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil, cmd)
 			if err != nil {
@@ -118,7 +127,35 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 	})
 }
 
+func memberDeleteCmd() []*cobra.Command {
+	cmd := &cobra.Command{
+		Use:     MemberName,
+		Aliases: MemberAlias(),
+		Short:   "Purge a Easegress member. This command should be run after the easegress node uninstalled",
+		Example: createExample("Purge a Easegress member. This command should be run after the easegress node uninstalled", "egctl delete member <member-name>"),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 1 {
+				return errors.New("requires one member name to be deleted")
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, args[0]), nil, cmd)
+			if err != nil {
+				general.ExitWithErrorf("purge member failed: %v", err)
+			}
+			fmt.Printf("purge member %s successfully\n", args[0])
+		},
+	}
+	return []*cobra.Command{cmd}
+}
+
 func memberGetCmd() []*cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get all members", Command: "egctl get member"},
+		{Desc: "Get one member", Command: "egctl get member <member-name>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     MemberName,
 		Short:   "Display one or many members",
@@ -129,6 +166,7 @@ func memberGetCmd() []*cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil, cmd)
 			if err != nil {

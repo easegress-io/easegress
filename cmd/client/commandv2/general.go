@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/pkg/api"
@@ -105,4 +106,59 @@ func APIsCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func APIResourcesCmd() *cobra.Command {
+	resourceCmds := []*cobra.Command{
+		GetCmd(),
+		ApplyCmd(),
+		CreateCmd(),
+		DeleteCmd(),
+		DescribeCmd(),
+	}
+
+	actionMap := map[string][]string{}
+	aliasMap := map[string]string{}
+	for _, cmd := range resourceCmds {
+		action, resources, resourceAlias := getApiResource(cmd)
+		for i, r := range resources {
+			actionMap[r] = append(actionMap[r], action)
+			aliasMap[r] = resourceAlias[i]
+		}
+	}
+
+	for _, v := range actionMap {
+		sort.Strings(v)
+	}
+
+	cmd := &cobra.Command{
+		Use:   "api-resources",
+		Short: "View all API resources",
+		Run: func(cmd *cobra.Command, args []string) {
+			tables := [][]string{}
+			for resource, actions := range actionMap {
+				tables = append(tables, []string{resource, aliasMap[resource], strings.Join(actions, ",")})
+			}
+			sort.Slice(tables, func(i, j int) bool {
+				return tables[i][0] < tables[j][0]
+			})
+			tables = append([][]string{{"RESOURCE", "ALIAS", "ACTIONS"}}, tables...)
+			general.PrintTable(tables)
+		},
+	}
+	return cmd
+}
+
+func getApiResource(actionCmd *cobra.Command) (string, []string, []string) {
+	resources := []string{}
+	resourceAlias := []string{}
+	for _, cmd := range actionCmd.Commands() {
+		resources = append(resources, cmd.Name())
+		alias := cmd.Aliases
+		sort.Slice(alias, func(i, j int) bool {
+			return len(alias[i]) < len(alias[j])
+		})
+		resourceAlias = append(resourceAlias, strings.Join(alias, ","))
+	}
+	return actionCmd.Name(), resources, resourceAlias
 }

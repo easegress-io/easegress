@@ -105,7 +105,7 @@ func (s *Server) readObjectSpec(w http.ResponseWriter, r *http.Request) (*superv
 		return nil, fmt.Errorf("read body failed: %v", err)
 	}
 
-	spec, err := s.super.NewSpec(string(body))
+	spec, err := s.super.CreateSpec(string(body))
 	if err != nil {
 		return nil, err
 	}

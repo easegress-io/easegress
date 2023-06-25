@@ -70,6 +70,11 @@ func customDataKindApplyCmd() []*cobra.Command {
 }
 
 func describeCustomDataKinds() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe all custom data kinds", Command: "egctl describe customdatakind"},
+		{Desc: "Describe certain custom data kind", Command: "egctl describe customdatakind <custom-data-kind>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     CustomDataKindName,
 		Short:   "Describe one or many custom data kinds",
@@ -80,6 +85,7 @@ func describeCustomDataKinds() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetCustomDataKind(cmd, args)
 			if err != nil {
@@ -113,6 +119,11 @@ func httpGetCustomDataKind(cmd *cobra.Command, args []string) ([]byte, error) {
 }
 
 func getCustomDataKinds() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get all custom data kinds", Command: "egctl get customdatakind"},
+		{Desc: "Get certain custom data kind", Command: "egctl get customdatakind <custom-data-kind>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     CustomDataKindName,
 		Short:   "Display one or many custom data kinds",
@@ -123,6 +134,7 @@ func getCustomDataKinds() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetCustomDataKind(cmd, args)
 			if err != nil {
@@ -187,6 +199,7 @@ func createCustomDataKind() *cobra.Command {
 		Use:     CustomDataKindName,
 		Short:   "Create a custom data kind from a yaml file or stdin",
 		Aliases: CustomDataKindAlias(),
+		Example: createExample("Create a custom data kind from a yaml file", "egctl create -f <custom-data-kind>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
@@ -203,7 +216,6 @@ func createCustomDataKind() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file containing custom data kind spec")
-
 	return cmd
 }
 
@@ -218,6 +230,7 @@ func deleteCustomDataKind() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createExample("Delete a custom data kind", "egctl delete customdatakind <custom-data-kind>"),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindItemURL, args[0]), nil, cmd)
 			if err != nil {
@@ -257,6 +270,7 @@ func applyCustomDataKind() *cobra.Command {
 		Use:     CustomDataKindName,
 		Short:   "Apply a custom data kind from a yaml file or stdin",
 		Aliases: CustomDataKindAlias(),
+		Example: createExample("Apply a custom data kind from a yaml file", "egctl apply -f <custom-data-kind>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
@@ -354,6 +368,11 @@ func getCertainCustomDataKind(cmd *cobra.Command, kindName string) (*customdata.
 }
 
 func getCustomData() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get all custom data of certain kind", Command: "egctl get customdata <custom-data-kind>"},
+		{Desc: "Get a certain custom data of certain kind", Command: "egctl get customdata <custom-data-kind> <custom-data-id>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     CustomDataName,
 		Short:   "Display one or many custom data of given kind",
@@ -364,6 +383,7 @@ func getCustomData() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetCustomData(cmd, args)
 			if err != nil {
@@ -392,6 +412,11 @@ func getCustomData() *cobra.Command {
 }
 
 func describeCustomData() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe all custom data of certain kind", Command: "egctl describe customdata <custom-data-kind>"},
+		{Desc: "Describe a certain custom data of certain kind", Command: "egctl describe customdata <custom-data-kind> <custom-data-id>"},
+	}
+
 	cmd := &cobra.Command{
 		Use:     CustomDataName,
 		Short:   "Describe one or many custom data of given kind",
@@ -402,6 +427,7 @@ func describeCustomData() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			body, err := httpGetCustomData(cmd, args)
 			if err != nil {
@@ -462,6 +488,7 @@ func createCustomData() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createExample("Create a custom data from a yaml file", "egctl create customdata <custom-data-kind> -f <custom-data>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
@@ -492,6 +519,7 @@ func deleteCustomData() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createExample("Delete a custom data item", "egctl delete customdata <custom-data-kind> <custom-data-id>"),
 		Run: func(cmd *cobra.Command, args []string) {
 			_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, args[0], args[1]), nil, cmd)
 			if err != nil {
@@ -506,6 +534,11 @@ func deleteCustomData() *cobra.Command {
 }
 
 func applyCustomData() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Apply a custom data from a yaml file", Command: "egctl apply customdata <custom-data-kind> -f <custom-data>.yaml"},
+		{Desc: "Apply a batch update for custom data", Command: "egctl apply customdata <custom-data-kind> -f <custom-data>.yaml --batch-update"},
+	}
+
 	var specFile string
 	var batchUpdate bool
 
@@ -585,6 +618,7 @@ func applyCustomData() *cobra.Command {
 			}
 			return nil
 		},
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			if batchUpdate {
 				applyBatch(cmd, args)
