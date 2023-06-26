@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// GetCmd returns get command.
 func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",

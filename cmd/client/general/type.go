@@ -17,6 +17,7 @@
 
 package general
 
+// CmdType is the type of command.
 type CmdType string
 
 const (

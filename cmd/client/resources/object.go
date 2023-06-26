@@ -32,30 +32,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ObjectName is the resource name of object.
 const ObjectName = "object"
 
 func defaultObjectNameSpace() string {
 	return cluster.TrafficNamespace(cluster.NamespaceDefault)
 }
 
+// ObjectAlias is the alias of object.
 func ObjectAlias() []string {
 	return []string{"o", "obj", "objects"}
 }
 
+// ObjectKindName is the resource name of object kind.
 const ObjectKindName = "objectkind"
 
+// ObjectKindAlias is the alias of object kind.
 func ObjectKindAlias() []string {
 	return []string{"objectkinds", "ok"}
 }
 
+// ObjectTemplateName is object template name
 const ObjectTemplateName = "objecttemplate"
 
+// ObjectTemplateAlias is the alias of object template.
 func ObjectTemplateAlias() []string {
 	return []string{"objecttemplates", "ot"}
 }
 
+// ObjectStatusName is the resource name of object status.
 const ObjectStatusName = "objectstatus"
 
+// ObjectStatusAlias is the alias of object status.
 func ObjectStatusAlias() []string {
 	return []string{"os"}
 }

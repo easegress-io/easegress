@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ApplyCmd returns apply command.
 func ApplyCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",

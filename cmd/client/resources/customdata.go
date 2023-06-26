@@ -30,8 +30,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CustomDataKindName is the name of the custom data kind.
 const CustomDataKindName = "customdatakind"
 
+// CustomDataKindAlias is the alias of the custom data kind.
 func CustomDataKindAlias() []string {
 	return []string{"customdatakinds", "cdk"}
 }
@@ -301,8 +303,10 @@ func applyCustomDataKind() *cobra.Command {
 	return cmd
 }
 
+// CustomDataName is the name of custom data command
 const CustomDataName = "customdata"
 
+// CustomDataAlias is the alias of custom data command
 func CustomDataAlias() []string {
 	return []string{"customdatas", "cd"}
 }

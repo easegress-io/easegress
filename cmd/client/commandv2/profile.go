@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ProfileCmd returns profile command.
 func ProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",

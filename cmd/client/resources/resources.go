@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Resource is the interface of resource.
 type Resource func(cmdType general.CmdType) []*cobra.Command
 
 var allResource []Resource = []Resource{
@@ -32,6 +33,7 @@ var allResource []Resource = []Resource{
 	wasmDataCmd,
 }
 
+// AddTo adds all resources to cmd by given command type.
 func AddTo(cmd *cobra.Command, cmdType general.CmdType) {
 	for _, r := range allResource {
 		cmd.AddCommand(r(cmdType)...)

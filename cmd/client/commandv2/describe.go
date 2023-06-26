@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// DescribeCmd returns describe command.
 func DescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe",

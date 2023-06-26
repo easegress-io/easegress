@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// DeleteCmd returns delete command.
 func DeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",

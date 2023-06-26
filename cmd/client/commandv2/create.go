@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CreateCmd returns create command.
 func CreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",

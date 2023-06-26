@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CompletionCmd returns completion command to generate completion script for the specified shell (bash or zsh).
 func CompletionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "completion [bash|zsh]",
@@ -49,6 +50,7 @@ func CompletionCmd() *cobra.Command {
 	return cmd
 }
 
+// HealthCmd returns health command.
 func HealthCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "health",
@@ -70,6 +72,7 @@ func HealthCmd() *cobra.Command {
 	return cmd
 }
 
+// APIsCmd returns apis command.
 func APIsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "apis",
@@ -108,6 +111,7 @@ func APIsCmd() *cobra.Command {
 	return cmd
 }
 
+// APIResourcesCmd returns api-resources command.
 func APIResourcesCmd() *cobra.Command {
 	resourceCmds := []*cobra.Command{
 		GetCmd(),

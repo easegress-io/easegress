@@ -42,32 +42,51 @@ func (g *GlobalFlags) DefaultFormat() bool {
 var CmdGlobalFlags GlobalFlags
 
 const (
+	// ApiURL is the prefix of all API URLs.
 	ApiURL = "/apis/v2"
 
+	// HealthURL is the URL of health check.
 	HealthURL = ApiURL + "/healthz"
 
-	MembersURL    = ApiURL + "/status/members"
+	// MembersURL is the URL of members.
+	MembersURL = ApiURL + "/status/members"
+	// MemberItemURL is the URL of a member.
 	MemberItemURL = ApiURL + "/status/members/%s"
 
-	ObjectsURL        = ApiURL + "/objects"
-	ObjectItemURL     = ApiURL + "/objects/%s"
-	ObjectKindsURL    = ApiURL + "/object-kinds"
+	// ObjectsURL is the URL of objects.
+	ObjectsURL = ApiURL + "/objects"
+	// ObjectItemURL is the URL of a object.
+	ObjectItemURL = ApiURL + "/objects/%s"
+	// ObjectKindsURL is the URL of object kinds.
+	ObjectKindsURL = ApiURL + "/object-kinds"
+	// ObjectTemplateURL is the URL of object template.
 	ObjectTemplateURL = ApiURL + "/objects-yaml/%s/%s"
 
-	StatusObjectsURL    = ApiURL + "/status/objects"
+	// StatusObjectsURL is the URL of status objects.
+	StatusObjectsURL = ApiURL + "/status/objects"
+	// StatusObjectItemURL is the URL of a status object.
 	StatusObjectItemURL = ApiURL + "/status/objects/%s"
 
+	// WasmCodeURL is the URL of wasm code.
 	WasmCodeURL = ApiURL + "/wasm/code"
+	// WasmDataURL is the URL of wasm data.
 	WasmDataURL = ApiURL + "/wasm/data/%s/%s"
 
-	CustomDataKindURL     = ApiURL + "/customdatakinds"
+	// CustomDataKindURL is the URL of custom data kinds.
+	CustomDataKindURL = ApiURL + "/customdatakinds"
+	// CustomDataKindItemURL is the URL of a custom data kind.
 	CustomDataKindItemURL = ApiURL + "/customdatakinds/%s"
-	CustomDataURL         = ApiURL + "/customdata/%s"
-	CustomDataItemURL     = ApiURL + "/customdata/%s/%s"
+	// CustomDataURL is the URL of custom data.
+	CustomDataURL = ApiURL + "/customdata/%s"
+	// CustomDataItemURL is the URL of a custom data.
+	CustomDataItemURL = ApiURL + "/customdata/%s/%s"
 
-	ProfileURL      = ApiURL + "/profile"
+	// ProfileURL is the URL of profile.
+	ProfileURL = ApiURL + "/profile"
+	// ProfileStartURL is the URL of start profile.
 	ProfileStartURL = ApiURL + "/profile/start/%s"
-	ProfileStopURL  = ApiURL + "/profile/stop"
+	// ProfileStopURL is the URL of stop profile.
+	ProfileStopURL = ApiURL + "/profile/stop"
 
 	// HTTPProtocol is prefix for HTTP protocol
 	HTTPProtocol = "http://"

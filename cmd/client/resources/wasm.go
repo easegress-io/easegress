@@ -25,8 +25,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// WasmDataName is the name of the WasmData resource.
 const WasmDataName = "wasmdata"
 
+// WasmDataAlias is the alias of the WasmData resource.
 func WasmDataAlias() []string {
 	return []string{"wd", "wasmdatas"}
 }

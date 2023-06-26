@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// MakeURL is used to make url for given template.
 func MakeURL(urlTemplate string, a ...interface{}) string {
 	return CmdGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
 }
@@ -56,6 +57,7 @@ func HandleRequestV1(httpMethod string, url string, yamlBody []byte, cmd *cobra.
 	}
 }
 
+// PrintBody prints the response body in yaml or json format.
 func PrintBody(body []byte) {
 	if len(body) == 0 {
 		return
@@ -82,6 +84,7 @@ func PrintBody(body []byte) {
 	fmt.Printf("%s", output)
 }
 
+// HandleRequest used in cmd/client/resources. It will return the response body in yaml or json format.
 func HandleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) (body []byte, err error) {
 	var jsonBody []byte
 	if yamlBody != nil {
@@ -143,10 +146,12 @@ func NewTabWriter() *tabwriter.Writer {
 	return w
 }
 
+// PrintTable prints the table with empty prefix.
 func PrintTable(table [][]string) {
 	PrintTableWithPrefix(table, "")
 }
 
+// PrintTableWithPrefix prints the table with prefix.
 func PrintTableWithPrefix(table [][]string, prefix string) {
 	w := NewTabWriter()
 	defer w.Flush()
@@ -160,6 +165,7 @@ func PrintTableWithPrefix(table [][]string, prefix string) {
 	}
 }
 
+// Capitalize capitalizes the first letter of the string.
 func Capitalize(str string) string {
 	if len(str) == 0 {
 		return ""
@@ -167,6 +173,7 @@ func Capitalize(str string) string {
 	return strings.ToUpper(str[0:1]) + str[1:]
 }
 
+// DurationMostSignificantUnit returns the most significant unit of the duration.
 func DurationMostSignificantUnit(d time.Duration) string {
 	total := float64(d)
 
@@ -261,6 +268,7 @@ func PrintMapInterface(maps []map[string]interface{}, specials []string) {
 	}
 }
 
+// UnmarshalMapInterface unmarshals the body to []map[string]interface{}.
 func UnmarshalMapInterface(body []byte, listBody bool) ([]map[string]interface{}, error) {
 	if listBody {
 		mapInterfaces := []map[string]interface{}{}
@@ -272,11 +280,13 @@ func UnmarshalMapInterface(body []byte, listBody bool) ([]map[string]interface{}
 	return []map[string]interface{}{mapInterface}, err
 }
 
+// Example is used to create cobra example.
 type Example struct {
 	Desc    string
 	Command string
 }
 
+// CreateExample creates cobra example by using one line example.
 func CreateExample(desc, command string) string {
 	e := Example{
 		Desc:    desc,
@@ -285,7 +295,7 @@ func CreateExample(desc, command string) string {
 	return CreateMultiExample([]Example{e})
 }
 
-// CreateExample creates cobra example by using one line examples.
+// CreateMultiExample creates cobra example by using multiple examples.
 func CreateMultiExample(examples []Example) string {
 	output := ""
 	for i, e := range examples {
@@ -298,6 +308,7 @@ func CreateMultiExample(examples []Example) string {
 	return output
 }
 
+// GenerateExampleFromChild generates cobra example from child commands.
 func GenerateExampleFromChild(cmd *cobra.Command) {
 	if len(cmd.Commands()) == 0 {
 		return

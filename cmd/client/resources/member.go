@@ -31,8 +31,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// MemberName is the resource name of member.
 const MemberName = "member"
 
+// MemberAlias is the alias of member.
 func MemberAlias() []string {
 	return []string{"m", "mem", "members"}
 }
