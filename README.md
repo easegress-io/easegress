@@ -93,7 +93,7 @@ The architecture of Easegress:
   - **Compression:** compresses body for the response.
   - **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
-  - **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
+  - **Easy to Integrate:** command line([egctl](./doc/egctl-cheat-sheet.md)), MegaEase Portal, HTTP clients such as curl, postman, etc.
   - **Distributed Tracing**
     - Built-in [OpenTelemetry](https://opentelemetry.io/), which provides a vendor-neutral API.
   - **Observability**

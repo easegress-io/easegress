@@ -92,7 +92,7 @@
   - **压缩**：减少应答数据的体积。
   - **热更新**：线上更新 Easegress 的配置和二进制文件，服务不中断。
 - **操作**
-  - **易于集成**：命令行(`egctl`)、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
+  - **易于集成**：命令行([egctl](./doc/egctl-cheat-sheet.md))、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
   - **分布式跟踪**
     - 内置 [OpenTelemetry](https://opentelemetry.io/)，提供厂商中立的 API。
   - **可观察性**
