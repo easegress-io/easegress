@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -103,6 +104,9 @@ func describeCustomDataKinds() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("Display custom data kinds failed: %v", err)
 			}
+			// Output:
+			// Name: customdatakindxxx
+			// ...
 			general.PrintMapInterface(kinds, []string{"name"})
 		},
 	}
@@ -152,6 +156,10 @@ func getCustomDataKinds() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("Display custom data kinds failed: %v", err)
 			}
+
+			sort.Slice(kinds, func(i, j int) bool {
+				return kinds[i].Name < kinds[j].Name
+			})
 			printCustomDataKinds(kinds)
 		},
 	}
@@ -170,6 +178,9 @@ func unmarshalCustomDataKind(body []byte, listBody bool) ([]*customdata.KindWith
 }
 
 func printCustomDataKinds(kinds []*customdata.KindWithLen) {
+	// Output:
+	// NAME   ID-FIELD    JSON-SCHEMA    DATA-NUM
+	// xxx    - or name   yes/no         10
 	table := [][]string{}
 	table = append(table, []string{"NAME", "ID-FIELD", "JSON-SCHEMA", "DATA-NUM"})
 
@@ -272,7 +283,7 @@ func applyCustomDataKind() *cobra.Command {
 		Use:     CustomDataKindName,
 		Short:   "Apply a custom data kind from a yaml file or stdin",
 		Aliases: CustomDataKindAlias(),
-		Example: createExample("Apply a custom data kind from a yaml file", "egctl apply -f <custom-data-kind>.yaml"),
+		Example: createExample("Apply a custom data kind from a yaml file", "egctl apply customdatakind -f <custom-data-kind>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {

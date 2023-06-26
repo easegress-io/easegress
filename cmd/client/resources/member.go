@@ -248,6 +248,8 @@ func newMember(ms *cluster.MemberStatus) *member {
 }
 
 func printMemberStatusTable(memberStatus []*cluster.MemberStatus) {
+	// Output table:
+	// NAME  ROLE  AGE  STATE  API-ADDR  HEARTBEAT
 	table := [][]string{}
 	table = append(table, []string{"NAME", "ROLE", "AGE", "STATE", "API-ADDR", "HEARTBEAT"})
 	for _, ms := range memberStatus {

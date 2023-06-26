@@ -28,7 +28,7 @@ import (
 func MemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "member",
-		Short: "View Easegress members",
+		Short: "(Deprecated) View Easegress members",
 	}
 
 	cmd.AddCommand(listMemberCmd())

@@ -163,6 +163,10 @@ func getObject() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("Display objects failed: %v", err)
 			}
+
+			sort.Slice(metas, func(i, j int) bool {
+				return metas[i].Name < metas[j].Name
+			})
 			printMetaSpec(metas)
 		},
 	}
@@ -192,6 +196,8 @@ func getObjectKinds() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("Display object kinds failed: %v", err)
 			}
+
+			sort.Strings(kinds)
 			printObjectKinds(kinds)
 		},
 	}
@@ -218,6 +224,9 @@ func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
 }
 
 func printMetaSpec(metas []*supervisor.MetaSpec) {
+	// Output:
+	// NAME  KIND  AGE
+	// ...
 	table := [][]string{}
 	table = append(table, []string{"NAME", "KIND", "AGE"})
 	for _, meta := range metas {
@@ -267,6 +276,24 @@ func describeObject() *cobra.Command {
 				general.ExitWithErrorf("Display objects failed: %v", err)
 			}
 			specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
+			// Ouput:
+			// Name: pipeline-demo
+			// Kind: Pipeline
+			// Version: xxx
+			//
+			// Flow:
+			// =====
+			//   ...
+			//
+			// Filters:
+			// ========
+			//   ...
+			//
+			// Rules:
+			// ======
+			//   ...
+			//
+			// ... (other fields)
 			general.PrintMapInterface(specs, specials)
 		},
 	}
@@ -499,9 +526,17 @@ func getObjectStatus() *cobra.Command {
 				general.ExitWithError(err)
 			}
 
+			sort.Slice(infos, func(i, j int) bool {
+				if infos[i].name != infos[j].name {
+					return infos[i].name < infos[j].name
+				}
+				return infos[i].node < infos[j].node
+			})
+
 			table := [][]string{}
 			table = append(table, []string{"NAME", "NODE", "STATUS"})
 			for _, info := range infos {
+				// only object like HTTPServer, Pipeline have status.
 				status := "valid"
 				if info.status == nil {
 					status = "empty"
@@ -527,6 +562,7 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 		if err != nil {
 			return nil, err
 		}
+		// only show objects in default namespace, objects in other namespaces is not created by user.
 		if info.namespace != defaultObjectNameSpace() {
 			continue
 		}
@@ -546,13 +582,6 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 		info.status = status.Status
 		res = append(res, info)
 	}
-
-	sort.Slice(res, func(i, j int) bool {
-		if res[i].name != res[j].name {
-			return res[i].name < res[j].name
-		}
-		return res[i].node < res[j].node
-	})
 	return res, nil
 }
 
@@ -600,6 +629,11 @@ func describeObjectStatus() *cobra.Command {
 				general.ExitWithError(err)
 			}
 
+			// Output:
+			// Name: xxx
+			// Node: eg1
+			//
+			// ... (fields in status)
 			results := []map[string]interface{}{}
 			for _, info := range infos {
 				result := map[string]interface{}{}

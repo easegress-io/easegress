@@ -28,7 +28,7 @@ import (
 func CustomDataKindCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "custom-data-kind",
-		Short: "View and change custom data kind",
+		Short: "(Deprecated) View and change custom data kind",
 	}
 
 	cmd.AddCommand(listCustomDataKindCmd())
@@ -140,7 +140,7 @@ func deleteCustomDataKindCmd() *cobra.Command {
 func CustomDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "custom-data",
-		Short: "View and change custom data",
+		Short: "(Deprecated) View and change custom data",
 	}
 
 	cmd.AddCommand(listCustomDataCmd())

@@ -30,7 +30,7 @@ func ObjectCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "object",
 		Aliases: []string{"o", "obj"},
-		Short:   "View and change objects",
+		Short:   "(Deprecated) View and change objects",
 	}
 
 	cmd.AddCommand(objectKindsCmd())

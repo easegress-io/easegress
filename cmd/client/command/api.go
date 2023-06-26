@@ -27,7 +27,7 @@ import (
 func APICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api",
-		Short: "View Easegress APIs",
+		Short: "(Deprecated) View Easegress APIs",
 	}
 
 	cmd.AddCommand(listAPICmd())

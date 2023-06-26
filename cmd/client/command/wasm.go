@@ -28,7 +28,7 @@ import (
 func WasmCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wasm",
-		Short: "Manage WebAssembly code and data",
+		Short: "(Deprecated) Manage WebAssembly code and data",
 	}
 
 	cmd.AddCommand(wasmReloadCodeCmd())

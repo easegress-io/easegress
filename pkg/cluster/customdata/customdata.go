@@ -173,8 +173,11 @@ func (s *Store) DeleteKind(name string) error {
 		return fmt.Errorf("%s not found", name)
 	}
 
+	if err := s.DeleteAllData(kind.Name); err != nil {
+		return err
+	}
+
 	return s.cluster.Delete(s.kindKey(name))
-	// TODO: remove custom data?
 }
 
 func (s *Store) dataPrefix(kind string) string {
