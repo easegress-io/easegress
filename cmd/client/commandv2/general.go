@@ -62,7 +62,7 @@ func HealthCmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody([]byte("{msg: OK}"))
+				general.PrintBody([]byte(`{"message": "OK"}`))
 				return
 			}
 			fmt.Println("OK")
