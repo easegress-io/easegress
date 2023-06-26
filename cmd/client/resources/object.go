@@ -21,15 +21,22 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 
 const ObjectName = "object"
+
+func defaultObjectNameSpace() string {
+	return cluster.TrafficNamespace(cluster.NamespaceDefault)
+}
 
 func ObjectAlias() []string {
 	return []string{"o", "obj", "objects"}
@@ -45,6 +52,12 @@ const ObjectTemplateName = "objecttemplate"
 
 func ObjectTemplateAlias() []string {
 	return []string{"objecttemplates", "ot"}
+}
+
+const ObjectStatusName = "objectstatus"
+
+func ObjectStatusAlias() []string {
+	return []string{"os"}
 }
 
 func objectCmd(cmdType general.CmdType) []*cobra.Command {
@@ -65,7 +78,7 @@ func objectCmd(cmdType general.CmdType) []*cobra.Command {
 }
 
 func objectGetCmd() []*cobra.Command {
-	return []*cobra.Command{getObject(), getObjectKinds(), getObjectTemplate()}
+	return []*cobra.Command{getObject(), getObjectKinds(), getObjectTemplate(), getObjectStatus()}
 }
 
 // getObjectTemplate returns the object template for given object kind and name in yaml format.
@@ -215,7 +228,7 @@ func printObjectKinds(kinds []string) {
 }
 
 func objectDescribeCmd() []*cobra.Command {
-	return []*cobra.Command{describeObject()}
+	return []*cobra.Command{describeObject(), describeObjectStatus()}
 }
 
 func describeObject() *cobra.Command {
@@ -400,5 +413,199 @@ func applyObject() *cobra.Command {
 
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
 
+	return cmd
+}
+
+type objectStatusInfo struct {
+	namespace string
+	name      string
+	node      string
+	spec      map[string]interface{}
+	status    map[string]interface{}
+}
+
+func splitObjectStatusKey(key string) (*objectStatusInfo, error) {
+	s := strings.Split(key, "/")
+	if len(s) != 3 {
+		return nil, errors.New("invalid status key")
+	}
+	return &objectStatusInfo{
+		namespace: s[0],
+		name:      s[1],
+		node:      s[2],
+	}, nil
+}
+
+type ObjectStatus struct {
+	Spec   map[string]interface{} `json:"spec"`
+	Status map[string]interface{} `json:"status"`
+}
+
+func unmarshalObjectStatus(data []byte) (ObjectStatus, error) {
+	var status ObjectStatus
+	err := codectool.Unmarshal(data, &status)
+	return status, err
+}
+
+func getObjectStatus() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get the status of all object", Command: "egctl get objectstatus"},
+		{Desc: "Get the status of an object", Command: "egctl get objectstatus <object-name>"},
+	}
+
+	getUrl := func(args []string) string {
+		if len(args) == 0 {
+			return makeURL(general.StatusObjectsURL)
+		}
+		return makeURL(general.StatusObjectItemURL, args[0])
+	}
+
+	cmd := &cobra.Command{
+		Use:     ObjectStatusName,
+		Aliases: ObjectStatusAlias(),
+		Short:   "Get the status of an object or all objects",
+		Example: createMultiExample(examples),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return errors.New("at most one object name can be specified")
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := handleReq(http.MethodGet, getUrl(args), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			var infos []*objectStatusInfo
+			if len(args) == 1 {
+				infos, err = unmarshalObjectStatusInfo(body, args[0])
+			} else {
+				infos, err = unmarshalObjectStatusInfo(body, "")
+			}
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			table := [][]string{}
+			table = append(table, []string{"NAME", "NAMESPACE", "NODE", "STATUS"})
+			for _, info := range infos {
+				status := "valid"
+				if info.status == nil {
+					status = "empty"
+				}
+				table = append(table, []string{info.name, info.namespace, info.node, status})
+			}
+			general.PrintTable(table)
+		},
+	}
+	return cmd
+}
+
+func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, error) {
+	kvs := map[string]interface{}{}
+	err := codectool.Unmarshal(body, &kvs)
+	if err != nil {
+		return nil, err
+	}
+
+	res := []*objectStatusInfo{}
+	for k, v := range kvs {
+		info, err := splitObjectStatusKey(k)
+		if err != nil {
+			return nil, err
+		}
+		if info.namespace != defaultObjectNameSpace() {
+			continue
+		}
+		if name != "" && info.name != name {
+			continue
+		}
+
+		statusByte, err := codectool.MarshalJSON(v)
+		if err != nil {
+			return nil, err
+		}
+		status, err := unmarshalObjectStatus(statusByte)
+		if err != nil {
+			return nil, err
+		}
+		info.spec = status.Spec
+		info.status = status.Status
+		res = append(res, info)
+	}
+
+	sort.Slice(res, func(i, j int) bool {
+		if res[i].name != res[j].name {
+			return res[i].name < res[j].name
+		}
+		return res[i].node < res[j].node
+	})
+	return res, nil
+}
+
+func describeObjectStatus() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe the status of all object", Command: "egctl describe objectstatus"},
+		{Desc: "Describe the status of an object", Command: "egctl describe objectstatus <object-name>"},
+	}
+
+	getUrl := func(args []string) string {
+		if len(args) == 0 {
+			return makeURL(general.StatusObjectsURL)
+		}
+		return makeURL(general.StatusObjectItemURL, args[0])
+	}
+
+	cmd := &cobra.Command{
+		Use:     ObjectStatusName,
+		Aliases: ObjectStatusAlias(),
+		Short:   "Describe the status of an object or all objects",
+		Example: createMultiExample(examples),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 1 {
+				return errors.New("at most one object name can be specified")
+			}
+			return nil
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := handleReq(http.MethodGet, getUrl(args), nil, cmd)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			var infos []*objectStatusInfo
+			if len(args) == 1 {
+				infos, err = unmarshalObjectStatusInfo(body, args[0])
+			} else {
+				infos, err = unmarshalObjectStatusInfo(body, "")
+			}
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			results := []map[string]interface{}{}
+			for _, info := range infos {
+				result := map[string]interface{}{}
+				result["objectName"] = info.name
+				result["namespace"] = info.namespace
+				result["nodeName"] = info.node
+				for k, v := range info.status {
+					result[k] = v
+				}
+				results = append(results, result)
+			}
+			specials := []string{"objectName", "namespace", "nodeName", ""}
+			general.PrintMapInterface(results, specials)
+		},
+	}
 	return cmd
 }

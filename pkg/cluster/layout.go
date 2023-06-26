@@ -31,18 +31,19 @@ const (
 	NamespaceSystemPrefix  = "eg-"
 	NamespacetrafficPrefix = "eg-traffic-"
 
-	leaseFormat          = "/leases/%s" //+memberName
-	statusMemberPrefix   = "/status/members/"
-	statusMemberFormat   = "/status/members/%s" // +memberName
-	statusObjectPrefix   = "/status/objects/"
-	statusObjectFormat   = "/status/objects/%s/%s/%s" // +namespace +objectName +memberName
-	configObjectPrefix   = "/config/objects/"
-	configObjectFormat   = "/config/objects/%s" // +objectName
-	configVersion        = "/config/version"
-	wasmCodeEvent        = "/wasm/code"
-	wasmDataPrefixFormat = "/wasm/data/%s/%s/" // + pipelineName + filterName
-	customDataKindPrefix = "/custom-data-kinds/"
-	customDataPrefix     = "/custom-data/"
+	leaseFormat               = "/leases/%s" //+memberName
+	statusMemberPrefix        = "/status/members/"
+	statusMemberFormat        = "/status/members/%s" // +memberName
+	statusObjectPrefix        = "/status/objects/"
+	statusObjectFormat        = "/status/objects/%s/%s/%s" // +namespace +objectName +memberName
+	statusObjectAllNodePrefix = "/status/objects/%s/%s"    // +namespace +objectName
+	configObjectPrefix        = "/config/objects/"
+	configObjectFormat        = "/config/objects/%s" // +objectName
+	configVersion             = "/config/version"
+	wasmCodeEvent             = "/wasm/code"
+	wasmDataPrefixFormat      = "/wasm/data/%s/%s/" // + pipelineName + filterName
+	customDataKindPrefix      = "/custom-data-kinds/"
+	customDataPrefix          = "/custom-data/"
 
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
@@ -115,6 +116,11 @@ func (l *Layout) StatusObjectsPrefix() string {
 // StatusObjectKey returns the key of object status.
 func (l *Layout) StatusObjectKey(namespace, name string) string {
 	return fmt.Sprintf(statusObjectFormat, namespace, name, l.memberName)
+}
+
+// StatusObjectPrefix returns the prefix of object status that for all easegress nodes.
+func (l *Layout) StatusObjectPrefix(namespace, name string) string {
+	return fmt.Sprintf(statusObjectAllNodePrefix, namespace, name)
 }
 
 // ConfigObjectPrefix returns the prefix of object config.
