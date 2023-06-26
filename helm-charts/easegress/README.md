@@ -42,7 +42,7 @@ helm install easegress -n easegress ./helm-charts/easegress \
 Add filters and objects to Easegress:
 
 ```shell
-egctl --server {NODE_IP}:31255 object create -f pipeline.yaml
+egctl --server {NODE_IP}:31255 create object -f pipeline.yaml
 ```
 where NODE_IP is the IP address a node running Easegress pod and `pipeline.yaml` Easegress object definition.
 

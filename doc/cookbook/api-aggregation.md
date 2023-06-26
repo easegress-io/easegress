@@ -70,7 +70,7 @@ filters:
     statusCode: 200
     body: |
       [{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]
-'  | egctl object create
+'  | egctl create object
 ```
 
 2. Creating an HTTPServer for forwarding the traffic to this pipeline.
@@ -85,7 +85,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /api
-      backend: pipeline-api '  | egctl object create
+      backend: pipeline-api '  | egctl create object
 
 ```
 
@@ -150,7 +150,7 @@ filters:
     statusCode: 200
     body: |
       {{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}
-'  | egctl object update
+'  | egctl apply object
 ```
 
 2. Send a request to the pipeline
@@ -220,7 +220,7 @@ filters:
           {{if not $first}},{{end}}{{$resp.Body}}{{$first = false -}}
         {{- end}}
       {{- end}}]
-'  | egctl object update
+'  | egctl apply object
 ```
 
 2. Stop service `demo1` and send a request to the pipeline

@@ -13,5 +13,5 @@ for CONFIG_FILE in ${CONFIG_PATH}/*.yaml
 do
 	OBJECT_NAME=`echo ${CONFIG_FILE} | sed -e "s%^${CONFIG_PATH}/%%" -e "s%\.yaml$%%"`
 	echo "delete object: ${OBJECT_NAME}"
-	$SCRIPTPATH/primary-001/egctl.sh object delete ${OBJECT_NAME}
+	$SCRIPTPATH/primary-001/egctl.sh delete object ${OBJECT_NAME}
 done

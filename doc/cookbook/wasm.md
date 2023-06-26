@@ -112,7 +112,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 	rules:
 	- paths:
 	  - pathPrefix: /pipeline
-	    backend: wasm-pipeline' | egctl object create
+	    backend: wasm-pipeline' | egctl create object
 	```
 
 9. Create pipeline `wasm-pipeline` which includes a `WasmHost` filter:
@@ -137,7 +137,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 	  - servers:
 	    - url: http://127.0.0.1:9095
 	    loadBalance:
-	      policy: roundRobin' | egctl object create
+	      policy: roundRobin' | egctl create object
 	```
 
 	Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7.
@@ -188,7 +188,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -245,7 +245,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -285,7 +285,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -332,14 +332,14 @@ filters:
 	kind: WasmHost
 	maxConcurrency: 2
 	code: /home/megaease/example/build/optimized.wasm
-	timeout: 100ms' | egctl object update wasm-pipeline
+	timeout: 100ms' | egctl apply object wasm-pipeline
 ```
 
 Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 I have a new body now
 ```
@@ -373,7 +373,7 @@ Suppose we are using the same pipeline configuration as in [Mock Response](#mock
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline
 number of requests is 1
 $ curl http://127.0.0.1:10080/pipeline
@@ -385,7 +385,7 @@ number of requests is 3
 We can view the shared data with:
 
 ```bash
-$ egctl wasm list-data wasm-pipeline wasm
+$ egctl get wasmdata wasm-pipeline wasm
 counter: "3"
 ```
 
@@ -394,7 +394,7 @@ where `wasm-pipeline` is the pipeline name and `wasm` is the filter name.
 The shared data can be modified with:
 
 ```bash
-$ echo 'counter: 100' | egctl wasm apply-data wasm-pipeline wasm
+$ echo 'counter: 100' | egctl apply wasmdata wasm-pipeline wasm
 $ curl http://127.0.0.1:10080/pipeline
 number of requests is 101
 ```
@@ -402,7 +402,7 @@ number of requests is 101
 And can be deleted with:
 
 ```bash
-$ egctl wasm delete-data wasm-pipeline wasm
+$ egctl delete wasmdata wasm-pipeline wasm
 ```
 
 ### Return a Result Other Than 0
@@ -439,7 +439,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl apply wasmdata --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress' -HAuthorization:abc
 Your Request

@@ -96,13 +96,14 @@ easegress-server \
 Now you can list cluster members
 
 ```bash
-egctl --server $HOST1:2381 member list | grep " Name"
+egctl --server $HOST1:2381 get member 
 ```
-should print 
+should print something like
 ```bash
-    Name: machine-1
-    Name: machine-2
-    Name: machine-3
+NAME              ROLE            AGE     STATE     API-ADDR     HEARTBEAT
+machine-1         primary         10m     Leader    $HOST1:2381  3s ago
+machine-2         primary         10m     Follower  $HOST2:2381  4s ago
+machine-3         primary         10m     Follower  $HOST3:2381  2s ago
 ```
 
 ###  Add New Member
@@ -122,14 +123,15 @@ Here `primary-listen-peer-urls` tell, where to find a *primary* cluster members 
 
 We can now see also the 4th instance:
 ```bash
-egctl --server $HOST1:2381 member list | grep " Name"
+egctl --server $HOST1:2381 get member 
 ```
 prints to output:
 ```bash
-    Name: machine-1
-    Name: machine-2
-    Name: machine-3
-    Name: machine-4
+NAME              ROLE            AGE     STATE     API-ADDR     HEARTBEAT
+machine-1         primary         10m     Leader    $HOST1:2381  3s ago
+machine-2         primary         10m     Follower  $HOST2:2381  4s ago
+machine-3         primary         10m     Follower  $HOST3:2381  2s ago
+machine-4         secondary       2m      ""        $HOST1:2381  3s ago
 ```
 Congratulations, you now have your Easegress instances running! You can now start applying resources to Easegress, like [pipeline](./pipeline.md) or [workflow](./workflow.md) for example.
 
