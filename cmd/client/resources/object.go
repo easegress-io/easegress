@@ -492,13 +492,13 @@ func getObjectStatus() *cobra.Command {
 			}
 
 			table := [][]string{}
-			table = append(table, []string{"NAME", "NAMESPACE", "NODE", "STATUS"})
+			table = append(table, []string{"NAME", "NODE", "STATUS"})
 			for _, info := range infos {
 				status := "valid"
 				if info.status == nil {
 					status = "empty"
 				}
-				table = append(table, []string{info.name, info.namespace, info.node, status})
+				table = append(table, []string{info.name, info.node, status})
 			}
 			general.PrintTable(table)
 		},
@@ -595,15 +595,14 @@ func describeObjectStatus() *cobra.Command {
 			results := []map[string]interface{}{}
 			for _, info := range infos {
 				result := map[string]interface{}{}
-				result["objectName"] = info.name
-				result["namespace"] = info.namespace
-				result["nodeName"] = info.node
+				result["name"] = info.name
+				result["node"] = info.node
 				for k, v := range info.status {
 					result[k] = v
 				}
 				results = append(results, result)
 			}
-			specials := []string{"objectName", "namespace", "nodeName", ""}
+			specials := []string{"name", "node", ""}
 			general.PrintMapInterface(results, specials)
 		},
 	}
