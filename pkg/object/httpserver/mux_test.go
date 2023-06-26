@@ -28,6 +28,7 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/pkg/util/stringtool"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
@@ -650,5 +651,7 @@ func TestPrintHeader(t *testing.T) {
 	h.Set("b", "2")
 	s := printHeader(h)
 
-	assert.Equal(t, "A: [1], B: [2]", s)
+	if !stringtool.StrInSlice(s, []string{"A: [1], B: [2]", "B: [2], A: [1]"}) {
+		t.Errorf("unexpected header: %s", s)
+	}
 }
