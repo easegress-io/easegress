@@ -42,6 +42,8 @@ const (
 
 	// StatusObjectPrefix is the prefix of object status.
 	StatusObjectPrefix = "/status/objects"
+
+	ObjectApiResourcesPrefix = "/object-api-resources"
 )
 
 func (s *Server) objectAPIEntries() []*Entry {
@@ -50,6 +52,11 @@ func (s *Server) objectAPIEntries() []*Entry {
 			Path:    ObjectKindsPrefix,
 			Method:  "GET",
 			Handler: s.listObjectKinds,
+		},
+		{
+			Path:    ObjectApiResourcesPrefix,
+			Method:  "GET",
+			Handler: s.listObjectApiResources,
 		},
 		{
 			Path:    ObjectPrefix,
@@ -321,4 +328,9 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	kinds := supervisor.ObjectKinds()
 
 	WriteBody(w, r, kinds)
+}
+
+func (s *Server) listObjectApiResources(w http.ResponseWriter, r *http.Request) {
+	res := ObjectApiResources()
+	WriteBody(w, r, res)
 }

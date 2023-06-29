@@ -61,6 +61,8 @@ const (
 	ObjectKindsURL = ApiURL + "/object-kinds"
 	// ObjectTemplateURL is the URL of object template.
 	ObjectTemplateURL = ApiURL + "/objects-yaml/%s/%s"
+	// ObjectApiResources is the URL of object api resources.
+	ObjectApiResources = ApiURL + "/object-api-resources"
 
 	// StatusObjectsURL is the URL of status objects.
 	StatusObjectsURL = ApiURL + "/status/objects"

@@ -26,10 +26,21 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
+
+const MemberKind = "Member"
+
+func Member() *api.ApiResource {
+	return &api.ApiResource{
+		Kind:    MemberKind,
+		Name:    "member",
+		Aliases: []string{"m", "mem", "members"},
+	}
+}
 
 // MemberName is the resource name of member.
 const MemberName = "member"
@@ -41,8 +52,6 @@ func MemberAlias() []string {
 
 func memberCmd(cmdType general.CmdType) []*cobra.Command {
 	switch cmdType {
-	case general.GetCmd:
-		return memberGetCmd()
 	case general.DescribeCmd:
 		return memberDescribeCmd()
 	case general.DeleteCmd:
@@ -70,7 +79,7 @@ func memberDescribeCmd() []*cobra.Command {
 		},
 		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil, cmd)
+			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
 			if err != nil {
 				general.ExitWithErrorf("get members failed: %v", err)
 			}
@@ -142,7 +151,7 @@ func memberDeleteCmd() []*cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, args[0]), nil, cmd)
+			_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, args[0]), nil)
 			if err != nil {
 				general.ExitWithErrorf("purge member failed: %v", err)
 			}
@@ -152,54 +161,42 @@ func memberDeleteCmd() []*cobra.Command {
 	return []*cobra.Command{cmd}
 }
 
-func memberGetCmd() []*cobra.Command {
-	examples := []general.Example{
-		{Desc: "Get all members", Command: "egctl get member"},
-		{Desc: "Get one member", Command: "egctl get member <member-name>"},
+func GetMember(cmd *cobra.Command, args *general.ArgInfo) (err error) {
+	msg := "all " + MemberKind
+	if args.ContainName() {
+		msg = fmt.Sprintf("%s %s", MemberKind, args.Name)
+	}
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	cmd := &cobra.Command{
-		Use:     MemberName,
-		Short:   "Display one or many members",
-		Aliases: MemberAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("requires at most one arg for member name")
-			}
+	body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
+	if err != nil {
+		return getErr(err)
+	}
+
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		general.PrintBody(body)
+		return nil
+	}
+
+	members := []*cluster.MemberStatus{}
+	err = codectool.Unmarshal(body, &members)
+	if err != nil {
+		return getErr(err)
+	}
+	if !args.ContainName() {
+		printMemberStatusTable(members)
+		return nil
+	}
+
+	for _, member := range members {
+		if member.Options.Name == args.Name {
+			printMemberStatusTable([]*cluster.MemberStatus{member})
 			return nil
-		},
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil, cmd)
-			if err != nil {
-				general.ExitWithErrorf("get members failed: %v", err)
-			}
-
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			members := []*cluster.MemberStatus{}
-			err = codectool.Unmarshal(body, &members)
-			if err != nil {
-				general.ExitWithErrorf("get members failed: %v", err)
-			}
-			if len(args) == 0 {
-				printMemberStatusTable(members)
-				return
-			}
-
-			for _, member := range members {
-				if member.Options.Name == args[0] {
-					printMemberStatusTable([]*cluster.MemberStatus{member})
-					return
-				}
-			}
-			general.ExitWithErrorf("member %s not found", args[0])
-		},
+		}
 	}
-	return []*cobra.Command{cmd}
+	return getErr(fmt.Errorf("member %s not found", args.Name))
 }
 
 type member struct {

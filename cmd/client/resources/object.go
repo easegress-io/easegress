@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
@@ -34,6 +35,20 @@ import (
 
 // ObjectName is the resource name of object.
 const ObjectName = "object"
+
+func ObjectApiResources() ([]*api.ApiResource, error) {
+	url := makeURL(general.ObjectApiResources)
+	body, err := handleReq(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	res := []*api.ApiResource{}
+	err = codectool.Unmarshal(body, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
 
 func defaultObjectNameSpace() string {
 	return cluster.TrafficNamespace(cluster.NamespaceDefault)
@@ -70,23 +85,13 @@ func ObjectStatusAlias() []string {
 
 func objectCmd(cmdType general.CmdType) []*cobra.Command {
 	switch cmdType {
-	case general.GetCmd:
-		return objectGetCmd()
 	case general.DescribeCmd:
 		return objectDescribeCmd()
-	case general.CreateCmd:
-		return objectCreateCmd()
 	case general.DeleteCmd:
 		return objectDeleteCmd()
-	case general.ApplyCmd:
-		return objectApplyCmd()
 	default:
 		return nil
 	}
-}
-
-func objectGetCmd() []*cobra.Command {
-	return []*cobra.Command{getObject(), getObjectKinds(), getObjectTemplate(), getObjectStatus()}
 }
 
 // getObjectTemplate returns the object template for given object kind and name in yaml format.
@@ -100,7 +105,7 @@ func getObjectTemplate() *cobra.Command {
 		Example: createExample("Get object template for given object kind and name", "egctl get objecttemplate <object-kind> <object-name>"),
 		Run: func(cmd *cobra.Command, args []string) {
 			url := makeURL(general.ObjectTemplateURL, args[0], args[1])
-			body, err := handleReq(http.MethodGet, url, nil, cmd)
+			body, err := handleReq(http.MethodGet, url, nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -126,82 +131,90 @@ func httpGetObjectArgs(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func httpGetObject(cmd *cobra.Command, args []string) ([]byte, error) {
-	url := func(args []string) string {
-		if len(args) == 0 {
+func httpGetObject(cmd *cobra.Command, name string) ([]byte, error) {
+	url := func(name string) string {
+		if len(name) == 0 {
 			return makeURL(general.ObjectsURL)
 		}
-		return makeURL(general.ObjectItemURL, args[0])
-	}(args)
-	return handleReq(http.MethodGet, url, nil, cmd)
+		return makeURL(general.ObjectItemURL, name)
+	}(name)
+	return handleReq(http.MethodGet, url, nil)
 }
 
-func getObject() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Get all objects", Command: "egctl get object"},
-		{Desc: "Get one object", Command: "egctl get object <object-name>"},
+func GetAllObject(cmd *cobra.Command) error {
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.GetCmd, err, "resource")
 	}
 
-	cmd := &cobra.Command{
-		Use:     ObjectName,
-		Short:   "Display one or many objects",
-		Aliases: ObjectAlias(),
-		Args:    httpGetObjectArgs,
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := httpGetObject(cmd, args)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			metas, err := unmarshalMetaSpec(body, len(args) == 0)
-			if err != nil {
-				general.ExitWithErrorf("Display objects failed: %v", err)
-			}
-
-			sort.Slice(metas, func(i, j int) bool {
-				return metas[i].Name < metas[j].Name
-			})
-			printMetaSpec(metas)
-		},
+	body, err := httpGetObject(cmd, "")
+	if err != nil {
+		return getErr(err)
 	}
-	return cmd
+
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		general.PrintBody(body)
+		return nil
+	}
+
+	metas, err := unmarshalMetaSpec(body, true)
+	if err != nil {
+		return getErr(err)
+	}
+	sort.Slice(metas, func(i, j int) bool {
+		return metas[i].Name < metas[j].Name
+	})
+	printMetaSpec(metas)
+	return nil
 }
 
-func getObjectKinds() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     ObjectKindName,
-		Short:   "Display available object kinds",
-		Aliases: ObjectKindAlias(),
-		Args:    cobra.ExactArgs(0),
-		Example: createExample("Display available object kinds", "egctl get objectkind"),
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.ObjectKindsURL), nil, cmd)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			kinds := []string{}
-			err = codectool.Unmarshal(body, &kinds)
-			if err != nil {
-				general.ExitWithErrorf("Display object kinds failed: %v", err)
-			}
-
-			sort.Strings(kinds)
-			printObjectKinds(kinds)
-		},
+func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
+	msg := fmt.Sprintf("all %s", kind)
+	if args.ContainName() {
+		msg = fmt.Sprintf("%s %s", kind, args.Name)
 	}
-	return cmd
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.GetCmd, err, msg)
+	}
+
+	body, err := httpGetObject(cmd, args.Name)
+	if err != nil {
+		return getErr(err)
+	}
+
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		if args.ContainName() {
+			general.PrintBody(body)
+			return nil
+		}
+
+		maps, err := general.UnmarshalMapInterface(body, true)
+		if err != nil {
+			return getErr(err)
+		}
+		maps = general.Filter(maps, func(m map[string]interface{}) bool {
+			return m["kind"] == kind
+		})
+		newBody, err := codectool.MarshalJSON(maps)
+		if err != nil {
+			return getErr(err)
+		}
+		general.PrintBody(newBody)
+		return nil
+	}
+
+	metas, err := unmarshalMetaSpec(body, !args.ContainName())
+	if err != nil {
+		return getErr(err)
+	}
+	metas = general.Filter(metas, func(m *supervisor.MetaSpec) bool {
+		return m.Kind == kind
+	})
+
+	sort.Slice(metas, func(i, j int) bool {
+		return metas[i].Name < metas[j].Name
+	})
+	printMetaSpec(metas)
+	return nil
 }
 
 func unmarshalMetaSpec(body []byte, listBody bool) ([]*supervisor.MetaSpec, error) {
@@ -261,73 +274,52 @@ func describeObject() *cobra.Command {
 		Args:    httpGetObjectArgs,
 		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := httpGetObject(cmd, args)
-			if err != nil {
-				general.ExitWithError(err)
-			}
+			// body, err := httpGetObject(cmd, )
+			// if err != nil {
+			// 	general.ExitWithError(err)
+			// }
 
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
+			// if !general.CmdGlobalFlags.DefaultFormat() {
+			// 	general.PrintBody(body)
+			// 	return
+			// }
 
-			specs, err := general.UnmarshalMapInterface(body, len(args) == 0)
-			if err != nil {
-				general.ExitWithErrorf("Display objects failed: %v", err)
-			}
-			specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
-			// Ouput:
-			// Name: pipeline-demo
-			// Kind: Pipeline
-			// Version: xxx
-			//
-			// Flow:
-			// =====
-			//   ...
-			//
-			// Filters:
-			// ========
-			//   ...
-			//
-			// Rules:
-			// ======
-			//   ...
-			//
-			// ... (other fields)
-			general.PrintMapInterface(specs, specials)
+			// specs, err := general.UnmarshalMapInterface(body, len(args) == 0)
+			// if err != nil {
+			// 	general.ExitWithErrorf("Display objects failed: %v", err)
+			// }
+			// specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
+			// // Ouput:
+			// // Name: pipeline-demo
+			// // Kind: Pipeline
+			// // Version: xxx
+			// //
+			// // Flow:
+			// // =====
+			// //   ...
+			// //
+			// // Filters:
+			// // ========
+			// //   ...
+			// //
+			// // Rules:
+			// // ======
+			// //   ...
+			// //
+			// // ... (other fields)
+			// general.PrintMapInterface(specs, specials)
 		},
 	}
 	return cmd
 }
 
-func objectCreateCmd() []*cobra.Command {
-	return []*cobra.Command{createObject()}
-}
-
-func createObject() *cobra.Command {
-	var specFile string
-	cmd := &cobra.Command{
-		Use:     ObjectName,
-		Short:   "Create an object from a yaml file or stdin",
-		Aliases: ObjectAlias(),
-		Example: createExample("Create an object from a yaml file", "egctl create object -f <object>.yaml"),
-		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildSpecVisitor(specFile, cmd)
-			visitor.Visit(func(s *spec) error {
-				_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.doc), cmd)
-				if err != nil {
-					general.ExitWithError(err)
-				} else {
-					fmt.Printf("Create object %s successfully\n", s.Name)
-				}
-				return err
-			})
-			visitor.Close()
-		},
+func CreateObject(cmd *cobra.Command, s *general.Spec) error {
+	_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.Doc()))
+	if err != nil {
+		return general.ErrorMsg(general.CreateCmd, err, s.Kind, s.Name)
 	}
-
-	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
-	return cmd
+	fmt.Println(general.SuccessMsg(general.CreateCmd, s.Kind, s.Name))
+	return nil
 }
 
 func objectDeleteCmd() []*cobra.Command {
@@ -376,21 +368,21 @@ func deleteObject() *cobra.Command {
 			}()
 
 			if allFlag {
-				_, err = handleReq(http.MethodDelete, makeURL(general.ObjectsURL+fmt.Sprintf("?all=%v", true)), nil, cmd)
+				_, err = handleReq(http.MethodDelete, makeURL(general.ObjectsURL+fmt.Sprintf("?all=%v", true)), nil)
 				return
 			}
 
 			if len(specFile) != 0 {
 				visitor := buildSpecVisitor(specFile, cmd)
 				visitor.Visit(func(s *spec) error {
-					_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, s.Name), nil, cmd)
+					_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, s.Name), nil)
 					return nil
 				})
 				visitor.Close()
 				return
 			}
 
-			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, args[0]), nil, cmd)
+			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, args[0]), nil)
 		},
 	}
 	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
@@ -398,57 +390,32 @@ func deleteObject() *cobra.Command {
 	return cmd
 }
 
-func objectApplyCmd() []*cobra.Command {
-	return []*cobra.Command{applyObject()}
-}
-
-func applyObject() *cobra.Command {
-	var specFile string
-
+func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
 	checkObjExist := func(cmd *cobra.Command, name string) bool {
-		_, err := httpGetObject(cmd, []string{name})
+		_, err := httpGetObject(cmd, name)
 		return err == nil
 	}
 
-	createOrUpdate := func(cmd *cobra.Command, s *spec, exist bool) error {
+	createOrUpdate := func(cmd *cobra.Command, s *general.Spec, exist bool) error {
 		if exist {
-			_, err := handleReq(http.MethodPut, makeURL(general.ObjectItemURL, s.Name), []byte(s.doc), cmd)
+			_, err := handleReq(http.MethodPut, makeURL(general.ObjectItemURL, s.Name), []byte(s.Doc()))
 			return err
 		}
-		_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.doc), cmd)
+		_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.Doc()))
 		return err
 	}
 
-	cmd := &cobra.Command{
-		Use:     ObjectName,
-		Short:   "Apply a configuration to an object by filename or stdin",
-		Aliases: ObjectAlias(),
-		Example: createExample("Apply a configuration to an object by filename", "egctl apply object -f <object>.yaml"),
-		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildSpecVisitor(specFile, cmd)
-			visitor.Visit(func(s *spec) error {
-				exist := checkObjExist(cmd, s.Name)
-				err := createOrUpdate(cmd, s, exist)
-
-				if err != nil {
-					general.ExitWithError(err)
-					return err
-				}
-
-				if exist {
-					fmt.Printf("Create object %s successfully\n", s.Name)
-				} else {
-					fmt.Printf("Update object %s successfully\n", s.Name)
-				}
-				return nil
-			})
-			visitor.Close()
-		},
+	exist := checkObjExist(cmd, s.Name)
+	action := general.CreateCmd
+	if exist {
+		action = "update"
 	}
-
-	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
-
-	return cmd
+	err := createOrUpdate(cmd, s, exist)
+	if err != nil {
+		return general.ErrorMsg(action, err, s.Kind, s.Name)
+	}
+	fmt.Println(general.SuccessMsg(action, s.Kind, s.Name))
+	return nil
 }
 
 type objectStatusInfo struct {
@@ -507,7 +474,7 @@ func getObjectStatus() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, getUrl(args), nil, cmd)
+			body, err := handleReq(http.MethodGet, getUrl(args), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -610,7 +577,7 @@ func describeObjectStatus() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, getUrl(args), nil, cmd)
+			body, err := handleReq(http.MethodGet, getUrl(args), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}

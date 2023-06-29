@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/cmd/client/resources"
 	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/spf13/cobra"
@@ -57,7 +58,7 @@ func HealthCmd() *cobra.Command {
 		Short:   "Probe Easegress health",
 		Example: createExample("Probe Easegress health", "egctl health"),
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodGet, makeURL(general.HealthURL), nil, cmd)
+			_, err := handleReq(http.MethodGet, makeURL(general.HealthURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -79,7 +80,7 @@ func APIsCmd() *cobra.Command {
 		Short:   "View Easegress APIs",
 		Example: createExample("List all apis", "egctl apis"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.ApiURL), nil, cmd)
+			body, err := handleReq(http.MethodGet, makeURL(general.ApiURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -165,4 +166,31 @@ func getApiResource(actionCmd *cobra.Command) (string, []string, []string) {
 		resourceAlias = append(resourceAlias, strings.Join(alias, ","))
 	}
 	return actionCmd.Name(), resources, resourceAlias
+}
+
+func APIResourcesV2Cmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "api-resources-v2",
+		Short: "View all API resources",
+		Run: func(cmd *cobra.Command, args []string) {
+			resources, err := resources.ObjectApiResources()
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			tables := [][]string{}
+			for _, r := range resources {
+				sort.Slice(r.Aliases, func(i, j int) bool {
+					return len(r.Aliases[i]) < len(r.Aliases[j])
+				})
+				tables = append(tables, []string{r.Name, strings.Join(r.Aliases, ","), r.Kind})
+			}
+			sort.Slice(tables, func(i, j int) bool {
+				return tables[i][0] < tables[j][0]
+			})
+			tables = append([][]string{{"NAME", "ALIASES", "KIND"}}, tables...)
+			general.PrintTable(tables)
+		},
+	}
+	return cmd
 }

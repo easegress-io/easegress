@@ -31,6 +31,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/util/stringtool"
 	"github.com/spf13/cobra"
@@ -41,20 +42,8 @@ func MakeURL(urlTemplate string, a ...interface{}) string {
 	return CmdGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
 }
 
-func successfulStatusCode(code int) bool {
+func SuccessfulStatusCode(code int) bool {
 	return code >= 200 && code < 300
-}
-
-// HandleRequestV1 used in cmd/client/command. It will print the response body in yaml or json format.
-func HandleRequestV1(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) {
-	body, err := HandleRequest(httpMethod, url, yamlBody, cmd)
-	if err != nil {
-		ExitWithError(err)
-	}
-
-	if len(body) != 0 {
-		PrintBody(body)
-	}
 }
 
 // PrintBody prints the response body in yaml or json format.
@@ -85,7 +74,7 @@ func PrintBody(body []byte) {
 }
 
 // HandleRequest used in cmd/client/resources. It will return the response body in yaml or json format.
-func HandleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) (body []byte, err error) {
+func HandleRequest(httpMethod string, url string, yamlBody []byte) (body []byte, err error) {
 	var jsonBody []byte
 	if yamlBody != nil {
 		var err error
@@ -103,14 +92,20 @@ func HandleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: CmdGlobalFlags.InsecureSkipVerify},
 	}
 	client := &http.Client{Transport: &tr}
-	resp, body := doRequest(httpMethod, p+url, jsonBody, client, cmd)
+	resp, body, err := doRequest(httpMethod, p+url, jsonBody, client)
+	if err != nil {
+		return nil, err
+	}
 
 	msg := string(body)
 	if p == HTTPProtocol && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
-		resp, body = doRequest(httpMethod, HTTPSProtocol+url, jsonBody, client, cmd)
+		resp, body, err = doRequest(httpMethod, HTTPSProtocol+url, jsonBody, client)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	if !successfulStatusCode(resp.StatusCode) {
+	if !SuccessfulStatusCode(resp.StatusCode) {
 		apiErr := &APIErr{}
 		err := codectool.Unmarshal(body, apiErr)
 		if err == nil {
@@ -121,22 +116,22 @@ func HandleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	return body, nil
 }
 
-func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client, cmd *cobra.Command) (*http.Response, []byte) {
+func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client) (*http.Response, []byte, error) {
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		ExitWithError(err)
+		return nil, nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		return nil, nil, err
 	}
-	return resp, body
+	return resp, body, nil
 }
 
 // NewTabWriter returns a tabwriter.Writer. Remember to call Flush() after using it.
@@ -325,4 +320,51 @@ func GenerateExampleFromChild(cmd *cobra.Command) {
 		}
 	}
 	cmd.Example = example
+}
+
+func InApiResource(arg string, r *api.ApiResource) bool {
+	return arg == r.Name || arg == r.Kind || stringtool.StrInSlice(arg, r.Aliases)
+}
+
+type ArgInfo struct {
+	Resource string
+	Name     string
+	Other    string
+}
+
+func (a *ArgInfo) ContainResource() bool {
+	return a.Resource != ""
+}
+
+func (a *ArgInfo) ContainName() bool {
+	return a.Name != ""
+}
+
+func (a *ArgInfo) ContainOther() bool {
+	return a.Other != ""
+}
+
+func ParseArgs(args []string) *ArgInfo {
+	if len(args) == 0 {
+		return nil
+	}
+	argInfo := &ArgInfo{}
+	argInfo.Resource = args[0]
+	if len(args) > 1 {
+		argInfo.Name = args[1]
+	}
+	if len(args) > 2 {
+		argInfo.Other = args[2]
+	}
+	return argInfo
+}
+
+func Filter[T any](array []T, filter func(value T) bool) []T {
+	var result []T
+	for _, v := range array {
+		if filter(v) {
+			result = append(result, v)
+		}
+	}
+	return result
 }

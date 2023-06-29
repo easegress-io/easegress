@@ -20,7 +20,6 @@ package command
 import "github.com/megaease/easegress/cmd/client/general"
 
 var makeURL = general.MakeURL
-var handleRequest = general.HandleRequestV1
 
 const (
 	apiURL = general.ApiURL

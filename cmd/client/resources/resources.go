@@ -18,19 +18,26 @@
 package resources
 
 import (
+	"fmt"
+
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/spf13/cobra"
 )
 
-// Resource is the interface of resource.
-type Resource func(cmdType general.CmdType) []*cobra.Command
+type Resource struct {
+	Kind  string
+	Name  string
+	Alias []string
+}
 
-var allResource []Resource = []Resource{
+// Resource is the interface of resource.
+type R func(cmdType general.CmdType) []*cobra.Command
+
+var allResource []R = []R{
 	objectCmd,
 	memberCmd,
 	customDataKindCmd,
 	customDataCmd,
-	wasmDataCmd,
 }
 
 // AddTo adds all resources to cmd by given command type.
@@ -38,4 +45,26 @@ func AddTo(cmd *cobra.Command, cmdType general.CmdType) {
 	for _, r := range allResource {
 		cmd.AddCommand(r(cmdType)...)
 	}
+}
+
+func GetResourceKind(arg string) (string, error) {
+	if general.InApiResource(arg, CustomData()) {
+		return CustomData().Kind, nil
+	}
+	if general.InApiResource(arg, CustomDataKind()) {
+		return CustomDataKind().Kind, nil
+	}
+	if general.InApiResource(arg, Member()) {
+		return Member().Kind, nil
+	}
+	objects, err := ObjectApiResources()
+	if err != nil {
+		return "", err
+	}
+	for _, object := range objects {
+		if general.InApiResource(arg, object) {
+			return object.Kind, nil
+		}
+	}
+	return "", fmt.Errorf("unknown resource: %s", arg)
 }

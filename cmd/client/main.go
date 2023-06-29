@@ -83,6 +83,7 @@ func main() {
 		commandv2.HealthCmd(),
 		commandv2.ProfileCmd(),
 		commandv2.APIResourcesCmd(),
+		commandv2.APIResourcesV2Cmd(),
 	)
 
 	addCommandWithGroup(

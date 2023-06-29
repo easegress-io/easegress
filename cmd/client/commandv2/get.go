@@ -18,6 +18,10 @@
 package commandv2
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/cmd/client/resources"
 	"github.com/spf13/cobra"
@@ -28,8 +32,99 @@ func GetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Display one or many resources",
+		Args:  getCmdArgs,
+		Run:   getCmdRun,
 	}
 
-	resources.AddTo(cmd, general.GetCmd)
+	// resources.AddTo(cmd, general.GetCmd)
 	return cmd
+}
+
+func getAllResources(cmd *cobra.Command) error {
+	errs := []string{}
+	appendErr := func(err error) {
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	err := resources.GetAllObject(cmd)
+	if err != nil {
+		appendErr(err)
+	} else {
+		fmt.Printf("\n")
+	}
+
+	funcs := []func(*cobra.Command, *general.ArgInfo) error{
+		resources.GetMember, resources.GetCustomDataKind,
+	}
+	for _, f := range funcs {
+		err = f(cmd, &general.ArgInfo{Resource: "all"})
+		if err != nil {
+			appendErr(err)
+		} else {
+			fmt.Printf("\n")
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(errs, "\n"))
+}
+
+func getCmdRun(cmd *cobra.Command, args []string) {
+	var err error
+	defer func() {
+		if err != nil {
+			general.ExitWithError(err)
+		}
+	}()
+
+	a := general.ParseArgs(args)
+	if a.Resource == "all" {
+		err = getAllResources(cmd)
+		return
+	}
+
+	kind, err := resources.GetResourceKind(a.Resource)
+	if err != nil {
+		return
+	}
+	switch kind {
+	case resources.CustomData().Kind:
+		err = resources.GetCustomData(cmd, a)
+	case resources.CustomDataKind().Kind:
+		err = resources.GetCustomDataKind(cmd, a)
+	case resources.Member().Kind:
+		err = resources.GetMember(cmd, a)
+	default:
+		err = resources.GetObject(cmd, a, kind)
+	}
+}
+
+// one or two args, except customdata which allows three args
+// egctl get <resource>
+// egctl get <resource> <name>
+// special:
+// egctl get customdata <kind> <name>
+func getCmdArgs(cmd *cobra.Command, args []string) (err error) {
+	if len(args) == 0 {
+		cmd.Help()
+		return fmt.Errorf("no resource specified")
+	}
+	if len(args) == 1 {
+		if general.InApiResource(args[0], resources.CustomData()) {
+			return fmt.Errorf("no custom data kind specified")
+		}
+		return nil
+	}
+	if args[0] == "all" && len(args) != 1 {
+		return fmt.Errorf("no more args allowed for arg 'all'")
+	}
+	if len(args) == 2 {
+		return nil
+	}
+	if len(args) == 3 && general.InApiResource(args[0], resources.CustomData()) {
+		return nil
+	}
+	return fmt.Errorf("invalid args")
 }

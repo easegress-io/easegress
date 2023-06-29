@@ -25,11 +25,34 @@ import (
 
 // ApplyCmd returns apply command.
 func ApplyCmd() *cobra.Command {
+	var specFile string
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Apply a configuration to a resource by filename or stdin",
+		Run: func(cmd *cobra.Command, args []string) {
+			visitor := general.BuildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *general.Spec) error {
+				var err error
+				defer func() {
+					if err != nil {
+						general.ExitWithError(err)
+					}
+				}()
+
+				switch s.Kind {
+				case resources.CustomDataKind().Kind:
+					err = resources.ApplyCustomDataKind(cmd, s)
+				case resources.CustomData().Kind:
+					err = resources.ApplyCustomData(cmd, s)
+				default:
+					err = resources.ApplyObject(cmd, s)
+				}
+				return err
+			})
+			visitor.Close()
+		},
 	}
 
-	resources.AddTo(cmd, general.ApplyCmd)
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
 	return cmd
 }

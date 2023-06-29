@@ -25,11 +25,34 @@ import (
 
 // CreateCmd returns create command.
 func CreateCmd() *cobra.Command {
+	var specFile string
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a resource from a file or from stdin.",
+		Run: func(cmd *cobra.Command, args []string) {
+			visitor := general.BuildSpecVisitor(specFile, cmd)
+			visitor.Visit(func(s *general.Spec) error {
+				var err error
+				defer func() {
+					if err != nil {
+						general.ExitWithError(err)
+					}
+				}()
+
+				switch s.Kind {
+				case resources.CustomDataKind().Kind:
+					err = resources.CreateCustomDataKind(cmd, s)
+				case resources.CustomData().Kind:
+					err = resources.CreateCustomData(cmd, s)
+				default:
+					err = resources.CreateObject(cmd, s)
+				}
+				return err
+			})
+			visitor.Close()
+		},
 	}
 
-	resources.AddTo(cmd, general.CreateCmd)
+	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
 	return cmd
 }
