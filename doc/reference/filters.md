@@ -1606,6 +1606,8 @@ The relationship between `methods` and `url` is `AND`.
 | clientMaxMsgSize | int                                   | Max client message size, default is 32768.                                                                   | No       |
 | loadBalance     | [proxy.LoadBalance](#proxyLoadBalanceSpec) | Load balance options                                                                                     | Yes      |
 | filter          | [proxy.RequestMatcherSpec](#proxyrequestmatcherspec)     | Filter options for candidate pools                                                         | No       |
+| insecureSkipVerify | bool                                | Disable origin verification when accepting client connections, default is `false`.                           | No       |
+| originPatterns  | []string                               | Host patterns for authorized origins, used to enable cross origin WebSockets.                                | No       |
 
 ### mock.Rule
 
