@@ -48,6 +48,11 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Handler: s.listCustomDataKind,
 		},
 		{
+			Path:    CustomDataKindPrefix,
+			Method:  http.MethodDelete,
+			Handler: s.deleteAllCustomDataKind,
+		},
+		{
 			Path:    CustomDataKindPrefix + "/{name}",
 			Method:  http.MethodGet,
 			Handler: s.getCustomDataKind,
@@ -99,6 +104,25 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Method:  http.MethodPost,
 			Handler: s.batchUpdateCustomData,
 		},
+		{
+			Path:    CustomDataPrefix + "/items",
+			Method:  http.MethodDelete,
+			Handler: s.batchDeleteCustomData,
+		},
+	}
+}
+
+func (s *Server) deleteAllCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	kinds, err := s.cds.ListKinds()
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	for _, k := range kinds {
+		err = s.cds.DeleteKind(k.Name)
+		if err != nil {
+			ClusterPanic(err)
+		}
 	}
 }
 
@@ -253,6 +277,15 @@ func (s *Server) batchUpdateCustomData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := s.cds.BatchUpdateData(kind, cr.Delete, cr.List)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) batchDeleteCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+
+	err := s.cds.DeleteAllData(kind)
 	if err != nil {
 		ClusterPanic(err)
 	}

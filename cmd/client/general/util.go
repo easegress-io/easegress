@@ -168,6 +168,13 @@ func Capitalize(str string) string {
 	return strings.ToUpper(str[0:1]) + str[1:]
 }
 
+func lowerFirstLetter(str string) string {
+	if len(str) == 0 {
+		return ""
+	}
+	return strings.ToLower(str[0:1]) + str[1:]
+}
+
 // DurationMostSignificantUnit returns the most significant unit of the duration.
 func DurationMostSignificantUnit(d time.Duration) string {
 	total := float64(d)
@@ -199,7 +206,7 @@ func DurationMostSignificantUnit(d time.Duration) string {
 // Use "" in specials to print a blank line.
 // For example, if specials is ["name", "kind", "", "filters"]
 // then, "name", "kind" will in group one, and "filters" will in group two, others will in group three.
-func PrintMapInterface(maps []map[string]interface{}, specials []string) {
+func PrintMapInterface(maps []map[string]interface{}, fronts []string, backs []string) {
 	printKV := func(k string, v interface{}) {
 		value, err := codectool.MarshalYAML(v)
 		if err != nil {
@@ -220,6 +227,14 @@ func PrintMapInterface(maps []map[string]interface{}, specials []string) {
 	}
 
 	print := func(spec map[string]interface{}) {
+		spec = func(s map[string]interface{}) map[string]interface{} {
+			res := map[string]interface{}{}
+			for k, v := range s {
+				res[lowerFirstLetter(k)] = v
+			}
+			return res
+		}(spec)
+
 		type kv struct {
 			key   string
 			value interface{}
@@ -233,25 +248,40 @@ func PrintMapInterface(maps []map[string]interface{}, specials []string) {
 			return kvs[i].key < kvs[j].key
 		})
 
-		specialFlag := false
-		for _, s := range specials {
-			if s == "" && specialFlag {
+		frontFlag := false
+		for _, f := range fronts {
+			if f == "" && frontFlag {
 				fmt.Println()
 			}
-			value, ok := spec[s]
+			value, ok := spec[f]
 			if ok {
-				specialFlag = true
-				printKV(s, value)
+				frontFlag = true
+				printKV(f, value)
 			} else {
-				specialFlag = false
+				frontFlag = false
 			}
 		}
 
 		for _, kv := range kvs {
-			if stringtool.StrInSlice(kv.key, specials) {
+			if stringtool.StrInSlice(kv.key, fronts) {
+				continue
+			}
+			if stringtool.StrInSlice(kv.key, backs) {
 				continue
 			}
 			printKV(kv.key, kv.value)
+		}
+
+		backFlag := false
+		for _, b := range backs {
+			value, ok := spec[b]
+			if ok {
+				if !backFlag {
+					fmt.Println()
+					backFlag = true
+				}
+				printKV(b, value)
+			}
 		}
 	}
 

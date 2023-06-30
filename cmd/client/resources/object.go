@@ -33,9 +33,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ObjectName is the resource name of object.
-const ObjectName = "object"
-
 func ObjectApiResources() ([]*api.ApiResource, error) {
 	url := makeURL(general.ObjectApiResources)
 	body, err := handleReq(http.MethodGet, url, nil)
@@ -52,83 +49,6 @@ func ObjectApiResources() ([]*api.ApiResource, error) {
 
 func defaultObjectNameSpace() string {
 	return cluster.TrafficNamespace(cluster.NamespaceDefault)
-}
-
-// ObjectAlias is the alias of object.
-func ObjectAlias() []string {
-	return []string{"o", "obj", "objects"}
-}
-
-// ObjectKindName is the resource name of object kind.
-const ObjectKindName = "objectkind"
-
-// ObjectKindAlias is the alias of object kind.
-func ObjectKindAlias() []string {
-	return []string{"objectkinds", "ok"}
-}
-
-// ObjectTemplateName is object template name
-const ObjectTemplateName = "objecttemplate"
-
-// ObjectTemplateAlias is the alias of object template.
-func ObjectTemplateAlias() []string {
-	return []string{"objecttemplates", "ot"}
-}
-
-// ObjectStatusName is the resource name of object status.
-const ObjectStatusName = "objectstatus"
-
-// ObjectStatusAlias is the alias of object status.
-func ObjectStatusAlias() []string {
-	return []string{"os"}
-}
-
-func objectCmd(cmdType general.CmdType) []*cobra.Command {
-	switch cmdType {
-	case general.DescribeCmd:
-		return objectDescribeCmd()
-	case general.DeleteCmd:
-		return objectDeleteCmd()
-	default:
-		return nil
-	}
-}
-
-// getObjectTemplate returns the object template for given object kind and name in yaml format.
-// The api return yaml body to keep the right order of fields.
-func getObjectTemplate() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     ObjectTemplateName,
-		Short:   "Display object templates for given object kind and name",
-		Aliases: ObjectTemplateAlias(),
-		Args:    cobra.ExactArgs(2),
-		Example: createExample("Get object template for given object kind and name", "egctl get objecttemplate <object-kind> <object-name>"),
-		Run: func(cmd *cobra.Command, args []string) {
-			url := makeURL(general.ObjectTemplateURL, args[0], args[1])
-			body, err := handleReq(http.MethodGet, url, nil)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-
-			if general.CmdGlobalFlags.OutputFormat == general.JsonFormat {
-				jsonBody, err := codectool.YAMLToJSON(body)
-				if err != nil {
-					general.ExitWithErrorf("yaml %s to json failed: %v", body, err)
-				}
-				general.PrintBody(jsonBody)
-				return
-			}
-			fmt.Printf("%s\n", string(body))
-		},
-	}
-	return cmd
-}
-
-func httpGetObjectArgs(cmd *cobra.Command, args []string) error {
-	if len(args) > 1 {
-		return errors.New("requires at most one arg for object name")
-	}
-	return nil
 }
 
 func httpGetObject(cmd *cobra.Command, name string) ([]byte, error) {
@@ -248,69 +168,71 @@ func printMetaSpec(metas []*supervisor.MetaSpec) {
 	general.PrintTable(table)
 }
 
-func printObjectKinds(kinds []string) {
-	table := [][]string{}
-	table = append(table, []string{"KIND"})
-	for _, kind := range kinds {
-		table = append(table, []string{kind})
+func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
+	msg := fmt.Sprintf("all %s", kind)
+	if args.ContainName() {
+		msg = fmt.Sprintf("%s %s", kind, args.Name)
 	}
-	general.PrintTable(table)
-}
-
-func objectDescribeCmd() []*cobra.Command {
-	return []*cobra.Command{describeObject(), describeObjectStatus()}
-}
-
-func describeObject() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Describe all object", Command: "egctl describe object"},
-		{Desc: "Describe one object", Command: "egctl describe object <object-name>"},
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	cmd := &cobra.Command{
-		Use:     ObjectName,
-		Short:   "Describe one or many objects",
-		Aliases: ObjectAlias(),
-		Args:    httpGetObjectArgs,
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			// body, err := httpGetObject(cmd, )
-			// if err != nil {
-			// 	general.ExitWithError(err)
-			// }
-
-			// if !general.CmdGlobalFlags.DefaultFormat() {
-			// 	general.PrintBody(body)
-			// 	return
-			// }
-
-			// specs, err := general.UnmarshalMapInterface(body, len(args) == 0)
-			// if err != nil {
-			// 	general.ExitWithErrorf("Display objects failed: %v", err)
-			// }
-			// specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
-			// // Ouput:
-			// // Name: pipeline-demo
-			// // Kind: Pipeline
-			// // Version: xxx
-			// //
-			// // Flow:
-			// // =====
-			// //   ...
-			// //
-			// // Filters:
-			// // ========
-			// //   ...
-			// //
-			// // Rules:
-			// // ======
-			// //   ...
-			// //
-			// // ... (other fields)
-			// general.PrintMapInterface(specs, specials)
-		},
+	body, err := httpGetObject(cmd, args.Name)
+	if err != nil {
+		return getErr(err)
 	}
-	return cmd
+
+	specs, err := general.UnmarshalMapInterface(body, !args.ContainName())
+	if err != nil {
+		return getErr(err)
+	}
+
+	specs = general.Filter(specs, func(m map[string]interface{}) bool {
+		return m["kind"] == kind
+	})
+
+	err = addObjectStatusToSpec(specs, args)
+	if err != nil {
+		return getErr(err)
+	}
+
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		body, err = codectool.MarshalJSON(specs)
+		if err != nil {
+			return getErr(err)
+		}
+		general.PrintBody(body)
+		return nil
+	}
+
+	specials := []string{"name", "kind", "version", "", "flow", "", "filters", "", "rules", ""}
+	// Ouput:
+	// Name: pipeline-demo
+	// Kind: Pipeline
+	// Version: xxx
+	//
+	// Flow:
+	// =====
+	//   ...
+	//
+	// Filters:
+	// ========
+	//   ...
+	//
+	// Rules:
+	// ======
+	//   ...
+	//
+	// ... (other fields)
+	//
+	// AllStatus:
+	// ==========
+	//  - node: eg1
+	//    status: ...
+	//  - node: eg2
+	//    status: ...
+	general.PrintMapInterface(specs, specials, []string{objectStatusKeyInSpec})
+	return nil
 }
 
 func CreateObject(cmd *cobra.Command, s *general.Spec) error {
@@ -322,72 +244,55 @@ func CreateObject(cmd *cobra.Command, s *general.Spec) error {
 	return nil
 }
 
-func objectDeleteCmd() []*cobra.Command {
-	return []*cobra.Command{deleteObject()}
-}
-
-func deleteObject() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Delete all objects", Command: "egctl delete object --all"},
-		{Desc: "Delete one object", Command: "egctl delete object <object-name>"},
+func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) error {
+	// define error msg
+	msg := fmt.Sprintf("all %s", kind)
+	if !all {
+		msg = fmt.Sprintf("%s %s", kind, strings.Join(names, ", "))
+	}
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.DeleteCmd, err, msg)
 	}
 
-	var specFile string
-	var allFlag bool
+	// get all objects and filter by kind
+	body, err := httpGetObject(cmd, "")
+	if err != nil {
+		return getErr(err)
+	}
+	metas, err := unmarshalMetaSpec(body, true)
+	if err != nil {
+		return getErr(err)
+	}
+	metas = general.Filter(metas, func(m *supervisor.MetaSpec) bool {
+		return m.Kind == kind
+	})
 
-	argsFunc := func(cmd *cobra.Command, args []string) error {
-		if allFlag {
-			if (len(specFile) != 0) || (len(args) != 0) {
-				return errors.New("--all cannot be used with --file or <object_name>")
+	if all {
+		for _, m := range metas {
+			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, m.Name), nil)
+			if err != nil {
+				return getErr(err)
 			}
-			return nil
-		}
-
-		if len(args) == 0 && len(specFile) == 0 {
-			return errors.New("requires <object_name> or --file")
-		} else if len(args) != 0 && len(specFile) != 0 {
-			return errors.New("--file and <object_name> cannot be used together")
+			fmt.Println(general.SuccessMsg(general.DeleteCmd, m.Kind, m.Name))
 		}
 		return nil
 	}
-
-	cmd := &cobra.Command{
-		Use:     ObjectName,
-		Short:   "Delete an object(s) from a yaml file or name",
-		Aliases: ObjectAlias(),
-		Args:    argsFunc,
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			var err error
-			defer func() {
-				if err != nil {
-					general.ExitWithError(err)
-				} else {
-					fmt.Println("Delete object(s) successfully")
-				}
-			}()
-
-			if allFlag {
-				_, err = handleReq(http.MethodDelete, makeURL(general.ObjectsURL+fmt.Sprintf("?all=%v", true)), nil)
-				return
-			}
-
-			if len(specFile) != 0 {
-				visitor := buildSpecVisitor(specFile, cmd)
-				visitor.Visit(func(s *spec) error {
-					_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, s.Name), nil)
-					return nil
-				})
-				visitor.Close()
-				return
-			}
-
-			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, args[0]), nil)
-		},
+	nameInKind := map[string]struct{}{}
+	for _, m := range metas {
+		nameInKind[m.Name] = struct{}{}
 	}
-	cmd.Flags().StringVarP(&specFile, "file", "f", "", "A yaml file specifying the object.")
-	cmd.Flags().BoolVarP(&allFlag, "all", "", false, "Delete all object.")
-	return cmd
+	for _, name := range names {
+		_, ok := nameInKind[name]
+		if !ok {
+			return getErr(fmt.Errorf("no such %s %s", kind, name))
+		}
+		_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, name), nil)
+		if err != nil {
+			return getErr(err)
+		}
+		fmt.Println(general.SuccessMsg(general.DeleteCmd, kind, name))
+	}
+	return nil
 }
 
 func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
@@ -449,73 +354,6 @@ func unmarshalObjectStatus(data []byte) (ObjectStatus, error) {
 	return status, err
 }
 
-func getObjectStatus() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Get the status of all object", Command: "egctl get objectstatus"},
-		{Desc: "Get the status of an object", Command: "egctl get objectstatus <object-name>"},
-	}
-
-	getUrl := func(args []string) string {
-		if len(args) == 0 {
-			return makeURL(general.StatusObjectsURL)
-		}
-		return makeURL(general.StatusObjectItemURL, args[0])
-	}
-
-	cmd := &cobra.Command{
-		Use:     ObjectStatusName,
-		Aliases: ObjectStatusAlias(),
-		Short:   "Get the status of an object or all objects",
-		Example: createMultiExample(examples),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("at most one object name can be specified")
-			}
-			return nil
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, getUrl(args), nil)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			var infos []*objectStatusInfo
-			if len(args) == 1 {
-				infos, err = unmarshalObjectStatusInfo(body, args[0])
-			} else {
-				infos, err = unmarshalObjectStatusInfo(body, "")
-			}
-			if err != nil {
-				general.ExitWithError(err)
-			}
-
-			sort.Slice(infos, func(i, j int) bool {
-				if infos[i].name != infos[j].name {
-					return infos[i].name < infos[j].name
-				}
-				return infos[i].node < infos[j].node
-			})
-
-			table := [][]string{}
-			table = append(table, []string{"NAME", "NODE", "STATUS"})
-			for _, info := range infos {
-				// only object like HTTPServer, Pipeline have status.
-				status := "valid"
-				if info.status == nil {
-					status = "empty"
-				}
-				table = append(table, []string{info.name, info.node, status})
-			}
-			general.PrintTable(table)
-		},
-	}
-	return cmd
-}
-
 func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, error) {
 	kvs := map[string]interface{}{}
 	err := codectool.Unmarshal(body, &kvs)
@@ -552,68 +390,43 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 	return res, nil
 }
 
-func describeObjectStatus() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Describe the status of all object", Command: "egctl describe objectstatus"},
-		{Desc: "Describe the status of an object", Command: "egctl describe objectstatus <object-name>"},
-	}
+type NodeStatus struct {
+	Node   string
+	Status map[string]interface{}
+}
 
-	getUrl := func(args []string) string {
-		if len(args) == 0 {
+const objectStatusKeyInSpec = "allStatus"
+
+func addObjectStatusToSpec(specs []map[string]interface{}, args *general.ArgInfo) error {
+	getUrl := func(args *general.ArgInfo) string {
+		if !args.ContainName() {
 			return makeURL(general.StatusObjectsURL)
 		}
-		return makeURL(general.StatusObjectItemURL, args[0])
+		return makeURL(general.StatusObjectItemURL, args.Name)
 	}
 
-	cmd := &cobra.Command{
-		Use:     ObjectStatusName,
-		Aliases: ObjectStatusAlias(),
-		Short:   "Describe the status of an object or all objects",
-		Example: createMultiExample(examples),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("at most one object name can be specified")
-			}
-			return nil
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, getUrl(args), nil)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			var infos []*objectStatusInfo
-			if len(args) == 1 {
-				infos, err = unmarshalObjectStatusInfo(body, args[0])
-			} else {
-				infos, err = unmarshalObjectStatusInfo(body, "")
-			}
-			if err != nil {
-				general.ExitWithError(err)
-			}
-
-			// Output:
-			// Name: xxx
-			// Node: eg1
-			//
-			// ... (fields in status)
-			results := []map[string]interface{}{}
-			for _, info := range infos {
-				result := map[string]interface{}{}
-				result["name"] = info.name
-				result["node"] = info.node
-				for k, v := range info.status {
-					result[k] = v
-				}
-				results = append(results, result)
-			}
-			specials := []string{"name", "node", ""}
-			general.PrintMapInterface(results, specials)
-		},
+	body, err := handleReq(http.MethodGet, getUrl(args), nil)
+	if err != nil {
+		return err
 	}
-	return cmd
+
+	infos, err := unmarshalObjectStatusInfo(body, args.Name)
+	if err != nil {
+		return err
+	}
+
+	// key is name, value is array of node and status
+	status := map[string][]*NodeStatus{}
+	for _, info := range infos {
+		status[info.name] = append(status[info.name], &NodeStatus{
+			Node:   info.node,
+			Status: info.status,
+		})
+	}
+
+	for _, s := range specs {
+		name := s["name"].(string)
+		s[objectStatusKeyInSpec] = status[name]
+	}
+	return nil
 }

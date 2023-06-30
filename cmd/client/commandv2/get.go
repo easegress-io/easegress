@@ -35,8 +35,6 @@ func GetCmd() *cobra.Command {
 		Args:  getCmdArgs,
 		Run:   getCmdRun,
 	}
-
-	// resources.AddTo(cmd, general.GetCmd)
 	return cmd
 }
 
@@ -102,6 +100,7 @@ func getCmdRun(cmd *cobra.Command, args []string) {
 }
 
 // one or two args, except customdata which allows three args
+// egctl get all
 // egctl get <resource>
 // egctl get <resource> <name>
 // special:

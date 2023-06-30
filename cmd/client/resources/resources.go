@@ -21,31 +21,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/cmd/client/general"
-	"github.com/spf13/cobra"
 )
-
-type Resource struct {
-	Kind  string
-	Name  string
-	Alias []string
-}
-
-// Resource is the interface of resource.
-type R func(cmdType general.CmdType) []*cobra.Command
-
-var allResource []R = []R{
-	objectCmd,
-	memberCmd,
-	customDataKindCmd,
-	customDataCmd,
-}
-
-// AddTo adds all resources to cmd by given command type.
-func AddTo(cmd *cobra.Command, cmdType general.CmdType) {
-	for _, r := range allResource {
-		cmd.AddCommand(r(cmdType)...)
-	}
-}
 
 func GetResourceKind(arg string) (string, error) {
 	if general.InApiResource(arg, CustomData()) {

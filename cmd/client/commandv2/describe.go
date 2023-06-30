@@ -18,6 +18,8 @@
 package commandv2
 
 import (
+	"fmt"
+
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/cmd/client/resources"
 	"github.com/spf13/cobra"
@@ -28,8 +30,61 @@ func DescribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe",
 		Short: "Show details of a specific resource or group of resources",
+		Args:  describeCmdArgs,
+		Run:   describeCmdRun,
 	}
-
-	resources.AddTo(cmd, general.DescribeCmd)
 	return cmd
+}
+
+func describeCmdRun(cmd *cobra.Command, args []string) {
+	var err error
+	defer func() {
+		if err != nil {
+			general.ExitWithError(err)
+		}
+	}()
+
+	a := general.ParseArgs(args)
+	kind, err := resources.GetResourceKind(a.Resource)
+	if err != nil {
+		return
+	}
+	switch kind {
+	case resources.CustomData().Kind:
+		err = resources.DescribeCustomData(cmd, a)
+	case resources.CustomDataKind().Kind:
+		err = resources.DescribeCustomDataKind(cmd, a)
+	case resources.Member().Kind:
+		err = resources.DescribeMember(cmd, a)
+	default:
+		err = resources.DescribeObject(cmd, a, kind)
+	}
+}
+
+// one or two args, except customdata which allows three args
+// egctl describe <resource>
+// egctl describe <resource> <name>
+// special:
+// egctl describe customdata <kind> <name>
+func describeCmdArgs(cmd *cobra.Command, args []string) (err error) {
+	if len(args) == 0 {
+		cmd.Help()
+		return fmt.Errorf("no resource specified")
+	}
+	if len(args) == 1 {
+		if general.InApiResource(args[0], resources.CustomData()) {
+			return fmt.Errorf("no custom data kind specified")
+		}
+		return nil
+	}
+	if args[0] == "all" && len(args) != 1 {
+		return fmt.Errorf("no more args allowed for arg 'all'")
+	}
+	if len(args) == 2 {
+		return nil
+	}
+	if len(args) == 3 && general.InApiResource(args[0], resources.CustomData()) {
+		return nil
+	}
+	return fmt.Errorf("invalid args")
 }

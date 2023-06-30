@@ -27,8 +27,9 @@ import (
 func ApplyCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Apply a configuration to a resource by filename or stdin",
+		Use:     "apply",
+		Short:   "Apply a configuration to a resource by filename or stdin",
+		Example: createExample("Apply a configuration to a resource by filename", "egctl apply -f <filename>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := general.BuildSpecVisitor(specFile, cmd)
 			visitor.Visit(func(s *general.Spec) error {

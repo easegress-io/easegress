@@ -18,18 +18,83 @@
 package commandv2
 
 import (
+	"fmt"
+
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/cmd/client/resources"
 	"github.com/spf13/cobra"
 )
 
+var deleteAllFlag = false
+
 // DeleteCmd returns delete command.
 func DeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete",
-		Short: "Delete a resource.",
+		Short: "Delete a resource or group of resources",
+		Args:  deleteCmdArgs,
+		Run:   deleteCmdRun,
+	}
+	cmd.Flags().BoolVar(&deleteAllFlag, "all", false, "delete all resources in given kind")
+	return cmd
+}
+
+func deleteCmdRun(cmd *cobra.Command, args []string) {
+	var err error
+	defer func() {
+		if err != nil {
+			general.ExitWithError(err)
+		}
+	}()
+
+	resource := args[0]
+	kind, err := resources.GetResourceKind(resource)
+	if err != nil {
+		return
 	}
 
-	resources.AddTo(cmd, general.DeleteCmd)
-	return cmd
+	switch kind {
+	case resources.CustomData().Kind:
+		err = resources.DeleteCustomData(cmd, args[1], args[2:], deleteAllFlag)
+	case resources.CustomDataKind().Kind:
+		err = resources.DeleteCustomDataKind(cmd, args[1:], deleteAllFlag)
+	case resources.Member().Kind:
+		err = resources.DeleteMember(cmd, args[1:])
+	default:
+		err = resources.DeleteObject(cmd, kind, args[1:], deleteAllFlag)
+	}
+}
+
+// egctl delete <resource> <name1> <name2> ...
+// egctl delete <resource> --all
+// special:
+// egctl delete cd <kind> <name1> <name2> ...
+func deleteCmdArgs(cmd *cobra.Command, args []string) (err error) {
+	if len(args) == 0 {
+		return fmt.Errorf("no resource specified")
+	}
+	resource := args[0]
+	kind, err := resources.GetResourceKind(resource)
+	if err != nil {
+		return fmt.Errorf("invalid resource for %s, %s", resource, err.Error())
+	}
+
+	if deleteAllFlag {
+		if (kind != resources.CustomData().Kind && len(args) != 1) || (kind == resources.CustomData().Kind && len(args) != 2) {
+			fmt.Printf("%s %s", kind, args)
+			return fmt.Errorf("invalid arguments for --all")
+		}
+		return nil
+	}
+
+	if kind == resources.CustomData().Kind {
+		if len(args) < 3 {
+			return fmt.Errorf("")
+		}
+		return nil
+	}
+	if len(args) < 2 {
+		return fmt.Errorf("invalid arguments")
+	}
+	return nil
 }

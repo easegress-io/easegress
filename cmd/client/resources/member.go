@@ -18,11 +18,8 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
-	"strings"
 	"time"
 
 	"github.com/megaease/easegress/cmd/client/general"
@@ -42,73 +39,42 @@ func Member() *api.ApiResource {
 	}
 }
 
-// MemberName is the resource name of member.
-const MemberName = "member"
+func DescribeMember(cmd *cobra.Command, args *general.ArgInfo) error {
+	msg := "all " + MemberKind
+	if args.ContainName() {
+		msg = fmt.Sprintf("%s %s", MemberKind, args.Name)
+	}
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.DescribeCmd, err, msg)
+	}
 
-// MemberAlias is the alias of member.
-func MemberAlias() []string {
-	return []string{"m", "mem", "members"}
-}
+	body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
+	if err != nil {
+		return getErr(err)
+	}
 
-func memberCmd(cmdType general.CmdType) []*cobra.Command {
-	switch cmdType {
-	case general.DescribeCmd:
-		return memberDescribeCmd()
-	case general.DeleteCmd:
-		return memberDeleteCmd()
-	default:
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		general.PrintBody(body)
 		return nil
 	}
-}
 
-func memberDescribeCmd() []*cobra.Command {
-	examples := []general.Example{
-		{Desc: "Describe all members", Command: "egctl describe member"},
-		{Desc: "Describe one member", Command: "egctl describe member <member-name>"},
+	members := []*cluster.MemberStatus{}
+	err = codectool.Unmarshal(body, &members)
+	if err != nil {
+		general.ExitWithErrorf("get members failed: %v", err)
+	}
+	if !args.ContainName() {
+		printMemberStatusDescription(members)
+		return nil
 	}
 
-	cmd := &cobra.Command{
-		Use:     MemberName,
-		Short:   "Describe one or many members",
-		Aliases: MemberAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("requires at most one arg for member name")
-			}
+	for _, member := range members {
+		if member.Options.Name == args.Name {
+			printMemberStatusDescription([]*cluster.MemberStatus{member})
 			return nil
-		},
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
-			if err != nil {
-				general.ExitWithErrorf("get members failed: %v", err)
-			}
-
-			if !general.CmdGlobalFlags.DefaultFormat() {
-				general.PrintBody(body)
-				return
-			}
-
-			members := []*cluster.MemberStatus{}
-			err = codectool.Unmarshal(body, &members)
-			if err != nil {
-				general.ExitWithErrorf("get members failed: %v", err)
-			}
-			if len(args) == 0 {
-				printMemberStatusDescription(members)
-				return
-			}
-
-			for _, member := range members {
-				if member.Options.Name == args[0] {
-					printMemberStatusDescription([]*cluster.MemberStatus{member})
-					return
-				}
-			}
-			general.ExitWithErrorf("member %s not found", args[0])
-		},
+		}
 	}
-	return []*cobra.Command{cmd}
+	return getErr(fmt.Errorf("member %s not found", args.Name))
 }
 
 func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
@@ -118,13 +84,17 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 		result["lastHeartbeatTime"] = status.LastHeartbeatTime
 		result["lastDefragTime"] = status.LastDefragTime
 
-		options := reflect.ValueOf(status.Options)
-		for i := 0; i < options.NumField(); i++ {
-			if options.Field(i).CanInterface() {
-				key := options.Type().Field(i).Name
-				value := options.Field(i).Interface()
-				result[strings.ToLower(key)] = value
-			}
+		options, err := codectool.MarshalJSON(status.Options)
+		if err != nil {
+			general.ExitWithErrorf("marshal options failed: %v", err)
+		}
+		optionMap := map[string]interface{}{}
+		err = codectool.Unmarshal(options, &optionMap)
+		if err != nil {
+			general.ExitWithErrorf("unmarshal options failed: %v", err)
+		}
+		for k, v := range optionMap {
+			result[k] = v
 		}
 		return result
 	}
@@ -135,30 +105,18 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 	}
 	general.PrintMapInterface(results, []string{
 		"name", "lastHeartbeatTime", "", "etcd", "",
-	})
+	}, []string{})
 }
 
-func memberDeleteCmd() []*cobra.Command {
-	cmd := &cobra.Command{
-		Use:     MemberName,
-		Aliases: MemberAlias(),
-		Short:   "Purge a Easegress member. This command should be run after the easegress node uninstalled",
-		Example: createExample("Purge a Easegress member. This command should be run after the easegress node uninstalled", "egctl delete member <member-name>"),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires one member name to be deleted")
-			}
-			return nil
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, args[0]), nil)
-			if err != nil {
-				general.ExitWithErrorf("purge member failed: %v", err)
-			}
-			fmt.Printf("purge member %s successfully\n", args[0])
-		},
+func DeleteMember(cmd *cobra.Command, names []string) error {
+	for _, name := range names {
+		_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, name), nil)
+		if err != nil {
+			return general.ErrorMsg("purge", err, fmt.Sprintf("%s %s", MemberKind, name))
+		}
+		fmt.Println(general.SuccessMsg("purge", MemberKind, name))
 	}
-	return []*cobra.Command{cmd}
+	return nil
 }
 
 func GetMember(cmd *cobra.Command, args *general.ArgInfo) (err error) {

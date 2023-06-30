@@ -112,65 +112,13 @@ func APIsCmd() *cobra.Command {
 	return cmd
 }
 
-// APIResourcesCmd returns api-resources command.
 func APIResourcesCmd() *cobra.Command {
-	resourceCmds := []*cobra.Command{
-		GetCmd(),
-		ApplyCmd(),
-		CreateCmd(),
-		DeleteCmd(),
-		DescribeCmd(),
-	}
-
-	actionMap := map[string][]string{}
-	aliasMap := map[string]string{}
-	for _, cmd := range resourceCmds {
-		action, resources, resourceAlias := getApiResource(cmd)
-		for i, r := range resources {
-			actionMap[r] = append(actionMap[r], action)
-			aliasMap[r] = resourceAlias[i]
-		}
-	}
-
-	for _, v := range actionMap {
-		sort.Strings(v)
-	}
+	cd := resources.CustomData()
+	cdk := resources.CustomDataKind()
+	member := resources.Member()
 
 	cmd := &cobra.Command{
 		Use:   "api-resources",
-		Short: "View all API resources",
-		Run: func(cmd *cobra.Command, args []string) {
-			tables := [][]string{}
-			for resource, actions := range actionMap {
-				tables = append(tables, []string{resource, aliasMap[resource], strings.Join(actions, ",")})
-			}
-			sort.Slice(tables, func(i, j int) bool {
-				return tables[i][0] < tables[j][0]
-			})
-			tables = append([][]string{{"RESOURCE", "ALIAS", "ACTIONS"}}, tables...)
-			general.PrintTable(tables)
-		},
-	}
-	return cmd
-}
-
-func getApiResource(actionCmd *cobra.Command) (string, []string, []string) {
-	resources := []string{}
-	resourceAlias := []string{}
-	for _, cmd := range actionCmd.Commands() {
-		resources = append(resources, cmd.Name())
-		alias := cmd.Aliases
-		sort.Slice(alias, func(i, j int) bool {
-			return len(alias[i]) < len(alias[j])
-		})
-		resourceAlias = append(resourceAlias, strings.Join(alias, ","))
-	}
-	return actionCmd.Name(), resources, resourceAlias
-}
-
-func APIResourcesV2Cmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "api-resources-v2",
 		Short: "View all API resources",
 		Run: func(cmd *cobra.Command, args []string) {
 			resources, err := resources.ObjectApiResources()
@@ -178,17 +126,23 @@ func APIResourcesV2Cmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 
+			action := "create,apply,delete,get,describe"
 			tables := [][]string{}
 			for _, r := range resources {
 				sort.Slice(r.Aliases, func(i, j int) bool {
 					return len(r.Aliases[i]) < len(r.Aliases[j])
 				})
-				tables = append(tables, []string{r.Name, strings.Join(r.Aliases, ","), r.Kind})
+				tables = append(tables, []string{r.Name, strings.Join(r.Aliases, ","), r.Kind, action})
 			}
 			sort.Slice(tables, func(i, j int) bool {
 				return tables[i][0] < tables[j][0]
 			})
-			tables = append([][]string{{"NAME", "ALIASES", "KIND"}}, tables...)
+
+			tables = append([][]string{{"NAME", "ALIASES", "KIND", "ACTION"}}, tables...)
+			tables = append(tables, []string{cdk.Name, strings.Join(cdk.Aliases, ","), cdk.Kind, action})
+			tables = append(tables, []string{cd.Name, strings.Join(cd.Aliases, ","), cd.Kind, action})
+			tables = append(tables, []string{member.Name, strings.Join(member.Aliases, ","), member.Kind, "delete,get,describe"})
+
 			general.PrintTable(tables)
 		},
 	}

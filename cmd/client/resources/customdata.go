@@ -18,7 +18,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -48,72 +47,34 @@ func CustomData() *api.ApiResource {
 	}
 }
 
-// CustomDataKindName is the name of the custom data kind.
-const CustomDataKindName = "customdatakind"
+func DescribeCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
+	msg := "all " + CustomDataKind().Kind
+	if args.ContainName() {
+		msg = fmt.Sprintf("%s %s", CustomDataKind().Kind, args.Name)
+	}
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.DescribeCmd, err, msg)
+	}
 
-// CustomDataKindAlias is the alias of the custom data kind.
-func CustomDataKindAlias() []string {
-	return []string{"customdatakinds", "cdk"}
-}
+	body, err := httpGetCustomDataKind(cmd, args.Name)
+	if err != nil {
+		return getErr(err)
+	}
 
-func customDataKindCmd(cmdType general.CmdType) []*cobra.Command {
-	switch cmdType {
-	case general.DescribeCmd:
-		return customDataKindDescribeCmd()
-	case general.DeleteCmd:
-		return customDataKindDeleteCmd()
-	default:
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		general.PrintBody(body)
 		return nil
 	}
-}
 
-func customDataKindDescribeCmd() []*cobra.Command {
-	return []*cobra.Command{describeCustomDataKinds()}
-}
-
-func customDataKindDeleteCmd() []*cobra.Command {
-	return []*cobra.Command{deleteCustomDataKind()}
-}
-
-func describeCustomDataKinds() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Describe all custom data kinds", Command: "egctl describe customdatakind"},
-		{Desc: "Describe certain custom data kind", Command: "egctl describe customdatakind <custom-data-kind>"},
+	kinds, err := general.UnmarshalMapInterface(body, !args.ContainName())
+	if err != nil {
+		return getErr(err)
 	}
-
-	cmd := &cobra.Command{
-		Use:     CustomDataKindName,
-		Short:   "Describe one or many custom data kinds",
-		Aliases: CustomDataKindAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return errors.New("requires at most one arg for custom data kind name")
-			}
-			return nil
-		},
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			// body, err := httpGetCustomDataKind(cmd, args)
-			// if err != nil {
-			// 	general.ExitWithError(err)
-			// }
-
-			// if !general.CmdGlobalFlags.DefaultFormat() {
-			// 	general.PrintBody(body)
-			// 	return
-			// }
-
-			// kinds, err := general.UnmarshalMapInterface(body, len(args) == 0)
-			// if err != nil {
-			// 	general.ExitWithErrorf("Display custom data kinds failed: %v", err)
-			// }
-			// // Output:
-			// // Name: customdatakindxxx
-			// // ...
-			// general.PrintMapInterface(kinds, []string{"name"})
-		},
-	}
-	return cmd
+	// Output:
+	// Name: customdatakindxxx
+	// ...
+	general.PrintMapInterface(kinds, []string{"name"}, []string{})
+	return nil
 }
 
 func httpGetCustomDataKind(cmd *cobra.Command, name string) ([]byte, error) {
@@ -203,28 +164,23 @@ func CreateCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 	return nil
 }
 
-func deleteCustomDataKind() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     CustomDataKindName,
-		Short:   "Delete a custom data kind",
-		Aliases: CustomDataKindAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 1 {
-				return errors.New("requires custom data kind to be retrieved")
-			}
-			return nil
-		},
-		Example: createExample("Delete a custom data kind", "egctl delete customdatakind <custom-data-kind>"),
-		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindItemURL, args[0]), nil)
-			if err != nil {
-				general.ExitWithError(err)
-			} else {
-				fmt.Printf("Custom data kind %s deleted\n", args[0])
-			}
-		},
+func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
+	if all {
+		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindURL), nil)
+		if err != nil {
+			return general.ErrorMsg(general.DeleteCmd, err, "all", CustomDataKind().Kind)
+		}
+		return nil
 	}
-	return cmd
+
+	for _, name := range names {
+		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindItemURL, name), nil)
+		if err != nil {
+			return general.ErrorMsg(general.DeleteCmd, err, CustomDataKind().Kind, name)
+		}
+		fmt.Println(general.SuccessMsg(general.DeleteCmd, CustomDataKind().Kind, name))
+	}
+	return nil
 }
 
 func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
@@ -255,33 +211,6 @@ func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 
 	fmt.Println(general.SuccessMsg(action, s.Kind, s.Name))
 	return nil
-}
-
-// CustomDataName is the name of custom data command
-const CustomDataName = "customdata"
-
-// CustomDataAlias is the alias of custom data command
-func CustomDataAlias() []string {
-	return []string{"customdatas", "cd"}
-}
-
-func customDataCmd(cmdType general.CmdType) []*cobra.Command {
-	switch cmdType {
-	case general.DescribeCmd:
-		return customDataDescribeCmd()
-	case general.DeleteCmd:
-		return customDataDeleteCmd()
-	default:
-		return nil
-	}
-}
-
-func customDataDescribeCmd() []*cobra.Command {
-	return []*cobra.Command{describeCustomData()}
-}
-
-func customDataDeleteCmd() []*cobra.Command {
-	return []*cobra.Command{deleteCustomData()}
 }
 
 func httpGetCustomData(cmd *cobra.Command, args *general.ArgInfo) ([]byte, error) {
@@ -339,48 +268,36 @@ func GetCustomData(cmd *cobra.Command, args *general.ArgInfo) error {
 	return nil
 }
 
-func describeCustomData() *cobra.Command {
-	examples := []general.Example{
-		{Desc: "Describe all custom data of certain kind", Command: "egctl describe customdata <custom-data-kind>"},
-		{Desc: "Describe a certain custom data of certain kind", Command: "egctl describe customdata <custom-data-kind> <custom-data-id>"},
+func DescribeCustomData(cmd *cobra.Command, args *general.ArgInfo) error {
+	msg := fmt.Sprintf("%s for kind %s", CustomData().Kind, args.Name)
+	if args.ContainOther() {
+		msg = fmt.Sprintf("%s with id %s for kind %s", CustomData().Kind, args.Other, args.Name)
+	}
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.DescribeCmd, err, msg)
 	}
 
-	cmd := &cobra.Command{
-		Use:     CustomDataName,
-		Short:   "Describe one or many custom data of given kind",
-		Aliases: CustomDataAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 || len(args) > 2 {
-				return errors.New("requires at most two arg for custom data kind name and id")
-			}
-			return nil
-		},
-		Example: createMultiExample(examples),
-		Run: func(cmd *cobra.Command, args []string) {
-			// body, err := httpGetCustomData(cmd, args)
-			// if err != nil {
-			// 	general.ExitWithError(err)
-			// }
-
-			// if !general.CmdGlobalFlags.DefaultFormat() {
-			// 	general.PrintBody(body)
-			// 	return
-			// }
-
-			// kind, err := getCertainCustomDataKind(cmd, args[0])
-			// if err != nil {
-			// 	general.ExitWithError(err)
-			// 	return
-			// }
-
-			// data, err := general.UnmarshalMapInterface(body, len(args) == 1)
-			// if err != nil {
-			// 	general.ExitWithErrorf("Display custom data failed: %v", err)
-			// }
-			// general.PrintMapInterface(data, []string{kind.GetIDField()})
-		},
+	body, err := httpGetCustomData(cmd, args)
+	if err != nil {
+		return getErr(err)
 	}
-	return cmd
+
+	if !general.CmdGlobalFlags.DefaultFormat() {
+		general.PrintBody(body)
+		return nil
+	}
+
+	kind, err := getCertainCustomDataKind(cmd, args.Name)
+	if err != nil {
+		return getErr(err)
+	}
+
+	data, err := general.UnmarshalMapInterface(body, !args.ContainOther())
+	if err != nil {
+		return getErr(err)
+	}
+	general.PrintMapInterface(data, []string{kind.GetIDField()}, []string{})
+	return nil
 }
 
 func unmarshalCustomData(body []byte, listBody bool) ([]*customdata.Data, error) {
@@ -413,29 +330,24 @@ func CreateCustomData(cmd *cobra.Command, s *general.Spec) error {
 	return err
 }
 
-func deleteCustomData() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     CustomDataName,
-		Short:   "Delete a custom data item",
-		Aliases: CustomDataAlias(),
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return errors.New("requires custom data kind and id to be retrieved")
-			}
-			return nil
-		},
-		Example: createExample("Delete a custom data item", "egctl delete customdata <custom-data-kind> <custom-data-id>"),
-		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, args[0], args[1]), nil)
-			if err != nil {
-				general.ExitWithError(err)
-			} else {
-				fmt.Printf("Custom data %s from %s deleted.", args[1], args[0])
-			}
-		},
+func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) error {
+	if all {
+		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, cdk, "items"), nil)
+		if err != nil {
+			return general.ErrorMsg(general.DeleteCmd, err, CustomData().Kind, "for kind "+cdk)
+		}
+		fmt.Println(general.SuccessMsg(general.DeleteCmd, CustomData().Kind, "for kind "+cdk))
+		return nil
 	}
 
-	return cmd
+	for _, name := range names {
+		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, cdk, name), nil)
+		if err != nil {
+			return general.ErrorMsg(general.DeleteCmd, err, CustomData().Kind, fmt.Sprintf("%s for kind %s", name, cdk))
+		}
+		fmt.Println(general.SuccessMsg(general.DeleteCmd, CustomData().Kind, fmt.Sprintf("%s for kind %s", name, cdk)))
+	}
+	return nil
 }
 
 func ApplyCustomData(cmd *cobra.Command, s *general.Spec) error {
