@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.4.3](https://github.com/megaease/easegress/tree/v2.4.3) (2023-06-30)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.4.2...v2.4.3)
+
+* Websocket supports cross origin requests (#1021)
+
 ## [v2.4.2](https://github.com/megaease/easegress/tree/v2.4.2) (2023-06-08)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.4.1...v2.4.2)
@@ -10,7 +16,7 @@
 
 **Fixed bugs:**
 * Websocket does not work (#998).
-* Fix typo and other problems in the documentation (#999). 
+* Fix typo and other problems in the documentation (#999).
 
 ## [v2.4.1](https://github.com/megaease/easegress/tree/v2.4.1) (2023-04-21)
 
@@ -24,7 +30,7 @@
 **Fixed bugs:**
 * Fix the Sampler's incorrect result bug
 * Fix OIDCAdaptor bug.
-* Fix typo and other minor problems in the documentation. 
+* Fix typo and other minor problems in the documentation.
 
 ## [v2.4.0](https://github.com/megaease/easegress/tree/v2.4.0) (2023-03-03)
 
@@ -42,7 +48,7 @@
 **Fixed bugs:**
 * WASM apply data command not working.
 * install.sh not work as expectation on some platforms.
-* Fix typo and other minor problems in the documentation. 
+* Fix typo and other minor problems in the documentation.
 
 
 ## [v2.3.1](https://github.com/megaease/easegress/tree/v2.3.1) (2022-12-28)
@@ -116,7 +122,7 @@
 **Fixed bugs:**
 * Fix default logger bug
 * Fix HTTP runtime ticker bug
-* Fix ingress translation error 
+* Fix ingress translation error
 
 
 ## [v2.1.0](https://github.com/megaease/easegress/tree/v2.1.0) (2022-08-09)
@@ -158,7 +164,7 @@
   * Add the support of filter alias.
   * Filter `Retryer`, `CircuitBreaker` and `TimeLimiter` are removed, resilience
     policies are now defined on pipeline and injected into filters that support
-    resilience. 
+    resilience.
   * Filter `APIAggregator` is removed.
 
 **Implemented enhancements:**
@@ -197,7 +203,7 @@
 - Fix proxy pool bug [\#614](https://github.com/megaease/easegress/pull/614)
 - Fix FaasController request host field [\#586](https://github.com/megaease/easegress/pull/586)
 - Fix Easemonitor metrics status convert error [\#583](https://github.com/megaease/easegress/pull/583)
-- Fix Status sync controller pointer error [\#582](https://github.com/megaease/easegress/pull/582) 
+- Fix Status sync controller pointer error [\#582](https://github.com/megaease/easegress/pull/582)
 - Fix HTTPPipeline creation fail [\#577](https://github.com/megaease/easegress/pull/577)
 
 
@@ -259,7 +265,7 @@
 - Remove method & path from httpRequest [\#524](https://github.com/megaease/easegress/pull/524)
 - Make cluster.Mutex to be goroutine same [\#527](https://github.com/megaease/easegress/pull/527)
 - Fix empty request scheme [\#529](https://github.com/megaease/easegress/pull/529)
-- Fix typo [\#471](https://github.com/megaease/easegress/pull/471), [\#479](https://github.com/megaease/easegress/pull/479), 
+- Fix typo [\#471](https://github.com/megaease/easegress/pull/471), [\#479](https://github.com/megaease/easegress/pull/479),
 
 
 ## [v1.4.1](https://github.com/megaease/easegress/tree/v1.4.1) (2022-01-07)
