@@ -94,13 +94,17 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 	})
 }
 
-func (b *pipelineSpecBuilder) addWebSocketProxy(endpoints []string, defaultOrigin string) {
+func (b *pipelineSpecBuilder) addWebSocketProxy(endpoints []string, clntMaxMsgSize, svrMaxMsgSize int64, insecure bool, originPatterns []string) {
 	const name = "websocketproxy"
 
 	pool := &proxy.WebSocketServerPoolSpec{
 		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
 			LoadBalance: &proxy.LoadBalanceSpec{},
 		},
+		ClientMaxMsgSize:   clntMaxMsgSize,
+		ServerMaxMsgSize:   svrMaxMsgSize,
+		InsecureSkipVerify: insecure,
+		OriginPatterns:     originPatterns,
 	}
 
 	for _, ep := range endpoints {
@@ -109,10 +113,9 @@ func (b *pipelineSpecBuilder) addWebSocketProxy(endpoints []string, defaultOrigi
 
 	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":          proxy.WebSocketProxyKind,
-		"name":          name,
-		"defaultOrigin": defaultOrigin,
-		"pools":         []*proxy.WebSocketServerPoolSpec{pool},
+		"kind":  proxy.WebSocketProxyKind,
+		"name":  name,
+		"pools": []*proxy.WebSocketServerPoolSpec{pool},
 	})
 }
 
@@ -261,8 +264,19 @@ func (st *specTranslator) serviceToPipeline(ingress *apinetv1.Ingress, service *
 
 	builder := newPipelineSpecBuilder(pipelineName)
 	if ws {
-		defaultOrigin := ingress.Annotations["easegress.ingress.kubernetes.io/websocket-default-origin"]
-		builder.addWebSocketProxy(endpoints, defaultOrigin)
+		val := ingress.Annotations["easegress.ingress.kubernetes.io/websocket-client-max-msg-size"]
+		clntMaxMsgSize, _ := strconv.ParseInt(val, 0, 64)
+
+		val = ingress.Annotations["easegress.ingress.kubernetes.io/websocket-server-max-msg-size"]
+		svrMaxMsgSize, _ := strconv.ParseInt(val, 0, 64)
+
+		val = ingress.Annotations["easegress.ingress.kubernetes.io/websocket-insecure-skip-verify"]
+		insecure, _ := strconv.ParseBool(val)
+
+		val = ingress.Annotations["easegress.ingress.kubernetes.io/websocket-origin-patterns"]
+		originPatterns := strings.Split(val, ",")
+
+		builder.addWebSocketProxy(endpoints, clntMaxMsgSize, svrMaxMsgSize, insecure, originPatterns)
 	} else {
 		builder.addProxy(endpoints)
 	}
