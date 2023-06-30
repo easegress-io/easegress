@@ -650,5 +650,7 @@ func TestPrintHeader(t *testing.T) {
 	h.Set("b", "2")
 	s := printHeader(h)
 
-	assert.Equal(t, "A: [1], B: [2]", s)
+	if s != "A: [1], B: [2]" && s != "B: [2], A: [1]" {
+		t.Fail()
+	}
 }
