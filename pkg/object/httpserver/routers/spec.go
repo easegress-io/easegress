@@ -34,6 +34,13 @@ type Rules []*Rule
 // Paths represents the set of paths.
 type Paths []*Path
 
+// Host defines the host match rule.
+type Host struct {
+	IsRegexp bool   `json:"isRegexp" jsonschema:"omitempty"`
+	Value    string `json:"value" jsonschema:"required"`
+	re       *regexp.Regexp
+}
+
 // Rule is first level entry of router.
 type Rule struct {
 	// NOTICE: If the field is a pointer, it must have `omitempty` in tag `json`
@@ -46,10 +53,10 @@ type Rule struct {
 	IPFilterSpec *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
 	Host         string         `json:"host" jsonschema:"omitempty"`
 	HostRegexp   string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
+	Hosts        []Host         `json:"hosts" jsonschema:"omitempty"`
 	Paths        Paths          `json:"paths" jsonschema:"omitempty"`
 
 	ipFilter *ipfilter.IPFilter
-	hostRE   *regexp.Regexp
 }
 
 // Path is second level entry of router.
@@ -107,19 +114,26 @@ func (rules Rules) Init() {
 
 // Init is the initialization portal for Rule.
 func (rule *Rule) Init() {
-	var hostRE *regexp.Regexp
+	if len(rule.Host) > 0 {
+		rule.Hosts = append(rule.Hosts, Host{Value: rule.Host})
+	}
+	if len(rule.HostRegexp) > 0 {
+		rule.Hosts = append(rule.Hosts, Host{IsRegexp: true, Value: rule.HostRegexp})
+	}
 
-	if rule.HostRegexp != "" {
-		var err error
-		hostRE, err = regexp.Compile(rule.HostRegexp)
-		if err != nil {
-			logger.Errorf("BUG: compile %s failed: %v", rule.HostRegexp, err)
+	for i := range rule.Hosts {
+		h := &rule.Hosts[i]
+		if !h.IsRegexp {
+			continue
+		}
+		if re, err := regexp.Compile(h.Value); err != nil {
+			logger.Errorf("failed to compile %q failed: %v", h.Value, err)
+		} else {
+			h.re = re
 		}
 	}
 
 	rule.ipFilter = ipfilter.New(rule.IPFilterSpec)
-	rule.hostRE = hostRE
-
 	for _, p := range rule.Paths {
 		p.Init(rule.ipFilter)
 	}
@@ -127,17 +141,20 @@ func (rule *Rule) Init() {
 
 // MatchHost matches the host of the request to the rule.
 func (rule *Rule) MatchHost(ctx *RouteContext) bool {
-	if rule.Host == "" && rule.hostRE == nil {
+	if len(rule.Hosts) == 0 {
 		return true
 	}
 
 	host := ctx.GetHost()
-
-	if rule.Host != "" && rule.Host == host {
-		return true
-	}
-	if rule.hostRE != nil && rule.hostRE.MatchString(host) {
-		return true
+	for i := range rule.Hosts {
+		h := &rule.Hosts[i]
+		if h.IsRegexp {
+			if h.re != nil && h.re.MatchString(host) {
+				return true
+			}
+		} else if host == h.Value {
+			return true
+		}
 	}
 
 	return false
