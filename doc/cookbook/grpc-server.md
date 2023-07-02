@@ -8,29 +8,24 @@ Easegress gRPC servers as a forward or reverse proxy base on gRPC protocol.
 
 
 ## Similar to Service Proxy
-Its design and implementation largely refer to the original HTTP Server, so I highly recommended that you read the [Service-Proxy documentation](./service-proxy.md) first.
+Its design and implementation largely refer to the HTTP Server, so I highly recommended that you read the [Service-Proxy documentation](./service-proxy.md) first.
 
-
-### Configure Whether to Use Connection Pool
-
-create a gRPC forward proxy filter to handler traffic. if `connectTimeout` be specified, it will block until connection is established when create grpc client connection
+We can create a simple forward gRPC proxy server according to the following configuration.
 
 ``` yaml
-filters:
-  - kind: GRPCProxy
-    pools:
-      - loadBalance:
-          # Using the forward load balancing strategy 
-          policy: forward
-          forwardKey: forward
-        serviceName: "easegress-forward"
-        connectTimeout: 300ms
-    name: grpcforwardproxy
-flow:
-  - filter: grpcforwardproxy
-    jumpIf: {}
-kind: Pipeline
-name: pipeline-grpc-forward
+kind: GRPCServer
+maxConnections: 2048
+maxConnectionIdle: 60s
+name: server-grpc
+#路由规则
+rules:
+  - paths:
+      #指向pipeline的name，表明符合此规则的请求由对应的pipeline处理
+      - backend: pipeline-grpc-forward
+        #表示请求头中应包含x-masa-forward-port且值满足正则表达式
+        headers:
+          - key: "targetAddress"
+            regexp: "\\d{4,5}"
+#是否为代理，true的话，会在X-Forwarded-For中追加客户端的真实IP
+xForwardedFor: true
 ```
-
-Note: Some gRPC servers manage physical connections by themselves, and they do not consider gRPC gateway scenarios, such as Nacos: when the actual client goes offline, the server will detect and actively close the server's Connection. because gRPC is based on HTTP2, it has the characteristics of request and response multiplexing, so there may be a connection from the same easegress used by multiple real clients to the real server. In this case, the server actively closes the connection, which will cause other normal clients to be affected. On the other hand, the server in grpc-go is designed to expect that business processing will not be aware of the underlying connection's status, so it does not provide related APIs for obtaining connection status. I have submitted a related [issue](https://github.com/grpc/grpc-go/issues/5835) in grpc-go to discuss that, you can check it out if you are interested.
