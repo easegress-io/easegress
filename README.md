@@ -201,7 +201,13 @@ eg-default-name         primary         9s      Leader  localhost:2381  3s ago
 
 $ egctl describe member
 Name: eg-default-name
-LastHeartbeatTime: "2023-06-26T12:01:36+08:00"
+LastHeartbeatTime: "2023-07-03T17:39:30+08:00"
+
+Etcd:
+=====
+  id: 689e371e88f78b6a
+  startTime: "2023-07-03T17:39:14+08:00"
+  state: Leader
 ...
 ```
 
@@ -223,7 +229,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl create object 
+      backend: pipeline-demo' | egctl create 
 ```
 
 The rules above mean it will forward the traffic with the prefix `/pipeline` to
@@ -245,7 +251,7 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' | egctl create object
+        policy: roundRobin' | egctl create
 ```
 
 The pipeline means it will forward traffic to 3 backend endpoints, using the
@@ -373,7 +379,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' | egctl create object
+    body: RSS feed has been sent to Slack successfully.' | egctl create
 ```
 
 ### Update the HTTPServer
@@ -393,7 +399,7 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl apply object
+      backend: pipeline-demo' | egctl apply
 ```
 
 ### Test the RSS Pipeline

@@ -27,8 +27,9 @@ import (
 func CreateCmd() *cobra.Command {
 	var specFile string
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a resource from a file or from stdin.",
+		Use:     "create",
+		Short:   "Create a resource from a file or from stdin.",
+		Example: createExample("Create a resource from a file", "egctl create -f <filename>.yaml"),
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := general.BuildSpecVisitor(specFile, cmd)
 			visitor.Visit(func(s *general.Spec) error {

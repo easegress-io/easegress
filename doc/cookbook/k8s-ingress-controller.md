@@ -35,7 +35,7 @@ httpServer:
   keepAlive: true
   keepAliveTimeout: 60s
   maxConnections: 10240
-' | egctl create object
+' | egctl create
 ```
 
 Create two versions of `hello` service in Kubernetes:

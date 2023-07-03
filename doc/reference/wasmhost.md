@@ -79,7 +79,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: wasm-pipeline' | egctl create object
+      backend: wasm-pipeline' | egctl create
 ```
 
 And then create the pipeline `wasm-pipeline` which includes a `WasmHost` filter:
@@ -104,7 +104,7 @@ filters:
     - servers:
       - url: http://127.0.0.1:9095
       loadBalance:
-        policy: roundRobin' | egctl create object
+        policy: roundRobin' | egctl create
 ```
 
 Note we are using the path of the Wasm file as the value of `code` in the spec of `WasmHost`, but the value of `code` can also be a URL (HTTP/HTTPS) or the base64 encoded Wasm code.
@@ -196,7 +196,7 @@ The above code creates two shared counters for all VMs, `counter1` increases `1`
 We can view the shared data with:
 
 ```bash
-$ egctl get wasmdata wasm-pipeline wasm
+$ egctl wasm list-data wasm-pipeline wasm
 counter1: "3"
 counter2: "6"
 ```
@@ -208,20 +208,20 @@ The shared data can be modified with:
 ```bash
 $ echo '
 counter1: 100
-counter2: 101' | egctl apply wasmdata wasm-pipeline wasm
+counter2: 101' | egctl wasm apply-data wasm-pipeline wasm
 ```
 
 And can be deleted with:
 
 ```bash
-$ egctl delete wasmdata wasm-pipeline wasm
+$ egctl wasm delete-data wasm-pipeline wasm
 ```
 ## Hot Update
 
 The Wasm code can be hot updated without restart Easegress with below command:
 
 ```bash
-$ egctl apply wasmdata --reload-code
+$ egctl wasm apply-data --reload-code
 ```
 
 This sends a notification to all `WasmHost` instances, and they will reload their Wasm code if the code was modified.
@@ -278,7 +278,7 @@ rules:
   - pathPrefix: /wasm
     backend: wasm-pipeline
   - pathPrefix: /mock
-    backend: mock-pipeline' | egctl create object
+    backend: mock-pipeline' | egctl create
 ```
 
 The `wasm-pipeline` configuration is (we will adjust the value of `maxConcurrency` during the test):
@@ -294,7 +294,7 @@ filters:
   kind: WasmHost
   maxConcurrency: 2
   code: /home/megaease/demo.wasm
-  timeout: 100ms' | egctl create object
+  timeout: 100ms' | egctl create
 ```
 
 The `mock-pipeline` configuration is:
@@ -310,7 +310,7 @@ filters:
   kind: Mock
   rules:
   - body: "hello mock\n"
-    code: 200' | egctl create object
+    code: 200' | egctl create
 ```
 
 * **Scenario 1**: concurrency: 10; duration: 1 miniute

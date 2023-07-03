@@ -29,11 +29,25 @@ var deleteAllFlag = false
 
 // DeleteCmd returns delete command.
 func DeleteCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Delete a resource with name", Command: "egctl delete <resource> <name>"},
+		{Desc: "Delete multiply resource in same kind", Command: "egctl delete <resource> <name1> <name2> <name3>"},
+		{Desc: "Delete all instances in that resource", Command: "egctl delete <resource> --all"},
+		{Desc: "Delete a httpserver", Command: "egctl delete httpserver <name>"},
+		{Desc: "Delete multiply pipeline", Command: "egctl delete pipeline <name1> <name2> <name3>"},
+		{Desc: "Delete all globalfilter", Command: "egctl delete globalfilter --all"},
+		{Desc: "Delete a customdata kind", Command: "egctl delete customdatakind <name>"},
+		{Desc: "Delete a customdata of given kind", Command: "egctl delete customdata <kind> <name>"},
+		{Desc: "Purge a Easegress member. This command should be run after the easegress node uninstalled", Command: "egctl delete member <name>"},
+		{Desc: "Check all possible api resources", Command: "egctl api-resources"},
+	}
+
 	cmd := &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a resource or group of resources",
-		Args:  deleteCmdArgs,
-		Run:   deleteCmdRun,
+		Use:     "delete",
+		Short:   "Delete a resource or group of resources",
+		Args:    deleteCmdArgs,
+		Example: createMultiExample(examples),
+		Run:     deleteCmdRun,
 	}
 	cmd.Flags().BoolVar(&deleteAllFlag, "all", false, "delete all resources in given kind")
 	return cmd

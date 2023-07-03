@@ -65,7 +65,7 @@ filters:
   pools:
   - servers:
     - url: http://127.0.0.1:9095
-' | egctl create object
+' | egctl create
 ```
 * The `pipeline-demo` above will execute the `requestAdaptor` filter first, then `proxy`. So the `proxy` filter can forward the request with the header `X-Adapt-Key` which was set by the `requestAdaptor`.
 
@@ -130,7 +130,7 @@ filters:
   pools:
   - servers:
     - url: http://127.0.0.1:9095
-' | egctl apply object
+' | egctl apply
 ```
 
 * As we can see above, `pipeline-demo` will jump to the end of pipeline execution when `validator`'s execution result is `invalid`.
@@ -174,7 +174,7 @@ filters:
   template: |
     statusCode: 400
     body: the request is invalid.
-' | egctl apply object
+' | egctl apply
 ```
 
 * By using the `END` filter, we are now possible to build a custom failure response.
@@ -222,7 +222,7 @@ filters:
   pools:
   - servers:
     - url: http://127.0.0.2:9095
-' | egctl apply object
+' | egctl apply
 ```
 
 ### Namespace
@@ -276,7 +276,7 @@ filters:
   template: |
     statusCode: 200
     body: [{{.responses.demo1.Body}}, {{.response.demo2.Body}}, {{.response.demo3.Body}}]
-'  | egctl create object
+'  | egctl create
 ```
 
 ## References

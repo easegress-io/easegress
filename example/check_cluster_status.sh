@@ -19,5 +19,5 @@ echo -e ${GREEN}"members:"${NC}
 ${SCRIPTPATH}/primary-001/egctl.sh get member
 
 echo -e ${GREEN}"objects:"${NC}
-${SCRIPTPATH}/primary-001/egctl.sh get object
+${SCRIPTPATH}/primary-001/egctl.sh get all
 

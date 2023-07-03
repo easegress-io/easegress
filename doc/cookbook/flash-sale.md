@@ -113,7 +113,7 @@ https: false
 rules:
 - paths:
   - pathPrefix: /flashsale
-    backend: flash-sale-pipeline' | egctl create object
+    backend: flash-sale-pipeline' | egctl create
 ```
 
 Create pipeline `flash-sale-pipeline` which includes a `WasmHost` filter:
@@ -136,7 +136,7 @@ filters:
   kind: Mock
   rules:
   - body: "You can buy the laptop for $1 now.\n"
-    code: 200' | egctl create object
+    code: 200' | egctl create
 ```
 
 Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7) of section 1.1.
@@ -193,7 +193,7 @@ Build and inform Easegress to reload with:
 
 ```bash
 $ npm run asbuild
-$ egctl apply wasmdata --reload-code
+$ egctl wasm reload-code
 ```
 
 `curl` the flash sale URL, we will get `not start yet.` before the start time of the flash sale.
@@ -251,7 +251,7 @@ Build and verify with (suppose the flash sale was already started):
 
 ```bash
 $ npm run asbuild
-$  egctl apply wasmdata --reload-code
+$  egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale
 sold out.
 $ curl http://127.0.0.1:10080/flashsale
@@ -323,7 +323,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl apply wasmdata --reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
 sold out.
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
@@ -390,7 +390,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl apply wasmdata --reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
 You can buy the laptop for $1 now.
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user2
@@ -458,7 +458,7 @@ As we can see in [Lucky Once, Lucky Always](#4-lucky-once-lucky-always), shared 
 We can view current data with (where `flash-sale-pipeline` is the pipeline name and `wasm` is the filter name):
 
 ```bash
-$ egctl get wasmdata flash-sale-pipeline wasm
+$ egctl wasm list-data flash-sale-pipeline wasm
 id/user1: "true"
 id/user2: "true"
 id/user3: "true"
@@ -469,8 +469,8 @@ Update the data with:
 ```bash
 $ echo '
 id/user4: "true"
-id/user5: "true"' | egctl apply wasmdata flash-sale-pipeline wasm
-$ egctl get wasmdata flash-sale-pipeline wasm
+id/user5: "true"' | egctl wasm apply-data flash-sale-pipeline wasm
+$ egctl wasm list-data flash-sale-pipeline wasm
 id/user1: "true"
 id/user2: "true"
 id/user3: "true"
@@ -481,8 +481,8 @@ id/user5: "true"
 And delete all data with:
 
 ```bash
-$ egctl delete wasmdata flash-sale-pipeline wasm
-$ egctl get wasmdata flash-sale-pipeline wasm
+$ egctl wasm delete-data flash-sale-pipeline wasm
+$ egctl wasm list-data flash-sale-pipeline wasm
 {}
 ```
 

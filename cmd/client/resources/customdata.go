@@ -170,6 +170,7 @@ func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 		if err != nil {
 			return general.ErrorMsg(general.DeleteCmd, err, "all", CustomDataKind().Kind)
 		}
+		fmt.Println(general.SuccessMsg(general.DeleteCmd, "all", CustomDataKind().Kind))
 		return nil
 	}
 

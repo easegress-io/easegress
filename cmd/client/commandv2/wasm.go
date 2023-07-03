@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package command
+package commandv2
 
 import (
 	"fmt"
 	"net/http"
 
+	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/spf13/cobra"
 )
 
@@ -28,7 +29,7 @@ import (
 func WasmCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wasm",
-		Short: "(Deprecated) Manage WebAssembly code and data",
+		Short: "Manage WebAssembly code and data",
 	}
 
 	cmd.AddCommand(wasmReloadCodeCmd())
@@ -40,10 +41,15 @@ func WasmCmd() *cobra.Command {
 
 func wasmReloadCodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reload-code",
-		Short: "Notify Easegress to reload WebAssembly code",
+		Use:     "reload-code",
+		Short:   "Notify Easegress to reload WebAssembly code",
+		Example: createExample("Notify Easegress to reload WebAssembly code", "egctl wasm reload-code"),
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodPost, makeURL(wasmCodeURL), nil, cmd)
+			body, err := handleReq(http.MethodPost, makeURL(general.WasmCodeURL), nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			general.PrintBody(body)
 		},
 	}
 
@@ -54,7 +60,7 @@ func wasmDeleteDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete-data",
 		Short:   "Delete all shared data of a WasmHost filter",
-		Example: "egctl wasm clear-data <pipeline> <filter>",
+		Example: createExample("Delete all shared data of a WasmHost filter", "egctl wasm delete-data <pipeline> <filter>"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 2 {
 				return nil
@@ -63,7 +69,11 @@ func wasmDeleteDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(wasmDataURL, args[0], args[1]), nil, cmd)
+			body, err := handleReq(http.MethodDelete, makeURL(general.WasmDataURL, args[0], args[1]), nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			general.PrintBody(body)
 		},
 	}
 
@@ -76,7 +86,7 @@ func wasmApplyDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "apply-data",
 		Short:   "Apply shared data to a WasmHost filter",
-		Example: "egctl wasm apply-data <pipeline> <filter> -f <YAML file>",
+		Example: createExample("Apply shared data to a WasmHost filter", "egctl wasm apply-data <pipeline> <filter> -f <spec file>"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 2 {
 				return nil
@@ -85,9 +95,13 @@ func wasmApplyDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			visitor := buildYAMLVisitor(specFile, cmd)
+			visitor := general.BuildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPut, makeURL(wasmDataURL, args[0], args[1]), yamlDoc, cmd)
+				body, err := handleReq(http.MethodPut, makeURL(general.WasmDataURL, args[0], args[1]), yamlDoc)
+				if err != nil {
+					general.ExitWithError(err)
+				}
+				general.PrintBody(body)
 				return nil
 			})
 			visitor.Close()
@@ -102,7 +116,7 @@ func wasmListDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list-data",
 		Short:   "List shared data of a WasmHost filter",
-		Example: "egctl wasm list-data <pipeline> <filter>",
+		Example: createExample("List shared data of a WasmHost filter", "egctl wasm list-data <pipeline> <filter>"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 2 {
 				return nil
@@ -111,7 +125,11 @@ func wasmListDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(wasmDataURL, args[0], args[1]), nil, cmd)
+			body, err := handleReq(http.MethodGet, makeURL(general.WasmDataURL, args[0], args[1]), nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			general.PrintBody(body)
 		},
 	}
 

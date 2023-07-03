@@ -189,7 +189,13 @@ eg-default-name         primary         9s      Leader  localhost:2381  3s ago
 
 $ egctl describe member
 Name: eg-default-name
-LastHeartbeatTime: "2023-06-26T12:01:36+08:00"
+LastHeartbeatTime: "2023-07-03T17:39:30+08:00"
+
+Etcd:
+=====
+  id: 689e371e88f78b6a
+  startTime: "2023-07-03T17:39:14+08:00"
+  state: Leader
 ...
 ```
 
@@ -209,7 +215,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl create object
+      backend: pipeline-demo' | egctl create
 ```
 
 上面的路由规则将把路径前缀为 `/pipeline` 的请求分发到名为 `pipeline-demo` 的 Pipeline，目前还没有这条 Pipeline，如果 `curl` 这个地址，将返回 503。
@@ -229,7 +235,7 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' | egctl create object
+        policy: roundRobin' | egctl create
 ```
 
 这条 Pipeline 的定义是将请求按轮询的方式分发到三个后端服务实例上。
@@ -350,7 +356,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' | egctl create object
+    body: RSS feed has been sent to Slack successfully.' | egctl create
 ```
 
 ### 更新 HTTPServer
@@ -369,7 +375,7 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl apply object
+      backend: pipeline-demo' | egctl apply
 ```
 
 ### 测试 RSS Pipeline

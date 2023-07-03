@@ -27,11 +27,22 @@ import (
 
 // DescribeCmd returns describe command.
 func DescribeCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Describe a resource with name", Command: "egctl describe <resource> <name>"},
+		{Desc: "Describe all instances in that resource", Command: "egctl describe <resource>"},
+		{Desc: "Describe a httpserver", Command: "egctl describe httpserver <name>"},
+		{Desc: "Describe all pipelines", Command: "egctl describe pipeline"},
+		{Desc: "Describe all members", Command: "egctl describe member"},
+		{Desc: "Describe a customdata kind", Command: "egctl describe customdatakind <name>"},
+		{Desc: "Describe a customdata of given kind", Command: "egctl describe customdata <kind> <name>"},
+		{Desc: "Check all possible api resources", Command: "egctl api-resources"},
+	}
 	cmd := &cobra.Command{
-		Use:   "describe",
-		Short: "Show details of a specific resource or group of resources",
-		Args:  describeCmdArgs,
-		Run:   describeCmdRun,
+		Use:     "describe",
+		Short:   "Show details of a specific resource or group of resources",
+		Args:    describeCmdArgs,
+		Example: createMultiExample(examples),
+		Run:     describeCmdRun,
 	}
 	return cmd
 }

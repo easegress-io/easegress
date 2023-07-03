@@ -1,23 +1,21 @@
 # egctl Cheat Sheet
 
 ## Creating resources
-Easegress manifests are defined in YAML. The file extension .yaml and .yml be used. Use `egctl create <resource>`, or `egctl apply <resource>` to create resources. Use `egctl api-resources` to view all available resources and their supported actions. 
+Easegress manifests are defined in YAML. The file extension .yaml and .yml be used. Use `egctl create`, or `egctl apply` to create resources. Use `egctl api-resources` to view all available resources and their supported actions. 
 
 ```
-egctl apply object -f ./pipeline-demo.yaml     # create resource object
-egctl create object -f ./httpserver-demo.yaml  # create resource object
+egctl apply -f ./pipeline-demo.yaml     # create resource object
+egctl create -f ./httpserver-demo.yaml  # create resource object
 
-egctl apply customdatakind -f ./cdk-demo.yaml              # create resource customdatakind
-egctl create customdata cdk-demo -f custom-data-demo.yaml  # create resource customdata
+egctl apply -f ./cdk-demo.yaml         # create resource customdatakind
+egctl create -f custom-data-demo.yaml  # create resource customdata
 ```
 
 ## Viewing and finding resources 
 
 ```
-egctl get objects                 # list all objects
-egctl get object httpserver-demo  # find object httpserver-demo
-egctl get objectkinds             # list all available object kinds
-egctl get objectstatus            # list all object status
+egctl get all                         # list all resources
+egctl get httpserver httpserver-demo  # find httpserver with name httpserver-demo
 
 egctl get member                  # list all easegress nodes
 egctl get member eg-default-name  # find easegress node with name eg-default-name
@@ -25,21 +23,21 @@ egctl get member eg-default-name  # find easegress node with name eg-default-nam
 egctl get customdatakind          # list all custom data kind
 egctl get customdata cdk-demo     # find custom data kind cdk-demo
  
-egctl describe objects               # describe all objects 
-egctl describe object pipeline-demo  # describe object pipeline-demo
+egctl describe httpserver              # describe all httpserver
+egctl describe pipeline pipeline-demo  # describe pipeline pipeline-demo
 ```
 
 ## Updating resources
 ```
-egctl apply object -f httpserver-demo-version2.yaml  # update object with new yaml file.
-egctl apply customdatakind -f cdk-demo2.yaml         # udpate custom data kind with new yaml file.
+egctl apply -f httpserver-demo-version2.yaml  # update object with new yaml file.
+egctl apply -f cdk-demo2.yaml                 # udpate custom data kind with new yaml file.
 ```
 
 ## Deleting resources
 ```
-egctl delete object httpserver-demo   # delete object httpserver-demo
-egctl delete object --all             # delete all objects
-egctl delete customdatakind cdk-demo  # delete custom data kind cdk-demo
+egctl delete httpserver httpserver-demo   # delete httpserver httpserver-demo
+egctl delete httpserver --all             # delete all httpserver
+egctl delete customdatakind cdk-demo cdk-kind  # delete custom data kind cdk-demo and cdk-kind
 ```
 
 ## Other commands

@@ -29,11 +29,24 @@ import (
 
 // GetCmd returns get command.
 func GetCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Get a resource with name", Command: "egctl get <resource> <name>"},
+		{Desc: "Get all resource", Command: "egctl get all"},
+		{Desc: "Get a resource with yaml output", Command: "egctl get <resource> <name> -o yaml"},
+		{Desc: "Get all instances in that resource", Command: "egctl get <resource>"},
+		{Desc: "Get a httpserver", Command: "egctl get httpserver <name>"},
+		{Desc: "Get all pipelines", Command: "egctl get pipeline"},
+		{Desc: "Get all members", Command: "egctl get member"},
+		{Desc: "Get a customdata kind", Command: "egctl get customdatakind <name>"},
+		{Desc: "Get a customdata of given kind", Command: "egctl get customdata <kind> <name>"},
+		{Desc: "Check all possible api resources", Command: "egctl api-resources"},
+	}
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Display one or many resources",
-		Args:  getCmdArgs,
-		Run:   getCmdRun,
+		Use:     "get",
+		Short:   "Display one or many resources",
+		Args:    getCmdArgs,
+		Example: createMultiExample(examples),
+		Run:     getCmdRun,
 	}
 	return cmd
 }
