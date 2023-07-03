@@ -28,7 +28,6 @@ import (
 
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/util/stringtool"
 
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/context/contexttest"
