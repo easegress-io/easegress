@@ -50,6 +50,8 @@ type WebSocketServerPoolSpec struct {
 	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize" jsonschema:"omitempty"`
 	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize" jsonschema:"omitempty"`
 	Filter             *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
+	InsecureSkipVerify bool                `json:"insecureSkipVerify" jsonschema:"omitempty"`
+	OriginPatterns     []string            `json:"originPatterns" jsonschema:"omitempty"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.
@@ -184,7 +186,11 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		return resultInternalError
 	}
 
-	clntConn, err := websocket.Accept(stdw, req.Std(), nil)
+	opts := &websocket.AcceptOptions{
+		InsecureSkipVerify: sp.spec.InsecureSkipVerify,
+		OriginPatterns:     sp.spec.OriginPatterns,
+	}
+	clntConn, err := websocket.Accept(stdw, req.Std(), opts)
 	if err != nil {
 		logger.Errorf("%s: failed to establish client connection: %v", sp.Name, err)
 		sp.buildFailureResponse(ctx, http.StatusBadRequest)

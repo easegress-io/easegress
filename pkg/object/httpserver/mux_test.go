@@ -651,7 +651,7 @@ func TestPrintHeader(t *testing.T) {
 	h.Set("b", "2")
 	s := printHeader(h)
 
-	if !stringtool.StrInSlice(s, []string{"A: [1], B: [2]", "B: [2], A: [1]"}) {
-		t.Errorf("unexpected header: %s", s)
+	if s != "A: [1], B: [2]" && s != "B: [2], A: [1]" {
+		t.Fail()
 	}
 }
