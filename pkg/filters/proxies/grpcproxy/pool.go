@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
+	"net"
 	"net/url"
 	"sync"
 
@@ -266,6 +267,18 @@ func (sp *ServerPool) handle(ctx *context.Context) string {
 	panic(fmt.Errorf("should not reach here"))
 }
 
+func (sp *ServerPool) getTarget(rawTarget string) string {
+	target := rawTarget
+	// gRPC only support ip:port, but proxies.Server.URL include scheme and forward.Key too
+	if parse, err := url.Parse(target); err == nil && parse.Host != "" {
+		target = parse.Host
+	}
+	if _, _, err := net.SplitHostPort(target); err != nil {
+		return ""
+	}
+	return target
+}
+
 func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext) error {
 	lb := sp.LoadBalancer()
 	svr := lb.ChooseServer(spCtx.req)
@@ -274,14 +287,12 @@ func (sp *ServerPool) doHandle(ctx stdcontext.Context, spCtx *serverPoolContext)
 		logger.Debugf("%s: no available server", sp.Name)
 		return serverPoolError{status.New(codes.InvalidArgument, "no available server"), resultClientError}
 	}
-	defer lb.ReturnServer(svr, spCtx.req, spCtx.resp)
-	// gRPC only support ip:port
-	parse, err := url.Parse(svr.URL)
-	if err != nil {
-		logger.Debugf("%s: server url %s invalid", sp.Name, svr.URL)
+	target := sp.getTarget(svr.URL)
+	lb.ReturnServer(svr, spCtx.req, spCtx.resp)
+	if target == "" {
+		logger.Debugf("request %v from %v context target address %s invalid", spCtx.req.FullMethod(), spCtx.req.RealIP(), target)
 		return serverPoolError{status.New(codes.Internal, "server url invalid"), resultInternalError}
 	}
-	target := parse.Host
 
 	// maybe be rewritten by grpcserver.MuxPath#rewrite
 	fullMethodName := spCtx.req.FullMethod()

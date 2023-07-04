@@ -18,7 +18,6 @@
 package grpcproxy
 
 import (
-	"net"
 	"sync"
 
 	"github.com/megaease/easegress/pkg/logger"
@@ -57,11 +56,6 @@ func (f *forwardLoadBalancer) ChooseServer(req protocols.Request) *Server {
 	target := grpcreq.RawHeader().GetFirst(f.forwardKey)
 	if target == "" {
 		logger.Debugf("request %v from %v context no target address %s", grpcreq.FullMethod(), grpcreq.RealIP(), target)
-		return nil
-	}
-
-	if _, _, err := net.SplitHostPort(target); err != nil {
-		logger.Debugf("request %v from %v context target address %s invalid", grpcreq.FullMethod(), grpcreq.RealIP(), target)
 		return nil
 	}
 

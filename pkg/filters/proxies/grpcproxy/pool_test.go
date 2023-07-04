@@ -19,6 +19,7 @@ package grpcproxy
 
 import (
 	"context"
+	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"math/rand"
 	"sync"
 	"testing"
@@ -166,4 +167,51 @@ func TestServerPoolSpecValidate(t *testing.T) {
 
 	sps.Servers[0].Weight = 1
 	assert.Error(t, sps.Validate())
+}
+
+func TestGetTarget(t *testing.T) {
+	at := assert.New(t)
+
+	s := `
+kind: GRPCProxy
+pools:
+ - loadBalance:
+     policy: roundRobin
+   servers:
+    - url: http://192.168.1.1:80
+    - url: http://192.168.1.2:80
+   serviceName: easegress
+maxIdleConnsPerHost: 2
+connectTimeout: 100ms
+borrowTimeout: 100ms
+name: grpcforwardproxy
+`
+	proxy := newTestProxy(s, at)
+
+	server := proxy.mainPool.LoadBalancer().ChooseServer(nil)
+
+	at.NotEqual("", proxy.mainPool.getTarget(server.URL))
+
+	proxy.Close()
+
+	s = `
+kind: GRPCProxy
+pools:
+ - loadBalance:
+     policy: forward
+     forwardKey: targetAddress
+   serviceName: easegress
+maxIdleConnsPerHost: 2
+connectTimeout: 100ms
+borrowTimeout: 100ms
+name: grpcforwardproxy
+`
+	proxy = newTestProxy(s, at)
+	request := grpcprot.NewRequestWithContext(context.Background())
+	request.Header().Add("targetAddress", "192.168.1.1:8080")
+
+	at.Equal("192.168.1.1:8080", proxy.mainPool.getTarget(proxy.mainPool.LoadBalancer().ChooseServer(request).URL))
+
+	request.Header().Set("targetAddress", "192.168.1.1")
+	at.Equal("", proxy.mainPool.getTarget(proxy.mainPool.LoadBalancer().ChooseServer(request).URL))
 }
