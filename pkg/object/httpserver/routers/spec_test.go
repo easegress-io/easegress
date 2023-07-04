@@ -70,12 +70,12 @@ func TestRuleInit(t *testing.T) {
 	rules.Init()
 
 	rule := rules[0]
-	assert.NotNil(rule.hostRE)
+	assert.NotNil(rule.Hosts[1].re)
 	assert.NotNil(rule.ipFilter)
 	assert.Equal(len(rule.Paths), 1)
 
 	rule = rules[1]
-	assert.NotNil(rule.hostRE)
+	assert.NotNil(rule.Hosts[1].re)
 	assert.NotNil(rule.ipFilter)
 
 	assert.Equal(len(rule.Paths), 1)
@@ -96,7 +96,7 @@ func TestRuleInit(t *testing.T) {
 		},
 	}
 	rule.Init()
-	assert.Nil(rule.hostRE)
+	assert.Nil(rule.Hosts[1].re)
 }
 
 func TestRuleMatch(t *testing.T) {

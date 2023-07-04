@@ -6,6 +6,7 @@
     - [TrafficController](#trafficcontroller)
     - [RawConfigTrafficController](#rawconfigtrafficcontroller)
       - [HTTPServer](#httpserver)
+    - [AccessLogVariable](#accesslogvariable)
       - [Pipeline](#pipeline)
     - [StatusSyncController](#statussynccontroller)
   - [Business Controllers](#business-controllers)
@@ -30,6 +31,7 @@
       - [zipkin.DeprecatedSpec](#zipkindeprecatedspec)
     - [ipfilter.Spec](#ipfilterspec)
     - [httpserver.Rule](#httpserverrule)
+    - [httpserver.Host](#httpserverhost)
     - [httpserver.Path](#httpserverpath)
     - [httpserver.Header](#httpserverheader)
     - [pipeline.Spec](#pipelinespec)
@@ -596,12 +598,23 @@ domains:
 
 ### httpserver.Rule
 
-| Name       | Type                               | Description                                                   | Required |
-| ---------- | ---------------------------------- | ------------------------------------------------------------- | -------- |
-| ipFilter   | [ipfilter.Spec](#ipfilterSpec)     | IP Filter for all traffic under the rule                      | No       |
-| host       | string                             | Exact host to match, empty means to match all                 | No       |
-| hostRegexp | string                             | Host in regular expression to match, empty means to match all | No       |
+| Name       | Type                                | Description                                                   | Required |
+| ---------- | ----------------------------------- | ------------------------------------------------------------- | -------- |
+| ipFilter   | [ipfilter.Spec](#ipfilterSpec)      | IP Filter for all traffic under the rule                      | No       |
+| host       | string                              | Exact host to match                                           | No       |
+| hostRegexp | string                              | Host in regular expression to match                           | No       |
+| hosts      | [][httpserver.Host](#httpserverhost) | Hosts to match                                               | No       |
 | paths      | [][httpserver.Path](#httpserverPath) | Path matching rules, empty means to match nothing. Note that multiple paths are matched in the order of their appearance in the spec, this is different from Nginx.           | No       |
+
+**Note**: if `host` or `hostRegexp` is not empty, they will be added into
+`hosts` at runtime, and if the result `hosts` is empty, all hosts are matched.
+
+### httpserver.Host
+
+| Name          | Type                     | Description                                                            | Required |
+| ------------- | ------------------------ | ---------------------------------------------------------------------- | -------- |
+| isRegexp      | bool                     | Whether `value` is regular expression or exact value, default is false | No       |
+| value         | string                   | Host value to match                                                    | Yes      |
 
 ### httpserver.Path
 
