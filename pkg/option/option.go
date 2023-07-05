@@ -72,10 +72,12 @@ type Options struct {
 	TLS                      bool              `yaml:"tls"`
 	CertFile                 string            `yaml:"cert-file"`
 	KeyFile                  string            `yaml:"key-file"`
+	ClientCAFile             string            `yaml:"client-ca-file"`
 	Debug                    bool              `yaml:"debug"`
 	DisableAccessLog         bool              `yaml:"disable-access-log"`
 	InitialObjectConfigFiles []string          `yaml:"initial-object-config-files"`
 	ObjectsDumpInterval      string            `yaml:"objects-dump-interval"`
+	BasicAuth                map[string]string `yaml:"basic-auth"`
 
 	// cluster options
 	UseStandaloneEtcd     bool           `yaml:"use-standalone-etcd"`

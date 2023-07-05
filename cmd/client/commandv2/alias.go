@@ -19,7 +19,7 @@ package commandv2
 
 import "github.com/megaease/easegress/cmd/client/general"
 
-var makeURL = general.MakeURL
+var makePath = general.MakePath
 var handleReq = general.HandleRequest
 var createExample = general.CreateExample
 var createMultiExample = general.CreateMultiExample

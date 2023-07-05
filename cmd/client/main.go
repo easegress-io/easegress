@@ -84,6 +84,7 @@ func main() {
 		commandv2.ProfileCmd(),
 		commandv2.APIResourcesCmd(),
 		commandv2.WasmCmd(),
+		commandv2.ConfigCmd(),
 	)
 
 	addCommandWithGroup(
@@ -102,7 +103,7 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,
-		"server", "localhost:2381", "The address of the Easegress endpoint")
+		"server", "", "The address of the Easegress endpoint")
 	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.ForceTLS,
 		"force-tls", false, "Whether to forcibly use HTTPS, if not, client will auto upgrade to HTTPS on-demand")
 	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.InsecureSkipVerify,

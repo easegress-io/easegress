@@ -19,5 +19,5 @@ package resources
 
 import "github.com/megaease/easegress/cmd/client/general"
 
-var makeURL = general.MakeURL
+var makePath = general.MakePath
 var handleReq = general.HandleRequest

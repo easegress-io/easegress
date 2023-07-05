@@ -19,12 +19,10 @@ package command
 
 import "github.com/megaease/easegress/cmd/client/general"
 
-var makeURL = general.MakeURL
+var makePath = general.MakePath
 
 const (
 	apiURL = general.ApiURL
-
-	healthURL = general.HealthURL
 
 	membersURL = general.MembersURL
 	memberURL  = general.MemberItemURL
@@ -36,15 +34,8 @@ const (
 	statusObjectURL  = general.StatusObjectItemURL
 	statusObjectsURL = general.StatusObjectsURL
 
-	wasmCodeURL = general.WasmCodeURL
-	wasmDataURL = general.WasmDataURL
-
 	customDataKindURL     = general.CustomDataKindURL
 	customDataKindItemURL = general.CustomDataKindItemURL
 	customDataURL         = general.CustomDataURL
 	customDataItemURL     = general.CustomDataItemURL
-
-	profileURL      = general.ProfileURL
-	profileStartURL = general.ProfileStartURL
-	profileStopURL  = general.ProfileStopURL
 )

@@ -48,7 +48,7 @@ func DescribeMember(cmd *cobra.Command, args *general.ArgInfo) error {
 		return general.ErrorMsg(general.DescribeCmd, err, msg)
 	}
 
-	body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
+	body, err := handleReq(http.MethodGet, makePath(general.MembersURL), nil)
 	if err != nil {
 		return getErr(err)
 	}
@@ -110,7 +110,7 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 
 func DeleteMember(cmd *cobra.Command, names []string) error {
 	for _, name := range names {
-		_, err := handleReq(http.MethodDelete, makeURL(general.MemberItemURL, name), nil)
+		_, err := handleReq(http.MethodDelete, makePath(general.MemberItemURL, name), nil)
 		if err != nil {
 			return general.ErrorMsg("purge", err, fmt.Sprintf("%s %s", MemberKind, name))
 		}
@@ -128,7 +128,7 @@ func GetMember(cmd *cobra.Command, args *general.ArgInfo) (err error) {
 		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	body, err := handleReq(http.MethodGet, makeURL(general.MembersURL), nil)
+	body, err := handleReq(http.MethodGet, makePath(general.MembersURL), nil)
 	if err != nil {
 		return getErr(err)
 	}

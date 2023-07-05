@@ -43,7 +43,7 @@ func infoProfileCmd() *cobra.Command {
 		Short:   "Show memory and CPU profile file paths",
 		Example: createExample("Show profile info.", "egctl profile info"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.ProfileURL), nil)
+			body, err := handleReq(http.MethodGet, makePath(general.ProfileURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 				return
@@ -78,7 +78,7 @@ func startCPUCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStartURL, "cpu"), body)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStartURL, "cpu"), body)
 			if err != nil {
 				general.ExitWithError(err)
 				return
@@ -105,7 +105,7 @@ func startMemoryCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStartURL, "memory"), body)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStartURL, "memory"), body)
 			if err != nil {
 				general.ExitWithError(err)
 				return
@@ -125,7 +125,7 @@ func stopProfilingCmd() *cobra.Command {
 		Short:   "Stop profile.",
 		Example: createExample("Stop profiling", "egctl profile stop"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodPost, makeURL(general.ProfileStopURL), nil)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStopURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 				return

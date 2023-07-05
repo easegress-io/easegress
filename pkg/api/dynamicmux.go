@@ -80,6 +80,9 @@ func (m *dynamicMux) reloadAPIs() {
 	router.Use(m.newAPILogger)
 	router.Use(m.newConfigVersionAttacher)
 	router.Use(m.newRecoverer)
+	if len(m.server.opt.BasicAuth) > 0 {
+		router.Use(m.basicAuth("easegress-basic-auth", m.server.opt.BasicAuth))
+	}
 
 	for _, apiGroup := range apiGroups {
 		for _, api := range apiGroup.Entries {

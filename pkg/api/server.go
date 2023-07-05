@@ -19,7 +19,10 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -70,6 +73,21 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 	}
 	s.router = newDynamicMux(s)
 	s.server = http.Server{Addr: opt.APIAddr, Handler: s.router}
+
+	if opt.ClientCAFile != "" {
+		caCert, err := os.ReadFile(opt.ClientCAFile)
+		if err != nil {
+			logger.Errorf("read client CA file %s failed: %v", opt.ClientCAFile, err)
+		}
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+			logger.Errorf("Failed to append CA certificate to pool")
+		}
+		s.server.TLSConfig = &tls.Config{
+			ClientAuth: tls.RequireAndVerifyClientCert,
+			ClientCAs:  caCertPool,
+		}
+	}
 
 	_, err := s.getMutex()
 	if err != nil {

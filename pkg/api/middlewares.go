@@ -18,6 +18,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"runtime/debug"
@@ -58,6 +59,31 @@ func (m *dynamicMux) newRecoverer(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (m *dynamicMux) basicAuth(realm string, creds map[string]string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, pass, ok := r.BasicAuth()
+			if !ok {
+				m.basicAuthFailed(w, r, realm)
+				return
+			}
+
+			credPass, credUserOk := creds[user]
+			if !credUserOk || subtle.ConstantTimeCompare([]byte(pass), []byte(credPass)) != 1 {
+				m.basicAuthFailed(w, r, realm)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func (m *dynamicMux) basicAuthFailed(w http.ResponseWriter, r *http.Request, realm string) {
+	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Basic realm="%s"`, realm))
+	HandleAPIError(w, r, http.StatusUnauthorized, fmt.Errorf("basic auth failed"))
 }
 
 func (m *dynamicMux) newConfigVersionAttacher(next http.Handler) http.Handler {

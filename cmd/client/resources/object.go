@@ -34,7 +34,7 @@ import (
 )
 
 func ObjectApiResources() ([]*api.ApiResource, error) {
-	url := makeURL(general.ObjectApiResources)
+	url := makePath(general.ObjectApiResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -54,9 +54,9 @@ func defaultObjectNameSpace() string {
 func httpGetObject(cmd *cobra.Command, name string) ([]byte, error) {
 	url := func(name string) string {
 		if len(name) == 0 {
-			return makeURL(general.ObjectsURL)
+			return makePath(general.ObjectsURL)
 		}
-		return makeURL(general.ObjectItemURL, name)
+		return makePath(general.ObjectItemURL, name)
 	}(name)
 	return handleReq(http.MethodGet, url, nil)
 }
@@ -236,7 +236,7 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) erro
 }
 
 func CreateObject(cmd *cobra.Command, s *general.Spec) error {
-	_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.Doc()))
+	_, err := handleReq(http.MethodPost, makePath(general.ObjectsURL), []byte(s.Doc()))
 	if err != nil {
 		return general.ErrorMsg(general.CreateCmd, err, s.Kind, s.Name)
 	}
@@ -269,7 +269,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 
 	if all {
 		for _, m := range metas {
-			_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, m.Name), nil)
+			_, err = handleReq(http.MethodDelete, makePath(general.ObjectItemURL, m.Name), nil)
 			if err != nil {
 				return getErr(err)
 			}
@@ -286,7 +286,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 		if !ok {
 			return getErr(fmt.Errorf("no such %s %s", kind, name))
 		}
-		_, err = handleReq(http.MethodDelete, makeURL(general.ObjectItemURL, name), nil)
+		_, err = handleReq(http.MethodDelete, makePath(general.ObjectItemURL, name), nil)
 		if err != nil {
 			return getErr(err)
 		}
@@ -303,10 +303,10 @@ func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
 
 	createOrUpdate := func(cmd *cobra.Command, s *general.Spec, exist bool) error {
 		if exist {
-			_, err := handleReq(http.MethodPut, makeURL(general.ObjectItemURL, s.Name), []byte(s.Doc()))
+			_, err := handleReq(http.MethodPut, makePath(general.ObjectItemURL, s.Name), []byte(s.Doc()))
 			return err
 		}
-		_, err := handleReq(http.MethodPost, makeURL(general.ObjectsURL), []byte(s.Doc()))
+		_, err := handleReq(http.MethodPost, makePath(general.ObjectsURL), []byte(s.Doc()))
 		return err
 	}
 
@@ -400,9 +400,9 @@ const objectStatusKeyInSpec = "allStatus"
 func addObjectStatusToSpec(specs []map[string]interface{}, args *general.ArgInfo) error {
 	getUrl := func(args *general.ArgInfo) string {
 		if !args.ContainName() {
-			return makeURL(general.StatusObjectsURL)
+			return makePath(general.StatusObjectsURL)
 		}
-		return makeURL(general.StatusObjectItemURL, args.Name)
+		return makePath(general.StatusObjectItemURL, args.Name)
 	}
 
 	body, err := handleReq(http.MethodGet, getUrl(args), nil)

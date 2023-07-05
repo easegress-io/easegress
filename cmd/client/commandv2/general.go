@@ -58,7 +58,7 @@ func HealthCmd() *cobra.Command {
 		Short:   "Probe Easegress health",
 		Example: createExample("Probe Easegress health", "egctl health"),
 		Run: func(cmd *cobra.Command, args []string) {
-			_, err := handleReq(http.MethodGet, makeURL(general.HealthURL), nil)
+			_, err := handleReq(http.MethodGet, makePath(general.HealthURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -80,7 +80,7 @@ func APIsCmd() *cobra.Command {
 		Short:   "View Easegress APIs",
 		Example: createExample("List all apis", "egctl apis"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.ApiURL), nil)
+			body, err := handleReq(http.MethodGet, makePath(general.ApiURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}

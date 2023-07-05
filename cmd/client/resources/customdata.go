@@ -80,9 +80,9 @@ func DescribeCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
 func httpGetCustomDataKind(cmd *cobra.Command, name string) ([]byte, error) {
 	url := func(name string) string {
 		if len(name) == 0 {
-			return makeURL(general.CustomDataKindURL)
+			return makePath(general.CustomDataKindURL)
 		}
-		return makeURL(general.CustomDataKindItemURL, name)
+		return makePath(general.CustomDataKindItemURL, name)
 	}(name)
 
 	return handleReq(http.MethodGet, url, nil)
@@ -156,7 +156,7 @@ func printCustomDataKinds(kinds []*customdata.KindWithLen) {
 }
 
 func CreateCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
-	_, err := handleReq(http.MethodPost, makeURL(general.CustomDataKindURL), []byte(s.Doc()))
+	_, err := handleReq(http.MethodPost, makePath(general.CustomDataKindURL), []byte(s.Doc()))
 	if err != nil {
 		return general.ErrorMsg(general.CreateCmd, err, s.Kind, s.Name)
 	}
@@ -166,7 +166,7 @@ func CreateCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 
 func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 	if all {
-		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindURL), nil)
+		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataKindURL), nil)
 		if err != nil {
 			return general.ErrorMsg(general.DeleteCmd, err, "all", CustomDataKind().Kind)
 		}
@@ -175,7 +175,7 @@ func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 	}
 
 	for _, name := range names {
-		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataKindItemURL, name), nil)
+		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataKindItemURL, name), nil)
 		if err != nil {
 			return general.ErrorMsg(general.DeleteCmd, err, CustomDataKind().Kind, name)
 		}
@@ -192,10 +192,10 @@ func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 
 	createOrUpdate := func(cmd *cobra.Command, yamlDoc []byte, exist bool) error {
 		if exist {
-			_, err := handleReq(http.MethodPut, makeURL(general.CustomDataKindURL), yamlDoc)
+			_, err := handleReq(http.MethodPut, makePath(general.CustomDataKindURL), yamlDoc)
 			return err
 		}
-		_, err := handleReq(http.MethodPost, makeURL(general.CustomDataKindURL), yamlDoc)
+		_, err := handleReq(http.MethodPost, makePath(general.CustomDataKindURL), yamlDoc)
 		return err
 	}
 
@@ -217,9 +217,9 @@ func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 func httpGetCustomData(cmd *cobra.Command, args *general.ArgInfo) ([]byte, error) {
 	url := func(args *general.ArgInfo) string {
 		if !args.ContainOther() {
-			return makeURL(general.CustomDataURL, args.Name)
+			return makePath(general.CustomDataURL, args.Name)
 		}
-		return makeURL(general.CustomDataItemURL, args.Name, args.Other)
+		return makePath(general.CustomDataItemURL, args.Name, args.Other)
 	}(args)
 
 	return handleReq(http.MethodGet, url, nil)
@@ -323,7 +323,7 @@ func printCustomData(data []*customdata.Data, kind *customdata.KindWithLen) {
 }
 
 func CreateCustomData(cmd *cobra.Command, s *general.Spec) error {
-	_, err := handleReq(http.MethodPost, makeURL(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
+	_, err := handleReq(http.MethodPost, makePath(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
 	if err != nil {
 		return general.ErrorMsg(general.CreateCmd, err, s.Kind, "for kind "+s.Name)
 	}
@@ -333,7 +333,7 @@ func CreateCustomData(cmd *cobra.Command, s *general.Spec) error {
 
 func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) error {
 	if all {
-		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, cdk, "items"), nil)
+		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataItemURL, cdk, "items"), nil)
 		if err != nil {
 			return general.ErrorMsg(general.DeleteCmd, err, CustomData().Kind, "for kind "+cdk)
 		}
@@ -342,7 +342,7 @@ func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) 
 	}
 
 	for _, name := range names {
-		_, err := handleReq(http.MethodDelete, makeURL(general.CustomDataItemURL, cdk, name), nil)
+		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataItemURL, cdk, name), nil)
 		if err != nil {
 			return general.ErrorMsg(general.DeleteCmd, err, CustomData().Kind, fmt.Sprintf("%s for kind %s", name, cdk))
 		}
@@ -352,7 +352,7 @@ func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) 
 }
 
 func ApplyCustomData(cmd *cobra.Command, s *general.Spec) error {
-	_, err := handleReq(http.MethodPost, makeURL(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
+	_, err := handleReq(http.MethodPost, makePath(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
 	if err != nil {
 		return general.ErrorMsg(general.ApplyCmd, err, s.Kind, "for kind "+s.Name)
 	}

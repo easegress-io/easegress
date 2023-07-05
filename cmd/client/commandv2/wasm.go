@@ -45,7 +45,7 @@ func wasmReloadCodeCmd() *cobra.Command {
 		Short:   "Notify Easegress to reload WebAssembly code",
 		Example: createExample("Notify Easegress to reload WebAssembly code", "egctl wasm reload-code"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodPost, makeURL(general.WasmCodeURL), nil)
+			body, err := handleReq(http.MethodPost, makePath(general.WasmCodeURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -69,7 +69,7 @@ func wasmDeleteDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodDelete, makeURL(general.WasmDataURL, args[0], args[1]), nil)
+			body, err := handleReq(http.MethodDelete, makePath(general.WasmDataURL, args[0], args[1]), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -97,7 +97,7 @@ func wasmApplyDataCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := general.BuildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				body, err := handleReq(http.MethodPut, makeURL(general.WasmDataURL, args[0], args[1]), yamlDoc)
+				body, err := handleReq(http.MethodPut, makePath(general.WasmDataURL, args[0], args[1]), yamlDoc)
 				if err != nil {
 					general.ExitWithError(err)
 				}
@@ -125,7 +125,7 @@ func wasmListDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makeURL(general.WasmDataURL, args[0], args[1]), nil)
+			body, err := handleReq(http.MethodGet, makePath(general.WasmDataURL, args[0], args[1]), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}

@@ -94,4 +94,6 @@ const (
 	HTTPProtocol = "http://"
 	// HTTPSProtocol is prefix for HTTPS protocol
 	HTTPSProtocol = "https://"
+
+	defaultServer = "localhost:2381"
 )

@@ -19,7 +19,6 @@ package command
 
 import (
 	"bytes"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,8 +29,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) {
-	body, err := handleRequestV1(httpMethod, url, yamlBody, cmd)
+func handleRequest(httpMethod string, path string, yamlBody []byte, cmd *cobra.Command) {
+	body, err := handleRequestV1(httpMethod, path, yamlBody, cmd)
 	if err != nil {
 		general.ExitWithError(err)
 	}
@@ -41,7 +40,7 @@ func handleRequest(httpMethod string, url string, yamlBody []byte, cmd *cobra.Co
 	}
 }
 
-func handleRequestV1(httpMethod string, url string, yamlBody []byte, cmd *cobra.Command) (body []byte, err error) {
+func handleRequestV1(httpMethod string, path string, yamlBody []byte, cmd *cobra.Command) (body []byte, err error) {
 	var jsonBody []byte
 	if yamlBody != nil {
 		var err error
@@ -51,19 +50,19 @@ func handleRequestV1(httpMethod string, url string, yamlBody []byte, cmd *cobra.
 		}
 	}
 
-	p := general.HTTPProtocol
-	if general.CmdGlobalFlags.ForceTLS {
-		p = general.HTTPSProtocol
+	url, err := general.MakeURL(path)
+	if err != nil {
+		return nil, err
 	}
-	tr := http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: general.CmdGlobalFlags.InsecureSkipVerify},
+	client, err := general.GetHTTPClient()
+	if err != nil {
+		return nil, err
 	}
-	client := &http.Client{Transport: &tr}
-	resp, body := doRequestV1(httpMethod, p+url, jsonBody, client, cmd)
+	resp, body := doRequestV1(httpMethod, url, jsonBody, client, cmd)
 
 	msg := string(body)
-	if p == general.HTTPProtocol && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
-		resp, body = doRequestV1(httpMethod, general.HTTPSProtocol+url, jsonBody, client, cmd)
+	if strings.HasPrefix(url, general.HTTPProtocol) && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
+		resp, body = doRequestV1(httpMethod, general.HTTPSProtocol+strings.TrimPrefix(url, general.HTTPProtocol), jsonBody, client, cmd)
 	}
 
 	if !general.SuccessfulStatusCode(resp.StatusCode) {

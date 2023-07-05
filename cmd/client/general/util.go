@@ -21,6 +21,7 @@ package general
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,9 +38,87 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// MakeURL is used to make url for given template.
-func MakeURL(urlTemplate string, a ...interface{}) string {
-	return CmdGlobalFlags.Server + fmt.Sprintf(urlTemplate, a...)
+func MakeURL(path string) (string, error) {
+	// server priority: flag > config > default
+	server := defaultServer
+	config, err := GetCurrentConfig()
+	if err != nil {
+		return "", err
+	}
+	if config != nil && config.GetServer() != "" {
+		server = config.GetServer()
+	}
+	if CmdGlobalFlags.Server != "" {
+		server = CmdGlobalFlags.Server
+	}
+
+	// protocol priority: https > http
+	p := HTTPProtocol
+	if CmdGlobalFlags.ForceTLS || config != nil && config.UseHTTPS() {
+		p = HTTPSProtocol
+	}
+	if strings.HasPrefix(server, HTTPSProtocol) {
+		return server + path, nil
+	}
+	return p + strings.TrimPrefix(server, HTTPProtocol) + path, nil
+}
+
+// MakePath is used to make path for given template.
+func MakePath(urlTemplate string, a ...interface{}) string {
+	return fmt.Sprintf(urlTemplate, a...)
+}
+
+func GetHTTPClient() (*http.Client, error) {
+	config, err := GetCurrentConfig()
+	if err != nil {
+		return nil, err
+	}
+	tr := http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: CmdGlobalFlags.InsecureSkipVerify},
+	}
+
+	if config != nil {
+		// set client certificate
+		if config.GetClientCertificateData() != nil || config.GetClientKeyData() != nil {
+			cert, err := tls.X509KeyPair(config.GetClientCertificateData(), config.GetClientKeyData())
+			if err != nil {
+				return nil, err
+			}
+			tr.TLSClientConfig.Certificates = []tls.Certificate{cert}
+		}
+		if config.GetClientCertificate() != "" || config.GetClientKey() != "" {
+			cert, err := tls.LoadX509KeyPair(config.GetClientCertificate(), config.GetClientKey())
+			if err != nil {
+				return nil, err
+			}
+			tr.TLSClientConfig.Certificates = []tls.Certificate{cert}
+		}
+
+		// set CA certificate
+		if config.GetCertificateAuthorityData() != nil {
+			caCertPool := x509.NewCertPool()
+			if ok := caCertPool.AppendCertsFromPEM(config.GetCertificateAuthorityData()); !ok {
+				return nil, fmt.Errorf("failed to append CA certificate to pool")
+			}
+			tr.TLSClientConfig.RootCAs = caCertPool
+		}
+		if config.GetCertificateAuthority() != "" {
+			caCertPool := x509.NewCertPool()
+			caCert, err := os.ReadFile(config.GetCertificateAuthority())
+			if err != nil {
+				return nil, err
+			}
+			if ok := caCertPool.AppendCertsFromPEM(caCert); !ok {
+				return nil, fmt.Errorf("failed to append CA certificate to pool")
+			}
+			tr.TLSClientConfig.RootCAs = caCertPool
+		}
+	}
+
+	client := &http.Client{
+		Transport: &tr,
+	}
+	return client, nil
 }
 
 func SuccessfulStatusCode(code int) bool {
@@ -74,7 +153,7 @@ func PrintBody(body []byte) {
 }
 
 // HandleRequest used in cmd/client/resources. It will return the response body in yaml or json format.
-func HandleRequest(httpMethod string, url string, yamlBody []byte) (body []byte, err error) {
+func HandleRequest(httpMethod string, path string, yamlBody []byte) (body []byte, err error) {
 	var jsonBody []byte
 	if yamlBody != nil {
 		var err error
@@ -84,22 +163,22 @@ func HandleRequest(httpMethod string, url string, yamlBody []byte) (body []byte,
 		}
 	}
 
-	p := HTTPProtocol
-	if CmdGlobalFlags.ForceTLS {
-		p = HTTPSProtocol
+	url, err := MakeURL(path)
+	if err != nil {
+		return nil, err
 	}
-	tr := http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: CmdGlobalFlags.InsecureSkipVerify},
+	client, err := GetHTTPClient()
+	if err != nil {
+		return nil, err
 	}
-	client := &http.Client{Transport: &tr}
-	resp, body, err := doRequest(httpMethod, p+url, jsonBody, client)
+	resp, body, err := doRequest(httpMethod, url, jsonBody, client)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := string(body)
-	if p == HTTPProtocol && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
-		resp, body, err = doRequest(httpMethod, HTTPSProtocol+url, jsonBody, client)
+	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
+		resp, body, err = doRequest(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
 		if err != nil {
 			return nil, err
 		}
@@ -117,7 +196,14 @@ func HandleRequest(httpMethod string, url string, yamlBody []byte) (body []byte,
 }
 
 func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client) (*http.Response, []byte, error) {
+	config, err := GetCurrentConfig()
+	if err != nil {
+		return nil, nil, err
+	}
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
+	if config != nil && config.GetUsername() != "" {
+		req.SetBasicAuth(config.GetUsername(), config.GetPassword())
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -345,7 +431,7 @@ func GenerateExampleFromChild(cmd *cobra.Command) {
 		if c.Example != "" {
 			example += c.Example
 		}
-		if i != len(cmd.Commands())-1 {
+		if i != len(cmd.Commands())-1 && c.Example != "" {
 			example += "\n\n"
 		}
 	}
@@ -395,6 +481,23 @@ func Filter[T any](array []T, filter func(value T) bool) []T {
 		if filter(v) {
 			result = append(result, v)
 		}
+	}
+	return result
+}
+
+func Find[T any](array []T, find func(value T) bool) (*T, bool) {
+	for _, v := range array {
+		if find(v) {
+			return &v, true
+		}
+	}
+	return nil, false
+}
+
+func Map[T1 any, T2 any](array []T1, mapF func(value T1) T2) []T2 {
+	var result []T2
+	for _, v := range array {
+		result = append(result, mapF(v))
 	}
 	return result
 }
