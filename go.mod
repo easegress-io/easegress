@@ -77,6 +77,7 @@ require (
 	knative.dev/client v0.36.2
 	knative.dev/serving v0.36.2
 	nhooyr.io/websocket v1.8.7
+	sigs.k8s.io/gateway-api v0.7.1
 )
 
 require (
