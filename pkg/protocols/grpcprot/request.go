@@ -294,6 +294,11 @@ func (r *Request) OnlyHost() string {
 // SetHost set the host of the request.
 func (r *Request) SetHost(host string) {
 	r.header.Set(Authority, host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		r.host = h
+	} else {
+		r.host = host
+	}
 }
 
 // Header returns the header of the request in type protocols.Header.
