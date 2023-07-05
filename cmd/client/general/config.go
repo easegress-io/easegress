@@ -27,6 +27,32 @@ import (
 	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
+/*
+clusters:
+  - cluster:
+      server: localhost:2381
+      certificate-authority: "/tmp/certs/ca.crt"
+	  certificate-authority-data: "xxxx"
+    name: cluster-default
+contexts:
+  - context:
+      cluster: cluster-default
+      user: user-default
+    name: context-default
+current-context: context-default
+kind: Config
+users:
+  - name: user-default
+    user:
+      username: admin
+      password: admin
+      client-certificate-data: "xxx"
+      client-key-data: "xxx"
+      client-certificate: "/tmp/certs/client.crt"
+      client-key: "/tmp/certs/client.key"
+*/
+
+// Config is the configuration of egctl.
 type Config struct {
 	Kind           string          `json:"kind"`
 	Clusters       []NamedCluster  `json:"clusters"`
@@ -35,12 +61,14 @@ type Config struct {
 	CurrentContext string          `json:"current-context"`
 }
 
+// Cluster is the cluster configuration.
 type Cluster struct {
 	Server                   string `json:"server"`
 	CertificateAuthority     string `json:"certificate-authority,omitempty"`
 	CertificateAuthorityData []byte `json:"certificate-authority-data,omitempty"`
 }
 
+// AuthInfo is the user configuration.
 type AuthInfo struct {
 	ClientCertificate     string `json:"client-certificate,omitempty"`
 	ClientCertificateData []byte `json:"client-certificate-data,omitempty"`
@@ -50,33 +78,31 @@ type AuthInfo struct {
 	Password              string `json:"password,omitempty"`
 }
 
-type AuthInfoMarshaler struct {
-	ClientCertificateData string `json:"client-certificate-data,omitempty"`
-	ClientKeyData         string `json:"client-key-data,omitempty"`
-	Username              string `json:"username,omitempty"`
-	Password              string `json:"password,omitempty"`
-}
-
+// Context is the context configuration.
 type Context struct {
 	Cluster  string `json:"cluster"`
 	AuthInfo string `json:"user"`
 }
 
+// NamedCluster is the cluster with name.
 type NamedCluster struct {
 	Name    string  `json:"name"`
 	Cluster Cluster `json:"cluster"`
 }
 
+// NamedContext is the context with name.
 type NamedContext struct {
 	Name    string  `json:"name"`
 	Context Context `json:"context"`
 }
 
+// NamedAuthInfo is the user with name.
 type NamedAuthInfo struct {
 	Name     string   `json:"name"`
 	AuthInfo AuthInfo `json:"user"`
 }
 
+// CurrentConfig is config contains current used cluster and user.
 type CurrentConfig struct {
 	CurrentContext string        `json:"current-context"`
 	Context        NamedContext  `json:"context"`
@@ -84,41 +110,52 @@ type CurrentConfig struct {
 	AuthInfo       NamedAuthInfo `json:"user"`
 }
 
+// GetServer returns the current used server.
 func (c *CurrentConfig) GetServer() string {
 	return c.Cluster.Cluster.Server
 }
 
+// GetUsername returns the current used username.
 func (c *CurrentConfig) GetUsername() string {
 	return c.AuthInfo.AuthInfo.Username
 }
 
+// GetPassword returns the current used password.
 func (c *CurrentConfig) GetPassword() string {
 	return c.AuthInfo.AuthInfo.Password
 }
 
+// GetClientCertificateData returns the current used client certificate data.
 func (c *CurrentConfig) GetClientCertificateData() []byte {
 	return c.AuthInfo.AuthInfo.ClientCertificateData
 }
 
+// GetClientCertificate returns the current used client certificate file name.
 func (c *CurrentConfig) GetClientCertificate() string {
 	return c.AuthInfo.AuthInfo.ClientCertificate
 }
+
+// GetClientKey returns the current used client key file name.
 func (c *CurrentConfig) GetClientKey() string {
 	return c.AuthInfo.AuthInfo.ClientKey
 }
 
+// GetClientKeyData returns the current used client key data.
 func (c *CurrentConfig) GetClientKeyData() []byte {
 	return c.AuthInfo.AuthInfo.ClientKeyData
 }
 
+// GetCertificateAuthority returns the current used certificate authority file name.
 func (c *CurrentConfig) GetCertificateAuthority() string {
 	return c.Cluster.Cluster.CertificateAuthority
 }
 
+// GetCertificateAuthorityData returns the current used certificate authority data.
 func (c *CurrentConfig) GetCertificateAuthorityData() []byte {
 	return c.Cluster.Cluster.CertificateAuthorityData
 }
 
+// UseHTTPS returns whether the current used server is HTTPS.
 func (c *CurrentConfig) UseHTTPS() bool {
 	return len(c.GetCertificateAuthorityData()) > 0 || len(c.GetCertificateAuthority()) > 0 || len(c.GetClientCertificateData()) > 0 || len(c.GetClientCertificate()) > 0
 }
@@ -132,6 +169,7 @@ func getConfigPath() (string, error) {
 	return path.Join(homeDir, ".egctlconfig"), nil
 }
 
+// WriteConfig writes the config to file.
 func WriteConfig(config *Config) error {
 	data, err := codectool.MarshalJSON(config)
 	if err != nil {
@@ -161,6 +199,7 @@ func WriteConfig(config *Config) error {
 
 var globalConfig *Config
 
+// GetConfig returns the config.
 func GetConfig() (*Config, error) {
 	if globalConfig != nil {
 		return globalConfig, nil
@@ -191,6 +230,7 @@ func GetConfig() (*Config, error) {
 	return config, nil
 }
 
+// GetRedactedConfig returns the config with sensitive data redacted.
 func GetRedactedConfig(c *Config) *Config {
 	copy := *c
 	redacted, _ := base64.StdEncoding.DecodeString(string("REDACTED"))
@@ -217,6 +257,7 @@ func GetRedactedConfig(c *Config) *Config {
 
 var globalCurrentConfig *CurrentConfig
 
+// GetCurrentConfig returns the current config.
 func GetCurrentConfig() (*CurrentConfig, error) {
 	if globalCurrentConfig != nil {
 		return globalCurrentConfig, nil

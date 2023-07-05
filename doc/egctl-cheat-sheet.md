@@ -50,3 +50,77 @@ egctl profile info                     # print profile file location.
 egctl profile start cpu ./cpu-profile  # start profile cpu and put output in ./cpu-profile file
 egctl profile stop                     # stop profile
 ```
+
+## Config
+
+By default, `egctl` looks for a file named `.egctlconfig` in the `$HOME` directory. Here's an example about `.egctlconfig`.
+
+```yaml
+kind: Config
+
+# current used context.
+current-context: context-default
+
+# contexts contains user and cluster information, tell egctl use which user to access which cluster.
+contexts:
+  - context:
+      cluster: cluster-default
+      user: user-default
+    name: context-default
+
+# clusters contains cluster information.
+# `server` is the host address egctl to access.
+# `certificate-authority` or `certificate-authority-data` contains the root certificate authority that client uses when verifying server certificates.
+clusters:
+  - cluster:
+      server: localhost:2381
+      certificate-authority: "/tmp/certs/ca.crt"
+	  certificate-authority-data: "xxxx" # base64
+    name: cluster-default
+
+# users contains user information.
+# `username` and `password` is used as basic auth. 
+# (`client-key`, `client-certificate`) or (`client-key-data`, `client-certificate-data`) contains client certificate.
+users:
+  - name: user-default
+    user:
+      username: user123
+      password: password
+      client-certificate: "/tmp/certs/client.crt"
+      client-key: "/tmp/certs/client.key"
+```
+
+To use basic auth of `username` and `password`, add following part to easegress config yaml:
+
+```yaml
+name: easegress-1
+cluster:
+  listen-peer-urls:
+  - http://localhost:2380
+  ...
+...
+basic-auth:
+  user123: password
+  admin: admin
+  username: password
+```
+
+To check client certificate, add following part to easegress config yaml:
+
+```yaml
+name: easegress-1
+cluster:
+  listen-peer-urls:
+  - http://localhost:2380
+  ...
+...
+# non empty client-ca-file will force server to check client certificate.
+client-ca-file: "/tmp/certs/ca.crt"
+```
+
+```
+egctl config current-context     # show current context used for egctl
+egctl config get-contexts        # show all available contexts
+egctl config use-context <name>  # update .egctlconfig file `current-context` to <name>
+egctl config view                # view config file
+```
