@@ -27,6 +27,29 @@ import (
 	"github.com/megaease/easegress/pkg/util/codectool"
 )
 
+type (
+	// GlobalFlags is the global flags for the whole client.
+	GlobalFlags struct {
+		Server             string
+		ForceTLS           bool
+		InsecureSkipVerify bool
+		OutputFormat       string
+	}
+
+	// APIErr is the standard return of error.
+	APIErr struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+)
+
+func (g *GlobalFlags) DefaultFormat() bool {
+	return g.OutputFormat == DefaultFormat
+}
+
+// CmdGlobalFlags is the singleton of GlobalFlags.
+var CmdGlobalFlags GlobalFlags
+
 /*
 clusters:
   - cluster:
