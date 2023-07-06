@@ -33,6 +33,7 @@ import (
 	"github.com/megaease/easegress/pkg/util/stringtool"
 )
 
+// MakeURL is used to make URL for given path.
 func MakeURL(path string) (string, error) {
 	// server priority: flag > config > default
 	server := defaultServer
@@ -63,6 +64,7 @@ func MakePath(urlTemplate string, a ...interface{}) string {
 	return fmt.Sprintf(urlTemplate, a...)
 }
 
+// GetHTTPClient is used to get HTTP client.
 func GetHTTPClient() (*http.Client, error) {
 	config, err := GetCurrentConfig()
 	if err != nil {
@@ -116,6 +118,7 @@ func GetHTTPClient() (*http.Client, error) {
 	return client, nil
 }
 
+// SuccessfulStatusCode returns true if the status code is successful.
 func SuccessfulStatusCode(code int) bool {
 	return code >= 200 && code < 300
 }
@@ -188,24 +191,29 @@ func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Clie
 	return resp, body, nil
 }
 
+// ArgInfo is used to store the information of arguments.
 type ArgInfo struct {
 	Resource string
 	Name     string
 	Other    string
 }
 
+// ContainResource returns true if the arguments contain resource.
 func (a *ArgInfo) ContainResource() bool {
 	return a.Resource != ""
 }
 
+// ContainName returns true if the arguments contain name.
 func (a *ArgInfo) ContainName() bool {
 	return a.Name != ""
 }
 
+// ContainOther returns true if the arguments contain other.
 func (a *ArgInfo) ContainOther() bool {
 	return a.Other != ""
 }
 
+// ParseArgs parses the arguments and returns the ArgInfo.
 func ParseArgs(args []string) *ArgInfo {
 	if len(args) == 0 {
 		return nil
@@ -221,6 +229,7 @@ func ParseArgs(args []string) *ArgInfo {
 	return argInfo
 }
 
-func InApiResource(arg string, r *api.ApiResource) bool {
+// InAPIResource returns true if the arg is in the api resource.
+func InAPIResource(arg string, r *api.ApiResource) bool {
 	return arg == r.Name || arg == r.Kind || stringtool.StrInSlice(arg, r.Aliases)
 }

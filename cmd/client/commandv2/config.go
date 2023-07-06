@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ConfigCmd defines config command.
 func ConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",

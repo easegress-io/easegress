@@ -25,13 +25,13 @@ import (
 )
 
 func GetResourceKind(arg string) (string, error) {
-	if general.InApiResource(arg, CustomData()) {
+	if general.InAPIResource(arg, CustomData()) {
 		return CustomData().Kind, nil
 	}
-	if general.InApiResource(arg, CustomDataKind()) {
+	if general.InAPIResource(arg, CustomDataKind()) {
 		return CustomDataKind().Kind, nil
 	}
-	if general.InApiResource(arg, Member()) {
+	if general.InAPIResource(arg, Member()) {
 		return Member().Kind, nil
 	}
 	objects, err := ObjectApiResources()
@@ -39,7 +39,7 @@ func GetResourceKind(arg string) (string, error) {
 		return "", err
 	}
 	for _, object := range objects {
-		if general.InApiResource(arg, object) {
+		if general.InAPIResource(arg, object) {
 			return object.Kind, nil
 		}
 	}

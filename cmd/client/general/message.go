@@ -23,10 +23,12 @@ import (
 	"strings"
 )
 
+// SuccessMsg returns the success message.
 func SuccessMsg(action CmdType, values ...string) string {
 	return fmt.Sprintf("%s %s successfully", action, strings.Join(values, " "))
 }
 
+// ErrorMsg returns the error message.
 func ErrorMsg(action CmdType, err error, values ...string) error {
 	return fmt.Errorf("%s %s failed, %v", action, strings.Join(values, " "), err)
 }

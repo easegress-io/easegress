@@ -152,7 +152,7 @@ func PrintMapInterface(maps []map[string]interface{}, fronts []string, backs []s
 		}
 	}
 
-	print := func(spec map[string]interface{}) {
+	printFn := func(spec map[string]interface{}) {
 		spec = func(s map[string]interface{}) map[string]interface{} {
 			res := map[string]interface{}{}
 			for k, v := range s {
@@ -212,7 +212,7 @@ func PrintMapInterface(maps []map[string]interface{}, fronts []string, backs []s
 	}
 
 	for i, m := range maps {
-		print(m)
+		printFn(m)
 		if len(maps) > 1 && i != len(maps)-1 {
 			fmt.Print("\n\n---\n\n")
 		}

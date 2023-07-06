@@ -125,7 +125,7 @@ func getCmdArgs(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("no resource specified")
 	}
 	if len(args) == 1 {
-		if general.InApiResource(args[0], resources.CustomData()) {
+		if general.InAPIResource(args[0], resources.CustomData()) {
 			return fmt.Errorf("no custom data kind specified")
 		}
 		return nil
@@ -136,7 +136,7 @@ func getCmdArgs(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 2 {
 		return nil
 	}
-	if len(args) == 3 && general.InApiResource(args[0], resources.CustomData()) {
+	if len(args) == 3 && general.InAPIResource(args[0], resources.CustomData()) {
 		return nil
 	}
 	return fmt.Errorf("invalid args")

@@ -62,26 +62,26 @@ kind: Config
 # current used context.
 current-context: context-default
 
-# `contexts` section contains `user` and `cluster` information, which informs egctl about which `user` should be used to access a specific `cluster`.
+# "contexts" section contains "user" and "cluster" information, which informs egctl about which "user" should be used to access a specific "cluster".
 contexts:
   - context:
       cluster: cluster-default
       user: user-default
     name: context-default
 
-# `clusters` section contains information about the `cluster`.
-# `server` specifies the host address that egctl should access.
-# `certificate-authority` or `certificate-authority-data` contain the root certificate authority that the client uses to verify server certificates.
+# "clusters" section contains information about the "cluster".
+# "server" specifies the host address that egctl should access.
+# "certificate-authority" or "certificate-authority-data" contain the root certificate authority that the client uses to verify server certificates.
 clusters:
   - cluster:
       server: localhost:2381
-      certificate-authority: "/tmp/certs/ca.crt"
-	  certificate-authority-data: "xxxx" # base64
+      certificate-authority: "/tmp/certs/ca.crt" 
+      certificate-authority-data: "xxxx"
     name: cluster-default
 
-# `users` section contains `user` information.
-# `username` and `password` are used for basic authentication.
-# either the pair (`client-key`, `client-certificate`) or the pair (`client-key-data`, `client-certificate-data`) contains the client certificate
+# "users" section contains "user" information.
+# "username" and "password" are used for basic authentication.
+# either the pair ("client-key", "client-certificate") or the pair ("client-key-data", "client-certificate-data") contains the client certificate.
 users:
   - name: user-default
     user:

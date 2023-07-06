@@ -22,17 +22,27 @@ package general
 type CmdType string
 
 const (
-	GetCmd      CmdType = "get"
-	CreateCmd   CmdType = "create"
-	ApplyCmd    CmdType = "apply"
-	DeleteCmd   CmdType = "delete"
+	// GetCmd is the get command.
+	GetCmd CmdType = "get"
+	// CreateCmd is the create command.
+	CreateCmd CmdType = "create"
+	// ApplyCmd is the apply command.
+	ApplyCmd CmdType = "apply"
+	// DeleteCmd is the delete command.
+	DeleteCmd CmdType = "delete"
+	// DescribeCmd is the describe command.
 	DescribeCmd CmdType = "describe"
-	StartCmd    CmdType = "start"
-	StopCmd     CmdType = "stop"
+	// StartCmd is the start command.
+	StartCmd CmdType = "start"
+	// StopCmd is the stop command.
+	StopCmd CmdType = "stop"
 )
 
 const (
-	JSONFormat    string = "json"
-	YamlFormat    string = "yaml"
+	// JSONFormat is the json format.
+	JSONFormat string = "json"
+	// YamlFormat is the yaml format.
+	YamlFormat string = "yaml"
+	// DefaultFormat is the default format.
 	DefaultFormat string = "default"
 )

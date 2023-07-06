@@ -66,6 +66,7 @@ func (v *yamlVisitor) Close() {
 	}
 }
 
+// Spec is the spec of a resource
 type Spec struct {
 	Kind string
 	Name string
@@ -124,6 +125,7 @@ func (v *specVisitor) Close() {
 	v.v.Close()
 }
 
+// BuildYAMLVisitor builds a YAMLVisitor
 func BuildYAMLVisitor(yamlFile string, cmd *cobra.Command) YAMLVisitor {
 	var r io.ReadCloser
 	if yamlFile == "" {
@@ -136,6 +138,7 @@ func BuildYAMLVisitor(yamlFile string, cmd *cobra.Command) YAMLVisitor {
 	return &yamlVisitor{reader: r}
 }
 
+// BuildSpecVisitor builds a SpecVisitor
 func BuildSpecVisitor(yamlFile string, cmd *cobra.Command) SpecVisitor {
 	v := BuildYAMLVisitor(yamlFile, cmd)
 	return &specVisitor{v: v}

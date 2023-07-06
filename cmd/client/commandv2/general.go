@@ -113,6 +113,7 @@ func APIsCmd() *cobra.Command {
 	return cmd
 }
 
+// APIResourcesCmd returns api-resources command.
 func APIResourcesCmd() *cobra.Command {
 	cd := resources.CustomData()
 	cdk := resources.CustomDataKind()

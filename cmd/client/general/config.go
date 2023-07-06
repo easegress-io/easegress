@@ -256,15 +256,15 @@ func GetConfig() (*Config, error) {
 
 // GetRedactedConfig returns the config with sensitive data redacted.
 func GetRedactedConfig(c *Config) *Config {
-	copy := *c
+	config := *c
 	redacted, _ := base64.StdEncoding.DecodeString(string("REDACTED"))
-	copy.Clusters = Map(copy.Clusters, func(c NamedCluster) NamedCluster {
+	config.Clusters = Map(config.Clusters, func(c NamedCluster) NamedCluster {
 		if len(c.Cluster.CertificateAuthorityData) > 0 {
 			c.Cluster.CertificateAuthorityData = redacted
 		}
 		return c
 	})
-	copy.AuthInfos = Map(copy.AuthInfos, func(u NamedAuthInfo) NamedAuthInfo {
+	config.AuthInfos = Map(config.AuthInfos, func(u NamedAuthInfo) NamedAuthInfo {
 		if len(u.AuthInfo.ClientCertificateData) > 0 {
 			u.AuthInfo.ClientCertificateData = redacted
 		}
@@ -276,7 +276,7 @@ func GetRedactedConfig(c *Config) *Config {
 		}
 		return u
 	})
-	return &copy
+	return &config
 }
 
 var globalCurrentConfig *CurrentConfig
