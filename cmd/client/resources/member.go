@@ -34,8 +34,8 @@ import (
 const MemberKind = "Member"
 
 // Member returns the member resource.
-func Member() *api.ApiResource {
-	return &api.ApiResource{
+func Member() *api.APIResource {
+	return &api.APIResource{
 		Kind:    MemberKind,
 		Name:    "member",
 		Aliases: []string{"m", "mem", "members"},
@@ -43,7 +43,7 @@ func Member() *api.ApiResource {
 }
 
 // DescribeMember describes the member.
-func DescribeMember(cmd *cobra.Command, args *general.ArgInfo) error {
+func DescribeMember(_ *cobra.Command, args *general.ArgInfo) error {
 	msg := "all " + MemberKind
 	if args.ContainName() {
 		msg = fmt.Sprintf("%s %s", MemberKind, args.Name)

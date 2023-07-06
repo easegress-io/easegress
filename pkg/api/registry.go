@@ -22,16 +22,16 @@ import (
 	"fmt"
 )
 
-type ApiResource struct {
+type APIResource struct {
 	Kind    string
 	Name    string
 	Aliases []string
 }
 
 // key is Kind name, now only contains api resource of object.
-var objectApiResource = map[string]*ApiResource{}
+var objectApiResource = map[string]*APIResource{}
 
-func RegisterObject(r *ApiResource) {
+func RegisterObject(r *APIResource) {
 	if r.Kind == "" {
 		panic(fmt.Errorf("%v: empty kind", r))
 	}
@@ -46,8 +46,8 @@ func RegisterObject(r *ApiResource) {
 	objectApiResource[r.Kind] = r
 }
 
-func ObjectApiResources() []*ApiResource {
-	resources := []*ApiResource{}
+func ObjectApiResources() []*APIResource {
+	resources := []*APIResource{}
 	for _, r := range objectApiResource {
 		resources = append(resources, r)
 	}

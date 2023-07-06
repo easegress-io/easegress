@@ -49,7 +49,7 @@ var aliases = []string{"consul", "consulserviceregistrys"}
 
 func init() {
 	supervisor.Register(&ConsulServiceRegistry{})
-	egapi.RegisterObject(&egapi.ApiResource{
+	egapi.RegisterObject(&egapi.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: aliases,

@@ -230,6 +230,6 @@ func ParseArgs(args []string) *ArgInfo {
 }
 
 // InAPIResource returns true if the arg is in the api resource.
-func InAPIResource(arg string, r *api.ApiResource) bool {
+func InAPIResource(arg string, r *api.APIResource) bool {
 	return arg == r.Name || arg == r.Kind || stringtool.StrInSlice(arg, r.Aliases)
 }

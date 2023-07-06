@@ -53,7 +53,7 @@ func init() {
 		panic(fmt.Errorf("get host ipv4 failed"))
 	}
 
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: aliases,

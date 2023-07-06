@@ -35,13 +35,13 @@ import (
 )
 
 // ObjectApiResources returns the object api resources.
-func ObjectApiResources() ([]*api.ApiResource, error) {
+func ObjectApiResources() ([]*api.APIResource, error) {
 	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	res := []*api.ApiResource{}
+	res := []*api.APIResource{}
 	err = codectool.Unmarshal(body, &res)
 	if err != nil {
 		return nil, err

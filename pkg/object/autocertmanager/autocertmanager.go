@@ -54,7 +54,7 @@ var aliases = []string{
 
 func init() {
 	supervisor.Register(&AutoCertManager{})
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: aliases,

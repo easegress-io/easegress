@@ -127,14 +127,14 @@ func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]*customdata.KindWithLen, 0, len(kinds))
 	for _, k := range kinds {
-		len, err := s.cds.DataLen(k.Name)
+		l, err := s.cds.DataLen(k.Name)
 		if err != nil {
 			ClusterPanic(err)
 		}
 
 		result = append(result, &customdata.KindWithLen{
 			Kind: *k,
-			Len:  len,
+			Len:  l,
 		})
 	}
 

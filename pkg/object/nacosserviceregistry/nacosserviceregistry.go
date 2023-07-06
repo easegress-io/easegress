@@ -54,7 +54,7 @@ const (
 
 func init() {
 	supervisor.Register(&NacosServiceRegistry{})
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: []string{"nacos"},

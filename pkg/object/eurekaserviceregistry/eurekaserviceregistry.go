@@ -48,7 +48,7 @@ var aliases = []string{"eureka"}
 
 func init() {
 	supervisor.Register(&EurekaServiceRegistry{})
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    name,
 		Aliases: aliases,

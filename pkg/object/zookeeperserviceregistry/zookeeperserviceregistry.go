@@ -46,7 +46,7 @@ const (
 
 func init() {
 	supervisor.Register(&ZookeeperServiceRegistry{})
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: []string{"zookeeper", "zk", "zkserviceregistries"},

@@ -38,7 +38,7 @@ const (
 
 func init() {
 	supervisor.Register(&ServiceRegistry{})
-	api.RegisterObject(&api.ApiResource{
+	api.RegisterObject(&api.APIResource{
 		Kind:    Kind,
 		Name:    strings.ToLower(Kind),
 		Aliases: []string{"sr", "serviceregistries"},

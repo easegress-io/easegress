@@ -33,8 +33,8 @@ import (
 )
 
 // CustomDataKind is CustomDataKind resource.
-func CustomDataKind() *api.ApiResource {
-	return &api.ApiResource{
+func CustomDataKind() *api.APIResource {
+	return &api.APIResource{
 		Kind:    "CustomDataKind",
 		Name:    "customdatakind",
 		Aliases: []string{"customdatakinds", "cdk"},
@@ -42,8 +42,8 @@ func CustomDataKind() *api.ApiResource {
 }
 
 // CustomData is CustomData resource.
-func CustomData() *api.ApiResource {
-	return &api.ApiResource{
+func CustomData() *api.APIResource {
+	return &api.APIResource{
 		Kind:    "CustomData",
 		Name:    "customdata",
 		Aliases: []string{"customdatas", "cd"},

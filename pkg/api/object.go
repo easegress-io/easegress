@@ -43,7 +43,8 @@ const (
 	// StatusObjectPrefix is the prefix of object status.
 	StatusObjectPrefix = "/status/objects"
 
-	ObjectApiResourcesPrefix = "/object-api-resources"
+	// ObjectAPIResourcesPrefix is the prefix of object api resources.
+	ObjectAPIResourcesPrefix = "/object-api-resources"
 )
 
 func (s *Server) objectAPIEntries() []*Entry {
@@ -54,7 +55,7 @@ func (s *Server) objectAPIEntries() []*Entry {
 			Handler: s.listObjectKinds,
 		},
 		{
-			Path:    ObjectApiResourcesPrefix,
+			Path:    ObjectAPIResourcesPrefix,
 			Method:  "GET",
 			Handler: s.listObjectApiResources,
 		},
