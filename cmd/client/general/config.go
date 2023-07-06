@@ -44,6 +44,7 @@ type (
 	}
 )
 
+// DefaultFormat is the default output format.
 func (g *GlobalFlags) DefaultFormat() bool {
 	return g.OutputFormat == DefaultFormat
 }
