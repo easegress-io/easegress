@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package general provides the general utilities for the client.
 package general
 
 // CmdType is the type of command.
@@ -31,7 +32,7 @@ const (
 )
 
 const (
-	JsonFormat    string = "json"
+	JSONFormat    string = "json"
 	YamlFormat    string = "yaml"
 	DefaultFormat string = "default"
 )

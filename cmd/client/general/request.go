@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// Package command implements commands of Easegress client.
+// Package general provides the general utilities for the client.
 package general
 
 import (

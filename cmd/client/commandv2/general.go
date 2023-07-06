@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package commandv2 provides the new version of commands.
 package commandv2
 
 import (
@@ -80,7 +81,7 @@ func APIsCmd() *cobra.Command {
 		Short:   "View Easegress APIs",
 		Example: createExample("List all apis", "egctl apis"),
 		Run: func(cmd *cobra.Command, args []string) {
-			body, err := handleReq(http.MethodGet, makePath(general.ApiURL), nil)
+			body, err := handleReq(http.MethodGet, makePath(general.APIURL), nil)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -98,7 +99,7 @@ func APIsCmd() *cobra.Command {
 			table := [][]string{}
 			for _, group := range groups {
 				for _, e := range group.Entries {
-					table = append(table, []string{e.Path, e.Method, general.ApiURL, group.Group})
+					table = append(table, []string{e.Path, e.Method, general.APIURL, group.Group})
 				}
 			}
 			sort.Slice(table, func(i, j int) bool {

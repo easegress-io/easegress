@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command provides the commands.
 package command
 
 import "github.com/megaease/easegress/cmd/client/general"
@@ -22,7 +23,7 @@ import "github.com/megaease/easegress/cmd/client/general"
 var makePath = general.MakePath
 
 const (
-	apiURL = general.ApiURL
+	apiURL = general.APIURL
 
 	membersURL = general.MembersURL
 	memberURL  = general.MemberItemURL

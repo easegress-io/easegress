@@ -44,6 +44,7 @@ type Kind struct {
 	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema" jsonschema:"omitempty"`
 }
 
+// KindWithLen defines the spec of a custom data kind with length
 type KindWithLen struct {
 	Kind
 	Len int `json:"len"`

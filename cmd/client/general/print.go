@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-// Package command implements commands of Easegress client.
+// Package general provides the general utilities for the client.
 package general
 
 import (
@@ -41,7 +41,7 @@ func PrintBody(body []byte) {
 
 	var output []byte
 	switch CmdGlobalFlags.OutputFormat {
-	case JsonFormat:
+	case JSONFormat:
 		var prettyJSON bytes.Buffer
 		err := json.Indent(&prettyJSON, body, "", "  ")
 		if err != nil {

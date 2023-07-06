@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package general provides the general utilities for the client.
 package general
 
 import (

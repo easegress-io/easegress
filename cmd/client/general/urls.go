@@ -15,57 +15,57 @@
  * limitations under the License.
  */
 
-// Package command implements commands of Easegress client.
+// Package general provides the general utilities for the client.
 package general
 
 const (
-	// ApiURL is the prefix of all API URLs.
-	ApiURL = "/apis/v2"
+	// APIURL is the prefix of all API URLs.
+	APIURL = "/apis/v2"
 
 	// HealthURL is the URL of health check.
-	HealthURL = ApiURL + "/healthz"
+	HealthURL = APIURL + "/healthz"
 
 	// MembersURL is the URL of members.
-	MembersURL = ApiURL + "/status/members"
+	MembersURL = APIURL + "/status/members"
 	// MemberItemURL is the URL of a member.
-	MemberItemURL = ApiURL + "/status/members/%s"
+	MemberItemURL = APIURL + "/status/members/%s"
 
 	// ObjectsURL is the URL of objects.
-	ObjectsURL = ApiURL + "/objects"
+	ObjectsURL = APIURL + "/objects"
 	// ObjectItemURL is the URL of a object.
-	ObjectItemURL = ApiURL + "/objects/%s"
+	ObjectItemURL = APIURL + "/objects/%s"
 	// ObjectKindsURL is the URL of object kinds.
-	ObjectKindsURL = ApiURL + "/object-kinds"
+	ObjectKindsURL = APIURL + "/object-kinds"
 	// ObjectTemplateURL is the URL of object template.
-	ObjectTemplateURL = ApiURL + "/objects-yaml/%s/%s"
-	// ObjectApiResources is the URL of object api resources.
-	ObjectApiResources = ApiURL + "/object-api-resources"
+	ObjectTemplateURL = APIURL + "/objects-yaml/%s/%s"
+	// ObjectAPIResources is the URL of object api resources.
+	ObjectAPIResources = APIURL + "/object-api-resources"
 
 	// StatusObjectsURL is the URL of status objects.
-	StatusObjectsURL = ApiURL + "/status/objects"
+	StatusObjectsURL = APIURL + "/status/objects"
 	// StatusObjectItemURL is the URL of a status object.
-	StatusObjectItemURL = ApiURL + "/status/objects/%s"
+	StatusObjectItemURL = APIURL + "/status/objects/%s"
 
 	// WasmCodeURL is the URL of wasm code.
-	WasmCodeURL = ApiURL + "/wasm/code"
+	WasmCodeURL = APIURL + "/wasm/code"
 	// WasmDataURL is the URL of wasm data.
-	WasmDataURL = ApiURL + "/wasm/data/%s/%s"
+	WasmDataURL = APIURL + "/wasm/data/%s/%s"
 
 	// CustomDataKindURL is the URL of custom data kinds.
-	CustomDataKindURL = ApiURL + "/customdatakinds"
+	CustomDataKindURL = APIURL + "/customdatakinds"
 	// CustomDataKindItemURL is the URL of a custom data kind.
-	CustomDataKindItemURL = ApiURL + "/customdatakinds/%s"
+	CustomDataKindItemURL = APIURL + "/customdatakinds/%s"
 	// CustomDataURL is the URL of custom data.
-	CustomDataURL = ApiURL + "/customdata/%s"
+	CustomDataURL = APIURL + "/customdata/%s"
 	// CustomDataItemURL is the URL of a custom data.
-	CustomDataItemURL = ApiURL + "/customdata/%s/%s"
+	CustomDataItemURL = APIURL + "/customdata/%s/%s"
 
 	// ProfileURL is the URL of profile.
-	ProfileURL = ApiURL + "/profile"
+	ProfileURL = APIURL + "/profile"
 	// ProfileStartURL is the URL of start profile.
-	ProfileStartURL = ApiURL + "/profile/start/%s"
+	ProfileStartURL = APIURL + "/profile/start/%s"
 	// ProfileStopURL is the URL of stop profile.
-	ProfileStopURL = ApiURL + "/profile/stop"
+	ProfileStopURL = APIURL + "/profile/stop"
 
 	// HTTPProtocol is prefix for HTTP protocol
 	HTTPProtocol = "http://"

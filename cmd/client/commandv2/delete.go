@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package commandv2 provides the new version of commands.
 package commandv2
 
 import (
@@ -83,7 +84,7 @@ func deleteCmdRun(cmd *cobra.Command, args []string) {
 // egctl delete <resource> --all
 // special:
 // egctl delete cd <kind> <name1> <name2> ...
-func deleteCmdArgs(cmd *cobra.Command, args []string) (err error) {
+func deleteCmdArgs(_ *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
 		return fmt.Errorf("no resource specified")
 	}

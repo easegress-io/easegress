@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package resources provides the resources utilities for the client.
 package resources
 
 import (
@@ -34,7 +35,7 @@ import (
 )
 
 func ObjectApiResources() ([]*api.ApiResource, error) {
-	url := makePath(general.ObjectApiResources)
+	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err

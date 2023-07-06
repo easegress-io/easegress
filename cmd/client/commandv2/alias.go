@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package commandv2 provides the new version of commands.
 package commandv2
 
 import "github.com/megaease/easegress/cmd/client/general"

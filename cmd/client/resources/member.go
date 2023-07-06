@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package resources provides the resources utilities for the client.
 package resources
 
 import (
