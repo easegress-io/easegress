@@ -24,6 +24,7 @@ import (
 	"github.com/megaease/easegress/cmd/client/general"
 )
 
+// GetResourceKind returns the kind of the resource.
 func GetResourceKind(arg string) (string, error) {
 	if general.InAPIResource(arg, CustomData()) {
 		return CustomData().Kind, nil

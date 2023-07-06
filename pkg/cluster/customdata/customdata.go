@@ -50,10 +50,12 @@ type KindWithLen struct {
 	Len int `json:"len"`
 }
 
+// DataID returns the ID of the custom data
 func (k *Kind) DataID(data *Data) string {
 	return k.dataID(*data)
 }
 
+// GetIDField returns the ID field name of the custom data kind
 func (k *Kind) GetIDField() string {
 	if k.IDField == "" {
 		return "name"
@@ -221,6 +223,7 @@ func (s *Store) GetData(kind string, id string) (Data, error) {
 	return unmarshalData(kvs.Value)
 }
 
+// DataLen returns the number of custom data of specified kind.
 func (s *Store) DataLen(kind string) (int, error) {
 	key := s.DataPrefix
 	if kind != "" {
