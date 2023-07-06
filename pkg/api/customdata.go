@@ -113,16 +113,9 @@ func (s *Server) customDataAPIEntries() []*Entry {
 }
 
 func (s *Server) deleteAllCustomDataKind(w http.ResponseWriter, r *http.Request) {
-	kinds, err := s.cds.ListKinds()
+	err := s.cds.DeleteAllKinds()
 	if err != nil {
 		ClusterPanic(err)
-	}
-
-	for _, k := range kinds {
-		err = s.cds.DeleteKind(k.Name)
-		if err != nil {
-			ClusterPanic(err)
-		}
 	}
 }
 

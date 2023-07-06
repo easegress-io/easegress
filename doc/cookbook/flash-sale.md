@@ -113,7 +113,9 @@ https: false
 rules:
 - paths:
   - pathPrefix: /flashsale
-    backend: flash-sale-pipeline' | egctl create
+    backend: flash-sale-pipeline' > http-server.yaml 
+
+egctl create -f http-server.yaml
 ```
 
 Create pipeline `flash-sale-pipeline` which includes a `WasmHost` filter:
@@ -136,7 +138,9 @@ filters:
   kind: Mock
   rules:
   - body: "You can buy the laptop for $1 now.\n"
-    code: 200' | egctl create
+    code: 200' > flash-sale-pipeline.yaml 
+
+egctl create -f flash-sale-pipeline.yaml
 ```
 
 Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7) of section 1.1.

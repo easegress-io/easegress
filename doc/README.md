@@ -98,4 +98,4 @@ It could be created, updated, deleted by admin operation. They control various r
 - [Custom Data Management](./reference/customdata.md) - Create/Read/Update/Delete custom data kinds and custom data items.
 
 # 5. egctl Cheat Sheet
-[egctl Cheat Sheet](./egctl-cheat-sheet.md) contains common used `egctl` commands and details about `.egctlconfig`.
+[egctl Cheat Sheet](./egctl-cheat-sheet.md) contains common used `egctl` commands and details about `.egctlrc`.

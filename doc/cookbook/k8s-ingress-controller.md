@@ -35,7 +35,9 @@ httpServer:
   keepAlive: true
   keepAliveTimeout: 60s
   maxConnections: 10240
-' | egctl create
+' > ingress-controller-example.yaml 
+
+egctl create -f ingress-controller-example.yaml
 ```
 
 Create two versions of `hello` service in Kubernetes:

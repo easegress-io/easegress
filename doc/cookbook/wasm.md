@@ -112,7 +112,9 @@ The AssemblyScript code of this example is just a noop. But this example include
 	rules:
 	- paths:
 	  - pathPrefix: /pipeline
-	    backend: wasm-pipeline' | egctl create
+	    backend: wasm-pipeline' > server-demo.yaml 
+	
+	egctl create -f server-demo.yaml
 	```
 
 9. Create pipeline `wasm-pipeline` which includes a `WasmHost` filter:
@@ -137,7 +139,9 @@ The AssemblyScript code of this example is just a noop. But this example include
 	  - servers:
 	    - url: http://127.0.0.1:9095
 	    loadBalance:
-	      policy: roundRobin' | egctl create
+	      policy: roundRobin' > wasm-pipeline.yaml 
+	
+	egctl create -f wasm-pipeline.yaml
 	```
 
 	Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7.
@@ -332,7 +336,9 @@ filters:
 	kind: WasmHost
 	maxConcurrency: 2
 	code: /home/megaease/example/build/optimized.wasm
-	timeout: 100ms' | egctl apply
+	timeout: 100ms' > wasm-pipeline.yaml 
+
+egctl apply -f wasm-pipeline.yaml
 ```
 
 Build and verify with:

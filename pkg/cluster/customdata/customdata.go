@@ -162,6 +162,15 @@ func (s *Store) PutKind(kind *Kind, update bool) error {
 	return s.cluster.Put(key, string(buf))
 }
 
+// DeleteAllKind deletes all custom data kinds with all data
+func (s *Store) DeleteAllKinds() error {
+	err := s.cluster.DeletePrefix(s.DataPrefix)
+	if err != nil {
+		return err
+	}
+	return s.cluster.DeletePrefix(s.KindPrefix)
+}
+
 // DeleteKind deletes a custom data kind
 func (s *Store) DeleteKind(name string) error {
 	kind, err := s.GetKind(name)

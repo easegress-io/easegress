@@ -70,7 +70,9 @@ filters:
     statusCode: 200
     body: |
       [{{.responses.demo1.Body}}, {{.responses.demo2.Body}}, {{.responses.demo3.Body}}]
-'  | egctl create
+'  > pipeline-api.yaml 
+
+egctl create -f pipeline-api.yaml 
 ```
 
 2. Creating an HTTPServer for forwarding the traffic to this pipeline.
@@ -85,8 +87,9 @@ https: false
 rules:
   - paths:
     - pathPrefix: /api
-      backend: pipeline-api '  | egctl create
+      backend: pipeline-api ' > server-demo.yaml 
 
+egctl create -f server-demo.yaml
 ```
 
 3. Send a request to the pipeline
@@ -150,7 +153,9 @@ filters:
     statusCode: 200
     body: |
       {{mergeObject .responses.demo1.JSONBody .responses.demo2.JSONBody .responses.demo3.JSONBody | toRawJson}}
-'  | egctl apply
+' > pipeline-api.yaml 
+
+egctl apply -f pipeline-api.yaml
 ```
 
 2. Send a request to the pipeline
@@ -220,7 +225,9 @@ filters:
           {{if not $first}},{{end}}{{$resp.Body}}{{$first = false -}}
         {{- end}}
       {{- end}}]
-'  | egctl apply
+' > pipeline-api.yaml 
+
+egctl apply -f pipeline-api.yaml
 ```
 
 2. Stop service `demo1` and send a request to the pipeline

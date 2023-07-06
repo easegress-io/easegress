@@ -49,7 +49,9 @@ httpServer:
 
 knative:
    networkLayerURL: http://${knative_kourier_clusterIP}
-   hostSuffix: example.com '| egctl create
+   hostSuffix: example.com ' > faascontroller.yaml 
+
+egctl create -f faascontroller.yaml
 ```
 
 2. Deploy a function into Easegress and Knative, prepare a YAML content as below:

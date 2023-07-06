@@ -215,7 +215,9 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl create
+      backend: pipeline-demo' > server-demo.yaml
+
+egctl create -f server-demo.yaml
 ```
 
 上面的路由规则将把路径前缀为 `/pipeline` 的请求分发到名为 `pipeline-demo` 的 Pipeline，目前还没有这条 Pipeline，如果 `curl` 这个地址，将返回 503。
@@ -235,7 +237,9 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' | egctl create
+        policy: roundRobin' > pipeline-demo.yaml
+
+egctl create -f pipeline-demo.yaml
 ```
 
 这条 Pipeline 的定义是将请求按轮询的方式分发到三个后端服务实例上。
@@ -356,7 +360,9 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' | egctl create
+    body: RSS feed has been sent to Slack successfully.' > rss-pipeline.yaml 
+
+egctl create -f rss-pipeline.yaml
 ```
 
 ### 更新 HTTPServer
@@ -375,7 +381,9 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl apply
+      backend: pipeline-demo' > server-demo.yaml 
+
+egctl apply -f server-demo.yaml
 ```
 
 ### 测试 RSS Pipeline

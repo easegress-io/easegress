@@ -189,7 +189,7 @@ func getConfigPath() (string, error) {
 		return "", err
 	}
 
-	return path.Join(homeDir, ".egctlconfig"), nil
+	return path.Join(homeDir, ".egctlrc"), nil
 }
 
 // WriteConfig writes the config to file.
@@ -294,26 +294,26 @@ func GetCurrentConfig() (*CurrentConfig, error) {
 		return nil, nil
 	}
 	if config.CurrentContext == "" {
-		return nil, fmt.Errorf("current context not found in .egctlconfig file")
+		return nil, fmt.Errorf("current context not found in .egctlrc file")
 	}
 
 	currentCtx, ok := Find(config.Contexts, func(c NamedContext) bool {
 		return c.Name == config.CurrentContext
 	})
 	if !ok {
-		return nil, fmt.Errorf("current context %s not found in .egctlconfig file", config.CurrentContext)
+		return nil, fmt.Errorf("current context %s not found in .egctlrc file", config.CurrentContext)
 	}
 	cluster, ok := Find(config.Clusters, func(c NamedCluster) bool {
 		return c.Name == currentCtx.Context.Cluster
 	})
 	if !ok {
-		return nil, fmt.Errorf("cluster %s not found in .egctlconfig file", currentCtx.Context.Cluster)
+		return nil, fmt.Errorf("cluster %s not found in .egctlrc file", currentCtx.Context.Cluster)
 	}
 	user, ok := Find(config.AuthInfos, func(u NamedAuthInfo) bool {
 		return u.Name == currentCtx.Context.AuthInfo
 	})
 	if !ok {
-		return nil, fmt.Errorf("user %s not found in .egctlconfig file", currentCtx.Context.AuthInfo)
+		return nil, fmt.Errorf("user %s not found in .egctlrc file", currentCtx.Context.AuthInfo)
 	}
 	globalCurrentConfig = &CurrentConfig{
 		CurrentContext: config.CurrentContext,

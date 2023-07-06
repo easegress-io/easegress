@@ -49,7 +49,7 @@ func configInfoCmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 			if config == nil {
-				fmt.Println("not find config file at ~/.egctlconfig")
+				fmt.Println("not find config file at ~/.egctlrc")
 				return
 			}
 			data, err := codectool.MarshalJSON(config.Context)
@@ -73,7 +73,7 @@ func configViewCmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 			if config == nil {
-				fmt.Println("not find config file at ~/.egctlconfig")
+				fmt.Println("not find config file at ~/.egctlrc")
 				return
 			}
 			config = general.GetRedactedConfig(config)
@@ -97,7 +97,7 @@ func configGetContextsCmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 			if config == nil {
-				fmt.Println("not find config file at ~/.egctlconfig")
+				fmt.Println("not find config file at ~/.egctlrc")
 				return
 			}
 
@@ -136,7 +136,7 @@ func configUseContextCmd() *cobra.Command {
 				general.ExitWithError(err)
 			}
 			if config == nil {
-				general.ExitWithError(errors.New("not find config file at ~/.egctlconfig"))
+				general.ExitWithError(errors.New("not find config file at ~/.egctlrc"))
 			}
 
 			newContext := args[0]

@@ -184,7 +184,9 @@ cacheSize: 0
 rules:
 - paths:
   - path: /chatgpt
-    backend: chatgpt-pipeline' | egctl create
+    backend: chatgpt-pipeline' > httpserver.yaml 
+
+egctl create -f httpserver.yaml
 ```
 
 Now, we can test the bot in the chat.
