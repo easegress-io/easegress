@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CustomDataKind is CustomDataKind resource.
 func CustomDataKind() *api.ApiResource {
 	return &api.ApiResource{
 		Kind:    "CustomDataKind",
@@ -40,6 +41,7 @@ func CustomDataKind() *api.ApiResource {
 	}
 }
 
+// CustomData is CustomData resource.
 func CustomData() *api.ApiResource {
 	return &api.ApiResource{
 		Kind:    "CustomData",
@@ -48,6 +50,7 @@ func CustomData() *api.ApiResource {
 	}
 }
 
+// DescribeCustomDataKind describes the custom data kind.
 func DescribeCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
 	msg := "all " + CustomDataKind().Kind
 	if args.ContainName() {
@@ -89,6 +92,7 @@ func httpGetCustomDataKind(cmd *cobra.Command, name string) ([]byte, error) {
 	return handleReq(http.MethodGet, url, nil)
 }
 
+// GetCustomDataKind returns the custom data kind.
 func GetCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
 	msg := "all " + CustomDataKind().Kind
 	if args.ContainName() {
@@ -156,6 +160,7 @@ func printCustomDataKinds(kinds []*customdata.KindWithLen) {
 	general.PrintTable(table)
 }
 
+// CreateCustomDataKind creates the custom data kind.
 func CreateCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 	_, err := handleReq(http.MethodPost, makePath(general.CustomDataKindURL), []byte(s.Doc()))
 	if err != nil {
@@ -165,6 +170,7 @@ func CreateCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 	return nil
 }
 
+// DeleteCustomDataKind deletes the custom data kind.
 func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 	if all {
 		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataKindURL), nil)
@@ -185,6 +191,7 @@ func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 	return nil
 }
 
+// ApplyCustomDataKind applies the custom data kind.
 func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
 	checkKindExist := func(cmd *cobra.Command, name string) bool {
 		_, err := httpGetCustomDataKind(cmd, name)
@@ -238,6 +245,7 @@ func getCertainCustomDataKind(cmd *cobra.Command, kindName string) (*customdata.
 	return kinds[0], err
 }
 
+// GetCustomData gets the custom data.
 func GetCustomData(cmd *cobra.Command, args *general.ArgInfo) error {
 	msg := fmt.Sprintf("%s for kind %s", CustomData().Kind, args.Name)
 	if args.ContainOther() {
@@ -270,6 +278,7 @@ func GetCustomData(cmd *cobra.Command, args *general.ArgInfo) error {
 	return nil
 }
 
+// DescribeCustomData describes the custom data.
 func DescribeCustomData(cmd *cobra.Command, args *general.ArgInfo) error {
 	msg := fmt.Sprintf("%s for kind %s", CustomData().Kind, args.Name)
 	if args.ContainOther() {
@@ -323,6 +332,7 @@ func printCustomData(data []*customdata.Data, kind *customdata.KindWithLen) {
 	general.PrintTable(table)
 }
 
+// CreateCustomData creates the custom data.
 func CreateCustomData(cmd *cobra.Command, s *general.Spec) error {
 	_, err := handleReq(http.MethodPost, makePath(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
 	if err != nil {
@@ -332,6 +342,7 @@ func CreateCustomData(cmd *cobra.Command, s *general.Spec) error {
 	return err
 }
 
+// DeleteCustomData deletes the custom data.
 func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) error {
 	if all {
 		_, err := handleReq(http.MethodDelete, makePath(general.CustomDataItemURL, cdk, "items"), nil)
@@ -352,6 +363,7 @@ func DeleteCustomData(cmd *cobra.Command, cdk string, names []string, all bool) 
 	return nil
 }
 
+// ApplyCustomData applies the custom data.
 func ApplyCustomData(cmd *cobra.Command, s *general.Spec) error {
 	_, err := handleReq(http.MethodPost, makePath(general.CustomDataItemURL, s.Name, "items"), []byte(s.Doc()))
 	if err != nil {

@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ObjectApiResources returns the object api resources.
 func ObjectApiResources() ([]*api.ApiResource, error) {
 	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
@@ -52,7 +53,7 @@ func defaultObjectNameSpace() string {
 	return cluster.TrafficNamespace(cluster.NamespaceDefault)
 }
 
-func httpGetObject(cmd *cobra.Command, name string) ([]byte, error) {
+func httpGetObject(name string) ([]byte, error) {
 	url := func(name string) string {
 		if len(name) == 0 {
 			return makePath(general.ObjectsURL)
@@ -62,12 +63,13 @@ func httpGetObject(cmd *cobra.Command, name string) ([]byte, error) {
 	return handleReq(http.MethodGet, url, nil)
 }
 
+// GetAllObject gets all objects.
 func GetAllObject(cmd *cobra.Command) error {
 	getErr := func(err error) error {
 		return general.ErrorMsg(general.GetCmd, err, "resource")
 	}
 
-	body, err := httpGetObject(cmd, "")
+	body, err := httpGetObject("")
 	if err != nil {
 		return getErr(err)
 	}
@@ -88,6 +90,7 @@ func GetAllObject(cmd *cobra.Command) error {
 	return nil
 }
 
+// GetObject gets an object.
 func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 	msg := fmt.Sprintf("all %s", kind)
 	if args.ContainName() {
@@ -97,7 +100,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	body, err := httpGetObject(cmd, args.Name)
+	body, err := httpGetObject(args.Name)
 	if err != nil {
 		return getErr(err)
 	}
@@ -169,6 +172,7 @@ func printMetaSpec(metas []*supervisor.MetaSpec) {
 	general.PrintTable(table)
 }
 
+// DescribeObject describes an object.
 func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 	msg := fmt.Sprintf("all %s", kind)
 	if args.ContainName() {
@@ -178,7 +182,7 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) erro
 		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	body, err := httpGetObject(cmd, args.Name)
+	body, err := httpGetObject(args.Name)
 	if err != nil {
 		return getErr(err)
 	}
@@ -236,6 +240,7 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) erro
 	return nil
 }
 
+// CreateObject creates an object.
 func CreateObject(cmd *cobra.Command, s *general.Spec) error {
 	_, err := handleReq(http.MethodPost, makePath(general.ObjectsURL), []byte(s.Doc()))
 	if err != nil {
@@ -245,6 +250,7 @@ func CreateObject(cmd *cobra.Command, s *general.Spec) error {
 	return nil
 }
 
+// DeleteObject deletes an object.
 func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) error {
 	// define error msg
 	msg := fmt.Sprintf("all %s", kind)
@@ -256,7 +262,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 	}
 
 	// get all objects and filter by kind
-	body, err := httpGetObject(cmd, "")
+	body, err := httpGetObject("")
 	if err != nil {
 		return getErr(err)
 	}
@@ -296,9 +302,10 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 	return nil
 }
 
+// ApplyObject applies an object.
 func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
 	checkObjExist := func(cmd *cobra.Command, name string) bool {
-		_, err := httpGetObject(cmd, name)
+		_, err := httpGetObject(name)
 		return err == nil
 	}
 
@@ -344,6 +351,7 @@ func splitObjectStatusKey(key string) (*objectStatusInfo, error) {
 	}, nil
 }
 
+// ObjectStatus is the status of an object.
 type ObjectStatus struct {
 	Spec   map[string]interface{} `json:"spec"`
 	Status map[string]interface{} `json:"status"`
@@ -391,6 +399,7 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 	return res, nil
 }
 
+// NodeStatus is the status of a node.
 type NodeStatus struct {
 	Node   string
 	Status map[string]interface{}

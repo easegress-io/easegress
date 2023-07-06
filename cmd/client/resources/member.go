@@ -30,8 +30,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// MemberKind is the kind of the member.
 const MemberKind = "Member"
 
+// Member returns the member resource.
 func Member() *api.ApiResource {
 	return &api.ApiResource{
 		Kind:    MemberKind,
@@ -40,6 +42,7 @@ func Member() *api.ApiResource {
 	}
 }
 
+// DescribeMember describes the member.
 func DescribeMember(cmd *cobra.Command, args *general.ArgInfo) error {
 	msg := "all " + MemberKind
 	if args.ContainName() {
@@ -109,6 +112,7 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 	}, []string{})
 }
 
+// DeleteMember deletes the member.
 func DeleteMember(cmd *cobra.Command, names []string) error {
 	for _, name := range names {
 		_, err := handleReq(http.MethodDelete, makePath(general.MemberItemURL, name), nil)
@@ -120,6 +124,7 @@ func DeleteMember(cmd *cobra.Command, names []string) error {
 	return nil
 }
 
+// GetMember gets the member.
 func GetMember(cmd *cobra.Command, args *general.ArgInfo) (err error) {
 	msg := "all " + MemberKind
 	if args.ContainName() {
