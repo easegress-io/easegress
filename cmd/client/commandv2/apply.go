@@ -19,6 +19,8 @@
 package commandv2
 
 import (
+	"errors"
+
 	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/megaease/easegress/cmd/client/resources"
 	"github.com/spf13/cobra"
@@ -26,11 +28,22 @@ import (
 
 // ApplyCmd returns apply command.
 func ApplyCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Apply a configuration to a resource by filename", Command: "egctl apply -f <filename>.yaml"},
+		{Desc: "Apply a configuration to a resource from stdin", Command: "cat <filename>.yaml | egctl apply -f -"},
+	}
+
 	var specFile string
 	cmd := &cobra.Command{
 		Use:     "apply",
 		Short:   "Apply a configuration to a resource by filename or stdin",
-		Example: createExample("Apply a configuration to a resource by filename", "egctl apply -f <filename>.yaml"),
+		Example: createMultiExample(examples),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if specFile == "" {
+				return errors.New("yaml file is required")
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := general.BuildSpecVisitor(specFile, cmd)
 			visitor.Visit(func(s *general.Spec) error {

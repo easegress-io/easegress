@@ -229,9 +229,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' > server-demo.yaml
-
-egctl create -f server-demo.yaml
+      backend: pipeline-demo' | egctl create -f -
 ```
 
 The rules above mean it will forward the traffic with the prefix `/pipeline` to
@@ -253,9 +251,7 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' > pipeline-demo.yaml
-
-egctl create -f pipeline-demo.yaml
+        policy: roundRobin' | egctl create -f -
 ```
 
 The pipeline means it will forward traffic to 3 backend endpoints, using the
@@ -383,9 +379,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' > rss-pipeline.yaml
-
-egctl create -f rss-pipeline.yaml
+    body: RSS feed has been sent to Slack successfully.' | egctl create -f -
 ```
 
 ### Update the HTTPServer
@@ -405,9 +399,7 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' > server-demo.yaml 
-
-egctl apply -f server-demo.yaml
+      backend: pipeline-demo' | egctl apply -f -
 ```
 
 ### Test the RSS Pipeline

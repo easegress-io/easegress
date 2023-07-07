@@ -79,9 +79,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: wasm-pipeline' > server-demo.yaml 
-
-egctl create -f server-demo.yaml
+      backend: wasm-pipeline' | egctl create -f -
 ```
 
 And then create the pipeline `wasm-pipeline` which includes a `WasmHost` filter:
@@ -106,9 +104,7 @@ filters:
     - servers:
       - url: http://127.0.0.1:9095
       loadBalance:
-        policy: roundRobin' > wasm-pipeline.yaml 
-
-egctl create -f wasm-pipeline.yaml
+        policy: roundRobin' | egctl create -f -
 ```
 
 Note we are using the path of the Wasm file as the value of `code` in the spec of `WasmHost`, but the value of `code` can also be a URL (HTTP/HTTPS) or the base64 encoded Wasm code.
@@ -282,9 +278,7 @@ rules:
   - pathPrefix: /wasm
     backend: wasm-pipeline
   - pathPrefix: /mock
-    backend: mock-pipeline' > server-demo.yaml 
-
-egctl create -f server-demo.yaml
+    backend: mock-pipeline' | egctl create -f -
 ```
 
 The `wasm-pipeline` configuration is (we will adjust the value of `maxConcurrency` during the test):
@@ -300,9 +294,7 @@ filters:
   kind: WasmHost
   maxConcurrency: 2
   code: /home/megaease/demo.wasm
-  timeout: 100ms' > wasm-pipeline.yaml 
-
-egctl create -f wasm-pipeline.yaml
+  timeout: 100ms' | egctl create -f -
 ```
 
 The `mock-pipeline` configuration is:
@@ -318,9 +310,7 @@ filters:
   kind: Mock
   rules:
   - body: "hello mock\n"
-    code: 200' > mock-pipeline.yaml 
-
-egctl create -f mock-pipeline.yaml
+    code: 200' | egctl create -f -
 ```
 
 * **Scenario 1**: concurrency: 10; duration: 1 miniute

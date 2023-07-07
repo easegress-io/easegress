@@ -128,7 +128,7 @@ func (v *specVisitor) Close() {
 // BuildYAMLVisitor builds a YAMLVisitor
 func BuildYAMLVisitor(yamlFile string, cmd *cobra.Command) YAMLVisitor {
 	var r io.ReadCloser
-	if yamlFile == "" {
+	if yamlFile == "-" {
 		r = io.NopCloser(os.Stdin)
 	} else if f, err := os.Open(yamlFile); err != nil {
 		ExitWithErrorf("%s failed: %v", cmd.Short, err)

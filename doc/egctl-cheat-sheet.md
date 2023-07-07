@@ -5,6 +5,10 @@
 Easegress manifests are defined using YAML. They can be identified by the file extensions `.yaml` or `.yml`. You can create resources using either the `egctl create` or `egctl apply` commands. To view all available resources along with their supported actions, use the `egctl api-resources` command.
 
 ```
+cat globalfilter.yaml | egctl create -f -   # create GlobalFilter resource from stdin
+cat httpserver-new.yaml | egctl apply -f -  # create HTTPServer resource from stdin
+
+
 egctl apply -f ./pipeline-demo.yaml      # create Pipeline resource
 egctl create -f ./httpserver-demo.yaml   # create HTTPServer resource
 
