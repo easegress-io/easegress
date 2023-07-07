@@ -16,7 +16,7 @@ INTEGRATION_TEST_PATH := build/test
 IMAGE_NAME?=megaease/easegress
 
 # Version
-RELEASE?=v2.4.3
+RELEASE?=v2.5.0
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
