@@ -1,5 +1,16 @@
 # Changelog
 
+## [v2.5.0](https://github.com/megaease/easegress/tree/v2.5.0) (2023-07-07)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.4.3...v2.5.0)
+
+**Significant changes:**
+* Enhanced the command line tool egctl.
+
+**Implemented enhancements:**
+* Introduced new WebSocket options to the ingress controller.
+* Expanded multiplexing rules to support multiple hosts.
+
 ## [v2.4.3](https://github.com/megaease/easegress/tree/v2.4.3) (2023-06-30)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.4.2...v2.4.3)
