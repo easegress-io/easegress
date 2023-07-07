@@ -10,6 +10,7 @@
 			- [4.1.2 Business Controllers](#412-business-controllers)
 		- [4.2 Filters](#42-filters)
 		- [4.3 Custom Data](#43-custom-data)
+	- [5. egctl Cheat Sheet](#5-egctl-cheat-sheet)
 
 ## 1. Cookbook / How-To Guide
 
@@ -95,3 +96,6 @@ It could be created, updated, deleted by admin operation. They control various r
 ### 4.3 Custom Data
 
 - [Custom Data Management](./reference/customdata.md) - Create/Read/Update/Delete custom data kinds and custom data items.
+
+# 5. egctl Cheat Sheet
+[egctl Cheat Sheet](./egctl-cheat-sheet.md) contains common used `egctl` commands and details about `.egctlrc`.

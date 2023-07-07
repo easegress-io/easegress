@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command provides the commands.
 package command
 
 import (
@@ -28,7 +29,7 @@ import (
 func MemberCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "member",
-		Short: "View Easegress members",
+		Short: "(Deprecated) View Easegress members",
 	}
 
 	cmd.AddCommand(listMemberCmd())
@@ -41,7 +42,7 @@ func listMemberCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List Easegress members",
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(membersURL), nil, cmd)
+			handleRequest(http.MethodGet, makePath(membersURL), nil, cmd)
 		},
 	}
 
@@ -61,7 +62,7 @@ func purgeMemberCmd() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(memberURL, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makePath(memberURL, args[0]), nil, cmd)
 		},
 	}
 

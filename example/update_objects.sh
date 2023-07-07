@@ -11,6 +11,6 @@ REPOPATH=${SCRIPTPATH}/..
 CONFIG_PATH=${SCRIPTPATH}/config
 for CONFIG_FILE in ${CONFIG_PATH}/*.yaml
 do
-	echo "update object: ${CONFIG_FILE}"
-	$SCRIPTPATH/primary-001/egctl.sh object update -f ${CONFIG_FILE}
+	echo "update resource: ${CONFIG_FILE}"
+	$SCRIPTPATH/primary-001/egctl.sh apply -f ${CONFIG_FILE}
 done

@@ -20,8 +20,10 @@ package serviceregistry
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 )
@@ -36,6 +38,11 @@ const (
 
 func init() {
 	supervisor.Register(&ServiceRegistry{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: []string{"sr", "serviceregistries"},
+	})
 }
 
 type (

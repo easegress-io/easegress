@@ -71,7 +71,7 @@ filters:
 Then create the order pipeline with the command:
 
 ```bash
-egctl object create -f order-service.yaml
+egctl create -f order-service.yaml
 ```
 
 Save below YAML to `ecommerce-server.yaml`.
@@ -96,7 +96,7 @@ rules:
 Then create the HTTP server with command:
 
 ```bash
-egctl object create -f ecommerce-server.yaml
+egctl create -f ecommerce-server.yaml
 ```
 
 Send a request to e-Commerce service:
@@ -155,7 +155,7 @@ filters:
 Then update the order pipeline with the command:
 
 ```bash
-egctl object update -f order-service.yaml
+egctl apply -f order-service.yaml
 ```
 
 Save the following YAML code to `notify-service.yaml`, and make sure to replace the `servers` configuration with your own.
@@ -182,7 +182,7 @@ filters:
 Then create the notify pipeline with the command:
 
 ```bash
-egctl object create -f notify-service.yaml
+egctl create -f notify-service.yaml
 ```
 
 Send a request to e-Commerce service:
@@ -249,7 +249,7 @@ filters:
 Then update the order pipeline with the command:
 
 ```bash
-egctl object update -f order-service.yaml
+egctl apply -f order-service.yaml
 ```
 
 Send a request to e-Commerce service:

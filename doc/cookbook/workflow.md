@@ -126,7 +126,7 @@ filters:
 Then create the RSS pipeline with the command:
 
 ```shell
-egctl object create -f rss-pipeline.yaml
+egctl create -f rss-pipeline.yaml
 ```
 
 ### Step 3: Create an HTTPServer to receive client request
@@ -151,7 +151,7 @@ rules:
 Then create the HTTP server with command:
 
 ```shell
-egctl object create -f http-server.yaml
+egctl create -f http-server.yaml
 ```
 
 ### Step 4: See the result 

@@ -30,6 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"golang.org/x/crypto/acme"
@@ -44,6 +45,21 @@ const (
 	// Kind is the kind of AutoCertManager.
 	Kind = "AutoCertManager"
 )
+
+var aliases = []string{
+	"autocert",
+	"autocerts",
+	"autocertmanagers",
+}
+
+func init() {
+	supervisor.Register(&AutoCertManager{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: aliases,
+	})
+}
 
 type (
 	//AutoCertManager is the controller for Automated Certificate Management.
@@ -133,10 +149,6 @@ func (spec *DomainSpec) Zone() string {
 		return spec.DNSProvider["zone"]
 	}
 	return ""
-}
-
-func init() {
-	supervisor.Register(&AutoCertManager{})
 }
 
 // Category returns the category of AutoCertManager.

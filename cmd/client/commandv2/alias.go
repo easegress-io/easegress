@@ -15,23 +15,12 @@
  * limitations under the License.
  */
 
-package command
+// Package commandv2 provides the new version of commands.
+package commandv2
 
-import (
-	"net/http"
+import "github.com/megaease/easegress/cmd/client/general"
 
-	"github.com/spf13/cobra"
-)
-
-// HealthCmd defines health command.
-func HealthCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "health",
-		Short: "Probe Easegress health",
-		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(healthURL), nil, cmd)
-		},
-	}
-
-	return cmd
-}
+var makePath = general.MakePath
+var handleReq = general.HandleRequest
+var createExample = general.CreateExample
+var createMultiExample = general.CreateMultiExample

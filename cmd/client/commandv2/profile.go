@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package command
+// Package commandv2 provides the new version of commands.
+package commandv2
 
 import (
 	"errors"
 	"net/http"
 
+	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/spf13/cobra"
 )
 
-// ProfileCmd defines member command.
+// ProfileCmd returns profile command.
 func ProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "profile",
 		Short: "Start and stop CPU and memory profilers",
 	}
-
 	cmd.AddCommand(infoProfileCmd())
 	cmd.AddCommand(startProfilingCmd())
 	cmd.AddCommand(stopProfilingCmd())
@@ -39,13 +40,18 @@ func ProfileCmd() *cobra.Command {
 
 func infoProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "info",
-		Short: "Show memory and CPU profile file paths",
+		Use:     "info",
+		Short:   "Show memory and CPU profile file paths",
+		Example: createExample("Show profile info.", "egctl profile info"),
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(profileURL), nil, cmd)
+			body, err := handleReq(http.MethodGet, makePath(general.ProfileURL), nil)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
@@ -64,7 +70,7 @@ func startCPUCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "cpu",
 		Short:   "Prepare measuring CPU",
-		Example: "egctl profile start cpu <path/to/cpu-prof-file>",
+		Example: createExample("Start profile CPU.", "egctl profile start cpu <path/to/cpu-prof-file>"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return errors.New("requires one file path")
@@ -73,10 +79,17 @@ func startCPUCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			handleRequest(http.MethodPost, makeURL(profileStartURL, "cpu"), body, cmd)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStartURL, "cpu"), body)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "CPU profiling started"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
@@ -84,7 +97,7 @@ func startMemoryCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory",
 		Short:   "Prepare measuring memory",
-		Example: "egctl profile start memory <path/to/memory-prof-file>",
+		Example: createExample("Start profile memory.", "egctl profile start memory <path/to/memory-prof-file>"),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 {
 				return errors.New("requires one file path")
@@ -93,22 +106,36 @@ func startMemoryCmd() *cobra.Command {
 		},
 		Run: func(cmd *cobra.Command, args []string) {
 			body := []byte("path: " + args[0])
-			handleRequest(http.MethodPost, makeURL(profileStartURL, "memory"), body, cmd)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStartURL, "memory"), body)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "Memory profiling started"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }
 
 func stopProfilingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "stop",
-		Short:   "Stop profiling.",
-		Example: "egctl profile stop",
+		Short:   "Stop profile.",
+		Example: createExample("Stop profiling", "egctl profile stop"),
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodPost, makeURL(profileStopURL), nil, cmd)
+			body, err := handleReq(http.MethodPost, makePath(general.ProfileStopURL), nil)
+			if err != nil {
+				general.ExitWithError(err)
+				return
+			}
+			if len(body) == 0 {
+				body = []byte(`{msg: "Profiling stopped"}`)
+			}
+			general.PrintBody(body)
 		},
 	}
-
 	return cmd
 }

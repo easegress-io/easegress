@@ -113,7 +113,7 @@ https: false
 rules:
 - paths:
   - pathPrefix: /flashsale
-    backend: flash-sale-pipeline' | egctl object create
+    backend: flash-sale-pipeline' | egctl create -f -
 ```
 
 Create pipeline `flash-sale-pipeline` which includes a `WasmHost` filter:
@@ -136,7 +136,7 @@ filters:
   kind: Mock
   rules:
   - body: "You can buy the laptop for $1 now.\n"
-    code: 200' | egctl object create
+    code: 200' | egctl create -f -
 ```
 
 Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7) of section 1.1.
@@ -251,7 +251,7 @@ Build and verify with (suppose the flash sale was already started):
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$  egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale
 sold out.
 $ curl http://127.0.0.1:10080/flashsale
@@ -323,7 +323,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
 sold out.
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
@@ -390,7 +390,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user1
 You can buy the laptop for $1 now.
 $ curl http://127.0.0.1:10080/flashsale -HAuthorization:user2

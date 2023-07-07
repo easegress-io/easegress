@@ -112,7 +112,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 	rules:
 	- paths:
 	  - pathPrefix: /pipeline
-	    backend: wasm-pipeline' | egctl object create
+	    backend: wasm-pipeline' ｜ egctl create -f -
 	```
 
 9. Create pipeline `wasm-pipeline` which includes a `WasmHost` filter:
@@ -137,7 +137,7 @@ The AssemblyScript code of this example is just a noop. But this example include
 	  - servers:
 	    - url: http://127.0.0.1:9095
 	    loadBalance:
-	      policy: roundRobin' | egctl object create
+	      policy: roundRobin' | egctl create -f -
 	```
 
 	Note to replace `/home/megaease/example/build/optimized.wasm` with the path of the file generated in step 7.
@@ -188,7 +188,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -245,7 +245,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -285,7 +285,7 @@ Build and verify with:
 
 ```bash
 $ npm run asbuild
-$ egctl wasm reload-code
+$ egctl wasm apply-data --reload-code
 $ curl http://127.0.0.1:10080/pipeline -d 'Hello, Easegress'
 Your Request
 ==============
@@ -332,7 +332,7 @@ filters:
 	kind: WasmHost
 	maxConcurrency: 2
 	code: /home/megaease/example/build/optimized.wasm
-	timeout: 100ms' | egctl object update wasm-pipeline
+	timeout: 100ms' | egctl apply -f -
 ```
 
 Build and verify with:

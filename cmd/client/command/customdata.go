@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command provides the commands.
 package command
 
 import (
@@ -28,7 +29,7 @@ import (
 func CustomDataKindCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "custom-data-kind",
-		Short: "View and change custom data kind",
+		Short: "(Deprecated) View and change custom data kind",
 	}
 
 	cmd.AddCommand(listCustomDataKindCmd())
@@ -47,7 +48,7 @@ func listCustomDataKindCmd() *cobra.Command {
 		Example: "egctl custom-data-kind list",
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(customDataKindURL), nil, cmd)
+			handleRequest(http.MethodGet, makePath(customDataKindURL), nil, cmd)
 		},
 	}
 
@@ -67,7 +68,7 @@ func getCustomDataKindCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(customDataKindItemURL, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makePath(customDataKindItemURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -83,7 +84,7 @@ func createCustomDataKindCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPost, makeURL(customDataKindURL), yamlDoc, cmd)
+				handleRequest(http.MethodPost, makePath(customDataKindURL), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()
@@ -104,7 +105,7 @@ func updateCustomDataKindCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPut, makeURL(customDataKindURL), yamlDoc, cmd)
+				handleRequest(http.MethodPut, makePath(customDataKindURL), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()
@@ -129,7 +130,7 @@ func deleteCustomDataKindCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(customDataKindItemURL, args[0]), nil, cmd)
+			handleRequest(http.MethodDelete, makePath(customDataKindItemURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -140,7 +141,7 @@ func deleteCustomDataKindCmd() *cobra.Command {
 func CustomDataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "custom-data",
-		Short: "View and change custom data",
+		Short: "(Deprecated) View and change custom data",
 	}
 
 	cmd.AddCommand(listCustomDataCmd())
@@ -166,7 +167,7 @@ func getCustomDataCmd() *cobra.Command {
 		},
 
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(customDataItemURL, args[0], args[1]), nil, cmd)
+			handleRequest(http.MethodGet, makePath(customDataItemURL, args[0], args[1]), nil, cmd)
 		},
 	}
 
@@ -185,7 +186,7 @@ func listCustomDataCmd() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodGet, makeURL(customDataURL, args[0]), nil, cmd)
+			handleRequest(http.MethodGet, makePath(customDataURL, args[0]), nil, cmd)
 		},
 	}
 
@@ -207,7 +208,7 @@ func createCustomDataCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPost, makeURL(customDataURL, args[0]), yamlDoc, cmd)
+				handleRequest(http.MethodPost, makePath(customDataURL, args[0]), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()
@@ -234,7 +235,7 @@ func updateCustomDataCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPut, makeURL(customDataURL, args[0]), yamlDoc, cmd)
+				handleRequest(http.MethodPut, makePath(customDataURL, args[0]), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()
@@ -261,7 +262,7 @@ func batchUpdateCustomDataCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			visitor := buildYAMLVisitor(specFile, cmd)
 			visitor.Visit(func(yamlDoc []byte) error {
-				handleRequest(http.MethodPost, makeURL(customDataItemURL, args[0], "items"), yamlDoc, cmd)
+				handleRequest(http.MethodPost, makePath(customDataItemURL, args[0], "items"), yamlDoc, cmd)
 				return nil
 			})
 			visitor.Close()
@@ -285,7 +286,7 @@ func deleteCustomDataCmd() *cobra.Command {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			handleRequest(http.MethodDelete, makeURL(customDataItemURL, args[0], args[1]), nil, cmd)
+			handleRequest(http.MethodDelete, makePath(customDataItemURL, args[0], args[1]), nil, cmd)
 		},
 	}
 

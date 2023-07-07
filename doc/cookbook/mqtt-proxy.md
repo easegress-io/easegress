@@ -52,7 +52,7 @@ By setting `brokerMode` to `true`. MQTTProxy can both send msg to backend and su
 # Example
 Save following yaml to file `mqttproxy.yaml` and then run
 ```bash
-egctl object create -f mqttproxy.yaml
+egctl create -f mqttproxy.yaml
 ```
 ```yaml
 kind: MQTTProxy

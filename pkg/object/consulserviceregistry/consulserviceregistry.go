@@ -20,11 +20,13 @@ package consulserviceregistry
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/consul/api"
 
+	egapi "github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -43,8 +45,15 @@ const (
 	MetaKeyRegistryName = "RegistryName"
 )
 
+var aliases = []string{"consul", "consulserviceregistrys"}
+
 func init() {
 	supervisor.Register(&ConsulServiceRegistry{})
+	egapi.RegisterObject(&egapi.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: aliases,
+	})
 }
 
 type (

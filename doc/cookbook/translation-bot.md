@@ -392,7 +392,7 @@ template: |
 Once we have prepared the configuration file (can be downloaded [here](https://github.com/megaease/easegress/tree/main/example/translation-bot)), we can deploy this Pipeline to Easegress (assuming the file name is `translate-pipeline.yaml`) via the following command.
 
 ```bash
-$ egctl object create -f translate-pipeline.yaml
+$ egctl create -f translate-pipeline.yaml
 ```
 
 But we also need to create an HTTPServer and have it forward telegram's message notifications sent through the webhook to the above pipeline, note that the external access address of this pipeline must be the address of the Telegram webhook we created earlier.
@@ -411,7 +411,7 @@ cacheSize: 0
 rules:
 - paths:
   - path: /translate
-    backend: translate-pipeline' | egctl object create
+    backend: translate-pipeline' | egctl create -f -
 ```
 
 Now, we can test the bot in the chat. A demo video can be found at: https://www.youtube.com/watch?v=ne0OvV1FmvA.

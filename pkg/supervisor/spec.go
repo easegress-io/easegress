@@ -20,6 +20,7 @@ package supervisor
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/megaease/easegress/pkg/util/codectool"
 	"github.com/megaease/easegress/pkg/v"
@@ -44,6 +45,9 @@ type (
 		Name    string `json:"name" jsonschema:"required,format=urlname"`
 		Kind    string `json:"kind" jsonschema:"required"`
 		Version string `json:"version" jsonschema:"required"`
+
+		// RFC3339 format
+		CreatedAt string `json:"createdAt" jsonschema:"omitempty"`
 	}
 )
 
@@ -69,9 +73,28 @@ func NewSpec(config string) (*Spec, error) {
 	return globalSuper.NewSpec(config)
 }
 
+func NewMeta(kind, name string) *MetaSpec {
+	return &MetaSpec{
+		Name:      name,
+		Kind:      kind,
+		Version:   DefaultSpecVersion,
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}
+}
+
 // NewSpec creates a spec and validates it from the config in json format.
 // Config supports both json and yaml format.
 func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
+	return s.newSpec(config, false)
+}
+
+// CreateSpec is like NewSpec, but it sets the CreatedAt field in MetaSpec.
+// It should be used to create or update object spec.
+func (s *Supervisor) CreateSpec(config string) (spec *Spec, err error) {
+	return s.newSpec(config, true)
+}
+
+func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error) {
 	spec = &Spec{super: s}
 
 	defer func() {
@@ -87,6 +110,9 @@ func (s *Supervisor) NewSpec(config string) (spec *Spec, err error) {
 
 	// Meta part.
 	meta := &MetaSpec{Version: DefaultSpecVersion}
+	if created {
+		meta.CreatedAt = time.Now().Format(time.RFC3339)
+	}
 	codectool.MustUnmarshal(buff, meta)
 	verr := v.Validate(meta)
 	if !verr.Valid() {

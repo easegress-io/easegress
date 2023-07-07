@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/supervisor"
 	"github.com/megaease/easegress/pkg/util/codectool"
 )
@@ -115,17 +116,24 @@ func (s *Server) _deleteObject(name string) {
 	}
 }
 
-func (s *Server) _getStatusObject(name string) map[string]string {
-	prefix := s.cluster.Layout().StatusObjectsPrefix()
+func (s *Server) _getStatusObject(name string) map[string]interface{} {
+	prefix := s.cluster.Layout().StatusObjectPrefix(cluster.TrafficNamespace(cluster.NamespaceDefault), name)
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		ClusterPanic(err)
 	}
 
-	status := make(map[string]string)
+	status := make(map[string]interface{})
 	for k, v := range kvs {
-		// NOTE: Here omitting the step json.Unmarshal in _listStatusObjects.
-		status[strings.TrimPrefix(k, prefix)] = v
+		k = strings.TrimPrefix(k, s.cluster.Layout().StatusObjectsPrefix())
+
+		// NOTE: This needs top-level of the status to be a map.
+		m := map[string]interface{}{}
+		err = codectool.Unmarshal([]byte(v), &m)
+		if err != nil {
+			ClusterPanic(fmt.Errorf("unmarshal %s to json failed: %v", v, err))
+		}
+		status[k] = m
 	}
 
 	return status

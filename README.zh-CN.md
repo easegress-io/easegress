@@ -92,7 +92,7 @@
   - **压缩**：减少应答数据的体积。
   - **热更新**：线上更新 Easegress 的配置和二进制文件，服务不中断。
 - **操作**
-  - **易于集成**：命令行(`egctl`)、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
+  - **易于集成**：命令行([egctl](./doc/egctl-cheat-sheet.md))、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
   - **分布式跟踪**
     - 内置 [OpenTelemetry](https://opentelemetry.io/)，提供厂商中立的 API。
   - **可观察性**
@@ -183,15 +183,20 @@ Makefile 默认会将两个二进制文件编译到 `bin/` 目录中。`bin/ease
 如果启动时不指定任何参数，`easegress-server` 会默认使用端口 2379、2380 和 2381。我们可以在配置文件中更改默认端口，或者在命令行启动时指定相关参数（参数具体释义可通过执行 `easegress-server --help` 命令获取）。
 
 ```bash
-$ egctl member list | grep "ClusterRole"
-    ClusterRole: primary
-$ egctl member list | grep "APIAddr"
-    APIAddr: localhost:2381
-$ egctl member list | grep "Name"
-    ClusterName: eg-cluster-default-name
-    Name: eg-default-name
-$ egctl member list | grep "id"
-    id: 689e371e88f78b6a
+$ egctl get member
+NAME                    ROLE            AGE     STATE   API-ADDR        HEARTBEAT
+eg-default-name         primary         9s      Leader  localhost:2381  3s ago
+
+$ egctl describe member
+Name: eg-default-name
+LastHeartbeatTime: "2023-07-03T17:39:30+08:00"
+
+Etcd:
+=====
+  id: 689e371e88f78b6a
+  startTime: "2023-07-03T17:39:14+08:00"
+  state: Leader
+...
 ```
 
 成功启动后，我们可以用上述命令检查单节点集群的状态，它展示示了系统的静态选项，以及心跳和 etcd 的动态状态。
@@ -210,7 +215,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl object create
+      backend: pipeline-demo' | egctl create -f -
 ```
 
 上面的路由规则将把路径前缀为 `/pipeline` 的请求分发到名为 `pipeline-demo` 的 Pipeline，目前还没有这条 Pipeline，如果 `curl` 这个地址，将返回 503。
@@ -230,7 +235,7 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' | egctl object create
+        policy: roundRobin' | egctl create -f -
 ```
 
 这条 Pipeline 的定义是将请求按轮询的方式分发到三个后端服务实例上。
@@ -351,7 +356,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' | egctl object create
+    body: RSS feed has been sent to Slack successfully.' | egctl create -f -
 ```
 
 ### 更新 HTTPServer
@@ -370,7 +375,7 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl object update
+      backend: pipeline-demo' | egctl apply -f -
 ```
 
 ### 测试 RSS Pipeline

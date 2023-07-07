@@ -10,7 +10,7 @@ cfgfile=$APPDIR/conf/config.yaml
 option=$1
 if [ "$option" = "-l" -o "$option" = "--long" ]
 then
-    ./egctl.sh member list
+    ./egctl.sh get member
     exit $?
 fi
 
@@ -21,7 +21,7 @@ NC='\033[0m' # No Color
 {
     echo "Cluster Member Role Etcd Status LocalPeer Client API"
 {
-    ./egctl.sh member list \
+    ./egctl.sh get member -o yaml \
        | egrep 'cluster-name:|\bname\b:|cluster-role:|lastHeartbeatTime:|peer|client|api-addr|\bstate\b:' \
        | while read line
     do

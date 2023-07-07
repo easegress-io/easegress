@@ -49,7 +49,7 @@ httpServer:
 
 knative:
    networkLayerURL: http://${knative_kourier_clusterIP}
-   hostSuffix: example.com '| egctl object create
+   hostSuffix: example.com ' | egctl create -f -
 ```
 
 2. Deploy a function into Easegress and Knative, prepare a YAML content as below:

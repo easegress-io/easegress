@@ -16,8 +16,8 @@ echo -e ${GREEN}"status:"${NC}
 ${SCRIPTPATH}/primary-001/status.sh
 
 echo -e ${GREEN}"members:"${NC}
-${SCRIPTPATH}/primary-001/egctl.sh member list
+${SCRIPTPATH}/primary-001/egctl.sh get member
 
 echo -e ${GREEN}"objects:"${NC}
-${SCRIPTPATH}/primary-001/egctl.sh object list
+${SCRIPTPATH}/primary-001/egctl.sh get all
 

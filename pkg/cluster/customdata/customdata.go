@@ -44,6 +44,25 @@ type Kind struct {
 	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema" jsonschema:"omitempty"`
 }
 
+// KindWithLen defines the spec of a custom data kind with length
+type KindWithLen struct {
+	Kind
+	Len int `json:"len"`
+}
+
+// DataID returns the ID of the custom data
+func (k *Kind) DataID(data *Data) string {
+	return k.dataID(*data)
+}
+
+// GetIDField returns the ID field name of the custom data kind
+func (k *Kind) GetIDField() string {
+	if k.IDField == "" {
+		return "name"
+	}
+	return k.IDField
+}
+
 func (k *Kind) dataID(data Data) string {
 	var id string
 	if k.IDField == "" {
@@ -146,6 +165,15 @@ func (s *Store) PutKind(kind *Kind, update bool) error {
 	return s.cluster.Put(key, string(buf))
 }
 
+// DeleteAllKind deletes all custom data kinds with all data
+func (s *Store) DeleteAllKinds() error {
+	err := s.cluster.DeletePrefix(s.DataPrefix)
+	if err != nil {
+		return err
+	}
+	return s.cluster.DeletePrefix(s.KindPrefix)
+}
+
 // DeleteKind deletes a custom data kind
 func (s *Store) DeleteKind(name string) error {
 	kind, err := s.GetKind(name)
@@ -157,8 +185,11 @@ func (s *Store) DeleteKind(name string) error {
 		return fmt.Errorf("%s not found", name)
 	}
 
+	if err := s.DeleteAllData(kind.Name); err != nil {
+		return err
+	}
+
 	return s.cluster.Delete(s.kindKey(name))
-	// TODO: remove custom data?
 }
 
 func (s *Store) dataPrefix(kind string) string {
@@ -190,6 +221,20 @@ func (s *Store) GetData(kind string, id string) (Data, error) {
 	}
 
 	return unmarshalData(kvs.Value)
+}
+
+// DataLen returns the number of custom data of specified kind.
+func (s *Store) DataLen(kind string) (int, error) {
+	key := s.DataPrefix
+	if kind != "" {
+		key = s.dataPrefix(kind)
+	}
+
+	kvs, err := s.cluster.GetWithOp(key, cluster.OpPrefix, cluster.OpKeysOnly)
+	if err != nil {
+		return 0, err
+	}
+	return len(kvs), nil
 }
 
 // ListData lists custom data of specified kind.

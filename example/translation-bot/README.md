@@ -17,19 +17,19 @@ The default content of the example configuration may not work for you, please up
 * Deploy the AutoCertManager, it can apply and renew the SSL certificates from [Let's Encrypt](https://letsencrypt.org/) automatically. This step is optional, it is only needed if you want Easegress to manage the SSL certificates.
 
 ```bash
-$ egctl object create -f auto-cert.yaml
+$ egctl create -f auto-cert.yaml
 ```
 
 * Deploy the HTTPServer.
 
 ```bash
-$ egctl object create -f http-server.yaml
+$ egctl create -f http-server.yaml
 ```
 
 * Deploy the Pipeline.
 
 ```bash
-$ egctl object create -f translate-pipeline.yaml
+$ egctl create -f translate-pipeline.yaml
 ```
 
 There should be no output after executing the commands, and if there's any, it means there are grammar errors in the configuration, please fix them and try again.
@@ -62,7 +62,7 @@ For example, the `log` function above will print out the response body of the sp
 Please make sure to apply the changes to Easegress after you modified one of the configuration files with below command:
 
 ```bash
-$ egctl object update -f {file name}.yaml
+$ egctl apply -f {file name}.yaml
 ```
 
 Please check [Build A Telegram Translation Bot With Easegress](../../doc/cookbook/translation-bot.md)

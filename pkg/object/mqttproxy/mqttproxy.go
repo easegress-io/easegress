@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/cluster"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/logger"
@@ -42,6 +44,11 @@ var _ supervisor.TrafficObject = (*MQTTProxy)(nil)
 
 func init() {
 	supervisor.Register(&MQTTProxy{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: []string{"mqtt", "mp"},
+	})
 }
 
 type (

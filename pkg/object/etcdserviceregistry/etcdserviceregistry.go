@@ -22,9 +22,11 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/serviceregistry"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -43,8 +45,15 @@ const (
 	requestTimeout = 5 * time.Second
 )
 
+var aliases = []string{"etcd"}
+
 func init() {
 	supervisor.Register(&EtcdServiceRegistry{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: aliases,
+	})
 }
 
 type (

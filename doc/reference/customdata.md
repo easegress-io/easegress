@@ -10,18 +10,20 @@ The YAML example below defines a CustomDataKind:
 
 ```yaml
 name: kind1
+kind: CustomDataKind
 idField: name
 jsonSchema:
   type: object
   properties:
     name:
       type: string
-      required: true
+  required:
+    - name
 ```
 
 The `name` field is required, it is the kind name of custom data items of this kind.
 The `idField` is optional, and its default value is `name`, the value of this field of a data item is used as its identifier.
-The `jsonSchema` is optional, if provided, data items of this kind will be validated against this [JSON Schema](http://json-schema.org/).
+The `jsonSchema` is optional, if provided, data items of this kind will be validated against this [JSON Schema](http://json-schema.org/). Use `egctl` to create `CustomDataKind`: `egctl create -f kind1.yaml` or `egctl apply -f kind1.yaml`.
 
 ## CustomData
 
@@ -94,6 +96,8 @@ field3: [1, 2, 3, 4]
         * **Body**: A change request in YAML, as defined below.
 
 ```yaml
+name: kind1
+kind: CustomData
 rebuild: false
 delete: [data1, data2]
 list:
@@ -102,4 +106,4 @@ list:
 - name: data4
   field1: foo
 ```
-When `rebuild` is true (default is false), all existing data items are deleted before processing the data items in `list`. `delete` is an array of data identifiers to be deleted, this array is ignored when `rebuild` is true. `list` is an array of data items to be created or updated.
+When `rebuild` is true (default is false), all existing data items are deleted before processing the data items in `list`. `delete` is an array of data identifiers to be deleted, this array is ignored when `rebuild` is true. `list` is an array of data items to be created or updated. `egctl` support to create or apply a change request, `egctl create -f customdata-change-request.yaml` where `name` is `CustomDataKind` name and `kind` is `CustomData`.

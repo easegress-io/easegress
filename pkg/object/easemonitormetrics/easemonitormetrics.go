@@ -21,12 +21,14 @@ package easemonitormetrics
 import (
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Shopify/sarama"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/statussynccontroller"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -39,6 +41,8 @@ const (
 	Kind = "EaseMonitorMetrics"
 )
 
+var aliases = []string{"emm"}
+
 var hostIPv4 string
 
 func init() {
@@ -48,6 +52,12 @@ func init() {
 	if hostIPv4 == "" {
 		panic(fmt.Errorf("get host ipv4 failed"))
 	}
+
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: aliases,
+	})
 }
 
 type (

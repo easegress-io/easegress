@@ -20,8 +20,10 @@ package globalfilter
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/object/pipeline"
 	"github.com/megaease/easegress/pkg/supervisor"
@@ -35,6 +37,17 @@ const (
 	// Kind is the kind of GlobalFilter.
 	Kind = "GlobalFilter"
 )
+
+var aliases = []string{"globalfilters"}
+
+func init() {
+	supervisor.Register(&GlobalFilter{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: aliases,
+	})
+}
 
 type (
 	// GlobalFilter is a business controller.
@@ -61,10 +74,6 @@ type (
 		*pipeline.Spec `json:",inline"`
 	}
 )
-
-func init() {
-	supervisor.Register(&GlobalFilter{})
-}
 
 // Validate validates Spec.
 func (s *Spec) Validate() (err error) {

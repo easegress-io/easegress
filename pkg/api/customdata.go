@@ -48,6 +48,11 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Handler: s.listCustomDataKind,
 		},
 		{
+			Path:    CustomDataKindPrefix,
+			Method:  http.MethodDelete,
+			Handler: s.deleteAllCustomDataKind,
+		},
+		{
 			Path:    CustomDataKindPrefix + "/{name}",
 			Method:  http.MethodGet,
 			Handler: s.getCustomDataKind,
@@ -99,13 +104,38 @@ func (s *Server) customDataAPIEntries() []*Entry {
 			Method:  http.MethodPost,
 			Handler: s.batchUpdateCustomData,
 		},
+		{
+			Path:    CustomDataPrefix + "/items",
+			Method:  http.MethodDelete,
+			Handler: s.batchDeleteCustomData,
+		},
+	}
+}
+
+func (s *Server) deleteAllCustomDataKind(w http.ResponseWriter, r *http.Request) {
+	err := s.cds.DeleteAllKinds()
+	if err != nil {
+		ClusterPanic(err)
 	}
 }
 
 func (s *Server) listCustomDataKind(w http.ResponseWriter, r *http.Request) {
-	result, err := s.cds.ListKinds()
+	kinds, err := s.cds.ListKinds()
 	if err != nil {
 		ClusterPanic(err)
+	}
+
+	result := make([]*customdata.KindWithLen, 0, len(kinds))
+	for _, k := range kinds {
+		l, err := s.cds.DataLen(k.Name)
+		if err != nil {
+			ClusterPanic(err)
+		}
+
+		result = append(result, &customdata.KindWithLen{
+			Kind: *k,
+			Len:  l,
+		})
 	}
 
 	WriteBody(w, r, result)
@@ -118,7 +148,17 @@ func (s *Server) getCustomDataKind(w http.ResponseWriter, r *http.Request) {
 		ClusterPanic(err)
 	}
 
-	WriteBody(w, r, k)
+	l, err := s.cds.DataLen(k.Name)
+	if err != nil {
+		ClusterPanic(err)
+	}
+
+	result := &customdata.KindWithLen{
+		Kind: *k,
+		Len:  l,
+	}
+
+	WriteBody(w, r, result)
 }
 
 func (s *Server) createCustomDataKind(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +211,9 @@ func (s *Server) getCustomData(w http.ResponseWriter, r *http.Request) {
 	data, err := s.cds.GetData(kind, id)
 	if err != nil {
 		ClusterPanic(err)
+	}
+	if data == nil {
+		return
 	}
 
 	WriteBody(w, r, data)
@@ -227,6 +270,15 @@ func (s *Server) batchUpdateCustomData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err := s.cds.BatchUpdateData(kind, cr.Delete, cr.List)
+	if err != nil {
+		ClusterPanic(err)
+	}
+}
+
+func (s *Server) batchDeleteCustomData(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+
+	err := s.cds.DeleteAllData(kind)
 	if err != nil {
 		ClusterPanic(err)
 	}

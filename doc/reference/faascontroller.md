@@ -173,9 +173,9 @@ The RESTful API path obey this design `http://host/{version}/{namespace}/{scope}
 ```bash
 $ cd ./easegress/example/primary-001 && ./start.sh
 
-$ ./egctl.sh object create -f ./faascontroller.yaml
+$ ./egctl.sh create -f ./faascontroller.yaml
 
-$ ./egctl.sh object get faascontroller
+$ ./egctl.sh get faas faascontroller
 name: faascontroller
 kind: FaaSController
 provider: knative             # FaaS provider kind, currently we only support Knative

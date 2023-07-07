@@ -20,9 +20,11 @@ package ingresscontroller
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/object/httpserver"
 	"github.com/megaease/easegress/pkg/object/trafficcontroller"
@@ -39,6 +41,15 @@ const (
 	defaultIngressControllerName = "megaease.com/ingress-controller"
 	k8sIngressClassAnnotation    = "kubernetes.io/ingress.class"
 )
+
+func init() {
+	supervisor.Register(&IngressController{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: []string{"ingresscontrollers", "ingress"},
+	})
+}
 
 type (
 	// IngressController implements a K8s ingress controller
@@ -64,10 +75,6 @@ type (
 		IngressClass string           `json:"ingressClass" jsonschema:"omitempty"`
 	}
 )
-
-func init() {
-	supervisor.Register(&IngressController{})
-}
 
 // Category returns the category of IngressController.
 func (ic *IngressController) Category() supervisor.ObjectCategory {

@@ -19,115 +19,100 @@
 package main
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/megaease/easegress/cmd/client/command"
+	"github.com/megaease/easegress/cmd/client/commandv2"
+	"github.com/megaease/easegress/cmd/client/general"
 )
 
 func init() {
 	cobra.EnablePrefixMatching = true
 }
 
-var exampleUsage = `  # List APIs.
-  egctl api list
+var deprecatedGroup = &cobra.Group{
+	ID:    "deprecated",
+	Title: `Deprecated Commands`,
+}
 
-  # Probe health.
-  egctl health
+var basicGroup = &cobra.Group{
+	ID:    "basic",
+	Title: `Basic Commands`,
+}
 
-  # List member information.
-  egctl member list
-
-  # Purge a easegress member
-  egctl member purge <member name>
-
-  # List object kinds.
-  egctl object kinds
-
-  # Create an object from a yaml file.
-  egctl object create -f <object_spec.yaml>
-
-  # Create an object from stdout.
-  cat <object_spec.yaml> | egctl object create
-
-  # Delete an object.
-  egctl object delete <object_name>
-
-  # Get an object.
-  egctl object get <object_name>
-
-  # List objects.
-  egctl object list
-
-  # Update an object from a yaml file.
-  egctl object update -f <new_object_spec.yaml>
-
-  # Update an object from stdout.
-  cat <new_object_spec.yaml> | egctl object update
-
-  # list objects status
-  egctl object status list
-
-  # Get object status
-  egctl object status get <object_name>
-`
+var otherGroup = &cobra.Group{
+	ID:    "other",
+	Title: `Other Commands`,
+}
 
 func main() {
 	rootCmd := &cobra.Command{
 		Use:        "egctl",
 		Short:      "A command line admin tool for Easegress.",
-		Example:    exampleUsage,
 		SuggestFor: []string{"egctl"},
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			switch command.CommandlineGlobalFlags.OutputFormat {
-			case "yaml", "json":
+			switch general.CmdGlobalFlags.OutputFormat {
+			case "yaml", "json", "default":
 			default:
-				command.ExitWithErrorf("unsupported output format: %s",
-					command.CommandlineGlobalFlags.OutputFormat)
+				general.ExitWithErrorf("unsupported output format: %s, only support (yaml, json and default)",
+					general.CmdGlobalFlags.OutputFormat)
 			}
 		},
 	}
 
-	completionCmd := &cobra.Command{
-		Use:   "completion bash|zsh",
-		Short: "Output shell completion code for the specified shell (bash or zsh)",
-		Run: func(cmd *cobra.Command, args []string) {
-			switch args[0] {
-			case "bash":
-				rootCmd.GenBashCompletion(os.Stdout)
-			case "zsh":
-				rootCmd.GenZshCompletion(os.Stdout)
-			default:
-				command.ExitWithErrorf("unsupported shell %s, expecting bash or zsh", args[0])
-			}
-		},
-		Args: cobra.ExactArgs(1),
+	addCommandWithGroup := func(group *cobra.Group, cmd ...*cobra.Command) {
+		for _, c := range cmd {
+			c.GroupID = group.ID
+		}
+		rootCmd.AddCommand(cmd...)
 	}
 
-	rootCmd.AddCommand(
-		command.APICmd(),
-		command.HealthCmd(),
-		command.ObjectCmd(),
-		command.MemberCmd(),
-		command.WasmCmd(),
-		command.CustomDataKindCmd(),
-		command.CustomDataCmd(),
-		command.ProfileCmd(),
-		completionCmd,
+	addCommandWithGroup(
+		basicGroup,
+		commandv2.CreateCmd(),
+		commandv2.DeleteCmd(),
+		commandv2.GetCmd(),
+		commandv2.DescribeCmd(),
+		commandv2.ApplyCmd(),
 	)
 
-	rootCmd.PersistentFlags().StringVar(&command.CommandlineGlobalFlags.Server,
-		"server", "localhost:2381", "The address of the Easegress endpoint")
-	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.ForceTLS,
+	addCommandWithGroup(
+		otherGroup,
+		commandv2.APIsCmd(),
+		commandv2.CompletionCmd(),
+		commandv2.HealthCmd(),
+		commandv2.ProfileCmd(),
+		commandv2.APIResourcesCmd(),
+		commandv2.WasmCmd(),
+		commandv2.ConfigCmd(),
+	)
+
+	addCommandWithGroup(
+		deprecatedGroup,
+		command.APICmd(),
+		command.ObjectCmd(),
+		command.MemberCmd(),
+		command.CustomDataKindCmd(),
+		command.CustomDataCmd(),
+	)
+
+	rootCmd.AddGroup(basicGroup, otherGroup, deprecatedGroup)
+
+	for _, c := range rootCmd.Commands() {
+		general.GenerateExampleFromChild(c)
+	}
+
+	rootCmd.PersistentFlags().StringVar(&general.CmdGlobalFlags.Server,
+		"server", "", "The address of the Easegress endpoint")
+	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.ForceTLS,
 		"force-tls", false, "Whether to forcibly use HTTPS, if not, client will auto upgrade to HTTPS on-demand")
-	rootCmd.PersistentFlags().BoolVar(&command.CommandlineGlobalFlags.InsecureSkipVerify,
+	rootCmd.PersistentFlags().BoolVar(&general.CmdGlobalFlags.InsecureSkipVerify,
 		"insecure-skip-verify", false, "Whether to verify the server's certificate chain and host name")
-	rootCmd.PersistentFlags().StringVarP(&command.CommandlineGlobalFlags.OutputFormat,
-		"output", "o", "yaml", "Output format(json, yaml)")
+	rootCmd.PersistentFlags().StringVarP(&general.CmdGlobalFlags.OutputFormat,
+		"output", "o", general.DefaultFormat, "Output format(default, json, yaml)")
 
 	err := rootCmd.Execute()
 	if err != nil {
-		command.ExitWithError(err)
+		general.ExitWithError(err)
 	}
 }

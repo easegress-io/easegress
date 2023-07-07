@@ -93,7 +93,7 @@ The architecture of Easegress:
   - **Compression:** compresses body for the response.
   - **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
-  - **Easy to Integrate:** command line(`egctl`), MegaEase Portal, HTTP clients such as curl, postman, etc.
+  - **Easy to Integrate:** command line([egctl](./doc/egctl-cheat-sheet.md)), MegaEase Portal, HTTP clients such as curl, postman, etc.
   - **Distributed Tracing**
     - Built-in [OpenTelemetry](https://opentelemetry.io/), which provides a vendor-neutral API.
   - **Observability**
@@ -195,15 +195,20 @@ configuration file or command-line arguments that are explained well in
 `easegress-server --help`.
 
 ```bash
-$ egctl member list | grep "ClusterRole"
-    ClusterRole: primary
-$ egctl member list | grep "APIAddr"
-    APIAddr: localhost:2381
-$ egctl member list | grep "Name"
-    ClusterName: eg-cluster-default-name
-    Name: eg-default-name
-$ egctl member list | grep "id"
-    id: 689e371e88f78b6a
+$ egctl get member
+NAME                    ROLE            AGE     STATE   API-ADDR        HEARTBEAT
+eg-default-name         primary         9s      Leader  localhost:2381  3s ago
+
+$ egctl describe member
+Name: eg-default-name
+LastHeartbeatTime: "2023-07-03T17:39:30+08:00"
+
+Etcd:
+=====
+  id: 689e371e88f78b6a
+  startTime: "2023-07-03T17:39:14+08:00"
+  state: Leader
+...
 ```
 
 After launching successfully, we could check the status of the one-node
@@ -224,7 +229,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl object create
+      backend: pipeline-demo' | egctl create -f -
 ```
 
 The rules above mean it will forward the traffic with the prefix `/pipeline` to
@@ -246,7 +251,7 @@ filters:
       - url: http://127.0.0.1:9096
       - url: http://127.0.0.1:9097
       loadBalance:
-        policy: roundRobin' | egctl object create
+        policy: roundRobin' | egctl create -f -
 ```
 
 The pipeline means it will forward traffic to 3 backend endpoints, using the
@@ -374,7 +379,7 @@ filters:
   kind: ResponseBuilder
   template: |
     statusCode: 200
-    body: RSS feed has been sent to Slack successfully.' | egctl object create
+    body: RSS feed has been sent to Slack successfully.' | egctl create -f -
 ```
 
 ### Update the HTTPServer
@@ -394,7 +399,7 @@ rules:
     - pathPrefix: /rss          # +
       backend: rss-pipeline     # +
     - pathPrefix: /pipeline
-      backend: pipeline-demo' | egctl object update
+      backend: pipeline-demo' | egctl apply -f -
 ```
 
 ### Test the RSS Pipeline

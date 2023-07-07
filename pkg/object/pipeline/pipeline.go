@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/megaease/easegress/pkg/api"
 	"github.com/megaease/easegress/pkg/context"
 	"github.com/megaease/easegress/pkg/filters"
 	"github.com/megaease/easegress/pkg/resilience"
@@ -45,6 +46,11 @@ const (
 
 func init() {
 	supervisor.Register(&Pipeline{})
+	api.RegisterObject(&api.APIResource{
+		Kind:    Kind,
+		Name:    strings.ToLower(Kind),
+		Aliases: []string{"pipelines", "pl"},
+	})
 }
 
 func isBuiltInFilter(name string) bool {

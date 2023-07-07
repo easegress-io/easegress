@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command provides the commands.
 package command
 
 import (
@@ -23,6 +24,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/megaease/easegress/cmd/client/general"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
@@ -108,7 +110,7 @@ func (v *specVisitor) Visit(fn func(*spec) error) error {
 	})
 
 	if err != nil {
-		ExitWithError(err)
+		general.ExitWithError(err)
 	}
 
 	for _, s := range specs {
@@ -128,7 +130,7 @@ func buildYAMLVisitor(yamlFile string, cmd *cobra.Command) YAMLVisitor {
 	if yamlFile == "" {
 		r = io.NopCloser(os.Stdin)
 	} else if f, err := os.Open(yamlFile); err != nil {
-		ExitWithErrorf("%s failed: %v", cmd.Short, err)
+		general.ExitWithErrorf("%s failed: %v", cmd.Short, err)
 	} else {
 		r = f
 	}

@@ -165,7 +165,7 @@ template: |
 Once we have prepared the configuration file (can be downloaded [here](https://github.com/megaease/easegress/tree/main/example/chatgpt-bot)), we can deploy this Pipeline to Easegress (assuming the file name is `chatgpt-pipeline.yaml`) via the following command.
 
 ```bash
-$ egctl object create -f chatgpt-pipeline.yaml
+$ egctl create -f chatgpt-pipeline.yaml
 ```
 
 Create a HTTPServer to receive the webhook from Telegram.
@@ -184,7 +184,7 @@ cacheSize: 0
 rules:
 - paths:
   - path: /chatgpt
-    backend: chatgpt-pipeline' | egctl object create
+    backend: chatgpt-pipeline' | egctl create -f -
 ```
 
 Now, we can test the bot in the chat.
