@@ -1378,7 +1378,8 @@ Same as the `Proxy` filter:
 * the servers of a pool can be configured dynamically via service discovery.
 * when there are multiple servers in a pool, the pool can do a load balance between them.
 
-Because gRPC does not support the http `Connect` method, that is, it does not support the tunneling mode, we provide a new [load balancer](#proxyloadbalancespec) `policy.forward` to achieve a similar effect
+Because gRPC does not support the http `Connect` method, it does not support tunneling mode, 
+we provide a new [load balancer](#proxyloadbalancespec) `policy.forward` to achieve a similar effect.
 
 Note that each gRPC client establishes a connection with Easegress. However,
 Easegress may utilize a single connection when forwarding requests from various
