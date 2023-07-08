@@ -32,7 +32,6 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -543,7 +542,7 @@ domains:
       name: customDNS
       zone: megaease.com
 directoryURL: ` + url
-	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -677,7 +676,7 @@ domains:
       name: customDNS
       zone: megaease.com
 directoryURL: ` + url
-	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -725,7 +724,7 @@ domains:
       name: customDNS
       zone: megaease.com
 directoryURL: ` + url
-	etcdDirName, err := ioutil.TempDir("", "autocertmanager-test")
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -835,7 +834,7 @@ func waitDNSRecordTest(t *testing.T, d Domain) {
 }
 
 func TestDomain(t *testing.T) {
-	etcdDirName, err := ioutil.TempDir("", "autocertmanager-domain-test")
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-domain-test")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
