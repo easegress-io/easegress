@@ -51,9 +51,7 @@ func (s *ServiceInstanceSpec) DeepCopy() *ServiceInstanceSpec {
 	copy := *s
 
 	if s.Tags != nil {
-		for _, tag := range s.Tags {
-			copy.Tags = append(copy.Tags, tag)
-		}
+		copy.Tags = append(copy.Tags, s.Tags...)
 	}
 
 	return &copy

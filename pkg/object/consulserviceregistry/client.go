@@ -72,9 +72,7 @@ func (c *consulAPIClient) ListAllServiceInstances() ([]*api.CatalogService, erro
 			return nil, fmt.Errorf("pull catalog service %s failed: %v", serviceName, err)
 		}
 
-		for _, service := range services {
-			catalogServices = append(catalogServices, service)
-		}
+		catalogServices = append(catalogServices, services...)
 	}
 
 	return catalogServices, nil
