@@ -20,7 +20,7 @@ package kafka
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/Shopify/sarama"
@@ -156,7 +156,7 @@ func (k *Kafka) Handle(ctx *context.Context) (result string) {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	topic := k.getTopic(req)
 
-	body, err := ioutil.ReadAll(req.GetPayload())
+	body, err := io.ReadAll(req.GetPayload())
 	if err != nil {
 		return resultParseErr
 	}

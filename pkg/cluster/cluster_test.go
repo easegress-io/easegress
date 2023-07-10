@@ -19,7 +19,6 @@ package cluster
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -568,7 +567,7 @@ func TestUtilEqual(t *testing.T) {
 }
 
 func TestIsLeader(t *testing.T) {
-	etcdDirName, err := ioutil.TempDir("", "cluster-test")
+	etcdDirName, err := os.MkdirTemp("", "cluster-test")
 	check(err)
 	defer os.RemoveAll(etcdDirName)
 
@@ -592,7 +591,7 @@ func TestInvalidConfig(t *testing.T) {
 
 func TestRunDefrag(t *testing.T) {
 	assert := assert.New(t)
-	etcdDirName, err := ioutil.TempDir("", "cluster-test")
+	etcdDirName, err := os.MkdirTemp("", "cluster-test")
 	check(err)
 	defer os.RemoveAll(etcdDirName)
 
