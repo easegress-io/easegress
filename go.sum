@@ -571,8 +571,8 @@ github.com/libdns/digitalocean v0.0.0-20220518195853-a541bc8aa80f h1:Y0JkwI0Uip+
 github.com/libdns/digitalocean v0.0.0-20220518195853-a541bc8aa80f/go.mod h1:B2TChhOTxvBflpRTHlguXWtwa1Ha5WI6JkB6aCViM+0=
 github.com/libdns/dnspod v0.0.3 h1:xJHDIujgLjvZnpB8/rMoCHUqA/KxSGBqRUXxSIzNzAA=
 github.com/libdns/dnspod v0.0.3/go.mod h1:XLnqMmK7QlLPEbHwcOxbRvlzRvDgaaUlthRNFOPjXPI=
-github.com/libdns/duckdns v0.1.1 h1:wkgu98DkwpjduH2fxC2YkCiNkNnfQiHaYskMkEyRZ28=
-github.com/libdns/duckdns v0.1.1/go.mod h1:jCQ/7+qvhLK39+28qXvKEYGBBvmHBCmIwNqdJTCUmVs=
+github.com/libdns/duckdns v0.2.0 h1:vd3pE09G2qTx1Zh1o3LmrivWSByD3Z5FbL7csX5vDgE=
+github.com/libdns/duckdns v0.2.0/go.mod h1:jCQ/7+qvhLK39+28qXvKEYGBBvmHBCmIwNqdJTCUmVs=
 github.com/libdns/hetzner v0.0.1 h1:WsmcsOKnfpKmzwhfyqhGQEIlEeEaEUvb7ezoJgBKaqU=
 github.com/libdns/hetzner v0.0.1/go.mod h1:Jj12aJipO9Ir7OGaXueJ5J1RnerFMD0auGa6k9kujG4=
 github.com/libdns/libdns v0.1.0/go.mod h1:yQCXzk1lEZmmCPa857bnk4TsOiqYasqpyOEeSObbb40=
