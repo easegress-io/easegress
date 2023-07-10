@@ -27,7 +27,7 @@ require (
 	github.com/libdns/cloudflare v0.1.0
 	github.com/libdns/digitalocean v0.0.0-20220518195853-a541bc8aa80f
 	github.com/libdns/dnspod v0.0.3
-	github.com/libdns/duckdns v0.1.1
+	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/hetzner v0.0.1
 	github.com/libdns/libdns v0.2.2-0.20230227175549-2dc480633939
 	github.com/libdns/route53 v1.3.3
