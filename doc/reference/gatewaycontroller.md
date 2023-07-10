@@ -91,6 +91,59 @@ data:
     namespaces: []
 ```
 
+### Services
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+spec:
+  selector:
+    matchLabels:
+      app: products
+      department: sales
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: products
+        department: sales
+    spec:
+      containers:
+      - name: hello-v1
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0"
+        env:
+        - name: "PORT"
+          value: "50001"
+      - name: hello-v2
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:2.0"
+        env:
+        - name: "PORT"
+          value: "50002"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-service
+spec:
+  type: NodePort
+  selector:
+    app: products
+    department: sales
+  ports:
+  - name: port-v1
+    protocol: TCP
+    port: 60001
+    targetPort: 50001
+  - name: port-v2
+    protocol: TCP
+    port: 60002
+    targetPort: 50002
+```
+
 ### Gateway Controller
 
 ```yaml
@@ -163,3 +216,20 @@ spec:
           name: easegress-cm
         name: easegress-cm
 ```
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: easegress-public
+  namespace: default
+spec:
+  ports:
+  - name: web
+    protocol: TCP
+    port: 80
+    nodePort: 30080
+  selector:
+    app: easegress-gateway
+  type: NodePort
+  ```

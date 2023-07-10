@@ -78,7 +78,7 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.reqAdaptor.BaseSpec.MetaSpec.Kind = builder.RequestAdaptorKind
 		buf, _ := codectool.MarshalJSON(b.reqAdaptor)
 		m := map[string]any{}
-		codectool.UnmarshalJSON(buf, m)
+		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.reqAdaptor.Name()})
 	}
@@ -88,7 +88,7 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.redirector.BaseSpec.MetaSpec.Kind = redirector.Kind
 		buf, _ := codectool.MarshalJSON(b.redirector)
 		m := map[string]any{}
-		codectool.UnmarshalJSON(buf, m)
+		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.redirector.Name()})
 	}
@@ -98,7 +98,7 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.proxy.BaseSpec.MetaSpec.Kind = httpproxy.Kind
 		buf, _ := codectool.MarshalJSON(b.proxy)
 		m := map[string]any{}
-		codectool.UnmarshalJSON(buf, m)
+		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.proxy.Name()})
 	}
@@ -108,7 +108,7 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.respAdaptor.BaseSpec.MetaSpec.Kind = builder.ResponseAdaptorKind
 		buf, _ := codectool.MarshalJSON(b.respAdaptor)
 		m := map[string]any{}
-		codectool.UnmarshalJSON(buf, m)
+		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.respAdaptor.Name()})
 	}
@@ -335,7 +335,7 @@ func (st *specTranslator) getTLS(g *gwapis.Gateway, certRef *gwapis.SecretObject
 	}
 
 	if certRef.Namespace != nil && string(*certRef.Namespace) != g.Namespace {
-		err := fmt.Errorf("cross namespace support of reference policy is not supported currently.")
+		err := fmt.Errorf("cross namespace support of reference policy is not supported currently")
 		return "", "", err
 	}
 
@@ -497,11 +497,11 @@ func (st *specTranslator) loadService(ns string, bor *gwapis.BackendObjectRefere
 	}
 
 	if p.Port == 80 {
-		return fmt.Sprintf("http://%s.%s", svc.Name, svc)
+		return fmt.Sprintf("http://%s.%s", svc.Name, svc.Namespace)
 	} else if p.Port == 443 {
-		return fmt.Sprintf("https://%s.%s", svc.Name, svc)
+		return fmt.Sprintf("https://%s.%s", svc.Name, svc.Namespace)
 	} else {
-		return fmt.Sprintf("https://%s.%s:%d", svc.Name, svc, p.Port)
+		return fmt.Sprintf("http://%s.%s:%d", svc.Name, svc.Namespace, p.Port)
 	}
 }
 
@@ -566,16 +566,20 @@ func (st *specTranslator) translateHTTPListener(g *gwapis.Gateway, l *gwapis.Lis
 	for _, route := range st.routes {
 		shouldAttach := false
 		for _, pr := range route.Spec.ParentRefs {
-			if pr.Group == nil || *pr.Group != gwapis.GroupName {
+			if pr.Group != nil && *pr.Group != gwapis.GroupName {
 				continue
 			}
-			if pr.Kind == nil || *pr.Kind != "Gateway" {
+			if pr.Kind != nil && *pr.Kind != "Gateway" {
 				continue
 			}
-			if pr.SectionName != nil || *pr.SectionName != l.Name {
+			if pr.Name != gwapis.ObjectName(g.Name) {
 				continue
 			}
-			if pr.Port != nil || pr.Port != &l.Port {
+
+			if pr.SectionName != nil && *pr.SectionName != l.Name {
+				continue
+			}
+			if pr.Port != nil && pr.Port != &l.Port {
 				continue
 			}
 			ns := route.Namespace
@@ -596,7 +600,6 @@ func (st *specTranslator) translateHTTPListener(g *gwapis.Gateway, l *gwapis.Lis
 			if l.Hostname != nil && *l.Hostname != "" && len(route.Spec.Hostnames) > 0 {
 				continue
 			}
-			hostnames = append(hostnames, "")
 		}
 
 		rule := &routers.Rule{}
