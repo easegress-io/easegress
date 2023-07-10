@@ -387,7 +387,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	// The key of the cache is grpc server address + called method
 	// and if a method is cached, we are sure it does not contain any
 	// headers.
-	r := mi.getRouteFromCache(request.Host(), fullMethod)
+	r := mi.getRouteFromCache(request.OnlyHost(), fullMethod)
 	if r != nil {
 		if r.code != 0 {
 			return r
@@ -412,7 +412,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 	}
 
 	for _, rs := range mi.rules {
-		if !rs.match(request.Host()) {
+		if !rs.match(request.OnlyHost()) {
 			continue
 		}
 
@@ -431,7 +431,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 			// The method can be put into the cache if it has no headers.
 			if len(method.headers) == 0 {
 				r = &route{code: 0, method: method}
-				mi.putRouteToCache(request.Host(), fullMethod, r)
+				mi.putRouteToCache(request.OnlyHost(), fullMethod, r)
 			} else if !method.matchHeaders(request) {
 				headerMismatch = true
 				continue
@@ -459,7 +459,7 @@ func (mi *muxInstance) search(request *grpcprot.Request) *route {
 		code:    codes.NotFound,
 		message: "grpc stream miss match any conditions",
 	}
-	mi.putRouteToCache(request.Host(), fullMethod, notFound)
+	mi.putRouteToCache(request.OnlyHost(), fullMethod, notFound)
 	return notFound
 }
 

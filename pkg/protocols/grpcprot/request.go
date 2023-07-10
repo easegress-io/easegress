@@ -46,6 +46,7 @@ type (
 		realIP   string
 		sts      *serverTransportStream
 		peer     *peer.Peer
+		host     string
 	}
 
 	serverTransportStream struct {
@@ -272,14 +273,32 @@ func (r *Request) SetSourceHost(sourceHost string) {
 }
 
 // Host refer to google.golang.org\grpc@v1.46.2\internal\transport\http2_server.go#operateHeaders
-// ensure only one value
+// It may be of the form "host:port" or contain an international domain name.
 func (r *Request) Host() string {
 	return r.header.GetFirst(Authority)
+}
+
+// OnlyHost return host or hostname without port
+func (r *Request) OnlyHost() string {
+	if r.host != "" {
+		return r.host
+	}
+	host := r.Host()
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	r.host = host
+	return host
 }
 
 // SetHost set the host of the request.
 func (r *Request) SetHost(host string) {
 	r.header.Set(Authority, host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		r.host = h
+	} else {
+		r.host = host
+	}
 }
 
 // Header returns the header of the request in type protocols.Header.
