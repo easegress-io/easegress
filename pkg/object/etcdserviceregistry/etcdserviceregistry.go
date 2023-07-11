@@ -166,7 +166,7 @@ func (e *EtcdServiceRegistry) buildClient() (*clientv3.Client, error) {
 		DialTimeout:          10 * time.Second,
 		DialKeepAliveTime:    1 * time.Minute,
 		DialKeepAliveTimeout: 1 * time.Minute,
-		LogConfig: logger.EtcdClientLoggerConfig(e.superSpec.Super().Options(),
+		Logger: logger.CustomerEtcdClientLogger(e.superSpec.Super().Options(),
 			"object_"+e.superSpec.Name()),
 	})
 	if err != nil {

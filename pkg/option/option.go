@@ -91,6 +91,7 @@ type Options struct {
 	DataDir   string `yaml:"data-dir"`
 	WALDir    string `yaml:"wal-dir"`
 	LogDir    string `yaml:"log-dir"`
+	LogConfig string `yaml:"log-config"`
 	MemberDir string `yaml:"member-dir"`
 
 	// Profile.
@@ -147,6 +148,7 @@ func New() *Options {
 	opt.flags.StringVar(&opt.CertFile, "cert-file", "", "Flag to set the certificate file for https.")
 	opt.flags.StringVar(&opt.KeyFile, "key-file", "", "Flag to set the private key file for https.")
 	opt.flags.BoolVar(&opt.Debug, "debug", false, "Flag to set lowest log level from INFO downgrade DEBUG.")
+	opt.flags.BoolVar(&opt.DisableAccessLog, "disable-access", false, "Flag to set whether to disable access logs")
 	opt.flags.StringSliceVar(&opt.InitialObjectConfigFiles, "initial-object-config-files", nil, "List of configuration files for initial objects, these objects will be created at startup if not already exist.")
 	opt.flags.StringVar(&opt.ObjectsDumpInterval, "objects-dump-interval", "", "The time interval to dump running objects config, for example: 30m")
 
@@ -154,6 +156,7 @@ func New() *Options {
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
 	opt.flags.StringVar(&opt.WALDir, "wal-dir", "", "Path to the WAL directory.")
 	opt.flags.StringVar(&opt.LogDir, "log-dir", "", "Path to the log directory.")
+	opt.flags.StringVar(&opt.LogConfig, "log-config", "", "Config file of the log")
 	opt.flags.StringVar(&opt.MemberDir, "member-dir", "member", "Path to the member directory.")
 
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")

@@ -20,9 +20,6 @@ package logger
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
@@ -33,16 +30,15 @@ const (
 )
 
 type (
-	// logFile add features upon the regular file:
+	// LogFile add features upon the regular file:
 	// 1. Reopen the file after receiving SIGHUP, for log rotate.
 	// 2. Reduce execution time of callers by asynchronous log(return after only memory copy).
 	// 3. Batch write logs by cache them with timeout.
-	logFile struct {
-		filename string
-		file     *os.File
+	LogFile struct {
+		logger *Logger
 
-		logChan       chan []byte
-		syncEventChan chan *syncEvent
+		logChan   chan []byte
+		eventChan chan interface{}
 
 		cacheCount    uint32
 		maxCacheCount uint32
@@ -52,21 +48,17 @@ type (
 	syncEvent struct {
 		resultChan chan error
 	}
+	closeEvent struct{ done chan struct{} }
 )
 
-// newLogFile can not open /dev/stderr, it will cause dead lock.
-func newLogFile(filename string, maxCacheCount uint32) (*logFile, error) {
-	lf := &logFile{
-		filename:      filename,
+// NewLogFile can not open /dev/stderr, it will cause dead lock.
+func NewLogFile(spec *Spec, maxCacheCount uint32) (*LogFile, error) {
+	lf := &LogFile{
 		logChan:       make(chan []byte, logChanSize),
-		syncEventChan: make(chan *syncEvent),
+		eventChan:     make(chan interface{}),
 		maxCacheCount: maxCacheCount,
 		cache:         bytes.NewBuffer(nil),
-	}
-
-	err := lf.openFile()
-	if err != nil {
-		return nil, err
+		logger:        newLogger(spec),
 	}
 
 	go lf.run()
@@ -74,57 +66,34 @@ func newLogFile(filename string, maxCacheCount uint32) (*logFile, error) {
 	return lf, nil
 }
 
-func (lf *logFile) openFile() error {
-	file, err := os.OpenFile(lf.filename, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o640)
-	if err != nil {
-		return err
-	}
-
-	lf.file = file
-	return nil
-}
-
-func (lf *logFile) closeFile() {
-	err := lf.file.Close()
-	if err != nil {
-		stderrLogger.Errorf("close %s failed: %v", lf.filename, err)
-	}
-}
-
-func (lf *logFile) reopenFile() {
-	lf.closeFile()
-	err := lf.openFile()
-	if err != nil {
-		stderrLogger.Errorf("open %s failed: %v", lf.filename, err)
-		return
-	}
-}
-
-func (lf *logFile) run() {
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGHUP)
-
+func (lf *LogFile) run() {
+	ticker := time.NewTimer(cacheTimeout)
+	defer ticker.Stop()
 	for {
 		select {
-		case <-signalChan:
-			lf.reopenFile()
 		case p := <-lf.logChan:
 			lf.writeLog(p)
-		case syncEvent := <-lf.syncEventChan:
-			err := lf.flush()
-			if err != nil {
-				syncEvent.resultChan <- err
-			} else {
-				syncEvent.resultChan <- lf.file.Sync()
+		case event := <-lf.eventChan:
+			switch event.(type) {
+			case *syncEvent:
+				err := lf.flush()
+				if err != nil {
+					event.(*syncEvent).resultChan <- err
+				} else {
+					event.(*syncEvent).resultChan <- lf.logger.file.Sync()
+				}
+			case *closeEvent:
+				close(event.(*closeEvent).done)
+				return
 			}
-		case <-time.After(cacheTimeout):
+		case <-ticker.C:
 			lf.flush()
 		}
 	}
 }
 
 // Write writes log asynchronously, it always returns successful result.
-func (lf *logFile) Write(p []byte) (int, error) {
+func (lf *LogFile) Write(p []byte) (int, error) {
 	// NOTE: The memory of p may be corrupted after Write returned
 	// So it's necessary to do copy.
 	buff := make([]byte, len(p))
@@ -134,19 +103,19 @@ func (lf *logFile) Write(p []byte) (int, error) {
 }
 
 // Sync flushes all cache to file with os-level flush.
-func (lf *logFile) Sync() error {
+func (lf *LogFile) Sync() error {
 	event := &syncEvent{
 		resultChan: make(chan error, 1),
 	}
-	lf.syncEventChan <- event
+	lf.eventChan <- event
 
 	return <-event.resultChan
 }
 
-func (lf *logFile) writeLog(p []byte) {
+func (lf *LogFile) writeLog(p []byte) {
 	// No need to copy twice for non-cacheable log file.
 	if lf.maxCacheCount == 0 {
-		_, err := lf.file.Write(p)
+		_, err := lf.logger.Write(p)
 		if err != nil {
 			stderrLogger.Errorf("%v", err)
 		}
@@ -170,7 +139,7 @@ func (lf *logFile) writeLog(p []byte) {
 }
 
 // flush flushes all cache to file without os-level flush.
-func (lf *logFile) flush() error {
+func (lf *LogFile) flush() error {
 	if lf.cache.Len() == 0 {
 		return nil
 	}
@@ -181,10 +150,21 @@ func (lf *logFile) flush() error {
 		lf.cacheCount = 0
 	}()
 
-	n, err := lf.file.Write(lf.cache.Bytes())
+	n, err := lf.logger.Write(lf.cache.Bytes())
 	if err != nil || n != lf.cache.Len() {
-		return fmt.Errorf("write buffer to %s failed: %d, %v", lf.filename, n, err)
+		return fmt.Errorf("write buffer to %s failed: %d, %v", lf.logger.filename(), n, err)
 	}
 
 	return nil
+}
+
+func (lf *LogFile) Close() {
+	lf.Sync()
+
+	closed := &closeEvent{done: make(chan struct{})}
+	lf.eventChan <- closed
+	<-closed.done
+	close(lf.eventChan)
+
+	lf.logger.Close()
 }

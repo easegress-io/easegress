@@ -42,6 +42,11 @@ func Cat(strs ...string) string {
 	return builder.String()
 }
 
+// LowerChar return the lowest case of the char
+func LowerChar(c byte) byte {
+	return c | ('x' - 'X')
+}
+
 // StrInSlice returns whether the string is in the slice.
 func StrInSlice(str string, slice []string) bool {
 	for _, s := range slice {

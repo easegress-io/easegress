@@ -103,3 +103,11 @@ func TestStringMatcher(t *testing.T) {
 	assert.True(sm.Match("/hello"))
 	assert.False(sm.Match("/Hello"))
 }
+
+func TestLowerChar(t *testing.T) {
+	at := assert.New(t)
+
+	at.True('a' == LowerChar('A'))
+	at.True('a' == LowerChar('a'))
+	at.True('c' != LowerChar('A'))
+}

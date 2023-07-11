@@ -19,6 +19,7 @@
 package logger
 
 import (
+	"github.com/megaease/easegress/pkg/util/codectool"
 	"io"
 	"os"
 	"path/filepath"
@@ -37,10 +38,22 @@ import (
 
 // Init initializes logger.
 func Init(opt *option.Options) {
+	initLogsSpec(opt)
 	initDefault(opt)
 	initHTTPFilter(opt)
 	initRestAPI(opt)
 	initOTel(opt)
+}
+
+func initLogsSpec(opt *option.Options) *LogsSpec {
+	if opt.LogConfig != "" {
+		data, err := os.ReadFile(opt.LogConfig)
+		if err != nil {
+			common.Exit(1, err.Error())
+		}
+		codectool.MustUnmarshal(data, defaultLogsConfig)
+	}
+	return defaultLogsConfig
 }
 
 // InitNop initializes all logger as nop, mainly for unit testing
@@ -68,15 +81,6 @@ func InitMock() {
 }
 
 const (
-	stdoutFilename           = "stdout.log"
-	filterHTTPAccessFilename = "filter_http_access.log"
-	filterHTTPDumpFilename   = "filter_http_dump.log"
-	adminAPIFilename         = "admin_api.log"
-	otelFilename             = "otel.log"
-
-	// EtcdClientFilename is the filename of etcd client log.
-	EtcdClientFilename = "etcd_client.log"
-
 	// no cache for system log
 	systemLogMaxCacheCount = 0
 
@@ -85,6 +89,23 @@ const (
 	trafficLogMaxCacheCount = 1024
 )
 
+type LogsSpec struct {
+	// StdLog is the file to write logs from stdout to.
+	StdLog *Spec `json:"stdLog" jsonschema:"omitempty"`
+	// Access is the file to write logs from access to.
+	Access *Spec `json:"accessLog" jsonschema:"omitempty"`
+	// Dump is the file to write logs from mem dump to.
+	Dump *Spec `json:"dumpLog" jsonschema:"omitempty"`
+	//AdminAPI is the file to write logs of api called to.
+	AdminAPI *Spec `json:"adminAPLog" jsonschema:"omitempty"`
+	// EtcdServer is the file to write logs of etcd server to.
+	EtcdServer *Spec `json:"etcdServerLog" jsonschema:"omitempty"`
+	// EtcdClient is the file to write logs of etcd client to.
+	EtcdClient *Spec `json:"etcdClientLog" jsonschema:"omitempty"`
+	// OTel is the file to write logs of etcd client to.
+	OTel *Spec `json:"oTel" jsonschema:"omitempty"`
+}
+
 var (
 	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gressLogger
 	stderrLogger           *zap.SugaredLogger
@@ -92,10 +113,67 @@ var (
 	httpFilterAccessLogger *zap.SugaredLogger
 	httpFilterDumpLogger   *zap.SugaredLogger
 	restAPILogger          *zap.SugaredLogger
+	defaultLogsConfig      = &LogsSpec{
+		StdLog: &Spec{
+			FileName:   "stdout.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		Access: &Spec{
+			FileName:   "filter_http_access.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		Dump: &Spec{
+			FileName:   "filter_http_dump.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		AdminAPI: &Spec{
+			FileName:   "admin-api.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		EtcdServer: &Spec{
+			FileName:   "etcd-server-eg.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		EtcdClient: &Spec{
+			FileName:   "etcd-client.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+		OTel: &Spec{
+			FileName:   "otel.log",
+			MaxSize:    128,
+			MaxAge:     30,
+			MaxBackups: 60,
+			LocalTime:  true,
+			Compress:   true,
+		},
+	}
 )
 
-// EtcdClientLoggerConfig generates the config of etcd client logger.
-func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
+func DefaultEtcdServerLogger(opt *option.Options) *zap.Logger {
 	encoderConfig := defaultEncoderConfig()
 
 	level := zap.NewAtomicLevel()
@@ -104,19 +182,51 @@ func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
 	} else {
 		level.SetLevel(zapcore.InfoLevel)
 	}
+	defaultLogsConfig.EtcdServer.FileName = filepath.Join(opt.AbsLogDir, defaultLogsConfig.EtcdServer.FileName)
+	gressLF, err := NewLogFile(defaultLogsConfig.EtcdServer, systemLogMaxCacheCount)
+	if err != nil {
+		panic(err)
+	}
+	syncer := zapcore.AddSync(gressLF)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
+	return zap.New(core)
+}
 
-	cfg := &zap.Config{
-		Level:            level,
-		Encoding:         "console",
-		EncoderConfig:    encoderConfig,
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stderr"},
+// DefaultEtcdClientLogger generates default etcd client logger.
+func DefaultEtcdClientLogger(opt *option.Options) *zap.Logger {
+	return etcdClientLogger(opt, defaultLogsConfig.EtcdClient)
+}
+
+// CustomerEtcdClientLogger generates customer etcd client logger.
+func CustomerEtcdClientLogger(opt *option.Options, fileName string) *zap.Logger {
+	return etcdClientLogger(opt, &Spec{
+		FileName:   filepath.Join(opt.AbsLogDir, fileName),
+		MaxSize:    defaultLogsConfig.EtcdClient.MaxSize,
+		MaxBackups: defaultLogsConfig.EtcdClient.MaxBackups,
+		MaxAge:     defaultLogsConfig.EtcdClient.MaxAge,
+		Compress:   defaultLogsConfig.EtcdClient.Compress,
+		LocalTime:  defaultLogsConfig.EtcdClient.LocalTime,
+		Perm:       defaultLogsConfig.EtcdClient.Perm,
+	})
+}
+
+func etcdClientLogger(opt *option.Options, spec *Spec) *zap.Logger {
+	encoderConfig := defaultEncoderConfig()
+
+	level := zap.NewAtomicLevel()
+	if opt.Debug {
+		level.SetLevel(zapcore.DebugLevel)
+	} else {
+		level.SetLevel(zapcore.InfoLevel)
 	}
-	if opt.AbsLogDir != "" {
-		cfg.OutputPaths = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, filename))}
-		cfg.ErrorOutputPaths = cfg.OutputPaths
+	spec.FileName = filepath.Join(opt.AbsLogDir, spec.FileName)
+	gressLF, err := NewLogFile(spec, systemLogMaxCacheCount)
+	if err != nil {
+		panic(err)
 	}
-	return cfg
+	syncer := zapcore.AddSync(gressLF)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
+	return zap.New(core)
 }
 
 func defaultEncoderConfig() zapcore.EncoderConfig {
@@ -150,7 +260,8 @@ func initDefault(opt *option.Options) {
 	var err error
 	var gressLF io.Writer = os.Stdout
 	if opt.AbsLogDir != "" {
-		gressLF, err = newLogFile(filepath.Join(opt.AbsLogDir, stdoutFilename), systemLogMaxCacheCount)
+		defaultLogsConfig.StdLog.FileName = filepath.Join(opt.AbsLogDir, defaultLogsConfig.StdLog.FileName)
+		gressLF, err = NewLogFile(defaultLogsConfig.StdLog, systemLogMaxCacheCount)
 		if err != nil {
 			common.Exit(1, err.Error())
 		}
@@ -174,20 +285,20 @@ func initDefault(opt *option.Options) {
 }
 
 func initHTTPFilter(opt *option.Options) {
-	httpFilterAccessLogger = newPlainLogger(opt, filterHTTPAccessFilename, trafficLogMaxCacheCount)
-	httpFilterDumpLogger = newPlainLogger(opt, filterHTTPDumpFilename, trafficLogMaxCacheCount)
+	httpFilterAccessLogger = newPlainLogger(opt, defaultLogsConfig.Access, trafficLogMaxCacheCount)
+	httpFilterDumpLogger = newPlainLogger(opt, defaultLogsConfig.Dump, trafficLogMaxCacheCount)
 }
 
 func initRestAPI(opt *option.Options) {
-	restAPILogger = newPlainLogger(opt, adminAPIFilename, systemLogMaxCacheCount)
+	restAPILogger = newPlainLogger(opt, defaultLogsConfig.AdminAPI, systemLogMaxCacheCount)
 }
 
 func initOTel(opt *option.Options) {
-	otelLogger := newPlainLogger(opt, otelFilename, trafficLogMaxCacheCount)
+	otelLogger := newPlainLogger(opt, defaultLogsConfig.OTel, trafficLogMaxCacheCount)
 	otel.SetLogger(zapr.NewLogger(otelLogger.Desugar()))
 }
 
-func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
+func newPlainLogger(opt *option.Options, spec *Spec, maxCacheCount uint32) *zap.SugaredLogger {
 	if opt.DisableAccessLog {
 		return zap.NewNop().Sugar()
 	}
@@ -205,7 +316,8 @@ func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) 
 	var err error
 	var fr io.Writer = os.Stdout
 	if opt.AbsLogDir != "" {
-		fr, err = newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
+		spec.FileName = filepath.Join(opt.AbsLogDir, spec.FileName)
+		fr, err = NewLogFile(spec, maxCacheCount)
 		if err != nil {
 			common.Exit(1, err.Error())
 		}

@@ -18,12 +18,9 @@
 package cluster
 
 import (
-	"net/url"
-	"path/filepath"
-
 	"go.etcd.io/etcd/server/v3/embed"
+	"net/url"
 
-	"github.com/megaease/easegress/pkg/common"
 	"github.com/megaease/easegress/pkg/logger"
 	"github.com/megaease/easegress/pkg/option"
 )
@@ -95,11 +92,7 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec.MaxRequestBytes = maxRequestBytes
 	ec.SnapshotCount = snapshotCount
 	ec.Logger = "zap"
-
-	ec.LogOutputs = []string{"stdout"}
-	if opt.AbsLogDir != "" {
-		ec.LogOutputs = []string{common.NormalizeZapLogPath(filepath.Join(opt.AbsLogDir, logFilename))}
-	}
+	ec.ZapLoggerBuilder = embed.NewZapLoggerBuilder(logger.DefaultEtcdServerLogger(opt))
 
 	ec.ClusterState = embed.ClusterStateFlagNew
 	if opt.Cluster.StateFlag == "existing" {
