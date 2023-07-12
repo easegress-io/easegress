@@ -34,6 +34,7 @@ type (
 	// 1. Reopen the file after receiving SIGHUP, for log rotate.
 	// 2. Reduce execution time of callers by asynchronous log(return after only memory copy).
 	// 3. Batch write logs by cache them with timeout.
+	// 4. Before the process shutdown, try to commit the current contents of the file to stable storage
 	LogFile struct {
 		logger *Logger
 

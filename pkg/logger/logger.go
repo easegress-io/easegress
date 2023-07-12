@@ -102,7 +102,7 @@ type LogsSpec struct {
 	EtcdServer *Spec `json:"etcdServerLog" jsonschema:"omitempty"`
 	// EtcdClient is the file to write logs of etcd client to.
 	EtcdClient *Spec `json:"etcdClientLog" jsonschema:"omitempty"`
-	// OTel is the file to write logs of etcd client to.
+	// OTel is the file to write logs of opentelemetry otel.
 	OTel *Spec `json:"oTel" jsonschema:"omitempty"`
 }
 
@@ -147,7 +147,7 @@ var (
 			Compress:   true,
 		},
 		EtcdServer: &Spec{
-			FileName:   "etcd-server-eg.log",
+			FileName:   "etcd-server.log",
 			MaxSize:    128,
 			MaxAge:     30,
 			MaxBackups: 60,
@@ -187,9 +187,12 @@ func DefaultEtcdServerLogger(opt *option.Options) *zap.Logger {
 	if err != nil {
 		panic(err)
 	}
+
+	opts := []zap.Option{zap.AddCaller()}
+
 	syncer := zapcore.AddSync(gressLF)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
-	return zap.New(core)
+	return zap.New(core, opts...)
 }
 
 // DefaultEtcdClientLogger generates default etcd client logger.
@@ -224,9 +227,12 @@ func etcdClientLogger(opt *option.Options, spec *Spec) *zap.Logger {
 	if err != nil {
 		panic(err)
 	}
+
+	opts := []zap.Option{zap.AddCaller()}
+
 	syncer := zapcore.AddSync(gressLF)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
-	return zap.New(core)
+	return zap.New(core, opts...)
 }
 
 func defaultEncoderConfig() zapcore.EncoderConfig {

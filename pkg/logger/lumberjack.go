@@ -91,7 +91,7 @@ type (
 		// using gzip. The default is not to perform compression.
 		Compress bool `json:"compress" jsonschema:"omitempty"`
 
-		// File represents a file's mode and permission bits. default 0644/0o644
+		// Perm represents a file's mode and permission bits. default 0644/0o644
 		Perm string `json:"perm" jsonschema:"omitempty"`
 	}
 )
