@@ -202,7 +202,7 @@ func initEtcdServer(opt *option.Options) {
 
 	syncer := zapcore.AddSync(gressLF)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
-	etcdClientLogger = zap.New(core, opts...)
+	etcdServerLogger = zap.New(core, opts...)
 }
 
 // DefaultEtcdClientLogger generates default etcd client logger.
