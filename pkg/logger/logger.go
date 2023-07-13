@@ -41,6 +41,8 @@ func Init(opt *option.Options) {
 	initLogsSpec(opt)
 	initDefault(opt)
 	initHTTPFilter(opt)
+	initEtcdClient(opt)
+	initEtcdServer(opt)
 	initRestAPI(opt)
 	initOTel(opt)
 }
@@ -62,7 +64,8 @@ func InitNop() {
 	httpFilterAccessLogger = nop.Sugar()
 	httpFilterDumpLogger = nop.Sugar()
 	restAPILogger = nop.Sugar()
-
+	etcdClientLogger = zap.New(nop.Core())
+	etcdServerLogger = zap.New(nop.Core())
 	defaultLogger = nop.Sugar()
 	gressLogger = defaultLogger
 	stderrLogger = defaultLogger
@@ -74,7 +77,8 @@ func InitMock() {
 	httpFilterAccessLogger = mock.Sugar()
 	httpFilterDumpLogger = mock.Sugar()
 	restAPILogger = mock.Sugar()
-
+	etcdClientLogger = zap.New(mock.Core())
+	etcdServerLogger = zap.New(mock.Core())
 	defaultLogger = mock.Sugar()
 	gressLogger = defaultLogger
 	stderrLogger = defaultLogger
@@ -110,6 +114,8 @@ var (
 	defaultLogger          *zap.SugaredLogger // equal stderrLogger + gressLogger
 	stderrLogger           *zap.SugaredLogger
 	gressLogger            *zap.SugaredLogger
+	etcdClientLogger       *zap.Logger
+	etcdServerLogger       *zap.Logger
 	httpFilterAccessLogger *zap.SugaredLogger
 	httpFilterDumpLogger   *zap.SugaredLogger
 	restAPILogger          *zap.SugaredLogger
@@ -173,7 +179,11 @@ var (
 	}
 )
 
-func DefaultEtcdServerLogger(opt *option.Options) *zap.Logger {
+func DefaultEtcdServerLogger() *zap.Logger {
+	return etcdServerLogger
+}
+
+func initEtcdServer(opt *option.Options) {
 	encoderConfig := defaultEncoderConfig()
 
 	level := zap.NewAtomicLevel()
@@ -192,17 +202,21 @@ func DefaultEtcdServerLogger(opt *option.Options) *zap.Logger {
 
 	syncer := zapcore.AddSync(gressLF)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, level)
-	return zap.New(core, opts...)
+	etcdClientLogger = zap.New(core, opts...)
 }
 
 // DefaultEtcdClientLogger generates default etcd client logger.
-func DefaultEtcdClientLogger(opt *option.Options) *zap.Logger {
-	return etcdClientLogger(opt, defaultLogsConfig.EtcdClient)
+func DefaultEtcdClientLogger() *zap.Logger {
+	return etcdClientLogger
+}
+
+func initEtcdClient(opt *option.Options) {
+	etcdClientLogger = createEtcdClientLogger(opt, defaultLogsConfig.EtcdClient)
 }
 
 // CustomerEtcdClientLogger generates customer etcd client logger.
 func CustomerEtcdClientLogger(opt *option.Options, fileName string) *zap.Logger {
-	return etcdClientLogger(opt, &Spec{
+	return createEtcdClientLogger(opt, &Spec{
 		FileName:   filepath.Join(opt.AbsLogDir, fileName),
 		MaxSize:    defaultLogsConfig.EtcdClient.MaxSize,
 		MaxBackups: defaultLogsConfig.EtcdClient.MaxBackups,
@@ -213,7 +227,7 @@ func CustomerEtcdClientLogger(opt *option.Options, fileName string) *zap.Logger 
 	})
 }
 
-func etcdClientLogger(opt *option.Options, spec *Spec) *zap.Logger {
+func createEtcdClientLogger(opt *option.Options, spec *Spec) *zap.Logger {
 	encoderConfig := defaultEncoderConfig()
 
 	level := zap.NewAtomicLevel()

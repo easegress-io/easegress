@@ -336,7 +336,7 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		DialTimeout:          dialTimeout,
 		DialKeepAliveTime:    dialKeepAliveTime,
 		DialKeepAliveTimeout: dialKeepAliveTimeout,
-		Logger:               logger.DefaultEtcdClientLogger(c.opt),
+		Logger:               logger.DefaultEtcdClientLogger(),
 		MaxCallSendMsgSize:   c.opt.Cluster.MaxCallSendMsgSize,
 	})
 	if err != nil {
