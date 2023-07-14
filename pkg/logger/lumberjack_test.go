@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -39,8 +40,11 @@ import (
 // control the wall clock as much as possible, which means having a wall clock
 // that doesn't change unless we want it to.
 var fakeCurrentTime = time.Now()
+var lock = &sync.Mutex{}
 
 func fakeTime() time.Time {
+	lock.Lock()
+	defer lock.Unlock()
 	return fakeCurrentTime
 }
 
@@ -877,6 +881,8 @@ func fileCount(dir string, exp int, t testing.TB) {
 
 // newFakeTime sets the fake "current time" to two days later.
 func newFakeTime() {
+	lock.Lock()
+	defer lock.Unlock()
 	fakeCurrentTime = fakeCurrentTime.Add(time.Hour * 24 * 2)
 }
 
