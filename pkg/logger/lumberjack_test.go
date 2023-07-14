@@ -480,9 +480,9 @@ func TestMaxAge(t *testing.T) {
 
 	filename := logFilePath(dir)
 	l := newLogger(&Spec{
-		FileName:   logFilePath(dir),
-		MaxSize:    10,
-		MaxBackups: 1,
+		FileName: logFilePath(dir),
+		MaxSize:  10,
+		MaxAge:   1,
 	})
 	defer l.Close()
 	b := []byte("boo!")

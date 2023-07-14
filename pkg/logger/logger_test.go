@@ -18,30 +18,49 @@
 package logger
 
 import (
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/stretchr/testify/assert"
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/megaease/easegress/pkg/env"
+	"github.com/megaease/easegress/pkg/option"
+	"os"
+	"path"
 	"testing"
+
+	"github.com/smartystreets/goconvey/convey"
 )
 
-func TestUnmarshal(t *testing.T) {
-	y := `
+func TestInitLogger(t *testing.T) {
+	convey.Convey("Test Mock os.ReadFile", t, func() {
+		y := `
 stdLog:
   fileName: std.log
   maxSize: 1
   maxBackups: 2
   perm: "0600"
 `
-	codectool.MustUnmarshal([]byte(y), defaultLogsConfig)
+		patches := gomonkey.ApplyFunc(os.ReadFile, func(string) ([]byte, error) {
+			return []byte(y), nil
+		})
+		defer patches.Reset()
+		dir := makeTempDir("TestInitLogger", t)
+		defer os.RemoveAll(dir)
 
-	at := assert.New(t)
-	at.Equal("std.log", defaultLogsConfig.StdLog.FileName)
-	at.Equal("0600", defaultLogsConfig.StdLog.Perm)
-	at.Equal(1, defaultLogsConfig.StdLog.MaxSize)
+		options := option.New()
+		options.HomeDir = dir
+		options.LogDir = "logs"
+		options.LogConfig = "123"
+		convey.So(options.Parse(), convey.ShouldBeNil)
+		convey.So(env.InitServerDir(options), convey.ShouldBeNil)
 
-	at.NotNil(defaultLogsConfig.EtcdServer)
-	at.NotNil(defaultLogsConfig.Access)
-	at.NotNil(defaultLogsConfig.Dump)
-	at.NotNil(defaultLogsConfig.AdminAPI)
-	at.NotNil(defaultLogsConfig.OTel)
-	at.NotNil(defaultLogsConfig.EtcdClient)
+		convey.So(func() { Init(options) }, convey.ShouldNotPanic)
+
+		convey.So(defaultLogsConfig.StdLog.MaxSize, convey.ShouldEqual, 1)
+		convey.So(defaultLogsConfig.StdLog.Perm, convey.ShouldEqual, "0600")
+		convey.So(defaultLogsConfig.EtcdServer, convey.ShouldNotBeNil)
+
+		convey.So(defaultLogger, convey.ShouldNotBeNil)
+		convey.So(etcdClientLogger, convey.ShouldNotBeNil)
+
+		fileCount(path.Join(dir, "logs"), 0, t)
+	})
+
 }

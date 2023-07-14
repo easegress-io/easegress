@@ -6,6 +6,7 @@ require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/MicahParks/keyfunc v1.9.0
 	github.com/Shopify/sarama v1.38.1
+	github.com/agiledragon/gomonkey/v2 v2.10.1
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/eclipse/paho.mqtt.golang v1.4.2
 	github.com/fatih/color v1.15.0
@@ -46,6 +47,7 @@ require (
 	github.com/quic-go/quic-go v0.36.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.9.0
+	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.16.0
@@ -93,8 +95,10 @@ require (
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/pprof v0.0.0-20230228050547-1710fef4ab10 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20181017120253-0766667cb4d1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
+	github.com/jtolds/gls v4.20.0+incompatible // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -103,6 +107,7 @@ require (
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
+	github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	github.com/vultr/govultr/v3 v3.0.2 // indirect
