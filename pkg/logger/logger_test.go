@@ -21,6 +21,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/megaease/easegress/pkg/env"
 	"github.com/megaease/easegress/pkg/option"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"path"
 	"testing"
@@ -52,6 +53,8 @@ stdLog:
 		convey.So(env.InitServerDir(options), convey.ShouldBeNil)
 
 		convey.So(func() { Init(options) }, convey.ShouldNotPanic)
+		// reset the loggers
+		defer InitNop()
 
 		convey.So(defaultLogsConfig.StdLog.MaxSize, convey.ShouldEqual, 1)
 		convey.So(defaultLogsConfig.StdLog.Perm, convey.ShouldEqual, "0600")
@@ -59,8 +62,15 @@ stdLog:
 
 		convey.So(defaultLogger, convey.ShouldNotBeNil)
 		convey.So(etcdClientLogger, convey.ShouldNotBeNil)
+		convey.So(CustomerEtcdClientLogger(options, "test-unit"), convey.ShouldNotBeNil)
 
 		fileCount(path.Join(dir, "logs"), 0, t)
 	})
 
+}
+
+func TestInitMockAndMock(t *testing.T) {
+	at := assert.New(t)
+	at.NotPanics(InitMock)
+	at.NotPanics(InitNop)
 }
