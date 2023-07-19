@@ -1,34 +1,26 @@
-### Gateway Class
+# GatewayController
 
-```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: GatewayClass
-metadata:
-  name: cluster-gateway
-spec:
-  controllerName: "megaease.com/gateway-controller"
-```
+The GatewayController is an implementation of
+[Kubernetes Gateway API](https://gateway-api.sigs.k8s.io/), it watches
+Kubernetes Gateway, HTTPRoute, Service, and Secrets then translates them to
+Easegress HTTP server and pipelines.
 
-### Gateway
+**Note** the currenct GatewayController is an experimental implementation, NOT
+all the features of the `Kubernetes Gateway API` features are supported.
 
-```yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  name: prod-web
-spec:
-  gatewayClassName: cluster-gateway
-  listeners:
-  - protocol: HTTP
-    port: 80
-    name: prod-web-gw
-    allowedRoutes:
-      namespaces:
-        from: Same
-```
+## Prerequisites
 
+1. K8s cluster : **v1.18+**
+2. Gateway API: following https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api
+   to install.
 
-### RBAC
+## Getting Started
+
+### Role Based Access Control configuration
+
+If your cluster is configured with RBAC, first you will need to authorize
+Easegress GatewayController for using the Kubernetes API. Below is an example
+configuration:
 
 ```yaml
 ---
@@ -66,7 +58,13 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+Note the name of the ServiceAccount we just created is `easegress-gateway-controller`,
+it will be used later.
+
 ### Config Map
+
+Let's use ConfigMap to store Easegress server configuration and Easegress
+gateway configuration. This ConfigMap is used later in Deployment.
 
 ```yaml
 apiVersion: v1
@@ -91,60 +89,12 @@ data:
     namespaces: []
 ```
 
-### Services
+The `easegress-server.yaml` creates Easegress instance named *easegress-gateway-controller*
+and `controller.yaml` defines GatewayController object for Easegress.
 
-```yaml
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hello-deployment
-spec:
-  selector:
-    matchLabels:
-      app: products
-      department: sales
-  replicas: 2
-  template:
-    metadata:
-      labels:
-        app: products
-        department: sales
-    spec:
-      containers:
-      - name: hello-v1
-        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0"
-        env:
-        - name: "PORT"
-          value: "50001"
-      - name: hello-v2
-        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:2.0"
-        env:
-        - name: "PORT"
-          value: "50002"
+### Deploy Easegress GatewayController
 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: hello-service
-spec:
-  type: NodePort
-  selector:
-    app: products
-    department: sales
-  ports:
-  - name: port-v1
-    protocol: TCP
-    port: 60001
-    targetPort: 50001
-  - name: port-v2
-    protocol: TCP
-    port: 60002
-    targetPort: 50002
-```
-
-### Gateway Controller
+To deploy the GatewayController, we will create a Deployment and a Service as below:
 
 ```yaml
 apiVersion: apps/v1
@@ -217,6 +167,138 @@ spec:
         name: easegress-cm
 ```
 
+The GatewayController is created via the command line argument `initial-object-config-files`
+of `easegress-server`. Note that Easegress logs and data are stored to *emptyDir* called
+`gateway-data-volume` inside the pod as GatewayController is stateless so we can
+restart new pods without preserving previous state.
+
+### Deploy Backend Services
+
+Apply below YAML configuration to Kubernetes:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+spec:
+  selector:
+    matchLabels:
+      app: products
+      department: sales
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: products
+        department: sales
+    spec:
+      containers:
+      - name: hello-v1
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:1.0"
+        env:
+        - name: "PORT"
+          value: "50001"
+      - name: hello-v2
+        image: "us-docker.pkg.dev/google-samples/containers/gke/hello-app:2.0"
+        env:
+        - name: "PORT"
+          value: "50002"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-service
+spec:
+  type: NodePort
+  selector:
+    app: products
+    department: sales
+  ports:
+  - name: port-v1
+    protocol: TCP
+    port: 60001
+    targetPort: 50001
+  - name: port-v2
+    protocol: TCP
+    port: 60002
+    targetPort: 50002
+```
+
+### Deploy Gateway API Objects
+
+Please refer https://gateway-api.sigs.k8s.io/ for the detailed information
+of Gateway Class, Gateway and HTTPRoute configuration. Up to now, the Easegress
+GatewayController only support HTTP & HTTPS listeners.
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: example-gateway-class
+spec:
+  controllerName: "megaease.com/gateway-controller"
+
+---
+
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: example-gateway
+spec:
+  gatewayClassName: example-gateway-class
+  listeners:
+  - protocol: HTTP
+    port: 8080
+    name: example-listener
+
+---
+
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: example-route
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: example-gateway
+    sectionName: example-listener
+  rules:
+  - matches:
+    - path:
+        value: /1
+    backendRefs:
+    - name: hello-service
+      port: 60001
+
+---
+
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: example-route-2
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: example-gateway
+    sectionName: example-listener
+  hostnames:
+    - megaease.com
+  rules:
+  - matches:
+    - path:
+        value: /2
+    backendRefs:
+    - name: hello-service
+      port: 60002
+```
+
+### Expose The Listener Port
+
+Create service to forward the incoming traffic to Listener in Easegress.
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -227,9 +309,36 @@ spec:
   ports:
   - name: web
     protocol: TCP
-    port: 80
+    port: 8080
     nodePort: 30080
   selector:
     app: easegress-gateway
   type: NodePort
   ```
+
+The port `web` is to receive external HTTP requests from port 30080 and forward
+them to the HTTP server created according to the Listener configuration of
+the Gateway.
+
+### Verification
+
+Once all configurations are applied, we can leverage the command below to access
+both versions of the `hello` application:
+
+```bash
+$ curl http://127.0.0.1:30080/1
+Hello, world!
+Version: 2.0.0
+Hostname: hello-deployment-7855bc9747-n4qsx
+
+$ curl http://127.0.0.1:30080/2 -i
+HTTP/1.1 404 Not Found
+Date: Wed, 19 Jul 2023 06:59:07 GMT
+Content-Length: 0
+Connection: close
+
+$ curl http://127.0.0.1:30080/2 -H Host:megaease.com
+Hello, world!
+Version: 2.0.0
+Hostname: hello-deployment-7855bc9747-n4qsx
+```

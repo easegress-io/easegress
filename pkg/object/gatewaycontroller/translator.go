@@ -164,11 +164,14 @@ func (b *pipelineSpecBuilder) addURLRewrite(f *gwapis.HTTPURLRewriteFilter) {
 }
 
 func (b *pipelineSpecBuilder) addRequestRedirect(f *gwapis.HTTPRequestRedirectFilter) {
-	if b.redirector == nil {
-		b.redirector = &redirector.Spec{StatusCode: 302}
-	}
-
+	// TODO: The current redirector filter does not compatible with the
+	// Gateway API spec.
+	logger.Errorf("redirector filter is not supported currently")
 	/*
+		if b.redirector == nil {
+			b.redirector = &redirector.Spec{StatusCode: 302}
+		}
+
 		var repl string
 
 		re := `^([^:]*)://([^:/]+)(:\d+)?/`
