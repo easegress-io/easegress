@@ -38,6 +38,7 @@ import (
 	"github.com/megaease/easegress/pkg/version"
 )
 
+// RunServer runs Easegress server.
 func RunServer() {
 	rand.Seed(time.Now().UnixNano())
 
