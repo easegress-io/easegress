@@ -15,26 +15,37 @@
  * limitations under the License.
  */
 
-package general
+// Package utils contains the utilities.
+package utils
 
-import (
-	"fmt"
-	"os"
+import "unicode"
 
-	"github.com/fatih/color"
-)
-
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+func ValidVariableName(name string) bool {
+	if len(name) == 0 {
+		return false
 	}
-	os.Exit(0)
+
+	for i, c := range name {
+		if i == 0 {
+			if !unicode.IsLetter(c) && c != '_' {
+				return false
+			}
+		} else {
+			if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
+func CapitalVariableName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	nameArr := []rune(name)
+	if !unicode.IsUpper(nameArr[0]) {
+		return false
+	}
+	return ValidVariableName(string(nameArr[1:]))
 }

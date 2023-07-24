@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package general
+// Package generate generates codes for egbuilder.
+package generate
 
-import (
-	"fmt"
-	"os"
+import j "github.com/dave/jennifer/jen"
 
-	"github.com/fatih/color"
-)
-
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
+type Objects struct {
+	Resources []string `json:"resources"`
+	Filters   []string `json:"filters"`
+	Repo      []string `json:"repo"`
 }
 
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
+func CreateRegister(objects *Objects) *j.File {
+	file := j.NewFile("register")
+	file.Comment("import " + egLogger).Line()
+	file.ImportName(egFilters, "filters")
+
+	defineRegisterInit(file, objects)
+	return file
+}
+
+func defineRegisterInit(file *j.File, objects *Objects) {
 }

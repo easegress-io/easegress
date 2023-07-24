@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package general
+// Package utils contains the utilities.
+package utils
 
-import (
-	"fmt"
-	"os"
+import "os"
 
-	"github.com/fatih/color"
+const (
+	// EnvWhichGo is the environment variable name of which go.
+	EnvWhichGo = "EGBUILDER_GO"
 )
 
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+// GetGo returns which go to use.
+func GetGo() string {
+	g := os.Getenv(EnvWhichGo)
+	if g == "" {
+		return "go"
 	}
-	os.Exit(0)
-}
-
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
+	return g
 }
