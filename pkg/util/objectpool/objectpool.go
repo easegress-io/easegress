@@ -21,8 +21,9 @@ package objectpool
 import (
 	"context"
 	"fmt"
-	"github.com/megaease/easegress/pkg/logger"
 	"sync"
+
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 // PoolObject is an interface that about definition of object that managed by pool

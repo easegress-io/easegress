@@ -20,19 +20,19 @@ package spec
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/filters/meshadaptor"
-	"github.com/megaease/easegress/pkg/filters/mock"
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/pkg/filters/ratelimiter"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/filters/meshadaptor"
+	"github.com/megaease/easegress/v2/pkg/filters/mock"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	proxy "github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
+	"github.com/megaease/easegress/v2/pkg/filters/ratelimiter"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/pipeline"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 type (

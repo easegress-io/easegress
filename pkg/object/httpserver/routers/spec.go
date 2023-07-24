@@ -23,9 +23,9 @@ import (
 	"net/url"
 	"regexp"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 // Rules represents the set of rules.

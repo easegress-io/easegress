@@ -20,8 +20,8 @@ package proxies
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
 

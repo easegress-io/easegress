@@ -20,7 +20,7 @@ package worker
 import (
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
 )
 
 const (

@@ -26,8 +26,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 // radixtree-router implementation below is a based on the original work by

@@ -28,16 +28,16 @@ import (
 
 	gohttpstat "github.com/tcnksm/go-httpstat"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/fasttime"
-	"github.com/megaease/easegress/pkg/util/prometheushelper"
-	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/util/prometheushelper"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

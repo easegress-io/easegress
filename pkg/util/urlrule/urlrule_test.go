@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 func TestURLRULEMatch(t *testing.T) {

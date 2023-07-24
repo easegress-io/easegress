@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/filters/mock"
-	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/pkg/filters/ratelimiter"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/util/stringtool"
-	"github.com/megaease/easegress/pkg/util/urlrule"
+	"github.com/megaease/easegress/v2/pkg/cluster/customdata"
+	"github.com/megaease/easegress/v2/pkg/filters/mock"
+	proxy "github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
+	"github.com/megaease/easegress/v2/pkg/filters/ratelimiter"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/urlrule"
 
 	v1 "k8s.io/api/core/v1"
 )

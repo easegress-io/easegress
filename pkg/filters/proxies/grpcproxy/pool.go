@@ -20,22 +20,23 @@ package grpcproxy
 import (
 	stdcontext "context"
 	"fmt"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	"github.com/megaease/easegress/pkg/util/objectpool"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"net"
 	"net/url"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/v2/pkg/util/objectpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/resilience"
 )
 
 type (

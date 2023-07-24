@@ -26,8 +26,8 @@ import (
 	"runtime/pprof"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 // Profile is the Profile interface.

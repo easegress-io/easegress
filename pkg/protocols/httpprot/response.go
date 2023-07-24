@@ -24,8 +24,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 )
 
 // Response wraps http.Response.

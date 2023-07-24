@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
 // JWTValidatorSpec defines the configuration of JWT validator

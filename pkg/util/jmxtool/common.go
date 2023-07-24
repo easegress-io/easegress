@@ -26,7 +26,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 // JSONToKVMap converts JSON string to key value pairs

@@ -18,7 +18,7 @@
 package clustertest
 
 import (
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 

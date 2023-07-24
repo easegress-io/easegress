@@ -20,7 +20,7 @@ package dynamicobject
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func TestDynamicObject(t *testing.T) {

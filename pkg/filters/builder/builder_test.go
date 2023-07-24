@@ -21,7 +21,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 

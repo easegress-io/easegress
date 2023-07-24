@@ -21,8 +21,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/metadata"
 )

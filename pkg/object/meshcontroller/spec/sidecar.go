@@ -20,8 +20,8 @@ package spec
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 // SidecarEgressServerName returns egress HTTP server name

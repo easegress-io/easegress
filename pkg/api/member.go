@@ -24,8 +24,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func (s *Server) memberAPIEntries() []*Entry {

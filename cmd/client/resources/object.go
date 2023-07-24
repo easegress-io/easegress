@@ -26,16 +26,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/megaease/easegress/cmd/client/general"
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 
-// ObjectApiResources returns the object api resources.
-func ObjectApiResources() ([]*api.APIResource, error) {
+// ObjectAPIResources returns the object api resources.
+func ObjectAPIResources() ([]*api.APIResource, error) {
 	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {

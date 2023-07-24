@@ -22,8 +22,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/cluster/customdata"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

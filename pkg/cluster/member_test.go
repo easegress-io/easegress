@@ -27,8 +27,8 @@ import (
 	"github.com/phayes/freeport"
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 
-	"github.com/megaease/easegress/pkg/env"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/env"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 var memberCounter = 0

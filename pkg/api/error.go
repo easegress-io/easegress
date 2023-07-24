@@ -20,7 +20,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 type (

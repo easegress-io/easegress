@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 func init() {

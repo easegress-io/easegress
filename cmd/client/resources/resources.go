@@ -21,7 +21,7 @@ package resources
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/general"
 )
 
 // GetResourceKind returns the kind of the resource.
@@ -35,7 +35,7 @@ func GetResourceKind(arg string) (string, error) {
 	if general.InAPIResource(arg, Member()) {
 		return Member().Kind, nil
 	}
-	objects, err := ObjectApiResources()
+	objects, err := ObjectAPIResources()
 	if err != nil {
 		return "", err
 	}

@@ -20,8 +20,8 @@ package supervisor
 import (
 	"sync"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 // NewMock return a mock supervisor for testing purpose

@@ -21,13 +21,13 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/timetool"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/timetool"
 
-	"github.com/megaease/easegress/pkg/object/trafficcontroller"
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 )
 
 const (

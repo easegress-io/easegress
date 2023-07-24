@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/megaease/easegress/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/context"
 )
 
 type (

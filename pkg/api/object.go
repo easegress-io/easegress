@@ -26,8 +26,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (
@@ -332,6 +332,6 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listObjectApiResources(w http.ResponseWriter, r *http.Request) {
-	res := ObjectApiResources()
+	res := ObjectAPIResources()
 	WriteBody(w, r, res)
 }

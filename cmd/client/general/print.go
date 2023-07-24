@@ -28,8 +28,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/spf13/cobra"
 )
 
@@ -278,6 +278,7 @@ func GenerateExampleFromChild(cmd *cobra.Command) {
 	cmd.Example = example
 }
 
+// Filter filters the array by using filter function.
 func Filter[T any](array []T, filter func(value T) bool) []T {
 	var result []T
 	for _, v := range array {
@@ -288,6 +289,7 @@ func Filter[T any](array []T, filter func(value T) bool) []T {
 	return result
 }
 
+// Find finds the first element in the array by using find function.
 func Find[T any](array []T, find func(value T) bool) (*T, bool) {
 	for _, v := range array {
 		if find(v) {
@@ -297,6 +299,7 @@ func Find[T any](array []T, find func(value T) bool) (*T, bool) {
 	return nil, false
 }
 
+// Map maps the array by using map function.
 func Map[T1 any, T2 any](array []T1, mapF func(value T1) T2) []T2 {
 	var result []T2
 	for _, v := range array {

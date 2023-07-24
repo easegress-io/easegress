@@ -22,8 +22,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/megaease/easegress/cmd/client/general"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 

@@ -31,8 +31,8 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/common"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 // ClusterOptions defines the cluster members.

@@ -31,7 +31,7 @@ import (
 	"time"
 
 	"github.com/libdns/libdns"
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"golang.org/x/crypto/acme"
 )
 

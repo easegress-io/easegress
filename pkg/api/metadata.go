@@ -25,8 +25,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/v"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/v"
 )
 
 const (

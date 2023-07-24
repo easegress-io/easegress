@@ -24,7 +24,7 @@ import (
 
 	"github.com/yl2chen/cidranger"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 var (

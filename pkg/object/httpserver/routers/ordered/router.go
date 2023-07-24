@@ -22,8 +22,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 )
 
 type (

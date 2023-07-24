@@ -23,9 +23,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/dynamicobject"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/dynamicobject"
 	"github.com/xeipuuv/gojsonschema"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )

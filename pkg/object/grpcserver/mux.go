@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -32,13 +32,13 @@ import (
 	"sync/atomic"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/globalfilter"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/globalfilter"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 type (

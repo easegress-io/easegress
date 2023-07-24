@@ -22,8 +22,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 

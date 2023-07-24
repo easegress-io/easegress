@@ -24,8 +24,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 // DefaultMaxPayloadSize is the default max allowed payload size.

@@ -17,7 +17,7 @@
 
 package spec
 
-import "github.com/megaease/easegress/pkg/util/stringtool"
+import "github.com/megaease/easegress/v2/pkg/util/stringtool"
 
 type (
 	// ServiceSelector is to select service instances

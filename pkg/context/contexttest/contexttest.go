@@ -18,7 +18,7 @@
 // Package contexttest provides utilities for testing context.
 package contexttest
 
-import "github.com/megaease/easegress/pkg/context"
+import "github.com/megaease/easegress/v2/pkg/context"
 
 // MockedMuxMapper is a mux mapper for mocking in testing.
 type MockedMuxMapper struct {

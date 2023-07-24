@@ -24,9 +24,9 @@ import (
 
 	"github.com/rs/cors"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
 const (
@@ -94,7 +94,7 @@ func (a *CORSAdaptor) Init() {
 }
 
 // Inherit inherits previous generation of CORSAdaptor.
-func (a *CORSAdaptor) Inherit(previousGeneration filters.Filter) {
+func (a *CORSAdaptor) Inherit(_ filters.Filter) {
 	a.Init()
 }
 

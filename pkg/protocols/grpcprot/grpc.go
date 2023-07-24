@@ -21,7 +21,7 @@ package grpcprot
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/protocols"
 	"google.golang.org/grpc"
 )
 

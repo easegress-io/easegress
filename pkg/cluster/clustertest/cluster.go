@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/client/v3/concurrency"

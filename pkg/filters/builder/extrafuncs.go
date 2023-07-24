@@ -24,7 +24,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 func toFloat64(val interface{}) float64 {

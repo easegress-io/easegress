@@ -19,8 +19,8 @@
 package main
 
 import (
-	"github.com/megaease/easegress/cmd"
-	_ "github.com/megaease/easegress/pkg/registry"
+	"github.com/megaease/easegress/v2/cmd"
+	_ "github.com/megaease/easegress/v2/pkg/registry"
 )
 
 func main() {

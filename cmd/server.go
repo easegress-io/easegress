@@ -25,17 +25,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/env"
-	"github.com/megaease/easegress/pkg/graceupdate"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/pidfile"
-	"github.com/megaease/easegress/pkg/profile"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/version"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/common"
+	"github.com/megaease/easegress/v2/pkg/env"
+	"github.com/megaease/easegress/v2/pkg/graceupdate"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/pidfile"
+	"github.com/megaease/easegress/v2/pkg/profile"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/version"
 )
 
 // RunServer runs Easegress server.

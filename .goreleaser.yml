@@ -23,9 +23,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
-      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
-      - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
+      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
 
   - id: server
     main: cmd/server/main.go
@@ -37,9 +37,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/pkg/version.RELEASE={{ .Tag }}
-      - -X github.com/megaease/easegress/pkg/version.COMMIT={{.Commit}}
-      - -X github.com/megaease/easegress/pkg/version.REPO=megaease/easegress
+      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
 
 archives:
   - id: easegress

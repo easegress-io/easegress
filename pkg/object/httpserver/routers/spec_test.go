@@ -22,9 +22,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 	"github.com/stretchr/testify/assert"
 )
 

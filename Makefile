@@ -25,7 +25,7 @@ ifndef GIT_COMMIT
 endif
 
 # Build Flags
-GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/pkg/version.REPO=${GIT_REPO_INFO}"
+GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/v2/pkg/version.RELEASE=${RELEASE} -X github.com/megaease/easegress/v2/pkg/version.COMMIT=${GIT_COMMIT} -X github.com/megaease/easegress/v2/pkg/version.REPO=${GIT_REPO_INFO}"
 
 # Cgo is disabled by default
 ENABLE_CGO= CGO_ENABLED=0

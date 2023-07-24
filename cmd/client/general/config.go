@@ -25,7 +25,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 type (

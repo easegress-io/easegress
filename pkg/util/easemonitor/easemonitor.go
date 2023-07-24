@@ -19,7 +19,7 @@
 package easemonitor
 
 import (
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 type (

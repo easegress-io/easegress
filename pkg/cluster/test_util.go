@@ -22,8 +22,8 @@ import (
 
 	"github.com/phayes/freeport"
 
-	"github.com/megaease/easegress/pkg/env"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/env"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 func check(e error) {

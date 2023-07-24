@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/cluster/clustertest"
-	"github.com/megaease/easegress/pkg/util/dynamicobject"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster/clustertest"
+	"github.com/megaease/easegress/v2/pkg/util/dynamicobject"
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3/concurrency"
@@ -560,7 +560,7 @@ func TestDeleteData(t *testing.T) {
 	}
 }
 
-func TestDeleteAllData(t *testing.T) {
+func TestDeleteAllData(_ *testing.T) {
 	cls := clustertest.NewMockedCluster()
 	s := NewStore(cls, "/kind/", "/data/")
 	s.DeleteAllData("kind1")

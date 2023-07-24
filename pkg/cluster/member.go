@@ -28,9 +28,9 @@ import (
 
 	pb "go.etcd.io/etcd/api/v3/etcdserverpb"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

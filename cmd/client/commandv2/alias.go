@@ -18,7 +18,7 @@
 // Package commandv2 provides the new version of commands.
 package commandv2
 
-import "github.com/megaease/easegress/cmd/client/general"
+import "github.com/megaease/easegress/v2/cmd/client/general"
 
 var makePath = general.MakePath
 var handleReq = general.HandleRequest

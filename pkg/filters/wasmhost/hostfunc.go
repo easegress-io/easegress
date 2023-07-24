@@ -34,8 +34,8 @@ import (
 	"time"
 
 	"github.com/bytecodealliance/wasmtime-go"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 

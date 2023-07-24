@@ -21,7 +21,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/util/urlclusteranalyzer"
+	"github.com/megaease/easegress/v2/pkg/util/urlclusteranalyzer"
 )
 
 type (

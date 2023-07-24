@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/protocols"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
 )

@@ -22,9 +22,9 @@ import (
 	"hash/fnv"
 	"math/rand"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 // RequestMatcher is the interface to match requests.

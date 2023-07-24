@@ -21,7 +21,7 @@ import (
 	"sync"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 type (

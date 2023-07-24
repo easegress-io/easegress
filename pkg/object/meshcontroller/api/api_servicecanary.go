@@ -25,10 +25,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func (a *API) readServiceCanaryName(r *http.Request) (string, error) {

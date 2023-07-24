@@ -23,9 +23,9 @@ import (
 
 	"go.etcd.io/etcd/server/v3/embed"
 
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/common"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 const (
