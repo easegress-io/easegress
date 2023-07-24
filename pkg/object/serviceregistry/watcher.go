@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 type (

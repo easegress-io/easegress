@@ -17,7 +17,7 @@
 
 package pipeline
 
-import "github.com/megaease/easegress/pkg/filters"
+import "github.com/megaease/easegress/v2/pkg/filters"
 
 // MockGetFilter is used to get filter from pipeline for testing.
 func MockGetFilter(p *Pipeline, name string) filters.Filter {

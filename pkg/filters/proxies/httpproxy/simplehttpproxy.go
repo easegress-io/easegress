@@ -27,14 +27,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 )
 
 var simpleHTTPProxyKind = &filters.Kind{

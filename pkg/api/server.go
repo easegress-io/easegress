@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/cluster/customdata"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-	pprof "github.com/megaease/easegress/pkg/profile"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster/customdata"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
+	pprof "github.com/megaease/easegress/v2/pkg/profile"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 type (

@@ -20,8 +20,8 @@ package topicmapper
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 

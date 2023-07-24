@@ -24,14 +24,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 
-	proxy "github.com/megaease/easegress/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
-	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	proxy "github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver"
+	"github.com/megaease/easegress/v2/pkg/object/pipeline"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	apicorev1 "k8s.io/api/core/v1"
 	apinetv1 "k8s.io/api/networking/v1"
 )

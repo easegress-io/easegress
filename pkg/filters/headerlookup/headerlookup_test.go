@@ -27,14 +27,14 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 
-	cluster "github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/cluster/clustertest"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	cluster "github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster/clustertest"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 

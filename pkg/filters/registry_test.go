@@ -20,7 +20,7 @@ package filters
 import (
 	"testing"
 
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
 

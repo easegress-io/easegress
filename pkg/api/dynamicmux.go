@@ -25,7 +25,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 type (

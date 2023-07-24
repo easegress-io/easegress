@@ -23,10 +23,10 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/object/autocertmanager"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/tracing"
-	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/v2/pkg/object/autocertmanager"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 )
 
 type (

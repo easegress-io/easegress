@@ -21,7 +21,7 @@ package resources
 import (
 	"fmt"
 
-	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/general"
 )
 
 // GetResourceKind returns the kind of the resource.

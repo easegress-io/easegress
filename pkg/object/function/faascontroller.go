@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/function/worker"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/v"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/object/function/spec"
+	"github.com/megaease/easegress/v2/pkg/object/function/worker"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/v"
 )
 
 const (

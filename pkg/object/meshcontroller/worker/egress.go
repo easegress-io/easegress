@@ -19,18 +19,19 @@ package worker
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegress/pkg/object/trafficcontroller"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const egressRPCKey = "X-Mesh-Rpc-Service"

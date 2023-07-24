@@ -157,8 +157,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 
 	"gopkg.in/yaml.v2"
 )
@@ -291,7 +291,7 @@ import (
 
 // Objects
 // ...
-	_ "github.com/megaease/easegress/pkg/object/statusinlocalcontroller"
+	_ "github.com/megaease/easegress/v2/pkg/object/statusinlocalcontroller"
 )
 
 ```
@@ -399,7 +399,7 @@ Then we need to add the import line in the `pkg/registry/registry.go`:
 
 ```go
 import (
-	_ "github.com/megaease/easegress/pkg/filters/headercounter
+	_ "github.com/megaease/easegress/v2/pkg/filters/headercounter
 )
 ```
 

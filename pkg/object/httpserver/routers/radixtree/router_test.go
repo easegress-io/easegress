@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
 

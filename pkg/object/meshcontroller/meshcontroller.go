@@ -21,15 +21,15 @@ package meshcontroller
 import (
 	"strings"
 
-	egapi "github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/api"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/ingresscontroller"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/label"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/master"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/worker"
-	"github.com/megaease/easegress/pkg/supervisor"
+	egapi "github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/api"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/ingresscontroller"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/label"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/master"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/worker"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 const (

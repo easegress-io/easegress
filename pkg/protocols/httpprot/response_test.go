@@ -24,7 +24,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 	"github.com/stretchr/testify/assert"
 )
 

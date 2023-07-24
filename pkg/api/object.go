@@ -26,8 +26,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

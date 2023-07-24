@@ -1,4 +1,4 @@
-module github.com/megaease/easegress
+module github.com/megaease/easegress/v2
 
 go 1.19
 

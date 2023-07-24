@@ -28,8 +28,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.etcd.io/etcd/client/v3/concurrency"
 
-	"github.com/megaease/easegress/pkg/filters/wasmhost"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/filters/wasmhost"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func (s *Server) isFilterExist(pipeline, filter, kind string) bool {

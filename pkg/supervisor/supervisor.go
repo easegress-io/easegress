@@ -24,9 +24,9 @@ import (
 	"runtime/debug"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 const watcherName = "__SUPERVISOR__"

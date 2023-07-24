@@ -23,11 +23,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/object/pipeline"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/object/pipeline"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

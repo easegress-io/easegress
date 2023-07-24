@@ -21,9 +21,9 @@ package httpserver
 import (
 	"strings"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 const (

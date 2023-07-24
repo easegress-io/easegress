@@ -22,7 +22,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 type topicMapFunc func(mqttTopic string) (topic string, headers map[string]string, err error)

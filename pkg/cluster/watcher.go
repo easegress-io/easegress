@@ -24,7 +24,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 type (

@@ -30,9 +30,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/megaease/easegress/pkg/common"
-	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/common"
+	"github.com/megaease/easegress/v2/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 )
 
 // Init initializes logger.

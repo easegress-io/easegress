@@ -21,9 +21,9 @@ package main
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/megaease/easegress/cmd/client/command"
-	"github.com/megaease/easegress/cmd/client/commandv2"
-	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/command"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2"
+	"github.com/megaease/easegress/v2/cmd/client/general"
 )
 
 func init() {

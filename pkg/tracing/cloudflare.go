@@ -23,7 +23,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"go.opentelemetry.io/otel/attribute"
 )
 

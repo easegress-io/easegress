@@ -23,8 +23,8 @@ import (
 	"text/template"
 
 	sprig "github.com/go-task/slim-sprig"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

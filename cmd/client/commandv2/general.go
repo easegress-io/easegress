@@ -25,10 +25,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/megaease/easegress/cmd/client/general"
-	"github.com/megaease/easegress/cmd/client/resources"
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/resources"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 

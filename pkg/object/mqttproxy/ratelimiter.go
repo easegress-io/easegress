@@ -20,7 +20,7 @@ package mqttproxy
 import (
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/ratelimiter"
+	"github.com/megaease/easegress/v2/pkg/util/ratelimiter"
 )
 
 // Limiter is a rate limiter for MQTTProxy

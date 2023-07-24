@@ -31,12 +31,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	consul "github.com/hashicorp/consul/api"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/jmxtool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/jmxtool"
 )
 
 const (

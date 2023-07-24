@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/eclipse/paho.mqtt.golang/packets"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 
 	"github.com/openzipkin/zipkin-go/model"
 )

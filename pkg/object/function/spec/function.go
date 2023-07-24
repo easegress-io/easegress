@@ -19,10 +19,11 @@ package spec
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/filters/builder"
+
+	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/megaease/easegress/pkg/object/httpserver"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver"
 )
 
 const (

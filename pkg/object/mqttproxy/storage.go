@@ -22,7 +22,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/megaease/easegress/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	etcderror "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
 )
 

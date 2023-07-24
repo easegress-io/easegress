@@ -20,17 +20,18 @@ package grpcproxy
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/objectpool"
+	"time"
+
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/objectpool"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
-	"time"
 )
 
 const (

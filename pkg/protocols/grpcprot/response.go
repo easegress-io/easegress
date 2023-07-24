@@ -20,7 +20,7 @@ package grpcprot
 import (
 	"io"
 
-	"github.com/megaease/easegress/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/protocols"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"

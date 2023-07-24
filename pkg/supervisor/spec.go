@@ -22,8 +22,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/v"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/v"
 )
 
 // DefaultSpecVersion is the default value of the Version field in MetaSpec.

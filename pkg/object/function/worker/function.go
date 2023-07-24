@@ -18,10 +18,10 @@
 package worker
 
 import (
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/function/storage"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/function/spec"
+	"github.com/megaease/easegress/v2/pkg/object/function/storage"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 // put puts a function spec and status into store.

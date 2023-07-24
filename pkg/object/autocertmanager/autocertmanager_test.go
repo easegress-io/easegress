@@ -42,11 +42,11 @@ import (
 	"time"
 
 	"github.com/libdns/libdns"
-	cluster "github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	cluster "github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"golang.org/x/crypto/acme"
 )
 

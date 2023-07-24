@@ -32,9 +32,9 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/function/spec"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 type (

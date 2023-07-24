@@ -25,12 +25,12 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"nhooyr.io/websocket"
 )
 

@@ -24,8 +24,8 @@ import (
 
 	"go.etcd.io/etcd/api/v3/mvccpb"
 
-	"github.com/megaease/easegress/pkg/cluster"
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/cluster"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 const (

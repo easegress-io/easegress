@@ -22,15 +22,15 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/certmanager"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/layout"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/certmanager"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/layout"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (

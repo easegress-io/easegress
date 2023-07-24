@@ -27,8 +27,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 	"github.com/tomasen/realip"
 )
 

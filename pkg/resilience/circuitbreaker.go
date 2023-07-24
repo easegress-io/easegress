@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	libcb "github.com/megaease/easegress/pkg/util/circuitbreaker"
+	libcb "github.com/megaease/easegress/v2/pkg/util/circuitbreaker"
 )
 
 // CircuitBreakerKind is the kind of CircuitBreaker.

@@ -24,14 +24,14 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpheader"
-	"github.com/megaease/easegress/pkg/util/pathadaptor"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 	"github.com/stretchr/testify/assert"
 )
 

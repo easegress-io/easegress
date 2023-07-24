@@ -21,8 +21,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 // IngressControllerServerName returns the server name of ingress controller.

@@ -24,8 +24,8 @@ import (
 	"net/http"
 
 	json "github.com/goccy/go-json"
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
 )
 
 const (

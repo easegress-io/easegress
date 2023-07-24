@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context/contexttest"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/context/contexttest"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/stretchr/testify/assert"
 )
 

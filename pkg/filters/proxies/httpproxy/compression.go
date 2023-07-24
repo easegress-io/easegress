@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/util/readers"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 )
 
 // TODO: Expose more options: compression level, mime types.

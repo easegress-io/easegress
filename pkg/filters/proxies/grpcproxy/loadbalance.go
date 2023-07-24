@@ -20,9 +20,9 @@ package grpcproxy
 import (
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
 )
 
 const (

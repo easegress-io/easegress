@@ -18,7 +18,7 @@
 package worker
 
 import (
-	"github.com/megaease/easegress/pkg/util/jmxtool"
+	"github.com/megaease/easegress/v2/pkg/util/jmxtool"
 )
 
 const (

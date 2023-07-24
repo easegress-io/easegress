@@ -26,17 +26,17 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/context/contexttest"
-	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/ordered"
-	_ "github.com/megaease/easegress/pkg/object/httpserver/routers/radixtree"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/protocols/httpprot/httpstat"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/context/contexttest"
+	_ "github.com/megaease/easegress/v2/pkg/object/httpserver/routers/ordered"
+	_ "github.com/megaease/easegress/v2/pkg/object/httpserver/routers/radixtree"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/tracing"
 	"github.com/stretchr/testify/assert"
 )
 

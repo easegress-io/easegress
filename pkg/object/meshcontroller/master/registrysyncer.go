@@ -21,14 +21,14 @@ import (
 	"sort"
 	"time"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/informer"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/service"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/spec"
-	"github.com/megaease/easegress/pkg/object/meshcontroller/storage"
-	"github.com/megaease/easegress/pkg/object/serviceregistry"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/informer"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/service"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
+	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/storage"
+	"github.com/megaease/easegress/v2/pkg/object/serviceregistry"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 const (

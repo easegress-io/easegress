@@ -26,9 +26,9 @@ import (
 
 	metrics "github.com/rcrowley/go-metrics"
 
-	"github.com/megaease/easegress/pkg/util/codecounter"
-	"github.com/megaease/easegress/pkg/util/easemonitor"
-	"github.com/megaease/easegress/pkg/util/sampler"
+	"github.com/megaease/easegress/v2/pkg/util/codecounter"
+	"github.com/megaease/easegress/v2/pkg/util/easemonitor"
+	"github.com/megaease/easegress/v2/pkg/util/sampler"
 )
 
 type (

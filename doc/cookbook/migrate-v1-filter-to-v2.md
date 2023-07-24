@@ -143,7 +143,7 @@ return result
 ```go
 import (
 	// ...
-	"github.com/megaease/easegress/pkg/object/httppipeline"  // remove this line
+	"github.com/megaease/easegress/v2/pkg/object/httppipeline"  // remove this line
 	// ...
 )
 

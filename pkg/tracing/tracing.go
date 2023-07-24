@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"

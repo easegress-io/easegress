@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 type (

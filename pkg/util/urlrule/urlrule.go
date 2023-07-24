@@ -21,7 +21,7 @@ package urlrule
 import (
 	"net/http"
 
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 type (

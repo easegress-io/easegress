@@ -23,7 +23,7 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

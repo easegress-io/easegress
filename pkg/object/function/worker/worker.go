@@ -23,11 +23,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/provider"
-	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/function/storage"
-	"github.com/megaease/easegress/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/function/provider"
+	"github.com/megaease/easegress/v2/pkg/object/function/spec"
+	"github.com/megaease/easegress/v2/pkg/object/function/storage"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
 type (

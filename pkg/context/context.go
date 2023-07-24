@@ -22,9 +22,9 @@ import (
 	"bytes"
 	"runtime/debug"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/tracing"
 )
 
 // DefaultNamespace is the name of the default namespace.

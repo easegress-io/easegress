@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/option"
 	"github.com/phayes/freeport"
 )
 

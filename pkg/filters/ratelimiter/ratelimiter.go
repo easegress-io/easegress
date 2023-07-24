@@ -24,12 +24,12 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	librl "github.com/megaease/easegress/pkg/util/ratelimiter"
-	"github.com/megaease/easegress/pkg/util/urlrule"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	librl "github.com/megaease/easegress/v2/pkg/util/ratelimiter"
+	"github.com/megaease/easegress/v2/pkg/util/urlrule"
 )
 
 const (

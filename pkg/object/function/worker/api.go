@@ -24,12 +24,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/object/function/spec"
-	"github.com/megaease/easegress/pkg/object/function/storage"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/v"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/function/spec"
+	"github.com/megaease/easegress/v2/pkg/object/function/storage"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/v"
 )
 
 var (

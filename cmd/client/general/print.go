@@ -28,8 +28,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/spf13/cobra"
 )
 

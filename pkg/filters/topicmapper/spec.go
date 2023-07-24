@@ -17,7 +17,7 @@
 
 package topicmapper
 
-import "github.com/megaease/easegress/pkg/filters"
+import "github.com/megaease/easegress/v2/pkg/filters"
 
 type (
 	// Spec is spec of Kafka

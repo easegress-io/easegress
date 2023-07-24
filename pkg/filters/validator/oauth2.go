@@ -27,8 +27,8 @@ import (
 
 	"github.com/golang-jwt/jwt"
 
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 type (

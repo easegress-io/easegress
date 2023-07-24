@@ -21,8 +21,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/megaease/easegress/pkg/util/fasttime"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/openzipkin/zipkin-go/model"
 )
 

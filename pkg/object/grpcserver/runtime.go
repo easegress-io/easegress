@@ -23,12 +23,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/megaease/easegress/pkg/context"
-	"github.com/megaease/easegress/pkg/filters/proxies/grpcproxy"
-	"github.com/megaease/easegress/pkg/graceupdate"
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/supervisor"
-	"github.com/megaease/easegress/pkg/util/limitlistener"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies/grpcproxy"
+	"github.com/megaease/easegress/v2/pkg/graceupdate"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/limitlistener"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 )

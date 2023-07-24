@@ -24,7 +24,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/megaease/easegress/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )

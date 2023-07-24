@@ -19,13 +19,14 @@ package grpcproxy
 
 import (
 	"context"
-	"github.com/megaease/easegress/pkg/protocols/grpcprot"
 	"math/rand"
 	"sync"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/filters/proxies"
-	"github.com/megaease/easegress/pkg/util/objectpool"
+	"github.com/megaease/easegress/v2/pkg/protocols/grpcprot"
+
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/util/objectpool"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -18,7 +18,7 @@
 package httpserver
 
 import (
-	"github.com/megaease/easegress/pkg/util/prometheushelper"
+	"github.com/megaease/easegress/v2/pkg/util/prometheushelper"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

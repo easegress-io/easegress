@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/megaease/easegress/pkg/util/ipfilter"
+	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 )
 
 type (

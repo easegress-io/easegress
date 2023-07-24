@@ -18,7 +18,7 @@
 // Package resources provides the resources utilities for the client.
 package resources
 
-import "github.com/megaease/easegress/cmd/client/general"
+import "github.com/megaease/easegress/v2/cmd/client/general"
 
 var makePath = general.MakePath
 var handleReq = general.HandleRequest

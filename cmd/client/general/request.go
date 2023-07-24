@@ -28,9 +28,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/megaease/easegress/pkg/api"
-	"github.com/megaease/easegress/pkg/util/codectool"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
 // MakeURL is used to make URL for given path.

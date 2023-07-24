@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/megaease/easegress/pkg/logger"
-	"github.com/megaease/easegress/pkg/option"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 const (

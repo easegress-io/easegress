@@ -24,8 +24,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/util/stringtool"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/stretchr/testify/assert"
 )
 

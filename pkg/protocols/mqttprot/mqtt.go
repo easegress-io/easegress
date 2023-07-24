@@ -18,7 +18,7 @@
 // Package mqttprot implements the MQTT protocol.
 package mqttprot
 
-import "github.com/megaease/easegress/pkg/protocols"
+import "github.com/megaease/easegress/v2/pkg/protocols"
 
 func init() {
 	protocols.Register("mqtt", &Protocol{})

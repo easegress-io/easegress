@@ -26,7 +26,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/megaease/easegress/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/logger"
 )
 
 func (m *dynamicMux) newAPILogger(next http.Handler) http.Handler {

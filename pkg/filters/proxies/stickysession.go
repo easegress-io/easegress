@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"github.com/buraksezer/consistent"
-	"github.com/megaease/easegress/pkg/protocols"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/protocols"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/spaolacci/murmur3"
 )
 

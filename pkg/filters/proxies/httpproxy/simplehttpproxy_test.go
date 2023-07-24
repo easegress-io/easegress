@@ -23,10 +23,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/megaease/easegress/pkg/filters"
-	"github.com/megaease/easegress/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/pkg/resilience"
-	"github.com/megaease/easegress/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
