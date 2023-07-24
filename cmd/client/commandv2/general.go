@@ -123,7 +123,7 @@ func APIResourcesCmd() *cobra.Command {
 		Use:   "api-resources",
 		Short: "View all API resources",
 		Run: func(cmd *cobra.Command, args []string) {
-			resources, err := resources.ObjectApiResources()
+			resources, err := resources.ObjectAPIResources()
 			if err != nil {
 				general.ExitWithError(err)
 			}

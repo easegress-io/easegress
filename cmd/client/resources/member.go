@@ -113,7 +113,7 @@ func printMemberStatusDescription(memberStatus []*cluster.MemberStatus) {
 }
 
 // DeleteMember deletes the member.
-func DeleteMember(cmd *cobra.Command, names []string) error {
+func DeleteMember(_ *cobra.Command, names []string) error {
 	for _, name := range names {
 		_, err := handleReq(http.MethodDelete, makePath(general.MemberItemURL, name), nil)
 		if err != nil {
@@ -125,7 +125,7 @@ func DeleteMember(cmd *cobra.Command, names []string) error {
 }
 
 // GetMember gets the member.
-func GetMember(cmd *cobra.Command, args *general.ArgInfo) (err error) {
+func GetMember(_ *cobra.Command, args *general.ArgInfo) (err error) {
 	msg := "all " + MemberKind
 	if args.ContainName() {
 		msg = fmt.Sprintf("%s %s", MemberKind, args.Name)

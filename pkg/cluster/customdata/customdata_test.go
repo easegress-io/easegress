@@ -560,7 +560,7 @@ func TestDeleteData(t *testing.T) {
 	}
 }
 
-func TestDeleteAllData(t *testing.T) {
+func TestDeleteAllData(_ *testing.T) {
 	cls := clustertest.NewMockedCluster()
 	s := NewStore(cls, "/kind/", "/data/")
 	s.DeleteAllData("kind1")

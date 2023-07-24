@@ -332,6 +332,6 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listObjectApiResources(w http.ResponseWriter, r *http.Request) {
-	res := ObjectApiResources()
+	res := ObjectAPIResources()
 	WriteBody(w, r, res)
 }

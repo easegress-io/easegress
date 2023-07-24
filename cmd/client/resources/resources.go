@@ -35,7 +35,7 @@ func GetResourceKind(arg string) (string, error) {
 	if general.InAPIResource(arg, Member()) {
 		return Member().Kind, nil
 	}
-	objects, err := ObjectApiResources()
+	objects, err := ObjectAPIResources()
 	if err != nil {
 		return "", err
 	}

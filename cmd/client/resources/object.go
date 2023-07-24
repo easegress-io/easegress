@@ -34,8 +34,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ObjectApiResources returns the object api resources.
-func ObjectApiResources() ([]*api.APIResource, error) {
+// ObjectAPIResources returns the object api resources.
+func ObjectAPIResources() ([]*api.APIResource, error) {
 	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {

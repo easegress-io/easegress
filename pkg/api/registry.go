@@ -46,7 +46,7 @@ func RegisterObject(r *APIResource) {
 	objectApiResource[r.Kind] = r
 }
 
-func ObjectApiResources() []*APIResource {
+func ObjectAPIResources() []*APIResource {
 	resources := []*APIResource{}
 	for _, r := range objectApiResource {
 		resources = append(resources, r)
