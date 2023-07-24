@@ -23,6 +23,8 @@ import "os"
 const (
 	// EnvWhichGo is the environment variable name of which go.
 	EnvWhichGo = "EGBUILDER_GO"
+
+	EG = "github.com/megaease/easegress/v2"
 )
 
 // GetGo returns which go to use.

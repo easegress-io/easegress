@@ -17,7 +17,7 @@
 
 package utils
 
-import "github.com/megaease/easegress/cmd/client/general"
+import "github.com/megaease/easegress/v2/cmd/client/general"
 
 var ExitWithError = general.ExitWithError
 var ExitWithErrorf = general.ExitWithErrorf

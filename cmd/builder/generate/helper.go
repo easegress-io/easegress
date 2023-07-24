@@ -17,19 +17,34 @@
 
 package generate
 
-import j "github.com/dave/jennifer/jen"
+import (
+	"fmt"
+	"os"
+	"path"
+
+	j "github.com/dave/jennifer/jen"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
+)
 
 const (
-	KindName     = "Kind"
-	SpecName     = "Spec"
-	egFilters    = "github.com/megaease/easegress/pkg/filters"
-	egContext    = "github.com/megaease/easegress/pkg/context"
-	apiName      = "API"
-	egSupervisor = "github.com/megaease/easegress/pkg/supervisor"
-	egAPI        = "github.com/megaease/easegress/pkg/api"
-	egLogger     = "github.com/megaease/easegress/pkg/logger"
-	yourCodeHere = "your code here\n"
+	objectConfigFileName = "egbuilder-config.yaml"
+	KindName             = "Kind"
+	SpecName             = "Spec"
+	apiName              = "API"
+	yourCodeHere         = "your code here\n"
+
+	egFilters    = "github.com/megaease/easegress/v2/pkg/filters"
+	egContext    = "github.com/megaease/easegress/v2/pkg/context"
+	egSupervisor = "github.com/megaease/easegress/v2/pkg/supervisor"
+	egAPI        = "github.com/megaease/easegress/v2/pkg/api"
+	egLogger     = "github.com/megaease/easegress/v2/pkg/logger"
 )
+
+type ObjectConfig struct {
+	Repo      string   `json:"repo"`
+	Resources []string `json:"resources"`
+	Filters   []string `json:"filters"`
+}
 
 // Const is a const definition.
 type Const struct {
@@ -89,4 +104,26 @@ func DefFunc(fn *Func) *j.Statement {
 		res.Block(fn.Block...)
 	}
 	return res
+}
+
+func WriteObjectConfigFile(dir string, config *ObjectConfig) error {
+	fileName := path.Join(dir, objectConfigFileName)
+	yamlData, err := codectool.MarshalYAML(config)
+	if err != nil {
+		return fmt.Errorf("write object config file failed, %s", err.Error())
+	}
+	return os.WriteFile(fileName, yamlData, os.ModePerm)
+}
+
+func ReadObjectConfigFile(dir string) (*ObjectConfig, error) {
+	yamlData, err := os.ReadFile(path.Join(dir, objectConfigFileName))
+	if err != nil {
+		return nil, fmt.Errorf("read object config file %s failed, %s", objectConfigFileName, err.Error())
+	}
+	config := &ObjectConfig{}
+	err = codectool.UnmarshalYAML(yamlData, config)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal object config file %s failed, %s", objectConfigFileName, err.Error())
+	}
+	return config, nil
 }

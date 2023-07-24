@@ -103,6 +103,7 @@ func TestCapitalVariableName(t *testing.T) {
 		{name: "MyVar123_", valid: true},
 		{name: "My_Var_123_", valid: true},
 		{name: "1_", valid: false},
+		{name: "F1", valid: true},
 	}
 	for _, tc := range testCases {
 		assert.Equal(tc.valid, CapitalVariableName(tc.name), fmt.Sprintf("case: %s", tc.name))

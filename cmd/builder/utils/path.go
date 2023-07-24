@@ -54,6 +54,14 @@ func GetResourceFileName(dir string, resource string) string {
 	return path.Join(GetResourcePath(dir, resource), strings.ToLower(resource)+".go")
 }
 
+func GetRegistryDir(dir string) string {
+	return path.Join(dir, "registry")
+}
+
+func GetRegistryFileName(dir string) string {
+	return path.Join(GetRegistryDir(dir), "registry.go")
+}
+
 // MakeDirs makes the directories.
 func MakeDirs(wd string, filters []string, resources []string) error {
 	for _, f := range filters {

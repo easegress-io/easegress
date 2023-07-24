@@ -19,8 +19,8 @@
 package main
 
 import (
-	"github.com/megaease/easegress/cmd/builder/command"
-	"github.com/megaease/easegress/cmd/builder/utils"
+	"github.com/megaease/easegress/v2/cmd/builder/command"
+	"github.com/megaease/easegress/v2/cmd/builder/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -50,6 +50,7 @@ func main() {
 	addCommandWithGroup(
 		basicGroup,
 		command.InitCmd(),
+		command.AddCmd(),
 	)
 
 	rootCmd.AddGroup(basicGroup)

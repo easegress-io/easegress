@@ -47,5 +47,5 @@ func CapitalVariableName(name string) bool {
 	if !unicode.IsUpper(nameArr[0]) {
 		return false
 	}
-	return ValidVariableName(string(nameArr[1:]))
+	return ValidVariableName(string(nameArr))
 }
