@@ -116,6 +116,11 @@ func addRun(cmd *cobra.Command, args []string) {
 	} else {
 		fmt.Println("update registry file successfully")
 	}
+
+	err = generate.WriteObjectConfigFile(cwd, config)
+	if err != nil {
+		utils.ExitWithError(err)
+	}
 }
 
 func addCheckConfig(config *generate.ObjectConfig) error {

@@ -57,14 +57,12 @@ func defineRegisterInit(file *j.File, config *ObjectConfig) {
 		appendCode(j.Qual(egFilters, "Register").Call(j.Qual(path, KindName)))
 		appendCode(j.Line())
 	}
-	for i, r := range config.Resources {
+	for _, r := range config.Resources {
 		path := utils.GetResourcePath(config.Repo, r)
 		appendCode(j.Comment("register resource " + r))
 		appendCode(j.Qual(egSupervisor, "Register").Call(j.Op("&").Qual(path, r).Values()))
 		appendCode(j.Qual(egAPI, "RegisterObject").Call(j.Qual(path, apiName)).Line())
-		if i != len(config.Resources)-1 {
-			appendCode(j.Line())
-		}
+		appendCode(j.Line())
 	}
 
 	file.Add(DefFunc(&Func{
