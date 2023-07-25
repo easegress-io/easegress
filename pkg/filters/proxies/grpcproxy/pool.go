@@ -51,8 +51,6 @@ type (
 		lock  sync.Mutex
 		spec  *objectpool.Spec
 	}
-
-	separatedKey struct{}
 )
 
 // NewMultiWithSpec return a new MultiPool

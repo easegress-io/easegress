@@ -15,38 +15,28 @@
  * limitations under the License.
  */
 
-package logger
+package option
 
 import (
-	"github.com/megaease/easegress/pkg/option"
 	"github.com/stretchr/testify/assert"
+
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestLogOptions(t *testing.T) {
 	at := assert.New(t)
-	options := option.New()
+	options := New()
 	dir := path.Join(os.TempDir(), "TestLogOptions")
 	options.HomeDir = dir
 	options.LogDir = "logs"
-	options.DisableAccessLog = true
 	defer os.RemoveAll(dir)
 
 	at.NoError(options.Parse())
 	abs, err := filepath.Abs(path.Join(dir, "logs"))
 	at.NoError(err)
 	at.Equal(abs, options.AbsLogDir)
-
-	initHTTPFilter(options)
-
-	HTTPAccess("TestLogOptions http access log")
-	// wait two cycles of logger.cacheTimeout
-	time.Sleep(4*time.Second + 100*time.Millisecond)
-
-	_, err = os.Stat(dir)
-	at.True(os.IsNotExist(err))
+	at.False(options.DisableAccessLog)
 }

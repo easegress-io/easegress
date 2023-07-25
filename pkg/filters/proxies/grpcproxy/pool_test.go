@@ -31,6 +31,31 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func TestSPSValidate(t *testing.T) {
+	at := assert.New(t)
+	sps := &ServerPoolSpec{}
+	at.Error(sps.Validate())
+
+	sps.ServiceName = "demo"
+	at.NoError(sps.Validate())
+
+	sps.Servers = []*Server{
+		{Weight: 10},
+		{Weight: 0},
+	}
+	at.Error(sps.Validate())
+	sps.Servers[1].Weight = 1
+	at.NoError(sps.Validate())
+}
+
+func TestCreateLB(t *testing.T) {
+	s := &ServerPool{}
+	lb := s.CreateLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyForward}, nil)
+	at := assert.New(t)
+	at.IsType(&forwardLoadBalancer{}, lb)
+
+}
+
 func multiGetAndPut(pool *MultiPool, key string, ctx context.Context) {
 	iPoolObject, _ := pool.Get(key, ctx, func() (objectpool.PoolObject, error) {
 		return &fakeNormalPoolObject{random: false, health: true}, nil
