@@ -15,13 +15,21 @@
  * limitations under the License.
  */
 
-package utils
+package gen
 
 import (
 	"fmt"
 	"os"
 	"path"
 	"strings"
+)
+
+const (
+	egFilters    = "github.com/megaease/easegress/v2/pkg/filters"
+	egContext    = "github.com/megaease/easegress/v2/pkg/context"
+	egSupervisor = "github.com/megaease/easegress/v2/pkg/supervisor"
+	egAPI        = "github.com/megaease/easegress/v2/pkg/api"
+	egLogger     = "github.com/megaease/easegress/v2/pkg/logger"
 )
 
 // GetFilterDir returns the filter directory.
@@ -54,10 +62,12 @@ func GetResourceFileName(dir string, resource string) string {
 	return path.Join(GetResourcePath(dir, resource), strings.ToLower(resource)+".go")
 }
 
+// GetRegistryDir returns the registry directory.
 func GetRegistryDir(dir string) string {
 	return path.Join(dir, "registry")
 }
 
+// GetRegistryFileName returns the registry file name.
 func GetRegistryFileName(dir string) string {
 	return path.Join(GetRegistryDir(dir), "registry.go")
 }

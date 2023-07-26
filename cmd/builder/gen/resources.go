@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package generate
+package gen
 
 import (
 	"fmt"
@@ -87,7 +87,7 @@ func defineResourceStructs(file *j.File, info *ResourceInfo) {
 func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	// define spec Validate method
 	file.Comment(fmt.Sprintf("Validate validates %s", SpecName))
-	file.Add(DefFunc(&Func{
+	file.Add((&Func{
 		ReceiverName:    "s",
 		ReceiverType:    SpecName,
 		ReceiverPointer: true,
@@ -97,7 +97,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 			j.Comment(yourCodeHere),
 			j.Return(j.Nil()),
 		},
-	}))
+	}).Def())
 
 	receiver := func() *Func {
 		return &Func{
@@ -115,7 +115,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	categoryFunc.Block = []j.Code{
 		j.Return(j.Qual(egSupervisor, "CategoryTrafficGate")),
 	}
-	file.Add(DefFunc(categoryFunc))
+	file.Add(categoryFunc.Def())
 
 	// define resource Kind method
 	file.Comment("Kind returns the kind name of resource.")
@@ -125,7 +125,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	kindFunc.Block = []j.Code{
 		j.Return(j.Lit(info.Name)),
 	}
-	file.Add(DefFunc(kindFunc))
+	file.Add(kindFunc.Def())
 
 	// define resource DefaultSpec method
 	file.Comment("DefaultSpec returns the default spec of resource. It is used to unmarshal yaml file.")
@@ -135,7 +135,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	defaultSpecFunc.Block = []j.Code{
 		j.Return(j.Op("&").Id(SpecName).Values(j.Dict{})),
 	}
-	file.Add(DefFunc(defaultSpecFunc))
+	file.Add(defaultSpecFunc.Def())
 
 	// define resource Status method
 	file.Comment("Status returns the status of resource.")
@@ -146,7 +146,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 		j.Comment(yourCodeHere),
 		j.Return(j.Op("&").Qual(egSupervisor, "Status").Values(j.Dict{})),
 	}
-	file.Add(DefFunc(statusFunc))
+	file.Add(statusFunc.Def())
 
 	// define resource Close method
 	file.Comment("Close closes the resource.")
@@ -155,7 +155,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	closeFunc.Block = []j.Code{
 		j.Comment(yourCodeHere),
 	}
-	file.Add(DefFunc(closeFunc))
+	file.Add(closeFunc.Def())
 
 	// define resource Init method.
 	file.Comment("Init initializes the resource.")
@@ -171,7 +171,7 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 		j.Comment(yourCodeHere),
 		j.Comment("spec := superSpec.ObjectSpec().(*Spec)"),
 	}
-	file.Add(DefFunc(initFunc))
+	file.Add(initFunc.Def())
 
 	// define resource Inherit method.
 	file.Comment("Inherit inherits the resource from previous generation.")
@@ -188,5 +188,5 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 		j.Comment("previousGeneration.Close()"),
 		j.Comment(fmt.Sprintf("%s.Init(superSpec, muxMapper)", info.ReceiverName)),
 	}
-	file.Add(DefFunc(inheritFunc))
+	file.Add(inheritFunc.Def())
 }

@@ -18,13 +18,15 @@
 // Package utils contains the utilities.
 package utils
 
-import "os"
+import (
+	"os"
+)
 
 const (
 	// EnvWhichGo is the environment variable name of which go.
 	EnvWhichGo = "EGBUILDER_GO"
 
-	EG = "github.com/megaease/easegress/v2"
+	EGPath = "github.com/megaease/easegress/v2"
 )
 
 // GetGo returns which go to use.

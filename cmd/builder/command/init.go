@@ -24,13 +24,13 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/megaease/easegress/v2/cmd/builder/generate"
+	"github.com/megaease/easegress/v2/cmd/builder/gen"
 	"github.com/megaease/easegress/v2/cmd/builder/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/mod/module"
 )
 
-var initFlags = &generate.ObjectConfig{}
+var initConfig = &gen.Config{}
 
 func InitCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -40,9 +40,9 @@ func InitCmd() *cobra.Command {
 		Run:   initRun,
 	}
 
-	cmd.Flags().StringSliceVar(&initFlags.Filters, "filters", []string{}, "filters to be generated")
-	cmd.Flags().StringSliceVar(&initFlags.Resources, "resources", []string{}, "resources to be generated")
-	cmd.Flags().StringVar(&initFlags.Repo, "repo", "", "pkg name of the repo")
+	cmd.Flags().StringSliceVar(&initConfig.Filters, "filters", []string{}, "filters to be generated")
+	cmd.Flags().StringSliceVar(&initConfig.Resources, "resources", []string{}, "resources to be generated")
+	cmd.Flags().StringVar(&initConfig.Repo, "repo", "", "pkg name of the repo")
 	return cmd
 }
 
@@ -50,23 +50,23 @@ func initArgs(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return errors.New("init takes no arguments")
 	}
-	if len(initFlags.Repo) == 0 {
+	if len(initConfig.Repo) == 0 {
 		return errors.New("repo is required")
 	}
-	if (len(initFlags.Filters) == 0) && (len(initFlags.Resources) == 0) {
+	if (len(initConfig.Filters) == 0) && (len(initConfig.Resources) == 0) {
 		return errors.New("filters or resources is required")
 	}
 
-	err := module.CheckPath(initFlags.Repo)
+	err := module.CheckPath(initConfig.Repo)
 	if err != nil {
-		return fmt.Errorf("repo %s is not a valid path, %s", initFlags.Repo, err.Error())
+		return fmt.Errorf("repo %s is not a valid path, %s", initConfig.Repo, err.Error())
 	}
-	for _, filter := range initFlags.Filters {
+	for _, filter := range initConfig.Filters {
 		if !(utils.CapitalVariableName(filter)) {
 			return fmt.Errorf("filter %s is not a valid golang variable name with first letter upper case", filter)
 		}
 	}
-	for _, resource := range initFlags.Resources {
+	for _, resource := range initConfig.Resources {
 		if !(utils.CapitalVariableName(resource)) {
 			return fmt.Errorf("resource %s is not a valid golang variable name with first letter upper case", resource)
 		}
@@ -77,7 +77,7 @@ func initArgs(cmd *cobra.Command, args []string) error {
 func initRun(cmd *cobra.Command, args []string) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		utils.ExitWithErrorf("get current working directory failed: %s", err.Error())
+		utils.ExitWithError(err)
 	}
 	files, err := os.ReadDir(cwd)
 	if err != nil {
@@ -89,52 +89,35 @@ func initRun(cmd *cobra.Command, args []string) {
 
 	initGenerateFiles(cmd, cwd)
 	initGenerateMod(cmd)
-	generate.WriteObjectConfigFile(cwd, initFlags)
-}
-
-func initGenerateFiles(_ *cobra.Command, cwd string) {
-	// generate filters and resources dir and files.
-	err := utils.MakeDirs(cwd, initFlags.Filters, initFlags.Resources)
+	err = initConfig.Save(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
 	}
+}
 
-	for _, f := range initFlags.Filters {
-		file := generate.CreateFilter(f)
-		err := file.Save(utils.GetFilterFileName(cwd, f))
-		if err != nil {
-			utils.ExitWithErrorf("generate filter %s failed: %s", f, err.Error())
-		} else {
-			fmt.Printf("generate filter %s success\n", f)
-		}
+func initGenerateFiles(_ *cobra.Command, cwd string) {
+	err := initConfig.GenFilters(cwd)
+	if err != nil {
+		utils.ExitWithError(err)
 	}
-	for _, r := range initFlags.Resources {
-		file := generate.CreateResource(r)
-		err := file.Save(utils.GetResourceFileName(cwd, r))
-		if err != nil {
-			utils.ExitWithErrorf("generate resource %s failed: %s", r, err.Error())
-		} else {
-			fmt.Printf("generate resource %s success\n", r)
-		}
-	}
+	fmt.Println("generate filters success")
 
-	// generate registry dir and file.
-	err = os.MkdirAll(utils.GetRegistryDir(cwd), os.ModePerm)
+	err = initConfig.GenResources(cwd)
 	if err != nil {
-		utils.ExitWithErrorf("make directory %s failed: %s", utils.GetRegistryDir(cwd), err.Error())
+		utils.ExitWithError(err)
 	}
-	file := generate.CreateRegistry(initFlags)
-	err = file.Save(utils.GetRegistryFileName(cwd))
+	fmt.Println("generate resources success")
+
+	err = initConfig.GenRegistry(cwd)
 	if err != nil {
-		utils.ExitWithErrorf("generate registry file failed: %s", err.Error())
-	} else {
-		fmt.Printf("generate registry file success\n")
+		utils.ExitWithError(err)
 	}
+	fmt.Println("generate registry success")
 }
 
 func initGenerateMod(cmd *cobra.Command) {
 	// go mod init
-	modInitCmd := exec.Command(utils.GetGo(), "mod", "init", initFlags.Repo)
+	modInitCmd := exec.Command(utils.GetGo(), "mod", "init", initConfig.Repo)
 	modInitCmd.Stderr = os.Stderr
 	out, err := modInitCmd.Output()
 	if err != nil {
@@ -142,7 +125,7 @@ func initGenerateMod(cmd *cobra.Command) {
 	}
 
 	// go get easegress
-	modGetCmd := exec.Command(utils.GetGo(), "get", utils.EG)
+	modGetCmd := exec.Command(utils.GetGo(), "get", utils.EGPath)
 	modGetCmd.Stderr = os.Stderr
 	out, err = modGetCmd.Output()
 	if err != nil {
