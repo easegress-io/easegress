@@ -52,6 +52,7 @@ func main() {
 		command.InitCmd(),
 		command.AddCmd(),
 		command.BuildCmd(),
+		command.RunCmd(),
 	)
 
 	rootCmd.AddGroup(basicGroup)

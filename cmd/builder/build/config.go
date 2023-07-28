@@ -28,18 +28,23 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
-type Config struct {
-	Plugins []*Plugin `json:"plugins"`
-	Compile Compile   `json:"compile"`
+type Options struct {
+	Compile Compile `json:"compile"`
 
 	EGVersion    string `json:"egVersion"`
-	Output       string `json:"output"`
 	RaceDetector bool   `json:"raceDetector"`
 	SkipBuild    bool   `json:"skipBuild"`
 	SkipCleanup  bool   `json:"skipCleanup"`
 
 	BuildFlags []string `json:"buildFlags"`
 	ModFlags   []string `json:"modFlags"`
+}
+
+type Config struct {
+	Options `json:",inline"`
+
+	Plugins []*Plugin `json:"plugins"`
+	Output  string    `json:"output"`
 }
 
 // Plugin contains parameters for a plugin.

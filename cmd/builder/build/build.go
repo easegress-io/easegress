@@ -54,11 +54,11 @@ func Build(ctx context.Context, config *Config) error {
 	env = setEnv(env, fmt.Sprintf("CGO_ENABLED=%s", config.Compile.CgoEnabled()))
 
 	fmt.Println("building Easegress")
-	// tidy the module to ensure go.mod and go.sum are consistent with the module prereq
-	tidyCmd := buildEnv.newGoCmdWithModFlags(ctx, "tidy", "-e")
-	if err := tidyCmd.Run(); err != nil {
-		return err
-	}
+	// // tidy the module to ensure go.mod and go.sum are consistent with the module prereq
+	// tidyCmd := buildEnv.newGoCmdWithModFlags(ctx, "mod", "tidy", "-e")
+	// if err := tidyCmd.Run(); err != nil {
+	// 	return err
+	// }
 
 	// compile
 	cmd := buildEnv.newGoCmdWithBuildFlags(ctx, "build", "-o", config.Output)

@@ -56,11 +56,11 @@ func (c *Config) Load(dir string) error {
 	fileName := path.Join(dir, configFileName)
 	yamlData, err := os.ReadFile(fileName)
 	if err != nil {
-		return fmt.Errorf("read config file failed, %s", err.Error())
+		return fmt.Errorf("read config file %s failed, %s", fileName, err.Error())
 	}
 	err = codectool.UnmarshalYAML(yamlData, c)
 	if err != nil {
-		return fmt.Errorf("unmarshal config file failed, %s", err.Error())
+		return fmt.Errorf("unmarshal config file %s failed, %s", fileName, err.Error())
 	}
 	return nil
 }

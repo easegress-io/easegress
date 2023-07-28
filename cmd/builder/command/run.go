@@ -16,3 +16,46 @@
  */
 
 package command
+
+import (
+	"context"
+	"errors"
+
+	"github.com/megaease/easegress/v2/cmd/builder/build"
+	"github.com/megaease/easegress/v2/cmd/builder/utils"
+	"github.com/spf13/cobra"
+)
+
+var runConfig string
+
+func RunCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run Easegress with custom plugins in current directory",
+		Args:  runArgs,
+		Run:   runRun,
+	}
+	cmd.Flags().StringVarP(&runConfig, "config-file", "f", "", "config file to run Easegress with custom plugins")
+	return cmd
+}
+
+func runArgs(cmd *cobra.Command, args []string) error {
+	if len(runConfig) == 0 {
+		return errors.New("config file is required")
+	}
+	return nil
+}
+
+func runRun(cmd *cobra.Command, args []string) {
+	ctx, stop := utils.WithInterrupt(context.Background())
+	defer stop()
+
+	runner, err := build.NewRunner(runConfig)
+	if err != nil {
+		utils.ExitWithError(err)
+	}
+	err = build.Run(ctx, runner)
+	if err != nil {
+		utils.ExitWithError(err)
+	}
+}
