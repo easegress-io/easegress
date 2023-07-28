@@ -19,7 +19,6 @@ package command
 
 import (
 	"context"
-	"errors"
 
 	"github.com/megaease/easegress/v2/cmd/builder/build"
 	"github.com/megaease/easegress/v2/cmd/builder/utils"
@@ -28,22 +27,21 @@ import (
 
 var runConfig string
 
+// RunCmd creates the run command of egbuilder.
 func RunCmd() *cobra.Command {
+	examples := []utils.Example{
+		{Desc: "Run easegress-server with plugins in current working directory", Command: "egbuilder run"},
+		{Desc: "Run easegress-server with plugins in current working directory and additional settings", Command: "egbuilder run -f your-run-config.yaml"},
+	}
 	cmd := &cobra.Command{
-		Use:   "run",
-		Short: "Run Easegress with custom plugins in current directory",
-		Args:  runArgs,
-		Run:   runRun,
+		Use:     "run",
+		Short:   "Run Easegress with custom plugins in current directory",
+		Example: utils.CreateMultiExample(examples),
+		Args:    cobra.NoArgs,
+		Run:     runRun,
 	}
 	cmd.Flags().StringVarP(&runConfig, "config-file", "f", "", "config file to run Easegress with custom plugins")
 	return cmd
-}
-
-func runArgs(cmd *cobra.Command, args []string) error {
-	if len(runConfig) == 0 {
-		return errors.New("config file is required")
-	}
-	return nil
 }
 
 func runRun(cmd *cobra.Command, args []string) {

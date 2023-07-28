@@ -30,10 +30,11 @@ var buildConfig string
 
 func BuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "build",
-		Short: "Build Easegress with custom plugins",
-		Args:  buildArgs,
-		Run:   buildRun,
+		Use:     "build",
+		Example: utils.CreateExample("Build easegress-server with custom plugins", "egbuilder build -f your-build-config.yaml"),
+		Short:   "Build Easegress with custom plugins",
+		Args:    buildArgs,
+		Run:     buildRun,
 	}
 	cmd.Flags().StringVarP(&buildConfig, "config-file", "f", "", "config file to build Easegress with custom plugins")
 	return cmd

@@ -52,7 +52,7 @@ func newEnvironment(ctx context.Context, config *Config) (*environment, error) {
 			}
 		}
 	}()
-	fmt.Printf("temporary folder: %s\n", tempDir)
+	fmt.Printf("Temporary folder for building: %s\n", tempDir)
 
 	err = file.Save(filepath.Join(tempDir, "main.go"))
 	if err != nil {

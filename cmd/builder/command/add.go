@@ -32,10 +32,11 @@ var addConfig = &gen.Config{}
 
 func AddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Add filter or resources to the project",
-		Args:  addArgs,
-		Run:   addRun,
+		Use:     "add",
+		Example: utils.CreateExample("add new custom plugins to the module", "egbuilder add --filters=MyFilter1,MyFilter2 --resources=MyResource1,MyResource2"),
+		Short:   "Add filter or resources to the project",
+		Args:    addArgs,
+		Run:     addRun,
 	}
 
 	cmd.Flags().StringSliceVar(&addConfig.Filters, "filters", []string{}, "filters to be generated")

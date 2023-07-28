@@ -28,14 +28,16 @@ import (
 // Build builds Easegress with custom plugins.
 func Build(ctx context.Context, config *Config) error {
 	// prepare the build environment
+	fmt.Println("Preparing build environment...")
 	buildEnv, err := newEnvironment(ctx, config)
 	if err != nil {
 		return err
 	}
 	defer buildEnv.Close()
+	fmt.Println("Build environment is ready.")
 
 	if config.SkipBuild {
-		fmt.Print("skipping build\n")
+		fmt.Println("Flag skipBuild is set, skip building easegress-server.")
 		return nil
 	}
 
@@ -53,12 +55,12 @@ func Build(ctx context.Context, config *Config) error {
 	}
 	env = setEnv(env, fmt.Sprintf("CGO_ENABLED=%s", config.Compile.CgoEnabled()))
 
-	fmt.Println("building Easegress")
+	fmt.Println("Building easegress-server...")
 	// // tidy the module to ensure go.mod and go.sum are consistent with the module prereq
-	// tidyCmd := buildEnv.newGoCmdWithModFlags(ctx, "mod", "tidy", "-e")
-	// if err := tidyCmd.Run(); err != nil {
-	// 	return err
-	// }
+	tidyCmd := buildEnv.newGoCmdWithModFlags(ctx, "mod", "tidy", "-e")
+	if err := tidyCmd.Run(); err != nil {
+		return err
+	}
 
 	// compile
 	cmd := buildEnv.newGoCmdWithBuildFlags(ctx, "build", "-o", config.Output)
@@ -77,7 +79,7 @@ func Build(ctx context.Context, config *Config) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("[INFO] Build complete: %s", config.Output)
+	fmt.Printf("Build complete: %s\n", config.Output)
 	return nil
 }
 

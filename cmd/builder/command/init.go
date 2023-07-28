@@ -31,12 +31,14 @@ import (
 
 var initConfig = &gen.Config{}
 
+// InitCmd creates the init command of egbuilder.
 func InitCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Init a new Easegress custom module project",
-		Args:  initArgs,
-		Run:   initRun,
+		Use:     "init",
+		Short:   "Init a new Easegress custom module project",
+		Example: utils.CreateExample("Init a new Easegress custom module project", "egbuilder init --repo github.com/my/repo --filters=MyFilter1,MyFilter2 --resources=MyResource1,MyResource2"),
+		Args:    initArgs,
+		Run:     initRun,
 	}
 
 	cmd.Flags().StringSliceVar(&initConfig.Filters, "filters", []string{}, "filters to be generated")

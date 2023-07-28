@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
+// Runner is the runner of easegress-server. It is used to build and run easegress-server.
 type Runner struct {
 	Options      `json:",inline"`
 	EgServerArgs []string `json:"egServerArgs"`
@@ -34,15 +35,19 @@ type Runner struct {
 	config *Config
 }
 
+// NewRunner creates a new runner.
 func NewRunner(filename string) (*Runner, error) {
 	runner := &Runner{}
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("read file %s failed: %v", filename, err)
-	}
-	err = codectool.UnmarshalYAML(data, runner)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal yaml file %s failed: %v", filename, err)
+
+	if len(filename) > 0 {
+		data, err := os.ReadFile(filename)
+		if err != nil {
+			return nil, fmt.Errorf("read file %s failed: %v", filename, err)
+		}
+		err = codectool.UnmarshalYAML(data, runner)
+		if err != nil {
+			return nil, fmt.Errorf("unmarshal yaml file %s failed: %v", filename, err)
+		}
 	}
 
 	cwd, err := os.Getwd()
@@ -71,6 +76,7 @@ func NewRunner(filename string) (*Runner, error) {
 	return runner, nil
 }
 
+// Run runs the easegress-server with plugins in current directory.
 func Run(ctx context.Context, runner *Runner) error {
 	config := runner.config
 	err := Build(ctx, config)

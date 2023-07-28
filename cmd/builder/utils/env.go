@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-// Package utils contains the utilities.
 package utils
 
 import (

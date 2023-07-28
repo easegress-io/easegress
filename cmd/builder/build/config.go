@@ -106,6 +106,13 @@ func (config *Config) Init() error {
 	if config.Compile.ARM == "" {
 		config.Compile.ARM = os.Getenv("GOARM")
 	}
+
+	fmt.Printf("Build easegress-server with config\n")
+	fmt.Printf("  %#v\n", config.Options)
+	for _, p := range config.Plugins {
+		fmt.Printf("  plugin: %#v\n", p)
+	}
+	fmt.Printf("  output: %s\n", config.Output)
 	return nil
 }
 

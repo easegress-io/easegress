@@ -14,10 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+// Package utils contains the utilities.
 package utils
 
 import "github.com/megaease/easegress/v2/cmd/client/general"
+
+type Example = general.Example
+
+var CreateExample = general.CreateExample
+var CreateMultiExample = general.CreateMultiExample
 
 var ExitWithError = general.ExitWithError
 var ExitWithErrorf = general.ExitWithErrorf
