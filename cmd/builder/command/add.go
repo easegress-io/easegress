@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package command contains commands for egbuilder.
 package command
 
 import (

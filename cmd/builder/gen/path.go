@@ -18,9 +18,8 @@
 package gen
 
 import (
-	"fmt"
-	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -30,61 +29,36 @@ const (
 	egSupervisor = "github.com/megaease/easegress/v2/pkg/supervisor"
 	egAPI        = "github.com/megaease/easegress/v2/pkg/api"
 	egLogger     = "github.com/megaease/easegress/v2/pkg/logger"
+	egCmd        = "github.com/megaease/easegress/v2/cmd"
+	egRegistry   = "github.com/megaease/easegress/v2/pkg/registry"
+
+	moduleFilter   = "filters"
+	moduleResource = "resources"
+	moduleRegistry = "registry"
 )
 
-// GetFilterDir returns the filter directory.
-func GetFilterDir(dir string) string {
-	return path.Join(dir, "filters")
-}
-
-// GetResourceDir returns the resource directory.
-func GetResourceDir(dir string) string {
-	return path.Join(dir, "resources")
-}
-
-// GetFilterPath returns the filter path.
-func GetFilterPath(dir, filter string) string {
-	return path.Join(GetFilterDir(dir), strings.ToLower(filter))
-}
-
-// GetResourcePath returns the resource path.
-func GetResourcePath(dir, resource string) string {
-	return path.Join(GetResourceDir(dir), strings.ToLower(resource))
-}
-
-// GetFilterFileName returns the filter file name.
-func GetFilterFileName(dir string, filter string) string {
-	return path.Join(GetFilterPath(dir, filter), strings.ToLower(filter)+".go")
-}
-
-// GetResourceFileName returns the resource file name.
-func GetResourceFileName(dir string, resource string) string {
-	return path.Join(GetResourcePath(dir, resource), strings.ToLower(resource)+".go")
-}
-
-// GetRegistryDir returns the registry directory.
-func GetRegistryDir(dir string) string {
-	return path.Join(dir, "registry")
-}
-
-// GetRegistryFileName returns the registry file name.
-func GetRegistryFileName(dir string) string {
-	return path.Join(GetRegistryDir(dir), "registry.go")
-}
-
-// MakeDirs makes the directories.
-func MakeDirs(wd string, filters []string, resources []string) error {
-	for _, f := range filters {
-		err := os.MkdirAll(GetFilterPath(wd, f), os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("make directory for filter %s failed: %s", f, err.Error())
+func getModulePath(dir string, moduleType string, moduleName string, importPath bool) string {
+	moduleName = strings.ToLower(moduleName)
+	join := func(paths ...string) string {
+		if importPath {
+			return path.Join(paths...)
 		}
+		return filepath.Join(paths...)
 	}
-	for _, r := range resources {
-		err := os.MkdirAll(GetResourcePath(wd, r), os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("make directory for resource %s failed: %s", r, err.Error())
-		}
+	if moduleName != "" {
+		return join(dir, moduleType, moduleName)
 	}
-	return nil
+	return join(dir, moduleType)
+}
+
+func getFileName(dir string, moduleType string, moduleName string, fileName string) string {
+	moduleName = strings.ToLower(moduleName)
+	fileName = strings.ToLower(fileName)
+	if !strings.HasSuffix(fileName, ".go") {
+		fileName += ".go"
+	}
+	if moduleName != "" {
+		return filepath.Join(dir, moduleType, moduleName, fileName)
+	}
+	return filepath.Join(dir, moduleType, fileName)
 }

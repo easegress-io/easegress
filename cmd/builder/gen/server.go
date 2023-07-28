@@ -15,36 +15,29 @@
  * limitations under the License.
  */
 
-package utils
+package gen
 
-import "unicode"
+import (
+	"path"
 
-func ValidVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
+	j "github.com/dave/jennifer/jen"
+)
+
+func CreateServer(plugins []string) *j.File {
+	file := j.NewFile("main")
+	file.ImportName(egCmd, "cmd")
+	file.Anon(egRegistry)
+
+	for _, plugin := range plugins {
+		file.Anon(path.Join(plugin, moduleRegistry))
 	}
 
-	for i, c := range name {
-		if i == 0 {
-			if !unicode.IsLetter(c) && c != '_' {
-				return false
-			}
-		} else {
-			if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' {
-				return false
-			}
-		}
+	mainFunc := &Func{
+		Name: "main",
+		Block: []j.Code{
+			j.Qual(egCmd, "RunServer").Call(),
+		},
 	}
-	return true
-}
-
-func CapitalVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	nameArr := []rune(name)
-	if !unicode.IsUpper(nameArr[0]) {
-		return false
-	}
-	return ValidVariableName(string(nameArr))
+	file.Add(mainFunc.Def())
+	return file
 }

@@ -17,34 +17,20 @@
 
 package utils
 
-import "unicode"
+import (
+	"context"
+	"os"
+	"os/exec"
+	"os/signal"
+)
 
-func ValidVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-
-	for i, c := range name {
-		if i == 0 {
-			if !unicode.IsLetter(c) && c != '_' {
-				return false
-			}
-		} else {
-			if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' {
-				return false
-			}
-		}
-	}
-	return true
+func WithInterrupt(parent context.Context) (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(parent, os.Interrupt)
 }
 
-func CapitalVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	nameArr := []rune(name)
-	if !unicode.IsUpper(nameArr[0]) {
-		return false
-	}
-	return ValidVariableName(string(nameArr))
+func NewExecCmd(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
 }

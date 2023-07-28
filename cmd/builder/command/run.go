@@ -15,36 +15,4 @@
  * limitations under the License.
  */
 
-package utils
-
-import "unicode"
-
-func ValidVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-
-	for i, c := range name {
-		if i == 0 {
-			if !unicode.IsLetter(c) && c != '_' {
-				return false
-			}
-		} else {
-			if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func CapitalVariableName(name string) bool {
-	if len(name) == 0 {
-		return false
-	}
-	nameArr := []rune(name)
-	if !unicode.IsUpper(nameArr[0]) {
-		return false
-	}
-	return ValidVariableName(string(nameArr))
-}
+package command

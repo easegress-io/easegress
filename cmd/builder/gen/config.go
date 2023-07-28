@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+// Package gen generates codes for egbuilder.
 package gen
 
 import (
@@ -26,9 +27,9 @@ import (
 )
 
 const (
-	configFileName = "egbuilder-config.yaml"
 	KindName       = "Kind"
 	SpecName       = "Spec"
+	configFileName = ".egbuilderrc"
 	apiName        = "API"
 	yourCodeHere   = "your code here\n"
 )
@@ -92,12 +93,12 @@ func (c *Config) CheckDuplicate(conf *Config) error {
 
 func (c *Config) GenFilters(dir string) error {
 	for _, f := range c.Filters {
-		err := os.MkdirAll(GetFilterPath(dir, f), os.ModePerm)
+		err := os.MkdirAll(getModulePath(dir, moduleFilter, f, false), os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("make directory for filter %s failed, %s", f, err.Error())
 		}
 		filter := CreateFilter(f)
-		err = filter.Save(GetFilterFileName(dir, f))
+		err = filter.Save(getFileName(dir, moduleFilter, f, f))
 		if err != nil {
 			return fmt.Errorf("save filter %s failed, %s", f, err.Error())
 		}
@@ -107,12 +108,12 @@ func (c *Config) GenFilters(dir string) error {
 
 func (c *Config) GenResources(dir string) error {
 	for _, r := range c.Resources {
-		err := os.MkdirAll(GetResourcePath(dir, r), os.ModePerm)
+		err := os.MkdirAll(getModulePath(dir, moduleResource, r, false), os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("make directory for resource %s failed, %s", r, err.Error())
 		}
 		resource := CreateResource(r)
-		err = resource.Save(GetResourceFileName(dir, r))
+		err = resource.Save(getFileName(dir, moduleResource, r, r))
 		if err != nil {
 			return fmt.Errorf("save resource %s failed, %s", r, err.Error())
 		}
@@ -121,12 +122,13 @@ func (c *Config) GenResources(dir string) error {
 }
 
 func (c *Config) GenRegistry(dir string) error {
-	err := os.MkdirAll(GetRegistryDir(dir), os.ModePerm)
+	registryPath := getModulePath(dir, moduleRegistry, "", false)
+	err := os.MkdirAll(registryPath, os.ModePerm)
 	if err != nil {
-		return fmt.Errorf("make directory %s failed: %s", GetRegistryDir(dir), err.Error())
+		return fmt.Errorf("make directory %s failed: %s", registryPath, err.Error())
 	}
 	file := CreateRegistry(c)
-	err = file.Save(GetRegistryFileName(dir))
+	err = file.Save(getFileName(dir, moduleRegistry, "", "registry"))
 	if err != nil {
 		return fmt.Errorf("generate registry file failed: %s", err.Error())
 	}

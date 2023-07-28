@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-// Package utils contains the utilities.
-package utils
+package utils_test
 
 import (
 	"fmt"
 	"testing"
 
+	. "github.com/megaease/easegress/v2/cmd/builder/utils"
 	"github.com/stretchr/testify/assert"
 )
 

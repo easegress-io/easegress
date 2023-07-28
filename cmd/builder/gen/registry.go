@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-// Package gen generates codes for egbuilder.
 package gen
 
 import (
@@ -33,10 +32,10 @@ func CreateRegistry(config *Config) *j.File {
 	file.ImportName(egAPI, "api")
 
 	for _, f := range config.Filters {
-		file.ImportName(GetFilterPath(config.Repo, f), strings.ToLower(f))
+		file.ImportName(getModulePath(config.Repo, moduleFilter, f, true), strings.ToLower(f))
 	}
 	for _, r := range config.Resources {
-		file.ImportName(GetResourcePath(config.Repo, r), strings.ToLower(r))
+		file.ImportName(getModulePath(config.Repo, moduleResource, r, true), strings.ToLower(r))
 	}
 
 	defineRegisterInit(file, config)
@@ -51,16 +50,16 @@ func defineRegisterInit(file *j.File, config *Config) {
 	}
 
 	for _, f := range config.Filters {
-		path := GetFilterPath(config.Repo, f)
+		p := getModulePath(config.Repo, moduleFilter, f, true)
 		appendCode(j.Comment("register filter " + f))
-		appendCode(j.Qual(egFilters, "Register").Call(j.Qual(path, KindName)))
+		appendCode(j.Qual(egFilters, "Register").Call(j.Qual(p, KindName)))
 		appendCode(j.Line())
 	}
 	for _, r := range config.Resources {
-		path := GetResourcePath(config.Repo, r)
+		p := getModulePath(config.Repo, moduleResource, r, true)
 		appendCode(j.Comment("register resource " + r))
-		appendCode(j.Qual(egSupervisor, "Register").Call(j.Op("&").Qual(path, r).Values()))
-		appendCode(j.Qual(egAPI, "RegisterObject").Call(j.Qual(path, apiName)).Line())
+		appendCode(j.Qual(egSupervisor, "Register").Call(j.Op("&").Qual(p, r).Values()))
+		appendCode(j.Qual(egAPI, "RegisterObject").Call(j.Qual(p, apiName)).Line())
 		appendCode(j.Line())
 	}
 

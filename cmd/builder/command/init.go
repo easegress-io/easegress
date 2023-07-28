@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-// Package command contains commands for egbuilder.
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/megaease/easegress/v2/cmd/builder/gen"
 	"github.com/megaease/easegress/v2/cmd/builder/utils"
@@ -75,6 +74,9 @@ func initArgs(cmd *cobra.Command, args []string) error {
 }
 
 func initRun(cmd *cobra.Command, args []string) {
+	ctx, stop := utils.WithInterrupt(context.Background())
+	defer stop()
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		utils.ExitWithError(err)
@@ -88,7 +90,7 @@ func initRun(cmd *cobra.Command, args []string) {
 	}
 
 	initGenerateFiles(cmd, cwd)
-	initGenerateMod(cmd)
+	initGenerateMod(ctx, cmd)
 	err = initConfig.Save(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
@@ -115,28 +117,25 @@ func initGenerateFiles(_ *cobra.Command, cwd string) {
 	fmt.Println("generate registry success")
 }
 
-func initGenerateMod(cmd *cobra.Command) {
+func initGenerateMod(ctx context.Context, cmd *cobra.Command) {
 	// go mod init
-	modInitCmd := exec.Command(utils.GetGo(), "mod", "init", initConfig.Repo)
-	modInitCmd.Stderr = os.Stderr
-	out, err := modInitCmd.Output()
+	modInitCmd := utils.NewExecCmd(ctx, utils.GetGo(), "mod", "init", initConfig.Repo)
+	err := modInitCmd.Run()
 	if err != nil {
-		utils.ExitWithErrorf("exec %v: %v: %s", cmd.Args, err, string(out))
+		utils.ExitWithErrorf("exec %v failed, %v", cmd.Args, err)
 	}
 
 	// go get easegress
-	modGetCmd := exec.Command(utils.GetGo(), "get", utils.EGPath)
-	modGetCmd.Stderr = os.Stderr
-	out, err = modGetCmd.Output()
+	modGetCmd := utils.NewExecCmd(ctx, utils.GetGo(), "get", utils.EGPath)
+	err = modGetCmd.Run()
 	if err != nil {
-		utils.ExitWithErrorf("exec %v: %v: %s", cmd.Args, err, string(out))
+		utils.ExitWithErrorf("exec %v failed, %v", cmd.Args, err)
 	}
 
 	// go mod tidy
-	modTidyCmd := exec.Command(utils.GetGo(), "mod", "tidy")
-	modTidyCmd.Stderr = os.Stderr
-	out, err = modTidyCmd.Output()
+	modTidyCmd := utils.NewExecCmd(ctx, utils.GetGo(), "mod", "tidy")
+	err = modTidyCmd.Run()
 	if err != nil {
-		utils.ExitWithErrorf("exec %v: %v: %s", cmd.Args, err, string(out))
+		utils.ExitWithErrorf("exec %v failed, %v", cmd.Args, err)
 	}
 }
