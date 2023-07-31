@@ -132,6 +132,7 @@ name: proxy-example-1
 pools:
 - servers:
   - url: http://127.0.0.1:9095
+maxRedirection: 10
 ```
 
 Pool without `filter` is considered the main pool, other pools with `filter`
@@ -159,6 +160,7 @@ pools:
     policy: random
 - servers:
   - url: http://127.0.0.1:9097
+maxRedirection: 10
 ```
 
 Servers of a pool can also be dynamically configured via service discovery,
@@ -172,6 +174,7 @@ pools:
 - serverTags: ["v2"]
   serviceName: service-001
   serviceRegistry: eureka-service-registry-example
+maxRedirection: 10
 ```
 
 When there are multiple servers in a pool, the Proxy can do a load balance
@@ -186,6 +189,7 @@ pools:
   serviceRegistry: eureka-service-registry-example
   loadBalance:
     policy: roundRobin
+maxRedirection: 10
 ```
 
 ### Configuration
@@ -198,6 +202,7 @@ pools:
 | maxIdleConns | int | Controls the maximum number of idle (keep-alive) connections across all hosts. Default is 10240 | No |
 | maxIdleConnsPerHost | int | Controls the maximum idle (keep-alive) connections to keep per-host. Default is 1024 | No |
 | serverMaxBodySize | int64 | Max size of response body. the default value is 4MB. Responses with a body larger than this option are discarded.  When this option is set to `-1`, Easegress takes the response body as a stream and the body can be any size, but some features are not possible in this case, please refer [Stream](./stream.md) for more information. | No |
+| maxRedirection | int | The maxRedirection parameter determines the maximum number of redirections allowed by the HTTP client for each request. A default value of zero means that redirection is not allowed, while a number greater than zero specifies the maximum allowed number of redirections. | No |
 
 ### Results
 
@@ -1596,6 +1601,7 @@ The relationship between `methods` and `url` is `AND`.
 | certBase64     | string | Base64 encoded certificate     | Yes      |
 | keyBase64      | string | Base64 encoded key             | Yes      |
 | rootCertBase64 | string | Base64 encoded root certificate | Yes      |
+| insecureSkipVerify| bool | insecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If insecureSkipVerify is true, crypto/tls accepts any certificate presented by the server and any host name in that certificate. In this mode, TLS is susceptible to machine-in-the-middle attacks unless custom verification is used. This should be used only for testing or in combination with VerifyConnection or VerifyPeerCertificate. | No |
 
 ### websocketproxy.WebSocketServerPoolSpec
 
