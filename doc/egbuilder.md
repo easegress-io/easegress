@@ -137,3 +137,6 @@ compile:
 ```
 
 So, `egbuilder run` can be seen as executing `egbuilder build` first, followed by running `./easegress-server`.
+
+## Environment variables
+- `EGBUILDER_GO` sets the go command to use when more then one version of go is installed.
