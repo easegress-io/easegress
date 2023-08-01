@@ -24,43 +24,43 @@ import (
 	j "github.com/dave/jennifer/jen"
 )
 
-// ResourceInfo is the information of a resource.
+// ControllerInfo is the information of a controller.
 // Name: "TestFilter", used for struct name
 // LowerName: "testfilter", used for file name, pkg name
 // VarKind: "TestFilterKind", used for registry
 // ResultFail: "resultTestFilterFail", used for result
 // Most of these fields are used as identifier.
-type ResourceInfo struct {
+type ControllerInfo struct {
 	ReceiverName string
 	Name         string
 	LowerName    string
 }
 
 // NewInfo creates a new Info.
-func NewResourceInfo(name string) *ResourceInfo {
-	return &ResourceInfo{
+func NewControllerInfo(name string) *ControllerInfo {
+	return &ControllerInfo{
 		ReceiverName: strings.ToLower(name[:1]),
 		Name:         name,
 		LowerName:    strings.ToLower(name),
 	}
 }
 
-func CreateResource(name string) *j.File {
-	info := NewResourceInfo(name)
+func CreateController(name string) *j.File {
+	info := NewControllerInfo(name)
 	file := j.NewFile(info.LowerName)
 	file.Comment("import " + egLogger).Line()
 	file.ImportName(egSupervisor, "supervisor")
 	file.ImportName(egAPI, "api")
 	file.ImportAlias(egContext, "egCtx")
 
-	defineResourceVars(file, info)
-	defineResourceStructs(file, info)
-	defineResourceMethods(file, info)
+	defineControllerVars(file, info)
+	defineControllerStructs(file, info)
+	defineControllerMethods(file, info)
 	return file
 }
 
-func defineResourceVars(file *j.File, info *ResourceInfo) {
-	file.Comment("API defines api resources used by egctl")
+func defineControllerVars(file *j.File, info *ControllerInfo) {
+	file.Comment("API defines api controllers used by egctl")
 	file.Var().Id("API").Op("=").Op("&").Qual(egAPI, "APIResource").Values(j.Dict{
 		j.Id("Kind"):    j.Lit(info.Name),
 		j.Id("Name"):    j.Lit(info.LowerName),
@@ -68,8 +68,8 @@ func defineResourceVars(file *j.File, info *ResourceInfo) {
 	})
 }
 
-func defineResourceStructs(file *j.File, info *ResourceInfo) {
-	file.Comment(fmt.Sprintf("%s is a custom resource", info.Name))
+func defineControllerStructs(file *j.File, info *ControllerInfo) {
+	file.Comment(fmt.Sprintf("%s is a custom controller", info.Name))
 	file.Type().Id(info.Name).Struct(
 		j.Id("spec").Op("*").Id("Spec"),
 		j.Line(),
@@ -84,7 +84,7 @@ func defineResourceStructs(file *j.File, info *ResourceInfo) {
 	file.Var().Op("_").Qual(egSupervisor, "TrafficObject").Op("=").Parens(j.Op("*").Id(info.Name)).Parens(j.Nil())
 }
 
-func defineResourceMethods(file *j.File, info *ResourceInfo) {
+func defineControllerMethods(file *j.File, info *ControllerInfo) {
 	// define spec Validate method
 	file.Comment(fmt.Sprintf("Validate validates %s", SpecName))
 	file.Add((&Func{
@@ -107,8 +107,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 		}
 	}
 
-	// define resource Category method
-	file.Comment("Category returns the category of resource.")
+	// define controller Category method
+	file.Comment("Category returns the category of controller.")
 	categoryFunc := receiver()
 	categoryFunc.Name = "Category"
 	categoryFunc.Returns = []j.Code{j.Qual(egSupervisor, "ObjectCategory")}
@@ -117,8 +117,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(categoryFunc.Def())
 
-	// define resource Kind method
-	file.Comment("Kind returns the kind name of resource.")
+	// define controller Kind method
+	file.Comment("Kind returns the kind name of controller.")
 	kindFunc := receiver()
 	kindFunc.Name = "Kind"
 	kindFunc.Returns = []j.Code{j.String()}
@@ -127,8 +127,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(kindFunc.Def())
 
-	// define resource DefaultSpec method
-	file.Comment("DefaultSpec returns the default spec of resource. It is used to unmarshal yaml file.")
+	// define controller DefaultSpec method
+	file.Comment("DefaultSpec returns the default spec of controller. It is used to unmarshal yaml file.")
 	defaultSpecFunc := receiver()
 	defaultSpecFunc.Name = "DefaultSpec"
 	defaultSpecFunc.Returns = []j.Code{j.Interface()}
@@ -137,8 +137,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(defaultSpecFunc.Def())
 
-	// define resource Status method
-	file.Comment("Status returns the status of resource.")
+	// define controller Status method
+	file.Comment("Status returns the status of controller.")
 	statusFunc := receiver()
 	statusFunc.Name = "Status"
 	statusFunc.Returns = []j.Code{j.Op("*").Qual(egSupervisor, "Status")}
@@ -148,8 +148,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(statusFunc.Def())
 
-	// define resource Close method
-	file.Comment("Close closes the resource.")
+	// define controller Close method
+	file.Comment("Close closes the controller.")
 	closeFunc := receiver()
 	closeFunc.Name = "Close"
 	closeFunc.Block = []j.Code{
@@ -157,8 +157,8 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(closeFunc.Def())
 
-	// define resource Init method.
-	file.Comment("Init initializes the resource.")
+	// define controller Init method.
+	file.Comment("Init initializes the controller.")
 	file.Comment("muxMapper is used to get Pipeline by name, and can be used to handle request.")
 	file.Comment("If you don't need to handle request, you can ignore it.")
 	initFunc := receiver()
@@ -173,9 +173,9 @@ func defineResourceMethods(file *j.File, info *ResourceInfo) {
 	}
 	file.Add(initFunc.Def())
 
-	// define resource Inherit method.
-	file.Comment("Inherit inherits the resource from previous generation.")
-	file.Comment("It is used when update the yaml file of resource.")
+	// define controller Inherit method.
+	file.Comment("Inherit inherits the controller from previous generation.")
+	file.Comment("It is used when update the yaml file of controller.")
 	inheritFunc := receiver()
 	inheritFunc.Name = "Inherit"
 	inheritFunc.Params = []j.Code{

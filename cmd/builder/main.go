@@ -57,6 +57,7 @@ func main() {
 
 	rootCmd.AddGroup(basicGroup)
 
+	rootCmd.SilenceErrors = true
 	err := rootCmd.Execute()
 	if err != nil {
 		utils.ExitWithError(err)

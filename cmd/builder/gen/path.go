@@ -32,9 +32,9 @@ const (
 	egCmd        = "github.com/megaease/easegress/v2/cmd"
 	egRegistry   = "github.com/megaease/easegress/v2/pkg/registry"
 
-	moduleFilter   = "filters"
-	moduleResource = "resources"
-	moduleRegistry = "registry"
+	moduleFilter     = "filters"
+	moduleController = "controllers"
+	moduleRegistry   = "registry"
 )
 
 func getModulePath(dir string, moduleType string, moduleName string, importPath bool) string {

@@ -33,14 +33,14 @@ var addConfig = &gen.Config{}
 func AddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add",
-		Example: utils.CreateExample("add new custom plugins to the module", "egbuilder add --filters=MyFilter1,MyFilter2 --resources=MyResource1,MyResource2"),
-		Short:   "Add filter or resources to the project",
+		Example: utils.CreateExample("add new custom plugins to the module", "egbuilder add --filters=MyFilter1,MyFilter2 --controllers=MyController1,MyController2"),
+		Short:   "Add filter or controllers to the project",
 		Args:    addArgs,
 		Run:     addRun,
 	}
 
 	cmd.Flags().StringSliceVar(&addConfig.Filters, "filters", []string{}, "filters to be generated")
-	cmd.Flags().StringSliceVar(&addConfig.Resources, "resources", []string{}, "resources to be generated")
+	cmd.Flags().StringSliceVar(&addConfig.Controllers, "controllers", []string{}, "controllers to be generated")
 	return cmd
 }
 
@@ -48,8 +48,8 @@ func addArgs(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return errors.New("add takes no arguments")
 	}
-	if (len(addConfig.Filters) == 0) && (len(addConfig.Resources) == 0) {
-		return errors.New("filters or resources is required")
+	if (len(addConfig.Filters) == 0) && (len(addConfig.Controllers) == 0) {
+		return errors.New("filters or controllers is required")
 	}
 
 	for _, filter := range addConfig.Filters {
@@ -57,9 +57,9 @@ func addArgs(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("filter %s is not a valid golang variable name with first letter upper case", filter)
 		}
 	}
-	for _, resource := range addConfig.Resources {
-		if !(utils.CapitalVariableName(resource)) {
-			return fmt.Errorf("resource %s is not a valid golang variable name with first letter upper case", resource)
+	for _, controller := range addConfig.Controllers {
+		if !(utils.CapitalVariableName(controller)) {
+			return fmt.Errorf("controller %s is not a valid golang variable name with first letter upper case", controller)
 		}
 	}
 	return nil
@@ -81,18 +81,18 @@ func addRun(cmd *cobra.Command, args []string) {
 		utils.ExitWithError(err)
 	}
 
-	// generate filters and resources dir and files.
+	// generate filters and controllers dir and files.
 	err = addConfig.GenFilters(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
 	}
-	err = addConfig.GenResources(cwd)
+	err = addConfig.GenControllers(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
 	}
 
 	config.Filters = append(config.Filters, addConfig.Filters...)
-	config.Resources = append(config.Resources, addConfig.Resources...)
+	config.Controllers = append(config.Controllers, addConfig.Controllers...)
 
 	err = config.GenRegistry(cwd)
 	if err != nil {

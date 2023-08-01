@@ -36,13 +36,13 @@ func InitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "init",
 		Short:   "Init a new Easegress custom module project",
-		Example: utils.CreateExample("Init a new Easegress custom module project", "egbuilder init --repo github.com/my/repo --filters=MyFilter1,MyFilter2 --resources=MyResource1,MyResource2"),
+		Example: utils.CreateExample("Init a new Easegress custom module project", "egbuilder init --repo github.com/my/repo --filters=MyFilter1,MyFilter2 --controllers=MyController1,MyController2"),
 		Args:    initArgs,
 		Run:     initRun,
 	}
 
 	cmd.Flags().StringSliceVar(&initConfig.Filters, "filters", []string{}, "filters to be generated")
-	cmd.Flags().StringSliceVar(&initConfig.Resources, "resources", []string{}, "resources to be generated")
+	cmd.Flags().StringSliceVar(&initConfig.Controllers, "controllers", []string{}, "controllers to be generated")
 	cmd.Flags().StringVar(&initConfig.Repo, "repo", "", "pkg name of the repo")
 	return cmd
 }
@@ -54,8 +54,8 @@ func initArgs(cmd *cobra.Command, args []string) error {
 	if len(initConfig.Repo) == 0 {
 		return errors.New("repo is required")
 	}
-	if (len(initConfig.Filters) == 0) && (len(initConfig.Resources) == 0) {
-		return errors.New("filters or resources is required")
+	if (len(initConfig.Filters) == 0) && (len(initConfig.Controllers) == 0) {
+		return errors.New("filters or controllers is required")
 	}
 
 	err := module.CheckPath(initConfig.Repo)
@@ -67,9 +67,9 @@ func initArgs(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("filter %s is not a valid golang variable name with first letter upper case", filter)
 		}
 	}
-	for _, resource := range initConfig.Resources {
-		if !(utils.CapitalVariableName(resource)) {
-			return fmt.Errorf("resource %s is not a valid golang variable name with first letter upper case", resource)
+	for _, controller := range initConfig.Controllers {
+		if !(utils.CapitalVariableName(controller)) {
+			return fmt.Errorf("controller %s is not a valid golang variable name with first letter upper case", controller)
 		}
 	}
 	return nil
@@ -106,11 +106,11 @@ func initGenerateFiles(_ *cobra.Command, cwd string) {
 	}
 	fmt.Println("generate filters success")
 
-	err = initConfig.GenResources(cwd)
+	err = initConfig.GenControllers(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
 	}
-	fmt.Println("generate resources success")
+	fmt.Println("generate controllers success")
 
 	err = initConfig.GenRegistry(cwd)
 	if err != nil {

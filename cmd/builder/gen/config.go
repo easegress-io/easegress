@@ -36,9 +36,9 @@ const (
 
 // Config is the configuration for generate files.
 type Config struct {
-	Repo      string   `json:"repo"`
-	Resources []string `json:"resources"`
-	Filters   []string `json:"filters"`
+	Repo        string   `json:"repo"`
+	Controllers []string `json:"controllers"`
+	Filters     []string `json:"filters"`
 }
 
 // Save saves the config to file.
@@ -65,7 +65,7 @@ func (c *Config) Load(dir string) error {
 	return nil
 }
 
-// CheckDuplicate checks if the config has duplicate resources or filters.
+// CheckDuplicate checks if the config has duplicate controllers or filters.
 func (c *Config) CheckDuplicate(conf *Config) error {
 	arrToSet := func(arr []string) map[string]struct{} {
 		set := make(map[string]struct{})
@@ -82,10 +82,10 @@ func (c *Config) CheckDuplicate(conf *Config) error {
 		}
 	}
 
-	resources := arrToSet(c.Resources)
-	for _, r := range conf.Resources {
-		if _, ok := resources[r]; ok {
-			return fmt.Errorf("resource %s already exists", r)
+	controllers := arrToSet(c.Controllers)
+	for _, r := range conf.Controllers {
+		if _, ok := controllers[r]; ok {
+			return fmt.Errorf("controller %s already exists", r)
 		}
 	}
 	return nil
@@ -106,16 +106,16 @@ func (c *Config) GenFilters(dir string) error {
 	return nil
 }
 
-func (c *Config) GenResources(dir string) error {
-	for _, r := range c.Resources {
-		err := os.MkdirAll(getModulePath(dir, moduleResource, r, false), os.ModePerm)
+func (c *Config) GenControllers(dir string) error {
+	for _, r := range c.Controllers {
+		err := os.MkdirAll(getModulePath(dir, moduleController, r, false), os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("make directory for resource %s failed, %s", r, err.Error())
+			return fmt.Errorf("make directory for controller %s failed, %s", r, err.Error())
 		}
-		resource := CreateResource(r)
-		err = resource.Save(getFileName(dir, moduleResource, r, r))
+		controller := CreateController(r)
+		err = controller.Save(getFileName(dir, moduleController, r, r))
 		if err != nil {
-			return fmt.Errorf("save resource %s failed, %s", r, err.Error())
+			return fmt.Errorf("save controller %s failed, %s", r, err.Error())
 		}
 	}
 	return nil

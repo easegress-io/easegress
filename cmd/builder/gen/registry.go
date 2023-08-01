@@ -34,8 +34,8 @@ func CreateRegistry(config *Config) *j.File {
 	for _, f := range config.Filters {
 		file.ImportName(getModulePath(config.Repo, moduleFilter, f, true), strings.ToLower(f))
 	}
-	for _, r := range config.Resources {
-		file.ImportName(getModulePath(config.Repo, moduleResource, r, true), strings.ToLower(r))
+	for _, r := range config.Controllers {
+		file.ImportName(getModulePath(config.Repo, moduleController, r, true), strings.ToLower(r))
 	}
 
 	defineRegisterInit(file, config)
@@ -55,9 +55,9 @@ func defineRegisterInit(file *j.File, config *Config) {
 		appendCode(j.Qual(egFilters, "Register").Call(j.Qual(p, KindName)))
 		appendCode(j.Line())
 	}
-	for _, r := range config.Resources {
-		p := getModulePath(config.Repo, moduleResource, r, true)
-		appendCode(j.Comment("register resource " + r))
+	for _, r := range config.Controllers {
+		p := getModulePath(config.Repo, moduleController, r, true)
+		appendCode(j.Comment("register controller " + r))
 		appendCode(j.Qual(egSupervisor, "Register").Call(j.Op("&").Qual(p, r).Values()))
 		appendCode(j.Qual(egAPI, "RegisterObject").Call(j.Qual(p, apiName)).Line())
 		appendCode(j.Line())
