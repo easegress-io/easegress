@@ -95,6 +95,13 @@ func (config *Config) Init() error {
 		}
 		config.Output = output
 	}
+	if strings.HasPrefix(config.Output, ".") {
+		output, err := filepath.Abs(config.Output)
+		if err != nil {
+			return fmt.Errorf("get absolute path of output file %s failed: %v", config.Output, err)
+		}
+		config.Output = output
+	}
 
 	// check compile
 	if config.Compile.OS == "" {

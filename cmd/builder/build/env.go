@@ -74,6 +74,9 @@ func newEnvironment(ctx context.Context, config *Config) (*environment, error) {
 	// specify module replacements before pinning versions
 	replaced := make(map[string]string)
 	for _, plugin := range config.Plugins {
+		if plugin.Replacement == "" {
+			continue
+		}
 		cmd := env.newGoCmdWithModFlags(ctx, "mod", "edit", "-replace", fmt.Sprintf("%s=%s", plugin.Module, plugin.Replacement))
 		err := cmd.Run()
 		if err != nil {
