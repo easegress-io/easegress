@@ -1,5 +1,11 @@
-# egbuilder
+# egbuilder <!-- omit in toc -->
 `egbuilder` is a command-line tool that enables you to create, build, and run Easegress with custom plugins.
+
+- [Init a custom plugin project](#init-a-custom-plugin-project)
+- [Add more plugins](#add-more-plugins)
+- [Build Easegress with custom plugins](#build-easegress-with-custom-plugins)
+- [Run Easegress in current directory](#run-easegress-in-current-directory)
+- [Environment variables](#environment-variables)
 
 ## Init a custom plugin project
 The `egbuilder init` command helps initialize a custom plugin project, creating the necessary directories and files for users to get started.
