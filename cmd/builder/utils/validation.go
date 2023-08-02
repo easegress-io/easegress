@@ -38,7 +38,7 @@ func ValidVariableName(name string) bool {
 	return true
 }
 
-func CapitalVariableName(name string) bool {
+func ExportableVariableName(name string) bool {
 	if len(name) == 0 {
 		return false
 	}

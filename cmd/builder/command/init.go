@@ -63,12 +63,12 @@ func initArgs(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("repo %s is not a valid path, %s", initConfig.Repo, err.Error())
 	}
 	for _, filter := range initConfig.Filters {
-		if !(utils.CapitalVariableName(filter)) {
+		if !(utils.ExportableVariableName(filter)) {
 			return fmt.Errorf("filter %s is not a valid golang variable name with first letter upper case", filter)
 		}
 	}
 	for _, controller := range initConfig.Controllers {
-		if !(utils.CapitalVariableName(controller)) {
+		if !(utils.ExportableVariableName(controller)) {
 			return fmt.Errorf("controller %s is not a valid golang variable name with first letter upper case", controller)
 		}
 	}

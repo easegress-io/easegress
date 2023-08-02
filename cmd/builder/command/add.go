@@ -53,12 +53,12 @@ func addArgs(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, filter := range addConfig.Filters {
-		if !(utils.CapitalVariableName(filter)) {
+		if !(utils.ExportableVariableName(filter)) {
 			return fmt.Errorf("filter %s is not a valid golang variable name with first letter upper case", filter)
 		}
 	}
 	for _, controller := range addConfig.Controllers {
-		if !(utils.CapitalVariableName(controller)) {
+		if !(utils.ExportableVariableName(controller)) {
 			return fmt.Errorf("controller %s is not a valid golang variable name with first letter upper case", controller)
 		}
 	}

@@ -93,11 +93,10 @@ output: "./easegress-server"
 # raceDetector: "-race" flag for go build
 raceDetector: false
 
-# skipBuild: if true, not build, just generate temp directory and files. 
-# still clean up if skipCleanUp is false. 
+# skipBuild: if true, causes egbuilder to not compile the program, it is used in conjunction with build tools such as GoReleaser. Implies skipCleanUp to be true.
 skipBuild: false
 
-# skipCleanup: if true, not clean up the temp directory.
+# skipCleanup: if true, not clean up the temp directory after exiting.
 skipCleanup: false
 
 # buildFlags: flags for "go build" command
@@ -117,9 +116,9 @@ compile:
 ## Run Easegress in current directory
 The `egbuilder run` command is used to run Easegress with custom plugins in current working directory.
 
-```
-egbuilder run              // run with default
-egbuilder run -f run.yaml  // run with config
+```bash
+egbuilder run              # run with default
+egbuilder run -f run.yaml  # run with config
 ```
 where `run.yaml` contains:
 
