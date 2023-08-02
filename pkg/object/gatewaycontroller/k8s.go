@@ -53,15 +53,15 @@ func isResourceChanged(oldObj, newObj interface{}) bool {
 		return true
 	}
 
-	if oldObj.(metav1.Object).GetResourceVersion() == newObj.(metav1.Object).GetResourceVersion() {
-		return false
+	if oldObj.(metav1.Object).GetResourceVersion() != newObj.(metav1.Object).GetResourceVersion() {
+		return true
 	}
 
 	if ep, ok := oldObj.(*apicorev1.Endpoints); ok {
 		return isEndpointsChanged(ep, newObj.(*apicorev1.Endpoints))
 	}
 
-	return true
+	return false
 }
 
 func isEndpointsChanged(a, b *apicorev1.Endpoints) bool {
