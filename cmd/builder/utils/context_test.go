@@ -20,7 +20,6 @@ package utils
 import (
 	"context"
 	"os"
-	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -57,15 +56,9 @@ func TestWithInterrupt(t *testing.T) {
 
 func TestNewExecCmd(t *testing.T) {
 	// create context and cancel function
-	cancelFlag := int32(0)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cmd := NewExecCmd(ctx, "sleep", "10")
-	cmd.Cancel = func() error {
-		// when context is canceled, kill the process and set cancelFlag to 1
-		atomic.StoreInt32(&cancelFlag, 1)
-		return cmd.Process.Kill()
-	}
 
 	assert.Equal(t, []string{"sleep", "10"}, cmd.Args)
 	assert.Equal(t, os.Stdout, cmd.Stdout)
@@ -77,14 +70,6 @@ func TestNewExecCmd(t *testing.T) {
 
 	// cancel the context and check if the cancel function is called
 	cancel()
-	for i := 0; i < 20; i++ {
-		if atomic.LoadInt32(&cancelFlag) == 1 {
-			break
-		}
-		time.Sleep(200 * time.Millisecond)
-		if i == 9 {
-			assert.Fail(t, "cancel function is not called")
-		}
-	}
-
+	err = cmd.Wait()
+	assert.NotNil(t, err)
 }
