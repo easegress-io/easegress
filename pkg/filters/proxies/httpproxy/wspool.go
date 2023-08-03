@@ -97,7 +97,6 @@ func buildServerURL(svr *Server, req *httpprot.Request) (string, error) {
 	switch u1.Scheme {
 	case "ws", "wss":
 		u.Scheme = u1.Scheme
-		break
 	case "http":
 		u.Scheme = "ws"
 	case "https":

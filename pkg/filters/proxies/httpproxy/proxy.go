@@ -112,6 +112,7 @@ type (
 		MTLS                *MTLS             `json:"mtls,omitempty" jsonschema:"omitempty"`
 		MaxIdleConns        int               `json:"maxIdleConns" jsonschema:"omitempty"`
 		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		MaxRedirection      int               `json:"maxRedirection" jsonschema:"omitempty"`
 		ServerMaxBodySize   int64             `json:"serverMaxBodySize" jsonschema:"omitempty"`
 	}
 
@@ -124,9 +125,17 @@ type (
 
 	// MTLS is the configuration for client side mTLS.
 	MTLS struct {
-		CertBase64     string `json:"certBase64" jsonschema:"required,format=base64"`
-		KeyBase64      string `json:"keyBase64" jsonschema:"required,format=base64"`
-		RootCertBase64 string `json:"rootCertBase64" jsonschema:"required,format=base64"`
+		CertBase64         string `json:"certBase64" jsonschema:"required,format=base64"`
+		KeyBase64          string `json:"keyBase64" jsonschema:"required,format=base64"`
+		RootCertBase64     string `json:"rootCertBase64" jsonschema:"required,format=base64"`
+		InsecureSkipVerify bool   `json:"insecureSkipVerify" jsonschema:"omitempty"`
+	}
+
+	// HTTPClientSpec is the spec of HTTPClient.
+	HTTPClientSpec struct {
+		MaxIdleConns        int
+		MaxIdleConnsPerHost int
+		MaxRedirection      *int
 	}
 
 	// Server is the backend server.
@@ -171,7 +180,7 @@ func (s *Spec) Validate() error {
 	return nil
 }
 
-func HTTPClient(tlsCfg *tls.Config, maxIdleConns, maxIdleConnsPerHost int, timeout time.Duration) *http.Client {
+func HTTPClient(tlsCfg *tls.Config, spec *HTTPClientSpec, timeout time.Duration) *http.Client {
 
 	dialFunc := func(ctx stdctx.Context, network, addr string) (net.Conn, error) {
 		return (&net.Dialer{
@@ -180,7 +189,7 @@ func HTTPClient(tlsCfg *tls.Config, maxIdleConns, maxIdleConnsPerHost int, timeo
 		}).DialContext(ctx, network, addr)
 	}
 
-	return &http.Client{
+	client := &http.Client{
 		// NOTE: Timeout could be no limit, real client or server could cancel it.
 		Timeout: timeout,
 		Transport: &http.Transport{
@@ -190,16 +199,25 @@ func HTTPClient(tlsCfg *tls.Config, maxIdleConns, maxIdleConnsPerHost int, timeo
 			DisableCompression: false,
 			// NOTE: The large number of Idle Connections can
 			// reduce overhead of building connections.
-			MaxIdleConns:          maxIdleConns,
-			MaxIdleConnsPerHost:   maxIdleConnsPerHost,
+			MaxIdleConns:          spec.MaxIdleConns,
+			MaxIdleConnsPerHost:   spec.MaxIdleConnsPerHost,
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
 		},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
 	}
+	if spec.MaxRedirection != nil {
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if *spec.MaxRedirection <= 0 {
+				return http.ErrUseLastResponse
+			}
+			if len(via) >= *spec.MaxRedirection {
+				return fmt.Errorf("stopped after %d redirects", *spec.MaxRedirection)
+			}
+			return nil
+		}
+	}
+	return client
 }
 
 // Name returns the name of the Proxy filter instance.
@@ -247,8 +265,9 @@ func (p *Proxy) tlsConfig() (*tls.Config, error) {
 	caCertPool.AppendCertsFromPEM(rootCertPem)
 
 	return &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      caCertPool,
+		Certificates:       []tls.Certificate{cert},
+		RootCAs:            caCertPool,
+		InsecureSkipVerify: mtls.InsecureSkipVerify,
 	}, nil
 }
 
@@ -281,7 +300,12 @@ func (p *Proxy) reload() {
 	}
 
 	tlsCfg, _ := p.tlsConfig()
-	p.client = HTTPClient(tlsCfg, p.spec.MaxIdleConns, p.spec.MaxIdleConnsPerHost, 0)
+	clientSpec := &HTTPClientSpec{
+		MaxIdleConns:        p.spec.MaxIdleConns,
+		MaxIdleConnsPerHost: p.spec.MaxIdleConnsPerHost,
+		MaxRedirection:      &p.spec.MaxRedirection,
+	}
+	p.client = HTTPClient(tlsCfg, clientSpec, 0)
 }
 
 // Status returns Proxy status.

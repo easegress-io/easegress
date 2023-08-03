@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.5.3](https://github.com/megaease/easegress/tree/v2.5.3) (2023-08-02)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.5.0...v2.5.3)
+
+**Implemented enhancements:**
+* Add documentation for the GRPCServer.
+* Update the redirect policy for the Proxy filter.
+* Correct typos and optimize the code.
+
 ## [v2.5.0](https://github.com/megaease/easegress/tree/v2.5.0) (2023-07-07)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.4.3...v2.5.0)

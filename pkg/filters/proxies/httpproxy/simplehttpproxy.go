@@ -146,7 +146,11 @@ func (shp *SimpleHTTPProxy) reload() {
 		shp.compression = newCompression(shp.spec.Compression)
 	}
 	// create http.Client
-	shp.client = HTTPClient(nil, shp.spec.MaxIdleConns, shp.spec.MaxIdleConnsPerHost, shp.timeout)
+	clientSpec := &HTTPClientSpec{
+		MaxIdleConns:        shp.spec.MaxIdleConns,
+		MaxIdleConnsPerHost: shp.spec.MaxIdleConnsPerHost,
+	}
+	shp.client = HTTPClient(nil, clientSpec, shp.timeout)
 }
 
 // Status returns SimpleHTTPProxy status.
