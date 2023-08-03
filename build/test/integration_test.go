@@ -323,22 +323,83 @@ func TestEgctlCmd(t *testing.T) {
 		assert.Contains(output, "create,apply,delete,get,describe")
 	}
 
-	// config
+	// completion
 	{
-		homeDir := os.Getenv("HOME")
-		if homeDir == "" {
-			fmt.Println("HOME is empty, skip config test for this os")
-			return
-		}
-		defer os.Setenv("HOME", homeDir)
+		cmd := egctlCmd("completion", "bash")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "bash completion for egctl"))
 
+		cmd = egctlCmd("completion", "zsh")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "zsh completion for egctl"))
+	}
+
+	// profile
+	{
 		ts := time.Now().Format("2006-01-02-1504")
 		tempDir, err := os.MkdirTemp("", fmt.Sprintf("egctl-test-%s", ts))
 		assert.NoError(err)
 		defer os.RemoveAll(tempDir)
-		os.Setenv("HOME", tempDir)
 
-		egctlrc := `
+		cpuPath := filepath.Join(tempDir, "cpu-profile")
+		memoryPath := filepath.Join(tempDir, "memory-profile")
+
+		cmd := egctlCmd("profile", "info")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, `cpuPath: ""`))
+		assert.True(strings.Contains(output, `memoryPath: ""`))
+
+		cmd = egctlCmd("profile", "start", "cpu", cpuPath)
+		_, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+
+		cmd = egctlCmd("profile", "start", "memory", memoryPath)
+		_, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+
+		time.Sleep(1 * time.Second)
+
+		cmd = egctlCmd("profile", "stop")
+		_, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+
+		cmd = egctlCmd("profile", "info")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.Contains(output, fmt.Sprintf("cpuPath: %s", cpuPath))
+		assert.Contains(output, fmt.Sprintf("memoryPath: %s", memoryPath))
+	}
+}
+
+func TestEgctlConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	// reset home dir when finished
+	homeDir := os.Getenv("HOME")
+	if homeDir == "" {
+		fmt.Println("HOME is empty, skip config test for this os")
+		return
+	}
+	defer os.Setenv("HOME", homeDir)
+
+	// set new home dir
+	ts := time.Now().Format("2006-01-02-1504")
+	tempDir, err := os.MkdirTemp("", fmt.Sprintf("egctl-test-%s", ts))
+	assert.NoError(err)
+	defer os.RemoveAll(tempDir)
+	os.Setenv("HOME", tempDir)
+
+	egctlrc := `
 clusters:
     - cluster:
         server: localhost:2381
@@ -362,38 +423,37 @@ users:
         password: admin
         username: admin
 `
-		err = os.WriteFile(filepath.Join(tempDir, ".egctlrc"), []byte(egctlrc), os.ModePerm)
-		assert.NoError(err)
+	err = os.WriteFile(filepath.Join(tempDir, ".egctlrc"), []byte(egctlrc), os.ModePerm)
+	assert.NoError(err)
 
-		cmd := egctlCmd("config", "view")
-		output, stderr, err := runCmd(cmd)
-		assert.NoError(err)
-		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "kind: Config"))
-		assert.True(strings.Contains(output, "server: localhost:2381"))
+	cmd := egctlCmd("config", "view")
+	output, stderr, err := runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+	assert.True(strings.Contains(output, "kind: Config"))
+	assert.True(strings.Contains(output, "server: localhost:2381"))
 
-		cmd = egctlCmd("config", "current-context")
-		output, stderr, err = runCmd(cmd)
-		assert.NoError(err)
-		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "name: default"))
-		assert.True(strings.Contains(output, "user: default"))
-		assert.True(strings.Contains(output, "cluster: default"))
+	cmd = egctlCmd("config", "current-context")
+	output, stderr, err = runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+	assert.True(strings.Contains(output, "name: default"))
+	assert.True(strings.Contains(output, "user: default"))
+	assert.True(strings.Contains(output, "cluster: default"))
 
-		cmd = egctlCmd("config", "get-contexts")
-		output, stderr, err = runCmd(cmd)
-		assert.NoError(err)
-		assert.Empty(stderr)
-		assert.True(matchTable([]string{"CURRENT", "NAME", "CLUSTER", "USER"}, output))
-		assert.True(matchTable([]string{"default", "default", "default"}, output))
-		assert.True(matchTable([]string{"admin", "default", "admin"}, output))
+	cmd = egctlCmd("config", "get-contexts")
+	output, stderr, err = runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+	assert.True(matchTable([]string{"CURRENT", "NAME", "CLUSTER", "USER"}, output))
+	assert.True(matchTable([]string{"default", "default", "default"}, output))
+	assert.True(matchTable([]string{"admin", "default", "admin"}, output))
 
-		cmd = egctlCmd("config", "use-context", "admin")
-		output, stderr, err = runCmd(cmd)
-		assert.NoError(err)
-		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "Switched to context admin"))
-	}
+	cmd = egctlCmd("config", "use-context", "admin")
+	output, stderr, err = runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+	assert.True(strings.Contains(output, "Switched to context admin"))
 }
 
 func TestMatch(t *testing.T) {
@@ -402,4 +462,76 @@ func TestMatch(t *testing.T) {
 	assert.True(matchTable([]string{"a", "b", "c"}, "a\t\tb\t\t\t\tc"))
 	assert.False(matchTable([]string{"a", "b", "c", "d"}, "a\t\tb\t\t\t\tc"))
 	assert.False(matchTable([]string{"a", "d"}, "a\t\tb"))
+}
+
+func TestMember(t *testing.T) {
+	assert := assert.New(t)
+
+	output, err := getResource("member")
+	assert.NoError(err)
+	assert.True(matchTable([]string{"NAME", "ROLE", "AGE", "STATE", "API-ADDR", "HEARTBEAT"}, output))
+	assert.Contains(output, "primary")
+	assert.Contains(output, "Leader")
+
+	output, err = describeResource("mem")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "Name: primary-single"))
+	assert.True(strings.Contains(output, "ClusterRole: primary"))
+}
+
+func TestCustomData(t *testing.T) {
+	assert := assert.New(t)
+
+	cdkYaml := `
+name: custom-data-kind1
+kind: CustomDataKind
+idField: name
+`
+	cdYaml := `
+rebuild: true
+name: custom-data-kind1
+kind: CustomData
+list:
+- name: data1
+  field1: 12
+- name: data2
+  field1: foo
+`
+	err := createResource(cdkYaml)
+	assert.NoError(err)
+
+	err = applyResource(cdYaml)
+	assert.NoError(err)
+
+	output, err := getResource("cdk")
+	assert.NoError(err)
+	assert.True(matchTable([]string{"NAME", "ID-FIELD", "JSON-SCHEMA", "DATA-NUM"}, output))
+	assert.True(matchTable([]string{"custom-data-kind1", "name", "no", "2"}, output))
+
+	output, err = getResource("cd", "custom-data-kind1")
+	assert.NoError(err)
+	assert.Contains(output, "NAME")
+	assert.Contains(output, "data1")
+	assert.Contains(output, "data2")
+
+	output, err = describeResource("cdk")
+	assert.NoError(err)
+	assert.Contains(output, "Name: custom-data-kind1")
+	assert.Contains(output, "IdField: name")
+
+	output, err = describeResource("cd", "custom-data-kind1", "data1")
+	assert.NoError(err)
+	assert.Contains(output, "Name: data1")
+	assert.Contains(output, "Field1: 12")
+
+	err = deleteResource("cd", "custom-data-kind1", "data1")
+	assert.NoError(err)
+
+	output, err = describeResource("cd", "custom-data-kind1")
+	assert.NoError(err)
+	assert.NotContains(output, "Name: data1")
+	assert.NotContains(output, "Field1: 12")
+
+	err = deleteResource("cdk", "custom-data-kind1")
+	assert.NoError(err)
 }
