@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +37,7 @@ func TestPipeline(t *testing.T) {
 	assert := assert.New(t)
 
 	// fail to create Pipeline because of invalid yaml
+	// invalid url
 	yamlStr := `
 name: pipeline-fail
 kind: Pipeline
@@ -47,8 +50,8 @@ filters:
   - servers:
     - url: 127.0.0.1:8888
 `
-	ok, msg := createObject(t, yamlStr)
-	assert.False(ok, msg)
+	err := createResource(yamlStr)
+	assert.Error(err)
 
 	// success to create two Pipelines:
 	// pipeline-success1 and pipeline-success2
@@ -64,8 +67,8 @@ filters:
   - servers:
     - url: http://127.0.0.1:8888
 `
-	ok, msg = createObject(t, yamlStr)
-	assert.True(ok, msg)
+	err = createResource(yamlStr)
+	assert.NoError(err)
 
 	yamlStr = `
 name: pipeline-success2
@@ -79,15 +82,14 @@ filters:
   - servers:
     - url: http://127.0.0.1:8888
 `
-	ok, msg = createObject(t, yamlStr)
-	assert.True(ok, msg)
+	err = createResource(yamlStr)
+	assert.NoError(err)
 
 	// list Pipeline and find them by using name
-	ok, msg = listObject(t)
-	fmt.Printf("ok %v, msg %s\n", ok, msg)
-	assert.True(ok)
-	assert.True(strings.Contains(msg, `"name":"pipeline-success2"`))
-	assert.True(strings.Contains(msg, `"name":"pipeline-success1"`))
+	output, err := getResource("pipeline", "-o", "yaml")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "name: pipeline-success1"))
+	assert.True(strings.Contains(output, "name: pipeline-success2"))
 
 	// update Pipeline and use list to find it
 	yamlStr = `
@@ -102,23 +104,28 @@ filters:
   - servers:
     - url: http://update-pipeline-success2:8888
 `
-	ok, msg = updateObject(t, "pipeline-success2", yamlStr)
-	assert.True(ok, msg)
+	err = applyResource(yamlStr)
+	assert.NoError(err)
 
-	ok, msg = listObject(t)
-	assert.True(ok)
-	assert.True(strings.Contains(msg, "http://update-pipeline-success2:8888"))
+	// default get return a table now
+	output, err = getResource("pipeline", "pipeline-success2")
+	assert.NoError(err)
+	assert.False(strings.Contains(output, "http://update-pipeline-success2:8888"))
+	assert.True(strings.Contains(output, "pipeline-success2"))
+
+	output, err = describeResource("pipeline", "pipeline-success2")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "http://update-pipeline-success2:8888"))
+	assert.True(strings.Contains(output, "Name: pipeline-success2"))
 
 	// delete all Pipelines
-	ok, msg = deleteObject(t, "pipeline-success1")
-	assert.True(ok, msg)
-	ok, msg = deleteObject(t, "pipeline-success2")
-	assert.True(ok, msg)
+	err = deleteResource("pipeline", "pipeline-success1", "pipeline-success2")
+	assert.NoError(err)
 
-	ok, msg = listObject(t)
-	assert.True(ok)
-	assert.False(strings.Contains(msg, `"name":"pipeline-success1"`))
-	assert.False(strings.Contains(msg, `"name":"pipeline-success2"`))
+	output, err = getResource("pipeline")
+	assert.NoError(err)
+	assert.False(strings.Contains(output, "pipeline-success1"))
+	assert.False(strings.Contains(output, "pipeline-success2"))
 }
 
 func TestHTTPServer(t *testing.T) {
@@ -129,8 +136,8 @@ func TestHTTPServer(t *testing.T) {
 name: httpserver-fail
 kind: HTTPServer
 `
-	ok, msg := createObject(t, yamlStr)
-	assert.False(ok, msg)
+	err := createResource(yamlStr)
+	assert.Error(err)
 
 	// success to create HTTPServer:
 	// httpserver-success1
@@ -143,13 +150,13 @@ rules:
     - pathPrefix: /api
       backend: pipeline-api
 `
-	ok, msg = createObject(t, yamlStr)
-	assert.True(ok, msg)
+	err = createResource(yamlStr)
+	assert.NoError(err)
 
 	// list HTTPServer and find it by name
-	ok, msg = listObject(t)
-	assert.True(ok)
-	assert.True(strings.Contains(msg, `"name":"httpserver-success"`))
+	output, err := getResource("httpserver", "-o", "yaml")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "name: httpserver-success"))
 
 	// update HTTPServer and use list to find it
 	yamlStr = `
@@ -161,20 +168,20 @@ rules:
     - pathPrefix: /api
       backend: update-httpserver-success
 `
-	ok, msg = updateObject(t, "httpserver-success", yamlStr)
-	assert.True(ok, msg)
+	err = applyResource(yamlStr)
+	assert.NoError(err)
 
-	ok, msg = listObject(t)
-	assert.True(ok)
-	assert.True(strings.Contains(msg, `"backend":"update-httpserver-success"`))
+	output, err = describeResource("httpserver", "httpserver-success")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "backend: update-httpserver-success"))
 
 	// delete all HTTPServer
-	ok, msg = deleteObject(t, "httpserver-success")
-	assert.True(ok, msg)
+	err = deleteResource("httpserver", "--all")
+	assert.NoError(err)
 
-	ok, msg = listObject(t)
-	assert.True(ok)
-	assert.False(strings.Contains(msg, `"name":"httpserver-success"`))
+	output, err = getResource("httpserver")
+	assert.NoError(err)
+	assert.False(strings.Contains(output, "httpserver-success"))
 }
 
 func TestHTTPServerAndPipeline(t *testing.T) {
@@ -194,9 +201,12 @@ rules:
   - paths:
     - backend: pipeline-test
 `
-	ok, msg := createObject(t, yamlStr)
-	assert.True(ok, msg)
-	defer deleteObject(t, "httpserver-test")
+	err := createResource(yamlStr)
+	assert.NoError(err)
+	defer func() {
+		err := deleteResource("httpserver", "httpserver-test")
+		assert.NoError(err)
+	}()
 
 	// create pipeline
 	yamlStr = `
@@ -211,9 +221,12 @@ filters:
   - servers:
     - url: http://127.0.0.1:8888
 `
-	ok, msg = createObject(t, yamlStr)
-	assert.True(ok, msg)
-	defer deleteObject(t, "pipeline-test")
+	err = createResource(yamlStr)
+	assert.NoError(err)
+	defer func() {
+		err := deleteResource("pipeline", "pipeline-test")
+		assert.NoError(err)
+	}()
 
 	// create backend server with port 8888
 	mux := http.NewServeMux()
@@ -258,11 +271,13 @@ kind: MQTTProxy
 name: mqttproxy-test
 port: 1883
 `
-	ok, msg := createObject(t, yamlStr)
-	assert.True(ok, msg)
-	defer deleteObject(t, "mqttproxy-test")
+	err := createResource(yamlStr)
+	assert.NoError(err)
+	defer func() {
+		err := deleteResource("mqttproxy", "mqttproxy-test")
+		assert.NoError(err)
+	}()
 
-	var err error
 	for i := 0; i < 10; i++ {
 		_, err = getMQTTClient("client1", "test", "test")
 		if err == nil {
@@ -271,4 +286,120 @@ port: 1883
 		time.Sleep(time.Second)
 	}
 	assert.Nil(err)
+}
+
+func TestEgctlCmd(t *testing.T) {
+	assert := assert.New(t)
+
+	// health
+	{
+		cmd := egctlCmd("health")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "OK"))
+	}
+
+	// apis
+	{
+		cmd := egctlCmd("apis")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		head := []string{"PATH", "METHOD", "VERSION", "GROUP"}
+		assert.True(matchTable(head, output))
+		assert.True(matchTable([]string{"/apis/v2", "admin"}, output))
+	}
+
+	// api-resources
+	{
+		cmd := egctlCmd("api-resources")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		head := []string{"NAME", "ALIASES", "KIND", "ACTION"}
+		assert.True(matchTable(head, output))
+		assert.True(matchTable([]string{"member", "m,mem,members", "Member", "delete,get,describe"}, output))
+		assert.Contains(output, "create,apply,delete,get,describe")
+	}
+
+	// config
+	{
+		homeDir := os.Getenv("HOME")
+		if homeDir == "" {
+			fmt.Println("HOME is empty, skip config test for this os")
+			return
+		}
+		defer os.Setenv("HOME", homeDir)
+
+		ts := time.Now().Format("2006-01-02-1504")
+		tempDir, err := os.MkdirTemp("", fmt.Sprintf("egctl-test-%s", ts))
+		assert.NoError(err)
+		defer os.RemoveAll(tempDir)
+		os.Setenv("HOME", tempDir)
+
+		egctlrc := `
+clusters:
+    - cluster:
+        server: localhost:2381
+      name: default
+contexts:
+    - context:
+        cluster: default
+        user: default
+      name: default
+    - context:
+        cluster: default
+        user: admin
+      name: admin
+current-context: default
+kind: Config
+users:
+    - name: default
+      user: {}
+    - name: admin
+      user:
+        password: admin
+        username: admin
+`
+		err = os.WriteFile(filepath.Join(tempDir, ".egctlrc"), []byte(egctlrc), os.ModePerm)
+		assert.NoError(err)
+
+		cmd := egctlCmd("config", "view")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "kind: Config"))
+		assert.True(strings.Contains(output, "server: localhost:2381"))
+
+		cmd = egctlCmd("config", "current-context")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "name: default"))
+		assert.True(strings.Contains(output, "user: default"))
+		assert.True(strings.Contains(output, "cluster: default"))
+
+		cmd = egctlCmd("config", "get-contexts")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(matchTable([]string{"CURRENT", "NAME", "CLUSTER", "USER"}, output))
+		assert.True(matchTable([]string{"default", "default", "default"}, output))
+		assert.True(matchTable([]string{"admin", "default", "admin"}, output))
+
+		cmd = egctlCmd("config", "use-context", "admin")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "Switched to context admin"))
+	}
+}
+
+func TestMatch(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.True(matchTable([]string{"a", "b", "c"}, "a\t\tb\t\t\t\tc"))
+	assert.False(matchTable([]string{"a", "b", "c", "d"}, "a\t\tb\t\t\t\tc"))
+	assert.False(matchTable([]string{"a", "d"}, "a\t\tb"))
 }
