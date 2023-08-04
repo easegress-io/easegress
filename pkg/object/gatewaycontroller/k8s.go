@@ -213,9 +213,10 @@ func checkKubernetesVersion(cfg *rest.Config) (err error) {
 		return
 	}
 
-	if minor < 19 {
-		// Ingress version v1 has been added after kubernetes 1.19
-		panic(fmt.Errorf("kubernetes version [%v] is too low, GatewayController requires kubernetes v1.19+", info.GitVersion))
+	if minor < 23 {
+		// Gateway API documentation says it support at least 5 minor versions
+		// of k8s, and now k8s version is 1.27.x.
+		panic(fmt.Errorf("kubernetes version [%v] is too low, GatewayController requires kubernetes v1.23+", info.GitVersion))
 	}
 
 	return

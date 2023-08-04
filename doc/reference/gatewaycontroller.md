@@ -10,7 +10,7 @@ all the features of the `Kubernetes Gateway API` features are supported.
 
 ## Prerequisites
 
-1. K8s cluster : **v1.18+**
+1. K8s cluster : **v1.23+**
 2. Gateway API: following https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api
    to install.
 
