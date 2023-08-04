@@ -22,7 +22,7 @@ whether a request/response is a stream, for example:
   refer [Proxy](./filters.md#proxy) for more information.
 
 As we have mentioned above, the payload of a stream-based request/response
-cannot be read once, so some features are not possible for these
+can only be read once, so some features are not possible for these
 requests/responses, including:
 
 * In the `template` of `RequestBuilder` or `ResponseBuilder`, you cannot

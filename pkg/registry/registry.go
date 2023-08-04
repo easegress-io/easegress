@@ -50,6 +50,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/object/etcdserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/eurekaserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/function"
+	_ "github.com/megaease/easegress/v2/pkg/object/gatewaycontroller"
 	_ "github.com/megaease/easegress/v2/pkg/object/globalfilter"
 	_ "github.com/megaease/easegress/v2/pkg/object/grpcserver"
 	_ "github.com/megaease/easegress/v2/pkg/object/httpserver"
