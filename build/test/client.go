@@ -18,84 +18,95 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
-	"io"
-	"net/http"
+	"os"
+	"os/exec"
+	"regexp"
 	"strings"
-	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
-func makeURL(template string, a ...interface{}) string {
-	return "http://127.0.0.1:12381/apis/v2" + fmt.Sprintf(template, a...)
-}
-
-func successfulStatusCode(code int) bool {
-	return code >= 200 && code < 300
-}
-
-func intentString(str string) string {
-	return "\n\t\t" + strings.ReplaceAll(str, "\n", "\n\t\t")
-}
-
-func handleRequest(t *testing.T, method string, url string, reader io.Reader) *http.Response {
-	req, err := http.NewRequest(method, url, reader)
-	require.Nil(t, err)
-	resp, err := http.DefaultClient.Do(req)
-	require.Nil(t, err)
-	return resp
-}
-
-const (
-	objectsURL = "/objects"
-	objectURL  = "/objects/%s"
-)
-
-func createObject(t *testing.T, yamlFile string) (ok bool, msg string) {
-	resp := handleRequest(t, http.MethodPost, makeURL(objectsURL), strings.NewReader(yamlFile))
-	defer resp.Body.Close()
-
-	ok = successfulStatusCode(resp.StatusCode)
-	if !ok {
-		data, err := io.ReadAll(resp.Body)
-		require.Nil(t, err)
-		msg = fmt.Sprintf("create object\n %v\nfailed, %v", intentString(yamlFile), intentString(string(data)))
+func egctlCmd(args ...string) *exec.Cmd {
+	egctl := os.Getenv("EGCTL")
+	if egctl == "" {
+		egctl = "egctl"
 	}
-	return
+	cmd := exec.Command(egctl, args...)
+	cmd.Args = append(cmd.Args, "--server", "http://127.0.0.1:12381")
+	return cmd
 }
 
-func updateObject(t *testing.T, name string, yamlFile string) (ok bool, msg string) {
-	resp := handleRequest(t, http.MethodPut, makeURL(objectURL, name), strings.NewReader(yamlFile))
-	defer resp.Body.Close()
+func runCmd(cmd *exec.Cmd) (string, string, error) {
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
+}
 
-	ok = successfulStatusCode(resp.StatusCode)
-	if !ok {
-		data, err := io.ReadAll(resp.Body)
-		require.Nil(t, err)
-		msg = fmt.Sprintf("update object %v\n %v\nfailed, %v", name, intentString(yamlFile), intentString(string(data)))
+func createResource(yamlFile string) error {
+	cmd := egctlCmd("create", "-f", "-")
+	cmd.Stdin = strings.NewReader(yamlFile)
+	_, stderr, err := runCmd(cmd)
+	if err != nil {
+		return fmt.Errorf("create resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
-	return
+	return nil
 }
 
-func deleteObject(t *testing.T, name string) (ok bool, msg string) {
-	resp := handleRequest(t, http.MethodDelete, makeURL(objectURL, name), nil)
-	defer resp.Body.Close()
-
-	ok = successfulStatusCode(resp.StatusCode)
-	if !ok {
-		data, err := io.ReadAll(resp.Body)
-		require.Nil(t, err)
-		msg = fmt.Sprintf("delete object %v failed, %v", name, intentString(string(data)))
+func applyResource(yamlFile string) error {
+	cmd := egctlCmd("apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(yamlFile)
+	_, stderr, err := runCmd(cmd)
+	if err != nil {
+		return fmt.Errorf("apply resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
-	return ok, msg
+	return nil
 }
 
-func listObject(t *testing.T) (ok bool, msg string) {
-	resp := handleRequest(t, http.MethodGet, makeURL(objectsURL), nil)
-	defer resp.Body.Close()
+func deleteResource(kind string, args ...string) error {
+	cmd := egctlCmd("delete", kind)
+	if len(args) > 0 {
+		cmd.Args = append(cmd.Args, args...)
+	}
+	_, stderr, err := runCmd(cmd)
+	if err != nil {
+		return fmt.Errorf("delete resource failed\nstderr: %v\nerr: %v", stderr, err)
+	}
+	return nil
+}
 
-	data, err := io.ReadAll(resp.Body)
-	require.Nil(t, err)
-	return successfulStatusCode(resp.StatusCode), string(data)
+func describeResource(kind string, args ...string) (string, error) {
+	cmd := egctlCmd("describe", kind)
+	if len(args) > 0 {
+		cmd.Args = append(cmd.Args, args...)
+	}
+	stdout, stderr, err := runCmd(cmd)
+	if err != nil {
+		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
+	}
+	return stdout, nil
+}
+
+func getResource(kind string, args ...string) (string, error) {
+	cmd := egctlCmd("get", kind)
+	if len(args) > 0 {
+		cmd.Args = append(cmd.Args, args...)
+	}
+	stdout, stderr, err := runCmd(cmd)
+	if err != nil {
+		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
+	}
+	return stdout, nil
+}
+
+func matchTable(array []string, output string) bool {
+	// Join the elements of the array with the regular expression pattern to match one or more tab characters
+	pattern := strings.Join(array, `\t+`)
+
+	// Compile the regular expression pattern
+	re := regexp.MustCompile(pattern)
+
+	// Check if the regular expression matches the output string
+	return re.MatchString(output)
 }

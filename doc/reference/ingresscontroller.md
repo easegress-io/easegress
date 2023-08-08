@@ -120,7 +120,7 @@ data:
       maxConnections: 10240
 ```
 
-The `easegress-serverl` creates Easegress instance named *easegress-ingress-controller* and `controller.yaml` defines IngressController object for Easegress.
+The `easegress-server.yaml` creates Easegress instance named *easegress-ingress-controller* and `controller.yaml` defines IngressController object for Easegress.
 
 ### Deploy Easegress IngressController
 

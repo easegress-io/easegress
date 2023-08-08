@@ -312,6 +312,7 @@ func (r *runtime) startHTTP1And2Server() {
 
 	listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
 	if err != nil {
+		logger.Errorf("httpserver %s failed to listen: %v", r.superSpec.Name(), err)
 		r.setState(stateFailed)
 		r.setError(err)
 		return
@@ -386,6 +387,7 @@ func (r *runtime) handleEventServeFailed(e *eventServeFailed) {
 	if r.roundNum > e.roundNum {
 		return
 	}
+	logger.Errorf("httpserver %v failed: %v", r.superSpec.Name(), e.err)
 	r.setState(stateFailed)
 	r.setError(e.err)
 }

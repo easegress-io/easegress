@@ -92,7 +92,7 @@ compression:
 	ctx = getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
 	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
-	bodyBytes, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
+	_, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
 	// assert headers contains compression
 	header := ctx.GetOutputResponse().(*httpprot.Response).Header()
 	encoding := header.Get("Content-Encoding")
@@ -113,7 +113,7 @@ maxBodySize: 1024
 	ctx = getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
 	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
-	bodyBytes, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
+	_, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
 	if err != nil {
 		fmt.Println(err)
 		assert.Fail("read body error")
