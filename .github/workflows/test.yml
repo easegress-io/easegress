@@ -22,7 +22,7 @@ on:
       - ".github/workflows/test.yml"
 
 env:
-  GO_VERSION: 1.19
+  GO_VERSION: "1.20"
 
 jobs:
   test:
