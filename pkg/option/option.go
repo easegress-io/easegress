@@ -337,10 +337,6 @@ func (opt *Options) validate() error {
 		return fmt.Errorf("invalid api-addr: %v", err)
 	}
 
-	if err != nil {
-		return fmt.Errorf("invalid api-url: %v", err)
-	}
-
 	// dirs
 	if opt.HomeDir == "" {
 		return fmt.Errorf("empty home-dir")
