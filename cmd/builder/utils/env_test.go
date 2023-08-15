@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package general
+package utils
 
 import (
-	"fmt"
 	"os"
+	"testing"
 
-	"github.com/fatih/color"
+	"github.com/stretchr/testify/assert"
 )
 
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}
-
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
+func TestGetGo(t *testing.T) {
+	assert.Equal(t, "go", GetGo())
+	os.Setenv("EGBUILDER_GO", "newgo")
+	assert.Equal(t, "newgo", GetGo())
 }

@@ -49,9 +49,10 @@ endif
 # Targets
 TARGET_SERVER=${RELEASE_DIR}/easegress-server
 TARGET_CLIENT=${RELEASE_DIR}/egctl
+TARGET_BUILDER=${RELEASE_DIR}/egbuilder
 
 # Rules
-build: build_client build_server
+build: build_client build_server build_builder
 
 wasm: ENABLE_CGO=CGO_ENABLED=1
 wasm: GO_BUILD_TAGS=-tags wasmhost
@@ -62,6 +63,12 @@ build_client:
 	cd ${MKFILE_DIR} && \
 	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
 	-o ${TARGET_CLIENT} ${MKFILE_DIR}cmd/client
+
+build_builder:
+	@echo "build builder"
+	cd ${MKFILE_DIR} && \
+	CGO_ENABLED=0 go build -v -trimpath -ldflags ${GO_LD_FLAGS} \
+	-o ${TARGET_BUILDER} ${MKFILE_DIR}cmd/builder
 
 build_server:
 	@echo "build server"
@@ -101,7 +108,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${TEST_FLAGS}
+	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
 
 integration_test: build
 	{ \

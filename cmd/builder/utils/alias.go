@@ -14,27 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// Package utils contains the utilities.
+package utils
 
-package general
+import "github.com/megaease/easegress/v2/cmd/client/general"
 
-import (
-	"fmt"
-	"os"
+type Example = general.Example
 
-	"github.com/fatih/color"
-)
+var CreateExample = general.CreateExample
+var CreateMultiExample = general.CreateMultiExample
 
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}
-
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
-}
+var ExitWithError = general.ExitWithError
+var ExitWithErrorf = general.ExitWithErrorf

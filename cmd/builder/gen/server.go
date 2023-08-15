@@ -15,26 +15,29 @@
  * limitations under the License.
  */
 
-package general
+package gen
 
 import (
-	"fmt"
-	"os"
+	"path"
 
-	"github.com/fatih/color"
+	j "github.com/dave/jennifer/jen"
 )
 
-// ExitWithError exits with self-defined message not the one of cobra(such as usage).
-func ExitWithError(err error) {
-	if err != nil {
-		color.New(color.FgRed).Fprint(os.Stderr, "Error: ")
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}
+func CreateServer(plugins []string) *j.File {
+	file := j.NewFile("main")
+	file.ImportName(egCmd, "cmd")
+	file.Anon(egRegistry)
 
-// ExitWithErrorf wraps ExitWithError with format.
-func ExitWithErrorf(format string, a ...interface{}) {
-	ExitWithError(fmt.Errorf(format, a...))
+	for _, plugin := range plugins {
+		file.Anon(path.Join(plugin, moduleRegistry))
+	}
+
+	mainFunc := &Func{
+		Name: "main",
+		Block: []j.Code{
+			j.Qual(egCmd, "RunServer").Call(),
+		},
+	}
+	file.Add(mainFunc.Def())
+	return file
 }

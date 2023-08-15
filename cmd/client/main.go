@@ -111,6 +111,8 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&general.CmdGlobalFlags.OutputFormat,
 		"output", "o", general.DefaultFormat, "Output format(default, json, yaml)")
 
+	// since we have our own error handling, silence Cobra's error handling.
+	rootCmd.SilenceErrors = true
 	err := rootCmd.Execute()
 	if err != nil {
 		general.ExitWithError(err)
