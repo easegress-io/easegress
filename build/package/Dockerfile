@@ -10,7 +10,7 @@ FROM alpine:3.18
 WORKDIR /opt/easegress
 
 COPY build/package/entrypoint.sh /
-COPY build/bin/egctl build/bin/easegress-server /opt/easegress/bin/
+COPY build/bin/egctl build/bin/easegress-server build/bin/egbuilder /opt/easegress/bin/
 
 # If the following apk command takes too much time or failed because of
 # network issues, we can setup a proxy for it.

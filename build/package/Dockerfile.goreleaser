@@ -2,7 +2,7 @@ FROM alpine:3.18
 
 WORKDIR /opt/easegress
 
-ADD egctl easegress-server /opt/easegress/bin/
+ADD bin/egctl bin/easegress-server bin/egbuilder /opt/easegress/bin/
 COPY build/package/entrypoint.sh /
 
 RUN apk --no-cache add tini tzdata && \

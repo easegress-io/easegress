@@ -6,7 +6,7 @@ before:
     - go generate ./...
 
 snapshot:
-  name_template: '{{ .Tag }}'
+  name_template: '{{ .Version }}'
 checksum:
   name_template: 'checksums.txt'
 changelog:
@@ -16,6 +16,20 @@ builds:
   - id: client
     main: cmd/client/main.go
     binary: bin/egctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    ldflags:
+      - -s -w
+      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
+  
+  - id: builder
+    main: cmd/builder/main.go
+    binary: bin/egbuilder
     env:
       - CGO_ENABLED=0
     goos:
@@ -66,6 +80,7 @@ dockers:
     ids:
       - client
       - server
+      - builder
 
     dockerfile: build/package/Dockerfile.goreleaser
 
