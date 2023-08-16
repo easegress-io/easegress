@@ -1,5 +1,16 @@
 # Changelog
 
+## [v2.6.0](https://github.com/megaease/easegress/tree/v2.6.0) (2023-08-16)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.5.3...v2.6.0)
+
+**Significant changes:**
+* Introduced egbuilder to build Easegress with custom plugins.
+* Added support for Kubernetes Gateway API.
+
+**Implemented enhancements:**
+* Rewrite integration tests with egctl commands.
+
 ## [v2.5.3](https://github.com/megaease/easegress/tree/v2.5.3) (2023-08-02)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.5.0...v2.5.3)
