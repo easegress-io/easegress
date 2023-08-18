@@ -80,7 +80,6 @@ func describeCmdRun(cmd *cobra.Command, args []string) {
 // egctl describe customdata <kind> <name>
 func describeCmdArgs(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		cmd.Help()
 		return fmt.Errorf("no resource specified")
 	}
 	if len(args) == 1 {

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -88,6 +89,68 @@ func GetAllObject(cmd *cobra.Command) error {
 	})
 	printMetaSpec(metas)
 	return nil
+}
+
+// EditObject edit an object.
+func EditObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
+	getErr := func(err error) error {
+		return general.ErrorMsg(general.EditCmd, err, fmt.Sprintf("%s %s", kind, args.Name))
+	}
+
+	// get old yaml and save it to a temp file
+	var oldYaml string
+	var err error
+	if oldYaml, err = getObjectYaml(args.Name); err != nil {
+		return getErr(err)
+	}
+	filePath := getResourceTempFilePath(kind, args.Name)
+	newYaml, err := editResource(oldYaml, filePath)
+	if err != nil {
+		return getErr(editErrWithPath(err, filePath))
+	}
+	if newYaml == "" {
+		return nil
+	}
+
+	_, newSpec, err := general.CompareYamlNameKind(oldYaml, newYaml)
+	if err != nil {
+		return getErr(editErrWithPath(err, filePath))
+	}
+	err = ApplyObject(cmd, newSpec)
+	if err != nil {
+		return getErr(editErrWithPath(err, filePath))
+	}
+	os.Remove(filePath)
+	return nil
+}
+
+func getObjectYaml(objectName string) (string, error) {
+	body, err := httpGetObject(objectName)
+	if err != nil {
+		return "", err
+	}
+
+	yamlBody, err := codectool.JSONToYAML(body)
+	if err != nil {
+		return "", err
+	}
+
+	// reorder yaml, put name, kind in front of other fields.
+	lines := strings.Split(string(yamlBody), "\n")
+	var name, kind string
+	var sb strings.Builder
+	sb.Grow(len(yamlBody))
+	for _, l := range lines {
+		if strings.HasPrefix(l, "name: ") {
+			name = l
+		} else if strings.HasPrefix(l, "kind: ") {
+			kind = l
+		} else {
+			sb.WriteString(l)
+			sb.WriteString("\n")
+		}
+	}
+	return fmt.Sprintf("%s\n%s\n\n%s", name, kind, sb.String()), nil
 }
 
 // GetObject gets an object.

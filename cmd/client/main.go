@@ -74,6 +74,7 @@ func main() {
 		commandv2.GetCmd(),
 		commandv2.DescribeCmd(),
 		commandv2.ApplyCmd(),
+		commandv2.EditCmd(),
 	)
 
 	addCommandWithGroup(
