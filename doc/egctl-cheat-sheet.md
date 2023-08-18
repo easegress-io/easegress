@@ -38,6 +38,13 @@ egctl apply -f httpserver-demo-version2.yaml  # update HTTPServer resource
 egctl apply -f cdk-demo2.yaml                 # udpate CustomDataKind resource
 ```
 
+## Editing resources
+```
+egctl edit httpserver httpserver-demo  # edit httpserver with name httpserver-demo
+egctl edit customdata cdk-demo         # batch edit custom data with kind cdk-demo
+egctl edit customdata cdk-demo data1   # edit custom data data1 of kind cdk-demo
+```
+
 ## Deleting resources
 ```
 egctl delete httpserver httpserver-demo        # delete HTTPServer resource with name "httpserver-demo"

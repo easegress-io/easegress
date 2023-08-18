@@ -33,6 +33,7 @@ func DescribeCmd() *cobra.Command {
 		{Desc: "Describe all instances in that resource", Command: "egctl describe <resource>"},
 		{Desc: "Describe a httpserver", Command: "egctl describe httpserver <name>"},
 		{Desc: "Describe all pipelines", Command: "egctl describe pipeline"},
+		{Desc: "Describe pipelines with verbose information", Command: "egctl describe pipeline -v"},
 		{Desc: "Describe all members", Command: "egctl describe member"},
 		{Desc: "Describe a customdata kind", Command: "egctl describe customdatakind <name>"},
 		{Desc: "Describe a customdata of given kind", Command: "egctl describe customdata <kind> <name>"},
@@ -45,6 +46,7 @@ func DescribeCmd() *cobra.Command {
 		Example: createMultiExample(examples),
 		Run:     describeCmdRun,
 	}
+	cmd.Flags().BoolVarP(&general.CmdGlobalFlags.Verbose, "verbose", "v", false, "Print verbose information")
 	return cmd
 }
 

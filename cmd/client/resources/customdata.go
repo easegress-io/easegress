@@ -21,6 +21,7 @@ package resources
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
@@ -210,6 +211,7 @@ func editCustomDataBatch(cmd *cobra.Command, args *general.ArgInfo) error {
 	if err != nil {
 		return getErr(editErrWithPath(err, filePath))
 	}
+	os.Remove(filePath)
 	return nil
 }
 
@@ -250,6 +252,7 @@ func editCustomDataItem(cmd *cobra.Command, args *general.ArgInfo) error {
 	if err != nil {
 		return getErr(editErrWithPath(err, filePath))
 	}
+	os.Remove(filePath)
 	return nil
 }
 
