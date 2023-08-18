@@ -44,6 +44,7 @@ egctl edit httpserver httpserver-demo  # edit httpserver with name httpserver-de
 egctl edit customdata cdk-demo         # batch edit custom data with kind cdk-demo
 egctl edit customdata cdk-demo data1   # edit custom data data1 of kind cdk-demo
 ```
+The default editor for `egctl edit` is `vi`. To change it, update the `EGCTL_EDITOR` environment variable.
 
 ## Deleting resources
 ```
