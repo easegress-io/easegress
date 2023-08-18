@@ -248,11 +248,41 @@ func editCustomDataItem(cmd *cobra.Command, args *general.ArgInfo) error {
 	if err != nil {
 		return getErr(editErrWithPath(err, filePath))
 	}
+	if newYaml == "" {
+		return nil
+	}
+
+	if err = compareCustomDataID(args.Name, oldYaml, newYaml); err != nil {
+		return getErr(editErrWithPath(err, filePath))
+	}
 	_, err = handleReq(http.MethodPut, makePath(general.CustomDataURL, args.Name), []byte(newYaml))
 	if err != nil {
 		return getErr(editErrWithPath(err, filePath))
 	}
 	os.Remove(filePath)
+	fmt.Println(general.SuccessMsg(general.EditCmd, CustomData().Kind, args.Name, args.Other))
+	return nil
+}
+
+func compareCustomDataID(kindName, oldYaml, newYaml string) error {
+	kind, err := getCertainCustomDataKind(kindName)
+	if err != nil {
+		return err
+	}
+	oldData := &customdata.Data{}
+	newData := &customdata.Data{}
+	err = codectool.Unmarshal([]byte(oldYaml), oldData)
+	if err != nil {
+		return err
+	}
+	err = codectool.Unmarshal([]byte(newYaml), newData)
+	if err != nil {
+		return err
+	}
+	if kind.DataID(oldData) != kind.DataID(newData) {
+		fmt.Println(oldData, kind.DataID(oldData), newData, kind.DataID(newData))
+		return fmt.Errorf("edit cannot change the %s of custom data", kind.GetIDField())
+	}
 	return nil
 }
 

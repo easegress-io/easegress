@@ -76,7 +76,6 @@ func editCmdRun(cmd *cobra.Command, args []string) {
 // egctl edit customdata <kind> <name>
 func editCmdArgs(cmd *cobra.Command, args []string) (err error) {
 	if len(args) <= 1 {
-		cmd.Help()
 		return fmt.Errorf("no resource and name specified")
 	}
 	if len(args) == 2 {

@@ -94,7 +94,7 @@ func GetAllObject(cmd *cobra.Command) error {
 // EditObject edit an object.
 func EditObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 	getErr := func(err error) error {
-		return general.ErrorMsg(general.EditCmd, err, fmt.Sprintf("%s %s", kind, args.Name))
+		return general.ErrorMsg(general.EditCmd, err, kind, args.Name)
 	}
 
 	// get old yaml and save it to a temp file

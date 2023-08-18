@@ -118,7 +118,7 @@ func GetCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
 // EditCustomDataKind edit the custom data kind.
 func EditCustomDataKind(cmd *cobra.Command, args *general.ArgInfo) error {
 	getErr := func(err error) error {
-		return general.ErrorMsg(general.EditCmd, err, fmt.Sprintf("%s %s", CustomDataKind().Kind, args.Name))
+		return general.ErrorMsg(general.EditCmd, err, CustomDataKind().Kind, args.Name)
 	}
 
 	var oldYaml string

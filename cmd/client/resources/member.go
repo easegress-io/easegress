@@ -117,7 +117,7 @@ func DeleteMember(_ *cobra.Command, names []string) error {
 	for _, name := range names {
 		_, err := handleReq(http.MethodDelete, makePath(general.MemberItemURL, name), nil)
 		if err != nil {
-			return general.ErrorMsg("purge", err, fmt.Sprintf("%s %s", MemberKind, name))
+			return general.ErrorMsg("purge", err, MemberKind, name)
 		}
 		fmt.Println(general.SuccessMsg("purge", MemberKind, name))
 	}
