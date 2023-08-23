@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-// Package commandv2 provides the new version of commands.
-package commandv2
+package create
 
 import (
-	"github.com/megaease/easegress/v2/cmd/client/commandv2/create"
-	"github.com/spf13/cobra"
+	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/resources"
 )
 
-// CreateCmd returns create command.
-func CreateCmd() *cobra.Command {
-	cmd := create.CreateCmd()
-	cmd.AddCommand(create.CreateHTTPProxyCmd())
-	return cmd
-}
+var exitWithError = general.ExitWithError
+
+var createObject = resources.CreateObject
+var createCustomData = resources.CreateCustomData
+var createCustomDataKind = resources.CreateCustomDataKind

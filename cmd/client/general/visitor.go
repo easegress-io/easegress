@@ -144,7 +144,7 @@ func BuildSpecVisitor(yamlFile string, cmd *cobra.Command) SpecVisitor {
 	return &specVisitor{v: v}
 }
 
-func getSpecFromYamlString(yamlStr string) (*Spec, error) {
+func GetSpecFromYaml(yamlStr string) (*Spec, error) {
 	s := Spec{}
 	err := yaml.Unmarshal([]byte(yamlStr), &s)
 	if err != nil {
@@ -156,12 +156,12 @@ func getSpecFromYamlString(yamlStr string) (*Spec, error) {
 
 // CompareYamlNameKind compares the name and kind of two YAML strings
 func CompareYamlNameKind(oldYaml, newYaml string) (*Spec, *Spec, error) {
-	s1, err := getSpecFromYamlString(oldYaml)
+	s1, err := GetSpecFromYaml(oldYaml)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	s2, err := getSpecFromYamlString(newYaml)
+	s2, err := GetSpecFromYaml(newYaml)
 	if err != nil {
 		return nil, nil, err
 	}

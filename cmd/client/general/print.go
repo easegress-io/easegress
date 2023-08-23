@@ -271,6 +271,9 @@ func GenerateExampleFromChild(cmd *cobra.Command) {
 	if len(cmd.Commands()) == 0 {
 		return
 	}
+	if cmd.Example != "" {
+		return
+	}
 
 	example := ""
 	for i, c := range cmd.Commands() {
