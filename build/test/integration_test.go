@@ -535,3 +535,63 @@ list:
 	err = deleteResource("cdk", "custom-data-kind1")
 	assert.NoError(err)
 }
+
+func TestCreateHTTPProxy(t *testing.T) {
+	assert := assert.New(t)
+
+	for i, port := range []int{9096, 9097, 9098} {
+		currentPort := port
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "hello from backend %d", currentPort)
+		})
+
+		server := startServer(currentPort, mux)
+		defer server.Shutdown(context.Background())
+		started := checkServerStart(t, func() *http.Request {
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d", currentPort), nil)
+			require.Nil(t, err)
+			return req
+		})
+		require.True(t, started, i)
+	}
+
+	cmd := egctlCmd(
+		"create",
+		"httpproxy",
+		"http-proxy-test",
+		"--port", "10080",
+		"--rule",
+		"/pipeline=http://127.0.0.1:9096",
+		"--rule",
+		"/barz=http://127.0.0.1:9097",
+		"--rule",
+		"/bar*=http://127.0.0.1:9098",
+	)
+	_, stderr, err := runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+
+	output, err := getResource("httpserver")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "http-proxy-test-server"))
+
+	output, err = getResource("pipeline")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "http-proxy-test-pipeline-0"))
+
+	testFn := func(p string, expected string) {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10080"+p, nil)
+		assert.Nil(err, p)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, p)
+		defer resp.Body.Close()
+		data, err := io.ReadAll(resp.Body)
+		assert.Nil(err, p)
+		assert.Equal(expected, string(data), p)
+	}
+
+	testFn("/pipeline", "hello from backend 9096")
+	testFn("/barz", "hello from backend 9097")
+	testFn("/bar-prefix", "hello from backend 9098")
+}
