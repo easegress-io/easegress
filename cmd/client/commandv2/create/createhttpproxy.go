@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/cmd/client/resources"
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
@@ -62,8 +63,10 @@ func CreateHTTPProxyCmd() *cobra.Command {
 		Short: "Create a HTTPServer and corresponding Pipelines with a specific name",
 		Args:  createHTTPProxyArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			o.Complete(args)
-			createHTTPProxyRun(cmd, args)
+			err := createHTTPProxyRun(cmd, args)
+			if err != nil {
+				general.ExitWithError(err)
+			}
 		},
 	}
 
@@ -95,29 +98,27 @@ func createHTTPProxyArgs(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func createHTTPProxyRun(cmd *cobra.Command, args []string) {
+func createHTTPProxyRun(cmd *cobra.Command, args []string) error {
 	o := createHTTPProxyOptions
-	err := o.Parse()
-	if err != nil {
-		exitWithError(err)
+	o.Complete(args)
+	if err := o.Parse(); err != nil {
+		return err
 	}
 	hs, pls := o.Translate()
-	hsSpec, err := toGeneralSpec(hs)
-	if err != nil {
-		exitWithError(err)
+	allSpec := []interface{}{hs}
+	for _, p := range pls {
+		allSpec = append(allSpec, p)
 	}
-	if err := createObject(cmd, hsSpec); err != nil {
-		exitWithError(err)
-	}
-	for _, pl := range pls {
-		plSpec, err := toGeneralSpec(pl)
+	for _, s := range allSpec {
+		spec, err := toGeneralSpec(s)
 		if err != nil {
-			exitWithError(err)
+			return err
 		}
-		if err := createObject(cmd, plSpec); err != nil {
-			exitWithError(err)
+		if err := resources.CreateObject(cmd, spec); err != nil {
+			return err
 		}
 	}
+	return nil
 }
 
 type HTTPServerSpec struct {
@@ -195,7 +196,7 @@ func (o *CreateHTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) 
 	hs := &HTTPServerSpec{
 		Name: o.getServerName(),
 		Kind: httpserver.Kind,
-		Spec: *((&httpserver.HTTPServer{}).DefaultSpec()).(*httpserver.Spec),
+		Spec: *getDefaultHTTPServerSpec(),
 	}
 	hs.Port = uint16(o.Port)
 	if o.TLS {
@@ -238,11 +239,6 @@ func (o *CreateHTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpe
 		l := len(rules)
 		if l != 0 && rules[l-1].Host == rule.Host {
 			rules[l-1].Paths = append(rules[l-1].Paths, routerPath)
-			pipelines = append(pipelines, &PipelineSpec{
-				Name: pipelineName,
-				Kind: pipeline.Kind,
-				Spec: *translateToPipeline(rule.Endpoints),
-			})
 		} else {
 			rules = append(rules, &routers.Rule{
 				Host:  rule.Host,
@@ -254,9 +250,14 @@ func (o *CreateHTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpe
 }
 
 func toGeneralSpec(data interface{}) (*general.Spec, error) {
-	yamlStr := codectool.MustMarshalYAML(data)
-	spec, err := general.GetSpecFromYaml(string(yamlStr))
-	if err != nil {
+	var yamlStr []byte
+	var err error
+	if yamlStr, err = codectool.MarshalYAML(data); err != nil {
+		return nil, err
+	}
+
+	var spec *general.Spec
+	if spec, err = general.GetSpecFromYaml(string(yamlStr)); err != nil {
 		return nil, err
 	}
 	return spec, nil
@@ -279,14 +280,13 @@ func translateToPipeline(endpoints []string) *pipeline.Spec {
 	data := codectool.MustMarshalYAML(proxy)
 	maps, _ := general.UnmarshalMapInterface(data, false)
 
-	spec := (&pipeline.Pipeline{}).DefaultSpec().(*pipeline.Spec)
+	spec := getDefaultPipelineSpec()
 	spec.Filters = maps
 	return spec
 }
 
 func translateToProxyFilter(endpoints []string) *httpproxy.Spec {
-	kind := filters.GetKind(httpproxy.Kind)
-	spec := kind.DefaultSpec().(*httpproxy.Spec)
+	spec := getDefaultProxyFilterSpec()
 	spec.BaseSpec.MetaSpec.Name = "proxy"
 	spec.BaseSpec.MetaSpec.Kind = httpproxy.Kind
 
@@ -348,4 +348,16 @@ type CreateHTTPProxyRule struct {
 	Path       string
 	PathPrefix string
 	Endpoints  []string
+}
+
+func getDefaultHTTPServerSpec() *httpserver.Spec {
+	return (&httpserver.HTTPServer{}).DefaultSpec().(*httpserver.Spec)
+}
+
+func getDefaultPipelineSpec() *pipeline.Spec {
+	return (&pipeline.Pipeline{}).DefaultSpec().(*pipeline.Spec)
+}
+
+func getDefaultProxyFilterSpec() *httpproxy.Spec {
+	return filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
 }

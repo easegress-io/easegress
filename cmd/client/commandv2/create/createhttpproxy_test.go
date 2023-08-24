@@ -19,11 +19,14 @@
 package create
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/v2/pkg/object/pipeline"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
@@ -41,7 +44,7 @@ pools:
   loadBalance:
     policy: roundRobin
 `
-	expected := filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
+	expected := getDefaultProxyFilterSpec()
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
@@ -68,7 +71,7 @@ filters:
       policy: roundRobin
 `
 	// compare expected and got pipeline
-	expected := (&pipeline.Pipeline{}).DefaultSpec().(*pipeline.Spec)
+	expected := getDefaultPipelineSpec()
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
@@ -89,7 +92,7 @@ filters:
 	// if marshal it once, some part of expectedFilter will be nil.
 	// but gotFilter will be empty. for example []string{} vs nil.
 	// []string{} and nil are actually same in this case.
-	expectedFilter := filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
+	expectedFilter := getDefaultProxyFilterSpec()
 	filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
 	err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 	assert.Nil(err)
@@ -182,4 +185,156 @@ func TestParseRule(t *testing.T) {
 		assert.Equal(tc.pathPrefix, rule.PathPrefix, "case %v", tc)
 		assert.Equal(tc.endpoints, rule.Endpoints, "case %v", tc)
 	}
+}
+
+func TestLoadCertFile(t *testing.T) {
+	assert := assert.New(t)
+
+	_, err := loadCertFile("not-exist-file.cert")
+	assert.NotNil(err)
+
+	text := "hello"
+	textBase64 := "aGVsbG8="
+	fileDir, err := os.MkdirTemp("", "test-load-cert-file")
+	filePath := filepath.Join(fileDir, "test.cert")
+	assert.Nil(err)
+	defer os.RemoveAll(fileDir)
+	os.WriteFile(filePath, []byte(text), 0644)
+
+	got, err := loadCertFile(filePath)
+	assert.Nil(err)
+	assert.Equal(textBase64, got)
+}
+
+func TestToGeneralSpec(t *testing.T) {
+	assert := assert.New(t)
+
+	_, err := toGeneralSpec([]byte("not-yaml"))
+	assert.NotNil(err)
+
+	testStruct := struct {
+		Name  string `yaml:"name"`
+		Kind  string `yaml:"kind"`
+		Other string `yaml:"other"`
+	}{
+		Name:  "test",
+		Kind:  "test",
+		Other: "other",
+	}
+	spec, err := toGeneralSpec(testStruct)
+	assert.Nil(err)
+	assert.Equal(testStruct.Name, spec.Name)
+	assert.Equal(testStruct.Kind, spec.Kind)
+
+	doc := `name: test
+kind: test
+other: other
+`
+	assert.Equal(doc, spec.Doc())
+}
+
+func TestCreateHTTPProxyOptions(t *testing.T) {
+	assert := assert.New(t)
+
+	tempDir, err := os.MkdirTemp("", "test-create-http-proxy-options")
+	assert.Nil(err)
+	defer os.RemoveAll(tempDir)
+
+	createCert := func(name string) string {
+		p := filepath.Join(tempDir, name)
+		os.WriteFile(p, []byte("hello"), 0644)
+		return p
+	}
+	certBase64 := "aGVsbG8="
+
+	o := &CreateHTTPProxyOptions{
+		Port: 10080,
+		Rules: []string{
+			"foo.com/barz=http://127.0.0.1:9095",
+			"foo.com/bar*=http://127.0.0.1:9095",
+			"/bar=http://127.0.0.1:9095",
+		},
+		TLS:        true,
+		AutoCert:   true,
+		CaCertFile: createCert("ca.cert"),
+		CertFiles:  []string{createCert("cert1"), createCert("cert2")},
+		KeyFiles:   []string{createCert("key1"), createCert("key2")},
+	}
+	o.Complete([]string{"test"})
+	err = o.Parse()
+	assert.Nil(err)
+
+	hs, pls := o.Translate()
+
+	// meta
+	assert.Equal("test-server", hs.Name)
+	assert.Equal("HTTPServer", hs.Kind)
+	assert.Equal(uint16(10080), hs.Port)
+
+	// tls
+	assert.True(hs.HTTPS)
+	assert.True(hs.AutoCert)
+	assert.Equal(certBase64, hs.CaCertBase64)
+	assert.Equal(len(hs.Certs), len(hs.Keys))
+	for k, v := range hs.Certs {
+		assert.Equal(certBase64, v)
+		assert.Equal(certBase64, hs.Keys[k])
+	}
+
+	// rules, host foo.com has two path, host "" has one path
+	assert.Len(hs.Rules, 2)
+	assert.Equal("foo.com", hs.Rules[0].Host)
+	assert.Equal(routers.Paths{
+		{Path: "/barz", Backend: "test-pipeline-0"},
+		{PathPrefix: "/bar", Backend: "test-pipeline-1"},
+	}, hs.Rules[0].Paths)
+	assert.Equal(routers.Paths{
+		{Path: "/bar", Backend: "test-pipeline-2"},
+	}, hs.Rules[1].Paths)
+
+	// pipelines
+	assert.Len(pls, 3)
+	for i, pl := range pls {
+		assert.Equal(fmt.Sprintf("test-pipeline-%d", i), pl.Name)
+		assert.Equal("Pipeline", pl.Kind)
+		assert.Len(pl.Filters, 1)
+	}
+
+	yamlStr := `
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:9095
+    loadBalance:
+      policy: roundRobin
+`
+	expectedFilter := func() *httpproxy.Spec {
+		expected := getDefaultPipelineSpec()
+		err = codectool.UnmarshalYAML([]byte(yamlStr), expected)
+		assert.Nil(err)
+
+		expectedFilter := getDefaultProxyFilterSpec()
+		filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
+		err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
+		assert.Nil(err)
+		filterYaml = codectool.MustMarshalYAML(expectedFilter)
+		err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
+		assert.Nil(err)
+		return expectedFilter
+	}()
+
+	for i, p := range pls {
+		gotFilter := getDefaultProxyFilterSpec()
+		filterYaml := codectool.MustMarshalYAML(p.Filters[0])
+		err = codectool.UnmarshalYAML(filterYaml, gotFilter)
+		assert.Nil(err)
+		assert.Equal(expectedFilter, gotFilter, i)
+	}
+}
+
+func TestCreateHTTPProxyCmd(t *testing.T) {
+	cmd := CreateHTTPProxyCmd()
+	assert.NotNil(t, cmd)
 }

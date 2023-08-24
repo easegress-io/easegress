@@ -17,3 +17,14 @@
 
 // Package create provides create commands.
 package create
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCreate(t *testing.T) {
+	cmd := CreateCmd()
+	assert.NotNil(t, cmd)
+}

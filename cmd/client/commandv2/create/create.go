@@ -50,17 +50,17 @@ func CreateCmd() *cobra.Command {
 				var err error
 				defer func() {
 					if err != nil {
-						exitWithError(err)
+						general.ExitWithError(err)
 					}
 				}()
 
 				switch s.Kind {
 				case resources.CustomDataKind().Kind:
-					err = createCustomDataKind(cmd, s)
+					err = resources.CreateCustomDataKind(cmd, s)
 				case resources.CustomData().Kind:
-					err = createCustomData(cmd, s)
+					err = resources.CreateCustomData(cmd, s)
 				default:
-					err = createObject(cmd, s)
+					err = resources.CreateObject(cmd, s)
 				}
 				return err
 			})
