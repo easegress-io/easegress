@@ -86,6 +86,7 @@ func main() {
 		commandv2.APIResourcesCmd(),
 		commandv2.WasmCmd(),
 		commandv2.ConfigCmd(),
+		commandv2.LogsCmd(),
 	)
 
 	addCommandWithGroup(

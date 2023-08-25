@@ -67,6 +67,9 @@ const (
 	// ProfileStopURL is the URL of stop profile.
 	ProfileStopURL = APIURL + "/profile/stop"
 
+	// LogsURL is the URL of logs.
+	LogsURL = APIURL + "/logs"
+
 	// HTTPProtocol is prefix for HTTP protocol
 	HTTPProtocol = "http://"
 	// HTTPSProtocol is prefix for HTTPS protocol

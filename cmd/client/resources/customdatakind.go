@@ -163,7 +163,7 @@ func getCustomDataKindYaml(kindName string) (string, error) {
 	var sb strings.Builder
 	sb.Grow(len(yamlBody))
 	for _, l := range lines {
-		if strings.HasPrefix(l, "name: ") {
+		if strings.HasPrefix(l, "name:") {
 			name = l
 		} else {
 			sb.WriteString(l)
