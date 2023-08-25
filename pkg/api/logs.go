@@ -243,7 +243,11 @@ func (lf *logFile) Watch() (<-chan string, func(), error) {
 		close(closeCh)
 		return nil, nil, err
 	}
-	return watchCh, func() { close(closeCh) }, nil
+	closeFn := func() {
+		watcher.Close()
+		close(closeCh)
+	}
+	return watchCh, closeFn, nil
 }
 
 // findLastNLineIndex find the index of the last n line
