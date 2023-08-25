@@ -31,11 +31,18 @@ import (
 func LogsCmd() *cobra.Command {
 	var n int
 	var follow bool
+	examples := []general.Example{
+		{Desc: "Print the most recent 500 logs by default.", Command: "egctl logs"},
+		{Desc: "Print the most recent 100 logs.", Command: "egctl logs --tail 100"},
+		{Desc: "Print all logs.", Command: "egctl logs --tail -1"},
+		{Desc: "Print the most recent 500 logs and streaming the log.", Command: "egctl logs -f"},
+	}
 
 	cmd := &cobra.Command{
-		Use:   "logs",
-		Short: "Print the logs of Easegress server",
-		Args:  cobra.NoArgs,
+		Use:     "logs",
+		Short:   "Print the logs of Easegress server",
+		Args:    cobra.NoArgs,
+		Example: createMultiExample(examples),
 		Run: func(cmd *cobra.Command, args []string) {
 			query := fmt.Sprintf("?tail=%d&follow=%v", n, follow)
 			p := general.LogsURL + query

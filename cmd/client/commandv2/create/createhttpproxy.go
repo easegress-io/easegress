@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// CreateHTTPProxyOptions are the options to create a HTTPProxy.
 type CreateHTTPProxyOptions struct {
 	Name  string
 	Port  int
@@ -55,13 +56,38 @@ type CreateHTTPProxyOptions struct {
 
 var createHTTPProxyOptions = &CreateHTTPProxyOptions{}
 
+var createHTTPProxyExamples = `# General case
+egctl create httpproxy NAME --port PORT \ 
+	--rule HOST/PATH=ENDPOINT1,ENDPOINT2 \
+	[--rule HOST/PATH=ENDPOINT1,ENDPOINT2] \
+	[--tls] \
+	[--auto-cert] \
+	[--ca-cert-file CA_CERT_FILE] \
+	[--cert-file CERT_FILE] \
+	[--key-file KEY_FILE]
+
+# Create a HTTPServer (with port 10080) and corresponding Pipelines to direct 
+# request with path "/bar" to "http://127.0.0.1:8080" and "http://127.0.0.1:8081" and 
+# request with path "/foo" to "http://127.0.0.1:8082".
+egctl create httpproxy demo --port 10080 \
+	--rule="/bar=http://127.0.0.1:8080,http://127.0.0.1:8081" \
+	--rule="/foo=http://127.0.0.1:8082"
+
+# Create a HTTPServer (with port 10081) and corresponding Pipelines to direct request 
+# with path prefix "foo.com/prefix" to "http://127.0.0.1:8083".
+egctl create httpproxy demo2 --port 10081 \
+	--rule="foo.com/prefix*=http://127.0.0.1:8083"
+`
+
+// CreateHTTPProxyCmd returns create command of HTTPProxy.
 func CreateHTTPProxyCmd() *cobra.Command {
 	o := createHTTPProxyOptions
 
 	cmd := &cobra.Command{
-		Use:   "httpproxy NAME",
-		Short: "Create a HTTPServer and corresponding Pipelines with a specific name",
-		Args:  createHTTPProxyArgs,
+		Use:     "httpproxy NAME",
+		Short:   "Create a HTTPServer and corresponding Pipelines with a specific name",
+		Args:    createHTTPProxyArgs,
+		Example: general.CreateMultiLineExample(createHTTPProxyExamples),
 		Run: func(cmd *cobra.Command, args []string) {
 			err := createHTTPProxyRun(cmd, args)
 			if err != nil {
@@ -121,6 +147,7 @@ func createHTTPProxyRun(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// HTTPServerSpec is the spec of HTTPServer.
 type HTTPServerSpec struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
@@ -128,6 +155,7 @@ type HTTPServerSpec struct {
 	httpserver.Spec `json:",inline"`
 }
 
+// PipelineSpec is the spec of Pipeline.
 type PipelineSpec struct {
 	Name string `json:"name"`
 	Kind string `json:"kind"`
@@ -135,10 +163,12 @@ type PipelineSpec struct {
 	pipeline.Spec `json:",inline"`
 }
 
+// Complete completes all the required options.
 func (o *CreateHTTPProxyOptions) Complete(args []string) {
 	o.Name = args[0]
 }
 
+// Parse parses all the optional options.
 func (o *CreateHTTPProxyOptions) Parse() error {
 	// parse rules
 	rules := []*CreateHTTPProxyRule{}
@@ -192,6 +222,7 @@ func (o *CreateHTTPProxyOptions) getPipelineName(id int) string {
 	return fmt.Sprintf("%s-pipeline-%d", o.Name, id)
 }
 
+// Translate translates CreateHTTPProxyOptions to HTTPServerSpec and PipelineSpec.
 func (o *CreateHTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) {
 	hs := &HTTPServerSpec{
 		Name: o.getServerName(),
@@ -343,6 +374,7 @@ func parseRule(rule string) (*CreateHTTPProxyRule, error) {
 	}, nil
 }
 
+// CreateHTTPProxyRule is the rule of HTTPProxy.
 type CreateHTTPProxyRule struct {
 	Host       string
 	Path       string

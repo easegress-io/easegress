@@ -266,6 +266,15 @@ func CreateMultiExample(examples []Example) string {
 	return output
 }
 
+// CreateMultiLineExample creates cobra example by using multiple lines.
+func CreateMultiLineExample(example string) string {
+	lines := strings.Split(example, "\n")
+	for i, line := range lines {
+		lines[i] = "  " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 // GenerateExampleFromChild generates cobra example from child commands.
 func GenerateExampleFromChild(cmd *cobra.Command) {
 	if len(cmd.Commands()) == 0 {

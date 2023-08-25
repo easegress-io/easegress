@@ -4,7 +4,7 @@
 
 Easegress manifests are defined using YAML. They can be identified by the file extensions `.yaml` or `.yml`. You can create resources using either the `egctl create` or `egctl apply` commands. To view all available resources along with their supported actions, use the `egctl api-resources` command.
 
-```
+```bash
 cat globalfilter.yaml | egctl create -f -   # create GlobalFilter resource from stdin
 cat httpserver-new.yaml | egctl apply -f -  # create HTTPServer resource from stdin
 
@@ -16,9 +16,73 @@ egctl apply -f ./cdk-demo.yaml           # create CustomDataKind resource
 egctl create -f ./custom-data-demo.yaml  # create CustomData resource
 ```
 
+## Create HTTPProxy
+`egctl create httpproxy` is used to create `HTTPServer` and corresponding `Pipelines` quickly.
+
+```bash
+egctl create httpproxy NAME --port PORT \ 
+	--rule HOST/PATH=ENDPOINT1,ENDPOINT2 \
+	[--rule HOST/PATH=ENDPOINT1,ENDPOINT2] \
+	[--tls] \
+	[--auto-cert] \
+	[--ca-cert-file CA_CERT_FILE] \
+	[--cert-file CERT_FILE] \
+	[--key-file KEY_FILE]
+```
+
+For example: 
+
+```bash
+# Create a HTTPServer (with port 10080) and corresponding Pipelines to direct 
+# request with path "/bar" to "http://127.0.0.1:8080" and "http://127.0.0.1:8081" and 
+# request with path "/foo" to "http://127.0.0.1:8082".
+egctl create httpproxy demo --port 10080 \
+	--rule="/bar=http://127.0.0.1:8080,http://127.0.0.1:8081" \
+	--rule="/foo=http://127.0.0.1:8082"
+```
+
+this equals to 
+```yaml
+kind: HTTPServer
+name: demo-server
+port: 10080
+https: false
+rules:
+  - paths:
+    - path: /bar
+      backend: demo-pipeline-0
+    - path: /foo
+      backend: demo-pipeline-1
+
+---
+name: demo-pipeline-0
+kind: Pipeline
+filters:
+  - name: proxy
+    kind: Proxy
+    pools:
+    - servers:
+      - url: http://127.0.0.1:8080
+      - url: http://127.0.0.1:8081
+      loadBalance:
+        policy: roundRobin
+
+---
+name: demo-pipeline-1
+kind: Pipeline
+filters:
+  - name: proxy
+    kind: Proxy
+    pools:
+    - servers:
+      - url: http://127.0.0.1:8082
+      loadBalance:
+        policy: roundRobin
+```
+
 ## Viewing and finding resources 
 
-```
+```bash
 egctl get all                          # view all resources
 egctl get httpserver httpserver-demo   # find HTTPServer resources with name "httpserver-demo"
 
@@ -33,13 +97,13 @@ egctl describe pipeline pipeline-demo  # describe Pipeline resource with name "p
 ```
 
 ## Updating resources
-```
+```bash
 egctl apply -f httpserver-demo-version2.yaml  # update HTTPServer resource
 egctl apply -f cdk-demo2.yaml                 # udpate CustomDataKind resource
 ```
 
 ## Editing resources
-```
+```bash
 egctl edit httpserver httpserver-demo  # edit httpserver with name httpserver-demo
 egctl edit customdata cdk-demo         # batch edit custom data with kind cdk-demo
 egctl edit customdata cdk-demo data1   # edit custom data data1 of kind cdk-demo
@@ -47,14 +111,18 @@ egctl edit customdata cdk-demo data1   # edit custom data data1 of kind cdk-demo
 The default editor for `egctl edit` is `vi`. To change it, update the `EGCTL_EDITOR` environment variable.
 
 ## Deleting resources
-```
+```bash
 egctl delete httpserver httpserver-demo        # delete HTTPServer resource with name "httpserver-demo"
 egctl delete httpserver --all                  # delete all HTTPServer resources
 egctl delete customdatakind cdk-demo cdk-kind  # delete CustomDataKind resources named "cdk-demo" and "cdk-kind"
 ```
 
 ## Other commands
-```
+```bash
+egctl logs                             # print easegress-server logs
+egctl logs --tail 100                  # print most recent 100 logs
+egctl logs -f                          # print logs as stream
+
 egctl api-resources                    # view all available resources 
 egctl completion zsh                   # generate completion script for zsh
 egctl health                           # check easegress health
@@ -131,7 +199,7 @@ cluster:
 client-ca-file: "/tmp/certs/ca.crt"
 ```
 
-```
+```bash
 egctl config current-context     # display the current context in use by egctl
 egctl config get-contexts        # view all available contexts
 egctl config use-context <name>  # update the current-context field in the .egctlrc file to <name>
