@@ -24,7 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreate(t *testing.T) {
-	cmd := CreateCmd()
+func TestCmd(t *testing.T) {
+	cmd := Cmd()
 	assert.NotNil(t, cmd)
 }

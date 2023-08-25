@@ -25,7 +25,7 @@ import (
 
 // CreateCmd returns create command.
 func CreateCmd() *cobra.Command {
-	cmd := create.CreateCmd()
-	cmd.AddCommand(create.CreateHTTPProxyCmd())
+	cmd := create.Cmd()
+	cmd.AddCommand(create.HTTPProxyCmd())
 	return cmd
 }

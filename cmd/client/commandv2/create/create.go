@@ -26,8 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateCmd returns create command.
-func CreateCmd() *cobra.Command {
+// Cmd returns create command.
+func Cmd() *cobra.Command {
 	examples := []general.Example{
 		{Desc: "Create a resource from a file", Command: "egctl create -f <filename>.yaml"},
 		{Desc: "Create a resource from stdin", Command: "cat <filename>.yaml | egctl create -f -"},

@@ -36,8 +36,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateHTTPProxyOptions are the options to create a HTTPProxy.
-type CreateHTTPProxyOptions struct {
+// HTTPProxyOptions are the options to create a HTTPProxy.
+type HTTPProxyOptions struct {
 	Name  string
 	Port  int
 	Rules []string
@@ -51,12 +51,12 @@ type CreateHTTPProxyOptions struct {
 	caCert string
 	certs  []string
 	keys   []string
-	rules  []*CreateHTTPProxyRule
+	rules  []*HTTPProxyRule
 }
 
-var createHTTPProxyOptions = &CreateHTTPProxyOptions{}
+var httpProxyOptions = &HTTPProxyOptions{}
 
-var createHTTPProxyExamples = `# General case
+var httpProxyExamples = `# General case
 egctl create httpproxy NAME --port PORT \ 
 	--rule HOST/PATH=ENDPOINT1,ENDPOINT2 \
 	[--rule HOST/PATH=ENDPOINT1,ENDPOINT2] \
@@ -79,17 +79,17 @@ egctl create httpproxy demo2 --port 10081 \
 	--rule="foo.com/prefix*=http://127.0.0.1:8083"
 `
 
-// CreateHTTPProxyCmd returns create command of HTTPProxy.
-func CreateHTTPProxyCmd() *cobra.Command {
-	o := createHTTPProxyOptions
+// HTTPProxyCmd returns create command of HTTPProxy.
+func HTTPProxyCmd() *cobra.Command {
+	o := httpProxyOptions
 
 	cmd := &cobra.Command{
 		Use:     "httpproxy NAME",
 		Short:   "Create a HTTPServer and corresponding Pipelines with a specific name",
-		Args:    createHTTPProxyArgs,
-		Example: general.CreateMultiLineExample(createHTTPProxyExamples),
+		Args:    httpProxyArgs,
+		Example: general.CreateMultiLineExample(httpProxyExamples),
 		Run: func(cmd *cobra.Command, args []string) {
-			err := createHTTPProxyRun(cmd, args)
+			err := httpProxyRun(cmd, args)
 			if err != nil {
 				general.ExitWithError(err)
 			}
@@ -107,8 +107,8 @@ func CreateHTTPProxyCmd() *cobra.Command {
 	return cmd
 }
 
-func createHTTPProxyArgs(_ *cobra.Command, args []string) error {
-	o := createHTTPProxyOptions
+func httpProxyArgs(_ *cobra.Command, args []string) error {
+	o := httpProxyOptions
 	if len(args) != 1 {
 		return fmt.Errorf("create httpproxy requires a name")
 	}
@@ -124,8 +124,8 @@ func createHTTPProxyArgs(_ *cobra.Command, args []string) error {
 	return nil
 }
 
-func createHTTPProxyRun(cmd *cobra.Command, args []string) error {
-	o := createHTTPProxyOptions
+func httpProxyRun(cmd *cobra.Command, args []string) error {
+	o := httpProxyOptions
 	o.Complete(args)
 	if err := o.Parse(); err != nil {
 		return err
@@ -164,14 +164,14 @@ type PipelineSpec struct {
 }
 
 // Complete completes all the required options.
-func (o *CreateHTTPProxyOptions) Complete(args []string) {
+func (o *HTTPProxyOptions) Complete(args []string) {
 	o.Name = args[0]
 }
 
 // Parse parses all the optional options.
-func (o *CreateHTTPProxyOptions) Parse() error {
+func (o *HTTPProxyOptions) Parse() error {
 	// parse rules
-	rules := []*CreateHTTPProxyRule{}
+	rules := []*HTTPProxyRule{}
 	for _, rule := range o.Rules {
 		r, err := parseRule(rule)
 		if err != nil {
@@ -214,16 +214,16 @@ func (o *CreateHTTPProxyOptions) Parse() error {
 	return nil
 }
 
-func (o *CreateHTTPProxyOptions) getServerName() string {
+func (o *HTTPProxyOptions) getServerName() string {
 	return o.Name + "-server"
 }
 
-func (o *CreateHTTPProxyOptions) getPipelineName(id int) string {
+func (o *HTTPProxyOptions) getPipelineName(id int) string {
 	return fmt.Sprintf("%s-pipeline-%d", o.Name, id)
 }
 
-// Translate translates CreateHTTPProxyOptions to HTTPServerSpec and PipelineSpec.
-func (o *CreateHTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) {
+// Translate translates HTTPProxyOptions to HTTPServerSpec and PipelineSpec.
+func (o *HTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) {
 	hs := &HTTPServerSpec{
 		Name: o.getServerName(),
 		Kind: httpserver.Kind,
@@ -247,7 +247,7 @@ func (o *CreateHTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) 
 	return hs, pipelines
 }
 
-func (o *CreateHTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpec) {
+func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpec) {
 	var rules routers.Rules
 	var pipelines []*PipelineSpec
 	pipelineID := 0
@@ -338,7 +338,7 @@ func translateToProxyFilter(endpoints []string) *httpproxy.Spec {
 	return spec
 }
 
-func parseRule(rule string) (*CreateHTTPProxyRule, error) {
+func parseRule(rule string) (*HTTPProxyRule, error) {
 	parts := strings.Split(rule, "=")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("rule %s should in format 'host/path=endpoint1,endpoint2', invalid format", rule)
@@ -366,7 +366,7 @@ func parseRule(rule string) (*CreateHTTPProxyRule, error) {
 		return nil, fmt.Errorf("endpoints in rule %s is empty", rule)
 	}
 
-	return &CreateHTTPProxyRule{
+	return &HTTPProxyRule{
 		Host:       host,
 		Path:       path,
 		PathPrefix: pathPrefix,
@@ -374,8 +374,8 @@ func parseRule(rule string) (*CreateHTTPProxyRule, error) {
 	}, nil
 }
 
-// CreateHTTPProxyRule is the rule of HTTPProxy.
-type CreateHTTPProxyRule struct {
+// HTTPProxyRule is the rule of HTTPProxy.
+type HTTPProxyRule struct {
 	Host       string
 	Path       string
 	PathPrefix string

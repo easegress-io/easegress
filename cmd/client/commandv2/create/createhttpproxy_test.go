@@ -247,7 +247,7 @@ func TestCreateHTTPProxyOptions(t *testing.T) {
 	}
 	certBase64 := "aGVsbG8="
 
-	o := &CreateHTTPProxyOptions{
+	o := &HTTPProxyOptions{
 		Port: 10080,
 		Rules: []string{
 			"foo.com/barz=http://127.0.0.1:9095",
@@ -335,11 +335,11 @@ filters:
 }
 
 func TestCreateHTTPProxyCmd(t *testing.T) {
-	cmd := CreateHTTPProxyCmd()
+	cmd := HTTPProxyCmd()
 	assert.NotNil(t, cmd)
 
 	resetOption := func() {
-		createHTTPProxyOptions = &CreateHTTPProxyOptions{
+		httpProxyOptions = &HTTPProxyOptions{
 			Port: 10080,
 			Rules: []string{
 				"foo.com/bar=http://127.0.0.1:9096",
@@ -347,38 +347,38 @@ func TestCreateHTTPProxyCmd(t *testing.T) {
 		}
 	}
 	resetOption()
-	err := createHTTPProxyArgs(cmd, []string{"demo"})
+	err := httpProxyArgs(cmd, []string{"demo"})
 	assert.Nil(t, err)
 
 	// test arg len
-	err = createHTTPProxyArgs(cmd, []string{})
+	err = httpProxyArgs(cmd, []string{})
 	assert.NotNil(t, err)
-	err = createHTTPProxyArgs(cmd, []string{"demo", "123"})
+	err = httpProxyArgs(cmd, []string{"demo", "123"})
 	assert.NotNil(t, err)
 
 	// test port
-	createHTTPProxyOptions.Port = -1
-	err = createHTTPProxyArgs(cmd, []string{"demo"})
+	httpProxyOptions.Port = -1
+	err = httpProxyArgs(cmd, []string{"demo"})
 	assert.NotNil(t, err)
 
-	createHTTPProxyOptions.Port = 65536
-	err = createHTTPProxyArgs(cmd, []string{"demo"})
+	httpProxyOptions.Port = 65536
+	err = httpProxyArgs(cmd, []string{"demo"})
 	assert.NotNil(t, err)
 	resetOption()
 
 	// test rule
-	createHTTPProxyOptions.Rules = []string{}
-	err = createHTTPProxyArgs(cmd, []string{"demo"})
+	httpProxyOptions.Rules = []string{}
+	err = httpProxyArgs(cmd, []string{"demo"})
 	assert.NotNil(t, err)
 	resetOption()
 
 	// test cert files
-	createHTTPProxyOptions.CertFiles = []string{"not-exist-file.cert"}
-	err = createHTTPProxyArgs(cmd, []string{"demo"})
+	httpProxyOptions.CertFiles = []string{"not-exist-file.cert"}
+	err = httpProxyArgs(cmd, []string{"demo"})
 	assert.NotNil(t, err)
 	resetOption()
 
 	// test run
-	err = createHTTPProxyRun(cmd, []string{"demo"})
+	err = httpProxyRun(cmd, []string{"demo"})
 	assert.NotNil(t, err)
 }
