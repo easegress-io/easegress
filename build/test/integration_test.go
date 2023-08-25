@@ -18,6 +18,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -594,4 +595,45 @@ func TestCreateHTTPProxy(t *testing.T) {
 	testFn("/pipeline", "hello from backend 9096")
 	testFn("/barz", "hello from backend 9097")
 	testFn("/bar-prefix", "hello from backend 9098")
+}
+
+func TestLogs(t *testing.T) {
+	assert := assert.New(t)
+
+	{
+		// test egctl logs --tail n
+		cmd := egctlCmd("logs", "--tail", "5")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "INFO"))
+		assert.True(strings.Contains(output, ".go"), "should contain go file in log")
+		lines := strings.Split(strings.TrimSpace(output), "\n")
+		assert.Len(lines, 5)
+	}
+	{
+		// test egctl logs -f
+		cmd := egctlCmd("logs", "-f", "--tail", "0")
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Start()
+		assert.NoError(err)
+
+		// check if new logs are printed
+		yamlStr := `
+kind: HTTPServer
+name: test-egctl-logs        
+port: 12345
+rules:
+- paths:
+  - pathPrefix: /pipeline
+    backend: pipeline-demo
+`
+		err = applyResource(yamlStr)
+		assert.NoError(err)
+		time.Sleep(1 * time.Second)
+		cmd.Process.Kill()
+		assert.True(strings.Contains(stdout.String(), "test-egctl-logs"))
+	}
 }
