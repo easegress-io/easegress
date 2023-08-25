@@ -39,6 +39,43 @@ func (s *Server) logsAPIEntries() []*Entry {
 	}
 }
 
+type logFile struct {
+	Path     string
+	File     *os.File
+	Tail     int
+	Follow   bool
+	EndIndex int64
+}
+
+// Close close the log file.
+func (lf *logFile) Close() {
+	lf.File.Close()
+}
+
+func newLogFile(r *http.Request, filePath string) (*logFile, error) {
+	tail, follow, err := parseLogQueries(r)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	end, err := file.Seek(0, io.SeekEnd)
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+
+	return &logFile{
+		Path:     filePath,
+		File:     file,
+		Tail:     tail,
+		Follow:   follow,
+		EndIndex: end,
+	}, nil
+}
+
 func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 	flusher := w.(http.Flusher)
 	var err error
@@ -48,37 +85,29 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	tail, follow, err := parseLogQueries(r)
-	if err != nil {
-		return
-	}
 	logPath := logger.GetLogPath()
 	if logPath == "" {
 		err = errors.New("log path not found")
 		return
 	}
-	file, err := os.Open(logPath)
+
+	logFile, err := newLogFile(r, logPath)
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer logFile.Close()
 
-	end, err := file.Seek(0, io.SeekEnd)
-	if err != nil {
-		return
-	}
-
-	err = readLogFileWithTail(w, file, tail, end)
+	err = logFile.ReadWithTail(w)
 	if err != nil {
 		return
 	}
 	flusher.Flush()
 
 	// watch log file from the end
-	if !follow {
+	if !logFile.Follow {
 		return
 	}
-	writeCh, closeFn, err := watchLogFile(logPath, end)
+	writeCh, closeFn, err := logFile.Watch()
 	if err != nil {
 		return
 	}
@@ -101,20 +130,25 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func readLogFileWithTail(w http.ResponseWriter, file *os.File, tail int, end int64) error {
+// ReadWithTail read log file wilt tail. If tail is -1, read all.
+func (lf *logFile) ReadWithTail(w http.ResponseWriter) error {
 	var index int64
 	var err error
-	if tail == -1 {
+	end := lf.EndIndex
+	// tail -1 means read all, find index to start reading
+	if lf.Tail == -1 {
 		index = 0
 	} else {
-		index, err = findLastNLineIndex(file, tail, end)
+		index, err = lf.findLastNLineIndex()
 		if err != nil {
 			return err
 		}
 	}
+
+	// reading from index to end
 	for index < end {
 		data := make([]byte, 1024)
-		length, err := file.ReadAt(data, index)
+		length, err := lf.File.ReadAt(data, index)
 		index += int64(length)
 		if index > end {
 			length = int(end - index + int64(length))
@@ -154,29 +188,27 @@ func parseLogQueries(r *http.Request) (int, bool, error) {
 	return tail, follow, nil
 }
 
-func watchLogFile(filePath string, offset int64) (<-chan string, func(), error) {
+// Watch watch the log file from the end index.
+// It returns watchCh to receive the new log and closeFn to close the watcher.
+func (lf *logFile) Watch() (<-chan string, func(), error) {
 	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	watchCh := make(chan string)
 	closeCh := make(chan struct{})
-	go func() {
-		index := offset
+	go func(lf *logFile) {
+		index := lf.EndIndex
 		defer func() {
-			logger.Infof("close watcher for %s", filePath)
+			logger.Infof("close watcher for %s", lf.Path)
 			close(watchCh)
 		}()
 
 		for {
 			select {
 			case <-closeCh:
+				// caller close the watcher, return
 				return
 			case event, ok := <-watcher.Events:
 				if !ok {
@@ -185,7 +217,7 @@ func watchLogFile(filePath string, offset int64) (<-chan string, func(), error) 
 				if event.Has(fsnotify.Write) {
 					for {
 						data := make([]byte, 1024)
-						length, err := file.ReadAt(data, index)
+						length, err := lf.File.ReadAt(data, index)
 						if err != nil {
 							if err != io.EOF {
 								return
@@ -204,40 +236,40 @@ func watchLogFile(filePath string, offset int64) (<-chan string, func(), error) 
 				}
 			}
 		}
-	}()
+	}(lf)
 
-	err = watcher.Add(filePath)
+	err = watcher.Add(lf.Path)
 	if err != nil {
+		close(closeCh)
 		return nil, nil, err
 	}
 	return watchCh, func() { close(closeCh) }, nil
 }
 
-// findLastNLineIndex returns the byte position (index) of the start of the last n lines
-// in the file. If the file has fewer than n lines, it returns 0.
-func findLastNLineIndex(file *os.File, n int, end int64) (int64, error) {
+// findLastNLineIndex find the index of the last n line
+// from EndIndex of file. It return 0 if the file has
+// less than n lines.
+func (lf *logFile) findLastNLineIndex() (int64, error) {
 	buf := make([]byte, 1)
-
 	lineCount := 0
-	end--
+	end := lf.EndIndex
+	n := lf.Tail
+
 	for end > 0 && lineCount < n {
 		end--
-		_, err := file.ReadAt(buf, end)
+		_, err := lf.File.ReadAt(buf, end)
 		if err != nil {
 			return 0, err
 		}
 
-		// Count the newline characters
-		if buf[0] == '\n' {
+		if buf[0] == '\n' && end != lf.EndIndex-1 {
 			lineCount++
 			if lineCount == n {
-				// Move past the newline character to start of the line
 				end++
 				break
 			}
 		}
 	}
-	// If the file has fewer than n lines, return 0
 	if lineCount < n {
 		return 0, nil
 	}
