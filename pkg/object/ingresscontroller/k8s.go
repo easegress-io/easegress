@@ -180,6 +180,9 @@ func checkKubernetesVersion(cfg *rest.Config) (err error) {
 	}
 
 	info, err := cli.ServerVersion()
+	if err != nil {
+		return
+	}
 	if info.Major != "1" {
 		err = fmt.Errorf("unknown kubernetes major version: %v", info.Major)
 		return
@@ -187,7 +190,7 @@ func checkKubernetesVersion(cfg *rest.Config) (err error) {
 
 	minor, err := strconv.Atoi(info.Minor)
 	if err != nil {
-		err = fmt.Errorf("unknown kubernetes minor version: %v", info.Minor)
+		err = fmt.Errorf("unknown kubernetes minor version: %v, %s", info.Minor, err.Error())
 		return
 	}
 

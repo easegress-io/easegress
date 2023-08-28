@@ -48,7 +48,7 @@ rules:
     - pathPrefix: /api
 `
 
-	superSpec, err := supervisor.NewSpec(yamlConfig)
+	_, err := supervisor.NewSpec(yamlConfig)
 	assert.Error(err)
 
 	yamlConfig = `
@@ -62,7 +62,7 @@ rules:
     - pathPrefix: /api
 `
 
-	superSpec, err = supervisor.NewSpec(yamlConfig)
+	_, err = supervisor.NewSpec(yamlConfig)
 	assert.Error(err)
 
 	yamlConfig = `
@@ -75,7 +75,7 @@ rules:
     - pathPrefix: /api
 `
 
-	superSpec, err = supervisor.NewSpec(yamlConfig)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	assert.NotNil(superSpec.ObjectSpec())
 

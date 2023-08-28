@@ -335,7 +335,7 @@ func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pi
 	}
 
 	if !sawEnd && after != nil {
-		result, stats, sawEnd = p.doHandle(ctx, after.flow, stats)
+		result, stats, _ = p.doHandle(ctx, after.flow, stats)
 	}
 
 	ctx.LazyAddTag(func() string {

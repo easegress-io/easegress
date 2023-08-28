@@ -253,7 +253,7 @@ func (o *OIDCAdaptor) handleOIDCCallback(ctx *context.Context) string {
 	if err != nil {
 		return filterResp(rw, http.StatusForbidden, err.Error())
 	}
-	oidcToken, err := o.fetchOIDCToken(authCode, state, spec, err, rw, req)
+	oidcToken, err := o.fetchOIDCToken(authCode, state, spec, rw, req)
 	if err != nil {
 		return errorResp(rw, "fetch OIDC token error: "+err.Error())
 	}
@@ -293,7 +293,7 @@ func (o *OIDCAdaptor) handleOIDCCallback(ctx *context.Context) string {
 	return ""
 }
 
-func (o *OIDCAdaptor) fetchOIDCToken(authCode string, state string, spec *Spec, err error, rw *httpprot.Response, req *httpprot.Request) (*oidcIDToken, error) {
+func (o *OIDCAdaptor) fetchOIDCToken(authCode string, state string, spec *Spec, rw *httpprot.Response, req *httpprot.Request) (*oidcIDToken, error) {
 	// client_secret_post || client_secret_basic
 	tokenFormData := url.Values{
 		"client_id":     {o.spec.ClientID},

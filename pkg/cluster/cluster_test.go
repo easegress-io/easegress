@@ -18,8 +18,8 @@
 package cluster
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -48,7 +48,6 @@ func getRandomString(n int) string {
 }
 
 func TestMain(m *testing.M) {
-	rand.Seed(time.Now().UnixNano())
 	logger.InitNop()
 	// logger.InitMock()
 	tempDir = path.Join(tempDir, getRandomString(6))

@@ -20,10 +20,8 @@ package cmd
 
 import (
 	"log"
-	"math/rand"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/cluster"
@@ -40,8 +38,6 @@ import (
 
 // RunServer runs Easegress server.
 func RunServer() {
-	rand.Seed(time.Now().UnixNano())
-
 	opt := option.New()
 	if err := opt.Parse(); err != nil {
 		common.Exit(1, err.Error())
