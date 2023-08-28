@@ -44,18 +44,18 @@ egctl create httpproxy demo --port 10080 \
 this equals to 
 ```yaml
 kind: HTTPServer
-name: demo-server
+name: demo
 port: 10080
 https: false
 rules:
   - paths:
     - path: /bar
-      backend: demo-pipeline-0
+      backend: demo-0
     - path: /foo
-      backend: demo-pipeline-1
+      backend: demo-1
 
 ---
-name: demo-pipeline-0
+name: demo-0
 kind: Pipeline
 filters:
   - name: proxy
@@ -68,7 +68,7 @@ filters:
         policy: roundRobin
 
 ---
-name: demo-pipeline-1
+name: demo-1
 kind: Pipeline
 filters:
   - name: proxy

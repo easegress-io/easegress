@@ -267,7 +267,7 @@ func TestCreateHTTPProxyOptions(t *testing.T) {
 	hs, pls := o.Translate()
 
 	// meta
-	assert.Equal("test-server", hs.Name)
+	assert.Equal("test", hs.Name)
 	assert.Equal("HTTPServer", hs.Kind)
 	assert.Equal(uint16(10080), hs.Port)
 
@@ -285,17 +285,17 @@ func TestCreateHTTPProxyOptions(t *testing.T) {
 	assert.Len(hs.Rules, 2)
 	assert.Equal("foo.com", hs.Rules[0].Host)
 	assert.Equal(routers.Paths{
-		{Path: "/barz", Backend: "test-pipeline-0"},
-		{PathPrefix: "/bar", Backend: "test-pipeline-1"},
+		{Path: "/barz", Backend: "test-0"},
+		{PathPrefix: "/bar", Backend: "test-1"},
 	}, hs.Rules[0].Paths)
 	assert.Equal(routers.Paths{
-		{Path: "/bar", Backend: "test-pipeline-2"},
+		{Path: "/bar", Backend: "test-2"},
 	}, hs.Rules[1].Paths)
 
 	// pipelines
 	assert.Len(pls, 3)
 	for i, pl := range pls {
-		assert.Equal(fmt.Sprintf("test-pipeline-%d", i), pl.Name)
+		assert.Equal(fmt.Sprintf("test-%d", i), pl.Name)
 		assert.Equal("Pipeline", pl.Kind)
 		assert.Len(pl.Filters, 1)
 	}

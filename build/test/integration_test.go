@@ -575,11 +575,11 @@ func TestCreateHTTPProxy(t *testing.T) {
 
 	output, err := getResource("httpserver")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "http-proxy-test-server"))
+	assert.True(strings.Contains(output, "http-proxy-test"))
 
 	output, err = getResource("pipeline")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "http-proxy-test-pipeline-0"))
+	assert.True(strings.Contains(output, "http-proxy-test-0"))
 
 	testFn := func(p string, expected string) {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10080"+p, nil)

@@ -215,11 +215,11 @@ func (o *HTTPProxyOptions) Parse() error {
 }
 
 func (o *HTTPProxyOptions) getServerName() string {
-	return o.Name + "-server"
+	return o.Name
 }
 
 func (o *HTTPProxyOptions) getPipelineName(id int) string {
-	return fmt.Sprintf("%s-pipeline-%d", o.Name, id)
+	return fmt.Sprintf("%s-%d", o.Name, id)
 }
 
 // Translate translates HTTPProxyOptions to HTTPServerSpec and PipelineSpec.
