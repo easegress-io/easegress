@@ -70,7 +70,7 @@ var (
 	}
 	defaultDialOpts = []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithCodec(&GrpcCodec{}),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(&GrpcCodec{})),
 		grpc.WithBlock()}
 )
 

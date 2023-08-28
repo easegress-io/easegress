@@ -52,7 +52,7 @@ func (GrpcCodec) Unmarshal(data []byte, v interface{}) error {
 	return proto.Unmarshal(data, v.(proto.Message))
 }
 
-// String return codec name
-func (GrpcCodec) String() string {
+// Name return codec name
+func (GrpcCodec) Name() string {
 	return codecName
 }

@@ -19,7 +19,6 @@ package proxies
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"sync"
@@ -85,8 +84,6 @@ func TestGeneralLoadBalancer(t *testing.T) {
 }
 
 func TestRandomLoadBalancePolicy(t *testing.T) {
-	rand.Seed(0)
-
 	counter := [10]int{}
 	servers := prepareServers(10)
 
@@ -126,8 +123,6 @@ func TestRoundRobinLoadBalancePolicy(t *testing.T) {
 }
 
 func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
-	rand.Seed(0)
-
 	counter := [10]int{}
 	servers := prepareServers(10)
 

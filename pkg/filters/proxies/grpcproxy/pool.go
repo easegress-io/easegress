@@ -345,8 +345,8 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 	// Explicitly *do not Close* c2sErrChan and c2sErrChan, otherwise the select below will not terminate.
 	// Channels do not have to be closed, it is just a control flow mechanism, see
 	// https://groups.google.com/forum/#!msg/golang-nuts/pZwdYRGxCIk/qpbHxRRPJdUJ
-	c2sErrChan := sp.forwardE2E(ctx.stdr, proxyAsClientStream, nil)
-	s2cErrChan := sp.forwardE2E(proxyAsClientStream, ctx.stdw, ctx.resp.RawHeader())
+	c2sErrChan := sp.forwardS2C(ctx.stdr, proxyAsClientStream, nil)
+	s2cErrChan := sp.forwardC2S(proxyAsClientStream, ctx.stdw, ctx.resp.RawHeader())
 	// We don't know which side is going to stop sending first, so we need a select between the two.
 	for {
 		select {
@@ -381,7 +381,7 @@ func (sp *ServerPool) buildOutputResponse(spCtx *serverPoolContext, s *status.St
 	spCtx.SetOutputResponse(spCtx.resp)
 }
 
-func (sp *ServerPool) forwardE2E(src grpc.Stream, dst grpc.Stream, header *grpcprot.Header) chan error {
+func (sp *ServerPool) forwardC2S(src grpc.ClientStream, dst grpc.ServerStream, header *grpcprot.Header) chan error {
 	ret := make(chan error, 1)
 	go func() {
 		f := &emptypb.Empty{}
@@ -391,24 +391,40 @@ func (sp *ServerPool) forwardE2E(src grpc.Stream, dst grpc.Stream, header *grpcp
 				return
 			}
 			if i == 0 {
-				if cs, ok := src.(grpc.ClientStream); ok {
-					// This is a bit of a hack, but client to server headers are only readable after first client msg is
-					// received but must be written to server stream before the first msg is flushed.
-					// This is the only place to do it nicely.
-					md, err := cs.Header()
-					if err != nil {
-						ret <- err
-						return
-					}
-					if header != nil {
-						md = metadata.Join(header.GetMD(), md)
-					}
-
-					if err = dst.(grpc.ServerStream).SendHeader(md); err != nil {
-						ret <- err
-						return
-					}
+				// This is a bit of a hack, but client to server headers are only readable after first client msg is
+				// received but must be written to server stream before the first msg is flushed.
+				// This is the only place to do it nicely.
+				md, err := src.Header()
+				if err != nil {
+					ret <- err
+					return
 				}
+				if header != nil {
+					md = metadata.Join(header.GetMD(), md)
+				}
+
+				if err = dst.SendHeader(md); err != nil {
+					ret <- err
+					return
+				}
+			}
+			if err := dst.SendMsg(f); err != nil {
+				ret <- err
+				return
+			}
+		}
+	}()
+	return ret
+}
+
+func (sp *ServerPool) forwardS2C(src grpc.ServerStream, dst grpc.ClientStream, header *grpcprot.Header) chan error {
+	ret := make(chan error, 1)
+	go func() {
+		f := &emptypb.Empty{}
+		for i := 0; ; i++ {
+			if err := src.RecvMsg(f); err != nil {
+				ret <- err // this can be io.EOF which is happy case
+				return
 			}
 			if err := dst.SendMsg(f); err != nil {
 				ret <- err

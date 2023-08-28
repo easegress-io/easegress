@@ -222,6 +222,7 @@ extra-entry: "extra"
 	assert.Equal("123456789", hdr1)
 
 	hl, err = createHeaderLookup(config, hl, supervisor)
+	assert.Nil(err)
 	ctx, header = prepareCtxAndHeader(t)
 
 	// update key-value store
@@ -242,6 +243,7 @@ extra-entry: "extra"
 	assert.Equal("77341", header.Get("user-ext-id"))
 
 	hl, err = createHeaderLookup(config, hl, supervisor)
+	assert.Nil(err)
 	ctx, header = prepareCtxAndHeader(t)
 	header.Set("X-AUTH-USER", "foobar")
 	// delete foobar completely
