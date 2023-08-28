@@ -751,10 +751,9 @@ type testServer struct {
 
 func newServer(addr string) *testServer {
 	mux := http.NewServeMux()
-	srv := http.Server{Addr: addr, Handler: mux}
 	ts := &testServer{
 		mux:  mux,
-		srv:  srv,
+		srv:  http.Server{Addr: addr, Handler: mux},
 		addr: addr,
 	}
 	return ts
@@ -1389,7 +1388,7 @@ func TestMQTTProxy(t *testing.T) {
 name: mqtt-proxy
 kind: MQTTProxy
 `
-	super := supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil, nil, false, nil, nil)
+	super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
 	super.Options()
 	superSpec, err := super.NewSpec(yamlStr)
 	assert.Nil(err)

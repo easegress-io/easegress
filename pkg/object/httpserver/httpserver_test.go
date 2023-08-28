@@ -19,7 +19,6 @@ package httpserver
 
 import (
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -46,7 +45,7 @@ port: 38081
 keepAlive: true
 https: false
 `
-	super := supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+	super := supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	superSpec, err := super.NewSpec(yamlConfig)
 	assert.NoError(err)

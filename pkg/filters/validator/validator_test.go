@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -536,7 +535,7 @@ basicAuth:
 		}
 
 		supervisor := supervisor.NewMock(
-			nil, clusterInstance, sync.Map{}, sync.Map{}, nil, nil, false, nil, nil)
+			nil, clusterInstance, nil, nil, false, nil, nil)
 
 		yamlConfig := `
 kind: Validator

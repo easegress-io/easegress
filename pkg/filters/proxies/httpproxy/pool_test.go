@@ -19,7 +19,6 @@ package httpproxy
 
 import (
 	"net/http"
-	"sync"
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/context"
@@ -93,7 +92,7 @@ servers:
 	assert.NoError(spec.Validate())
 
 	p := &Proxy{}
-	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, spec, "test")
 	policies := map[string]resilience.Policy{}
@@ -135,7 +134,7 @@ servers:
 	assert.NoError(spec.Validate())
 
 	p := &Proxy{}
-	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, spec, "test")
 	spCtx := &serverPoolContext{
@@ -178,7 +177,7 @@ func TestCopyCORSHeaders(t *testing.T) {
 	dst.Add("X-Dst", "dst")
 
 	p := &Proxy{}
-	p.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, &ServerPoolSpec{}, "test")
 	dst = sp.mergeResponseHeader(dst, src)

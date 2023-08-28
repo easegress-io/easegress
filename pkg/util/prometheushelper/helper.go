@@ -150,13 +150,13 @@ func NewSummary(opt prometheus.SummaryOpts, labels []string) *prometheus.Summary
 }
 
 func getAndValidate(metricName string, labels []string) (string, error) {
-	if ValidateMetricName(metricName) == false {
-		return "", fmt.Errorf("Invalid metric name: %s", metricName)
+	if !ValidateMetricName(metricName) {
+		return "", fmt.Errorf("invalid metric name: %s", metricName)
 	}
 
 	for _, l := range labels {
-		if ValidateLabelName(l) == false {
-			return "", fmt.Errorf("Invalid label name: %s", l)
+		if !ValidateLabelName(l) {
+			return "", fmt.Errorf("invalid label name: %s", l)
 		}
 	}
 	return metricName, nil

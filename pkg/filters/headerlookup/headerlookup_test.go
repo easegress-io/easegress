@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"sync"
 	"testing"
 	"time"
 
@@ -79,9 +78,8 @@ func TestValidate(t *testing.T) {
 	assert := assert.New(t)
 	clusterInstance, _ := createClusterAndSyncer()
 
-	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
-		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+		nil, clusterInstance, nil, nil, false, nil, nil)
 
 	const validYaml = `
 name: headerLookup
@@ -191,9 +189,8 @@ headerSetters:
 
 	clusterInstance, syncerChannel := createClusterAndSyncer()
 
-	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
-		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+		nil, clusterInstance, nil, nil, false, nil, nil)
 
 	// let's put data to 'foobar'
 	foobar := `
@@ -274,9 +271,8 @@ headerSetters:
     headerKey: "user-ext-id"
 `
 	clusterInstance, _ := createClusterAndSyncer()
-	var mockMap sync.Map
 	supervisor := supervisor.NewMock(
-		nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+		nil, clusterInstance, nil, nil, false, nil, nil)
 	bobbanana := `
 ext-id: "333"
 extra-entry: "extra"

@@ -24,7 +24,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -58,7 +57,7 @@ func newTestProxy(yamlConfig string, assert *assert.Assertions) *Proxy {
 
 	proxy := kind.CreateInstance(spec).(*Proxy)
 
-	proxy.super = supervisor.NewMock(option.New(), nil, sync.Map{}, sync.Map{}, nil,
+	proxy.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 
 	proxy.Init()
