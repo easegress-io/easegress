@@ -462,14 +462,6 @@ func (c *k8sClient) getService(namespace, name string) (*apicorev1.Service, erro
 	return service, err
 }
 
-func (c *k8sClient) getEndpoints(namespace, name string) (*apicorev1.Endpoints, error) {
-	endpoint, err := c.kFactory.Core().V1().Endpoints().Lister().Endpoints(namespace).Get(name)
-	if errors.IsNotFound(err) {
-		err = nil
-	}
-	return endpoint, err
-}
-
 func (c *k8sClient) getSecret(namespace, name string) (*apicorev1.Secret, error) {
 	secret, err := c.kFactory.Core().V1().Secrets().Lister().Secrets(namespace).Get(name)
 	if errors.IsNotFound(err) {

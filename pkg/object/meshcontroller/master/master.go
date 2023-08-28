@@ -63,6 +63,7 @@ func New(superSpec *supervisor.Spec) *Master {
 	adminSpec := superSpec.ObjectSpec().(*spec.Admin)
 
 	m := &Master{
+		super:     superSpec.Super(),
 		superSpec: superSpec,
 		spec:      adminSpec,
 

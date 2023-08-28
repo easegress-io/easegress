@@ -126,6 +126,7 @@ func (gf *GlobalFilter) Status() *supervisor.Status {
 // Init initializes GlobalFilter.
 func (gf *GlobalFilter) Init(superSpec *supervisor.Spec) {
 	gf.superSpec, gf.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	gf.super = superSpec.Super()
 	gf.reload(nil)
 }
 

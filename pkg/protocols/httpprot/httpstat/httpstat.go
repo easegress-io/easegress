@@ -46,10 +46,6 @@ type (
 		errRate5  metrics.EWMA
 		errRate15 metrics.EWMA
 
-		m1ErrPercent  float64
-		m5ErrPercent  float64
-		m15ErrPercent float64
-
 		total uint64
 		min   uint64
 		max   uint64
