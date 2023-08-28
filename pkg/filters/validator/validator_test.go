@@ -535,9 +535,8 @@ basicAuth:
 			return kvs, nil
 		}
 
-		var mockMap sync.Map
 		supervisor := supervisor.NewMock(
-			nil, clusterInstance, mockMap, mockMap, nil, nil, false, nil, nil)
+			nil, clusterInstance, sync.Map{}, sync.Map{}, nil, nil, false, nil, nil)
 
 		yamlConfig := `
 kind: Validator

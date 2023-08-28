@@ -93,8 +93,7 @@ var awsSpec = &Spec{
 }
 
 func buildRequest(serviceName, region, payload string) *http.Request {
-	var body io.Reader
-	body = strings.NewReader(payload)
+	var body io.Reader = strings.NewReader(payload)
 
 	var bodyLen int
 

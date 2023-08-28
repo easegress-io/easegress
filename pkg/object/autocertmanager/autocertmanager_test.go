@@ -855,8 +855,7 @@ func TestDomain(t *testing.T) {
 	})
 
 	t.Run("renewCert", func(t *testing.T) {
-		var ca *httptest.Server
-		ca = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ca := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Replay-Nonce", "nonce")
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("{}"))
