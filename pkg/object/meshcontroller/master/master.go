@@ -46,9 +46,8 @@ type (
 		heartbeatInterval time.Duration
 		certManager       *certmanager.CertManager
 
-		registrySyncer *registrySyncer
-		store          storage.Storage
-		service        *service.Service
+		store   storage.Storage
+		service *service.Service
 
 		done chan struct{}
 	}
@@ -67,9 +66,8 @@ func New(superSpec *supervisor.Spec) *Master {
 		superSpec: superSpec,
 		spec:      adminSpec,
 
-		store:          store,
-		service:        service.New(superSpec),
-		registrySyncer: newRegistrySyncer(superSpec),
+		store:   store,
+		service: service.New(superSpec),
 
 		done: make(chan struct{}),
 	}

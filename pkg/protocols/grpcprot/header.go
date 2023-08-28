@@ -59,11 +59,11 @@ func (h *Header) RawAdd(key string, values ...string) {
 
 // Add adds the key, value pair to the header.
 func (h *Header) Add(key string, value interface{}) {
-	switch value.(type) {
+	switch v := value.(type) {
 	case string:
-		h.md.Append(key, value.(string))
+		h.md.Append(key, v)
 	case []string:
-		h.md.Append(key, value.([]string)...)
+		h.md.Append(key, v...)
 	default:
 		panic(fmt.Sprintf("append grpc header value type %T is not string or []string", value))
 	}
@@ -76,11 +76,11 @@ func (h *Header) RawSet(key string, values ...string) {
 
 // Set sets the header entries associated with key to the given value.
 func (h *Header) Set(key string, value interface{}) {
-	switch value.(type) {
+	switch v := value.(type) {
 	case string:
-		h.md.Set(key, value.(string))
+		h.md.Set(key, v)
 	case []string:
-		h.md.Set(key, value.([]string)...)
+		h.md.Set(key, v...)
 	default:
 		panic(fmt.Sprintf("set grpc header value type %T is not string or []string", value))
 	}

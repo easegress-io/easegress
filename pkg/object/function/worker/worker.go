@@ -34,7 +34,6 @@ type (
 	// Worker stores the worker information
 	Worker struct {
 		mutex     sync.RWMutex
-		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 
 		name string

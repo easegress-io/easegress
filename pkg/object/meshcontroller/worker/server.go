@@ -29,7 +29,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
-	"github.com/megaease/easegress/v2/pkg/option"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
@@ -39,12 +38,10 @@ const (
 
 type (
 	apiServer struct {
-		opt       option.Options
 		srv       http.Server
 		router    *chi.Mux
 		apisMutex sync.RWMutex
 		apis      []*apiEntry
-		port      int
 	}
 
 	apiEntry struct {
