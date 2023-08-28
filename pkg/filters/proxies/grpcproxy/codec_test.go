@@ -25,7 +25,7 @@ import (
 
 func TestGrpcCodecString(t *testing.T) {
 	grpcCodec := GrpcCodec{}
-	assert.Equal(t, codecName, grpcCodec.String())
+	assert.Equal(t, codecName, grpcCodec.Name())
 }
 
 func TestCodecMarshalUnmarshal(t *testing.T) {
