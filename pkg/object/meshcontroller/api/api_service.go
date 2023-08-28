@@ -258,7 +258,7 @@ func (a *API) getServiceDeployment(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	statefulsets, err := a.k8sClient.AppsV1().StatefulSets("").List(context.Background(), metav1.ListOptions{})
+	statefulsets, _ := a.k8sClient.AppsV1().StatefulSets("").List(context.Background(), metav1.ListOptions{})
 	for _, statefulset := range statefulsets.Items {
 		if statefulset.Annotations[annotationServiceNameKey] == serviceName {
 			serviceDeployment.App = statefulset
