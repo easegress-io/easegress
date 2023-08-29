@@ -20,8 +20,8 @@ package autocertmanager
 import (
 	"context"
 	"crypto"
-	"crypto/dsa"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -775,9 +775,8 @@ func TestCertificateHelpers(t *testing.T) {
 	keys[0] = rsaKey
 	ecdsaKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	keys[1] = ecdsaKey
-	dsaKey := &dsa.PrivateKey{}
-	_ = dsa.GenerateKey(dsaKey, rand.Reader)
-	keys[2] = dsaKey
+	_, edKey, _ := ed25519.GenerateKey(rand.Reader)
+	keys[2] = edKey
 	rsaKey2, _ := rsa.GenerateKey(rand.Reader, 2048)
 	rsaKey2.D = nil
 	keys[3] = rsaKey2
