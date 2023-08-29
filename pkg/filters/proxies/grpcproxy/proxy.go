@@ -71,7 +71,8 @@ var (
 	defaultDialOpts = []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(&GrpcCodec{})),
-		grpc.WithBlock()}
+		grpc.WithBlock(),
+	}
 )
 
 var _ filters.Filter = (*Proxy)(nil)

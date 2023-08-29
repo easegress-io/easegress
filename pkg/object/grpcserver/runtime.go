@@ -34,6 +34,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+func init() {
+	encoding.RegisterCodec(&grpcproxy.GrpcCodec{})
+}
+
 const (
 	stateNil     stateType = "nil"
 	stateFailed  stateType = "failed"
@@ -220,7 +224,6 @@ func (r *runtime) startServer() {
 		r.setError(err)
 		return
 	}
-	encoding.RegisterCodec(&grpcproxy.GrpcCodec{})
 	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler)}
 	keepaliveOpts := r.buildServerKeepaliveOpt()
 
