@@ -1,4 +1,4 @@
-name: Code Analysis
+name: CI Lint
 
 on:
   pull_request:
@@ -6,9 +6,7 @@ on:
       - main
     paths:
       - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/code.analysis.yml"
+      - ".github/workflows/golangci.lint.yml"
 
 env:
   GO_VERSION: "1.20"
@@ -27,11 +25,8 @@ jobs:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v3
 
-    - name: Revive Action
-      uses: morphy2k/revive-action@v2.5.2
-
-    - name: Check formatting
-      run: test -z $(gofmt -l .) || (gofmt -l . && exit 1)
-      
-    - name: misspell
-      uses: sobolevn/misspell-fixer-action@0.1.0
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.54
+        args: --timeout=30m --disable=errcheck
