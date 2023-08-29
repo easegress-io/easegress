@@ -111,7 +111,7 @@ In this example, we use pipeline to process MQTT Connect packet (check username 
 Now, we support following filters for MQTTProxy:
 - `TopicMapper`: map MQTT Publish packet multi-level topic into single topic and key-value headers.
 - `MQTTClientAuth`: provide username and password checking for MQTT Connect packet.
-- `KafkaMQTT`: send MQTT Publish message to Kafka backend.
+- `KafkaMQTT`: send MQTT Publish message to Kafka backend. By default, `KafkaMQTT` filter will add `clientID`, `username`, `mqttTopic` to Kafka message headers.
 
 # Topic Mapping
 In MQTT, there are multi-levels in a topic. Topic mapping is used to map MQTT topic to a single topic with headers. For example:

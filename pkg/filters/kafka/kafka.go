@@ -150,7 +150,6 @@ func (k *Kafka) Status() interface{} {
 // Handle handles context
 func (k *Kafka) Handle(ctx *context.Context) string {
 	var topic string
-	var headers map[string]string
 	var payload []byte
 	var ok bool
 
@@ -161,8 +160,9 @@ func (k *Kafka) Handle(ctx *context.Context) string {
 			return resultGetDataFailed
 		}
 	}
+	var headerFromData map[string]string
 	if k.headerKey != "" {
-		headers, ok = ctx.GetData(k.headerKey).(map[string]string)
+		headerFromData, ok = ctx.GetData(k.headerKey).(map[string]string)
 		if !ok {
 			return resultGetDataFailed
 		}
@@ -175,15 +175,22 @@ func (k *Kafka) Handle(ctx *context.Context) string {
 	}
 
 	req := ctx.GetInputRequest().(*mqttprot.Request)
+	headers := map[string]string{}
 	// set data from PublishPacket if data is missing
+	headers["clientID"] = req.Client().ClientID()
+	headers["username"] = req.Client().UserName()
 	if req.PacketType() == mqttprot.PublishType {
 		p := req.PublishPacket()
+		headers["mqttTopic"] = p.TopicName
 		if topic == "" {
 			topic = p.TopicName
 		}
 		if payload == nil {
 			payload = p.Payload
 		}
+	}
+	for k, v := range headerFromData {
+		headers[k] = v
 	}
 
 	if topic == "" {
