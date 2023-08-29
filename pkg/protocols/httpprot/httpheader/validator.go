@@ -77,22 +77,19 @@ func NewValidator(spec *ValidatorSpec) *Validator {
 func (v Validator) Validate(h *HTTPHeader) error {
 	for key, vv := range *v.spec {
 		values := h.GetAll(key)
-		if len(values) == 0 {
-			return fmt.Errorf("header %s not found", key)
-		}
-		// check all Values in validator are in header
-		for _, v := range vv.Values {
-			if !stringtool.StrInSlice(v, values) {
-				return fmt.Errorf("header %s not contain value %s", key, v)
+		valid := false
+		for _, value := range values {
+			if stringtool.StrInSlice(value, vv.Values) {
+				valid = true
+				break
+			}
+			if vv.re != nil && vv.re.MatchString(value) {
+				valid = true
+				break
 			}
 		}
-		// check all values in header match regexp
-		if vv.re != nil {
-			for _, value := range values {
-				if !vv.re.MatchString(value) {
-					return fmt.Errorf("header %s:%s is invalid", key, value)
-				}
-			}
+		if !valid {
+			return fmt.Errorf("header %s is invalid", key)
 		}
 	}
 	return nil

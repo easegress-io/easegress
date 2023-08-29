@@ -129,7 +129,7 @@ func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
 	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyWeightedRandom}, servers)
 	lb.Init(nil, nil, nil)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 50000; i++ {
 		svr := lb.ChooseServer(nil)
 		counter[svr.Weight-1]++
 	}
@@ -137,7 +137,7 @@ func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
 	v := 0
 	for i := 0; i < 10; i++ {
 		if v >= counter[i] {
-			t.Error("possibility is not weighted even")
+			t.Errorf("possibility is not weighted even %v", counter)
 		}
 		v = counter[i]
 	}
