@@ -194,7 +194,11 @@ func (opt *Options) renameLegacyClusterRoles() {
 // Parse parses all arguments, when the user wants to display version information or view help,
 // we do not execute subsequent logic and return directly.
 func (opt *Options) Parse() error {
-	err := opt.flags.Parse(os.Args[1:])
+	err := SetFlagsFromEnv("EASEGRESS", opt.flags)
+	if err != nil {
+		return err
+	}
+	err = opt.flags.Parse(os.Args[1:])
 	if err != nil {
 		return err
 	}
