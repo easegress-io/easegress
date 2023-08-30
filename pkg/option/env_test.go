@@ -19,15 +19,29 @@ package option
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 )
 
+func resetEnv() func() {
+	envs := os.Environ()
+	return func() {
+		os.Clearenv()
+		for _, env := range envs {
+			kv := strings.SplitN(env, "=", 2)
+			os.Setenv(kv[0], kv[1])
+		}
+	}
+}
+
 func TestSetFlagsFromEnv(t *testing.T) {
 	assert := assert.New(t)
 
+	reset := resetEnv()
+	defer reset()
 	os.Setenv("EASEGRESS_TEST_STRING", "test")
 	os.Setenv("EASEGRESS_TEST_BOOL", "true")
 	os.Setenv("EASEGRESS_TEST_ARRAY", "a,b,c")
@@ -54,6 +68,8 @@ func TestSetFlagsFromEnv(t *testing.T) {
 func TestOptionFromEnv(t *testing.T) {
 	assert := assert.New(t)
 
+	reset := resetEnv()
+	defer reset()
 	os.Setenv("EASEGRESS_NAME", "test-option-from-env")
 	os.Setenv("EASEGRESS_HOME_DIR", "./test-home-dir")
 	os.Setenv("EASEGRESS_LOG_DIR", "./test-log-dir")

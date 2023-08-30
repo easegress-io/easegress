@@ -7,6 +7,7 @@
   - [Deploy an Easegress Cluster Step by Step](#deploy-an-easegress-cluster-step-by-step)
     - [Add New Member](#add-new-member)
   - [YAML Configuration (optional)](#yaml-configuration-optional)
+  - [Flags and Environment Variables](#flags-and-environment-variables)
   - [Configuration tips (optional)](#configuration-tips-optional)
   - [References](#references)
 
@@ -185,6 +186,51 @@ debug: false
 cluster:
   primary-listen-peer-urls:
    - http://$HOST1:2380
+```
+
+## Flags and Environment Variables
+
+In addition to deploying the easegress-server using command-line flags or a YAML file, you can also utilize environment variables. Below are all the available environment variables along with their corresponding flags.
+
+```
+EASEGRESS_NAME:                --name
+EASEGRESS_LABELS:              --labels
+EASEGRESS_CONFIG_FILE:         --config-file
+EASEGRESS_FORCE_NEW_CLUSTER:   --force-new-cluster
+EASEGRESS_SIGNAL_UPGRADE:      --signal-upgrade
+EASEGRESS_USE_STANDALONE_ETCD: --use-standalone-etcd
+
+EASEGRESS_CLUSTER_NAME:            --cluster-name
+EASEGRESS_CLUSTER_ROLE:            --cluster-role
+EASEGRESS_CLUSTER_REQUEST_TIMEOUT: --cluster-request-timeout
+
+EASEGRESS_LISTEN_CLIENT_URLS:          --listen-client-urls
+EASEGRESS_LISTEN_PEER_URLS:            --listen-peer-urls
+EASEGRESS_ADVERTISE_CLIENT_URLS:       --advertise-client-urls
+EASEGRESS_INITIAL_ADVERTISE_PEER_URLS: --initial-advertise-peer-urls
+EASEGRESS_INITIAL_CLUSTER:             --initial-cluster
+EASEGRESS_STATE_FLAG:                  --state-flag
+EASEGRESS_PRIMARY_LISTEN_PEER_URLS:    --primary-listen-peer-urls
+EASEGRESS_MAX_CALL_SEND_MSG_SIZE:      --max-call-send-msg-size
+
+EASEGRESS_API_ADDR:                    --api-addr
+EASEGRESS_TLS:                         --tls
+EASEGRESS_CERT_FILE:                   --cert-file
+EASEGRESS_KEY_FILE:                    --key-file
+EASEGRESS_DEBUG:                       --debug
+EASEGRESS_DISABLE_ACCESS:              --disable-access
+EASEGRESS_OBJECTS_DUMP_INTERVAL:       --objects-dump-interval
+EASEGRESS_INITIAL_OBJECT_CONFIG_FILES: --initial-object-config-files
+
+EASEGRESS_HOME_DIR:   --home-dir
+EASEGRESS_DATA_DIR:   --data-dir
+EASEGRESS_WAL_DIR:    --wal-dir
+EASEGRESS_LOG_DIR:    --log-dir
+EASEGRESS_MEMBER_DIR: --member-dir
+
+EASEGRESS_CPU_PROFILE_FILE:             --cpu-profile-file
+EASEGRESS_MEMORY_PROFILE_FILE:          --memory-profile-file
+EASEGRESS_STATUS_UPDATE_MAX_BATCH_SIZE: --status-update-max-batch-size
 ```
 
 ## Configuration tips (optional)
