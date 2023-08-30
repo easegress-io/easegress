@@ -98,11 +98,12 @@ func defaultFilterSpec(spec *Spec) filters.Spec {
 	return spec
 }
 
-func newContext(cid string, topic string, payload []byte) *context.Context {
+func newContext(cid string, username string, topic string, payload []byte) *context.Context {
 	ctx := context.New(nil)
 
 	client := &mqttprot.MockClient{
 		MockClientID: cid,
+		MockUserName: username,
 	}
 	packet := packets.NewControlPacket(packets.Publish).(*packets.PublishPacket)
 	packet.TopicName = topic
@@ -132,13 +133,23 @@ func TestKafka(t *testing.T) {
 		done:     make(chan struct{}),
 	}
 
-	mqttCtx := newContext("test", "a/b/c", []byte("text"))
+	mqttCtx := newContext("test", "user123", "a/b/c", []byte("text"))
 	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
 
 	req := mqttCtx.GetInputRequest().(*mqttprot.Request)
 	assert.Equal(msg.Topic, req.PublishPacket().TopicName)
-	assert.Equal(0, len(msg.Headers))
+
+	assert.Equal(3, len(msg.Headers))
+	headerMap := map[string]string{
+		"clientID":  "test",
+		"mqttTopic": "a/b/c",
+		"username":  "user123",
+	}
+	for _, h := range msg.Headers {
+		assert.Equal(headerMap[string(h.Key)], string(h.Value))
+	}
+
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
@@ -165,14 +176,14 @@ func TestKafkaWithKVMap(t *testing.T) {
 	kafka.setKV()
 	defer kafka.Close()
 
-	mqttCtx := newContext("test", "a/b/c", []byte("text"))
+	mqttCtx := newContext("test", "user123", "a/b/c", []byte("text"))
 	mqttCtx.SetData("topic", "123")
 	mqttCtx.SetData("headers", map[string]string{"1": "a"})
 
 	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
 	assert.Equal("123", msg.Topic)
-	assert.Equal(1, len(msg.Headers))
+	assert.Equal(4, len(msg.Headers))
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
