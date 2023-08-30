@@ -30,6 +30,7 @@ import (
 func EditCmd() *cobra.Command {
 	examples := []general.Example{
 		{Desc: "Edit a resource with name", Command: "egctl edit <resource> <name>"},
+		{Desc: "Edit a resource with nano", Command: "env EGCTL_EDITOR=nano egctl edit <resource> <name>"},
 		{Desc: "Edit a httpserver with name", Command: "egctl edit httpserver httpserver-demo"},
 		{Desc: "Edit all custom data with kind name", Command: "egctl edit customdata kind1"},
 		{Desc: "Edit custom data with kind name and id name", Command: "egctl edit customdata kind1 data1"},
