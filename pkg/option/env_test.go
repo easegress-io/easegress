@@ -65,6 +65,27 @@ func TestSetFlagsFromEnv(t *testing.T) {
 	assert.Equal(1, intFlag)
 }
 
+func TestSetFlagsFromEnvFail(t *testing.T) {
+	assert := assert.New(t)
+
+	reset := resetEnv()
+	defer reset()
+	os.Setenv("EASEGRESS_TEST_BOOL", "123")
+
+	var boolFlag bool
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.BoolVar(&boolFlag, "test-bool", false, "test bool flag")
+
+	err := SetFlagsFromEnv("EASEGRESS", flags)
+	assert.Error(err)
+
+	os.Setenv("EASEGRESS_VERSION", "not-a-bool")
+	// options from env
+	opt := New()
+	err = opt.Parse()
+	assert.Error(err)
+}
+
 func TestOptionFromEnv(t *testing.T) {
 	assert := assert.New(t)
 
