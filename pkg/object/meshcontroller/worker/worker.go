@@ -44,10 +44,6 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 )
 
-const (
-	agentConfigUpdateInterval = 5 * time.Second
-)
-
 type (
 	// Worker is a sidecar in service mesh.
 	Worker struct {

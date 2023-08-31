@@ -1,0 +1,32 @@
+name: CI Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**/*.go"
+      - ".github/workflows/golangci.lint.yml"
+
+env:
+  GO_VERSION: "1.20"
+
+jobs:
+
+  analysis:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v3
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.54
+        args: --timeout=30m --disable=errcheck

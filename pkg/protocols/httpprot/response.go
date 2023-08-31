@@ -40,9 +40,8 @@ type Response struct {
 	// TODO: we only need StatusCode, Header and Body, that's can avoid
 	// using the big http.Response object.
 	*http.Response
-	stream      *readers.ByteCountReader
-	payload     []byte
-	payloadSize int64
+	stream  *readers.ByteCountReader
+	payload []byte
 }
 
 // ErrResponseEntityTooLarge means the request entity is too large.

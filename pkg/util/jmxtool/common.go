@@ -52,25 +52,24 @@ func JSONToKVMap(jsonStr string) (map[string]string, error) {
 func extractKVs(prefix string, obj interface{}) []map[string]string {
 	var rst []map[string]string
 
-	switch obj.(type) {
+	switch o := obj.(type) {
 	case map[string]interface{}:
-		for k, v := range obj.(map[string]interface{}) {
+		for k, v := range o {
 			current := k
 			rst = append(rst, extractKVs(join(prefix, current), v)...)
 		}
 
 	case []interface{}:
-		o := obj.([]interface{})
 		length := len(o)
 		for i := 0; i < length; i++ {
 			rst = append(rst, extractKVs(join(prefix, strconv.Itoa(i)), o[i])...)
 		}
 	case bool:
-		rst = append(rst, map[string]string{prefix: strconv.FormatBool(obj.(bool))})
+		rst = append(rst, map[string]string{prefix: strconv.FormatBool(o)})
 	case int:
-		rst = append(rst, map[string]string{prefix: strconv.Itoa(obj.(int))})
+		rst = append(rst, map[string]string{prefix: strconv.Itoa(o)})
 	case float64:
-		rst = append(rst, map[string]string{prefix: strconv.FormatFloat(obj.(float64), 'f', 0, 64)})
+		rst = append(rst, map[string]string{prefix: strconv.FormatFloat(o, 'f', 0, 64)})
 	default:
 		if obj == nil {
 			rst = append(rst, map[string]string{prefix: ""})

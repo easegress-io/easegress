@@ -514,11 +514,7 @@ func newMuxRule(rule *routers.Rule) *muxRule {
 
 		if seg.nodeType == ntStatic {
 			p := path.Path
-			if _, ok := mr.pathCache[p]; ok {
-				mr.pathCache[p] = append(mr.pathCache[p], newMuxPath(path))
-			} else {
-				mr.pathCache[p] = []*muxPath{newMuxPath(path)}
-			}
+			mr.pathCache[p] = append(mr.pathCache[p], newMuxPath(path))
 		} else {
 			mr.root.insert(path)
 		}

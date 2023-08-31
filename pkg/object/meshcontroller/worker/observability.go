@@ -21,10 +21,6 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/jmxtool"
 )
 
-const (
-	easeAgentConfigManager = "com.megaease.easeagent:type=ConfigManager"
-)
-
 type (
 	// ObservabilityManager is the manager for observability.
 	ObservabilityManager struct {

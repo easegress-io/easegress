@@ -24,7 +24,6 @@ import (
 	proxy "github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
-	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 )
 
 const (
@@ -52,8 +51,6 @@ type (
 	// MeshAdaptor is filter MeshAdaptor.
 	MeshAdaptor struct {
 		spec *Spec
-
-		pa *pathadaptor.PathAdaptor
 	}
 
 	// Spec is HTTPAdaptor Spec.

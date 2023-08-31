@@ -19,7 +19,6 @@ package proxies
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"testing"
@@ -53,8 +52,6 @@ func TestRequestMatcherBaseSpecValidate(t *testing.T) {
 }
 
 func TestRandomMatcher(t *testing.T) {
-	rand.Seed(0)
-
 	rm := NewRequestMatcher(&RequestMatcherBaseSpec{
 		Policy: "random",
 		Permil: 100,

@@ -22,56 +22,42 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var wg sync.WaitGroup
 
 func TestURLClusterAnalyzer(t *testing.T) {
+	assert := assert.New(t)
+
 	urlClusterAnalyzer := New()
 
 	p := urlClusterAnalyzer.GetPattern("")
-	fmt.Println(p)
-	if p != "" {
-		t.Fatal("")
-	}
+	assert.Equal("", p)
 
 	p = urlClusterAnalyzer.GetPattern("city/address/1/order/3")
-	fmt.Println(p)
-	if p != "/city/address/1/order/3" {
-		t.Fatal("")
-	}
+	assert.Equal("/city/address/1/order/3", p)
 
 	for i := 0; i < maxValues; i++ {
 		p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/%d", i))
 	}
-	fmt.Println(p)
-	if p != fmt.Sprintf("/%d", maxValues-1) {
-		t.Fatal("")
-	}
+	assert.Equal(fmt.Sprintf("/%d", maxValues-1), p)
 
 	for i := 0; i < maxValues+1; i++ {
 		p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/%d", i))
 	}
-	fmt.Println(p)
-	if p != "/*" {
-		t.Fatal("")
-	}
+	assert.Equal("/*", p)
 
 	for i := 0; i < maxValues+10; i++ {
 		p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/orders/%d", i))
 	}
-	fmt.Println(p)
-	if p != "/orders/*" {
-		t.Fatal("")
-	}
+	assert.Equal("/orders/*", p)
 
 	for i := 0; i < maxValues+10; i++ {
 		p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/com/megaease/users/%d/orders/%d/details", 1, i))
 	}
-	fmt.Println(p)
-	if p != "/com/megaease/users/1/orders/*/details" {
-		t.Fatal("")
-	}
+	assert.Equal("/com/megaease/users/1/orders/*/details", p)
 
 	begin := time.Now()
 	for i := 0; i < 2; i++ {
@@ -80,17 +66,14 @@ func TestURLClusterAnalyzer(t *testing.T) {
 			defer wg.Done()
 			pat := ""
 			for i := 0; i < 10000; i++ {
-				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/com%d/abc/users/%d/orders/%d/details", i%10, i, i))
-				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com%d/merchant/%d/sail2/%d/details", i%10, i, i))
-				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant%d/%d/sail3/%d/details", i%10, i, i))
-				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/users/%d/orders/%d/details%d", i, i, i%10))
-				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant/%d/sail/50/details", i))
+				urlClusterAnalyzer.GetPattern(fmt.Sprintf("/com%d/abc/users/%d/orders/%d/details", i%10, i, i))
+				urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com%d/merchant/%d/sail2/%d/details", i%10, i, i))
+				urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant%d/%d/sail3/%d/details", i%10, i, i))
+				urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/users/%d/orders/%d/details%d", i, i, i%10))
+				urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant/%d/sail/50/details", i))
 				pat = urlClusterAnalyzer.GetPattern(fmt.Sprintf("prefix%d/abc/com/merchant/%d/sail15/%d/details", i%10, i, i))
 			}
-			fmt.Println(pat)
-			if pat != "/prefix9/abc/com/merchant/*/sail15/*/details" {
-				t.Fatal("")
-			}
+			assert.Equal("/prefix9/abc/com/merchant/*/sail15/*/details", pat)
 		}()
 	}
 	wg.Wait()
@@ -98,8 +81,5 @@ func TestURLClusterAnalyzer(t *testing.T) {
 	fmt.Println(duration)
 
 	p = urlClusterAnalyzer.GetPattern(fmt.Sprintf("/abc/com/merchant/other/other/%d/details", 30))
-	fmt.Println(p)
-	if p != "/abc/com/merchant/*/other/30/details" {
-		t.Fatal("")
-	}
+	assert.Equal("/abc/com/merchant/*/other/30/details", p)
 }

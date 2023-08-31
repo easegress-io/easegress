@@ -55,14 +55,13 @@ func createOPAFilter(yamlConfig string, prev *OPAFilter, supervisor *supervisor.
 }
 
 type testCase struct {
-	req                func() *http.Request
-	status             int
-	shouldHandlerError bool
-	shouldRegoError    bool
-	readBody           bool
-	policy             string
-	defaultStatus      int
-	includedHeaders    string
+	req             func() *http.Request
+	status          int
+	shouldRegoError bool
+	readBody        bool
+	policy          string
+	defaultStatus   int
+	includedHeaders string
 }
 
 func TestOpaPolicyInFilter(t *testing.T) {

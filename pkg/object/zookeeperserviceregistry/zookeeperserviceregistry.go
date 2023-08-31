@@ -40,8 +40,6 @@ const (
 
 	// Kind is the kind of ZookeeperServiceRegistry.
 	Kind = "ZookeeperServiceRegistry"
-
-	requestTimeout = 5 * time.Second
 )
 
 func init() {

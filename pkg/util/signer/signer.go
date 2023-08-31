@@ -50,43 +50,43 @@ type (
 	Literal struct {
 		// ScopeSuffix is the last part when build the credential scope.
 		// Default: megaease_request
-		ScopeSuffix string `json:"scopeSuffix" json:"scopeSuffix" jsonschema:"required"`
+		ScopeSuffix string `json:"scopeSuffix" jsonschema:"required"`
 
 		// AlgorithmName is the query name of the signature algorithm
 		// Default: X-Me-Algorithm
-		AlgorithmName string `json:"algorithmName" json:"algorithmName" jsonschema:"required"`
+		AlgorithmName string `json:"algorithmName" jsonschema:"required"`
 
 		// AlgorithmName is the header/query value of the signature algorithm
 		// Default: ME-HMAC-SHA256
-		AlgorithmValue string `json:"algorithmValue" json:"alrithmValue" jsonschema:"required"`
+		AlgorithmValue string `json:"algorithmValue" jsonschema:"required"`
 
 		// SignedHeaders is the header/query headers of the signed headers
 		// Default: X-Me-SignedHeaders
-		SignedHeaders string `json:"signedHeaders" json:"signedHeaders" jsonschema:"required"`
+		SignedHeaders string `json:"signedHeaders" jsonschema:"required"`
 
 		// Signature is the query name of the signature
 		// Default: X-Me-Signature
-		Signature string `json:"signature" json:"signature" jsonschema:"required"`
+		Signature string `json:"signature" jsonschema:"required"`
 
 		// Date is the header/query name of request time
 		// Default: X-Me-Date
-		Date string `json:"date" json:"date" jsonschema:"required"`
+		Date string `json:"date" jsonschema:"required"`
 
 		// Expires is the query name of expire duration
 		// Default: X-Me-Expires
-		Expires string `json:"expires" json:"expires" jsonschema:"required"`
+		Expires string `json:"expires" jsonschema:"required"`
 
 		// Credential is the query name of credential
 		// Default: X-Me-Credential
-		Credential string `json:"credential" json:"credential" jsonschema:"required"`
+		Credential string `json:"credential" jsonschema:"required"`
 
 		// ContentSHA256 is the header name of body/payload hash
 		// Default: X-Me-Content-Sha256
-		ContentSHA256 string `json:"contentSha256" json:"contentSha256" jsonschema:"required"`
+		ContentSHA256 string `json:"contentSha256" jsonschema:"required"`
 
 		// SigningKeyPrefix is prepend to access key secret when derive the signing key
 		// Default: ME
-		SigningKeyPrefix string `json:"signingKeyPrefix" json:"signingKeyPrefix" jsonschema:"omitempty"`
+		SigningKeyPrefix string `json:"signingKeyPrefix" jsonschema:"omitempty"`
 	}
 
 	// HeaderHoisting defines which headers are allowed to be moved from header to query
@@ -94,9 +94,9 @@ type (
 	// disallowed prefixes and doesn't match any of disallowed names are allowed to be
 	// hoisted
 	HeaderHoisting struct {
-		AllowedPrefix    []string `json:"allowedPrefix" json:"allowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		DisallowedPrefix []string `json:"disallowedPrefix" json:"disallowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		Disallowed       []string `json:"disallowed" json:"disallowed" jsonschema:"omitempty,uniqueItems=true"`
+		AllowedPrefix    []string `json:"allowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
+		DisallowedPrefix []string `json:"disallowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
+		Disallowed       []string `json:"disallowed" jsonschema:"omitempty,uniqueItems=true"`
 		disallowed       map[string]bool
 	}
 
@@ -781,7 +781,7 @@ func (ctx *Context) Verify(req *http.Request, getBody func() io.Reader) error {
 		return e
 	}
 
-	age := time.Now().Sub(ctx.Time)
+	age := time.Since(ctx.Time)
 	if ctx.signer.ttl > 0 {
 		if age < -ctx.signer.ttl || age > ctx.signer.ttl {
 			return fmt.Errorf("signature expired")

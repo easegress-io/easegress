@@ -19,7 +19,6 @@ package proxies
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"sync"
@@ -85,8 +84,6 @@ func TestGeneralLoadBalancer(t *testing.T) {
 }
 
 func TestRandomLoadBalancePolicy(t *testing.T) {
-	rand.Seed(0)
-
 	counter := [10]int{}
 	servers := prepareServers(10)
 
@@ -126,15 +123,13 @@ func TestRoundRobinLoadBalancePolicy(t *testing.T) {
 }
 
 func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
-	rand.Seed(0)
-
 	counter := [10]int{}
 	servers := prepareServers(10)
 
 	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyWeightedRandom}, servers)
 	lb.Init(nil, nil, nil)
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 50000; i++ {
 		svr := lb.ChooseServer(nil)
 		counter[svr.Weight-1]++
 	}
@@ -142,7 +137,7 @@ func TestWeightedRandomLoadBalancePolicy(t *testing.T) {
 	v := 0
 	for i := 0; i < 10; i++ {
 		if v >= counter[i] {
-			t.Error("possibility is not weighted even")
+			t.Errorf("possibility is not weighted even %v", counter)
 		}
 		v = counter[i]
 	}

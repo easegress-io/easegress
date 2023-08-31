@@ -18,26 +18,21 @@
 package supervisor
 
 import (
-	"sync"
-
 	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 // NewMock return a mock supervisor for testing purpose
-func NewMock(options *option.Options, cls cluster.Cluster, businessControllers sync.Map,
-	systemControllers sync.Map, objectRegistry *ObjectRegistry, watcher *ObjectEntityWatcher,
+func NewMock(options *option.Options, cls cluster.Cluster, objectRegistry *ObjectRegistry, watcher *ObjectEntityWatcher,
 	firstHandle bool, firstHandleDone chan struct{}, done chan struct{}) *Supervisor {
 	return &Supervisor{
-		options:             options,
-		cls:                 cls,
-		businessControllers: businessControllers,
-		systemControllers:   systemControllers,
-		objectRegistry:      objectRegistry,
-		watcher:             watcher,
-		firstHandle:         firstHandle,
-		firstHandleDone:     firstHandleDone,
-		done:                done,
+		options:         options,
+		cls:             cls,
+		objectRegistry:  objectRegistry,
+		watcher:         watcher,
+		firstHandle:     firstHandle,
+		firstHandleDone: firstHandleDone,
+		done:            done,
 	}
 }
 

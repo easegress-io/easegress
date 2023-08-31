@@ -206,7 +206,6 @@ func (huc *htpasswdUserCache) WatchChanges() {
 	if err != nil {
 		logger.Errorf(err.Error())
 	}
-	return
 }
 
 func (huc *htpasswdUserCache) Close() {
@@ -320,7 +319,6 @@ func (euc *etcdUserCache) WatchChanges() {
 			}
 		}
 	}()
-	return
 }
 
 func (euc *etcdUserCache) Close() {

@@ -30,8 +30,13 @@ import (
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/limitlistener"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/keepalive"
 )
+
+func init() {
+	encoding.RegisterCodec(&grpcproxy.GrpcCodec{})
+}
 
 const (
 	stateNil     stateType = "nil"
@@ -219,7 +224,7 @@ func (r *runtime) startServer() {
 		r.setError(err)
 		return
 	}
-	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler), grpc.CustomCodec(&grpcproxy.GrpcCodec{})}
+	opts := []grpc.ServerOption{grpc.UnknownServiceHandler(r.mux.handler)}
 	keepaliveOpts := r.buildServerKeepaliveOpt()
 
 	if len(keepaliveOpts) != 0 {

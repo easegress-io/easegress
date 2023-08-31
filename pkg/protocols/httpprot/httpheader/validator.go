@@ -75,20 +75,22 @@ func NewValidator(spec *ValidatorSpec) *Validator {
 
 // Validate validates HTTPHeader by the Validator.
 func (v Validator) Validate(h *HTTPHeader) error {
-LOOP:
 	for key, vv := range *v.spec {
 		values := h.GetAll(key)
+		valid := false
 		for _, value := range values {
 			if stringtool.StrInSlice(value, vv.Values) {
-				continue LOOP
+				valid = true
+				break
 			}
 			if vv.re != nil && vv.re.MatchString(value) {
-				continue LOOP
+				valid = true
+				break
 			}
-			return fmt.Errorf("header %s:%s is invalid", key, value)
 		}
-		return fmt.Errorf("header %s not found", key)
+		if !valid {
+			return fmt.Errorf("header %s is invalid", key)
+		}
 	}
-
 	return nil
 }
