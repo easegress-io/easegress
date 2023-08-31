@@ -35,6 +35,9 @@ type (
 		ForceTLS           bool
 		InsecureSkipVerify bool
 		OutputFormat       string
+
+		// following are some general flags. Can be used by all commands. But not all commands use them.
+		Verbose bool
 	}
 
 	// APIErr is the standard return of error.

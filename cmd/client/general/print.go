@@ -133,6 +133,13 @@ func DurationMostSignificantUnit(d time.Duration) string {
 // For example, if specials is ["name", "kind", "", "filters"]
 // then, "name", "kind" will in group one, and "filters" will in group two, others will in group three.
 func PrintMapInterface(maps []map[string]interface{}, fronts []string, backs []string) {
+	cutLine := func(line string) string {
+		if CmdGlobalFlags.Verbose || len(line) < 50 {
+			return line
+		}
+		return line[0:50] + "..."
+	}
+
 	printKV := func(k string, v interface{}) {
 		value, err := codectool.MarshalYAML(v)
 		if err != nil {
@@ -142,7 +149,7 @@ func PrintMapInterface(maps []map[string]interface{}, fronts []string, backs []s
 		lines := strings.Split(string(value), "\n")
 		lines = lines[0 : len(lines)-1]
 		if len(lines) == 1 {
-			fmt.Printf("%s: %s\n", Capitalize(k), lines[0])
+			fmt.Printf("%s: %s\n", Capitalize(k), cutLine(lines[0]))
 			return
 		}
 		fmt.Printf("%s:\n", Capitalize(k))
@@ -259,9 +266,21 @@ func CreateMultiExample(examples []Example) string {
 	return output
 }
 
+// CreateMultiLineExample creates cobra example by using multiple lines.
+func CreateMultiLineExample(example string) string {
+	lines := strings.Split(example, "\n")
+	for i, line := range lines {
+		lines[i] = "  " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 // GenerateExampleFromChild generates cobra example from child commands.
 func GenerateExampleFromChild(cmd *cobra.Command) {
 	if len(cmd.Commands()) == 0 {
+		return
+	}
+	if cmd.Example != "" {
 		return
 	}
 

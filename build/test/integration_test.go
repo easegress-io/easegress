@@ -18,6 +18,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -534,4 +535,105 @@ list:
 
 	err = deleteResource("cdk", "custom-data-kind1")
 	assert.NoError(err)
+}
+
+func TestCreateHTTPProxy(t *testing.T) {
+	assert := assert.New(t)
+
+	for i, port := range []int{9096, 9097, 9098} {
+		currentPort := port
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "hello from backend %d", currentPort)
+		})
+
+		server := startServer(currentPort, mux)
+		defer server.Shutdown(context.Background())
+		started := checkServerStart(t, func() *http.Request {
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d", currentPort), nil)
+			require.Nil(t, err)
+			return req
+		})
+		require.True(t, started, i)
+	}
+
+	cmd := egctlCmd(
+		"create",
+		"httpproxy",
+		"http-proxy-test",
+		"--port", "10080",
+		"--rule",
+		"/pipeline=http://127.0.0.1:9096",
+		"--rule",
+		"/barz=http://127.0.0.1:9097",
+		"--rule",
+		"/bar*=http://127.0.0.1:9098",
+	)
+	_, stderr, err := runCmd(cmd)
+	assert.NoError(err)
+	assert.Empty(stderr)
+
+	output, err := getResource("httpserver")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "http-proxy-test"))
+
+	output, err = getResource("pipeline")
+	assert.NoError(err)
+	assert.True(strings.Contains(output, "http-proxy-test-0"))
+
+	testFn := func(p string, expected string) {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10080"+p, nil)
+		assert.Nil(err, p)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, p)
+		defer resp.Body.Close()
+		data, err := io.ReadAll(resp.Body)
+		assert.Nil(err, p)
+		assert.Equal(expected, string(data), p)
+	}
+
+	testFn("/pipeline", "hello from backend 9096")
+	testFn("/barz", "hello from backend 9097")
+	testFn("/bar-prefix", "hello from backend 9098")
+}
+
+func TestLogs(t *testing.T) {
+	assert := assert.New(t)
+
+	{
+		// test egctl logs --tail n
+		cmd := egctlCmd("logs", "--tail", "5")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.True(strings.Contains(output, "INFO"))
+		assert.True(strings.Contains(output, ".go"), "should contain go file in log")
+		lines := strings.Split(strings.TrimSpace(output), "\n")
+		assert.Len(lines, 5)
+	}
+	{
+		// test egctl logs -f
+		cmd := egctlCmd("logs", "-f", "--tail", "0")
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Start()
+		assert.NoError(err)
+
+		// check if new logs are printed
+		yamlStr := `
+kind: HTTPServer
+name: test-egctl-logs        
+port: 12345
+rules:
+- paths:
+  - pathPrefix: /pipeline
+    backend: pipeline-demo
+`
+		err = applyResource(yamlStr)
+		assert.NoError(err)
+		time.Sleep(1 * time.Second)
+		cmd.Process.Kill()
+		assert.True(strings.Contains(stdout.String(), "test-egctl-logs"))
+	}
 }

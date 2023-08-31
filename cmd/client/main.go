@@ -74,6 +74,7 @@ func main() {
 		commandv2.GetCmd(),
 		commandv2.DescribeCmd(),
 		commandv2.ApplyCmd(),
+		commandv2.EditCmd(),
 	)
 
 	addCommandWithGroup(
@@ -85,6 +86,7 @@ func main() {
 		commandv2.APIResourcesCmd(),
 		commandv2.WasmCmd(),
 		commandv2.ConfigCmd(),
+		commandv2.LogsCmd(),
 	)
 
 	addCommandWithGroup(

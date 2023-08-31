@@ -92,7 +92,14 @@ var (
 	httpFilterAccessLogger *zap.SugaredLogger
 	httpFilterDumpLogger   *zap.SugaredLogger
 	restAPILogger          *zap.SugaredLogger
+
+	stdoutLogPath string
 )
+
+// GetLogPath returns the path of stdout log.
+func GetLogPath() string {
+	return stdoutLogPath
+}
 
 // EtcdClientLoggerConfig generates the config of etcd client logger.
 func EtcdClientLoggerConfig(opt *option.Options, filename string) *zap.Config {
@@ -154,6 +161,7 @@ func initDefault(opt *option.Options) {
 		if err != nil {
 			common.Exit(1, err.Error())
 		}
+		stdoutLogPath = gressLF.(*logFile).filename
 	}
 
 	opts := []zap.Option{zap.AddCaller(), zap.AddCallerSkip(1)}

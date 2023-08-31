@@ -143,3 +143,34 @@ func BuildSpecVisitor(yamlFile string, cmd *cobra.Command) SpecVisitor {
 	v := BuildYAMLVisitor(yamlFile, cmd)
 	return &specVisitor{v: v}
 }
+
+func GetSpecFromYaml(yamlStr string) (*Spec, error) {
+	s := Spec{}
+	err := yaml.Unmarshal([]byte(yamlStr), &s)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing %s: %v", yamlStr, err)
+	}
+	s.doc = yamlStr
+	return &s, nil
+}
+
+// CompareYamlNameKind compares the name and kind of two YAML strings
+func CompareYamlNameKind(oldYaml, newYaml string) (*Spec, *Spec, error) {
+	s1, err := GetSpecFromYaml(oldYaml)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s2, err := GetSpecFromYaml(newYaml)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if s1.Kind != s2.Kind {
+		return nil, nil, fmt.Errorf("kind is not equal: %s, %s", s1.Kind, s2.Kind)
+	}
+	if s1.Name != s2.Name {
+		return nil, nil, fmt.Errorf("name is not equal: %s, %s", s1.Name, s2.Name)
+	}
+	return s1, s2, nil
+}

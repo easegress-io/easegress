@@ -123,6 +123,56 @@ func SuccessfulStatusCode(code int) bool {
 	return code >= 200 && code < 300
 }
 
+func HandleReqWithStreamResp(httpMethod string, path string, yamlBody []byte) (io.ReadCloser, error) {
+	var jsonBody []byte
+	if yamlBody != nil {
+		var err error
+		jsonBody, err = codectool.YAMLToJSON(yamlBody)
+		if err != nil {
+			return nil, fmt.Errorf("yaml %s to json failed: %v", yamlBody, err)
+		}
+	}
+
+	url, err := MakeURL(path)
+	if err != nil {
+		return nil, err
+	}
+	client, err := GetHTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	resp, err := doRequest(httpMethod, url, jsonBody, client)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest {
+		resp, err = doRequest(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if !SuccessfulStatusCode(resp.StatusCode) {
+		defer func() {
+			resp.Body.Close()
+		}()
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response body failed: %v", err)
+		}
+
+		msg := string(body)
+		apiErr := &APIErr{}
+		err = codectool.Unmarshal(body, apiErr)
+		if err == nil {
+			msg = apiErr.Message
+		}
+		return nil, fmt.Errorf("%d: %s", apiErr.Code, msg)
+	}
+	return resp.Body, nil
+}
+
 // HandleRequest used in cmd/client/resources. It will return the response body in yaml or json format.
 func HandleRequest(httpMethod string, path string, yamlBody []byte) (body []byte, err error) {
 	var jsonBody []byte
@@ -142,14 +192,14 @@ func HandleRequest(httpMethod string, path string, yamlBody []byte) (body []byte
 	if err != nil {
 		return nil, err
 	}
-	resp, body, err := doRequest(httpMethod, url, jsonBody, client)
+	resp, body, err := doRequestWithBody(httpMethod, url, jsonBody, client)
 	if err != nil {
 		return nil, err
 	}
 
 	msg := string(body)
 	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
-		resp, body, err = doRequest(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
+		resp, body, err = doRequestWithBody(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
 		if err != nil {
 			return nil, err
 		}
@@ -166,19 +216,27 @@ func HandleRequest(httpMethod string, path string, yamlBody []byte) (body []byte
 	return body, nil
 }
 
-func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client) (*http.Response, []byte, error) {
+func doRequest(httpMethod string, url string, jsonBody []byte, client *http.Client) (*http.Response, error) {
 	config, err := GetCurrentConfig()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	req, err := http.NewRequest(httpMethod, url, bytes.NewReader(jsonBody))
 	if config != nil && config.GetUsername() != "" {
 		req.SetBasicAuth(config.GetUsername(), config.GetPassword())
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func doRequestWithBody(httpMethod string, url string, jsonBody []byte, client *http.Client) (*http.Response, []byte, error) {
+	resp, err := doRequest(httpMethod, url, jsonBody, client)
 	if err != nil {
 		return nil, nil, err
 	}

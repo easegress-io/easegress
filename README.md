@@ -257,6 +257,13 @@ filters:
 The pipeline means it will forward traffic to 3 backend endpoints, using the
 `roundRobin` load balance policy.
 
+You can also create them using `egctl create httpproxy` command.
+```bash
+egctl create httpproxy demo --port 10080 \ 
+  --rule="/pipeline=http://127.0.0.1:9095,http://127.0.0.1:9096,http://127.0.0.1:9097"
+```
+this command will create `HTTPServer` `demo` and `Pipeline` `demo-0` which work exactly same to `server-demo` and `pipeline-demo`. See more about [`egctl create httpproxy`](./doc/egctl-cheat-sheet.md#create-httpproxy).
+
 Additionally, we provide a [dashboard](https://cloud.megaease.com) that
 streamlines the aforementioned steps, this intuitive tool can help you create,
 manage HTTPServers, Pipelines and other Easegress configuration.

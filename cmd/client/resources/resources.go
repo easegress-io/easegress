@@ -20,6 +20,10 @@ package resources
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"time"
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
 )
@@ -45,4 +49,46 @@ func GetResourceKind(arg string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("unknown resource: %s", arg)
+}
+
+func getResourceTempFilePath(kind, name string) string {
+	ts := time.Now().Format("2006-01-02-1504")
+	return filepath.Join(os.TempDir(), fmt.Sprintf("%s-%s-%s.yaml", kind, name, ts))
+}
+
+func execEditor(filePath string) error {
+	editor := os.Getenv("EGCTL_EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+	cmd := exec.Command(editor, filePath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func editErrWithPath(err error, filePath string) error {
+	return fmt.Errorf("%s\n  yaml saved in %s", err.Error(), filePath)
+}
+
+func editResource(oldYaml, filePath string) (string, error) {
+	var err error
+	if err = os.WriteFile(filePath, []byte(oldYaml), 0644); err != nil {
+		return "", err
+	}
+	// exec editor and get new yaml
+	if err = execEditor(filePath); err != nil {
+		return "", err
+	}
+
+	var newYaml []byte
+	if newYaml, err = os.ReadFile(filePath); err != nil {
+		return "", err
+	}
+	if string(newYaml) == oldYaml {
+		fmt.Printf("nothing changed; temp file in %s\n", filePath)
+		return "", nil
+	}
+	return string(newYaml), nil
 }

@@ -24,6 +24,8 @@ type CmdType string
 const (
 	// GetCmd is the get command.
 	GetCmd CmdType = "get"
+	// EditCmd is the edit command.
+	EditCmd CmdType = "edit"
 	// CreateCmd is the create command.
 	CreateCmd CmdType = "create"
 	// ApplyCmd is the apply command.
