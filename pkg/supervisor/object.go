@@ -72,7 +72,8 @@ type (
 		configSyncer          cluster.Syncer
 		configSyncChan        <-chan map[string]string
 		configPrefix          string
-		configLocalPathPrefix string
+		configLocalPath       string
+		backupConfigLocalPath string
 
 		mutex    sync.Mutex
 		entities map[string]*ObjectEntity
@@ -83,8 +84,9 @@ type (
 )
 
 const (
-	defaultDumpInterval = 1 * time.Hour
-	configFilePrefix    = "running_objects"
+	defaultDumpInterval   = 1 * time.Hour
+	configFilePath        = "running_objects.json"
+	backupdConfigFilePath = "running_objects.bak.json"
 )
 
 // FilterCategory returns a bool function to check if the object entity is filtered by category or not
@@ -158,7 +160,8 @@ func newObjectRegistry(super *Supervisor, initObjs map[string]string, interval s
 		configSyncer:          syncer,
 		configSyncChan:        syncChan,
 		configPrefix:          prefix,
-		configLocalPathPrefix: filepath.Join(super.Options().AbsHomeDir, configFilePrefix),
+		configLocalPath:       filepath.Join(super.Options().AbsHomeDir, configFilePath),
+		backupConfigLocalPath: filepath.Join(super.Options().AbsHomeDir, backupdConfigFilePath),
 		entities:              make(map[string]*ObjectEntity),
 		watchers:              map[string]*ObjectEntityWatcher{},
 		done:                  make(chan struct{}),
@@ -295,11 +298,6 @@ func (or *ObjectRegistry) CloseWatcher(name string) {
 	delete(or.watchers, name)
 }
 
-func (or *ObjectRegistry) getConfigLocalFileName() string {
-	timestamp := time.Now().Format("20060102150405")
-	return or.configLocalPathPrefix + "_" + timestamp + ".json"
-}
-
 func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	buff := bytes.NewBuffer(nil)
 
@@ -310,10 +308,15 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	}
 	buff.Write(configBuff)
 
-	configLocalFileName := or.getConfigLocalFileName()
-	err = os.WriteFile(configLocalFileName, buff.Bytes(), 0o644)
+	err = os.Rename(or.configLocalPath, or.backupConfigLocalPath)
 	if err != nil {
-		logger.Errorf("write %s failed: %v", configLocalFileName, err)
+		logger.Errorf("rename %s to %s failed: %v", or.configLocalPath, or.backupConfigLocalPath, err)
+		return
+	}
+
+	err = os.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)
+	if err != nil {
+		logger.Errorf("write %s failed: %v", or.configLocalPath, err)
 		return
 	}
 }
