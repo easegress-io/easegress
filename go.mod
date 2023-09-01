@@ -18,7 +18,7 @@ require (
 	github.com/goccy/go-json v0.10.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/hashicorp/consul/api v1.22.0
 	github.com/hashicorp/golang-lru v0.6.0
 	github.com/invopop/yaml v0.2.0
