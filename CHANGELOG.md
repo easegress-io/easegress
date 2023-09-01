@@ -1,5 +1,19 @@
 # Changelog
 
+## [v2.6.1](https://github.com/megaease/easegress/tree/v2.6.1) (2023-09-01)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.0...v2.6.1)
+
+**Significant changes:**
+* Improved egctl with new commands: 'egctl logs' and 'egctl create httpproxy'.
+
+
+
+**Implemented enhancements:**
+* Extended Kafka headers with additional MQTT information.
+* Config easegress-server using environment variables.
+* Restricted to a single running object file.
+
 ## [v2.6.0](https://github.com/megaease/easegress/tree/v2.6.0) (2023-08-16)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.5.3...v2.6.0)
