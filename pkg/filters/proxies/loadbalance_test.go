@@ -90,13 +90,13 @@ func TestRandomLoadBalancePolicy(t *testing.T) {
 	lb := NewGeneralLoadBalancer(&LoadBalanceSpec{Policy: LoadBalancePolicyRandom}, servers)
 	lb.Init(nil, nil, nil)
 
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100000; i++ {
 		svr := lb.ChooseServer(nil)
 		counter[svr.Weight-1]++
 	}
 
 	for i := 0; i < 10; i++ {
-		if v := counter[i]; v < 900 || v > 1100 {
+		if v := counter[i]; v < 8000 || v > 12000 {
 			t.Errorf("possibility is not even with value %v", v)
 		}
 	}
