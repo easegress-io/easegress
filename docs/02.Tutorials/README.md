@@ -6,4 +6,4 @@
 - [Advanced HTTP Proxy: Resilience](2.4.Resilience.md)
 - [HTTPS & Let's Encrypt](2.5.HTTPS-Lets-Encrypt.md)
 - [Websocket](2.6.Websocket.md)
-- [gRPC](2.7gRPC.md)
+- [gRPC](2.7.gRPC.md)
