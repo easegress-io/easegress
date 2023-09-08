@@ -51,7 +51,7 @@ func (a *API) listIngresses(w http.ResponseWriter, r *http.Request) {
 	specs := a.service.ListIngressSpecs()
 
 	sort.Sort(ingressesByOrder(specs))
-	var apiSpecs []*v2alpha1.Ingress
+	apiSpecs := make([]*v2alpha1.Ingress, 0, len(specs))
 	for _, v := range specs {
 		ingress := &v2alpha1.Ingress{}
 		err := a.convertSpecToPB(v, ingress)

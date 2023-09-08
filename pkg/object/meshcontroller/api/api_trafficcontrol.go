@@ -35,7 +35,7 @@ func (a *API) listHTTPRouteGroups(w http.ResponseWriter, r *http.Request) {
 		return groups[i].Name < groups[j].Name
 	})
 
-	var pbGroups []*v2alpha1.HTTPRouteGroup
+	pbGroups := make([]*v2alpha1.HTTPRouteGroup, 0, len(groups))
 	for _, v := range groups {
 		group := &v2alpha1.HTTPRouteGroup{}
 		err := a.convertSpecToPB(v, group)
@@ -141,7 +141,7 @@ func (a *API) listTrafficTargets(w http.ResponseWriter, r *http.Request) {
 		return tts[i].Name < tts[j].Name
 	})
 
-	var pbTrafficTargets []*v2alpha1.TrafficTarget
+	pbTrafficTargets := make([]*v2alpha1.TrafficTarget, 0, len(tts))
 	for _, v := range tts {
 		tt := &v2alpha1.TrafficTarget{}
 		err := a.convertSpecToPB(v, tt)

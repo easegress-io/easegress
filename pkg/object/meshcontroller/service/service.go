@@ -209,12 +209,12 @@ func (s *Service) ListServiceCerts() []*spec.Certificate {
 
 // ListAllIngressControllerInstanceCerts  gets the ingress controller cert.
 func (s *Service) ListAllIngressControllerInstanceCerts() []*spec.Certificate {
-	var certs []*spec.Certificate
 	values, err := s.store.GetPrefix(layout.AllIngressControllerInstanceCertPrefix())
 	if err != nil {
 		api.ClusterPanic(err)
 	}
 
+	certs := make([]*spec.Certificate, 0, len(values))
 	for _, v := range values {
 		cert := &spec.Certificate{}
 		if err = codectool.Unmarshal([]byte(v), cert); err != nil {
