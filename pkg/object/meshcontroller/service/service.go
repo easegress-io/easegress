@@ -225,7 +225,7 @@ func (s *Service) ListAllIngressControllerInstanceCerts() []*spec.Certificate {
 		certs = append(certs, cert)
 
 	}
-	return certs
+	return certs[:len(certs):len(certs)]
 }
 
 // PutIngressControllerInstanceCert puts the root cert.
