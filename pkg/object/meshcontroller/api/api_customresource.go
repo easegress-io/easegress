@@ -45,7 +45,7 @@ func (a *API) listCustomResourceKinds(w http.ResponseWriter, r *http.Request) {
 		return kinds[i].Name < kinds[j].Name
 	})
 
-	var pbKinds []*v2alpha1.CustomResourceKind
+	pbKinds := make([]*v2alpha1.CustomResourceKind, 0, len(kinds))
 	for _, v := range kinds {
 		kind := &v2alpha1.CustomResourceKind{}
 		err := a.convertSpecToPB(v, kind)

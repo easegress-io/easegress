@@ -71,7 +71,7 @@ func (a *API) listServices(w http.ResponseWriter, r *http.Request) {
 
 	sort.Sort(servicesByOrder(specs))
 
-	var apiSpecs []*v2alpha1.Service
+	apiSpecs := make([]*v2alpha1.Service, 0, len(specs))
 	for _, v := range specs {
 		service := &v2alpha1.Service{}
 		err := a.convertSpecToPB(v, service)

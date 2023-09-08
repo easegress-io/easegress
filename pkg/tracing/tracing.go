@@ -399,7 +399,7 @@ func (spec *Spec) newBatchSpanProcessors() ([]sdktrace.SpanProcessor, error) {
 		}
 	}
 
-	var bsps []sdktrace.SpanProcessor
+	bsps := make([]sdktrace.SpanProcessor, 0, len(exporters))
 	for _, exp := range exporters {
 		bsps = append(bsps, sdktrace.NewBatchSpanProcessor(exp, opts...))
 	}
