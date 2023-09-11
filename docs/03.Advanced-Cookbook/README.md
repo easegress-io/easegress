@@ -5,7 +5,7 @@
 - [Multiple API Orchestration](3.03.Multiple-API-Orchestration.md)
 - [Canary Release](3.04.Canary-Release.md)
 - [Distributed Tracing](3.05.Distributed-Tracing.md)
-- [Service Proxy](3.06.Service-Proxy.md)
+- [Service Registry](3.06.Service-Registry.md)
 - [WasmHost](3.07.WasmHost.md)
 - [FaaS](3.08.FaaS.md)
 - [Workflow](3.09.Workflow.md)
