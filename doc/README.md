@@ -10,7 +10,7 @@
 			- [4.1.2 Business Controllers](#412-business-controllers)
 		- [4.2 Filters](#42-filters)
 		- [4.3 Custom Data](#43-custom-data)
-	- [5. egctl Cheat Sheet](#5-egctl-cheat-sheet)
+- [5. egctl Cheat Sheet](#5-egctl-cheat-sheet)
 
 ## 1. Cookbook / How-To Guide
 
