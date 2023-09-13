@@ -7,4 +7,3 @@
 - [Administration](05.Administration/README.md)
 - [Development for Easegress](06.Development-for-Easegress/README.md)
 - [Reference](07.Reference/README.md)
-- [FAQ](08.FAQ/README.md)
