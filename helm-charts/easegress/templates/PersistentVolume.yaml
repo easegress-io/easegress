@@ -13,7 +13,7 @@ spec:
   persistentVolumeReclaimPolicy: Delete
   storageClassName: easegress-storage
   local:
-    path: /opt/easegress
+    path: {{ $.Values.cluster.volumeLocalPath }}
   nodeAffinity:
     required:
       nodeSelectorTerms:
