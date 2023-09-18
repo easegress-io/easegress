@@ -356,6 +356,7 @@ func (st *specTranslator) translateDefaultPipeline(ingress *apinetv1.Ingress) er
 	if err != nil {
 		return fmt.Errorf("failed to add proxy: %v", err)
 	}
+
 	spec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
 		logger.Errorf("failed to generate pipeline spec: %v", err)
