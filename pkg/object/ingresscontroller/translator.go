@@ -23,9 +23,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	proxy "github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver"
@@ -72,12 +74,50 @@ func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	}
 }
 
-func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
+func (b *pipelineSpecBuilder) addProxy(endpoints []string, ingress *apinetv1.Ingress) error {
 	const name = "proxy"
+
+	proxyLoadBalance := ingress.Annotations["easegress.ingress.kubernetes.io/proxy-load-balance"]
+	proxyHeaderHashKey := ingress.Annotations["easegress.ingress.kubernetes.io/proxy-header-hash-key"]
+	proxyForwardKey := ingress.Annotations["easegress.ingress.kubernetes.io/proxy-forward-key"]
+	proxyServerMaxSize := ingress.Annotations["easegress.ingress.kubernetes.io/proxy-server-max-size"]
+	proxyTimeout := ingress.Annotations["easegress.ingress.kubernetes.io/proxy-timeout"]
+
+	switch proxyLoadBalance {
+	case "":
+		proxyLoadBalance = proxies.LoadBalancePolicyRoundRobin
+	case proxies.LoadBalancePolicyRoundRobin, proxies.LoadBalancePolicyRandom,
+		proxies.LoadBalancePolicyWeightedRandom, proxies.LoadBalancePolicyIPHash,
+		proxies.LoadBalancePolicyHeaderHash:
+	default:
+		return fmt.Errorf("invalid proxy-load-balance: %s", proxyLoadBalance)
+	}
+
+	var maxSize int64 = -1
+	if proxyServerMaxSize != "" {
+		result, err := strconv.ParseInt(proxyServerMaxSize, 0, 64)
+		if err != nil {
+			return fmt.Errorf("invalid proxy-server-max-size: %v", err)
+		}
+		maxSize = result
+	}
+
+	var timeout time.Duration
+	if proxyTimeout == "" {
+		result, err := time.ParseDuration(proxyTimeout)
+		if err != nil {
+			return fmt.Errorf("invalid proxy-timeout: %v", err)
+		}
+		timeout = result
+	}
 
 	pool := &proxy.ServerPoolSpec{
 		BaseServerPoolSpec: proxy.BaseServerPoolSpec{
-			LoadBalance: &proxy.LoadBalanceSpec{},
+			LoadBalance: &proxy.LoadBalanceSpec{
+				Policy:        proxyLoadBalance,
+				HeaderHashKey: proxyHeaderHashKey,
+				ForwardKey:    proxyForwardKey,
+			},
 		},
 		ServerMaxBodySize: -1,
 	}
@@ -88,10 +128,14 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string) {
 
 	b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: name})
 	b.Filters = append(b.Filters, map[string]interface{}{
-		"kind":  proxy.Kind,
-		"name":  name,
-		"pools": []*proxy.ServerPoolSpec{pool},
+		"kind":              proxy.Kind,
+		"name":              name,
+		"pools":             []*proxy.ServerPoolSpec{pool},
+		"serverMaxBodySize": maxSize,
+		"timeout":           timeout,
 	})
+
+	return nil
 }
 
 func (b *pipelineSpecBuilder) addWebSocketProxy(endpoints []string, clntMaxMsgSize, svrMaxMsgSize int64, insecure bool, originPatterns []string) {
@@ -278,7 +322,10 @@ func (st *specTranslator) serviceToPipeline(ingress *apinetv1.Ingress, service *
 
 		builder.addWebSocketProxy(endpoints, clntMaxMsgSize, svrMaxMsgSize, insecure, originPatterns)
 	} else {
-		builder.addProxy(endpoints)
+		err := builder.addProxy(endpoints, ingress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add proxy: %v", err)
+		}
 	}
 
 	spec, err := supervisor.NewSpec(builder.jsonConfig())
@@ -305,7 +352,11 @@ func (st *specTranslator) translateDefaultPipeline(ingress *apinetv1.Ingress) er
 	}
 
 	builder := newPipelineSpecBuilder(defaultPipelineName)
-	builder.addProxy(endpoints)
+	err = builder.addProxy(endpoints, ingress)
+	if err != nil {
+		return fmt.Errorf("failed to add proxy: %v", err)
+	}
+
 	spec, err := supervisor.NewSpec(builder.jsonConfig())
 	if err != nil {
 		logger.Errorf("failed to generate pipeline spec: %v", err)
