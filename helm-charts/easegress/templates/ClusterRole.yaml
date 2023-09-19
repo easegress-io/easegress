@@ -6,3 +6,6 @@ rules:
   - apiGroups: [""] # "" indicates the core API group
     resources: ["services", "endpoints", "secrets"]
     verbs: ["get", "watch", "list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "watch", "list"]
