@@ -9,14 +9,16 @@
 [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
 
 <a href="https://megaease.com/easegress">
-    <img src="./doc/imgs/easegress.svg"
+    <img src="./docs/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
 - [What is Easegress](#what-is-easegress)
 - [Features](#features)
-- [Use Cases](#use-cases)
 - [Getting Started](#getting-started)
+  - [Launch Easegress](#launch-easegress)
+  - [Reverse Proxy](#reverse-proxy)
+- [Use Cases](#use-cases)
 - [Documentation](#documentation)
 - [Community](#community)
 - [Contributing](#contributing)
@@ -35,7 +37,7 @@
 
 The architecture of Easegress:
 
-![architecture](./doc/imgs/architecture.png)
+![architecture](./docs/imgs/architecture.png)
 
 ## Features
 
@@ -97,6 +99,56 @@ The architecture of Easegress:
       - **Status Codes:** HTTP status codes.
       - **TopN:** sorted by aggregated APIs(only in server dimension).
 
+## Getting Started
+The basic usage of Easegress is to quickly set up a proxy for the backend servers.
+
+### Launch Easegress
+
+Easegress can be installed from pre-built binaries or from source. For details, see [Install](docs/01.Getting-Started/1.2.Install.md).
+
+
+Then we can execute the server:
+
+```bash
+$ easegress-server
+2023-09-06T15:12:49.256+08:00   INFO    cluster/config.go:110   config: advertise-client-urls: ...
+...
+```
+
+By default, Easegress opens ports 2379, 2380, and 2381; however, you can modify these settings along with other arguments either in the configuration file or via command-line arguments. For a complete list of arguments, please refer to the `easegress-server --help` command.
+
+After launching successfully, we could check the status of the one-node cluster. 
+
+```bash
+$ egctl get member
+...
+
+$ egctl describe member
+...
+```
+
+### Reverse Proxy
+
+Assuming you have two backend HTTP services running at `127.0.0.1:9095` and `127.0.0.1:9096`, you can initiate an HTTP proxy from port 10080 to these backends using the following command:
+
+```bash
+$ egctl create httpproxy demo --port 10080 \ 
+  --rule="/pipeline=http://127.0.0.1:9095,http://127.0.0.1:9096"
+```
+
+Then try it:
+```bash
+$ curl -v 127.0.0.1:10080/pipeline
+```
+
+The request will be forwarded to either `127.0.0.1:9095/pipeline` or `127.0.0.1:9096/pipeline`, utilizing a round-robin load-balancing policy.
+
+More about getting started with Easegress:
+
+- [Quick Start](docs/01.Getting-Started/1.1.Quick-Start.md)
+- [Install Easegress](docs/01.Getting-Started/1.2.Install.md)
+- [Main Concepts](docs/01.Getting-Started/1.3.Concepts.md)
+
 ## Use Cases
 
 The following examples show how to use Easegress for different scenarios.
@@ -121,13 +173,6 @@ The following examples show how to use Easegress for different scenarios.
 - [Workflow](docs/03.Advanced-Cookbook/3.10.Workflow.md) - An Example to make a workflow for a number of APIs.
 
 For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/03.Advanced-Cookbook/README.md).
-
-## Getting Started
-
-- [Quick Start](docs/01.Getting-Started/1.1.Quick-Start.md)
-- [Install Easegress](docs/01.Getting-Started/1.2.Install.md)
-- [Main Concepts](docs/01.Getting-Started/1.3.Concepts.md)
-
 ## Documentation
 
 - [Getting Started](docs/01.Getting-Started/README.md)
