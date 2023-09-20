@@ -1,13 +1,12 @@
-# Contributing
+# Contributing <!-- omit from toc -->
 
 Welcome to the Easegress contributing guide. Are you looking for help or a way to create bug tickets or discuss new potential features? Perhaps you want to fix a typo in the documentation or are you interested in getting involved in the project? You can find answers to these questions and how to contribute to Easegress in this document.
 
+- [Getting help](#getting-help)
+- [Feature requests](#feature-requests)
+- [Reporting general issues](#reporting-general-issues)
 - [Contributing](#contributing)
-  - [Getting help](#getting-help)
-  - [Feature requests](#feature-requests)
-  - [Reporting general issues](#reporting-general-issues)
-  - [Contributing](#contributing-1)
-  - [Pull request guide](#pull-request-guide)
+- [Pull request guide](#pull-request-guide)
 
 ## Getting help
 
