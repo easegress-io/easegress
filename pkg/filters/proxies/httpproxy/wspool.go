@@ -189,9 +189,9 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		InsecureSkipVerify: sp.spec.InsecureSkipVerify,
 		OriginPatterns:     sp.spec.OriginPatterns,
 	}
-	subProtocol := req.Header().Get("Sec-WebSocket-Protocol")
+	subProtocol := req.HTTPHeader().Get("Sec-WebSocket-Protocol")
 	if subProtocol != "" {
-		opts.Subprotocols = []string{subProtocol.(string)}
+		opts.Subprotocols = []string{subProtocol}
 	}
 	clntConn, err := websocket.Accept(stdw, req.Std(), opts)
 	if err != nil {
