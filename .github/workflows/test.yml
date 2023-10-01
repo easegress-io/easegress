@@ -38,7 +38,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test
         shell: bash
@@ -60,7 +60,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test
         run: |
@@ -78,7 +78,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test
         run: |
@@ -95,7 +95,7 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Checkout codebase
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Test
         run: |
