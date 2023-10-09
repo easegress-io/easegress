@@ -24,6 +24,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
 )
@@ -83,6 +84,10 @@ func (m *dynamicMux) reloadAPIs() {
 	if len(m.server.opt.BasicAuth) > 0 {
 		router.Use(m.basicAuth("easegress-basic-auth", m.server.opt.BasicAuth))
 	}
+
+	// For access from browser.
+	cors := cors.New(cors.Options{})
+	router.Use(cors.Handler)
 
 	for _, apiGroup := range apiGroups {
 		for _, api := range apiGroup.Entries {
