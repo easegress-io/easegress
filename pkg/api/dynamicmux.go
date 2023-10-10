@@ -86,7 +86,10 @@ func (m *dynamicMux) reloadAPIs() {
 	}
 
 	// For access from browser.
-	cors := cors.New(cors.Options{})
+	cors := cors.New(cors.Options{
+		// By default, not allow delete method.
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
+	})
 	router.Use(cors.Handler)
 
 	for _, apiGroup := range apiGroups {
