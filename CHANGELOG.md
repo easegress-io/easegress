@@ -1,5 +1,17 @@
 # Changelog
 
+## [v2.6.2](https://github.com/megaease/easegress/tree/v2.6.2) (2023-10-19)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.1...v2.6.2)
+
+**Significant changes:**
+* Introduced a new user-friendly document.
+
+**Implemented enhancements:**
+* Added support for additional annotations in Kubernetes ingress.
+* Enabled CORS support in the easegress-server APIs.
+* Updated the helm chart.
+
 ## [v2.6.1](https://github.com/megaease/easegress/tree/v2.6.1) (2023-09-01)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.0...v2.6.1)
