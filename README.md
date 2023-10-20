@@ -187,7 +187,7 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ## Easegress Portal
 
-Easegress Portal is an intuitive, open-source user interface for the Easegress traffic orchestration system. Developed with React.js, this portal provides config management, metrics, and visualizations, enhancing the overall Easegress experience.
+[Easegress Portal](https://github.com/megaease/easegress-portal) is an intuitive, open-source user interface for the Easegress traffic orchestration system. Developed with React.js, this portal provides config management, metrics, and visualizations, enhancing the overall Easegress experience.
 
 ### Screenshots
 
