@@ -20,6 +20,8 @@
   - [Reverse Proxy](#reverse-proxy)
 - [Use Cases](#use-cases)
 - [Documentation](#documentation)
+- [Easegress Portal](#easegress-portal)
+  - [Screenshots](#screenshots)
 - [Community](#community)
 - [Contributing](#contributing)
 - [License](#license)
@@ -182,6 +184,25 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 - [Administration](docs/05.Administration/README.md)
 - [Development](docs/06.Development-for-Easegress/README.md)
 - [Reference](docs/07.Reference/README.md)
+
+## Easegress Portal
+
+[Easegress Portal](https://github.com/megaease/easegress-portal) is an intuitive, open-source user interface for the Easegress traffic orchestration system. Developed with React.js, this portal provides config management, metrics, and visualizations, enhancing the overall Easegress experience.
+
+### Screenshots
+
+**1. Cluster Management**
+
+![cluster](./docs/imgs/portal/cluster.png)
+
+**2. Traffic Management**
+
+![traffic http server](./docs/imgs/portal/traffic-http-server.png)
+
+**3. Pipeline Management**
+
+![pipeline detail](./docs/imgs/portal/pipeline-detail.png)
+
 
 ## Community
 
