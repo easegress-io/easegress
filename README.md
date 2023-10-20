@@ -203,7 +203,6 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ![pipeline detail](./docs/imgs/portal/pipeline-detail.png)
 
-For more details, please check [easegress-portal](https://github.com/megaease/easegress-portal).
 
 ## Community
 
