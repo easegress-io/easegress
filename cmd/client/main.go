@@ -40,6 +40,11 @@ var basicGroup = &cobra.Group{
 	Title: `Basic Commands`,
 }
 
+var advancedGroup = &cobra.Group{
+	ID:    "advanced",
+	Title: `Advanced Commands`,
+}
+
 var otherGroup = &cobra.Group{
 	ID:    "other",
 	Title: `Other Commands`,
@@ -78,6 +83,11 @@ func main() {
 	)
 
 	addCommandWithGroup(
+		advancedGroup,
+		commandv2.ConvertCmd(),
+	)
+
+	addCommandWithGroup(
 		otherGroup,
 		commandv2.APIsCmd(),
 		commandv2.CompletionCmd(),
@@ -98,7 +108,7 @@ func main() {
 		command.CustomDataCmd(),
 	)
 
-	rootCmd.AddGroup(basicGroup, otherGroup, deprecatedGroup)
+	rootCmd.AddGroup(basicGroup, advancedGroup, otherGroup, deprecatedGroup)
 
 	for _, c := range rootCmd.Commands() {
 		general.GenerateExampleFromChild(c)
