@@ -20,6 +20,7 @@ package nginx
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,22 +28,23 @@ import (
 
 type tempTestDir struct {
 	dir   string
+	t     *testing.T
 	files []string
 }
 
 func newTempTestDir(t *testing.T) *tempTestDir {
 	dir, err := os.MkdirTemp("", "test")
 	require.Nil(t, err)
-	return &tempTestDir{dir: dir}
+	return &tempTestDir{dir: dir, t: t}
 }
 
-func (dir *tempTestDir) Create(t *testing.T, content []byte) string {
-	file, err := os.CreateTemp(dir.dir, "test")
-	require.Nil(t, err)
+func (dir *tempTestDir) Create(filename string, content []byte) string {
+	file, err := os.Create(filepath.Join(dir.dir, filename))
+	require.Nil(dir.t, err)
 	defer file.Close()
 
 	_, err = file.Write(content)
-	require.Nil(t, err)
+	require.Nil(dir.t, err)
 	dir.files = append(dir.files, file.Name())
 	return file.Name()
 }

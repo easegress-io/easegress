@@ -16,3 +16,9 @@
  */
 
 package nginx
+
+import "fmt"
+
+func directiveInfo(d *Directive) string {
+	return fmt.Sprintf("directive %s in line %d of file %s", d.Directive, d.Line, d.File)
+}

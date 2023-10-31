@@ -40,12 +40,12 @@ func Cmd() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("parse nginx.conf failed: %v", err)
 			}
+			parsePayload(payload)
 			data, err := json.Marshal(payload)
 			if err != nil {
 				general.ExitWithError(err)
 			}
 			fmt.Println(string(data))
-			general.Warnf("warn")
 		},
 	}
 	cmd.Flags().StringVarP(&nginxConf, "file", "f", "", "nginx.conf file path")
