@@ -126,6 +126,29 @@ func TestRuleMatch(t *testing.T) {
 	rule.Init()
 	assert.NotNil(rule)
 	assert.False(rule.MatchHost(ctx))
+
+	testCases := []struct {
+		request string
+		value   string
+		result  bool
+	}{
+		{request: "http://www.megaease.com:8080", value: "www.megaease.com", result: true},
+		{request: "http://www.megaease.com:8080", value: "*.megaease.com", result: true},
+		{request: "http://www.sub.megaease.com:8080", value: "*.megaease.com", result: true},
+		{request: "http://www.example.megaease.com:8080", value: "*.megaease.com", result: true},
+		{request: "http://www.megaease.com:8080", value: "www.megaease.*", result: true},
+		{request: "http://www.megaease.cn:8080", value: "www.megaease.*", result: true},
+		{request: "http://www.google.com:8080", value: "*.megaease.com", result: false},
+	}
+	for _, tc := range testCases {
+		stdr, _ := http.NewRequest(http.MethodGet, tc.request, nil)
+		req, _ := httpprot.NewRequest(stdr)
+		ctx := NewContext(req)
+
+		rule = &Rule{Hosts: []Host{{Value: tc.value}}}
+		rule.Init()
+		assert.Equal(tc.result, rule.MatchHost(ctx))
+	}
 }
 
 func TestRuleAllowIP(t *testing.T) {
