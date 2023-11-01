@@ -252,6 +252,21 @@ func (p *Path) GetClientMaxBodySize() int64 {
 	return p.ClientMaxBodySize
 }
 
+// GetExactPath returns the exact path of the route.
+func (p *Path) GetExactPath() string {
+	return p.Path
+}
+
+// GetPathPrefix returns the path prefix of the route.
+func (p *Path) GetPathPrefix() string {
+	return p.PathPrefix
+}
+
+// GetPathRegexp returns the path regexp of the route.
+func (p *Path) GetPathRegexp() string {
+	return p.PathRegexp
+}
+
 func (hs Headers) init() {
 	for _, h := range hs {
 		if h.Regexp != "" {

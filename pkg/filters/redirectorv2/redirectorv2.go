@@ -25,6 +25,7 @@ import (
 
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 
 	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -76,7 +77,6 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		PathPrefix                       *string `json:"pathPrefix,omitempty"`
 		gwapis.HTTPRequestRedirectFilter `json:",inline"`
 	}
 )
@@ -108,10 +108,6 @@ func (s *Spec) Validate() error {
 				return errors.New("invalid path of Redirector, replaceFullPath can't be empty")
 			}
 		case gwapis.PrefixMatchHTTPPathModifier:
-			if s.PathPrefix == nil || *s.PathPrefix == "" {
-				return errors.New("invalid path of Redirector, pathPrefix can't be empty")
-			}
-
 			if s.Path.ReplacePrefixMatch == nil {
 				return errors.New("invalid path of Redirector, replacePrefixMatch can't be empty")
 			}
@@ -178,8 +174,13 @@ func (r *Redirector) Handle(ctx *context.Context) string {
 		case gwapis.FullPathHTTPPathModifier:
 			redirectURL.Path = string(*r.spec.Path.ReplaceFullPath)
 		case gwapis.PrefixMatchHTTPPathModifier:
+			prefix := ctx.GetRoute().GetPathPrefix()
+			if prefix == "" {
+				logger.Warnf("route %+v has no path prefix", ctx.GetRoute())
+			}
+
 			redirectURL.Path = r.subPrefix(redirectURL.Path,
-				*r.spec.PathPrefix, string(*r.spec.Path.ReplacePrefixMatch))
+				prefix, string(*r.spec.Path.ReplacePrefixMatch))
 		}
 	}
 

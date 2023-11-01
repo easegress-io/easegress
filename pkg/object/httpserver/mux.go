@@ -129,7 +129,8 @@ func (mi *muxInstance) putRouteToCache(req *httpprot.Request, rc *cachedRoute) {
 }
 
 func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN,
-	metrics *metrics, mapper context.MuxMapper) *mux {
+	metrics *metrics, mapper context.MuxMapper,
+) *mux {
 	m := &mux{
 		httpStat: httpStat,
 		topN:     topN,
@@ -267,6 +268,8 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 	routeCtx := routers.NewContext(req)
 	route := mi.search(routeCtx)
+	ctx.SetRoute(route.route)
+
 	var respHeader http.Header
 
 	defer func() {

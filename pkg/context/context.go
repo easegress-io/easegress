@@ -23,6 +23,7 @@ import (
 	"runtime/debug"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/protocols"
 	"github.com/megaease/easegress/v2/pkg/tracing"
 )
@@ -73,6 +74,7 @@ type Context struct {
 
 	activeNs string
 
+	route     routers.Route
 	requests  map[string]*requestRef
 	responses map[string]*responseRef
 
@@ -90,6 +92,16 @@ func New(span *tracing.Span) *Context {
 		data:      map[string]interface{}{},
 	}
 	return ctx
+}
+
+// SetRoute sets the route.
+func (ctx *Context) SetRoute(route routers.Route) {
+	ctx.route = route
+}
+
+// GetRoute returns the route.
+func (ctx *Context) GetRoute() routers.Route {
+	return ctx.route
 }
 
 // Span returns the span of this Context.

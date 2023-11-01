@@ -55,6 +55,16 @@ type (
 		GetBackend() string
 		// GetClientMaxBodySize is used to get the clientMaxBodySize corresponding to the route.
 		GetClientMaxBodySize() int64
+
+		// NOTE: Currently we only support path information in readonly.
+		// Without further requirements, we choose not to expose too much information.
+
+		// GetExactPath is used to get the exact path corresponding to the route.
+		GetExactPath() string
+		// GetPathPrefix is used to get the path prefix corresponding to the route.
+		GetPathPrefix() string
+		// GetPathRegexp is used to get the path regexp corresponding to the route.
+		GetPathRegexp() string
 	}
 
 	// Params are used to store the variables in the search path and their corresponding values.
