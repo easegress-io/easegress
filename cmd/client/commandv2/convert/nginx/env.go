@@ -110,7 +110,7 @@ func (env *Env) Clone() (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	newEnv.updateFn = getEnvUpdateFn(env)
+	newEnv.updateFn = getEnvUpdateFn(&newEnv)
 	return &newEnv, nil
 }
 

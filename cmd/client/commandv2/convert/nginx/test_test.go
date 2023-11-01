@@ -18,7 +18,6 @@
 package nginx
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -54,11 +53,4 @@ func (dir *tempTestDir) Clean() {
 		os.Remove(file)
 	}
 	os.Remove(dir.dir)
-}
-
-func printJson(t *testing.T, v interface{}) {
-	t.Helper()
-	b, err := json.MarshalIndent(v, "", "  ")
-	require.Nil(t, err)
-	t.Log(string(b))
 }

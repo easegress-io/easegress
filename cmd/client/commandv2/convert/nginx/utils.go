@@ -17,8 +17,16 @@
 
 package nginx
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 func directiveInfo(d *Directive) string {
 	return fmt.Sprintf("directive %s in line %d of file %s", d.Directive, d.Line, d.File)
+}
+
+func printJson(v interface{}) {
+	b, _ := json.MarshalIndent(v, "", "  ")
+	fmt.Println(string(b))
 }

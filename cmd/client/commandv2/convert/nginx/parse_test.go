@@ -138,3 +138,53 @@ func TestLoadIncludes(t *testing.T) {
 		assert.Equal(t, 1, len(httpDirectives))
 	}
 }
+
+func TestParsePayload(t *testing.T) {
+	tempDir := newTempTestDir(t)
+	defer tempDir.Clean()
+	{
+		nginxConf := `
+		events {}
+		http {
+			upstream backend {
+				server localhost:1234;
+				server localhost:2345 weight=10;
+			}
+
+			server {
+				listen 80;
+
+				location / {
+					proxy_set_header X-Path "prefix";
+					proxy_pass http://localhost:8080;
+				}
+
+				location /apis {
+					proxy_set_header X-Path "apis";
+					proxy_pass http://localhost:8880;
+
+					location /apis/v1 {
+						proxy_set_header X-Path "apis/v1";
+						proxy_pass http://localhost:8888;
+					}
+				}
+
+				location = /user {
+					proxy_pass http://localhost:8890;
+				}
+
+				location /upstream {
+					proxy_pass http://backend;
+				}
+			}
+		}
+		`
+		file := tempDir.Create("nginx.conf", []byte(nginxConf))
+		payload, err := crossplane.Parse(file, &crossplane.ParseOptions{})
+		assert.Nil(t, err)
+
+		config, err := parsePayload(payload)
+		assert.Nil(t, err)
+		printJson(config)
+	}
+}
