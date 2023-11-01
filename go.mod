@@ -78,7 +78,7 @@ require (
 	k8s.io/client-go v0.27.3
 	knative.dev/client v0.36.2
 	knative.dev/serving v0.38.1
-	nhooyr.io/websocket v1.8.7
+	nhooyr.io/websocket v1.8.10
 	sigs.k8s.io/gateway-api v0.7.1
 )
 
