@@ -18,11 +18,16 @@
 package nginx
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/megaease/easegress/v2/cmd/client/general"
 )
 
 var nginxBackends = map[string]struct{}{
@@ -62,7 +67,6 @@ type ServerEnv struct {
 }
 
 type ProxyEnv struct {
-	Kind           string       `json:"kind"`
 	Pass           *Directive   `json:"pass"`
 	ProxySetHeader []*Directive `json:"proxy_set_header"`
 }
@@ -126,20 +130,17 @@ func (env *Env) Update(d *Directive) {
 	}
 	_, ok = nginxBackends[d.Directive]
 	if ok {
-		env.Proxy.Kind = d.Directive
 		env.Proxy.Pass = d
 	}
 }
 
 func (env *Env) GetServerInfo() (*ServerInfo, error) {
-	info := &ServerInfo{
-		Port:  80,
-		Certs: make(map[string]string),
-		Keys:  make(map[string]string),
-	}
+	info := &ServerInfo{}
+	info.Port = 80
 
-	if env.Server.Listen != nil {
-		address, port, https, err := processListen(env.Server.Listen)
+	s := env.Server
+	if s.Listen != nil {
+		address, port, https, err := processListen(s.Listen)
 		if err != nil {
 			return nil, err
 		}
@@ -148,8 +149,8 @@ func (env *Env) GetServerInfo() (*ServerInfo, error) {
 		info.HTTPS = https
 	}
 
-	if env.Server.ServerName != nil {
-		serverName := env.Server.ServerName
+	if s.ServerName != nil {
+		serverName := s.ServerName
 		hosts, err := processServerName(serverName)
 		if err != nil {
 			return nil, err
@@ -157,18 +158,162 @@ func (env *Env) GetServerInfo() (*ServerInfo, error) {
 		info.Hosts = hosts
 	}
 
+	if s.SSLClientCertificate != nil {
+		cert := s.SSLClientCertificate
+		mustContainArgs(cert, 1)
+		caCert, err := loadCert(cert.Args[0])
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", directiveInfo(cert), err)
+		}
+		info.CaCert = caCert
+	}
+
+	if len(s.SSLCertificate) > 0 {
+		certs, keys, err := processSSLCertificates(s.SSLCertificate, s.SSLCertificateKey)
+		if err != nil {
+			return nil, err
+		}
+		info.Certs = certs
+		info.Keys = keys
+	}
 	return info, nil
 }
 
-func processServerName(d *Directive) ([]HostInfo, error) {
-	hosts := make([]HostInfo, 0)
+func (env *Env) GetProxyInfo() (*ProxyInfo, error) {
+	p := env.Proxy
+	if p.Pass == nil || p.Pass.Directive != "proxy_pass" {
+		return nil, errors.New("no proxy_pass found")
+	}
+	servers, err := processProxyPass(p.Pass, env)
+	if err != nil {
+		return nil, err
+	}
+
+	var setHeaders map[string]string
+	if len(p.ProxySetHeader) > 0 {
+		setHeaders, err = processProxySetHeader(p.ProxySetHeader)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &ProxyInfo{
+		Servers:    servers,
+		SetHeaders: setHeaders,
+	}, nil
+}
+
+func processProxySetHeader(ds []*Directive) (map[string]string, error) {
+	res := make(map[string]string)
+	for _, d := range ds {
+		mustContainArgs(d, 2)
+		res[d.Args[0]] = d.Args[1]
+	}
+	return res, nil
+}
+
+func processProxyPass(d *Directive, env *Env) ([]*BackendInfo, error) {
+	mustContainArgs(d, 1)
+	url := d.Args[0]
+	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
+		return nil, fmt.Errorf("%s: proxy_pass %s is not http or https", directiveInfo(d), url)
+	}
+	prefix := "http://"
+	if strings.HasPrefix(url, "https://") {
+		prefix = "https://"
+	}
+	address := url[len(prefix):]
+
+	var upstream *Directive
+	for _, u := range env.Upstream {
+		mustContainArgs(u, 1)
+		if address == u.Args[0] {
+			upstream = u
+			break
+		}
+	}
+	if upstream == nil {
+		return []*BackendInfo{{Server: url, Weight: 1}}, nil
+	}
+	res := make([]*BackendInfo, 0)
+	for _, block := range upstream.Block {
+		if block.Directive != "server" {
+			continue
+		}
+		mustContainArgs(block, 1)
+		server := block.Args[0]
+		weight := 1
+		for _, arg := range block.Args[1:] {
+			if strings.HasPrefix(arg, "weight=") {
+				w, err := strconv.Atoi(arg[7:])
+				if err != nil {
+					general.Warnf("%s: invalid weight %v, use default value of 1 instead", directiveInfo(block), err)
+				} else {
+					weight = w
+				}
+			}
+		}
+		res = append(res, &BackendInfo{Server: prefix + server, Weight: weight})
+	}
+	return res, nil
+}
+
+func processSSLCertificates(certs []*Directive, keys []*Directive) (map[string]string, map[string]string, error) {
+	if len(certs) != len(keys) {
+		var missMatch []*Directive
+		if len(certs) > len(keys) {
+			missMatch = certs[len(keys):]
+		} else {
+			missMatch = keys[len(certs):]
+		}
+		msg := ""
+		for _, d := range missMatch {
+			msg += directiveInfo(d) + "\n"
+		}
+		return nil, nil, fmt.Errorf("%s has miss certs or keys", msg)
+	}
+
+	certMap := make(map[string]string)
+	keyMap := make(map[string]string)
+	for i := 0; i < len(certs); i++ {
+		cert := certs[i]
+		key := keys[i]
+		mustContainArgs(cert, 1)
+		mustContainArgs(key, 1)
+		certName := cert.Args[0]
+		keyName := key.Args[0]
+		certData, err := loadCert(certName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %v", directiveInfo(cert), err)
+		}
+		keyData, err := loadCert(keyName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %v", directiveInfo(key), err)
+		}
+		certMap[certName] = certData
+		keyMap[keyName] = keyData
+	}
+	return certMap, keyMap, nil
+}
+
+func loadCert(filePath string) (string, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+	res := base64.StdEncoding.EncodeToString(data)
+	return res, nil
+}
+
+func processServerName(d *Directive) ([]*HostInfo, error) {
+	hosts := make([]*HostInfo, 0)
 	for _, arg := range d.Args {
 		if strings.HasPrefix(arg, "~") {
 			_, err := regexp.Compile(arg[1:])
 			if err != nil {
 				return nil, fmt.Errorf("%s: %v", directiveInfo(d), err)
 			}
-			hosts = append(hosts, HostInfo{
+			hosts = append(hosts, &HostInfo{
 				Value:    arg[1:],
 				IsRegexp: true,
 			})
@@ -182,7 +327,7 @@ func processServerName(d *Directive) ([]HostInfo, error) {
 					return nil, fmt.Errorf("%s: host %s contains wildcard in the middle", directiveInfo(d), arg)
 				}
 			}
-			hosts = append(hosts, HostInfo{
+			hosts = append(hosts, &HostInfo{
 				Value:    arg,
 				IsRegexp: false,
 			})
@@ -203,32 +348,6 @@ func processListen(d *Directive) (address string, port int, https bool, err erro
 		}
 	}
 	return address, port, false, nil
-}
-
-type ServerInfo struct {
-	Port    int
-	Address string
-	HTTPS   bool
-	Hosts   []HostInfo
-
-	CaCert string
-	Certs  map[string]string
-	Keys   map[string]string
-}
-
-type HostInfo struct {
-	Value    string
-	IsRegexp bool
-}
-
-type ProxyInfo struct {
-	Servers    []*BackendInfo
-	SetHeaders map[string]string
-}
-
-type BackendInfo struct {
-	Server string
-	Weight int
 }
 
 // splitAddressPort splits the listen directive into address and port.
