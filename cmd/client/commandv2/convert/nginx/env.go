@@ -71,8 +71,8 @@ type ProxyEnv struct {
 	ProxySetHeader []*Directive `json:"proxy_set_header"`
 }
 
-func getEnvUpdateFn(env *Env) map[string]func(*Directive) {
-	m := map[string]func(*Directive){
+func (env *Env) init() {
+	env.updateFn = map[string]func(*Directive){
 		"listen":                 func(d *Directive) { env.Server.Listen = d },
 		"server_name":            func(d *Directive) { env.Server.ServerName = d },
 		"ssl_client_certificate": func(d *Directive) { env.Server.SSLClientCertificate = d },
@@ -81,7 +81,6 @@ func getEnvUpdateFn(env *Env) map[string]func(*Directive) {
 		"proxy_set_header":       func(d *Directive) { env.Proxy.ProxySetHeader = append(env.Proxy.ProxySetHeader, d) },
 		"upstream":               func(d *Directive) { env.Upstream = append(env.Upstream, d) },
 	}
-	return m
 }
 
 func newEnv() *Env {
@@ -95,8 +94,7 @@ func newEnv() *Env {
 		},
 		Upstream: make([]*Directive, 0),
 	}
-
-	env.updateFn = getEnvUpdateFn(env)
+	env.init()
 	return env
 }
 
@@ -110,7 +108,7 @@ func (env *Env) Clone() (*Env, error) {
 	if err != nil {
 		return nil, err
 	}
-	newEnv.updateFn = getEnvUpdateFn(&newEnv)
+	newEnv.init()
 	return &newEnv, nil
 }
 
