@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 	"golang.org/x/exp/slices"
 	apicorev1 "k8s.io/api/core/v1"
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // specTranslator translates k8s gateway related specs to Easegress

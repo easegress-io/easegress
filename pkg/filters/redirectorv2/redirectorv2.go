@@ -27,7 +27,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
