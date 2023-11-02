@@ -288,8 +288,9 @@ func processSSLCertificates(certs []*Directive, keys []*Directive) (map[string]s
 		if err != nil {
 			return nil, nil, fmt.Errorf("%s: %v", directiveInfo(key), err)
 		}
+		// cert and keys should have the same key to match.
 		certMap[certName] = certData
-		keyMap[keyName] = keyData
+		keyMap[certName] = keyData
 	}
 	return certMap, keyMap, nil
 }

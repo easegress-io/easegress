@@ -37,6 +37,7 @@ type (
 		HTTPS             bool          `json:"https" jsonschema:"required"`
 		AutoCert          bool          `json:"autoCert" jsonschema:"omitempty"`
 		XForwardedFor     bool          `json:"xForwardedFor" jsonschema:"omitempty"`
+		Address           string        `json:"address" jsonschema:"omitempty"`
 		Port              uint16        `json:"port" jsonschema:"required,minimum=1"`
 		ClientMaxBodySize int64         `json:"clientMaxBodySize" jsonschema:"omitempty"`
 		KeepAliveTimeout  string        `json:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`

@@ -20,6 +20,8 @@ package nginx
 import (
 	"encoding/json"
 	"fmt"
+
+	"gopkg.in/yaml.v3"
 )
 
 func directiveInfo(d *Directive) string {
@@ -28,5 +30,10 @@ func directiveInfo(d *Directive) string {
 
 func printJson(v interface{}) {
 	b, _ := json.MarshalIndent(v, "", "  ")
+	fmt.Println(string(b))
+}
+
+func printYaml(v interface{}) {
+	b, _ := yaml.Marshal(v)
 	fmt.Println(string(b))
 }

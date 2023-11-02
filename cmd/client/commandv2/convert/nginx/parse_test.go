@@ -182,9 +182,15 @@ func TestParsePayload(t *testing.T) {
 		file := tempDir.Create("nginx.conf", []byte(nginxConf))
 		payload, err := crossplane.Parse(file, &crossplane.ParseOptions{})
 		assert.Nil(t, err)
-
 		config, err := parsePayload(payload)
 		assert.Nil(t, err)
-		printJson(config)
+		// printJson(config)
+
+		opt := &Options{Prefix: "test"}
+		opt.init()
+		hs, pls, err := convertConfig(opt, config)
+		assert.Nil(t, err)
+		printYaml(hs)
+		printYaml(pls)
 	}
 }
