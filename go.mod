@@ -1,8 +1,6 @@
 module github.com/megaease/easegress/v2
 
-go 1.21
-
-toolchain go1.21.3
+go 1.20
 
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
