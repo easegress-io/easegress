@@ -20,6 +20,7 @@ package common
 import (
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver"
 	"github.com/megaease/easegress/v2/pkg/object/pipeline"
@@ -79,6 +80,22 @@ func NewProxyFilterSpec(name string) *httpproxy.Spec {
 	spec := GetDefaultFilterSpec(httpproxy.Kind).(*httpproxy.Spec)
 	spec.BaseSpec.MetaSpec.Name = name
 	spec.BaseSpec.MetaSpec.Kind = httpproxy.Kind
+	return spec
+}
+
+// NewWebsocketFilterSpec returns a new WebsocketFilterSpec.
+func NewWebsocketFilterSpec(name string) *httpproxy.WebSocketProxySpec {
+	spec := GetDefaultFilterSpec(httpproxy.WebSocketProxyKind).(*httpproxy.WebSocketProxySpec)
+	spec.BaseSpec.MetaSpec.Name = name
+	spec.BaseSpec.MetaSpec.Kind = httpproxy.WebSocketProxyKind
+	return spec
+}
+
+// NewRequestAdaptorFilterSpec returns a new RequestAdaptorFilterSpec.
+func NewRequestAdaptorFilterSpec(name string) *builder.RequestAdaptorSpec {
+	spec := GetDefaultFilterSpec(builder.RequestAdaptorKind).(*builder.RequestAdaptorSpec)
+	spec.BaseSpec.MetaSpec.Name = name
+	spec.BaseSpec.MetaSpec.Kind = builder.RequestAdaptorKind
 	return spec
 }
 

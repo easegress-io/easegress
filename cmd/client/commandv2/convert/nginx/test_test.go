@@ -18,12 +18,21 @@
 package nginx
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	logger.InitMock()
+}
 
 type tempTestDir struct {
 	dir   string
@@ -53,4 +62,13 @@ func (dir *tempTestDir) Clean() {
 		os.Remove(file)
 	}
 	os.Remove(dir.dir)
+}
+
+func newContext(t *testing.T, req *http.Request) *context.Context {
+	ctx := context.New(nil)
+	r, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	r.FetchPayload(0)
+	ctx.SetRequest(context.DefaultNamespace, r)
+	return ctx
 }

@@ -19,11 +19,19 @@ package nginx
 
 import (
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/filters/builder"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func convertConfig(options *Options, config *Config) ([]*common.HTTPServerSpec, []*common.PipelineSpec, error) {
@@ -68,6 +76,9 @@ func convertServerBase(spec *common.HTTPServerSpec, base ServerBase) *common.HTT
 	return spec
 }
 
+// convertRule converts nginx conf to easegress rule.
+// exact path > prefix path > regexp path.
+// prefix path should be sorted by path length.
 func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.PipelineSpec) {
 	router := &routers.Rule{
 		Hosts: make([]routers.Host, 0),
@@ -79,35 +90,157 @@ func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.Pipelin
 			IsRegexp: h.IsRegexp,
 		})
 	}
+
 	pipelines := make([]*common.PipelineSpec, 0)
+	exactPaths := make([]*routers.Path, 0)
+	prefixPaths := make([]*routers.Path, 0)
+	rePaths := make([]*routers.Path, 0)
 	for _, p := range rule.Paths {
 		name := options.GetPipelineName(p.Path)
-		path := routers.Path{
+		path := &routers.Path{
 			Backend: name,
+		}
+		// path for websocket should not limit body size.
+		if isWebsocket(p.Backend) {
+			path.ClientMaxBodySize = -1
 		}
 		switch p.Type {
 		case PathTypeExact:
 			path.Path = p.Path
+			exactPaths = append(exactPaths, path)
 		case PathTypePrefix:
 			path.PathPrefix = p.Path
+			prefixPaths = append(prefixPaths, path)
 		case PathTypeRe:
 			path.PathRegexp = p.Path
+			rePaths = append(rePaths, path)
 		case PathTypeReInsensitive:
 			path.PathRegexp = fmt.Sprintf("(?i)%s", p.Path)
+			rePaths = append(rePaths, path)
 		default:
 			general.Warnf("unknown path type: %s", p.Type)
 		}
-		router.Paths = append(router.Paths, &path)
 		pipelineSpec := convertProxy(name, p.Backend)
 		pipelines = append(pipelines, pipelineSpec)
 	}
+	sort.Slice(prefixPaths, func(i, j int) bool {
+		return prefixPaths[i].Path > prefixPaths[j].Path
+	})
+	router.Paths = append(router.Paths, exactPaths...)
+	router.Paths = append(router.Paths, prefixPaths...)
+	router.Paths = append(router.Paths, rePaths...)
 	return router, pipelines
 }
 
 func convertProxy(name string, info *ProxyInfo) *common.PipelineSpec {
 	pipeline := common.NewPipelineSpec(name)
-	// TODO: set header, update proxy filter
-	proxy := common.NewProxyFilterSpec("proxy")
-	pipeline.SetFilters([]filters.Spec{proxy})
+
+	flow := make([]filters.Spec, 0)
+	if len(info.SetHeaders) != 0 {
+		adaptor := getRequestAdaptor(info)
+		flow = append(flow, adaptor)
+	}
+
+	var proxy filters.Spec
+	if isWebsocket(info) {
+		proxy = getWebsocketFilter(info)
+	} else {
+		proxy = getProxyFilter(info)
+	}
+	flow = append(flow, proxy)
+	pipeline.SetFilters(flow)
 	return pipeline
+}
+
+var nginxEmbeddedVarRe *regexp.Regexp
+var nginxToTemplateMap = map[string]string{
+	"$host":           ".req.Host",
+	"$hostname":       ".req.Host",
+	"$content_length": `header .req.Header "Content-Length"`,
+	"$content_type":   `header .req.Header "Content-Type"`,
+	"$remote_addr":    ".req.RemoteAddr",
+	"$remote_user":    "username .req",
+	"$request_body":   ".req.Body",
+	"$request_method": ".req.Method",
+	"$request_uri":    ".req.RequestURI",
+	"$scheme":         ".req.URL.Scheme",
+}
+
+func translateNginxEmbeddedVar(s string) string {
+	if nginxEmbeddedVarRe == nil {
+		nginxEmbeddedVarRe = regexp.MustCompile(`\$[a-zA-Z0-9_]+`)
+	}
+	return nginxEmbeddedVarRe.ReplaceAllStringFunc(s, func(s string) string {
+		newValue := nginxToTemplateMap[s]
+		if newValue == "" {
+			newValue = s
+			msg := "nginx embedded value %s is not supported now, "
+			msg += "please check easegress RequestAdaptor filter for more information about template."
+			general.Warnf(msg, s)
+		}
+		return fmt.Sprintf("{{ %s }}", newValue)
+	})
+}
+
+func getRequestAdaptor(info *ProxyInfo) *builder.RequestAdaptorSpec {
+	spec := common.NewRequestAdaptorFilterSpec("request-adaptor")
+	template := &builder.RequestAdaptorTemplate{
+		Header: &httpheader.AdaptSpec{
+			Set: make(map[string]string),
+		},
+	}
+	for k, v := range info.SetHeaders {
+		if k == "Upgrade" || k == "Connection" {
+			continue
+		}
+		template.Header.Set[k] = translateNginxEmbeddedVar(v)
+	}
+	data := codectool.MustMarshalYAML(template)
+	spec.Template = string(data)
+	return spec
+}
+
+func isWebsocket(info *ProxyInfo) bool {
+	return info.SetHeaders["Upgrade"] != "" && info.SetHeaders["Connection"] != ""
+}
+
+func getWebsocketFilter(info *ProxyInfo) *httpproxy.WebSocketProxySpec {
+	for i, s := range info.Servers {
+		s.Server = strings.Replace(s.Server, "http://", "ws://", 1)
+		s.Server = strings.Replace(s.Server, "https://", "wss://", 1)
+		info.Servers[i] = s
+	}
+	spec := common.NewWebsocketFilterSpec("websocket")
+	spec.Pools = []*httpproxy.WebSocketServerPoolSpec{{
+		BaseServerPoolSpec: getBaseServerPool(info),
+	}}
+	return spec
+}
+
+func getProxyFilter(info *ProxyInfo) *httpproxy.Spec {
+	spec := common.NewProxyFilterSpec("proxy")
+	spec.Pools = []*httpproxy.ServerPoolSpec{{
+		BaseServerPoolSpec: getBaseServerPool(info),
+	}}
+	return spec
+}
+
+func getBaseServerPool(info *ProxyInfo) httpproxy.BaseServerPoolSpec {
+	servers := make([]*proxies.Server, len(info.Servers))
+	policy := proxies.LoadBalancePolicyRoundRobin
+	for i, s := range info.Servers {
+		servers[i] = &proxies.Server{
+			URL:    s.Server,
+			Weight: s.Weight,
+		}
+		if s.Weight != 1 {
+			policy = proxies.LoadBalancePolicyWeightedRandom
+		}
+	}
+	return httpproxy.BaseServerPoolSpec{
+		Servers: servers,
+		LoadBalance: &proxies.LoadBalanceSpec{
+			Policy: policy,
+		},
+	}
 }

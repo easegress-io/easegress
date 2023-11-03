@@ -47,11 +47,11 @@ type WebSocketServerPool struct {
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
-	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize" jsonschema:"omitempty"`
-	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize" jsonschema:"omitempty"`
-	Filter             *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	InsecureSkipVerify bool                `json:"insecureSkipVerify" jsonschema:"omitempty"`
-	OriginPatterns     []string            `json:"originPatterns" jsonschema:"omitempty"`
+	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize,omitempty" jsonschema:"omitempty"`
+	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize,omitempty" jsonschema:"omitempty"`
+	Filter             *RequestMatcherSpec `json:"filter,omitempty" jsonschema:"omitempty"`
+	InsecureSkipVerify bool                `json:"insecureSkipVerify,omitempty" jsonschema:"omitempty"`
+	OriginPatterns     []string            `json:"originPatterns,omitempty" jsonschema:"omitempty"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.

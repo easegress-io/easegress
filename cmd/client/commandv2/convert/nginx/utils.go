@@ -20,12 +20,13 @@ package nginx
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 func directiveInfo(d *Directive) string {
-	return fmt.Sprintf("directive %s in line %d of file %s", d.Directive, d.Line, d.File)
+	return fmt.Sprintf("directive <%s %s> of %s:%d", d.Directive, strings.Join(d.Args, " "), d.File, d.Line)
 }
 
 func printJson(v interface{}) {

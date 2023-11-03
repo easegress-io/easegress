@@ -18,7 +18,6 @@
 package nginx
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 
@@ -57,12 +56,13 @@ func Cmd() *cobra.Command {
 			if err != nil {
 				general.ExitWithError(err)
 			}
-			fmt.Println(hs, pls)
-			data, err := json.Marshal(payload)
-			if err != nil {
-				general.ExitWithError(err)
-			}
-			fmt.Println(string(data))
+			printYaml(hs)
+			printYaml(pls)
+			// data, err := json.Marshal(payload)
+			// if err != nil {
+			// 	general.ExitWithError(err)
+			// }
+			// fmt.Println(string(data))
 		},
 	}
 	cmd.Flags().StringVarP(&flags.NginxConf, "file", "f", "", "nginx.conf file path")

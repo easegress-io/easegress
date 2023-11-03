@@ -20,6 +20,7 @@ package builder
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"text/template"
@@ -140,5 +141,17 @@ var extraFuncs = template.FuncMap{
 
 	"panic": func(v interface{}) interface{} {
 		panic(v)
+	},
+
+	"header": func(header http.Header, key string) string {
+		return header.Get(key)
+	},
+
+	"username": func(req interface{}) string {
+		type BasicAuth interface {
+			BasicAuth() (username, password string, ok bool)
+		}
+		username, _, _ := req.(BasicAuth).BasicAuth()
+		return username
 	},
 }
