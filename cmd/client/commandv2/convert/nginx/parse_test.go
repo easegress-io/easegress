@@ -18,9 +18,12 @@
 package nginx
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"testing"
 
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	crossplane "github.com/nginxinc/nginx-go-crossplane"
 	"github.com/stretchr/testify/assert"
 )
@@ -154,10 +157,7 @@ func TestParsePayload(t *testing.T) {
 			server {
 				listen 80;
 
-				location / {
-					proxy_set_header X-Path "prefix";
-					proxy_pass http://localhost:8080;
-				}
+				server_name www.example.com *.example.com;
 
 				location /apis {
 					proxy_set_header X-Path "apis";
@@ -169,11 +169,9 @@ func TestParsePayload(t *testing.T) {
 					}
 				}
 
-				location = /user {
-					proxy_pass http://localhost:8890;
-				}
-
 				location /upstream {
+					gzip on;
+					gzip_min_length 1000;
 					proxy_pass http://backend;
 				}
 
@@ -184,20 +182,134 @@ func TestParsePayload(t *testing.T) {
 					proxy_pass http://localhost:9090;
 				}
 			}
+
+			server {
+				listen 127.0.0.1:443 ssl;
+				ssl_client_certificate {{ .CaFile }};
+				ssl_certificate {{ .CertFile }};
+				ssl_certificate_key {{ .KeyFile }};
+
+				location = /user {
+					proxy_pass http://localhost:9999;
+				}
+
+				location ^~ /user/admin {
+					proxy_pass http://localhost:9991;
+				}
+
+				location ~* /user/.* {
+					proxy_pass http://localhost:9992;
+				}
+
+				location ~ /user/.* {
+					proxy_pass http://localhost:9993;
+				}
+			}
 		}
 		`
-		file := tempDir.Create("nginx.conf", []byte(nginxConf))
+		tmplValue := map[string]string{
+			"CaFile":   tempDir.Create("ca.crt", []byte("ca")),
+			"CertFile": tempDir.Create("cert.crt", []byte("cert")),
+			"KeyFile":  tempDir.Create("key.crt", []byte("key")),
+		}
+
+		tmpl, err := template.New("nginx").Parse(nginxConf)
+		assert.Nil(t, err)
+		var buffer bytes.Buffer
+		tmpl.Execute(&buffer, tmplValue)
+
+		file := tempDir.Create("nginx.conf", buffer.Bytes())
 		payload, err := crossplane.Parse(file, &crossplane.ParseOptions{})
 		assert.Nil(t, err)
 		config, err := parsePayload(payload)
 		assert.Nil(t, err)
-		// printJson(config)
 
-		opt := &Options{Prefix: "test"}
-		opt.init()
-		hs, pls, err := convertConfig(opt, config)
+		proxyInfo := `
+servers:
+    - port: 80
+      rules:
+        - hosts:
+            - value: www.example.com
+              isRegexp: false
+            - value: '*.example.com'
+              isRegexp: false
+          paths:
+            - path: /apis
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:8880
+                      weight: 1
+                setHeaders:
+                    X-Path: apis
+            - path: /apis/v1
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:8888
+                      weight: 1
+                setHeaders:
+                    X-Path: apis/v1
+            - path: /upstream
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:1234
+                      weight: 1
+                    - server: http://localhost:2345
+                      weight: 10
+                gzipMinLength: 1000
+            - path: /websocket
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:9090
+                      weight: 1
+                setHeaders:
+                    Connection: $connection_upgrade
+                    Upgrade: $http_upgrade
+    - port: 443
+      address: 127.0.0.1
+      https: true
+      caCert: Y2E=
+      certs:
+        {{ .CertFile }}: Y2VydA==
+      keys:
+        {{ .CertFile }}: a2V5
+      rules:
+        - paths:
+            - path: /user
+              type: exact
+              backend:
+                servers:
+                    - server: http://localhost:9999
+                      weight: 1
+            - path: /user/admin
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:9991
+                      weight: 1
+            - path: /user/.*
+              type: caseInsensitiveRegexp
+              backend:
+                servers:
+                    - server: http://localhost:9992
+                      weight: 1
+            - path: /user/.*
+              type: regexp
+              backend:
+                servers:
+                    - server: http://localhost:9993
+                      weight: 1
+`
+		tmp, err := template.New("proxyInfo").Parse(proxyInfo)
 		assert.Nil(t, err)
-		printJson(hs)
-		printYaml(pls)
+		var proxyBuffer bytes.Buffer
+		tmp.Execute(&proxyBuffer, tmplValue)
+		expected := &Config{}
+		err = codectool.UnmarshalYAML(proxyBuffer.Bytes(), expected)
+		assert.Nil(t, err)
+		assert.Equal(t, expected, config)
 	}
 }

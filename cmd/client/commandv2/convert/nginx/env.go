@@ -69,6 +69,12 @@ type ServerEnv struct {
 type ProxyEnv struct {
 	Pass           *Directive   `json:"pass"`
 	ProxySetHeader []*Directive `json:"proxy_set_header"`
+	Gzip           *GzipEnv     `json:"gzip"`
+}
+
+type GzipEnv struct {
+	Gzip          *Directive `json:"gzip"`
+	GzipMinLength *Directive `json:"gzip_min_length"`
 }
 
 func (env *Env) init() {
@@ -80,6 +86,8 @@ func (env *Env) init() {
 		"ssl_certificate_key":    func(d *Directive) { env.Server.SSLCertificateKey = append(env.Server.SSLCertificateKey, d) },
 		"proxy_set_header":       func(d *Directive) { env.Proxy.ProxySetHeader = append(env.Proxy.ProxySetHeader, d) },
 		"upstream":               func(d *Directive) { env.Upstream = append(env.Upstream, d) },
+		"gzip":                   func(d *Directive) { env.Proxy.Gzip.Gzip = d },
+		"gzip_min_length":        func(d *Directive) { env.Proxy.Gzip.GzipMinLength = d },
 	}
 }
 
@@ -91,6 +99,7 @@ func newEnv() *Env {
 		},
 		Proxy: &ProxyEnv{
 			ProxySetHeader: make([]*Directive, 0),
+			Gzip:           &GzipEnv{},
 		},
 		Upstream: make([]*Directive, 0),
 	}
@@ -195,10 +204,38 @@ func (env *Env) GetProxyInfo() (*ProxyInfo, error) {
 		}
 	}
 
+	gzipMinLength := processGzip(p.Gzip)
+
 	return &ProxyInfo{
-		Servers:    servers,
-		SetHeaders: setHeaders,
+		Servers:       servers,
+		SetHeaders:    setHeaders,
+		GzipMinLength: gzipMinLength,
 	}, nil
+}
+
+func processGzip(gzip *GzipEnv) int {
+	if gzip.Gzip == nil {
+		return 0
+	}
+	mustContainArgs(gzip.Gzip, 1)
+	if gzip.Gzip.Args[0] != "on" {
+		return 0
+	}
+	if gzip.GzipMinLength == nil {
+		// nginx default value
+		return 20
+	}
+	mustContainArgs(gzip.GzipMinLength, 1)
+	minLength, err := strconv.Atoi(gzip.GzipMinLength.Args[0])
+	if err != nil {
+		general.Warnf("%s: invalid number %v, use default value of 20 instead", directiveInfo(gzip.GzipMinLength), err)
+		return 20
+	}
+	if minLength < 0 {
+		general.Warnf("%s: negative number, use default value of 20 instead", directiveInfo(gzip.GzipMinLength))
+		return 20
+	}
+	return minLength
 }
 
 func processProxySetHeader(ds []*Directive) (map[string]string, error) {

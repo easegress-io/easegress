@@ -18,37 +18,37 @@
 package nginx
 
 type Config struct {
-	Servers []*Server
+	Servers []*Server `json:"servers"`
 }
 
 type ServerBase struct {
-	Port    int
-	Address string
-	HTTPS   bool
+	Port    int    `json:"port"`
+	Address string `json:"address"`
+	HTTPS   bool   `json:"https"`
 
-	CaCert string
-	Certs  map[string]string
-	Keys   map[string]string
+	CaCert string            `json:"caCert"`
+	Certs  map[string]string `json:"certs"`
+	Keys   map[string]string `json:"keys"`
 }
 
 type Server struct {
-	ServerBase
-	Rules []*Rule
+	ServerBase `json:",inline"`
+	Rules      []*Rule `json:"rules"`
 }
 
 type ServerInfo struct {
-	ServerBase
-	Hosts []*HostInfo
+	ServerBase `json:",inline"`
+	Hosts      []*HostInfo `json:"hosts"`
 }
 
 type HostInfo struct {
-	Value    string
-	IsRegexp bool
+	Value    string `json:"value"`
+	IsRegexp bool   `json:"isRegexp"`
 }
 
 type Rule struct {
-	Hosts []*HostInfo
-	Paths []*Path
+	Hosts []*HostInfo `json:"hosts"`
+	Paths []*Path     `json:"paths"`
 }
 
 type PathType string
@@ -61,17 +61,18 @@ const (
 )
 
 type Path struct {
-	Path    string
-	Type    PathType
-	Backend *ProxyInfo
+	Path    string     `json:"path"`
+	Type    PathType   `json:"type"`
+	Backend *ProxyInfo `json:"backend"`
 }
 
 type ProxyInfo struct {
-	Servers    []*BackendInfo
-	SetHeaders map[string]string
+	Servers       []*BackendInfo    `json:"servers"`
+	SetHeaders    map[string]string `json:"setHeaders"`
+	GzipMinLength int               `json:"gzipMinLength"`
 }
 
 type BackendInfo struct {
-	Server string
-	Weight int
+	Server string `json:"server"`
+	Weight int    `json:"weight"`
 }

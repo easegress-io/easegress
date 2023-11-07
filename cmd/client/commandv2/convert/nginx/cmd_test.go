@@ -18,17 +18,12 @@
 package nginx
 
 import (
-	"fmt"
-	"strings"
+	"testing"
 
-	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/stretchr/testify/assert"
 )
 
-func directiveInfo(d *Directive) string {
-	return fmt.Sprintf("directive <%s %s> of %s:%d", d.Directive, strings.Join(d.Args, " "), d.File, d.Line)
-}
-
-func printYaml(v interface{}) {
-	b, _ := codectool.MarshalYAML(v)
-	fmt.Println(string(b))
+func TestCmd(t *testing.T) {
+	cmd := Cmd()
+	assert.NotNil(t, cmd)
 }

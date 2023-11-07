@@ -20,8 +20,12 @@ package nginx
 import (
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
 	"github.com/megaease/easegress/v2/cmd/client/general"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	crossplane "github.com/nginxinc/nginx-go-crossplane"
 	"github.com/spf13/cobra"
 )
@@ -56,13 +60,9 @@ func Cmd() *cobra.Command {
 			if err != nil {
 				general.ExitWithError(err)
 			}
-			printYaml(hs)
-			printYaml(pls)
-			// data, err := json.Marshal(payload)
-			// if err != nil {
-			// 	general.ExitWithError(err)
-			// }
-			// fmt.Println(string(data))
+			if err := writeYaml(flags.Output, hs, pls); err != nil {
+				general.ExitWithError(err)
+			}
 		},
 	}
 	cmd.Flags().StringVarP(&flags.NginxConf, "file", "f", "", "nginx.conf file path")
@@ -99,4 +99,34 @@ func (opt *Options) GetPipelineName(path string) string {
 		return fmt.Sprintf("%s-%s", opt.Prefix, name)
 	}
 	return opt.GetPipelineName(path)
+}
+
+func writeYaml(filename string, servers []*common.HTTPServerSpec, pipelines []*common.PipelineSpec) error {
+	absPath, err := filepath.Abs(filename)
+	if err != nil {
+		return err
+	}
+	file, err := os.Create(absPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, s := range servers {
+		data, err := codectool.MarshalYAML(s)
+		if err != nil {
+			return err
+		}
+		file.WriteString(string(data))
+		file.WriteString("\n---\n")
+	}
+	for _, p := range pipelines {
+		data, err := codectool.MarshalYAML(p)
+		if err != nil {
+			return err
+		}
+		file.WriteString(string(data))
+		file.WriteString("\n---\n")
+	}
+	return nil
 }
