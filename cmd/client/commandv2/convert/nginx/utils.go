@@ -20,15 +20,8 @@ package nginx
 import (
 	"fmt"
 	"strings"
-
-	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 func directiveInfo(d *Directive) string {
 	return fmt.Sprintf("directive <%s %s> of %s:%d", d.Directive, strings.Join(d.Args, " "), d.File, d.Line)
-}
-
-func printYaml(v interface{}) {
-	b, _ := codectool.MarshalYAML(v)
-	fmt.Println(string(b))
 }

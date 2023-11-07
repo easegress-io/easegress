@@ -219,8 +219,10 @@ func getWebsocketFilter(info *ProxyInfo) *httpproxy.WebSocketProxySpec {
 
 func getProxyFilter(info *ProxyInfo) *httpproxy.Spec {
 	spec := common.NewProxyFilterSpec("proxy")
-	spec.Compression = &httpproxy.CompressionSpec{
-		MinLength: uint32(info.GzipMinLength),
+	if info.GzipMinLength != 0 {
+		spec.Compression = &httpproxy.CompressionSpec{
+			MinLength: uint32(info.GzipMinLength),
+		}
 	}
 	spec.Pools = []*httpproxy.ServerPoolSpec{{
 		BaseServerPoolSpec: getBaseServerPool(info),

@@ -51,11 +51,14 @@ func (p *PipelineSpec) SetFilters(filters []filters.Spec) {
 
 // NewHTTPServerSpec returns a new HTTPServerSpec.
 func NewHTTPServerSpec(name string) *HTTPServerSpec {
-	return &HTTPServerSpec{
+	spec := &HTTPServerSpec{
 		Name: name,
 		Kind: httpserver.Kind,
 		Spec: *getDefaultHTTPServerSpec(),
 	}
+	spec.Spec.Certs = map[string]string{}
+	spec.Spec.Keys = map[string]string{}
+	return spec
 }
 
 // NewPipelineSpec returns a new PipelineSpec.

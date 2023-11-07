@@ -23,9 +23,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -73,4 +75,203 @@ func TestGetRequestAdaptor(t *testing.T) {
 	for k, v := range expected {
 		assert.Equal(v, h.Get(k), fmt.Sprintf("header %s", k))
 	}
+}
+
+func TestConvertConfig(t *testing.T) {
+	options := &Options{
+		Prefix: "test-convert",
+	}
+	options.init()
+	conf := `
+servers:
+- port: 8080
+  address: localhost
+  https: true
+  caCert: caCertBase64Str
+  certs:
+    cert1: cert1Base64Str
+  keys:
+    cert1: key1Base64Str
+  rules:
+  - hosts:
+    - value: www.example.com
+      isRegexp: false
+    - isRegexp: true
+      value: '.*\.example\.com'
+    paths:
+    - path: /apis
+      type: prefix
+      backend:
+        servers:
+        - server: http://localhost:8880
+          weight: 1
+        - server: http://localhost:8881
+          weight: 2
+        setHeaders:
+          X-Path: apis
+        gzipMinLength: 1000
+    - path: /exact
+      type: exact
+      backend:
+        servers:
+        - server: http://localhost:9999
+          weight: 1
+    - path: /regexp
+      type: regexp
+      backend:
+        servers:
+        - server: http://localhost:7777
+          weight: 1
+    - path: /case-insensitive-regexp
+      type: caseInsensitiveRegexp
+      backend:
+        servers:
+        - server: http://localhost:6666
+          weight: 1
+`
+	config := &Config{}
+	err := codectool.Unmarshal([]byte(conf), config)
+	assert.Nil(t, err)
+	httpServers, pipelines, err := convertConfig(options, config)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(httpServers))
+	assert.Equal(t, 4, len(pipelines))
+	serverYaml := `
+name: test-convert-8080
+kind: HTTPServer
+https: true
+caCertBase64: caCertBase64Str
+certs:
+  cert1: cert1Base64Str
+keys:
+  cert1: key1Base64Str
+port: 8080
+address: localhost
+rules:
+- hosts:
+  - value: www.example.com
+    isRegexp: false
+  - isRegexp: true
+    value: '.*\.example\.com'
+  paths:
+  - path: /exact
+    backend: test-convert-exact
+  - pathPrefix: /apis
+    backend: test-convert-apis
+  - pathRegexp: /regexp
+    backend: test-convert-regexp
+  - pathRegexp: (?i)/case-insensitive-regexp
+    backend: test-convert-caseinsensitiveregexp
+`
+	expected := common.NewHTTPServerSpec("test-convert-8080")
+	err = codectool.UnmarshalYAML([]byte(serverYaml), expected)
+	assert.Nil(t, err)
+	assert.Equal(t, expected, httpServers[0])
+
+	pipelineApis := `
+name: test-convert-apis
+kind: Pipeline
+filters:
+  - kind: RequestAdaptor
+    name: request-adaptor
+    template: |
+      header:
+          set:
+              X-Path: apis
+  - compression:
+      minLength: 1000
+    kind: Proxy
+    name: proxy
+    pools:
+      - loadBalance:
+          policy: weightedRandom
+        servers:
+          - url: http://localhost:8880
+            weight: 1
+          - url: http://localhost:8881
+            weight: 2
+`
+	pipelineExact := `
+name: test-convert-exact
+kind: Pipeline
+filters:
+  - kind: Proxy
+    name: proxy
+    pools:
+      - loadBalance:
+          policy: roundRobin
+        servers:
+          - url: http://localhost:9999
+            weight: 1
+`
+	pipelineRegexp := `
+name: test-convert-regexp
+kind: Pipeline
+filters:
+  - kind: Proxy
+    name: proxy
+    pools:
+      - loadBalance:
+          policy: roundRobin
+        servers:
+          - url: http://localhost:7777
+            weight: 1
+`
+	pipelineCIReg := `
+name: test-convert-caseinsensitiveregexp
+kind: Pipeline
+filters:
+  - kind: Proxy
+    name: proxy
+    pools:
+      - loadBalance:
+          policy: roundRobin
+        servers:
+          - url: http://localhost:6666
+            weight: 1
+`
+	for i, yamlStr := range []string{pipelineApis, pipelineExact, pipelineRegexp, pipelineCIReg} {
+		spec := common.NewPipelineSpec("")
+		err = codectool.UnmarshalYAML([]byte(yamlStr), spec)
+		assert.Nil(t, err, i)
+		for j, f := range spec.Filters {
+			compareFilter(t, f, pipelines[i].Filters[j], fmt.Sprintf("%d filter in %d pipeline", j, i))
+		}
+	}
+}
+
+func compareFilter(t *testing.T, f1 map[string]interface{}, f2 map[string]interface{}, msg string) {
+	d1, err := codectool.MarshalYAML(f1)
+	assert.Nil(t, err, msg)
+	d2, err := codectool.MarshalYAML(f2)
+	assert.Nil(t, err, msg)
+
+	var specFn func() interface{}
+	switch f1["kind"] {
+	case "Proxy":
+		specFn = func() interface{} {
+			return common.NewProxyFilterSpec("")
+		}
+		s1 := common.NewProxyFilterSpec("")
+		err = codectool.UnmarshalYAML(d1, s1)
+		assert.Nil(t, err, msg)
+		s2 := common.NewProxyFilterSpec("")
+		err = codectool.Unmarshal(d2, s2)
+		assert.Nil(t, err, msg)
+		assert.Equal(t, s1, s2)
+	case "RequestAdaptor":
+		specFn = func() interface{} {
+			return common.NewRequestAdaptorFilterSpec("")
+		}
+	default:
+		t.Errorf("filter kind %s is not compared", f1["kind"])
+		return
+	}
+	s1 := specFn()
+	err = codectool.UnmarshalYAML(d1, s1)
+	assert.Nil(t, err, msg)
+	s2 := specFn()
+	err = codectool.Unmarshal(d2, s2)
+	assert.Nil(t, err, msg)
+	assert.Equal(t, s1, s2)
 }
