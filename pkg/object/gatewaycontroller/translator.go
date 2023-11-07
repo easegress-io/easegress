@@ -24,7 +24,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/v2/pkg/filters/redirector"
+	redirector "github.com/megaease/easegress/v2/pkg/filters/redirectorv2"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
@@ -35,7 +35,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 	"golang.org/x/exp/slices"
 	apicorev1 "k8s.io/api/core/v1"
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // specTranslator translates k8s gateway related specs to Easegress
@@ -164,39 +164,7 @@ func (b *pipelineSpecBuilder) addURLRewrite(f *gwapis.HTTPURLRewriteFilter) {
 }
 
 func (b *pipelineSpecBuilder) addRequestRedirect(f *gwapis.HTTPRequestRedirectFilter) {
-	// TODO: The current redirector filter does not compatible with the
-	// Gateway API spec.
-	logger.Errorf("redirector filter is not supported currently")
-	/*
-		if b.redirector == nil {
-			b.redirector = &redirector.Spec{StatusCode: 302}
-		}
-
-		var repl string
-
-		re := `^([^:]*)://([^:/]+)(:\d+)?/`
-		if f.Scheme == nil {
-			repl = "$1://"
-		} else {
-			repl = *f.Scheme + "://"
-		}
-
-		if f.Hostname == nil {
-			repl += "$2"
-		} else {
-			repl += string(*f.Hostname)
-		}
-
-		if f.Port == nil {
-			repl += "$3"
-		} else {
-			repl += fmt.Sprintf(":%d", *f.Port)
-		}
-
-		if f.StatusCode != nil {
-			b.redirector.StatusCode = *f.StatusCode
-		}
-	*/
+	b.redirector.HTTPRequestRedirectFilter = *f
 }
 
 func (b *pipelineSpecBuilder) addRequestMirror(addr string) {

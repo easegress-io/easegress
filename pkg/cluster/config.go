@@ -84,10 +84,10 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec.WalDir = opt.AbsWALDir
 	ec.InitialClusterToken = opt.ClusterName
 	ec.EnableV2 = false
-	ec.LCUrls = clientURLs
-	ec.ACUrls = clientAdURLs
-	ec.LPUrls = peerURLs
-	ec.APUrls = peerAdURLs
+	ec.ListenClientUrls = clientURLs
+	ec.AdvertiseClientUrls = clientAdURLs
+	ec.ListenPeerUrls = peerURLs
+	ec.AdvertisePeerUrls = peerAdURLs
 	ec.AutoCompactionMode = autoCompactionMode
 	ec.AutoCompactionRetention = autoCompactionRetention
 	ec.QuotaBackendBytes = quotaBackendBytes
@@ -108,7 +108,7 @@ func CreateStaticClusterEtcdConfig(opt *option.Options) (*embed.Config, error) {
 	ec.InitialCluster = opt.InitialClusterToString()
 
 	logger.Infof("etcd config: advertise-client-urls: %+v advertise-peer-urls: %+v init-cluster: %s cluster-state: %s force-new-cluster: %v",
-		ec.ACUrls, ec.APUrls,
+		ec.AdvertiseClientUrls, ec.AdvertisePeerUrls,
 		ec.InitialCluster, ec.ClusterState, ec.ForceNewCluster)
 
 	return ec, nil
