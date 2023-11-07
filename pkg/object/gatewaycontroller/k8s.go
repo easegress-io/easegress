@@ -38,10 +38,10 @@ import (
 	kinformers "k8s.io/client-go/informers"
 	kclientset "k8s.io/client-go/kubernetes"
 
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 	gwclientset "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gwinformers "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
-	gwinformerapis "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1beta1"
+	gwinformerapis "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1"
 )
 
 const (
@@ -289,7 +289,7 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 func (c *k8sClient) GetHTTPRoutes() []*gwapis.HTTPRoute {
 	var results []*gwapis.HTTPRoute
 
-	lister := c.gwFactory.Gateway().V1beta1().HTTPRoutes().Lister()
+	lister := c.gwFactory.Gateway().V1().HTTPRoutes().Lister()
 	for _, ns := range c.namespaces {
 		if !c.isNamespaceWatched(ns) {
 			logger.Warnf("failed to get HTTPRoutes: %q is not within watched namespaces", ns)
@@ -316,7 +316,7 @@ func (c *k8sClient) GetHTTPRoutes() []*gwapis.HTTPRoute {
 func (c *k8sClient) GetGateways() []*gwapis.Gateway {
 	var result []*gwapis.Gateway
 
-	lister := c.gwFactory.Gateway().V1beta1().Gateways().Lister()
+	lister := c.gwFactory.Gateway().V1().Gateways().Lister()
 	for _, ns := range c.namespaces {
 		gateways, err := lister.Gateways(ns).List(labels.Everything())
 		if err != nil {
@@ -331,7 +331,7 @@ func (c *k8sClient) GetGateways() []*gwapis.Gateway {
 }
 
 func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayClass {
-	classes, err := c.gwFactory.Gateway().V1beta1().GatewayClasses().Lister().List(labels.Everything())
+	classes, err := c.gwFactory.Gateway().V1().GatewayClasses().Lister().List(labels.Everything())
 	if err != nil {
 		logger.Errorf("Failed to list GatewayClasses: %v", err)
 		return nil
@@ -370,7 +370,7 @@ func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := c.gwcs.GatewayV1beta1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
+	_, err := c.gwcs.GatewayV1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update GatewayClass %q status: %w", gatewayClass.Name, err)
 	}
@@ -446,7 +446,7 @@ func (c *k8sClient) UpdateGatewayStatus(gateway *gwapis.Gateway, status gwapis.G
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := c.gwcs.GatewayV1beta1().Gateways(gateway.Namespace).UpdateStatus(ctx, g, metav1.UpdateOptions{})
+	_, err := c.gwcs.GatewayV1().Gateways(gateway.Namespace).UpdateStatus(ctx, g, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update Gateway %q status: %w", gateway.Name, err)
 	}

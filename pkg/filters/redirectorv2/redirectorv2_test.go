@@ -25,7 +25,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 func TestSpecValidate(t *testing.T) {
