@@ -27,4 +27,5 @@ import (
 func TestCmd(t *testing.T) {
 	cmd := Cmd()
 	assert.NotNil(t, cmd)
+	assert.Error(t, cmd.Args(cmd, nil))
 }

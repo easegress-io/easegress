@@ -45,6 +45,15 @@ func Cmd() *cobra.Command {
 		Use:   "nginx",
 		Short: "Convert nginx.conf to easegress yaml file",
 		Args: func(cmd *cobra.Command, args []string) error {
+			if flags.NginxConf == "" {
+				return fmt.Errorf("nginx.conf file path is required")
+			}
+			if flags.Output == "" {
+				return fmt.Errorf("output yaml file path is required")
+			}
+			if flags.Prefix == "" {
+				return fmt.Errorf("prefix is required")
+			}
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -128,5 +137,6 @@ func writeYaml(filename string, servers []*common.HTTPServerSpec, pipelines []*c
 		file.WriteString(string(data))
 		file.WriteString("\n---\n")
 	}
+	file.Sync()
 	return nil
 }

@@ -18,6 +18,8 @@
 package nginx
 
 import (
+	"io"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -26,4 +28,42 @@ import (
 func TestCmd(t *testing.T) {
 	cmd := Cmd()
 	assert.NotNil(t, cmd)
+	cmd.ParseFlags([]string{""})
+	assert.NotNil(t, cmd.Args(cmd, []string{}))
+
+	cmd.ParseFlags([]string{"-f", "test.conf"})
+	assert.NotNil(t, cmd.Args(cmd, []string{}))
+
+	cmd.ParseFlags([]string{"-o", "test.yaml"})
+	assert.NotNil(t, cmd.Args(cmd, []string{}))
+
+	cmd.ParseFlags([]string{"--prefix", "test"})
+	assert.Nil(t, cmd.Args(cmd, []string{}))
+
+	tempDir := newTempTestDir(t)
+	defer tempDir.Clean()
+
+	nginxConf := `
+	events {}
+	http {
+		server {
+			listen 127.0.0.1:8080;
+
+			location = /user {
+				proxy_pass http://localhost:9999;
+			}
+		}
+	}
+	`
+	nginxFile := tempDir.Create("nginx.conf", []byte(nginxConf))
+	outputFile := tempDir.Create("test.yaml", []byte(""))
+	cmd.ParseFlags([]string{"-f", nginxFile, "-o", outputFile, "--prefix", "test"})
+	cmd.Run(cmd, []string{})
+	file, err := os.Open(outputFile)
+	assert.Nil(t, err)
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	assert.Nil(t, err)
+	assert.Contains(t, string(data), "test-8080")
+	assert.Contains(t, string(data), "test-user")
 }
