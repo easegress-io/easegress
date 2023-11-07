@@ -39,6 +39,9 @@ const (
 	LoadBalancePolicyIPHash = "ipHash"
 	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
 	LoadBalancePolicyHeaderHash = "headerHash"
+	// LoadBalancePolicyCookieHash is the load balance policy of HTTP cookie hash,
+	// which is the shorthand of headerHash with hash key Set-Cookie.
+	LoadBalancePolicyCookieHash = "cookieHash"
 )
 
 // LoadBalancer is the interface of a load balancer.
@@ -108,6 +111,8 @@ func (glb *GeneralLoadBalancer) Init(
 			lbp = &IPHashLoadBalancePolicy{}
 		case LoadBalancePolicyHeaderHash:
 			lbp = &HeaderHashLoadBalancePolicy{spec: glb.spec}
+		case LoadBalancePolicyCookieHash:
+			lbp = &HeaderHashLoadBalancePolicy{spec: &LoadBalanceSpec{HeaderHashKey: "Set-Cookie"}}
 		default:
 			logger.Errorf("unsupported load balancing policy: %s", glb.spec.Policy)
 			lbp = &RoundRobinLoadBalancePolicy{}
@@ -235,8 +240,7 @@ func (glb *GeneralLoadBalancer) Close() {
 }
 
 // RandomLoadBalancePolicy is a load balance policy that chooses a server randomly.
-type RandomLoadBalancePolicy struct {
-}
+type RandomLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server randomly.
 func (lbp *RandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
@@ -255,8 +259,7 @@ func (lbp *RoundRobinLoadBalancePolicy) ChooseServer(req protocols.Request, sg *
 }
 
 // WeightedRandomLoadBalancePolicy is a load balance policy that chooses a server randomly by weight.
-type WeightedRandomLoadBalancePolicy struct {
-}
+type WeightedRandomLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server randomly by weight.
 func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
@@ -272,8 +275,7 @@ func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, 
 }
 
 // IPHashLoadBalancePolicy is a load balance policy that chooses a server by ip hash.
-type IPHashLoadBalancePolicy struct {
-}
+type IPHashLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server by ip hash.
 func (lbp *IPHashLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
