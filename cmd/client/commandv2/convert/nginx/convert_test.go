@@ -128,6 +128,15 @@ servers:
         servers:
         - server: http://localhost:6666
           weight: 1
+    - path: /websocket
+      type: prefix
+      backend:
+        servers:
+        - server: http://localhost:9090
+          weight: 1
+        setHeaders:
+          Connection: $connection_upgrade
+          Upgrade: $http_upgrade
 `
 	config := &Config{}
 	err := codectool.Unmarshal([]byte(conf), config)
@@ -135,7 +144,7 @@ servers:
 	httpServers, pipelines, err := convertConfig(options, config)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(httpServers))
-	assert.Equal(t, 4, len(pipelines))
+	assert.Equal(t, 5, len(pipelines))
 	serverYaml := `
 name: test-convert-8080
 kind: HTTPServer
@@ -156,6 +165,9 @@ rules:
   paths:
   - path: /exact
     backend: test-convert-exact
+  - pathPrefix: /websocket
+    backend: test-convert-websocket
+    clientMaxBodySize: -1
   - pathPrefix: /apis
     backend: test-convert-apis
   - pathRegexp: /regexp
@@ -230,7 +242,20 @@ filters:
           - url: http://localhost:6666
             weight: 1
 `
-	for i, yamlStr := range []string{pipelineApis, pipelineExact, pipelineRegexp, pipelineCIReg} {
+	pipelineWebsocket := `
+name: test-convert-websocket
+kind: Pipeline
+filters:
+    - kind: WebSocketProxy
+      name: websocket
+      pools:
+        - loadBalance:
+            policy: roundRobin
+          servers:
+            - url: ws://localhost:9090
+              weight: 1
+`
+	for i, yamlStr := range []string{pipelineApis, pipelineExact, pipelineRegexp, pipelineCIReg, pipelineWebsocket} {
 		spec := common.NewPipelineSpec("")
 		err = codectool.UnmarshalYAML([]byte(yamlStr), spec)
 		assert.Nil(t, err, i)
@@ -252,16 +277,13 @@ func compareFilter(t *testing.T, f1 map[string]interface{}, f2 map[string]interf
 		specFn = func() interface{} {
 			return common.NewProxyFilterSpec("")
 		}
-		s1 := common.NewProxyFilterSpec("")
-		err = codectool.UnmarshalYAML(d1, s1)
-		assert.Nil(t, err, msg)
-		s2 := common.NewProxyFilterSpec("")
-		err = codectool.Unmarshal(d2, s2)
-		assert.Nil(t, err, msg)
-		assert.Equal(t, s1, s2)
 	case "RequestAdaptor":
 		specFn = func() interface{} {
 			return common.NewRequestAdaptorFilterSpec("")
+		}
+	case "WebSocketProxy":
+		specFn = func() interface{} {
+			return common.NewWebsocketFilterSpec("")
 		}
 	default:
 		t.Errorf("filter kind %s is not compared", f1["kind"])

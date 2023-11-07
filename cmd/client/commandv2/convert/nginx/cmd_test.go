@@ -67,3 +67,20 @@ func TestCmd(t *testing.T) {
 	assert.Contains(t, string(data), "test-8080")
 	assert.Contains(t, string(data), "test-user")
 }
+
+func TestOption(t *testing.T) {
+	option := &Options{
+		NginxConf: "test.conf",
+		Output:    "test.yaml",
+		Prefix:    "test",
+	}
+	option.init()
+	path := option.GetPipelineName("/user")
+	assert.Equal(t, "test-user", path)
+	path = option.GetPipelineName("/apis/v1")
+	assert.Equal(t, "test-apisv1", path)
+
+	path = option.GetPipelineName("/apis/v1/")
+	assert.Contains(t, path, "test-apisv1")
+	assert.NotEqual(t, "test-apisv1", path)
+}

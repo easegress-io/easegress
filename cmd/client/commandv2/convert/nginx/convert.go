@@ -124,7 +124,7 @@ func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.Pipelin
 		pipelines = append(pipelines, pipelineSpec)
 	}
 	sort.Slice(prefixPaths, func(i, j int) bool {
-		return prefixPaths[i].Path > prefixPaths[j].Path
+		return len(prefixPaths[i].PathPrefix) > len(prefixPaths[j].PathPrefix)
 	})
 	router.Paths = append(router.Paths, exactPaths...)
 	router.Paths = append(router.Paths, prefixPaths...)
@@ -138,7 +138,9 @@ func convertProxy(name string, info *ProxyInfo) *common.PipelineSpec {
 	flow := make([]filters.Spec, 0)
 	if len(info.SetHeaders) != 0 {
 		adaptor := getRequestAdaptor(info)
-		flow = append(flow, adaptor)
+		if adaptor != nil {
+			flow = append(flow, adaptor)
+		}
 	}
 
 	var proxy filters.Spec
@@ -194,6 +196,9 @@ func getRequestAdaptor(info *ProxyInfo) *builder.RequestAdaptorSpec {
 			continue
 		}
 		template.Header.Set[k] = translateNginxEmbeddedVar(v)
+	}
+	if len(template.Header.Set) == 0 {
+		return nil
 	}
 	data := codectool.MustMarshalYAML(template)
 	spec.Template = string(data)
