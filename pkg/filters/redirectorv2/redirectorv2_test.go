@@ -33,6 +33,7 @@ type fakeMuxPath struct {
 	routers.Path
 }
 
+func (mp *fakeMuxPath) Protocol() string                      { return "http" }
 func (mp *fakeMuxPath) Rewrite(context *routers.RouteContext) {}
 
 func TestSpecValidate(t *testing.T) {

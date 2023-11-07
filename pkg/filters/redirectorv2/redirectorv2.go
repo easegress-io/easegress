@@ -25,7 +25,7 @@ import (
 
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/filters"
-	"github.com/megaease/easegress/v2/pkg/logger"
+	httprouters "github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 
 	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -174,9 +174,21 @@ func (r *Redirector) Handle(ctx *context.Context) string {
 		case gwapis.FullPathHTTPPathModifier:
 			redirectURL.Path = string(*r.spec.Path.ReplaceFullPath)
 		case gwapis.PrefixMatchHTTPPathModifier:
-			prefix := ctx.GetRoute().GetPathPrefix()
+			route, existed := ctx.GetRoute()
+			if !existed {
+				ctx.AddTag("route not found")
+				break
+			}
+
+			if route.Protocol() != "http" {
+				ctx.AddTag("route is not an http route")
+				break
+			}
+
+			prefix := route.(httprouters.Route).GetPathPrefix()
 			if prefix == "" {
-				logger.Warnf("route %+v has no path prefix", ctx.GetRoute())
+				ctx.AddTag("route has no path prefix")
+				break
 			}
 
 			redirectURL.Path = r.subPrefix(redirectURL.Path,

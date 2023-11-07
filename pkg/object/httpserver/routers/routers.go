@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/megaease/easegress/v2/pkg/protocols"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
@@ -49,6 +50,8 @@ type (
 
 	// Route is the corresponding route interface for different routing policies.
 	Route interface {
+		protocols.Route
+
 		// Rewrite for path rewriting.
 		Rewrite(context *RouteContext)
 		// GetBackend is used to get the backend corresponding to the route.

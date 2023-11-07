@@ -150,3 +150,10 @@ type Protocol interface {
 	NewResponseInfo() interface{}
 	BuildResponse(respInfo interface{}) (Response, error)
 }
+
+// Route is the interface of a route.
+// Filters could assert the real type according to the protocol.
+type Route interface {
+	// Protocol returns the canonical name of the protocol in lower case, such as http, grpc.
+	Protocol() string
+}
