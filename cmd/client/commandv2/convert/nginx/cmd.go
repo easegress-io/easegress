@@ -41,9 +41,16 @@ type Options struct {
 func Cmd() *cobra.Command {
 	flags := &Options{}
 	flags.init()
+	examples := []general.Example{
+		{
+			Desc:    "Convert nginx config to easegress yamls",
+			Command: "egctl convert nginx -f <nginx.conf> -o <output.yaml> --prefix <prefix>",
+		},
+	}
 	cmd := &cobra.Command{
-		Use:   "nginx",
-		Short: "Convert nginx.conf to easegress yaml file",
+		Use:     "nginx",
+		Short:   "Convert nginx.conf to easegress yaml file",
+		Example: general.CreateMultiExample(examples),
 		Args: func(cmd *cobra.Command, args []string) error {
 			if flags.NginxConf == "" {
 				return fmt.Errorf("nginx.conf file path is required")
