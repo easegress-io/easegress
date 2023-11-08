@@ -55,3 +55,80 @@ func TestSplitAddressPort(t *testing.T) {
 		}
 	}
 }
+
+func newDirective(d string, args ...string) *Directive {
+	return &Directive{
+		Directive: d,
+		Args:      args,
+	}
+}
+
+func TestEnvProcessErrors(t *testing.T) {
+	// gzip
+	{
+		testCases := []struct {
+			gzip *Directive
+			len  *Directive
+			res  int
+		}{
+			{gzip: newDirective("gzip", "invalid"), len: nil, res: 0},
+			{gzip: newDirective("gzip", "on"), len: nil, res: 20},
+			{gzip: newDirective("gzip", "on"), len: newDirective("gzip_min_length", "200"), res: 200},
+			{gzip: newDirective("gzip", "on"), len: newDirective("gzip_min_length", "invalid"), res: 20},
+			{gzip: newDirective("gzip", "on"), len: newDirective("gzip_min_length", "-1"), res: 20},
+		}
+		for i, tc := range testCases {
+			gzip := &GzipEnv{
+				Gzip:          tc.gzip,
+				GzipMinLength: tc.len,
+			}
+			got := processGzip(gzip)
+			assert.Equal(t, tc.res, got, "case", i)
+		}
+	}
+
+	// ssl
+	{
+		certs := []*Directive{newDirective("ssl_certificate", "cert1"), newDirective("ssl_certificate", "cert2")}
+		keys := []*Directive{newDirective("ssl_certificate_key", "key1")}
+		_, _, err := processSSLCertificates(certs, keys)
+		assert.NotNil(t, err)
+
+		certs = []*Directive{newDirective("ssl_certificate", "cert1")}
+		keys = []*Directive{newDirective("ssl_certificate_key", "key1"), newDirective("ssl_certificate_key", "key2")}
+		_, _, err = processSSLCertificates(certs, keys)
+		assert.NotNil(t, err)
+
+		certs = []*Directive{newDirective("ssl_certificate", "cert1")}
+		keys = []*Directive{newDirective("ssl_certificate_key", "key1")}
+		_, _, err = processSSLCertificates(certs, keys)
+		assert.NotNil(t, err)
+	}
+
+	// server name
+	{
+		testCases := []struct {
+			server     *Directive
+			hostValues []string
+			isRegexp   []bool
+			err        bool
+		}{
+			{server: newDirective("server_name", "~www.example.com$"), hostValues: []string{"www.example.com$"}, isRegexp: []bool{true}, err: false},
+			{server: newDirective("server_name", "~["), hostValues: []string{}, isRegexp: []bool{}, err: true},
+			{server: newDirective("server_name", "*.example.*"), hostValues: []string{}, isRegexp: []bool{}, err: true},
+		}
+		for i, tc := range testCases {
+			serverNames, err := processServerName(tc.server)
+			assert.Equal(t, len(tc.hostValues), len(serverNames), "case", i)
+			for i := 0; i < len(tc.hostValues); i++ {
+				assert.Equal(t, tc.hostValues[i], serverNames[i].Value, "case", i)
+				assert.Equal(t, tc.isRegexp[i], serverNames[i].IsRegexp, "case", i)
+			}
+			if tc.err {
+				assert.NotNil(t, err, "case", i)
+			} else {
+				assert.Nil(t, err, "case", i)
+			}
+		}
+	}
+}

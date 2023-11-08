@@ -313,3 +313,87 @@ servers:
 		assert.Equal(t, expected, config)
 	}
 }
+
+func TestUpdateServer(t *testing.T) {
+	tempDir := newTempTestDir(t)
+	defer tempDir.Clean()
+	{
+		nginxConf := `
+		events {}
+		http {
+			server {
+				listen 80;
+
+				location /apis {
+					proxy_pass http://localhost:8880;
+				}
+			}
+
+			server {
+				listen 80;
+
+				location /user {
+					proxy_pass http://localhost:9999;
+				}
+			}
+		}
+		`
+		file := tempDir.Create("nginx.conf", []byte(nginxConf))
+		payload, err := crossplane.Parse(file, &crossplane.ParseOptions{})
+		assert.Nil(t, err)
+		config, err := parsePayload(payload)
+		assert.Nil(t, err)
+
+		proxyInfo := `
+servers:
+    - port: 80
+      rules:
+        - paths:
+            - path: /apis
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:8880
+                      weight: 1
+        - paths:
+            - path: /user
+              type: prefix
+              backend:
+                servers:
+                    - server: http://localhost:9999
+                      weight: 1
+`
+		expected := &Config{}
+		err = codectool.UnmarshalYAML([]byte(proxyInfo), expected)
+		assert.Nil(t, err)
+		assert.Equal(t, expected, config)
+	}
+	{
+		servers := []*Server{
+			{
+				ServerBase: ServerBase{
+					Port:  80,
+					Certs: map[string]string{},
+					Keys:  map[string]string{},
+				},
+			},
+		}
+		server := &Server{
+			ServerBase: ServerBase{
+				Port:   80,
+				HTTPS:  true,
+				CaCert: "ca",
+				Certs:  map[string]string{"cert": "cert"},
+				Keys:   map[string]string{"cert": "key"},
+			},
+		}
+		servers, err := updateServers(servers, server)
+		assert.Nil(t, err)
+		assert.Equal(t, 1, len(servers))
+		got := servers[0]
+		assert.True(t, got.HTTPS)
+		assert.Equal(t, "ca", got.CaCert)
+		assert.Equal(t, map[string]string{"cert": "cert"}, got.Certs)
+		assert.Equal(t, map[string]string{"cert": "key"}, got.Keys)
+	}
+}

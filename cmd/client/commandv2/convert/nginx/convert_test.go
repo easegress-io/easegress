@@ -132,7 +132,7 @@ servers:
       type: prefix
       backend:
         servers:
-        - server: http://localhost:9090
+        - server: https://localhost:9090
           weight: 1
         setHeaders:
           Connection: $connection_upgrade
@@ -252,7 +252,7 @@ filters:
         - loadBalance:
             policy: roundRobin
           servers:
-            - url: ws://localhost:9090
+            - url: wss://localhost:9090
               weight: 1
 `
 	for i, yamlStr := range []string{pipelineApis, pipelineExact, pipelineRegexp, pipelineCIReg, pipelineWebsocket} {

@@ -61,6 +61,9 @@ func Cmd() *cobra.Command {
 			if err != nil {
 				general.ExitWithErrorf("parse nginx.conf failed: %v", err)
 			}
+			for _, e := range payload.Errors {
+				general.Warnf("parse nginx.conf error: %v in %s of %s", e.Error, e.Line, e.File)
+			}
 			config, err := parsePayload(payload)
 			if err != nil {
 				general.ExitWithError(err)

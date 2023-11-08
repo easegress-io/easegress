@@ -108,6 +108,7 @@ func updateServers(servers []*Server, s *Server) ([]*Server, error) {
 		for k, v := range s.Keys {
 			servers[i].Keys[k] = v
 		}
+		servers[i].Rules = append(servers[i].Rules, s.Rules...)
 		return servers, nil
 	}
 	return append(servers, s), nil
