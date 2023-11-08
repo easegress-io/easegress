@@ -73,6 +73,7 @@ type Context struct {
 
 	activeNs string
 
+	route     protocols.Route
 	requests  map[string]*requestRef
 	responses map[string]*responseRef
 
@@ -90,6 +91,20 @@ func New(span *tracing.Span) *Context {
 		data:      map[string]interface{}{},
 	}
 	return ctx
+}
+
+// SetRoute sets the route.
+func (ctx *Context) SetRoute(route protocols.Route) {
+	ctx.route = route
+}
+
+// GetRoute returns the route with the existing flag.
+func (ctx *Context) GetRoute() (protocols.Route, bool) {
+	if ctx.route == nil {
+		return nil, false
+	}
+
+	return ctx.route, true
 }
 
 // Span returns the span of this Context.

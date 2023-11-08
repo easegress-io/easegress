@@ -22,11 +22,19 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 
 	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
+
+type fakeMuxPath struct {
+	routers.Path
+}
+
+func (mp *fakeMuxPath) Protocol() string                      { return "http" }
+func (mp *fakeMuxPath) Rewrite(context *routers.RouteContext) {}
 
 func TestSpecValidate(t *testing.T) {
 	tests := []struct {
@@ -123,7 +131,7 @@ func TestSpecValidate(t *testing.T) {
 				},
 			},
 			expectErr: true,
-			errMsg:    "invalid path of Redirector, pathPrefix can't be empty",
+			errMsg:    "invalid path of Redirector, replacePrefixMatch can't be empty",
 		},
 	}
 
@@ -169,7 +177,6 @@ func TestRedirectorHandle2(t *testing.T) {
 			name:   "Redirect prefix",
 			reqURL: "http://localhost/user/data/profile",
 			spec: &Spec{
-				PathPrefix: new(string),
 				HTTPRequestRedirectFilter: gwapis.HTTPRequestRedirectFilter{
 					Path: &gwapis.HTTPPathModifier{
 						Type:               gwapis.PrefixMatchHTTPPathModifier,
@@ -232,13 +239,15 @@ func TestRedirectorHandle2(t *testing.T) {
 			req, _ := httpprot.NewRequest(stdReq)
 			ctx := context.New(nil)
 			ctx.SetInputRequest(req)
+			ctx.SetRoute(&fakeMuxPath{
+				Path: routers.Path{PathPrefix: "/user/"},
+			})
 
 			if tt.spec.Path != nil && tt.spec.Path.ReplaceFullPath != nil {
 				*tt.spec.Path.ReplaceFullPath = "/newpath"
 			}
 
 			if tt.spec.Path != nil && tt.spec.Path.ReplacePrefixMatch != nil {
-				*tt.spec.PathPrefix = "/user/"
 				*tt.spec.Path.ReplacePrefixMatch = "/account/"
 			}
 

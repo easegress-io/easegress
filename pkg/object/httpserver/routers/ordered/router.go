@@ -86,6 +86,10 @@ func newMuxPath(p *routers.Path) *muxPath {
 	}
 }
 
+func (mp *muxPath) Protocol() string {
+	return "http"
+}
+
 func (mp *muxPath) matchPath(path string) bool {
 	if mp.Path.Path == "" && mp.PathPrefix == "" && mp.pathRE == nil {
 		return true

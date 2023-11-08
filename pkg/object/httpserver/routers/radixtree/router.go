@@ -485,6 +485,10 @@ func (mp *muxPath) initRewrite() {
 	mp.rewriteTemplate = template.Must(template.New("").Parse(repl))
 }
 
+func (mp *muxPath) Protocol() string {
+	return "http"
+}
+
 func (mp *muxPath) Rewrite(context *routers.RouteContext) {
 	req := context.Request
 
