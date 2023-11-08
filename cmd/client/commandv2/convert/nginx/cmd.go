@@ -30,6 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Options contains the options for convert nginx.conf.
 type Options struct {
 	NginxConf string
 	Output    string

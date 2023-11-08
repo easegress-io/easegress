@@ -28,14 +28,23 @@ import (
 )
 
 const (
-	DirectiveInclude  = "include"
-	DirectiveHTTP     = "http"
-	DirectiveServer   = "server"
+	// DirectiveInclude is the include directive.
+	DirectiveInclude = "include"
+	// DirectiveHTTP is the http directive.
+	DirectiveHTTP = "http"
+	// DirectiveServer is the server directive.
+	DirectiveServer = "server"
+	// DirectiveLocation is the location directive.
 	DirectiveLocation = "location"
 )
 
+// Directive is the nginx directive.
 type Directive = crossplane.Directive
+
+// Directives is the nginx directives.
 type Directives = crossplane.Directives
+
+// Payload is the nginx payload.
 type Payload = crossplane.Payload
 
 func parsePayload(payload *Payload) (*Config, error) {

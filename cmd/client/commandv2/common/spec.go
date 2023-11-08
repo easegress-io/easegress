@@ -43,6 +43,7 @@ type PipelineSpec struct {
 	pipeline.Spec `json:",inline"`
 }
 
+// SetFilters sets the filters of PipelineSpec.
 func (p *PipelineSpec) SetFilters(filters []filters.Spec) {
 	data := codectool.MustMarshalYAML(filters)
 	maps, _ := general.UnmarshalMapInterface(data, true)

@@ -66,12 +66,14 @@ type ServerEnv struct {
 	SSLCertificateKey    []*Directive `json:"ssl_certificate_key"`
 }
 
+// ProxyEnv is the environment for creating proxy.
 type ProxyEnv struct {
 	Pass           *Directive   `json:"pass"`
 	ProxySetHeader []*Directive `json:"proxy_set_header"`
 	Gzip           *GzipEnv     `json:"gzip"`
 }
 
+// GzipEnv is the environment for creating gzip.
 type GzipEnv struct {
 	Gzip          *Directive `json:"gzip"`
 	GzipMinLength *Directive `json:"gzip_min_length"`
@@ -107,6 +109,7 @@ func newEnv() *Env {
 	return env
 }
 
+// Clone clones the environment.
 func (env *Env) Clone() (*Env, error) {
 	data, err := json.Marshal(env)
 	if err != nil {
@@ -121,6 +124,7 @@ func (env *Env) Clone() (*Env, error) {
 	return &newEnv, nil
 }
 
+// MustClone clones the environment.
 func (env *Env) MustClone() *Env {
 	newEnv, err := env.Clone()
 	if err != nil {
@@ -129,6 +133,7 @@ func (env *Env) MustClone() *Env {
 	return newEnv
 }
 
+// Update updates the environment.
 func (env *Env) Update(d *Directive) {
 	fn, ok := env.updateFn[d.Directive]
 	if ok {
@@ -141,6 +146,7 @@ func (env *Env) Update(d *Directive) {
 	}
 }
 
+// GetServerInfo gets the server info from environment.
 func (env *Env) GetServerInfo() (*ServerInfo, error) {
 	info := &ServerInfo{}
 	info.Port = 80
@@ -186,6 +192,7 @@ func (env *Env) GetServerInfo() (*ServerInfo, error) {
 	return info, nil
 }
 
+// GetProxyInfo gets the proxy info from environment.
 func (env *Env) GetProxyInfo() (*ProxyInfo, error) {
 	p := env.Proxy
 	if p.Pass == nil || p.Pass.Directive != "proxy_pass" {
