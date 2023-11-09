@@ -112,7 +112,7 @@ func (glb *GeneralLoadBalancer) Init(
 		case LoadBalancePolicyHeaderHash:
 			lbp = &HeaderHashLoadBalancePolicy{spec: glb.spec}
 		case LoadBalancePolicyCookieHash:
-			lbp = &HeaderHashLoadBalancePolicy{spec: &LoadBalanceSpec{HeaderHashKey: "Set-Cookie"}}
+			lbp = &HeaderHashLoadBalancePolicy{spec: &LoadBalanceSpec{HeaderHashKey: "Cookie"}}
 		default:
 			logger.Errorf("unsupported load balancing policy: %s", glb.spec.Policy)
 			lbp = &RoundRobinLoadBalancePolicy{}
