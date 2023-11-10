@@ -35,10 +35,13 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 )
 
-// Init initializes logger.
-func Init(opt *option.Options) {
+func init() {
 	globalLogLevel = zap.NewAtomicLevel()
 	globalLogLevel.SetLevel(zap.InfoLevel)
+}
+
+// Init initializes logger.
+func Init(opt *option.Options) {
 	if opt.Debug {
 		globalLogLevel.SetLevel(zap.DebugLevel)
 	}
