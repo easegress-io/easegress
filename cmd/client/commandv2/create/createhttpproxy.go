@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/cmd/client/resources"
 	"github.com/megaease/easegress/v2/pkg/filters"
@@ -206,8 +206,8 @@ func (o *HTTPProxyOptions) getPipelineName(id int) string {
 }
 
 // Translate translates HTTPProxyOptions to HTTPServerSpec and PipelineSpec.
-func (o *HTTPProxyOptions) Translate() (*common.HTTPServerSpec, []*common.PipelineSpec) {
-	hs := common.NewHTTPServerSpec(o.getServerName())
+func (o *HTTPProxyOptions) Translate() (*specs.HTTPServerSpec, []*specs.PipelineSpec) {
+	hs := specs.NewHTTPServerSpec(o.getServerName())
 	hs.Port = uint16(o.Port)
 	if o.TLS {
 		hs.HTTPS = true
@@ -226,9 +226,9 @@ func (o *HTTPProxyOptions) Translate() (*common.HTTPServerSpec, []*common.Pipeli
 	return hs, pipelines
 }
 
-func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*common.PipelineSpec) {
+func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*specs.PipelineSpec) {
 	var rules routers.Rules
-	var pipelines []*common.PipelineSpec
+	var pipelines []*specs.PipelineSpec
 	pipelineID := 0
 
 	for _, rule := range o.rules {
@@ -241,7 +241,7 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*common.PipelineSp
 			Backend:    pipelineName,
 		}
 
-		pipelineSpec := common.NewPipelineSpec(pipelineName)
+		pipelineSpec := specs.NewPipelineSpec(pipelineName)
 		translateToPipeline(rule.Endpoints, pipelineSpec)
 		pipelines = append(pipelines, pipelineSpec)
 
@@ -284,13 +284,13 @@ func loadCertFile(filePath string) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-func translateToPipeline(endpoints []string, spec *common.PipelineSpec) {
+func translateToPipeline(endpoints []string, spec *specs.PipelineSpec) {
 	proxy := translateToProxyFilter(endpoints)
 	spec.SetFilters([]filters.Spec{proxy})
 }
 
 func translateToProxyFilter(endpoints []string) *httpproxy.Spec {
-	spec := common.NewProxyFilterSpec("proxy")
+	spec := specs.NewProxyFilterSpec("proxy")
 
 	servers := make([]*proxies.Server, len(endpoints))
 	for i, endpoint := range endpoints {

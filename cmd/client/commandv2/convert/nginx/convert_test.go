@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
@@ -79,7 +79,7 @@ func TestGetRequestAdaptor(t *testing.T) {
 
 func TestConvertConfig(t *testing.T) {
 	options := &Options{
-		Prefix: "test-convert",
+		ResourcePrefix: "test-convert",
 	}
 	options.init()
 	conf := `
@@ -175,7 +175,7 @@ rules:
   - pathRegexp: (?i)/case-insensitive-regexp
     backend: test-convert-caseinsensitiveregexp
 `
-	expected := common.NewHTTPServerSpec("test-convert-8080")
+	expected := specs.NewHTTPServerSpec("test-convert-8080")
 	err = codectool.UnmarshalYAML([]byte(serverYaml), expected)
 	assert.Nil(t, err)
 	assert.Equal(t, expected, httpServers[0])
@@ -256,7 +256,7 @@ filters:
               weight: 1
 `
 	for i, yamlStr := range []string{pipelineApis, pipelineExact, pipelineRegexp, pipelineCIReg, pipelineWebsocket} {
-		spec := common.NewPipelineSpec("")
+		spec := specs.NewPipelineSpec("")
 		err = codectool.UnmarshalYAML([]byte(yamlStr), spec)
 		assert.Nil(t, err, i)
 		for j, f := range spec.Filters {
@@ -275,15 +275,15 @@ func compareFilter(t *testing.T, f1 map[string]interface{}, f2 map[string]interf
 	switch f1["kind"] {
 	case "Proxy":
 		specFn = func() interface{} {
-			return common.NewProxyFilterSpec("")
+			return specs.NewProxyFilterSpec("")
 		}
 	case "RequestAdaptor":
 		specFn = func() interface{} {
-			return common.NewRequestAdaptorFilterSpec("")
+			return specs.NewRequestAdaptorFilterSpec("")
 		}
 	case "WebSocketProxy":
 		specFn = func() interface{} {
-			return common.NewWebsocketFilterSpec("")
+			return specs.NewWebsocketFilterSpec("")
 		}
 	default:
 		t.Errorf("filter kind %s is not compared", f1["kind"])

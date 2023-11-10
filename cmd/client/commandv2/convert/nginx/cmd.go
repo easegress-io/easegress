@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	crossplane "github.com/nginxinc/nginx-go-crossplane"
@@ -32,10 +32,10 @@ import (
 
 // Options contains the options for convert nginx.conf.
 type Options struct {
-	NginxConf string
-	Output    string
-	Prefix    string
-	usedNames map[string]struct{}
+	NginxConf      string
+	Output         string
+	ResourcePrefix string
+	usedNames      map[string]struct{}
 }
 
 // Cmd returns convert nginx.conf command.
@@ -45,7 +45,7 @@ func Cmd() *cobra.Command {
 	examples := []general.Example{
 		{
 			Desc:    "Convert nginx config to easegress yamls",
-			Command: "egctl convert nginx -f <nginx.conf> -o <output.yaml> --prefix <prefix>",
+			Command: "egctl convert nginx -f <nginx.conf> -o <output.yaml> --resource-prefix <prefix>",
 		},
 	}
 	cmd := &cobra.Command{
@@ -59,7 +59,7 @@ func Cmd() *cobra.Command {
 			if flags.Output == "" {
 				return fmt.Errorf("output yaml file path is required")
 			}
-			if flags.Prefix == "" {
+			if flags.ResourcePrefix == "" {
 				return fmt.Errorf("prefix is required")
 			}
 			return nil
@@ -87,7 +87,7 @@ func Cmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&flags.NginxConf, "file", "f", "", "nginx.conf file path")
 	cmd.Flags().StringVarP(&flags.Output, "output", "o", "", "output yaml file path")
-	cmd.Flags().StringVar(&flags.Prefix, "prefix", "", "prefix of output yaml resources")
+	cmd.Flags().StringVar(&flags.ResourcePrefix, "resource-prefix", "nginx", "prefix of output yaml resources")
 	return cmd
 }
 
@@ -108,7 +108,7 @@ func (opt *Options) GetPipelineName(path string) string {
 	name := string(nameRunes)
 	if _, ok := opt.usedNames[name]; !ok {
 		opt.usedNames[name] = struct{}{}
-		return fmt.Sprintf("%s-%s", opt.Prefix, name)
+		return fmt.Sprintf("%s-%s", opt.ResourcePrefix, name)
 	}
 	for i := 0; i < 8; i++ {
 		nameRunes = append(nameRunes, letters[rand.Intn(len(letters))])
@@ -116,12 +116,12 @@ func (opt *Options) GetPipelineName(path string) string {
 	name = string(nameRunes)
 	if _, ok := opt.usedNames[name]; !ok {
 		opt.usedNames[name] = struct{}{}
-		return fmt.Sprintf("%s-%s", opt.Prefix, name)
+		return fmt.Sprintf("%s-%s", opt.ResourcePrefix, name)
 	}
 	return opt.GetPipelineName(path)
 }
 
-func writeYaml(filename string, servers []*common.HTTPServerSpec, pipelines []*common.PipelineSpec) error {
+func writeYaml(filename string, servers []*specs.HTTPServerSpec, pipelines []*specs.PipelineSpec) error {
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
 		return err

@@ -70,9 +70,9 @@ func TestCmd(t *testing.T) {
 
 func TestOption(t *testing.T) {
 	option := &Options{
-		NginxConf: "test.conf",
-		Output:    "test.yaml",
-		Prefix:    "test",
+		NginxConf:      "test.conf",
+		Output:         "test.yaml",
+		ResourcePrefix: "test",
 	}
 	option.init()
 	path := option.GetPipelineName("/user")

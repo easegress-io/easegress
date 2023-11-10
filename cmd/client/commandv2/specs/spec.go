@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package common
+package specs
 
 import (
 	"github.com/megaease/easegress/v2/cmd/client/general"

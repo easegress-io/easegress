@@ -23,7 +23,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/megaease/easegress/v2/cmd/client/commandv2/common"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
@@ -34,9 +34,9 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
-func convertConfig(options *Options, config *Config) ([]*common.HTTPServerSpec, []*common.PipelineSpec, error) {
-	httpServers := make([]*common.HTTPServerSpec, 0)
-	pipelines := make([]*common.PipelineSpec, 0)
+func convertConfig(options *Options, config *Config) ([]*specs.HTTPServerSpec, []*specs.PipelineSpec, error) {
+	httpServers := make([]*specs.HTTPServerSpec, 0)
+	pipelines := make([]*specs.PipelineSpec, 0)
 	for _, server := range config.Servers {
 		s, p, err := convertServer(options, server)
 		if err != nil {
@@ -48,9 +48,9 @@ func convertConfig(options *Options, config *Config) ([]*common.HTTPServerSpec, 
 	return httpServers, pipelines, nil
 }
 
-func convertServer(options *Options, server *Server) (*common.HTTPServerSpec, []*common.PipelineSpec, error) {
-	pipelines := make([]*common.PipelineSpec, 0)
-	httpServer := common.NewHTTPServerSpec(fmt.Sprintf("%s-%d", options.Prefix, server.Port))
+func convertServer(options *Options, server *Server) (*specs.HTTPServerSpec, []*specs.PipelineSpec, error) {
+	pipelines := make([]*specs.PipelineSpec, 0)
+	httpServer := specs.NewHTTPServerSpec(fmt.Sprintf("%s-%d", options.ResourcePrefix, server.Port))
 	httpServer = convertServerBase(httpServer, server.ServerBase)
 
 	httpServer.Rules = make([]*routers.Rule, 0)
@@ -62,7 +62,7 @@ func convertServer(options *Options, server *Server) (*common.HTTPServerSpec, []
 	return httpServer, pipelines, nil
 }
 
-func convertServerBase(spec *common.HTTPServerSpec, base ServerBase) *common.HTTPServerSpec {
+func convertServerBase(spec *specs.HTTPServerSpec, base ServerBase) *specs.HTTPServerSpec {
 	spec.Port = uint16(base.Port)
 	spec.Address = base.Address
 	spec.HTTPS = base.HTTPS
@@ -79,7 +79,7 @@ func convertServerBase(spec *common.HTTPServerSpec, base ServerBase) *common.HTT
 // convertRule converts nginx conf to easegress rule.
 // exact path > prefix path > regexp path.
 // prefix path should be sorted by path length.
-func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.PipelineSpec) {
+func convertRule(options *Options, rule *Rule) (*routers.Rule, []*specs.PipelineSpec) {
 	router := &routers.Rule{
 		Hosts: make([]routers.Host, 0),
 		Paths: make([]*routers.Path, 0),
@@ -91,7 +91,7 @@ func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.Pipelin
 		})
 	}
 
-	pipelines := make([]*common.PipelineSpec, 0)
+	pipelines := make([]*specs.PipelineSpec, 0)
 	exactPaths := make([]*routers.Path, 0)
 	prefixPaths := make([]*routers.Path, 0)
 	rePaths := make([]*routers.Path, 0)
@@ -132,8 +132,8 @@ func convertRule(options *Options, rule *Rule) (*routers.Rule, []*common.Pipelin
 	return router, pipelines
 }
 
-func convertProxy(name string, info *ProxyInfo) *common.PipelineSpec {
-	pipeline := common.NewPipelineSpec(name)
+func convertProxy(name string, info *ProxyInfo) *specs.PipelineSpec {
+	pipeline := specs.NewPipelineSpec(name)
 
 	flow := make([]filters.Spec, 0)
 	if len(info.SetHeaders) != 0 {
@@ -185,7 +185,7 @@ func translateNginxEmbeddedVar(s string) string {
 }
 
 func getRequestAdaptor(info *ProxyInfo) *builder.RequestAdaptorSpec {
-	spec := common.NewRequestAdaptorFilterSpec("request-adaptor")
+	spec := specs.NewRequestAdaptorFilterSpec("request-adaptor")
 	template := &builder.RequestAdaptorTemplate{
 		Header: &httpheader.AdaptSpec{
 			Set: make(map[string]string),
@@ -215,7 +215,7 @@ func getWebsocketFilter(info *ProxyInfo) *httpproxy.WebSocketProxySpec {
 		s.Server = strings.Replace(s.Server, "https://", "wss://", 1)
 		info.Servers[i] = s
 	}
-	spec := common.NewWebsocketFilterSpec("websocket")
+	spec := specs.NewWebsocketFilterSpec("websocket")
 	spec.Pools = []*httpproxy.WebSocketServerPoolSpec{{
 		BaseServerPoolSpec: getBaseServerPool(info),
 	}}
@@ -223,7 +223,7 @@ func getWebsocketFilter(info *ProxyInfo) *httpproxy.WebSocketProxySpec {
 }
 
 func getProxyFilter(info *ProxyInfo) *httpproxy.Spec {
-	spec := common.NewProxyFilterSpec("proxy")
+	spec := specs.NewProxyFilterSpec("proxy")
 	if info.GzipMinLength != 0 {
 		spec.Compression = &httpproxy.CompressionSpec{
 			MinLength: uint32(info.GzipMinLength),
