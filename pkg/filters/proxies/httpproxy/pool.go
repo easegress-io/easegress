@@ -512,7 +512,7 @@ func (sp *ServerPool) buildResponse(spCtx *serverPoolContext) (err error) {
 		maxBodySize = sp.proxy.spec.ServerMaxBodySize
 	}
 	if err = resp.FetchPayload(maxBodySize); err != nil {
-		logger.Errorf("%s: failed to fetch response payload: %v", sp.Name, err)
+		logger.Errorf("%s: failed to fetch response payload: %v, please consider to set serverMaxBodySize of Proxy to -1.", sp.Name, err)
 		body.Close()
 		return err
 	}
