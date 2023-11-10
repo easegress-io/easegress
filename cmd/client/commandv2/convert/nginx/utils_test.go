@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-// Package create provides create commands.
-package create
+package nginx
 
 import (
 	"testing"
@@ -24,8 +23,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCmd(t *testing.T) {
-	cmd := Cmd()
-	assert.NotNil(t, cmd)
-	assert.Error(t, cmd.Args(cmd, nil))
+func TestDirectiveInfo(t *testing.T) {
+	d := &Directive{
+		Directive: "test",
+		Args:      []string{"a", "b"},
+		File:      "test.conf",
+		Line:      100,
+	}
+	assert.Equal(t, "directive <test a b> of test.conf:100", directiveInfo(d))
 }

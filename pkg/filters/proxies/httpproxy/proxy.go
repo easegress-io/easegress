@@ -110,10 +110,10 @@ type (
 		MirrorPool          *ServerPoolSpec   `json:"mirrorPool,omitempty" jsonschema:"omitempty"`
 		Compression         *CompressionSpec  `json:"compression,omitempty" jsonschema:"omitempty"`
 		MTLS                *MTLS             `json:"mtls,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int               `json:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-		MaxRedirection      int               `json:"maxRedirection" jsonschema:"omitempty"`
-		ServerMaxBodySize   int64             `json:"serverMaxBodySize" jsonschema:"omitempty"`
+		MaxIdleConns        int               `json:"maxIdleConns,omitempty" jsonschema:"omitempty"`
+		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost,omitempty" jsonschema:"omitempty"`
+		MaxRedirection      int               `json:"maxRedirection,omitempty" jsonschema:"omitempty"`
+		ServerMaxBodySize   int64             `json:"serverMaxBodySize,omitempty" jsonschema:"omitempty"`
 	}
 
 	// Status is the status of Proxy.

@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-// Package create provides create commands.
-package create
+package nginx
 
 import (
-	"testing"
-
-	"github.com/stretchr/testify/assert"
+	"fmt"
+	"strings"
 )
 
-func TestCmd(t *testing.T) {
-	cmd := Cmd()
-	assert.NotNil(t, cmd)
-	assert.Error(t, cmd.Args(cmd, nil))
+func directiveInfo(d *Directive) string {
+	return fmt.Sprintf("directive <%s %s> of %s:%d", d.Directive, strings.Join(d.Args, " "), d.File, d.Line)
 }

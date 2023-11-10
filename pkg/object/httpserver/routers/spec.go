@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
@@ -38,6 +39,8 @@ type Paths []*Path
 type Host struct {
 	IsRegexp bool   `json:"isRegexp" jsonschema:"omitempty"`
 	Value    string `json:"value" jsonschema:"required"`
+	prefix   string `json:"-"`
+	suffix   string `json:"-"`
 	re       *regexp.Regexp
 }
 
@@ -124,6 +127,20 @@ func (rule *Rule) Init() {
 	for i := range rule.Hosts {
 		h := &rule.Hosts[i]
 		if !h.IsRegexp {
+			if h.Value != "" {
+				count := strings.Count(h.Value, "*")
+				if count > 1 {
+					logger.Errorf("invalid host %s, only one wildcard is allowed", h.Value)
+					continue
+				}
+				if h.Value[0] == '*' {
+					h.suffix = h.Value[1:]
+				} else if h.Value[len(h.Value)-1] == '*' {
+					h.prefix = h.Value[:len(h.Value)-1]
+				} else {
+					logger.Errorf("invalid host %s, only wildcard prefix or suffix is allowed", h.Value)
+				}
+			}
 			continue
 		}
 		if re, err := regexp.Compile(h.Value); err != nil {
@@ -153,6 +170,10 @@ func (rule *Rule) MatchHost(ctx *RouteContext) bool {
 				return true
 			}
 		} else if host == h.Value {
+			return true
+		} else if h.prefix != "" && strings.HasPrefix(host, h.prefix) {
+			return true
+		} else if h.suffix != "" && strings.HasSuffix(host, h.suffix) {
 			return true
 		}
 	}

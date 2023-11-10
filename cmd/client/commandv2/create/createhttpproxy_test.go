@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
@@ -44,7 +44,7 @@ pools:
   loadBalance:
     policy: roundRobin
 `
-	expected := getDefaultProxyFilterSpec()
+	expected := specs.NewProxyFilterSpec("proxy")
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
@@ -71,12 +71,13 @@ filters:
       policy: roundRobin
 `
 	// compare expected and got pipeline
-	expected := getDefaultPipelineSpec()
+	expected := specs.NewPipelineSpec("pipeline")
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
 	endpoints := []string{"http://127.0.0.1:9095", "http://127.0.0.1:9096"}
-	got := translateToPipeline(endpoints)
+	got := specs.NewPipelineSpec("pipeline")
+	translateToPipeline(endpoints, got)
 
 	// filters part is not compare here, because the filter part is map[string]interface{},
 	// the expected map[string]interface{} is unmarshal from yaml,
@@ -92,7 +93,7 @@ filters:
 	// if marshal it once, some part of expectedFilter will be nil.
 	// but gotFilter will be empty. for example []string{} vs nil.
 	// []string{} and nil are actually same in this case.
-	expectedFilter := getDefaultProxyFilterSpec()
+	expectedFilter := specs.NewProxyFilterSpec("proxy")
 	filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
 	err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 	assert.Nil(err)
@@ -100,7 +101,7 @@ filters:
 	err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 	assert.Nil(err)
 
-	gotFilter := filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
+	gotFilter := specs.NewProxyFilterSpec("proxy")
 	filterYaml = codectool.MustMarshalYAML(got.Filters[0])
 	err = codectool.UnmarshalYAML(filterYaml, gotFilter)
 	assert.Nil(err)
@@ -311,11 +312,11 @@ filters:
       policy: roundRobin
 `
 	expectedFilter := func() *httpproxy.Spec {
-		expected := getDefaultPipelineSpec()
+		expected := specs.NewPipelineSpec("pipeline")
 		err = codectool.UnmarshalYAML([]byte(yamlStr), expected)
 		assert.Nil(err)
 
-		expectedFilter := getDefaultProxyFilterSpec()
+		expectedFilter := specs.NewProxyFilterSpec("proxy")
 		filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
 		err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 		assert.Nil(err)
@@ -326,7 +327,7 @@ filters:
 	}()
 
 	for i, p := range pls {
-		gotFilter := getDefaultProxyFilterSpec()
+		gotFilter := specs.NewProxyFilterSpec("proxy")
 		filterYaml := codectool.MustMarshalYAML(p.Filters[0])
 		err = codectool.UnmarshalYAML(filterYaml, gotFilter)
 		assert.Nil(err)

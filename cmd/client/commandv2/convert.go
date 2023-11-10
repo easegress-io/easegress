@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-// Package create provides create commands.
-package create
+package commandv2
 
 import (
-	"testing"
+	"github.com/spf13/cobra"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/convert/nginx"
 )
 
-func TestCmd(t *testing.T) {
-	cmd := Cmd()
-	assert.NotNil(t, cmd)
-	assert.Error(t, cmd.Args(cmd, nil))
+// ConvertCmd returns convert command.
+func ConvertCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "convert",
+		Short: "Convert other kinds of config to Easegress yaml file",
+	}
+	cmd.AddCommand(nginx.Cmd())
+	return cmd
 }

@@ -32,3 +32,13 @@ func SuccessMsg(action CmdType, values ...string) string {
 func ErrorMsg(action CmdType, err error, values ...string) error {
 	return fmt.Errorf("%s %s failed, %v", action, strings.Join(values, " "), err)
 }
+
+// Warnf prints the warning message.
+func Warnf(format string, args ...interface{}) {
+	fmt.Printf("WARNING: "+format+"\n", args...)
+}
+
+// Infof prints the info message.
+func Infof(format string, args ...interface{}) {
+	fmt.Printf("INFO: "+format+"\n", args...)
+}

@@ -39,9 +39,9 @@ type (
 
 	// Spec is the spec of Builder.
 	Spec struct {
-		LeftDelim  string `json:"leftDelim" jsonschema:"omitempty"`
-		RightDelim string `json:"rightDelim" jsonschema:"omitempty"`
-		Template   string `json:"template" jsonschema:"omitempty"`
+		LeftDelim  string `json:"leftDelim,omitempty" jsonschema:"omitempty"`
+		RightDelim string `json:"rightDelim,omitempty" jsonschema:"omitempty"`
+		Template   string `json:"template,omitempty" jsonschema:"omitempty"`
 	}
 )
 
@@ -79,15 +79,24 @@ func prepareBuilderData(ctx *context.Context) (map[string]interface{}, error) {
 	requests := make(map[string]interface{})
 	responses := make(map[string]interface{})
 
+	var defaultReq, defaultResp interface{}
 	for k, v := range ctx.Requests() {
 		requests[k] = v.ToBuilderRequest(k)
+		if k == context.DefaultNamespace {
+			defaultReq = requests[k]
+		}
 	}
 
 	for k, v := range ctx.Responses() {
 		responses[k] = v.ToBuilderResponse(k)
+		if k == context.DefaultNamespace {
+			defaultResp = responses[k]
+		}
 	}
 
 	return map[string]interface{}{
+		"req":       defaultReq,
+		"resp":      defaultResp,
 		"requests":  requests,
 		"responses": responses,
 		"data":      ctx.Data(),
