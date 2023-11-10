@@ -35,9 +35,9 @@ func TestCmd(t *testing.T) {
 	assert.NotNil(t, cmd.Args(cmd, []string{}))
 
 	cmd.ParseFlags([]string{"-o", "test.yaml"})
-	assert.NotNil(t, cmd.Args(cmd, []string{}))
+	assert.Nil(t, cmd.Args(cmd, []string{}))
 
-	cmd.ParseFlags([]string{"--prefix", "test"})
+	cmd.ParseFlags([]string{"--resource-prefix", "test"})
 	assert.Nil(t, cmd.Args(cmd, []string{}))
 
 	tempDir := newTempTestDir(t)
