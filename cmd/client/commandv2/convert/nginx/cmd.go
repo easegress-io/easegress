@@ -96,7 +96,7 @@ func (opt *Options) init() {
 	opt.usedNames[""] = struct{}{}
 }
 
-// GetPipelineName create a global uniq name for pipeline based on path.
+// GetPipelineName creates a globally unique name for the pipeline based on the path.
 func (opt *Options) GetPipelineName(path string) string {
 	letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	nameRunes := make([]rune, 0)
