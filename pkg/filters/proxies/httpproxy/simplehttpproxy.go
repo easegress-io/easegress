@@ -282,7 +282,7 @@ func (shp *SimpleHTTPProxy) Handle(ctx *context.Context) (result string) {
 
 	maxBodySize := shp.spec.ServerMaxBodySize
 	if err = httpResp.FetchPayload(maxBodySize); err != nil {
-		logger.Errorf("%s: failed to fetch response payload: %v", shp.Name(), err)
+		logger.Errorf("%s: failed to fetch response payload: %v, please consider to set serverMaxBodySize of SimpleHTTPProxy to -1.", shp.Name(), err)
 		return resultServerError
 	}
 
