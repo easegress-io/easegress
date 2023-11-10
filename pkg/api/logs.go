@@ -24,9 +24,12 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-chi/chi/v5"
 	"github.com/megaease/easegress/v2/pkg/logger"
+	"go.uber.org/zap"
 )
 
 func (s *Server) logsAPIEntries() []*Entry {
@@ -35,6 +38,16 @@ func (s *Server) logsAPIEntries() []*Entry {
 			Path:    "/logs",
 			Method:  "GET",
 			Handler: s.getLogs,
+		},
+		{
+			Path:    "/logs/level/{level}",
+			Method:  "PUT",
+			Handler: s.setLogLevel,
+		},
+		{
+			Path:    "/logs/level",
+			Method:  "GET",
+			Handler: s.getLogLevel,
 		},
 	}
 }
@@ -74,6 +87,30 @@ func newLogFile(r *http.Request, filePath string) (*logFile, error) {
 		Follow:   follow,
 		EndIndex: end,
 	}, nil
+}
+
+func (s *Server) getLogLevel(w http.ResponseWriter, r *http.Request) {
+	level := logger.GetLogLevel()
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(level))
+}
+
+func (s *Server) setLogLevel(w http.ResponseWriter, r *http.Request) {
+	level := chi.URLParam(r, "level")
+	if level == "" {
+		HandleAPIError(w, r, http.StatusBadRequest, errors.New("level is required"))
+		return
+	}
+	level = strings.ToLower(level)
+	if level == "debug" {
+		logger.SetLogLevel(zap.DebugLevel)
+	} else if level == "info" {
+		logger.SetLogLevel(zap.InfoLevel)
+	} else {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("invalid level %s, only support to set log level to info or debug", level))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {

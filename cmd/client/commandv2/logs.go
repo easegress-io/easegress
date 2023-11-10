@@ -66,5 +66,47 @@ func LogsCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&n, "tail", 500, "Lines of recent log file to display. Defaults to 500, use -1 to show all lines")
 	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Specify if the logs should be streamed.")
+	cmd.AddCommand(setLogLevelCmd())
+	cmd.AddCommand(getLogLevelCmd())
+	return cmd
+}
+
+func setLogLevelCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Set log level to info", Command: "egctl logs set-level info"},
+		{Desc: "Set log level to debug", Command: "egctl logs set-level debug"},
+	}
+
+	cmd := &cobra.Command{
+		Use:     "set-level",
+		Short:   "Set Easegress log level",
+		Example: createMultiExample(examples),
+		Args:    cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			level := args[0]
+			p := general.LogsLevelURL + "/" + level
+			if _, err := general.HandleRequest(http.MethodPut, p, nil); err != nil {
+				general.ExitWithError(err)
+			}
+			fmt.Println("Set log level to", level)
+		},
+	}
+	return cmd
+}
+
+func getLogLevelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "get-level",
+		Short:   "Get Easegress log level",
+		Example: createExample("Get current log level.", "egctl logs get-level"),
+		Args:    cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := general.HandleRequest(http.MethodGet, general.LogsLevelURL, nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			fmt.Println(string(body))
+		},
+	}
 	return cmd
 }
