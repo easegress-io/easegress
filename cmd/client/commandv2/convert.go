@@ -27,7 +27,7 @@ import (
 func ConvertCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "convert",
-		Short: "Convert other format to easegress yaml file",
+		Short: "Convert other kinds of config to Easegress yaml file",
 	}
 	cmd.AddCommand(nginx.Cmd())
 	return cmd
