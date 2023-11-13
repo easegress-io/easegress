@@ -143,13 +143,13 @@ type (
 	// IngressServerSpec is the spec of ingress httpserver in worker
 	IngressServerSpec struct {
 		KeepAlive        bool   `json:"keepAlive,omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"omitempty,format=duration"`
 	}
 
 	// EgressServerSpec is the spec of egress httpserver in worker
 	EgressServerSpec struct {
 		KeepAlive        bool   `json:"keepAlive,omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"omitempty,format=duration"`
 	}
 
 	// MonitorMTLS is the spec of mTLS specification of monitor.
@@ -221,7 +221,7 @@ type (
 		CircuitBreaker *resilience.CircuitBreakerRule `json:"circuitBreaker,omitempty"`
 		Retry          *resilience.RetryRule          `json:"retry,omitempty"`
 		TimeLimiter    *TimeLimiterRule               `json:"timeLimiter,omitempty"`
-		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
+		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"omitempty,uniqueItems=true"`
 	}
 
 	// TimeLimiterRule is the spec of TimeLimiter.
@@ -363,8 +363,8 @@ type (
 		InstanceID   string            `json:"instanceID" jsonschema:"required"`
 		IP           string            `json:"ip" jsonschema:"required"`
 		Port         uint32            `json:"port" jsonschema:"required"`
-		RegistryTime string            `json:"registryTime"`
-		Labels       map[string]string `json:"labels"`
+		RegistryTime string            `json:"registryTime,omitempty"`
+		Labels       map[string]string `json:"labels,omitempty"`
 
 		// Set by heartbeat timer event or API
 		Status string `json:"status"`
@@ -373,13 +373,13 @@ type (
 	// IngressPath is the path for a mesh ingress rule
 	IngressPath struct {
 		Path          string `json:"path" jsonschema:"required,pattern=^/"`
-		RewriteTarget string `json:"rewriteTarget"`
+		RewriteTarget string `json:"rewriteTarget,omitempty"`
 		Backend       string `json:"backend" jsonschema:"required"`
 	}
 
 	// IngressRule is the rule for mesh ingress
 	IngressRule struct {
-		Host  string         `json:"host"`
+		Host  string         `json:"host,omitempty"`
 		Paths []*IngressPath `json:"paths" jsonschema:"required"`
 	}
 

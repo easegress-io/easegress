@@ -83,11 +83,11 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Compression         *CompressionSpec `json:"compression,omitempty"`
-		MaxIdleConns        int              `json:"maxIdleConns"`
-		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost"`
-		ServerMaxBodySize   int64            `json:"serverMaxBodySize"`
-		Timeout             string           `json:"timeout" jsonschema:"format=duration"`
-		RetryPolicy         string           `json:"retryPolicy"`
+		MaxIdleConns        int              `json:"maxIdleConns,omitempty"`
+		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost,omitempty"`
+		ServerMaxBodySize   int64            `json:"serverMaxBodySize,omitempty"`
+		Timeout             string           `json:"timeout,omitempty" jsonschema:"format=duration"`
+		RetryPolicy         string           `json:"retryPolicy,omitempty"`
 	}
 )
 

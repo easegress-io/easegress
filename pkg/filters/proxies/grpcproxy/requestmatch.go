@@ -27,7 +27,7 @@ import (
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
 	proxies.RequestMatcherBaseSpec `json:",inline"`
-	Methods                        []*stringtool.StringMatcher `json:"methods"`
+	Methods                        []*stringtool.StringMatcher `json:"methods,omitempty"`
 }
 
 // Validate validates the RequestMatcherSpec.

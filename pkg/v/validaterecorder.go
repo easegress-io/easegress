@@ -113,7 +113,7 @@ func (vr *ValidateRecorder) recordFormat(val *reflect.Value, field *reflect.Stru
 		return
 	}
 
-	if IsOmitemptyField(field) {
+	if IsOmitemptyField(field) && val.IsZero() {
 		return
 	}
 
