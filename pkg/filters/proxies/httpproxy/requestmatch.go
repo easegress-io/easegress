@@ -27,7 +27,7 @@ import (
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
 	proxies.RequestMatcherBaseSpec `json:",inline"`
-	URLs                           []*MethodAndURLMatcher `json:"urls" jsonschema:"omitempty"`
+	URLs                           []*MethodAndURLMatcher `json:"urls,omitempty"`
 }
 
 // Validate validates the RequestMatcherSpec.
@@ -150,7 +150,7 @@ func (gm *generalMatcher) matchURL(req *httpprot.Request) bool {
 
 // MethodAndURLMatcher defines the match rule of a http request
 type MethodAndURLMatcher struct {
-	Methods []string                  `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+	Methods []string                  `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
 	URL     *stringtool.StringMatcher `json:"url" jsonschema:"required"`
 }
 

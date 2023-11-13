@@ -82,12 +82,12 @@ type (
 	SimpleHTTPProxySpec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Compression         *CompressionSpec `json:"compression,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int              `json:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-		ServerMaxBodySize   int64            `json:"serverMaxBodySize" jsonschema:"omitempty"`
-		Timeout             string           `json:"timeout" jsonschema:"omitempty,format=duration"`
-		RetryPolicy         string           `json:"retryPolicy" jsonschema:"omitempty"`
+		Compression         *CompressionSpec `json:"compression,omitempty"`
+		MaxIdleConns        int              `json:"maxIdleConns"`
+		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost"`
+		ServerMaxBodySize   int64            `json:"serverMaxBodySize"`
+		Timeout             string           `json:"timeout" jsonschema:"format=duration"`
+		RetryPolicy         string           `json:"retryPolicy"`
 	}
 )
 

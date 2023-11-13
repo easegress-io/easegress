@@ -57,11 +57,11 @@ type LoadBalancer interface {
 // this is not good as new policies could be added in the future, we should
 // convert it to a map later.
 type LoadBalanceSpec struct {
-	Policy        string             `json:"policy,omitempty" jsonschema:"omitempty"`
-	HeaderHashKey string             `json:"headerHashKey,omitempty" jsonschema:"omitempty"`
-	ForwardKey    string             `json:"forwardKey,omitempty" jsonschema:"omitempty"`
-	StickySession *StickySessionSpec `json:"stickySession,omitempty" jsonschema:"omitempty"`
-	HealthCheck   *HealthCheckSpec   `json:"healthCheck,omitempty" jsonschema:"omitempty"`
+	Policy        string             `json:"policy,omitempty"`
+	HeaderHashKey string             `json:"headerHashKey,omitempty"`
+	ForwardKey    string             `json:"forwardKey,omitempty"`
+	StickySession *StickySessionSpec `json:"stickySession,omitempty"`
+	HealthCheck   *HealthCheckSpec   `json:"healthCheck,omitempty"`
 }
 
 // LoadBalancePolicy is the interface of a load balance policy.

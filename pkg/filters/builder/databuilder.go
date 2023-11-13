@@ -57,7 +57,7 @@ type (
 	DataBuilderSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
-		DataKey          string `json:"dataKey" jsonschema:"omitempty"`
+		DataKey          string `json:"dataKey,omitempty"`
 	}
 )
 
@@ -106,7 +106,6 @@ func (db *DataBuilder) reload() {
 // Handle builds request.
 func (db *DataBuilder) Handle(ctx *context.Context) (result string) {
 	data, err := prepareBuilderData(ctx)
-
 	if err != nil {
 		logger.Warnf("prepareBuilderData failed: %v", err)
 		return resultBuildErr

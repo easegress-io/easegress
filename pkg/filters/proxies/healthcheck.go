@@ -25,15 +25,15 @@ import (
 // HealthCheckSpec is the spec for health check.
 type HealthCheckSpec struct {
 	// Interval is the interval duration for health check.
-	Interval string `json:"interval" jsonschema:"omitempty,format=duration"`
+	Interval string `json:"interval,omitempty" jsonschema:"format=duration"`
 	// Path is the health check path for server
-	Path string `json:"path" jsonschema:"omitempty"`
+	Path string `json:"path,omitempty"`
 	// Timeout is the timeout duration for health check, default is 3.
-	Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
+	Timeout string `json:"timeout,omitempty" jsonschema:"format=duration"`
 	// Fails is the consecutive fails count for assert fail, default is 1.
-	Fails int `json:"fails" jsonschema:"omitempty,minimum=1"`
+	Fails int `json:"fails,omitempty" jsonschema:"minimum=1"`
 	// Passes is the consecutive passes count for assert pass, default is 1.
-	Passes int `json:"passes" jsonschema:"omitempty,minimum=1"`
+	Passes int `json:"passes,omitempty" jsonschema:"minimum=1"`
 }
 
 // HealthChecker checks whether a server is healthy or not.

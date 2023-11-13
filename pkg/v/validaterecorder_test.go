@@ -52,9 +52,9 @@ func TestRequiredFromField(t *testing.T) {
 	assert := assert.New(t)
 
 	type User struct {
-		ID   int    `json:"id" jsonschema:"omitempty"`
-		Name string `json:"name" jsonschema:"-"`
-		Addr string `json:"address" jsonschema:"required"`
+		ID   int    `json:"id,omitempty"`
+		Name string `json:"name,omitempty" jsonschema:"-"`
+		Addr string `json:"address,omitempty" jsonschema:"required"`
 	}
 
 	u := User{
@@ -79,10 +79,10 @@ func TestValidateRecorder(t *testing.T) {
 	assert := assert.New(t)
 
 	type TestStruct struct {
-		ID     int    `json:"id" jsonschema:"omitempty"`
+		ID     int    `json:"id"`
 		Name   string `json:"name" jsonschema:"-"`
 		Addr   string `json:"address" jsonschema:"required"`
-		Method string `json:"method" jsonschema:"omitempty,format=httpmethod"`
+		Method string `json:"method" jsonschema:"format=httpmethod"`
 	}
 
 	u := TestStruct{

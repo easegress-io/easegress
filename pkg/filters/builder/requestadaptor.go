@@ -145,25 +145,25 @@ type (
 		Spec             `json:",inline"`
 
 		RequestAdaptorTemplate `json:",inline"`
-		Compress               string      `json:"compress,omitempty" jsonschema:"omitempty"`
-		Decompress             string      `json:"decompress,omitempty" jsonschema:"omitempty"`
-		Sign                   *SignerSpec `json:"sign,omitempty" jsonschema:"omitempty"`
+		Compress               string      `json:"compress,omitempty"`
+		Decompress             string      `json:"decompress,omitempty"`
+		Sign                   *SignerSpec `json:"sign,omitempty"`
 	}
 
 	// RequestAdaptorTemplate is the template of the request adaptor.
 	RequestAdaptorTemplate struct {
-		Host   string                `json:"host,omitempty" jsonschema:"omitempty"`
-		Method string                `json:"method,omitempty" jsonschema:"omitempty,format=httpmethod"`
-		Path   *pathadaptor.Spec     `json:"path,omitempty" jsonschema:"omitempty"`
-		Header *httpheader.AdaptSpec `json:"header,omitempty" jsonschema:"omitempty"`
-		Body   string                `json:"body,omitempty" jsonschema:"omitempty"`
+		Host   string                `json:"host,omitempty"`
+		Method string                `json:"method,omitempty" jsonschema:"format=httpmethod"`
+		Path   *pathadaptor.Spec     `json:"path,omitempty"`
+		Header *httpheader.AdaptSpec `json:"header,omitempty"`
+		Body   string                `json:"body,omitempty"`
 	}
 
 	// SignerSpec is the spec of the request signer.
 	SignerSpec struct {
 		signer.Spec `json:",inline"`
-		APIProvider string   `json:"apiProvider" jsonschema:"omitempty,enum=,enum=aws4"`
-		Scopes      []string `json:"scopes" jsonschema:"omitempty"`
+		APIProvider string   `json:"apiProvider,omitempty" jsonschema:"enum=,enum=aws4"`
+		Scopes      []string `json:"scopes,omitempty"`
 	}
 
 	signerConfig struct {

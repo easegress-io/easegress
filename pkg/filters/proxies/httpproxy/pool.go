@@ -181,16 +181,16 @@ type ServerPool struct {
 type ServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
 
-	Filter               *RequestMatcherSpec `json:"filter,omitempty" jsonschema:"omitempty"`
-	SpanName             string              `json:"spanName,omitempty" jsonschema:"omitempty"`
-	ServerMaxBodySize    int64               `json:"serverMaxBodySize,omitempty" jsonschema:"omitempty"`
-	Timeout              string              `json:"timeout,omitempty" jsonschema:"omitempty,format=duration"`
-	RetryPolicy          string              `json:"retryPolicy,omitempty" jsonschema:"omitempty"`
-	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy,omitempty" jsonschema:"omitempty"`
-	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty" jsonschema:"omitempty"`
+	Filter               *RequestMatcherSpec `json:"filter,omitempty"`
+	SpanName             string              `json:"spanName,omitempty"`
+	ServerMaxBodySize    int64               `json:"serverMaxBodySize,omitempty"`
+	Timeout              string              `json:"timeout,omitempty" jsonschema:"format=duration"`
+	RetryPolicy          string              `json:"retryPolicy,omitempty"`
+	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy,omitempty"`
+	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty"`
 
 	// FailureCodes would be 5xx if it isn't assigned any value.
-	FailureCodes []int `json:"failureCodes,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+	FailureCodes []int `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
 }
 
 // ServerPoolStatus is the status of Pool.

@@ -279,9 +279,9 @@ type MockMQTTSpec struct {
 	Password         string   `json:"password" jsonschema:"required"`
 	Port             uint16   `json:"port" jsonschema:"required"`
 	BackendType      string   `json:"backendType" jsonschema:"required"`
-	EarlyStop        bool     `json:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore      []string `json:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey       string   `json:"connectKey" jsonschema:"omitempty"`
+	EarlyStop        bool     `json:"earlyStop"`
+	KeysToStore      []string `json:"keysToStore"`
+	ConnectKey       string   `json:"connectKey"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter

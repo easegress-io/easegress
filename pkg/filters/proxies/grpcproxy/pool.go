@@ -111,15 +111,13 @@ type serverPoolContext struct {
 	resp *grpcprot.Response
 }
 
-var (
-	desc = &grpc.StreamDesc{
-		// we assume that client side and server side both use stream calls.
-		// in test, only one or neither of the client and the server use streaming calls,
-		// gRPC server works well too
-		ClientStreams: true,
-		ServerStreams: true,
-	}
-)
+var desc = &grpc.StreamDesc{
+	// we assume that client side and server side both use stream calls.
+	// in test, only one or neither of the client and the server use streaming calls,
+	// gRPC server works well too
+	ClientStreams: true,
+	ServerStreams: true,
+}
 
 // ServerPool defines a server pool.
 type ServerPool struct {
@@ -136,9 +134,9 @@ type ServerPool struct {
 type ServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
 
-	SpanName             string              `json:"spanName" jsonschema:"omitempty"`
-	Filter               *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy" jsonschema:"omitempty"`
+	SpanName             string              `json:"spanName,omitempty"`
+	Filter               *RequestMatcherSpec `json:"filter,omitempty"`
+	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy,omitempty"`
 }
 
 // Validate validates ServerPoolSpec.
@@ -373,7 +371,6 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 			return nil
 		}
 	}
-
 }
 
 func (sp *ServerPool) buildOutputResponse(spCtx *serverPoolContext, s *status.Status) {

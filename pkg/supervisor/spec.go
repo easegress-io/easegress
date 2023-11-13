@@ -47,7 +47,7 @@ type (
 		Version string `json:"version" jsonschema:"required"`
 
 		// RFC3339 format
-		CreatedAt string `json:"createdAt,omitempty" jsonschema:"omitempty"`
+		CreatedAt string `json:"createdAt,omitempty"`
 	}
 )
 

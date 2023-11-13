@@ -55,9 +55,9 @@ type (
 
 	// Spec is the ingress controller spec
 	Spec struct {
-		KubeConfig string   `json:"kubeConfig" jsonschema:"omitempty"`
-		MasterURL  string   `json:"masterURL" jsonschema:"omitempty"`
-		Namespaces []string `json:"namespaces" jsonschema:"omitempty"`
+		KubeConfig string   `json:"kubeConfig,omitempty"`
+		MasterURL  string   `json:"masterURL,omitempty"`
+		Namespaces []string `json:"namespaces,omitempty"`
 	}
 )
 
@@ -86,7 +86,6 @@ func (gc *GatewayController) Init(superSpec *supervisor.Spec) {
 	gc.spec = superSpec.ObjectSpec().(*Spec)
 	gc.super = superSpec.Super()
 	gc.reload()
-
 }
 
 // Inherit inherits previous generation of GatewayController.

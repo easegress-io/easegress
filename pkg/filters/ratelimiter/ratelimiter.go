@@ -58,9 +58,9 @@ type (
 	// Policy defines the policy of a rate limiter
 	Policy struct {
 		Name               string `json:"name" jsonschema:"required"`
-		TimeoutDuration    string `json:"timeoutDuration" jsonschema:"omitempty,format=duration"`
-		LimitRefreshPeriod string `json:"limitRefreshPeriod" jsonschema:"omitempty,format=duration"`
-		LimitForPeriod     int    `json:"limitForPeriod" jsonschema:"omitempty,minimum=1"`
+		TimeoutDuration    string `json:"timeoutDuration,omitempty" jsonschema:"format=duration"`
+		LimitRefreshPeriod string `json:"limitRefreshPeriod,omitempty" jsonschema:"format=duration"`
+		LimitForPeriod     int    `json:"limitForPeriod,omitempty" jsonschema:"minimum=1"`
 	}
 
 	// URLRule defines the rate limiter rule for a URL pattern
@@ -79,7 +79,7 @@ type (
 	// Rule is the detailed config of RateLimiter.
 	Rule struct {
 		Policies         []*Policy  `json:"policies" jsonschema:"required"`
-		DefaultPolicyRef string     `json:"defaultPolicyRef" jsonschema:"omitempty"`
+		DefaultPolicyRef string     `json:"defaultPolicyRef,omitempty"`
 		URLs             []*URLRule `json:"urls" jsonschema:"required"`
 	}
 

@@ -35,10 +35,10 @@ type (
 	// OAuth2TokenIntrospect defines the validator configuration for OAuth2 token introspection
 	OAuth2TokenIntrospect struct {
 		EndPoint     string `json:"endPoint" jsonschema:"required"`
-		BasicAuth    string `json:"basicAuth" jsonschema:"omitempty"`
-		ClientID     string `json:"clientId" jsonschema:"omitempty"`
-		ClientSecret string `json:"clientSecret" jsonschema:"omitempty"`
-		InsecureTLS  bool   `json:"insecureTls"`
+		BasicAuth    string `json:"basicAuth,omitempty"`
+		ClientID     string `json:"clientId,omitempty"`
+		ClientSecret string `json:"clientSecret,omitempty"`
+		InsecureTLS  bool   `json:"insecureTls,omitempty"`
 	}
 
 	// OAuth2JWT defines the validator configuration for OAuth2 self encoded access token
@@ -51,8 +51,8 @@ type (
 
 	// OAuth2ValidatorSpec defines the configuration of OAuth2 validator
 	OAuth2ValidatorSpec struct {
-		TokenIntrospect *OAuth2TokenIntrospect `json:"tokenIntrospect" jsonschema:"omitempty"`
-		JWT             *OAuth2JWT             `json:"jwt" jsonschema:"omitempty"`
+		TokenIntrospect *OAuth2TokenIntrospect `json:"tokenIntrospect,omitempty"`
+		JWT             *OAuth2JWT             `json:"jwt,omitempty"`
 	}
 
 	// OAuth2Validator defines the OAuth2 validator

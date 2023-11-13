@@ -69,19 +69,19 @@ type (
 	Rule struct {
 		Match   MatchRule         `json:"match" jsonschema:"required"`
 		Code    int               `json:"code" jsonschema:"required,format=httpcode"`
-		Headers map[string]string `json:"headers" jsonschema:"omitempty"`
-		Body    string            `json:"body" jsonschema:"omitempty"`
-		Delay   string            `json:"delay" jsonschema:"omitempty,format=duration"`
+		Headers map[string]string `json:"headers,omitempty"`
+		Body    string            `json:"body,omitempty"`
+		Delay   string            `json:"delay,omitempty" jsonschema:"format=duration"`
 
 		delay time.Duration
 	}
 
 	// MatchRule is the rule to match a request
 	MatchRule struct {
-		Path            string                               `json:"path,omitempty" jsonschema:"omitempty,pattern=^/"`
-		PathPrefix      string                               `json:"pathPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		Headers         map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"omitempty"`
-		MatchAllHeaders bool                                 `json:"matchAllHeaders" jsonschema:"omitempty"`
+		Path            string                               `json:"path,omitempty" jsonschema:"pattern=^/"`
+		PathPrefix      string                               `json:"pathPrefix,omitempty" jsonschema:"pattern=^/"`
+		Headers         map[string]*stringtool.StringMatcher `json:"headers,omitempty"`
+		MatchAllHeaders bool                                 `json:"matchAllHeaders,omitempty"`
 	}
 )
 

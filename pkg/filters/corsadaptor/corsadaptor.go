@@ -64,12 +64,12 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		AllowedOrigins   []string `json:"allowedOrigins" jsonschema:"omitempty"`
-		AllowedMethods   []string `json:"allowedMethods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
-		AllowedHeaders   []string `json:"allowedHeaders" jsonschema:"omitempty"`
-		AllowCredentials bool     `json:"allowCredentials" jsonschema:"omitempty"`
-		ExposedHeaders   []string `json:"exposedHeaders" jsonschema:"omitempty"`
-		MaxAge           int      `json:"maxAge" jsonschema:"omitempty"`
+		AllowedOrigins   []string `json:"allowedOrigins,omitempty"`
+		AllowedMethods   []string `json:"allowedMethods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
+		AllowedHeaders   []string `json:"allowedHeaders,omitempty"`
+		AllowCredentials bool     `json:"allowCredentials,omitempty"`
+		ExposedHeaders   []string `json:"exposedHeaders,omitempty"`
+		MaxAge           int      `json:"maxAge,omitempty"`
 	}
 )
 

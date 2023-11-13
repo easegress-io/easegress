@@ -45,14 +45,14 @@ type (
 	// Spec describes Tracer.
 	Spec struct {
 		ServiceName  string                `json:"serviceName" jsonschema:"required,minLength=1"`
-		Tags         map[string]string     `json:"tags" jsonschema:"omitempty"`
-		Attributes   map[string]string     `json:"attributes" jsonschema:"omitempty"`
-		SpanLimits   *SpanLimitsSpec       `json:"spanLimits" jsonschema:"omitempty"`
-		SampleRate   float64               `json:"sampleRate" jsonschema:"omitempty,minimum=0,maximum=1,default=1"`
-		BatchLimits  *BatchLimitsSpec      `json:"batchLimits" jsonschema:"omitempty"`
-		Exporter     *ExporterSpec         `json:"exporter" jsonschema:"omitempty"`
-		Zipkin       *ZipkinDeprecatedSpec `json:"zipkin" jsonschema:"omitempty"`
-		HeaderFormat headerFormat          `json:"headerFormat" jsonschema:"omitempty,default=trace-context,enum=trace-context,enum=b3"`
+		Tags         map[string]string     `json:"tags,omitempty"`
+		Attributes   map[string]string     `json:"attributes,omitempty"`
+		SpanLimits   *SpanLimitsSpec       `json:"spanLimits,omitempty"`
+		SampleRate   float64               `json:"sampleRate,omitempty" jsonschema:"minimum=0,maximum=1,default=1"`
+		BatchLimits  *BatchLimitsSpec      `json:"batchLimits,omitempty"`
+		Exporter     *ExporterSpec         `json:"exporter,omitempty"`
+		Zipkin       *ZipkinDeprecatedSpec `json:"zipkin,omitempty"`
+		HeaderFormat headerFormat          `json:"headerFormat,omitempty" jsonschema:"default=trace-context,enum=trace-context,enum=b3"`
 	}
 
 	// SpanLimitsSpec represents the limits of a span.
@@ -63,7 +63,7 @@ type (
 		// Any string longer than this value will be truncated to this length.
 		//
 		// Setting this to a negative value means no limit is applied.
-		AttributeValueLengthLimit int `json:"attributeValueLengthLimit" jsonschema:"default=-1,omitempty"`
+		AttributeValueLengthLimit int `json:"attributeValueLengthLimit,omitempty" jsonschema:"default=-1"`
 
 		// AttributeCountLimit is the maximum allowed span attribute count. Any
 		// attribute added to a span once this limit is reached will be dropped.
@@ -71,7 +71,7 @@ type (
 		// Setting this to zero means no attributes will be recorded.
 		//
 		// Setting this to a negative value means no limit is applied.
-		AttributeCountLimit int `json:"attributeCountLimit" jsonschema:"default=128,omitempty"`
+		AttributeCountLimit int `json:"attributeCountLimit,omitempty" jsonschema:"default=128"`
 
 		// EventCountLimit is the maximum allowed span event count. Any event
 		// added to a span once this limit is reached means it will be added but
@@ -80,7 +80,7 @@ type (
 		// Setting this to zero means no events we be recorded.
 		//
 		// Setting this to a negative value means no limit is applied.
-		EventCountLimit int `json:"eventCountLimit" jsonschema:"default=128,omitempty"`
+		EventCountLimit int `json:"eventCountLimit,omitempty" jsonschema:"default=128"`
 
 		// LinkCountLimit is the maximum allowed span link count. Any link added
 		// to a span once this limit is reached means it will be added but the
@@ -89,7 +89,7 @@ type (
 		// Setting this to zero means no links we be recorded.
 		//
 		// Setting this to a negative value means no limit is applied.
-		LinkCountLimit int `json:"linkCountLimit" jsonschema:"default=128,omitempty"`
+		LinkCountLimit int `json:"linkCountLimit,omitempty" jsonschema:"default=128"`
 
 		// AttributePerEventCountLimit is the maximum number of attributes allowed
 		// per span event. Any attribute added after this limit reached will be
@@ -98,7 +98,7 @@ type (
 		// Setting this to zero means no attributes will be recorded for events.
 		//
 		// Setting this to a negative value means no limit is applied.
-		AttributePerEventCountLimit int `json:"attributePerEventCountLimit" jsonschema:"default=128,omitempty"`
+		AttributePerEventCountLimit int `json:"attributePerEventCountLimit,omitempty" jsonschema:"default=128"`
 
 		// AttributePerLinkCountLimit is the maximum number of attributes allowed
 		// per span link. Any attribute added after this limit reached will be
@@ -107,7 +107,7 @@ type (
 		// Setting this to zero means no attributes will be recorded for links.
 		//
 		// Setting this to a negative value means no limit is applied.
-		AttributePerLinkCountLimit int `json:"attributePerLinkCountLimit" jsonschema:"default=128,omitempty"`
+		AttributePerLinkCountLimit int `json:"attributePerLinkCountLimit,omitempty" jsonschema:"default=128"`
 	}
 
 	// BatchLimitsSpec describes BatchSpanProcessorOptions.
@@ -115,30 +115,30 @@ type (
 		// MaxQueueSize is the maximum queue size to buffer spans for delayed processing. If the
 		// queue gets full it drops the spans. Use BlockOnQueueFull to change this behavior.
 		// The default value of MaxQueueSize is 2048.
-		MaxQueueSize int `json:"maxQueueSize" jsonschema:"default=2048,omitempty"`
+		MaxQueueSize int `json:"maxQueueSize,omitempty" jsonschema:"default=2048"`
 
 		// BatchTimeout is the maximum duration for constructing a batch. Processor
 		// forcefully sends available spans when timeout is reached.
 		// The default value of BatchTimeout is 5000 msec.
-		BatchTimeout int64 `json:"batchTimeout" jsonschema:"default=5000,omitempty"`
+		BatchTimeout int64 `json:"batchTimeout,omitempty" jsonschema:"default=5000"`
 
 		// ExportTimeout specifies the maximum duration for exporting spans. If the timeout
 		// is reached, the export will be cancelled.
 		// The default value of ExportTimeout is 30000 msec.
-		ExportTimeout int64 `json:"exportTimeout" jsonschema:"default=30000,omitempty"`
+		ExportTimeout int64 `json:"exportTimeout,omitempty" jsonschema:"default=30000"`
 
 		// MaxExportBatchSize is the maximum number of spans to process in a single batch.
 		// If there are more than one batch worth of spans then it processes multiple batches
 		// of spans one batch after the other without any delay.
 		// The default value of MaxExportBatchSize is 512.
-		MaxExportBatchSize int `json:"maxExportBatchSize" jsonschema:"default=512,omitempty"`
+		MaxExportBatchSize int `json:"maxExportBatchSize,omitempty" jsonschema:"default=512"`
 	}
 
 	// ExporterSpec describes exporter.
 	ExporterSpec struct {
-		Jaeger *JaegerSpec `json:"jaeger" jsonschema:"omitempty"`
-		Zipkin *ZipkinSpec `json:"zipkin" jsonschema:"omitempty"`
-		OTLP   *OTLPSpec   `json:"otlp" jsonschema:"omitempty"`
+		Jaeger *JaegerSpec `json:"jaeger,omitempty"`
+		Zipkin *ZipkinSpec `json:"zipkin,omitempty"`
+		OTLP   *OTLPSpec   `json:"otlp,omitempty"`
 	}
 
 	jaegerMode string
@@ -146,9 +146,9 @@ type (
 	// JaegerSpec describes Jaeger.
 	JaegerSpec struct {
 		Mode     jaegerMode `json:"mode" jsonschema:"required,enum=agent,enum=collector"`
-		Endpoint string     `json:"endpoint" jsonschema:"omitempty"`
-		Username string     `json:"username" jsonschema:"omitempty"`
-		Password string     `json:"password" jsonschema:"omitempty"`
+		Endpoint string     `json:"endpoint,omitempty"`
+		Username string     `json:"username,omitempty"`
+		Password string     `json:"password,omitempty"`
 	}
 
 	// ZipkinSpec describes Zipkin.
@@ -161,20 +161,20 @@ type (
 	OTLPSpec struct {
 		Protocol    otlpProtocol `json:"protocol" jsonschema:"required,,enum=http,enum=grpc"`
 		Endpoint    string       `json:"endpoint" jsonschema:"required"`
-		Insecure    bool         `json:"insecure" jsonschema:"omitempty"`
-		Compression string       `json:"compression" jsonschema:"omitempty,enum=,enum=gzip"`
+		Insecure    bool         `json:"insecure,omitempty"`
+		Compression string       `json:"compression,omitempty" jsonschema:"enum=,enum=gzip"`
 	}
 
 	// ZipkinDeprecatedSpec describes Zipkin.
 	// Deprecated: This option will be kept until the next major version
 	// incremented release.
 	ZipkinDeprecatedSpec struct {
-		Hostport      string  `json:"hostport" jsonschema:"omitempty"`
+		Hostport      string  `json:"hostport,omitempty"`
 		ServerURL     string  `json:"serverURL" jsonschema:"required,format=url"`
-		DisableReport bool    `json:"disableReport" jsonschema:"omitempty"`
+		DisableReport bool    `json:"disableReport,omitempty"`
 		SampleRate    float64 `json:"sampleRate" jsonschema:"required,minimum=0,maximum=1"`
-		SameSpan      bool    `json:"sameSpan" jsonschema:"omitempty"`
-		ID128Bit      bool    `json:"id128Bit" jsonschema:"omitempty"`
+		SameSpan      bool    `json:"sameSpan,omitempty"`
+		ID128Bit      bool    `json:"id128Bit,omitempty"`
 	}
 
 	// Tracer is the tracer.

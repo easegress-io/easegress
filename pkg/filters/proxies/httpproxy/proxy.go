@@ -76,8 +76,10 @@ var kind = &filters.Kind{
 	},
 }
 
-var _ filters.Filter = (*Proxy)(nil)
-var _ filters.Resiliencer = (*Proxy)(nil)
+var (
+	_ filters.Filter      = (*Proxy)(nil)
+	_ filters.Resiliencer = (*Proxy)(nil)
+)
 
 func init() {
 	filters.Register(kind)
@@ -107,13 +109,13 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Pools               []*ServerPoolSpec `json:"pools" jsonschema:"required"`
-		MirrorPool          *ServerPoolSpec   `json:"mirrorPool,omitempty" jsonschema:"omitempty"`
-		Compression         *CompressionSpec  `json:"compression,omitempty" jsonschema:"omitempty"`
-		MTLS                *MTLS             `json:"mtls,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int               `json:"maxIdleConns,omitempty" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost,omitempty" jsonschema:"omitempty"`
-		MaxRedirection      int               `json:"maxRedirection,omitempty" jsonschema:"omitempty"`
-		ServerMaxBodySize   int64             `json:"serverMaxBodySize,omitempty" jsonschema:"omitempty"`
+		MirrorPool          *ServerPoolSpec   `json:"mirrorPool,omitempty"`
+		Compression         *CompressionSpec  `json:"compression,omitempty"`
+		MTLS                *MTLS             `json:"mtls,omitempty"`
+		MaxIdleConns        int               `json:"maxIdleConns,omitempty"`
+		MaxIdleConnsPerHost int               `json:"maxIdleConnsPerHost,omitempty"`
+		MaxRedirection      int               `json:"maxRedirection,omitempty"`
+		ServerMaxBodySize   int64             `json:"serverMaxBodySize,omitempty"`
 	}
 
 	// Status is the status of Proxy.
@@ -128,7 +130,7 @@ type (
 		CertBase64         string `json:"certBase64" jsonschema:"required,format=base64"`
 		KeyBase64          string `json:"keyBase64" jsonschema:"required,format=base64"`
 		RootCertBase64     string `json:"rootCertBase64" jsonschema:"required,format=base64"`
-		InsecureSkipVerify bool   `json:"insecureSkipVerify" jsonschema:"omitempty"`
+		InsecureSkipVerify bool   `json:"insecureSkipVerify,omitempty"`
 	}
 
 	// HTTPClientSpec is the spec of HTTPClient.
@@ -181,7 +183,6 @@ func (s *Spec) Validate() error {
 }
 
 func HTTPClient(tlsCfg *tls.Config, spec *HTTPClientSpec, timeout time.Duration) *http.Client {
-
 	dialFunc := func(ctx stdctx.Context, network, addr string) (net.Conn, error) {
 		return (&net.Dialer{
 			Timeout:   30 * time.Second,

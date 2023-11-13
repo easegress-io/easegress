@@ -59,22 +59,22 @@ type (
 	Function struct {
 		Spec   *Spec   `json:"spec" jsonschema:"required"`
 		Status *Status `json:"status" jsonschema:"required"`
-		Fsm    *FSM    `json:"fsm" jsonschema:"omitempty"`
+		Fsm    *FSM    `json:"fsm,omitempty"`
 	}
 
 	// Spec is the spec of FaaSFunction.
 	Spec struct {
 		Name           string `json:"name" jsonschema:"required"`
 		Image          string `json:"image" jsonschema:"required"`
-		Port           int    `json:"port" jsonschema:"omitempty"`
+		Port           int    `json:"port,omitempty"`
 		AutoScaleType  string `json:"autoScaleType" jsonschema:"required"`
 		AutoScaleValue string `json:"autoScaleValue" jsonschema:"required"`
-		MinReplica     int    `json:"minReplica" jsonschema:"omitempty"`
-		MaxReplica     int    `json:"maxReplica" jsonschema:"omitempty"`
-		LimitCPU       string `json:"limitCPU" jsonschema:"omitempty"`
-		LimitMemory    string `json:"limitMemory" jsonschema:"omitempty"`
-		RequestCPU     string `json:"requestCPU" jsonschema:"omitempty"`
-		RequestMemory  string `json:"requestMemory" jsonschema:"omitempty"`
+		MinReplica     int    `json:"minReplica,omitempty"`
+		MaxReplica     int    `json:"maxReplica,omitempty"`
+		LimitCPU       string `json:"limitCPU,omitempty"`
+		LimitMemory    string `json:"limitMemory,omitempty"`
+		RequestCPU     string `json:"requestCPU,omitempty"`
+		RequestMemory  string `json:"requestMemory,omitempty"`
 
 		RequestAdaptor *builder.RequestAdaptorSpec `json:"requestAdaptor" jsonschema:"required"`
 	}
@@ -84,7 +84,7 @@ type (
 		Name    string            `json:"name" jsonschema:"required"`
 		State   State             `json:"state" jsonschema:"required"`
 		Event   Event             `json:"event" jsonschema:"required"`
-		ExtData map[string]string `json:"extData" jsonschema:"omitempty"`
+		ExtData map[string]string `json:"extData,omitempty"`
 	}
 
 	// Knative is the faas provider Knative.
@@ -92,8 +92,8 @@ type (
 		HostSuffix      string `json:"hostSuffix" jsonschema:"required"`
 		NetworkLayerURL string `json:"networkLayerURL" jsonschema:"required,format=uri"`
 
-		Namespace string `json:"namespace" jsonschema:"omitempty"`
-		Timeout   string `json:"timeout" jsonschema:"omitempty,format=duration"`
+		Namespace string `json:"namespace,omitempty"`
+		Timeout   string `json:"timeout,omitempty" jsonschema:"format=duration"`
 	}
 )
 

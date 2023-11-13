@@ -35,10 +35,10 @@ var (
 type (
 	// Spec describes IPFilter.
 	Spec struct {
-		BlockByDefault bool `json:"blockByDefault" jsonschema:"omitempty"`
+		BlockByDefault bool `json:"blockByDefault,omitempty"`
 
-		AllowIPs []string `json:"allowIPs" jsonschema:"omitempty,uniqueItems=true,format=ipcidr-array"`
-		BlockIPs []string `json:"blockIPs" jsonschema:"omitempty,uniqueItems=true,format=ipcidr-array"`
+		AllowIPs []string `json:"allowIP,omitemptys" jsonschema:"uniqueItems=true,format=ipcidr-array"`
+		BlockIPs []string `json:"blockIPs,omitempty" jsonschema:"uniqueItems=true,format=ipcidr-array"`
 	}
 
 	// IPFilter is the IP filter.

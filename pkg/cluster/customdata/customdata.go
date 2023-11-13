@@ -39,9 +39,9 @@ type Kind struct {
 	Name string `json:"name" jsonschema:"required"`
 	// IDField is a field name of custom data of this kind, this field is the ID
 	// of the data, that's unique among the same kind, the default value is 'name'.
-	IDField string `json:"idField" jsonschema:"omitempty"`
+	IDField string `json:"idField,omitempty"`
 	// JSONSchema is JSON schema to validate a custom data of this kind
-	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema" jsonschema:"omitempty"`
+	JSONSchema dynamicobject.DynamicObject `json:"jsonSchema,omitempty"`
 }
 
 // KindWithLen defines the spec of a custom data kind with length

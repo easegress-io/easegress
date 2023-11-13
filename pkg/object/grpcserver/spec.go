@@ -28,28 +28,28 @@ type (
 	// Spec describe gRPC server
 	Spec struct {
 		Port           uint16 `json:"port" jsonschema:"required,minimum=1025"`
-		MaxConnections uint32 `json:"maxConnections" jsonschema:"omitempty,minimum=1"`
+		MaxConnections uint32 `json:"maxConnections,omitempty" jsonschema:"minimum=1"`
 
 		// MinTime see keepalive.EnforcementPolicy
-		MinTime string `json:"minTimeClientSendPing" jsonschema:"omitempty,format=duration"`
+		MinTime string `json:"minTimeClientSendPing,omitempty" jsonschema:"format=duration"`
 		// PermitWithoutStream see keepalive.EnforcementPolicy, false by default.
-		PermitWithoutStream bool `json:"permitClintSendPingWithoutStream" jsonschema:"omitempty,format=duration"`
+		PermitWithoutStream bool `json:"permitClintSendPingWithoutStream,omitempty" jsonschema:"format=duration"`
 
 		// MaxConnectionIdle see keepalive.ServerParameters
-		MaxConnectionIdle string `json:"maxConnectionIdle" jsonschema:"omitempty,format=duration"`
+		MaxConnectionIdle string `json:"maxConnectionIdle,omitempty" jsonschema:"format=duration"`
 		// MaxConnectionAge see keepalive.ServerParameters
-		MaxConnectionAge string `json:"maxConnectionAge" jsonschema:"omitempty,format=duration"`
+		MaxConnectionAge string `json:"maxConnectionAge,omitempty" jsonschema:"format=duration"`
 		// MaxConnectionAgeGrace see keepalive.ServerParameters
-		MaxConnectionAgeGrace string `json:"maxConnectionAgeGrace" jsonschema:"omitempty,format=duration"`
+		MaxConnectionAgeGrace string `json:"maxConnectionAgeGrace,omitempty" jsonschema:"format=duration"`
 		// Time see keepalive.ServerParameters
-		Time string `json:"keepaliveTime" jsonschema:"omitempty,format=duration"`
+		Time string `json:"keepaliveTime,omitempty" jsonschema:"format=duration"`
 		// Timeout see keepalive.ServerParameters
-		Timeout       string         `json:"keepaliveTimeout" jsonschema:"omitempty,format=duration"`
-		IPFilter      *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules         []*Rule        `json:"rules" jsonschema:"omitempty"`
-		CacheSize     uint32         `json:"cacheSize" jsonschema:"omitempty"`
-		GlobalFilter  string         `json:"globalFilter,omitempty" jsonschema:"omitempty"`
-		XForwardedFor bool           `json:"xForwardedFor" jsonschema:"omitempty"`
+		Timeout       string         `json:"keepaliveTimeout,omitempty" jsonschema:"format=duration"`
+		IPFilter      *ipfilter.Spec `json:"ipFilter,omitempty"`
+		Rules         []*Rule        `json:"rules,omitempty"`
+		CacheSize     uint32         `json:"cacheSize,omitempty"`
+		GlobalFilter  string         `json:"globalFilter,omitempty"`
+		XForwardedFor bool           `json:"xForwardedFor,omitempty"`
 	}
 
 	// Rule is first level entry of router.
@@ -61,21 +61,21 @@ type (
 		// Reference: https://github.com/alecthomas/jsonschema/issues/30
 		// In the future if we have the scenario where we need marshal the field, but omitempty
 		// in the schema, we are suppose to support multiple types on our own.
-		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Host       string         `json:"host" jsonschema:"omitempty"`
-		HostRegexp string         `json:"hostRegexp" jsonschema:"omitempty,format=regexp"`
-		Methods    []*Method      `json:"methods" jsonschema:"omitempty"`
+		IPFilter   *ipfilter.Spec `json:"ipFilter,omitempty"`
+		Host       string         `json:"host,omitempty"`
+		HostRegexp string         `json:"hostRegexp,omitempty" jsonschema:"format=regexp"`
+		Methods    []*Method      `json:"methods,omitempty"`
 	}
 
 	// Method is second level entry of router.
 	Method struct {
-		IPFilter       *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Method         string         `json:"method,omitempty" jsonschema:"omitempty,pattern=^/"`
-		MethodPrefix   string         `json:"methodPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		MethodRegexp   string         `json:"methodRegexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		IPFilter       *ipfilter.Spec `json:"ipFilter,omitempty"`
+		Method         string         `json:"method,omitempty" jsonschema:"pattern=^/"`
+		MethodPrefix   string         `json:"methodPrefix,omitempty" jsonschema:"pattern=^/"`
+		MethodRegexp   string         `json:"methodRegexp,omitempty" jsonschema:"format=regexp"`
 		Backend        string         `json:"backend" jsonschema:"required"`
-		Headers        []*Header      `json:"headers" jsonschema:"omitempty"`
-		MatchAllHeader bool           `json:"matchAllHeader" jsonschema:"omitempty"`
+		Headers        []*Header      `json:"headers,omitempty"`
+		MatchAllHeader bool           `json:"matchAllHeader,omitempty"`
 	}
 
 	// Header is the third level entry of router. A header entry is always under a specific path entry, that is to mean
@@ -83,8 +83,8 @@ type (
 	// than the path entry itself.
 	Header struct {
 		Key    string   `json:"key" jsonschema:"required"`
-		Values []string `json:"values,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-		Regexp string   `json:"regexp,omitempty" jsonschema:"omitempty,format=regexp"`
+		Values []string `json:"values,omitempty" jsonschema:"uniqueItems=true"`
+		Regexp string   `json:"regexp,omitempty" jsonschema:"format=regexp"`
 
 		headerRE *regexp.Regexp
 	}

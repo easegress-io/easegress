@@ -63,14 +63,14 @@ type (
 
 	// Spec describes the GlobalFilter.
 	Spec struct {
-		BeforePipeline *pipeline.Spec `json:"beforePipeline" jsonschema:"omitempty"`
-		AfterPipeline  *pipeline.Spec `json:"afterPipeline" jsonschema:"omitempty"`
+		BeforePipeline *pipeline.Spec `json:"beforePipeline,omitempty"`
+		AfterPipeline  *pipeline.Spec `json:"afterPipeline,omitempty"`
 	}
 
 	// pipelineSpec defines pipeline spec to create an pipeline entity.
 	pipelineSpec struct {
-		Kind           string `json:"kind" jsonschema:"omitempty"`
-		Name           string `json:"name" jsonschema:"omitempty"`
+		Kind           string `json:"kind,omitempty"`
+		Name           string `json:"name,omitempty"`
 		*pipeline.Spec `json:",inline"`
 	}
 )

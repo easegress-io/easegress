@@ -21,14 +21,14 @@ import "time"
 
 // Spec defines the configuration of a Signer
 type Spec struct {
-	Literal         *Literal          `json:"literal,omitempty" jsonschema:"omitempty"`
-	HeaderHoisting  *HeaderHoisting   `json:"headerHoisting,omitempty" jsonschema:"omitempty"`
-	IgnoredHeaders  []string          `json:"ignoredHeaders" jsonschema:"omitempty,uniqueItems=true"`
-	ExcludeBody     bool              `json:"excludeBody" jsonschema:"omitempty"`
-	TTL             string            `json:"ttl" jsonschema:"omitempty,format=duration"`
-	AccessKeyID     string            `json:"accessKeyId" jsonschema:"omitempty"`
-	AccessKeySecret string            `json:"accessKeySecret" jsonschema:"omitempty"`
-	AccessKeys      map[string]string `json:"accessKeys" jsonschema:"omitempty"`
+	Literal         *Literal          `json:"literal,omitempty"`
+	HeaderHoisting  *HeaderHoisting   `json:"headerHoisting,omitempty"`
+	IgnoredHeaders  []string          `json:"ignoredHeaders,omitempty" jsonschema:"uniqueItems=true"`
+	ExcludeBody     bool              `json:"excludeBody,omitempty"`
+	TTL             string            `json:"ttl,omitempty" jsonschema:"format=duration"`
+	AccessKeyID     string            `json:"accessKeyId,omitempty"`
+	AccessKeySecret string            `json:"accessKeySecret,omitempty"`
+	AccessKeys      map[string]string `json:"accessKeys,omitempty"`
 	// TODO: AccessKeys is used as an internal access key store, but an external store is also needed
 }
 

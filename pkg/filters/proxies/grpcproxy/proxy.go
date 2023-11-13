@@ -75,8 +75,10 @@ var (
 	}
 )
 
-var _ filters.Filter = (*Proxy)(nil)
-var _ filters.Resiliencer = (*Proxy)(nil)
+var (
+	_ filters.Filter      = (*Proxy)(nil)
+	_ filters.Resiliencer = (*Proxy)(nil)
+)
 
 func init() {
 	filters.Register(kind)
@@ -102,10 +104,10 @@ type (
 		filters.BaseSpec `json:",inline"`
 		Pools            []*ServerPoolSpec `json:"pools" jsonschema:"required"`
 		// Timeout could be specified in unary calls case, and in stream calls case, it should not be specified
-		Timeout             string `json:"timeout" jsonschema:"omitempty,format=duration"`
-		BorrowTimeout       string `json:"borrowTimeout" jsonschema:"omitempty,format=duration"`
-		ConnectTimeout      string `json:"connectTimeout" jsonschema:"omitempty,format=duration"`
-		MaxIdleConnsPerHost int    `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
+		Timeout             string `json:"timeout,omitempty" jsonschema:"format=duration"`
+		BorrowTimeout       string `json:"borrowTimeout,omitempty" jsonschema:"format=duration"`
+		ConnectTimeout      string `json:"connectTimeout,omitempty" jsonschema:"format=duration"`
+		MaxIdleConnsPerHost int    `json:"maxIdleConnsPerHost,omitempty"`
 	}
 
 	// Server is the backend server.
@@ -255,7 +257,6 @@ func (p *Proxy) Close() {
 	for _, v := range p.candidatePools {
 		v.Close()
 	}
-
 }
 
 // Handle handles GRPCContext.

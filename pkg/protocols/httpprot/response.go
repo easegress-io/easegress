@@ -335,9 +335,9 @@ func (r *builderResponse) YAMLBody() (interface{}, error) {
 
 // responseInfo stores the information of a response.
 type responseInfo struct {
-	StatusCode int                 `json:"statusCode" jsonschema:"omitempty"`
-	Headers    map[string][]string `json:"headers" jsonschema:"omitempty"`
-	Body       string              `json:"body" jsonschema:"omitempty"`
+	StatusCode int                 `json:"statusCode,omitempty"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       string              `json:"body,omitempty"`
 }
 
 // NewResponseInfo returns a new responseInfo.

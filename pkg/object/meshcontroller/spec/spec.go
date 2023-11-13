@@ -117,39 +117,39 @@ type (
 		// IngressPort is the port for http server in mesh ingress
 		IngressPort int `json:"ingressPort" jsonschema:"required"`
 
-		ExternalServiceRegistry string `json:"externalServiceRegistry" jsonschema:"omitempty"`
+		ExternalServiceRegistry string `json:"externalServiceRegistry,omitempty"`
 
-		CleanExternalRegistry bool `json:"cleanExternalRegistry"`
+		CleanExternalRegistry bool `json:"cleanExternalRegistry,omitempty"`
 
-		Security *Security `json:"security,omitempty" jsonschema:"omitempty"`
+		Security *Security `json:"security,omitempty"`
 
 		// Sidecar injection relevant config.
-		ImageRegistryURL          string `json:"imageRegistryURL" jsonschema:"omitempty"`
-		ImagePullPolicy           string `json:"imagePullPolicy" jsonschema:"omitempty"`
-		SidecarImageName          string `json:"sidecarImageName" jsonschema:"omitempty"`
-		AgentInitializerImageName string `json:"agentInitializerImageName" jsonschema:"omitempty"`
-		Log4jConfigName           string `json:"log4jConfigName" jsonschema:"omitempty"`
+		ImageRegistryURL          string `json:"imageRegistryURL,omitempty"`
+		ImagePullPolicy           string `json:"imagePullPolicy,omitempty"`
+		SidecarImageName          string `json:"sidecarImageName,omitempty"`
+		AgentInitializerImageName string `json:"agentInitializerImageName,omitempty"`
+		Log4jConfigName           string `json:"log4jConfigName,omitempty"`
 
-		MonitorMTLS *MonitorMTLS `json:"monitorMTLS,omitempty" jsonschema:"omitempty"`
-		WorkerSpec  WorkerSpec   `json:"workerSpec" jsonschema:"omitempty"`
+		MonitorMTLS *MonitorMTLS `json:"monitorMTLS,omitempty"`
+		WorkerSpec  WorkerSpec   `json:"workerSpec,omitempty"`
 	}
 
 	// WorkerSpec is the spec of worker
 	WorkerSpec struct {
-		Ingress IngressServerSpec `json:"ingress" jsonschema:"omitempty"`
-		Egress  EgressServerSpec  `json:"egress" jsonschema:"omitempty"`
+		Ingress IngressServerSpec `json:"ingress,omitempty"`
+		Egress  EgressServerSpec  `json:"egress,omitempty"`
 	}
 
 	// IngressServerSpec is the spec of ingress httpserver in worker
 	IngressServerSpec struct {
-		KeepAlive        bool   `json:"keepAlive" jsonschema:"omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		KeepAlive        bool   `json:"keepAlive,omitempty"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
 	}
 
 	// EgressServerSpec is the spec of egress httpserver in worker
 	EgressServerSpec struct {
-		KeepAlive        bool   `json:"keepAlive" jsonschema:"omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
+		KeepAlive        bool   `json:"keepAlive,omitempty"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
 	}
 
 	// MonitorMTLS is the spec of mTLS specification of monitor.
@@ -159,7 +159,7 @@ type (
 		Username string `json:"username" jsonschema:"required"`
 		Password string `json:"password" jsonschema:"required"`
 
-		ReporterAppendType string         `json:"reporterAppendType"`
+		ReporterAppendType string         `json:"reporterAppendType,omitempty"`
 		CaCertBase64       string         `json:"caCertBase64" jsonschema:"required,format=base64"`
 		Certs              []*MonitorCert `json:"certs" jsonschema:"required"`
 	}
@@ -183,15 +183,15 @@ type (
 	// Service contains the information of service.
 	Service struct {
 		// Empty means mesh registry itself.
-		RegistryName   string `json:"registryName" jsonschema:"omitempty"`
+		RegistryName   string `json:"registryName,omitempty"`
 		Name           string `json:"name" jsonschema:"required"`
 		RegisterTenant string `json:"registerTenant" jsonschema:"required"`
 
 		Sidecar       *Sidecar       `json:"sidecar" jsonschema:"required"`
-		Mock          *Mock          `json:"mock,omitempty" jsonschema:"omitempty"`
-		Resilience    *Resilience    `json:"resilience,omitempty" jsonschema:"omitempty"`
-		LoadBalance   *LoadBalance   `json:"loadBalance,omitempty" jsonschema:"omitempty"`
-		Observability *Observability `json:"observability,omitempty" jsonschema:"omitempty"`
+		Mock          *Mock          `json:"mock,omitempty"`
+		Resilience    *Resilience    `json:"resilience,omitempty"`
+		LoadBalance   *LoadBalance   `json:"loadBalance,omitempty"`
+		Observability *Observability `json:"observability,omitempty"`
 	}
 
 	// ServiceDeployment contains the information of service deployment.
@@ -200,10 +200,10 @@ type (
 		App interface{} `json:"app" jsonschema:"required"`
 
 		// All specs of ConfigMaps in volumes of the spec.
-		ConfigMaps []*v1.ConfigMap `json:"configMaps" jsonschema:"omitempty"`
+		ConfigMaps []*v1.ConfigMap `json:"configMaps,omitempty"`
 
 		// All specs of Secrets in volumes of the spec.
-		Secrets []*v1.Secret `json:"secrets" jsonschema:"omitempty"`
+		Secrets []*v1.Secret `json:"secrets,omitempty"`
 	}
 
 	// Mock is the spec of configured and static API responses for this service.
@@ -212,16 +212,16 @@ type (
 		Enabled bool `json:"enabled" jsonschema:"required"`
 
 		// Rules are the mocking matching and responding configurations.
-		Rules []*mock.Rule `json:"rules" jsonschema:"omitempty"`
+		Rules []*mock.Rule `json:"rules,omitempty"`
 	}
 
 	// Resilience is the spec of service resilience.
 	Resilience struct {
-		RateLimiter    *ratelimiter.Rule              `json:"rateLimiter,omitempty" jsonschema:"omitempty"`
-		CircuitBreaker *resilience.CircuitBreakerRule `json:"circuitBreaker,omitempty" jsonschema:"omitempty"`
-		Retry          *resilience.RetryRule          `json:"retry,omitempty" jsonschema:"omitempty"`
-		TimeLimiter    *TimeLimiterRule               `json:"timeLimiter,omitempty" jsonschema:"omitempty"`
-		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		RateLimiter    *ratelimiter.Rule              `json:"rateLimiter,omitempty"`
+		CircuitBreaker *resilience.CircuitBreakerRule `json:"circuitBreaker,omitempty"`
+		Retry          *resilience.RetryRule          `json:"retry,omitempty"`
+		TimeLimiter    *TimeLimiterRule               `json:"timeLimiter,omitempty"`
+		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
 	}
 
 	// TimeLimiterRule is the spec of TimeLimiter.
@@ -242,7 +242,7 @@ type (
 		// Priority must be [1, 9], the default is 5 if user does not set it.
 		// The smaller number get higher priority.
 		// The order is sorted by name alphabetically in the same priority.
-		Priority     int              `json:"priority" jsonschema:"omitempty"`
+		Priority     int              `json:"priority"`
 		Selector     *ServiceSelector `json:"selector" jsonschema:"required"`
 		TrafficRules *TrafficRules    `json:"trafficRules" jsonschema:"required"`
 	}
@@ -267,9 +267,9 @@ type (
 
 	// Observability is the spec of service observability.
 	Observability struct {
-		OutputServer *ObservabilityOutputServer `json:"outputServer,omitempty" jsonschema:"omitempty"`
-		Tracings     *ObservabilityTracings     `json:"tracings,omitempty" jsonschema:"omitempty"`
-		Metrics      *ObservabilityMetrics      `json:"metrics,omitempty" jsonschema:"omitempty"`
+		OutputServer *ObservabilityOutputServer `json:"outputServer,omitempty"`
+		Tracings     *ObservabilityTracings     `json:"tracings,omitempty"`
+		Metrics      *ObservabilityMetrics      `json:"metrics,omitempty"`
 	}
 
 	// ObservabilityOutputServer is the output server of observability.
@@ -335,10 +335,10 @@ type (
 	Tenant struct {
 		Name string `json:"name"`
 
-		Services []string `json:"services,omitempty" jsonschema:"omitempty"`
+		Services []string `json:"services,omitempty"`
 		// Format: RFC3339
-		CreatedAt   string `json:"createdAt" jsonschema:"omitempty"`
-		Description string `json:"description"`
+		CreatedAt   string `json:"createdAt"`
+		Description string `json:"description,omitempty"`
 	}
 
 	// Certificate is one cert for mesh service instance or root CA.
@@ -363,23 +363,23 @@ type (
 		InstanceID   string            `json:"instanceID" jsonschema:"required"`
 		IP           string            `json:"ip" jsonschema:"required"`
 		Port         uint32            `json:"port" jsonschema:"required"`
-		RegistryTime string            `json:"registryTime" jsonschema:"omitempty"`
-		Labels       map[string]string `json:"labels" jsonschema:"omitempty"`
+		RegistryTime string            `json:"registryTime"`
+		Labels       map[string]string `json:"labels"`
 
 		// Set by heartbeat timer event or API
-		Status string `json:"status" jsonschema:"omitempty"`
+		Status string `json:"status"`
 	}
 
 	// IngressPath is the path for a mesh ingress rule
 	IngressPath struct {
 		Path          string `json:"path" jsonschema:"required,pattern=^/"`
-		RewriteTarget string `json:"rewriteTarget" jsonschema:"omitempty"`
+		RewriteTarget string `json:"rewriteTarget"`
 		Backend       string `json:"backend" jsonschema:"required"`
 	}
 
 	// IngressRule is the rule for mesh ingress
 	IngressRule struct {
-		Host  string         `json:"host" jsonschema:"omitempty"`
+		Host  string         `json:"host"`
 		Paths []*IngressPath `json:"paths" jsonschema:"required"`
 	}
 
