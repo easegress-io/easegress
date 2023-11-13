@@ -22,6 +22,7 @@ require (
 	github.com/google/uuid v1.4.0
 	github.com/hashicorp/consul/api v1.26.1
 	github.com/hashicorp/golang-lru v1.0.2
+	github.com/invopop/jsonschema v0.12.0
 	github.com/invopop/yaml v0.2.0
 	github.com/jtblin/go-ldap-client v0.0.0-20170223121919-b73f66626b33
 	github.com/libdns/alidns v1.0.3
@@ -36,7 +37,6 @@ require (
 	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
 	github.com/megaease/grace v1.0.0
-	github.com/megaease/jsonschema v0.5.1
 	github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.4
@@ -50,6 +50,7 @@ require (
 	github.com/quic-go/quic-go v0.40.0
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.10.1
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
@@ -94,6 +95,7 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.0 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/facebookgo/ensure v0.0.0-20200202191622-63f1cf65ac4c // indirect
@@ -125,6 +127,7 @@ require (
 	github.com/stretchr/objx v0.5.1 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	github.com/vultr/govultr/v3 v3.3.4 // indirect
+	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.19.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
@@ -207,7 +210,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect
-	github.com/iancoleman/orderedmap v0.3.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect

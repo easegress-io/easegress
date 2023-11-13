@@ -66,13 +66,13 @@ func TestRequiredFromField(t *testing.T) {
 	typeOfT := val.Type()
 
 	idField, _ := typeOfT.FieldByName("ID")
-	assert.False(requiredFromField(&idField))
+	assert.True(IsOmitemptyField(&idField))
 
 	nameField, _ := typeOfT.FieldByName("Name")
-	assert.False(requiredFromField(&nameField))
+	assert.True(IsOmitemptyField(&nameField))
 
 	addrField, _ := typeOfT.FieldByName("Addr")
-	assert.True(requiredFromField(&addrField))
+	assert.True(IsOmitemptyField(&addrField))
 }
 
 func TestValidateRecorder(t *testing.T) {
