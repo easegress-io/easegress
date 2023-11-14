@@ -72,6 +72,9 @@ const (
 	// LogsLevelURL is the URL of logs level.
 	LogsLevelURL = APIURL + "/logs/level"
 
+	// MetricsURL is the URL of metrics.
+	MetricsURL = APIURL + "/metrics"
+
 	// HTTPProtocol is prefix for HTTP protocol
 	HTTPProtocol = "http://"
 	// HTTPSProtocol is prefix for HTTPS protocol

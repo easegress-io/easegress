@@ -97,6 +97,7 @@ func main() {
 		commandv2.WasmCmd(),
 		commandv2.ConfigCmd(),
 		commandv2.LogsCmd(),
+		commandv2.MetricsCmd(),
 	)
 
 	addCommandWithGroup(
