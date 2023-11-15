@@ -150,3 +150,25 @@ func APIResourcesCmd() *cobra.Command {
 	}
 	return cmd
 }
+
+// MetricsCmd returns logs command.
+func MetricsCmd() *cobra.Command {
+	examples := []general.Example{
+		{Desc: "Print metrics of easegress and built-in etcd.", Command: "egctl metrics"},
+	}
+
+	cmd := &cobra.Command{
+		Use:     "metrics",
+		Short:   "Print metrics of easegress and built-in etcd.",
+		Args:    cobra.NoArgs,
+		Example: createMultiExample(examples),
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := general.HandleRequest(http.MethodGet, general.MetricsURL, nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			fmt.Println(string(body))
+		},
+	}
+	return cmd
+}

@@ -89,8 +89,8 @@ filters:
 	// list Pipeline and find them by using name
 	output, err := getResource("pipeline", "-o", "yaml")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "name: pipeline-success1"))
-	assert.True(strings.Contains(output, "name: pipeline-success2"))
+	assert.Contains(output, "name: pipeline-success1")
+	assert.Contains(output, "name: pipeline-success2")
 
 	// update Pipeline and use list to find it
 	yamlStr = `
@@ -111,13 +111,13 @@ filters:
 	// default get return a table now
 	output, err = getResource("pipeline", "pipeline-success2")
 	assert.NoError(err)
-	assert.False(strings.Contains(output, "http://update-pipeline-success2:8888"))
-	assert.True(strings.Contains(output, "pipeline-success2"))
+	assert.NotContains(output, "http://update-pipeline-success2:8888")
+	assert.Contains(output, "pipeline-success2")
 
 	output, err = describeResource("pipeline", "pipeline-success2")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "http://update-pipeline-success2:8888"))
-	assert.True(strings.Contains(output, "Name: pipeline-success2"))
+	assert.Contains(output, "http://update-pipeline-success2:8888")
+	assert.Contains(output, "Name: pipeline-success2")
 
 	// delete all Pipelines
 	err = deleteResource("pipeline", "pipeline-success1", "pipeline-success2")
@@ -125,8 +125,8 @@ filters:
 
 	output, err = getResource("pipeline")
 	assert.NoError(err)
-	assert.False(strings.Contains(output, "pipeline-success1"))
-	assert.False(strings.Contains(output, "pipeline-success2"))
+	assert.NotContains(output, "pipeline-success1")
+	assert.NotContains(output, "pipeline-success2")
 }
 
 func TestHTTPServer(t *testing.T) {
@@ -157,7 +157,7 @@ rules:
 	// list HTTPServer and find it by name
 	output, err := getResource("httpserver", "-o", "yaml")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "name: httpserver-success"))
+	assert.Contains(output, "name: httpserver-success")
 
 	// update HTTPServer and use list to find it
 	yamlStr = `
@@ -174,7 +174,7 @@ rules:
 
 	output, err = describeResource("httpserver", "httpserver-success")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "backend: update-httpserver-success"))
+	assert.Contains(output, "backend: update-httpserver-success")
 
 	// delete all HTTPServer
 	err = deleteResource("httpserver", "--all")
@@ -182,7 +182,7 @@ rules:
 
 	output, err = getResource("httpserver")
 	assert.NoError(err)
-	assert.False(strings.Contains(output, "httpserver-success"))
+	assert.NotContains(output, "httpserver-success")
 }
 
 func TestHTTPServerAndPipeline(t *testing.T) {
@@ -298,7 +298,7 @@ func TestEgctlCmd(t *testing.T) {
 		output, stderr, err := runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "OK"))
+		assert.Contains(output, "OK")
 	}
 
 	// apis
@@ -330,13 +330,13 @@ func TestEgctlCmd(t *testing.T) {
 		output, stderr, err := runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "bash completion for egctl"))
+		assert.Contains(output, "bash completion for egctl")
 
 		cmd = egctlCmd("completion", "zsh")
 		output, stderr, err = runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "zsh completion for egctl"))
+		assert.Contains(output, "zsh completion for egctl")
 	}
 
 	// profile
@@ -353,8 +353,8 @@ func TestEgctlCmd(t *testing.T) {
 		output, stderr, err := runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		assert.True(strings.Contains(output, `cpuPath: ""`))
-		assert.True(strings.Contains(output, `memoryPath: ""`))
+		assert.Contains(output, `cpuPath: ""`)
+		assert.Contains(output, `memoryPath: ""`)
 
 		cmd = egctlCmd("profile", "start", "cpu", cpuPath)
 		_, stderr, err = runCmd(cmd)
@@ -431,16 +431,16 @@ users:
 	output, stderr, err := runCmd(cmd)
 	assert.NoError(err)
 	assert.Empty(stderr)
-	assert.True(strings.Contains(output, "kind: Config"))
-	assert.True(strings.Contains(output, "server: localhost:2381"))
+	assert.Contains(output, "kind: Config")
+	assert.Contains(output, "server: localhost:2381")
 
 	cmd = egctlCmd("config", "current-context")
 	output, stderr, err = runCmd(cmd)
 	assert.NoError(err)
 	assert.Empty(stderr)
-	assert.True(strings.Contains(output, "name: default"))
-	assert.True(strings.Contains(output, "user: default"))
-	assert.True(strings.Contains(output, "cluster: default"))
+	assert.Contains(output, "name: default")
+	assert.Contains(output, "user: default")
+	assert.Contains(output, "cluster: default")
 
 	cmd = egctlCmd("config", "get-contexts")
 	output, stderr, err = runCmd(cmd)
@@ -454,7 +454,7 @@ users:
 	output, stderr, err = runCmd(cmd)
 	assert.NoError(err)
 	assert.Empty(stderr)
-	assert.True(strings.Contains(output, "Switched to context admin"))
+	assert.Contains(output, "Switched to context admin")
 }
 
 func TestMatch(t *testing.T) {
@@ -476,8 +476,8 @@ func TestMember(t *testing.T) {
 
 	output, err = describeResource("mem")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "Name: primary-single"))
-	assert.True(strings.Contains(output, "ClusterRole: primary"))
+	assert.Contains(output, "Name: primary-single")
+	assert.Contains(output, "ClusterRole: primary")
 }
 
 func TestCustomData(t *testing.T) {
@@ -575,11 +575,11 @@ func TestCreateHTTPProxy(t *testing.T) {
 
 	output, err := getResource("httpserver")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "http-proxy-test"))
+	assert.Contains(output, "http-proxy-test")
 
 	output, err = getResource("pipeline")
 	assert.NoError(err)
-	assert.True(strings.Contains(output, "http-proxy-test-0"))
+	assert.Contains(output, "http-proxy-test-0")
 
 	testFn := func(p string, expected string) {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10080"+p, nil)
@@ -606,8 +606,8 @@ func TestLogs(t *testing.T) {
 		output, stderr, err := runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		assert.True(strings.Contains(output, "INFO"))
-		assert.True(strings.Contains(output, ".go"), "should contain go file in log")
+		assert.Contains(output, "INFO")
+		assert.Contains(output, ".go", "should contain go file in log")
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		assert.Len(lines, 5)
 	}
@@ -634,6 +634,37 @@ rules:
 		assert.NoError(err)
 		time.Sleep(1 * time.Second)
 		cmd.Process.Kill()
-		assert.True(strings.Contains(stdout.String(), "test-egctl-logs"))
+		assert.Contains(stdout.String(), "test-egctl-logs")
+	}
+
+	{
+		cmd := egctlCmd("logs", "get-level")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "info")
+
+		cmd = egctlCmd("logs", "set-level", "debug")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "debug")
+
+		cmd = egctlCmd("logs", "get-level")
+		output, stderr, err = runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "debug")
+	}
+}
+
+func TestMetrics(t *testing.T) {
+	assert := assert.New(t)
+	{
+		cmd := egctlCmd("metrics")
+		output, stderr, err := runCmd(cmd)
+		assert.NoError(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "etcd_server_has_leader")
 	}
 }
