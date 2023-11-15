@@ -39,9 +39,9 @@ type (
 
 	// Spec is the spec of Builder.
 	Spec struct {
-		LeftDelim  string `json:"leftDelim,omitempty" jsonschema:"omitempty"`
-		RightDelim string `json:"rightDelim,omitempty" jsonschema:"omitempty"`
-		Template   string `json:"template,omitempty" jsonschema:"omitempty"`
+		LeftDelim  string `json:"leftDelim,omitempty"`
+		RightDelim string `json:"rightDelim,omitempty"`
+		Template   string `json:"template,omitempty"`
 	}
 )
 

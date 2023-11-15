@@ -61,15 +61,15 @@ type (
 
 	// CircuitBreakerRule is the detailed config of circuit breaker.
 	CircuitBreakerRule struct {
-		SlidingWindowType                string `json:"slidingWindowType"  jsonschema:"omitempty,enum=COUNT_BASED,enum=TIME_BASED"`
-		FailureRateThreshold             uint8  `json:"failureRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlowCallRateThreshold            uint8  `json:"slowCallRateThreshold" jsonschema:"omitempty,minimum=1,maximum=100"`
-		SlidingWindowSize                uint32 `json:"slidingWindowSize" jsonschema:"omitempty,minimum=1"`
-		PermittedNumberOfCallsInHalfOpen uint32 `json:"permittedNumberOfCallsInHalfOpenState" jsonschema:"omitempty"`
-		MinimumNumberOfCalls             uint32 `json:"minimumNumberOfCalls" jsonschema:"omitempty"`
-		SlowCallDurationThreshold        string `json:"slowCallDurationThreshold" jsonschema:"omitempty,format=duration"`
-		MaxWaitDurationInHalfOpen        string `json:"maxWaitDurationInHalfOpenState" jsonschema:"omitempty,format=duration"`
-		WaitDurationInOpen               string `json:"waitDurationInOpenState" jsonschema:"omitempty,format=duration"`
+		SlidingWindowType                string `json:"slidingWindowType,omitempty"  jsonschema:"enum=COUNT_BASED,enum=TIME_BASED"`
+		FailureRateThreshold             uint8  `json:"failureRateThreshold,omitempty" jsonschema:"minimum=1,maximum=100"`
+		SlowCallRateThreshold            uint8  `json:"slowCallRateThreshold,omitempty" jsonschema:"minimum=1,maximum=100"`
+		SlidingWindowSize                uint32 `json:"slidingWindowSize,omitempty" jsonschema:"minimum=1"`
+		PermittedNumberOfCallsInHalfOpen uint32 `json:"permittedNumberOfCallsInHalfOpenState,omitempty"`
+		MinimumNumberOfCalls             uint32 `json:"minimumNumberOfCalls,omitempty"`
+		SlowCallDurationThreshold        string `json:"slowCallDurationThreshold,omitempty" jsonschema:"format=duration"`
+		MaxWaitDurationInHalfOpen        string `json:"maxWaitDurationInHalfOpenState,omitempty" jsonschema:"format=duration"`
+		WaitDurationInOpen               string `json:"waitDurationInOpenState,omitempty" jsonschema:"format=duration"`
 	}
 )
 

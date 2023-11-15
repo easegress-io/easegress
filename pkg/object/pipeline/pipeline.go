@@ -70,18 +70,18 @@ type (
 
 	// Spec describes the Pipeline.
 	Spec struct {
-		Flow       []FlowNode               `json:"flow" jsonschema:"omitempty"`
+		Flow       []FlowNode               `json:"flow,omitempty"`
 		Filters    []map[string]interface{} `json:"filters" jsonschema:"required"`
-		Resilience []map[string]interface{} `json:"resilience" jsonschema:"omitempty"`
-		Data       map[string]interface{}   `json:"data" jsonschema:"omitempty"`
+		Resilience []map[string]interface{} `json:"resilience,omitempty"`
+		Data       map[string]interface{}   `json:"data,omitempty"`
 	}
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
 		FilterName  string            `json:"filter" jsonschema:"required,format=urlname"`
-		FilterAlias string            `json:"alias" jsonschema:"omitempty"`
-		Namespace   string            `json:"namespace" jsonschema:"omitempty"`
-		JumpIf      map[string]string `json:"jumpIf" jsonschema:"omitempty"`
+		FilterAlias string            `json:"alias,omitempty"`
+		Namespace   string            `json:"namespace,omitempty"`
+		JumpIf      map[string]string `json:"jumpIf,omitempty"`
 		filter      filters.Filter
 	}
 

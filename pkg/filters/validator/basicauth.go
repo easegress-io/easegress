@@ -44,12 +44,12 @@ type (
 	// BasicAuthValidatorSpec defines the configuration of Basic Auth validator.
 	// There are 'file' and 'etcd' modes.
 	BasicAuthValidatorSpec struct {
-		Mode string `json:"mode" jsonschema:"omitempty,enum=FILE,enum=ETCD,enum=LDAP"`
+		Mode string `json:"mode,omitempty" jsonschema:"enum=FILE,enum=ETCD,enum=LDAP"`
 		// Required for 'FILE' mode.
 		// UserFile is path to file containing encrypted user credentials in apache2-utils/htpasswd format.
 		// To add user `userY`, use `sudo htpasswd /etc/apache2/.htpasswd userY`
 		// Reference: https://manpages.debian.org/testing/apache2-utils/htpasswd.1.en.html#EXAMPLES
-		UserFile string `json:"userFile" jsonschema:"omitempty"`
+		UserFile string `json:"userFile,omitempty"`
 		// Required for 'ETCD' mode.
 		// When EtcdPrefix is specified, verify user credentials from etcd. Etcd should store them:
 		// key: /custom-data/{etcdPrefix}/{$key}
@@ -59,7 +59,7 @@ type (
 		//   password: "$password"
 		// Username and password are used for Basic Authentication. If "username" is empty, the value of "key"
 		// entry is used as username for Basic Auth.
-		EtcdPrefix string `json:"etcdPrefix" jsonschema:"omitempty"`
+		EtcdPrefix string `json:"etcdPrefix,omitempty"`
 		// Required for 'LDAP' mode.
 		LDAP *ldapSpec `json:"ldap,omitempty" jsonshema:"omitempty"`
 	}
@@ -100,12 +100,12 @@ type (
 		Port         int    `json:"port" jsonschema:"required"`
 		BaseDN       string `json:"baseDN" jsonschema:"required"`
 		UID          string `json:"uid" jsonschema:"required"`
-		UseSSL       bool   `json:"useSSL" jsonschema:"omitempty"`
-		SkipTLS      bool   `json:"skipTLS" jsonschema:"omitempty"`
-		Insecure     bool   `json:"insecure" jsonschema:"omitempty"`
-		ServerName   string `json:"serverName" jsonschema:"omitempty"`
-		CertBase64   string `json:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64    string `json:"keyBase64" jsonschema:"omitempty,format=base64"`
+		UseSSL       bool   `json:"useSSL,omitempty"`
+		SkipTLS      bool   `json:"skipTLS,omitempty"`
+		Insecure     bool   `json:"insecure,omitempty"`
+		ServerName   string `json:"serverName,omitempty"`
+		CertBase64   string `json:"certBase64,omitempty" jsonschema:"format=base64"`
+		KeyBase64    string `json:"keyBase64,omitempty" jsonschema:"format=base64"`
 		certificates []tls.Certificate
 	}
 
@@ -117,8 +117,8 @@ type (
 
 	// etcdCredentials defines the format for credentials in etcd
 	etcdCredentials struct {
-		Key  string `json:"key" jsonschema:"omitempty"`
-		User string `json:"username" jsonschema:"omitempty"`
+		Key  string `json:"key,omitempty"`
+		User string `json:"username,omitempty"`
 		Pass string `json:"password" jsonschema:"required"`
 	}
 )
@@ -357,7 +357,8 @@ func newLDAPUserCache(spec *ldapSpec) *ldapUserCache {
 	}
 	return &ldapUserCache{
 		spec:   spec,
-		client: client}
+		client: client,
+	}
 }
 
 // make it mockable
@@ -381,7 +382,6 @@ func (luc *ldapUserCache) Match(username, password string) bool {
 }
 
 func (luc *ldapUserCache) WatchChanges() {
-
 }
 
 func (luc *ldapUserCache) Close() {

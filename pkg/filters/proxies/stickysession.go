@@ -52,11 +52,11 @@ const (
 type StickySessionSpec struct {
 	Mode string `json:"mode" jsonschema:"required,enum=CookieConsistentHash,enum=DurationBased,enum=ApplicationBased"`
 	// AppCookieName is the user-defined cookie name in CookieConsistentHash and ApplicationBased mode.
-	AppCookieName string `json:"appCookieName" jsonschema:"omitempty"`
+	AppCookieName string `json:"appCookieName,omitempty"`
 	// LBCookieName is the generated cookie name in DurationBased and ApplicationBased mode.
-	LBCookieName string `json:"lbCookieName" jsonschema:"omitempty"`
+	LBCookieName string `json:"lbCookieName,omitempty"`
 	// LBCookieExpire is the expire seconds of generated cookie in DurationBased and ApplicationBased mode.
-	LBCookieExpire string `json:"lbCookieExpire" jsonschema:"omitempty,format=duration"`
+	LBCookieExpire string `json:"lbCookieExpire,omitempty" jsonschema:"format=duration"`
 }
 
 // SessionSticker is the interface for session stickiness.

@@ -58,8 +58,8 @@ type (
 	ResponseBuilderSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
-		SourceNamespace  string `json:"sourceNamespace" jsonschema:"omitempty"`
-		Protocol         string `json:"protocol" jsonschema:"omitempty"`
+		SourceNamespace  string `json:"sourceNamespace,omitempty"`
+		Protocol         string `json:"protocol,omitempty"`
 	}
 )
 

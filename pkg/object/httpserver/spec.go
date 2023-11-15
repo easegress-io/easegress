@@ -32,38 +32,38 @@ import (
 type (
 	// Spec describes the HTTPServer.
 	Spec struct {
-		HTTP3             bool          `json:"http3" jsonschema:"omitempty"`
+		HTTP3             bool          `json:"http3,omitempty"`
 		KeepAlive         bool          `json:"keepAlive" jsonschema:"required"`
 		HTTPS             bool          `json:"https" jsonschema:"required"`
-		AutoCert          bool          `json:"autoCert" jsonschema:"omitempty"`
-		XForwardedFor     bool          `json:"xForwardedFor" jsonschema:"omitempty"`
-		Address           string        `json:"address" jsonschema:"omitempty"`
+		AutoCert          bool          `json:"autoCert,omitempty"`
+		XForwardedFor     bool          `json:"xForwardedFor,omitempty"`
+		Address           string        `json:"address,omitempty"`
 		Port              uint16        `json:"port" jsonschema:"required,minimum=1"`
-		ClientMaxBodySize int64         `json:"clientMaxBodySize" jsonschema:"omitempty"`
-		KeepAliveTimeout  string        `json:"keepAliveTimeout" jsonschema:"omitempty,format=duration"`
-		MaxConnections    uint32        `json:"maxConnections" jsonschema:"omitempty,minimum=1"`
-		CacheSize         uint32        `json:"cacheSize" jsonschema:"omitempty"`
-		Tracing           *tracing.Spec `json:"tracing,omitempty" jsonschema:"omitempty"`
-		CaCertBase64      string        `json:"caCertBase64" jsonschema:"omitempty,format=base64"`
+		ClientMaxBodySize int64         `json:"clientMaxBodySize,omitempty"`
+		KeepAliveTimeout  string        `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
+		MaxConnections    uint32        `json:"maxConnections,omitempty" jsonschema:"minimum=1"`
+		CacheSize         uint32        `json:"cacheSize,omitempty"`
+		Tracing           *tracing.Spec `json:"tracing,omitempty"`
+		CaCertBase64      string        `json:"caCertBase64,omitempty" jsonschema:"format=base64"`
 
 		// Support multiple certs, preserve the certbase64 and keybase64
 		// for backward compatibility
-		CertBase64 string `json:"certBase64" jsonschema:"omitempty,format=base64"`
-		KeyBase64  string `json:"keyBase64" jsonschema:"omitempty,format=base64"`
+		CertBase64 string `json:"certBase64,omitempty" jsonschema:"format=base64"`
+		KeyBase64  string `json:"keyBase64,omitempty" jsonschema:"format=base64"`
 
 		// Certs saved as map, key is domain name, value is cert
-		Certs map[string]string `json:"certs" jsonschema:"omitempty"`
+		Certs map[string]string `json:"certs,omitempty"`
 		// Keys saved as map, key is domain name, value is secret
-		Keys map[string]string `json:"keys" jsonschema:"omitempty"`
+		Keys map[string]string `json:"keys,omitempty"`
 
-		RouterKind string `json:"routerKind,omitempty" jsonschema:"omitempty,enum=,enum=Ordered,enum=RadixTree"`
+		RouterKind string `json:"routerKind,omitempty" jsonschema:"enum=,enum=Ordered,enum=RadixTree"`
 
-		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty" jsonschema:"omitempty"`
-		Rules    routers.Rules  `json:"rules" jsonschema:"omitempty"`
+		IPFilter *ipfilter.Spec `json:"ipFilter,omitempty"`
+		Rules    routers.Rules  `json:"rules,omitempty"`
 
-		GlobalFilter string `json:"globalFilter,omitempty" jsonschema:"omitempty"`
+		GlobalFilter string `json:"globalFilter,omitempty"`
 
-		AccessLogFormat string `json:"accessLogFormat" jsonshema:"omitempty"`
+		AccessLogFormat string `json:"accessLogFormat,omitempty"`
 	}
 )
 

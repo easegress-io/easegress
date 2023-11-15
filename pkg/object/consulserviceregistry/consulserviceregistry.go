@@ -80,11 +80,11 @@ type (
 	Spec struct {
 		Address      string   `json:"address" jsonschema:"required"`
 		Scheme       string   `json:"scheme" jsonschema:"required,enum=http,enum=https"`
-		Datacenter   string   `json:"datacenter" jsonschema:"omitempty"`
-		Token        string   `json:"token" jsonschema:"omitempty"`
-		Namespace    string   `json:"namespace" jsonschema:"omitempty"`
+		Datacenter   string   `json:"datacenter,omitempty"`
+		Token        string   `json:"token,omitempty"`
+		Namespace    string   `json:"namespace,omitempty"`
 		SyncInterval string   `json:"syncInterval" jsonschema:"required,format=duration"`
-		ServiceTags  []string `json:"serviceTags" jsonschema:"omitempty"`
+		ServiceTags  []string `json:"serviceTags,omitempty"`
 	}
 
 	// Status is the status of ConsulServiceRegistry.
@@ -394,7 +394,6 @@ func (c *ConsulServiceRegistry) ListServiceInstances(serviceName string) (map[st
 	}
 
 	catalogServices, err := client.ListServiceInstances(serviceName)
-
 	if err != nil {
 		return nil, err
 	}

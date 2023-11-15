@@ -23,10 +23,9 @@ import (
 	"reflect"
 	"sync"
 
-	genjs "github.com/megaease/jsonschema"
-	loadjs "github.com/xeipuuv/gojsonschema"
+	genjs "github.com/invopop/jsonschema"
+	loadjs "github.com/santhosh-tekuri/jsonschema/v5"
 
-	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
@@ -75,6 +74,12 @@ func Validate(v interface{}) *ValidateRecorder {
 		vr.recordSystem(fmt.Errorf("marshal %#v to json failed: %v", v, err))
 		return vr
 	}
+	var rawValue interface{}
+	err = codectool.Unmarshal(jsonBuff, &rawValue)
+	if err != nil {
+		vr.recordSystem(fmt.Errorf("unmarshal json %s failed: %v", jsonBuff, err))
+		return vr
+	}
 
 	sm, err := getSchemaMeta(reflect.TypeOf(v))
 	if err != nil {
@@ -82,12 +87,8 @@ func Validate(v interface{}) *ValidateRecorder {
 		return vr
 	}
 
-	docLoader := loadjs.NewBytesLoader(jsonBuff)
-	result, err := sm.loadSchema.Validate(docLoader)
-	if err != nil {
-		logger.Errorf("BUG: invalid schema: %v", err)
-	}
-	vr.recordJSONSchema(result)
+	err = sm.loadSchema.Validate(rawValue)
+	vr.recordJSONSchema(err)
 
 	val := reflect.ValueOf(v)
 	traverseGo(&val, nil, vr.record)
@@ -122,7 +123,7 @@ func getSchemaMeta(t reflect.Type) (*schemaMeta, error) {
 		return nil, fmt.Errorf("marshal %#v to json failed: %v", sm.loadSchema, err)
 	}
 
-	sm.loadSchema, err = loadjs.NewSchema(loadjs.NewBytesLoader(sm.jsonFormat))
+	sm.loadSchema, err = loadjs.CompileString(loadjs.Draft2020.String(), string(sm.jsonFormat))
 	if err != nil {
 		return nil, fmt.Errorf("new schema from %s failed: %v", sm.jsonFormat, err)
 	}

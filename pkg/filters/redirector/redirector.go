@@ -82,9 +82,9 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Match       string `json:"match" jsonschema:"required"`
-		MatchPart   string `json:"matchPart,omitempty" jsonschema:"omitempty,enum=uri,enum=path,enum=full"` // default uri
+		MatchPart   string `json:"matchPart,omitempty" jsonschema:"enum=uri,enum=path,enum=full"` // default uri
 		Replacement string `json:"replacement" jsonschema:"required"`
-		StatusCode  int    `json:"statusCode,omitempty" jsonschema:"omitempty"` // default 301
+		StatusCode  int    `json:"statusCode,omitempty"` // default 301
 	}
 )
 

@@ -78,8 +78,8 @@ type (
 
 	// HeaderSetterSpec defines etcd source key and request destination header.
 	HeaderSetterSpec struct {
-		EtcdKey   string `json:"etcdKey,omitempty" jsonschema:"omitempty"`
-		HeaderKey string `json:"headerKey,omitempty" jsonschema:"omitempty"`
+		EtcdKey   string `json:"etcdKey,omitempty"`
+		HeaderKey string `json:"headerKey,omitempty"`
 	}
 
 	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
@@ -95,7 +95,7 @@ type (
 
 		HeaderKey     string              `json:"headerKey" jsonschema:"required"`
 		EtcdPrefix    string              `json:"etcdPrefix" jsonschema:"required"`
-		PathRegExp    string              `json:"pathRegExp" jsonschema:"omitempty"`
+		PathRegExp    string              `json:"pathRegExp,omitempty"`
 		HeaderSetters []*HeaderSetterSpec `json:"headerSetters" jsonschema:"required"`
 	}
 )

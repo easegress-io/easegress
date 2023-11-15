@@ -45,11 +45,11 @@ type ServerPoolBase struct {
 
 // ServerPoolBaseSpec is the spec for a base server pool.
 type ServerPoolBaseSpec struct {
-	ServerTags      []string         `json:"serverTags,omitempty" jsonschema:"omitempty,uniqueItems=true"`
-	Servers         []*Server        `json:"servers,omitempty" jsonschema:"omitempty"`
-	ServiceRegistry string           `json:"serviceRegistry,omitempty" jsonschema:"omitempty"`
-	ServiceName     string           `json:"serviceName,omitempty" jsonschema:"omitempty"`
-	LoadBalance     *LoadBalanceSpec `json:"loadBalance,omitempty" jsonschema:"omitempty"`
+	ServerTags      []string         `json:"serverTags,omitempty" jsonschema:"uniqueItems=true"`
+	Servers         []*Server        `json:"servers,omitempty"`
+	ServiceRegistry string           `json:"serviceRegistry,omitempty"`
+	ServiceName     string           `json:"serviceName,omitempty"`
+	LoadBalance     *LoadBalanceSpec `json:"loadBalance,omitempty"`
 }
 
 // Validate validates ServerPoolSpec.

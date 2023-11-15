@@ -119,7 +119,7 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		URL     string `json:"url" jsonschema:"required,format=uri"`
-		Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
+		Timeout string `json:"timeout,omitempty" jsonschema:"format=duration"`
 
 		timeout time.Duration
 	}

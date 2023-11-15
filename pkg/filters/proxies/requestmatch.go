@@ -34,11 +34,11 @@ type RequestMatcher interface {
 
 // RequestMatcherBaseSpec describe RequestMatcher
 type RequestMatcherBaseSpec struct {
-	Policy          string                               `json:"policy" jsonschema:"omitempty,enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
-	MatchAllHeaders bool                                 `json:"matchAllHeaders" jsonschema:"omitempty"`
-	Headers         map[string]*stringtool.StringMatcher `json:"headers" jsonschema:"omitempty"`
-	Permil          uint32                               `json:"permil" jsonschema:"omitempty,minimum=0,maximum=1000"`
-	HeaderHashKey   string                               `json:"headerHashKey" jsonschema:"omitempty"`
+	Policy          string                               `json:"policy,omitempty" jsonschema:"enum=,enum=general,enum=ipHash,enum=headerHash,enum=random"`
+	MatchAllHeaders bool                                 `json:"matchAllHeaders,omitempty"`
+	Headers         map[string]*stringtool.StringMatcher `json:"headers,omitempty"`
+	Permil          uint32                               `json:"permil,omitempty" jsonschema:"minimum=0,maximum=1000"`
+	HeaderHashKey   string                               `json:"headerHashKey,omitempty"`
 }
 
 // Validate validates the RequestMatcherBaseSpec.

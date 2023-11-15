@@ -86,7 +86,7 @@ type (
 
 		// SigningKeyPrefix is prepend to access key secret when derive the signing key
 		// Default: ME
-		SigningKeyPrefix string `json:"signingKeyPrefix" jsonschema:"omitempty"`
+		SigningKeyPrefix string `json:"signingKeyPrefix,omitempty"`
 	}
 
 	// HeaderHoisting defines which headers are allowed to be moved from header to query
@@ -94,9 +94,9 @@ type (
 	// disallowed prefixes and doesn't match any of disallowed names are allowed to be
 	// hoisted
 	HeaderHoisting struct {
-		AllowedPrefix    []string `json:"allowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		DisallowedPrefix []string `json:"disallowedPrefix" jsonschema:"omitempty,uniqueItems=true"`
-		Disallowed       []string `json:"disallowed" jsonschema:"omitempty,uniqueItems=true"`
+		AllowedPrefix    []string `json:"allowedPrefix,omitempty" jsonschema:"uniqueItems=true"`
+		DisallowedPrefix []string `json:"disallowedPrefix,omitempty" jsonschema:"uniqueItems=true"`
+		Disallowed       []string `json:"disallowed,omitempty" jsonschema:"uniqueItems=true"`
 		disallowed       map[string]bool
 	}
 

@@ -28,10 +28,10 @@ import (
 type (
 	// Spec describes rules for PathAdaptor.
 	Spec struct {
-		Replace       string         `json:"replace,omitempty" jsonschema:"omitempty"`
-		AddPrefix     string         `json:"addPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		TrimPrefix    string         `json:"trimPrefix,omitempty" jsonschema:"omitempty,pattern=^/"`
-		RegexpReplace *RegexpReplace `json:"regexpReplace,omitempty" jsonschema:"omitempty"`
+		Replace       string         `json:"replace,omitempty"`
+		AddPrefix     string         `json:"addPrefix,omitempty" jsonschema:"pattern=^/"`
+		TrimPrefix    string         `json:"trimPrefix,omitempty" jsonschema:"pattern=^/"`
+		RegexpReplace *RegexpReplace `json:"regexpReplace,omitempty"`
 	}
 
 	// RegexpReplace use regexp-replace pair to rewrite path.

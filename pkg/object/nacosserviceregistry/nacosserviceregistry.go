@@ -85,15 +85,15 @@ type (
 	Spec struct {
 		Servers      []*ServerSpec `json:"servers" jsonschema:"required"`
 		SyncInterval string        `json:"syncInterval" jsonschema:"required,format=duration"`
-		Namespace    string        `json:"namespace" jsonschema:"omitempty"`
-		Username     string        `json:"username" jsonschema:"omitempty"`
-		Password     string        `json:"password" jsonschema:"omitempty"`
+		Namespace    string        `json:"namespace,omitempty"`
+		Username     string        `json:"username,omitempty"`
+		Password     string        `json:"password,omitempty"`
 	}
 
 	// ServerSpec is the server config of Nacos.
 	ServerSpec struct {
-		Scheme      string `json:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
-		ContextPath string `json:"contextPath" jsonschema:"omitempty"`
+		Scheme      string `json:"scheme,omitempty" jsonschema:"enum=http,enum=https"`
+		ContextPath string `json:"contextPath,omitempty"`
 		IPAddr      string `json:"ipAddr" jsonschema:"required"`
 		Port        uint16 `json:"port" jsonschema:"required"`
 	}

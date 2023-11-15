@@ -64,8 +64,8 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		MockCode    int               `json:"mockCode" jsonschema:"required,format=httpcode"`
-		MockHeaders map[string]string `json:"mockHeaders" jsonschema:"omitempty"`
-		MockBody    string            `json:"mockBody" jsonschema:"omitempty"`
+		MockHeaders map[string]string `json:"mockHeaders,omitempty"`
+		MockBody    string            `json:"mockBody,omitempty"`
 	}
 )
 

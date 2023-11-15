@@ -66,7 +66,7 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Salt string  `json:"salt" jsonschema:"omitempty"`
+		Salt string  `json:"salt,omitempty"`
 		Auth []*Auth `json:"auth" jsonschema:"required"`
 	}
 

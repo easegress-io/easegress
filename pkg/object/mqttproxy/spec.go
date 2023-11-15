@@ -64,27 +64,27 @@ type (
 		EGName               string        `json:"-"`
 		Name                 string        `json:"-"`
 		Port                 uint16        `json:"port" jsonschema:"required"`
-		UseTLS               bool          `json:"useTLS" jsonschema:"omitempty"`
-		Certificate          []Certificate `json:"certificate" jsonschema:"omitempty"`
-		TopicCacheSize       int           `json:"topicCacheSize" jsonschema:"omitempty"`
-		MaxAllowedConnection int           `json:"maxAllowedConnection" jsonschema:"omitempty"`
-		ConnectionLimit      *RateLimit    `json:"connectionLimit" jsonschema:"omitempty"`
-		ClientPublishLimit   *RateLimit    `json:"clientPublishLimit" jsonschema:"omitempty"`
-		Rules                []*Rule       `json:"rules" jsonschema:"omitempty"`
-		BrokerMode           bool          `json:"brokerMode" jsonschema:"omitempty"`
+		UseTLS               bool          `json:"useTLS,omitempty"`
+		Certificate          []Certificate `json:"certificate,omitempty"`
+		TopicCacheSize       int           `json:"topicCacheSize,omitempty"`
+		MaxAllowedConnection int           `json:"maxAllowedConnection,omitempty"`
+		ConnectionLimit      *RateLimit    `json:"connectionLimit,omitempty"`
+		ClientPublishLimit   *RateLimit    `json:"clientPublishLimit,omitempty"`
+		Rules                []*Rule       `json:"rules,omitempty"`
+		BrokerMode           bool          `json:"brokerMode,omitempty"`
 		// unit is second, default is 30s
-		RetryInterval int `yaml:"retryInterval" jsonschema:"omitempty"`
+		RetryInterval int `yaml:"retryInterval,omitempty"`
 	}
 
 	// Rule used to route MQTT packets to different pipelines
 	Rule struct {
-		When     *When  `json:"when" jsonschema:"omitempty"`
-		Pipeline string `json:"pipeline" jsonschema:"omitempty"`
+		When     *When  `json:"when,omitempty"`
+		Pipeline string `json:"pipeline,omitempty"`
 	}
 
 	// When is used to check if MQTT packet match this pipeline
 	When struct {
-		PacketType PacketType `json:"packetType" jsonschema:"omitempty"`
+		PacketType PacketType `json:"packetType,omitempty"`
 	}
 
 	// RateLimit describes rate limit for connection or publish.
@@ -92,9 +92,9 @@ type (
 	// timePeriod: max allowed bytes in time period
 	// timePeriod: time of seconds to count requestRate and bytesRate, default 1 second
 	RateLimit struct {
-		RequestRate int `json:"requestRate" jsonschema:"omitempty"`
-		BytesRate   int `json:"bytesRate" jsonschema:"omitempty"`
-		TimePeriod  int `json:"timePeriod" jsonschema:"omitempty"`
+		RequestRate int `json:"requestRate,omitempty"`
+		BytesRate   int `json:"bytesRate,omitempty"`
+		TimePeriod  int `json:"timePeriod,omitempty"`
 	}
 
 	// Certificate describes TLS certifications.

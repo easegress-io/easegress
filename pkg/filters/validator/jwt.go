@@ -32,14 +32,14 @@ import (
 // JWTValidatorSpec defines the configuration of JWT validator
 type JWTValidatorSpec struct {
 	Algorithm string `json:"algorithm" jsonschema:"enum=HS256,enum=HS384,enum=HS512,enum=RS256,enum=RS384,enum=RS512,enum=ES256,enum=ES384,enum=ES512,enum=EdDSA"`
-	//PublicKey is in hex encoding
+	// PublicKey is in hex encoding
 	PublicKey string `json:"publicKey" jsonschema:"pattern=^$|^[A-Fa-f0-9]+$"`
 	// Secret is in hex encoding
 	Secret string `json:"secret" jsonschema:"pattern=^$|^[A-Fa-f0-9]+$"`
 	// CookieName specifies the name of a cookie, if not empty, and the cookie with
 	// this name both exists and has a non-empty value, its value is used as token
 	// string, the Authorization header is used to get the token string otherwise.
-	CookieName string `json:"cookieName" jsonschema:"omitempty"`
+	CookieName string `json:"cookieName,omitempty"`
 }
 
 // NewJWTValidator creates a new JWT validator

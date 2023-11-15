@@ -96,6 +96,7 @@ func (w *mockWatcher) WatchRaw(key string) (<-chan *clientv3.Event, error)      
 func (w *mockWatcher) WatchRawPrefix(prefix string) (<-chan map[string]*clientv3.Event, error) {
 	return nil, nil
 }
+
 func (w *mockWatcher) WatchWithOp(key string, ops ...cluster.ClientOp) (<-chan map[string]*string, error) {
 	return w.delCh, nil
 }
@@ -279,9 +280,9 @@ type MockMQTTSpec struct {
 	Password         string   `json:"password" jsonschema:"required"`
 	Port             uint16   `json:"port" jsonschema:"required"`
 	BackendType      string   `json:"backendType" jsonschema:"required"`
-	EarlyStop        bool     `json:"earlyStop" jsonschema:"omitempty"`
-	KeysToStore      []string `json:"keysToStore" jsonschema:"omitempty"`
-	ConnectKey       string   `json:"connectKey" jsonschema:"omitempty"`
+	EarlyStop        bool     `json:"earlyStop,omitempty"`
+	KeysToStore      []string `json:"keysToStore,omitempty"`
+	ConnectKey       string   `json:"connectKey,omitempty"`
 }
 
 // MockMQTTStatus is status of MockMQTTFilter

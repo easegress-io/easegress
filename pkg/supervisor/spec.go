@@ -44,10 +44,10 @@ type (
 	MetaSpec struct {
 		Name    string `json:"name" jsonschema:"required,format=urlname"`
 		Kind    string `json:"kind" jsonschema:"required"`
-		Version string `json:"version" jsonschema:"required"`
+		Version string `json:"version,omitempty"`
 
 		// RFC3339 format
-		CreatedAt string `json:"createdAt,omitempty" jsonschema:"omitempty"`
+		CreatedAt string `json:"createdAt,omitempty"`
 	}
 )
 

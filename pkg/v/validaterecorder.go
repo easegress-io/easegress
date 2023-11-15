@@ -24,8 +24,6 @@ import (
 	"runtime/debug"
 	"strings"
 
-	loadjs "github.com/xeipuuv/gojsonschema"
-
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
@@ -76,9 +74,9 @@ type (
 	}
 )
 
-func (vr *ValidateRecorder) recordJSONSchema(result *loadjs.Result) {
-	for _, err := range result.Errors() {
-		vr.JSONSchemaErrs = append(vr.JSONSchemaErrs, err.String())
+func (vr *ValidateRecorder) recordJSONSchema(err error) {
+	if err != nil {
+		vr.JSONSchemaErrs = append(vr.JSONSchemaErrs, err.Error())
 	}
 }
 
@@ -93,22 +91,16 @@ func getFieldJSONName(field *reflect.StructField) string {
 	return fieldName
 }
 
-func requiredFromField(field *reflect.StructField) bool {
-	tags := strings.Split(field.Tag.Get("jsonschema"), ",")
-	switch {
-	case len(tags) == 0:
-		return false
-	case tags[0] == "-":
-		return false
-	default:
-		for _, tag := range tags {
-			if tag == "omitempty" {
-				return false
-			}
+func IsOmitemptyField(field *reflect.StructField) bool {
+	tags := strings.Split(field.Tag.Get("json"), ",")
+
+	for _, tag := range tags {
+		if tag == "omitempty" {
+			return true
 		}
-		// NOTICE: Required by default.
-		return true
 	}
+
+	return false
 }
 
 func (vr *ValidateRecorder) record(val *reflect.Value, field *reflect.StructField) {
@@ -121,7 +113,7 @@ func (vr *ValidateRecorder) recordFormat(val *reflect.Value, field *reflect.Stru
 		return
 	}
 
-	if !requiredFromField(field) && val.IsZero() {
+	if IsOmitemptyField(field) && val.IsZero() {
 		return
 	}
 

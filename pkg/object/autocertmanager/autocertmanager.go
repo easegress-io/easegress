@@ -62,7 +62,7 @@ func init() {
 }
 
 type (
-	//AutoCertManager is the controller for Automated Certificate Management.
+	// AutoCertManager is the controller for Automated Certificate Management.
 	AutoCertManager struct {
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
@@ -91,7 +91,7 @@ type (
 	// DomainSpec is the automated certificate management spec for a domain.
 	DomainSpec struct {
 		Name        string            `json:"name" jsonschema:"required"`
-		DNSProvider map[string]string `json:"dnsProvider" jsonschema:"omitempty"`
+		DNSProvider map[string]string `json:"dnsProvider,omitempty"`
 	}
 
 	// CertificateStatus is the certificate status of a domain.
@@ -106,9 +106,7 @@ type (
 	}
 )
 
-var (
-	globalACM atomic.Value
-)
+var globalACM atomic.Value
 
 // Validate validates the spec of AutoCertManager.
 func (spec *Spec) Validate() error {

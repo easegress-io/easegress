@@ -70,11 +70,11 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Headers   *httpheader.ValidatorSpec `json:"headers,omitempty" jsonschema:"omitempty"`
-		JWT       *JWTValidatorSpec         `json:"jwt,omitempty" jsonschema:"omitempty"`
-		Signature *signer.Spec              `json:"signature,omitempty" jsonschema:"omitempty"`
-		OAuth2    *OAuth2ValidatorSpec      `json:"oauth2,omitempty" jsonschema:"omitempty"`
-		BasicAuth *BasicAuthValidatorSpec   `json:"basicAuth,omitempty" jsonschema:"omitempty"`
+		Headers   *httpheader.ValidatorSpec `json:"headers,omitempty"`
+		JWT       *JWTValidatorSpec         `json:"jwt,omitempty"`
+		Signature *signer.Spec              `json:"signature,omitempty"`
+		OAuth2    *OAuth2ValidatorSpec      `json:"oauth2,omitempty"`
+		BasicAuth *BasicAuthValidatorSpec   `json:"basicAuth,omitempty"`
 	}
 )
 
