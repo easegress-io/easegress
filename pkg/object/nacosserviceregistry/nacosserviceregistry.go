@@ -94,8 +94,8 @@ type (
 	ServerSpec struct {
 		Scheme      string `json:"scheme,omitempty" jsonschema:"enum=http,enum=https"`
 		ContextPath string `json:"contextPath,omitempty"`
-		IPAddr      string `json:"ipAddr,omitempty" jsonschema:"required"`
-		Port        uint16 `json:"port,omitempty" jsonschema:"required"`
+		IPAddr      string `json:"ipAddr" jsonschema:"required"`
+		Port        uint16 `json:"port" jsonschema:"required"`
 	}
 
 	// Status is the status of NacosServiceRegistry.
