@@ -63,7 +63,7 @@ type (
 
 		GlobalFilter string `json:"globalFilter,omitempty"`
 
-		AccessLogFormat string `json:"accessLogFormat,omitempty" jsonshema:"omitempty"`
+		AccessLogFormat string `json:"accessLogFormat,omitempty"`
 	}
 )
 
