@@ -143,13 +143,13 @@ type (
 	// IngressServerSpec is the spec of ingress httpserver in worker
 	IngressServerSpec struct {
 		KeepAlive        bool   `json:"keepAlive,omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"omitempty,format=duration"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
 	}
 
 	// EgressServerSpec is the spec of egress httpserver in worker
 	EgressServerSpec struct {
 		KeepAlive        bool   `json:"keepAlive,omitempty"`
-		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"omitempty,format=duration"`
+		KeepAliveTimeout string `json:"keepAliveTimeout,omitempty" jsonschema:"format=duration"`
 	}
 
 	// MonitorMTLS is the spec of mTLS specification of monitor.
@@ -221,7 +221,7 @@ type (
 		CircuitBreaker *resilience.CircuitBreakerRule `json:"circuitBreaker,omitempty"`
 		Retry          *resilience.RetryRule          `json:"retry,omitempty"`
 		TimeLimiter    *TimeLimiterRule               `json:"timeLimiter,omitempty"`
-		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"omitempty,uniqueItems=true"`
+		FailureCodes   []int                          `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
 	}
 
 	// TimeLimiterRule is the spec of TimeLimiter.
