@@ -130,6 +130,9 @@ func (gc *GatewayController) run() {
 	}
 	logger.Infof("successfully connect to kubernetes")
 
+	// translate before watch
+	gc.translate()
+
 	// watch gateway related resources
 	var (
 		stopCh chan struct{}
