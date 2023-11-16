@@ -251,7 +251,7 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 	}
 
 	c.gwFactory = gwinformers.NewSharedInformerFactoryWithOptions(c.gwcs, resyncPeriod, gwinformers.WithTweakListOptions(notHelm))
-	_, err = c.gwFactory.Gateway().V1beta1().GatewayClasses().Informer().AddEventHandler(c)
+	_, err = c.gwFactory.Gateway().V1().GatewayClasses().Informer().AddEventHandler(c)
 	if err != nil {
 		return nil, err
 	}
@@ -347,57 +347,17 @@ func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayCl
 	return result
 }
 
-// UpdateGatewayClassStatus updates the status of the given GatewayClass.
-// GatewayClass starts with status:
-// Status:
-//
-//	Conditions:
-//	  Last Transition Time:  1970-01-01T00:00:00Z
-//	  Message:               Waiting for controller
-//	  Reason:                Waiting
-//	  Status:                Unknown
-//	  Type:                  Accepted
-//
-// Where Message, Status and Type is fixed, Reason maybe Pending or Waiting.
-func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass) error {
+func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, status gwapis.GatewayClassStatus) error {
 	gc := gatewayClass.DeepCopy()
-
-	compareCondition := func(c1, c2 metav1.Condition) bool {
-		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
-	}
-	condition := metav1.Condition{
-		Type:               string(gwapis.GatewayClassConditionStatusAccepted),
-		Status:             metav1.ConditionTrue,
-		Reason:             string(gwapis.GatewayClassReasonAccepted),
-		Message:            "GatewayClass is accepted",
-		LastTransitionTime: metav1.Now(),
-	}
-
-	newConditions := []metav1.Condition{}
-	for _, cond := range gc.Status.Conditions {
-		// remove the init condition.
-		if cond.Type == string(gwapis.GatewayClassConditionStatusAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
-			continue
-		}
-		// if we already have the condition, just return.
-		if compareCondition(cond, condition) {
-			return nil
-		}
-		newConditions = append(newConditions, cond)
-	}
-
-	// Append the condition to update.
-	newConditions = append(newConditions, condition)
-	gc.Status.Conditions = newConditions
+	gc.Status = status
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	_, err := c.gwcs.GatewayV1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update GatewayClass %q status: %w", gatewayClass.Name, err)
+		return fmt.Errorf("failed to update GatewayClass %s/%s status: %w", gatewayClass.Namespace, gatewayClass.Name, err)
 	}
-
 	return nil
 }
 

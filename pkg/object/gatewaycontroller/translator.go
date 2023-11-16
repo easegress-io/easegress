@@ -35,6 +35,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 	"golang.org/x/exp/slices"
 	apicorev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -616,17 +617,110 @@ func (st *specTranslator) translate() error {
 	st.routes = st.k8sClient.GetHTTPRoutes()
 
 	for _, c := range classes {
-		err := st.k8sClient.UpdateGatewayClassStatus(c)
+		err := st.updateGatewayClassStatus(c)
 		if err != nil {
-			logger.Errorf("failed to update gateway class %s/%s status: %v", c.Namespace, c.Name, err)
+			logger.Errorf("%v", err)
 		}
 		for _, g := range gateways {
 			if string(g.Spec.GatewayClassName) != c.Name {
 				continue
+			}
+			err := st.updateGatewayStatus(c, g)
+			if err != nil {
+				logger.Errorf("%v", err)
 			}
 			st.translateGateway(c, g)
 		}
 	}
 
 	return nil
+}
+
+// Conditions:
+//
+//	Last Transition Time:  1970-01-01T00:00:00Z
+//	Message:               Waiting for controller
+//	Reason:                Pending
+//	Status:                Unknown
+//	Type:                  Accepted
+//	Last Transition Time:  1970-01-01T00:00:00Z
+//	Message:               Waiting for controller
+//	Reason:                Pending
+//	Status:                Unknown
+//	Type:                  Programmed
+//
+// we need to remove init conditions and add new.
+func (st *specTranslator) updateGatewayStatus(c *gwapis.GatewayClass, g *gwapis.Gateway) error {
+	compareCondition := func(c1, c2 metav1.Condition) bool {
+		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
+	}
+	condition := metav1.Condition{
+		Type:               string(gwapis.GatewayConditionAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gwapis.GatewayReasonAccepted),
+		Message:            "Gateway is accepted",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	gateway := g.DeepCopy()
+	newConditions := []metav1.Condition{}
+	for _, cond := range gateway.Status.Conditions {
+		// remove the init condition.
+		if cond.Type == string(gwapis.GatewayConditionAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		if cond.Type == string(gwapis.GatewayConditionProgrammed) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		// if we already have the condition, just return.
+		if compareCondition(cond, condition) {
+			return nil
+		}
+		newConditions = append(newConditions, cond)
+	}
+	gateway.Status.Conditions = newConditions
+	return st.k8sClient.UpdateGatewayStatus(g, gateway.Status)
+}
+
+// GatewayClass starts with status:
+// Status:
+//
+//	Conditions:
+//	  Last Transition Time:  1970-01-01T00:00:00Z
+//	  Message:               Waiting for controller
+//	  Reason:                Waiting
+//	  Status:                Unknown
+//	  Type:                  Accepted
+//
+// we need to remove init status and add new.
+func (st *specTranslator) updateGatewayClassStatus(c *gwapis.GatewayClass) error {
+	compareCondition := func(c1, c2 metav1.Condition) bool {
+		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
+	}
+	condition := metav1.Condition{
+		Type:               string(gwapis.GatewayClassConditionStatusAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gwapis.GatewayClassReasonAccepted),
+		Message:            "GatewayClass is accepted",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	gc := c.DeepCopy()
+	newConditions := []metav1.Condition{}
+	for _, cond := range gc.Status.Conditions {
+		// remove the init condition.
+		if cond.Type == string(gwapis.GatewayClassConditionStatusAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		// if we already have the condition, just return.
+		if compareCondition(cond, condition) {
+			return nil
+		}
+		newConditions = append(newConditions, cond)
+	}
+
+	newConditions = append(newConditions, condition)
+	gc.Status.Conditions = newConditions
+	err := st.k8sClient.UpdateGatewayClassStatus(c, gc.Status)
+	return err
 }
