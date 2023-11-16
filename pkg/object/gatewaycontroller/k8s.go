@@ -347,20 +347,43 @@ func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayCl
 	return result
 }
 
-func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, condition metav1.Condition) error {
+// UpdateGatewayClassStatus updates the status of the given GatewayClass.
+// GatewayClass starts with status:
+// Status:
+//
+//	Conditions:
+//	  Last Transition Time:  1970-01-01T00:00:00Z
+//	  Message:               Waiting for controller
+//	  Reason:                Waiting
+//	  Status:                Unknown
+//	  Type:                  Accepted
+//
+// Where Message, Status and Type is fixed, Reason maybe Pending or Waiting.
+func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass) error {
 	gc := gatewayClass.DeepCopy()
 
-	var newConditions []metav1.Condition
+	compareCondition := func(c1, c2 metav1.Condition) bool {
+		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
+	}
+	condition := metav1.Condition{
+		Type:               string(gwapis.GatewayClassConditionStatusAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gwapis.GatewayClassReasonAccepted),
+		Message:            "GatewayClass is accepted",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	newConditions := []metav1.Condition{}
 	for _, cond := range gc.Status.Conditions {
-		// No update for identical condition.
-		if cond.Type == condition.Type && cond.Status == condition.Status {
+		// remove the init condition.
+		if cond.Type == string(gwapis.GatewayClassConditionStatusAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		// if we already have the condition, just return.
+		if compareCondition(cond, condition) {
 			return nil
 		}
-
-		// Keep other condition types.
-		if cond.Type != condition.Type {
-			newConditions = append(newConditions, cond)
-		}
+		newConditions = append(newConditions, cond)
 	}
 
 	// Append the condition to update.

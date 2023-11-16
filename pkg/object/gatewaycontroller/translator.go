@@ -616,6 +616,10 @@ func (st *specTranslator) translate() error {
 	st.routes = st.k8sClient.GetHTTPRoutes()
 
 	for _, c := range classes {
+		err := st.k8sClient.UpdateGatewayClassStatus(c)
+		if err != nil {
+			logger.Errorf("failed to update gateway class %s/%s status: %v", c.Namespace, c.Name, err)
+		}
 		for _, g := range gateways {
 			if string(g.Spec.GatewayClassName) != c.Name {
 				continue
