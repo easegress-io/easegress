@@ -129,7 +129,9 @@ func (rule *Rule) Init() {
 		if !h.IsRegexp {
 			if h.Value != "" {
 				count := strings.Count(h.Value, "*")
-				if count > 1 {
+				if count == 0 {
+					continue
+				} else if count > 1 {
 					logger.Errorf("invalid host %s, only one wildcard is allowed", h.Value)
 					continue
 				}
