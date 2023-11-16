@@ -678,6 +678,7 @@ func (st *specTranslator) updateGatewayStatus(c *gwapis.GatewayClass, g *gwapis.
 		}
 		newConditions = append(newConditions, cond)
 	}
+	newConditions = append(newConditions, condition)
 	gateway.Status.Conditions = newConditions
 	return st.k8sClient.UpdateGatewayStatus(g, gateway.Status)
 }
