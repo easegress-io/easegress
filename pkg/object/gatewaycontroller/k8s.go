@@ -458,6 +458,9 @@ func (c *k8sClient) isNamespaceWatched(ns string) bool {
 		return true
 	}
 	for _, watchedNamespace := range c.namespaces {
+		if watchedNamespace == metav1.NamespaceAll {
+			return true
+		}
 		if watchedNamespace == ns {
 			return true
 		}
