@@ -150,6 +150,7 @@ func (gc *GatewayController) run() {
 	}
 	logger.Infof("successfully watched gateway related resources")
 
+	gc.translate()
 	// process resource update events
 	for {
 		select {

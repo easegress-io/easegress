@@ -251,7 +251,7 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 	}
 
 	c.gwFactory = gwinformers.NewSharedInformerFactoryWithOptions(c.gwcs, resyncPeriod, gwinformers.WithTweakListOptions(notHelm))
-	_, err = c.gwFactory.Gateway().V1beta1().GatewayClasses().Informer().AddEventHandler(c)
+	_, err = c.gwFactory.Gateway().V1().GatewayClasses().Informer().AddEventHandler(c)
 	if err != nil {
 		return nil, err
 	}
@@ -347,34 +347,17 @@ func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayCl
 	return result
 }
 
-func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, condition metav1.Condition) error {
+func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, status gwapis.GatewayClassStatus) error {
 	gc := gatewayClass.DeepCopy()
-
-	var newConditions []metav1.Condition
-	for _, cond := range gc.Status.Conditions {
-		// No update for identical condition.
-		if cond.Type == condition.Type && cond.Status == condition.Status {
-			return nil
-		}
-
-		// Keep other condition types.
-		if cond.Type != condition.Type {
-			newConditions = append(newConditions, cond)
-		}
-	}
-
-	// Append the condition to update.
-	newConditions = append(newConditions, condition)
-	gc.Status.Conditions = newConditions
+	gc.Status = status
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	_, err := c.gwcs.GatewayV1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update GatewayClass %q status: %w", gatewayClass.Name, err)
+		return fmt.Errorf("failed to update GatewayClass %s/%s status: %w", gatewayClass.Namespace, gatewayClass.Name, err)
 	}
-
 	return nil
 }
 
@@ -475,6 +458,9 @@ func (c *k8sClient) isNamespaceWatched(ns string) bool {
 		return true
 	}
 	for _, watchedNamespace := range c.namespaces {
+		if watchedNamespace == metav1.NamespaceAll {
+			return true
+		}
 		if watchedNamespace == ns {
 			return true
 		}
