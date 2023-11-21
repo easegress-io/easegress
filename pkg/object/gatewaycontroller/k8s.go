@@ -486,24 +486,30 @@ type FilterSpecFromCR struct {
 	Spec string
 }
 
+var FilterSpecGVR = schema.GroupVersionResource{
+	Group:    "easegress.megaease.com",
+	Version:  "v1",
+	Resource: "filterspecs",
+}
+
 // GetFilterSpecFromCustomResource get filter spec from kubernetes custom resource.
-func (c *k8sClient) GetFilterSpecFromCustomResource(info schema.GroupVersionResource, namespace string, objName string) (*FilterSpecFromCR, error) {
-	cr, err := c.dc.Resource(info).Namespace(namespace).Get(context.Background(), objName, metav1.GetOptions{})
+func (c *k8sClient) GetFilterSpecFromCustomResource(namespace string, objName string) (*FilterSpecFromCR, error) {
+	cr, err := c.dc.Resource(FilterSpecGVR).Namespace(namespace).Get(context.Background(), objName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	crSpec := cr.Object["spec"].(map[string]interface{})
 	name, ok := crSpec["name"].(string)
 	if !ok {
-		return nil, fmt.Errorf("custom resource %v/%s does not have string name field", info, objName)
+		return nil, fmt.Errorf("custom resource %v/%s does not have string name field", FilterSpecGVR, objName)
 	}
 	kind, ok := crSpec["kind"].(string)
 	if !ok {
-		return nil, fmt.Errorf("custom resource %v/%s does not have string kind field", info, objName)
+		return nil, fmt.Errorf("custom resource %v/%s does not have string kind field", FilterSpecGVR, objName)
 	}
 	spec, ok := crSpec["spec"].(string)
 	if !ok {
-		return nil, fmt.Errorf("custom resource %v/%s does not have string spec field", info, objName)
+		return nil, fmt.Errorf("custom resource %v/%s does not have string spec field", FilterSpecGVR, objName)
 	}
 	return &FilterSpecFromCR{
 		Name: name,

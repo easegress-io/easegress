@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
@@ -53,6 +54,8 @@ type pipelineSpecBuilder struct {
 	Name          string `json:"name"`
 	pipeline.Spec `json:",inline"`
 
+	filters     []map[string]interface{}     `json:"-"`
+	resilience  []map[string]interface{}     `json:"-"`
 	reqAdaptor  *builder.RequestAdaptorSpec  `json:"-"`
 	redirector  *redirector.Spec             `json:"-"`
 	respAdaptor *builder.ResponseAdaptorSpec `json:"-"`
@@ -67,13 +70,26 @@ type httpServerSpecBuilder struct {
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: pipeline.Kind,
-		Name: name,
-		Spec: pipeline.Spec{},
+		Kind:       pipeline.Kind,
+		Name:       name,
+		Spec:       pipeline.Spec{},
+		filters:    make([]map[string]interface{}, 0),
+		resilience: []map[string]interface{}{},
 	}
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
+	if len(b.filters) > 0 {
+		for _, f := range b.filters {
+			kind := f["kind"]
+			if kind == builder.ResponseAdaptorKind || kind == builder.ResponseBuilderKind {
+				continue
+			}
+			b.Filters = append(b.Filters, f)
+			b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: f["name"].(string)})
+		}
+	}
+
 	if b.reqAdaptor != nil {
 		b.reqAdaptor.BaseSpec.MetaSpec.Name = "requestAdaptor"
 		b.reqAdaptor.BaseSpec.MetaSpec.Kind = builder.RequestAdaptorKind
@@ -114,11 +130,46 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.respAdaptor.Name()})
 	}
 
+	if len(b.filters) > 0 {
+		for _, f := range b.filters {
+			kind := f["kind"]
+			if kind == builder.ResponseAdaptorKind || kind == builder.ResponseBuilderKind {
+				b.Filters = append(b.Filters, f)
+				b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: f["name"].(string)})
+			}
+		}
+	}
+
+	b.Resilience = b.resilience
+
 	buf, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buf)
+}
+
+func (b *pipelineSpecBuilder) addExtensionRef(spec *FilterSpecFromCR) {
+	data := map[string]interface{}{}
+	err := codectool.UnmarshalYAML([]byte(spec.Spec), &data)
+	if err != nil {
+		logger.Errorf("unmarshal filter spec %v failed: %v", spec, err)
+		return
+	}
+	data["name"] = spec.Name
+	data["kind"] = spec.Kind
+
+	if spec.Kind == "CircuitBreaker" || spec.Kind == "Retry" {
+		b.resilience = append(b.resilience, data)
+		return
+	}
+
+	kind := filters.GetKind(spec.Kind)
+	if kind == nil {
+		logger.Errorf("unknown filter kind %s in extensionRef", spec.Kind)
+		return
+	}
+	b.filters = append(b.filters, data)
 }
 
 func (b *pipelineSpecBuilder) addRequestHeaderModifier(f *gwapis.HTTPHeaderFilter) {
@@ -273,6 +324,7 @@ func (st *specTranslator) pipelineSpecs() map[string]*supervisor.Spec {
 
 	for _, sb := range st.pipelines {
 		cfg := sb.jsonConfig()
+		logger.Debugf("pipeline spec: %s", cfg)
 		spec, err := supervisor.NewSpec(cfg)
 		if err != nil {
 			logger.Errorf("failed to build pipeline spec: %v", err)
@@ -496,6 +548,18 @@ func (st *specTranslator) translatePipeline(ns, name string, r *gwapis.HTTPRoute
 			}
 		case gwapis.HTTPRouteFilterResponseHeaderModifier:
 			sb.addResponseHeaderModifier(f.ResponseHeaderModifier)
+		case gwapis.HTTPRouteFilterExtensionRef:
+			g := string(f.ExtensionRef.Group)
+			if g != FilterSpecGVR.Group {
+				logger.Errorf("extension group %s is not supported, only support %s", g, FilterSpecGVR.Group)
+				continue
+			}
+			filterSpec, err := st.k8sClient.GetFilterSpecFromCustomResource(ns, string(f.ExtensionRef.Name))
+			if err != nil {
+				logger.Errorf("failed to get filter spec %s/%s/%s, %v", ns, FilterSpecGVR.Group, f.ExtensionRef.Name, err)
+				continue
+			}
+			sb.addExtensionRef(filterSpec)
 		}
 	}
 
