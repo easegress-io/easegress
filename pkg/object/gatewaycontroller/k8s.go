@@ -26,7 +26,9 @@ import (
 	"github.com/megaease/easegress/v2/pkg/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
 	corev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/informers/internalinterfaces"
 	"k8s.io/client-go/rest"
@@ -123,6 +125,8 @@ type k8sClient struct {
 	gwcs      *gwclientset.Clientset
 	gwFactory gwinformers.SharedInformerFactory
 
+	dc *dynamic.DynamicClient
+
 	eventCh chan interface{}
 }
 
@@ -176,6 +180,12 @@ func newK8sClient(masterURL string, kubeConfig string) (*k8sClient, error) {
 		return nil, err
 	}
 
+	dc, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		logger.Errorf("error building dynamic clientset: %s", err.Error())
+		return nil, err
+	}
+
 	err = checkKubernetesVersion(cfg)
 	if err != nil {
 		logger.Errorf("error checking kubernetes version: %s", err.Error())
@@ -185,6 +195,7 @@ func newK8sClient(masterURL string, kubeConfig string) (*k8sClient, error) {
 	return &k8sClient{
 		kcs:     kcs,
 		gwcs:    gwcs,
+		dc:      dc,
 		eventCh: make(chan interface{}, 1),
 	}, nil
 }
@@ -466,4 +477,37 @@ func (c *k8sClient) isNamespaceWatched(ns string) bool {
 		}
 	}
 	return false
+}
+
+// FilterSpecFromCR is filter spec from kubernetes custom resource.
+type FilterSpecFromCR struct {
+	Name string
+	Kind string
+	Spec string
+}
+
+// GetFilterSpecFromCustomResource get filter spec from kubernetes custom resource.
+func (c *k8sClient) GetFilterSpecFromCustomResource(info schema.GroupVersionResource, namespace string, objName string) (*FilterSpecFromCR, error) {
+	cr, err := c.dc.Resource(info).Namespace(namespace).Get(context.Background(), objName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	crSpec := cr.Object["spec"].(map[string]interface{})
+	name, ok := crSpec["name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string name field", info, objName)
+	}
+	kind, ok := crSpec["kind"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string kind field", info, objName)
+	}
+	spec, ok := crSpec["spec"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string spec field", info, objName)
+	}
+	return &FilterSpecFromCR{
+		Name: name,
+		Kind: kind,
+		Spec: spec,
+	}, nil
 }
