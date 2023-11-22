@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	corev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/informers/internalinterfaces"
 	"k8s.io/client-go/rest"
@@ -250,9 +251,9 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 	}
 
 	/*
-		labelSelectorOptions := func(options *metav1.ListOptions) {
-			options.LabelSelector = c.labelSelector
-		}
+		 labelSelectorOptions := func(options *metav1.ListOptions) {
+			 options.LabelSelector = c.labelSelector
+		 }
 	*/
 
 	c.kFactory = kinformers.NewSharedInformerFactory(c.kcs, resyncPeriod)
@@ -267,6 +268,7 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 		return nil, err
 	}
 
+	dFactories := []dynamicinformer.DynamicSharedInformerFactory{}
 	for _, ns := range namespaces {
 		gwinformerapis.New(c.gwFactory, ns, nil).Gateways().Informer().AddEventHandler(c)
 		gwinformerapis.New(c.gwFactory, ns, nil).HTTPRoutes().Informer().AddEventHandler(c)
@@ -275,10 +277,17 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 		corev1.New(c.kFactory, ns, nil).Services().Informer().AddEventHandler(c)
 		corev1.New(c.kFactory, ns, nil).Endpoints().Informer().AddEventHandler(c)
 		corev1.New(c.kFactory, ns, internalinterfaces.TweakListOptionsFunc(notHelm)).Secrets().Informer().AddEventHandler(c)
+
+		dFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.dc, resyncPeriod, ns, nil)
+		dFactory.ForResource(FilterSpecGVR).Informer().AddEventHandler(c)
+		dFactories = append(dFactories, dFactory)
 	}
 
 	c.kFactory.Start(stopCh)
 	c.gwFactory.Start(stopCh)
+	for _, f := range dFactories {
+		f.Start(stopCh)
+	}
 
 	for typ, ok := range c.kFactory.WaitForCacheSync(stopCh) {
 		if !ok {
