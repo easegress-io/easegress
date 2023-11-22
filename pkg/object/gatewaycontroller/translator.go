@@ -117,10 +117,11 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		buf, _ := codectool.MarshalJSON(b.proxy)
 		for i := range b.proxy.Pools {
 			for _, r := range b.resilience {
+				logger.Infof("resilience: %v", r)
 				if r["kind"] == resilience.CircuitBreakerKind.Name {
 					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
 				} else if r["kind"] == resilience.RetryKind.Name {
-					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
+					b.proxy.Pools[i].RetryPolicy = r["name"].(string)
 				}
 			}
 		}
