@@ -31,6 +31,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/object/pipeline"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/v2/pkg/resilience"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
@@ -114,6 +115,15 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.proxy.BaseSpec.MetaSpec.Name = "proxy"
 		b.proxy.BaseSpec.MetaSpec.Kind = httpproxy.Kind
 		buf, _ := codectool.MarshalJSON(b.proxy)
+		for i := range b.proxy.Pools {
+			for _, r := range b.resilience {
+				if r["kind"] == resilience.CircuitBreakerKind.Name {
+					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
+				} else if r["kind"] == resilience.RetryKind.Name {
+					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
+				}
+			}
+		}
 		m := map[string]any{}
 		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
