@@ -114,10 +114,8 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 	if b.proxy != nil {
 		b.proxy.BaseSpec.MetaSpec.Name = "proxy"
 		b.proxy.BaseSpec.MetaSpec.Kind = httpproxy.Kind
-		buf, _ := codectool.MarshalJSON(b.proxy)
 		for i := range b.proxy.Pools {
 			for _, r := range b.resilience {
-				logger.Infof("resilience: %v", r)
 				if r["kind"] == resilience.CircuitBreakerKind.Name {
 					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
 				} else if r["kind"] == resilience.RetryKind.Name {
@@ -125,6 +123,7 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 				}
 			}
 		}
+		buf, _ := codectool.MarshalJSON(b.proxy)
 		m := map[string]any{}
 		codectool.UnmarshalJSON(buf, &m)
 		b.Filters = append(b.Filters, m)
