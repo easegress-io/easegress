@@ -1,5 +1,20 @@
 # Changelog
 
+## [v2.6.3](https://github.com/megaease/easegress/tree/v2.6.3) (2023-11-23)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.2...v2.6.3)
+
+**Significant changes:**
+* Support Kubernetes Gateway API v1.
+* Converts Nginx configurations into Easegress YAMLs.
+* Integrates all Easegress filters and resilience policies with Kubernetes Gateway API. 
+
+**Implemented enhancements:**
+* New RedirectorV2 filter added.
+* Runtime log level adjustment enabled.
+* Updated omitempty jsonschema in Specs.
+* Introduced cookie hash support.
+
 ## [v2.6.2](https://github.com/megaease/easegress/tree/v2.6.2) (2023-10-19)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.1...v2.6.2)
