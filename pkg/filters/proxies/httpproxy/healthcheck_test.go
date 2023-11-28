@@ -15,31 +15,4 @@
  * limitations under the License.
  */
 
-package proxies
-
-import (
-	"sync"
-	"sync/atomic"
-)
-
-type MockHealthChecker struct {
-	spec    *HealthCheckSpec
-	expect  int32
-	counter int32
-	result  bool
-	wg      *sync.WaitGroup
-}
-
-func (c *MockHealthChecker) BaseSpec() HealthCheckSpec {
-	return *c.spec
-}
-
-func (c *MockHealthChecker) Check(svr *Server) bool {
-	if c.wg != nil && atomic.AddInt32(&c.counter, 1) <= c.expect {
-		c.wg.Done()
-	}
-	return c.result
-}
-
-func (c *MockHealthChecker) Close() {
-}
+package httpproxy

@@ -53,7 +53,7 @@ type MockServerPoolImpl struct {
 
 func (m *MockServerPoolImpl) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := NewGeneralLoadBalancer(spec, servers)
-	lb.Init(NewHTTPSessionSticker, NewHTTPHealthChecker, nil)
+	lb.Init(NewHTTPSessionSticker, nil, nil)
 	return lb
 }
 

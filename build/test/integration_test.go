@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -234,15 +235,12 @@ filters:
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "hello from backend")
 	})
-	server := startServer(8888, mux)
-	defer server.Shutdown(context.Background())
-	// check 8888 server is started
-	started := checkServerStart(t, func() *http.Request {
+	server := mustStartServer(8888, mux, func() *http.Request {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888", nil)
 		require.Nil(t, err)
 		return req
 	})
-	require.True(t, started)
+	defer server.Shutdown(context.Background())
 
 	// send request to 10081 HTTPServer
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10081/", nil)
@@ -540,22 +538,25 @@ list:
 func TestCreateHTTPProxy(t *testing.T) {
 	assert := assert.New(t)
 
-	for i, port := range []int{9096, 9097, 9098} {
+	servers := make([]*http.Server, 0)
+	for _, port := range []int{9096, 9097, 9098} {
 		currentPort := port
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "hello from backend %d", currentPort)
 		})
-
-		server := startServer(currentPort, mux)
-		defer server.Shutdown(context.Background())
-		started := checkServerStart(t, func() *http.Request {
+		server := mustStartServer(currentPort, mux, func() *http.Request {
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d", currentPort), nil)
 			require.Nil(t, err)
 			return req
 		})
-		require.True(t, started, i)
+		servers = append(servers, server)
 	}
+	defer func() {
+		for _, s := range servers {
+			s.Shutdown(context.Background())
+		}
+	}()
 
 	cmd := egctlCmd(
 		"create",
@@ -572,6 +573,9 @@ func TestCreateHTTPProxy(t *testing.T) {
 	_, stderr, err := runCmd(cmd)
 	assert.NoError(err)
 	assert.Empty(stderr)
+	defer func() {
+		deleteResource("httpserver", "http-proxy-test")
+	}()
 
 	output, err := getResource("httpserver")
 	assert.NoError(err)
@@ -635,6 +639,7 @@ rules:
 		time.Sleep(1 * time.Second)
 		cmd.Process.Kill()
 		assert.Contains(stdout.String(), "test-egctl-logs")
+		deleteResource("httpserver", "test-egctl-logs")
 	}
 
 	{
@@ -666,5 +671,115 @@ func TestMetrics(t *testing.T) {
 		assert.NoError(err)
 		assert.Empty(stderr)
 		assert.Contains(output, "etcd_server_has_leader")
+	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	// unhealthy server return 503 as status code
+	var invalidCode int32 = 503
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Server", "unhealthy")
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		code := atomic.LoadInt32(&invalidCode)
+		w.WriteHeader(int(code))
+	})
+	unhealthy := mustStartServer(12345, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12345", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer unhealthy.Shutdown(context.Background())
+
+	// healthy server return 200 as status code
+	mux2 := http.NewServeMux()
+	mux2.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Server", "healthy")
+		w.WriteHeader(http.StatusOK)
+	})
+	mux2.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	healthy := mustStartServer(12346, mux2, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12346", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer healthy.Shutdown(context.Background())
+
+	httpSeverYaml := `
+name: httpserver-hc
+kind: HTTPServer
+port: 9099
+rules:
+- paths:
+  - pathPrefix: /
+    backend: pipeline-hc
+`
+	pipelineYaml := `
+name: pipeline-hc
+kind: Pipeline
+flow:
+- filter: proxy
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:12345
+    - url: http://127.0.0.1:12346
+    loadBalance:
+      policy: roundRobin
+      healthCheck:
+        interval: 300ms
+        path: /health
+`
+	err := createResource(httpSeverYaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-hc")
+	err = createResource(pipelineYaml)
+	defer deleteResource("pipeline", "pipeline-hc")
+	assert.Nil(err)
+	started := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err)
+		return req
+	})
+	assert.True(started)
+
+	time.Sleep(1 * time.Second)
+	for i := 0; i < 50; i++ {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err, i)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, i)
+		assert.Equal(http.StatusOK, resp.StatusCode, i)
+		assert.Equal("healthy", resp.Header.Get("X-Server"), i)
+		resp.Body.Close()
+	}
+
+	atomic.StoreInt32(&invalidCode, 200)
+	time.Sleep(1 * time.Second)
+	last := ""
+	for i := 0; i < 50; i++ {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err, i)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, i)
+		assert.Equal(http.StatusOK, resp.StatusCode, i)
+		value := resp.Header.Get("X-Server")
+		if last != "" {
+			if last == "healthy" {
+				assert.Equal("unhealthy", value, i)
+			} else {
+				assert.Equal("healthy", value, i)
+			}
+		}
+		last = value
+		resp.Body.Close()
 	}
 }

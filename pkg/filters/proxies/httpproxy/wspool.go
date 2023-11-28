@@ -71,7 +71,7 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 // CreateLoadBalancer creates a load balancer according to spec.
 func (sp *WebSocketServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := proxies.NewGeneralLoadBalancer(spec, servers)
-	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	lb.Init(proxies.NewHTTPSessionSticker, nil, nil)
 	return lb
 }
 
