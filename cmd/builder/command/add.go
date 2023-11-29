@@ -30,6 +30,7 @@ import (
 
 var addConfig = &gen.Config{}
 
+// AddCmd adds filter or controllers to the project.
 func AddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "add",

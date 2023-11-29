@@ -28,6 +28,7 @@ import (
 
 var buildConfig string
 
+// BuildCmd builds Easegress with custom plugins.
 func BuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "build",

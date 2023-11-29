@@ -38,9 +38,11 @@ const (
 	containsType = "contains"
 )
 
+// HealthCheckSpec is the spec of health check.
 type HealthCheckSpec struct {
 	proxies.HealthCheckSpec `json:",inline"`
 
+	Port     int               `json:"port,omitempty"`
 	URI      string            `json:"uri,omitempty"`
 	Method   string            `json:"method,omitempty"`
 	Headers  map[string]string `json:"headers,omitempty"`
@@ -51,12 +53,14 @@ type HealthCheckSpec struct {
 	Match *HealthCheckMatch `json:"match,omitempty"`
 }
 
+// HealthCheckMatch is the match spec of health check.
 type HealthCheckMatch struct {
 	StatusCode [][]int                  `json:"statusCode,omitempty"`
 	Headers    []HealthCheckHeaderMatch `json:"headers,omitempty"`
 	Body       *HealthCheckBodyMatch    `json:"body,omitempty"`
 }
 
+// HealthCheckHeaderMatch is the match spec of health check header.
 type HealthCheckHeaderMatch struct {
 	Name  string `json:"name,omitempty"`
 	Value string `json:"value,omitempty"`
@@ -65,6 +69,7 @@ type HealthCheckHeaderMatch struct {
 	re   *regexp.Regexp
 }
 
+// HealthCheckBodyMatch is the match spec of health check body.
 type HealthCheckBodyMatch struct {
 	Value string `json:"value,omitempty"`
 	// Type is the match type, contains or regex
@@ -84,7 +89,11 @@ var httpMethods = map[string]struct{}{
 	http.MethodTrace:   {},
 }
 
+// Validate validates HealthCheckSpec.
 func (spec *HealthCheckSpec) Validate() error {
+	if spec.Port < 0 {
+		return fmt.Errorf("invalid port: %d", spec.Port)
+	}
 	if spec.URI != "" {
 		_, err := url.Parse(spec.URI)
 		if err != nil {
@@ -150,16 +159,40 @@ func (spec *HealthCheckSpec) Validate() error {
 
 type healthChecker struct {
 	spec   *HealthCheckSpec
+	uri    *url.URL
 	client *http.Client
 }
 
+// BaseSpec returns the base spec.
 func (hc *healthChecker) BaseSpec() proxies.HealthCheckSpec {
 	return hc.spec.HealthCheckSpec
 }
 
+func (hc *healthChecker) getURL(server *proxies.Server) string {
+	serverURL, err := url.Parse(server.URL)
+	if err != nil {
+		return server.URL
+	}
+	target := &url.URL{}
+	if hc.uri != nil {
+		target.Host = serverURL.Host
+		target.Scheme = serverURL.Scheme
+		target.Path = hc.uri.Path
+		target.RawQuery = hc.uri.RawQuery
+	} else {
+		target = serverURL
+	}
+	if hc.spec.Port != 0 {
+		target.Host = fmt.Sprintf("%s:%d", target.Hostname(), hc.spec.Port)
+	}
+	return target.String()
+}
+
+// Check checks the health of the server.
 func (hc *healthChecker) Check(server *proxies.Server) bool {
 	s := hc.spec
-	req, err := http.NewRequest(s.Method, server.URL+s.URI, bytes.NewReader([]byte(s.Body)))
+
+	req, err := http.NewRequest(s.Method, hc.getURL(server), bytes.NewReader([]byte(s.Body)))
 	if err != nil {
 		logger.Errorf("create health check request %s %s failed: %v", s.Method, server.URL+s.URI, err)
 		return false
@@ -230,8 +263,10 @@ func (hc *healthChecker) Check(server *proxies.Server) bool {
 	return true
 }
 
+// Close closes the health checker.
 func (hc *healthChecker) Close() {}
 
+// NewHTTPHealthChecker creates a new HTTP health checker.
 func NewHTTPHealthChecker(tlsConfig *tls.Config, spec *HealthCheckSpec) proxies.HealthChecker {
 	if spec == nil {
 		return nil
@@ -246,6 +281,7 @@ func NewHTTPHealthChecker(tlsConfig *tls.Config, spec *HealthCheckSpec) proxies.
 	if spec.URI == "" && spec.Path != "" {
 		spec.URI = spec.Path
 	}
+	uri, _ := url.Parse(spec.URI)
 	if spec.Match != nil {
 		if len(spec.Match.StatusCode) == 0 {
 			spec.Match.StatusCode = [][]int{{200, 399}}
@@ -273,6 +309,7 @@ func NewHTTPHealthChecker(tlsConfig *tls.Config, spec *HealthCheckSpec) proxies.
 	}
 	return &healthChecker{
 		spec: spec,
+		uri:  uri,
 		client: &http.Client{
 			Timeout:   timeout,
 			Transport: transport,
