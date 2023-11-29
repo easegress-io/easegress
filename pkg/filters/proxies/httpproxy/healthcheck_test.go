@@ -235,7 +235,7 @@ func TestHealthCheck(t *testing.T) {
 		body   string
 	}
 
-	respHanlder := func(w http.ResponseWriter, cfg respConfig) {
+	respHandler := func(w http.ResponseWriter, cfg respConfig) {
 		for k, v := range cfg.header {
 			w.Header().Set(k, v)
 		}
@@ -293,7 +293,7 @@ func TestHealthCheck(t *testing.T) {
 			assert.Nil(err)
 			assert.Equal("easegress", string(body))
 
-			respHanlder(w, succConfig())
+			respHandler(w, succConfig())
 		})
 		s := &proxies.Server{URL: "http://127.0.0.1:8080?test=megaease"}
 		assert.True(hc.Check(s))
@@ -302,7 +302,7 @@ func TestHealthCheck(t *testing.T) {
 		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
 			cfg := succConfig()
 			cfg.status = http.StatusFound
-			respHanlder(w, cfg)
+			respHandler(w, cfg)
 		})
 		assert.False(hc.Check(s))
 
@@ -310,14 +310,14 @@ func TestHealthCheck(t *testing.T) {
 		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
 			cfg := succConfig()
 			cfg.header["H-One"] = "V-Two"
-			respHanlder(w, cfg)
+			respHandler(w, cfg)
 		})
 		assert.False(hc.Check(s))
 
 		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
 			cfg := succConfig()
 			cfg.header["H-Prefix"] = "wrong"
-			respHanlder(w, cfg)
+			respHandler(w, cfg)
 		})
 		assert.False(hc.Check(s))
 
@@ -325,8 +325,16 @@ func TestHealthCheck(t *testing.T) {
 		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
 			cfg := succConfig()
 			cfg.body = "failed!!!"
-			respHanlder(w, cfg)
+			respHandler(w, cfg)
 		})
 		assert.False(hc.Check(s))
+
+		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
+			cfg := succConfig()
+			cfg.status = http.StatusNotFound
+			cfg.body = "big success"
+			respHandler(w, cfg)
+		})
+		assert.True(hc.Check(s))
 	}
 }

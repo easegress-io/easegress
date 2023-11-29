@@ -45,7 +45,7 @@ func AddCmd() *cobra.Command {
 	return cmd
 }
 
-func addArgs(cmd *cobra.Command, args []string) error {
+func addArgs(_ *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		return errors.New("add takes no arguments")
 	}
@@ -66,7 +66,7 @@ func addArgs(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func addRun(cmd *cobra.Command, args []string) {
+func addRun(_ *cobra.Command, _ []string) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		utils.ExitWithError(err)
