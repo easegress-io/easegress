@@ -48,7 +48,7 @@ func createResource(yamlFile string) error {
 	cmd := egctlCmd("create", "-f", "-")
 	cmd.Stdin = strings.NewReader(yamlFile)
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("create resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -58,7 +58,7 @@ func applyResource(yamlFile string) error {
 	cmd := egctlCmd("apply", "-f", "-")
 	cmd.Stdin = strings.NewReader(yamlFile)
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("apply resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -70,7 +70,7 @@ func deleteResource(kind string, args ...string) error {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("delete resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -82,7 +82,7 @@ func describeResource(kind string, args ...string) (string, error) {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	stdout, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return stdout, nil
@@ -94,7 +94,7 @@ func getResource(kind string, args ...string) (string, error) {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	stdout, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return stdout, nil

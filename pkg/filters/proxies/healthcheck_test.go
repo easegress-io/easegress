@@ -23,22 +23,23 @@ import (
 )
 
 type MockHealthChecker struct {
-	spec    *HealthCheckSpec
-	expect  int32
+	Expect int32
+	Result bool
+	WG     *sync.WaitGroup
+
+	spec    HealthCheckSpec
 	counter int32
-	result  bool
-	wg      *sync.WaitGroup
 }
 
 func (c *MockHealthChecker) BaseSpec() HealthCheckSpec {
-	return *c.spec
+	return c.spec
 }
 
 func (c *MockHealthChecker) Check(svr *Server) bool {
-	if c.wg != nil && atomic.AddInt32(&c.counter, 1) <= c.expect {
-		c.wg.Done()
+	if c.WG != nil && atomic.AddInt32(&c.counter, 1) <= c.Expect {
+		c.WG.Done()
 	}
-	return c.result
+	return c.Result
 }
 
 func (c *MockHealthChecker) Close() {
