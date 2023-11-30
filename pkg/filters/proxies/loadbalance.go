@@ -144,12 +144,7 @@ func (glb *GeneralLoadBalancer) Init(
 	glb.hc = hc
 	glb.hcSpec = &spec
 
-	interval, _ := time.ParseDuration(spec.Interval)
-	if interval <= 0 {
-		interval = time.Minute
-	}
-
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(spec.GetInterval())
 	glb.done = make(chan struct{})
 	glb.checkServers()
 	go func() {

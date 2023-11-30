@@ -41,6 +41,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var httpMethods = map[string]struct{}{
+	http.MethodGet:     {},
+	http.MethodHead:    {},
+	http.MethodPost:    {},
+	http.MethodPut:     {},
+	http.MethodPatch:   {},
+	http.MethodDelete:  {},
+	http.MethodConnect: {},
+	http.MethodOptions: {},
+	http.MethodTrace:   {},
+}
+
 // serverPoolError is the error returned by handler function of
 // a server pool.
 type serverPoolError struct {
@@ -182,14 +194,14 @@ type ServerPool struct {
 type ServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
 
-	Filter               *RequestMatcherSpec `json:"filter,omitempty"`
-	SpanName             string              `json:"spanName,omitempty"`
-	ServerMaxBodySize    int64               `json:"serverMaxBodySize,omitempty"`
-	Timeout              string              `json:"timeout,omitempty" jsonschema:"format=duration"`
-	RetryPolicy          string              `json:"retryPolicy,omitempty"`
-	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy,omitempty"`
-	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty"`
-	HealthCheck          *HealthCheckSpec    `json:"healthCheck,omitempty"`
+	Filter               *RequestMatcherSpec   `json:"filter,omitempty"`
+	SpanName             string                `json:"spanName,omitempty"`
+	ServerMaxBodySize    int64                 `json:"serverMaxBodySize,omitempty"`
+	Timeout              string                `json:"timeout,omitempty" jsonschema:"format=duration"`
+	RetryPolicy          string                `json:"retryPolicy,omitempty"`
+	CircuitBreakerPolicy string                `json:"circuitBreakerPolicy,omitempty"`
+	MemoryCache          *MemoryCacheSpec      `json:"memoryCache,omitempty"`
+	HealthCheck          *ProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// FailureCodes would be 5xx if it isn't assigned any value.
 	FailureCodes []int `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
@@ -218,7 +230,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 	tlsConfig, _ := proxy.tlsConfig()
 	// backward compatibility, if healthCheck is not set, but loadBalance's healthCheck is set, use it.
 	if spec.HealthCheck == nil && spec.LoadBalance != nil && spec.LoadBalance.HealthCheck != nil {
-		spec.HealthCheck = &HealthCheckSpec{
+		spec.HealthCheck = &ProxyHealthCheckSpec{
 			HealthCheckSpec: *spec.LoadBalance.HealthCheck,
 		}
 	}

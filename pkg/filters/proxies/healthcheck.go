@@ -17,6 +17,8 @@
 
 package proxies
 
+import "time"
+
 // HealthCheckSpec is the spec for health check.
 type HealthCheckSpec struct {
 	// Interval is the interval duration for health check.
@@ -32,6 +34,24 @@ type HealthCheckSpec struct {
 	// specific to HTTP health check. It should be moved to HTTP health check.
 	// In HTTP health check, we should use URI instead of path.
 	Path string `json:"path,omitempty"`
+}
+
+// GetTimeout returns the timeout duration.
+func (s *HealthCheckSpec) GetTimeout() time.Duration {
+	timeout, _ := time.ParseDuration(s.Timeout)
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+	return timeout
+}
+
+// GetInterval returns the interval duration.
+func (s *HealthCheckSpec) GetInterval() time.Duration {
+	interval, _ := time.ParseDuration(s.Interval)
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	return interval
 }
 
 // HealthChecker checks whether a server is healthy or not.

@@ -26,77 +26,94 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHealthCheckSpec(t *testing.T) {
+func TestHTTPHealthCheckSpec(t *testing.T) {
 	testCases := []struct {
-		spec   *HealthCheckSpec
+		spec   *ProxyHealthCheckSpec
 		failed bool
 		msg    string
 	}{
 		{
-			spec:   &HealthCheckSpec{},
+			spec:   &ProxyHealthCheckSpec{},
 			failed: false,
 		},
 		{
-			spec: &HealthCheckSpec{
-				URI: "::::::::",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					URI: "::::::::",
+				},
 			},
 			failed: true,
 		},
 		{
-			spec: &HealthCheckSpec{
-				Method: "not-a-method",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Method: "not-a-method",
+				},
 			},
 			failed: true,
 			msg:    "invalid method",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Username: "123",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Username: "123",
+				},
 			},
 			failed: true,
 			msg:    "empty password",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Password: "123",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Password: "123",
+				},
 			},
 			failed: true,
 			msg:    "empty username",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Port: -100,
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Port: -100,
+				},
 			},
 			failed: true,
 			msg:    "invalid port",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					StatusCode: [][]int{{2, 1}},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						StatusCode: [][]int{{2, 1}},
+					},
 				},
 			},
 			failed: true,
 			msg:    "invalid status code range",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					StatusCode: [][]int{{1, 2, 3}},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						StatusCode: [][]int{{1, 2, 3}},
+					},
 				},
 			},
 			failed: true,
 			msg:    "invalid status code range",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					Headers: []HealthCheckHeaderMatch{
-						{Name: ""},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: ""},
+						},
 					},
 				},
 			},
@@ -104,10 +121,12 @@ func TestHealthCheckSpec(t *testing.T) {
 			msg:    "empty match header name",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					Headers: []HealthCheckHeaderMatch{
-						{Name: "X-Test", Type: "not-a-type"},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: "X-Test", Type: "not-a-type"},
+						},
 					},
 				},
 			},
@@ -115,10 +134,12 @@ func TestHealthCheckSpec(t *testing.T) {
 			msg:    "invalid match header type",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					Headers: []HealthCheckHeaderMatch{
-						{Name: "X-Test", Type: "regexp", Value: "["},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: "X-Test", Type: "regexp", Value: "["},
+						},
 					},
 				},
 			},
@@ -126,11 +147,13 @@ func TestHealthCheckSpec(t *testing.T) {
 			msg:    "invalid match header regex",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					Body: &HealthCheckBodyMatch{
-						Type:  "not-a-type",
-						Value: "123",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Body: &HealthCheckBodyMatch{
+							Type:  "not-a-type",
+							Value: "123",
+						},
 					},
 				},
 			},
@@ -138,11 +161,13 @@ func TestHealthCheckSpec(t *testing.T) {
 			msg:    "invalid match body type",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Match: &HealthCheckMatch{
-					Body: &HealthCheckBodyMatch{
-						Type:  "regexp",
-						Value: "[",
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Body: &HealthCheckBodyMatch{
+							Type:  "regexp",
+							Value: "[",
+						},
 					},
 				},
 			},
@@ -150,25 +175,27 @@ func TestHealthCheckSpec(t *testing.T) {
 			msg:    "invalid match body regex",
 		},
 		{
-			spec: &HealthCheckSpec{
-				Port:   10080,
-				URI:    "/healthz",
-				Method: "GET",
-				Headers: map[string]string{
-					"X-Test": "easegress",
-				},
-				Body:     "easegress",
-				Username: "admin",
-				Password: "test",
-				Match: &HealthCheckMatch{
-					StatusCode: [][]int{{200, 300}},
-					Headers: []HealthCheckHeaderMatch{
-						{Name: "X-Test", Type: "exact", Value: "easegress"},
-						{Name: "X-Test-Re", Type: "regexp", Value: ".*"},
+			spec: &ProxyHealthCheckSpec{
+				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+					Port:   10080,
+					URI:    "/healthz",
+					Method: "GET",
+					Headers: map[string]string{
+						"X-Test": "easegress",
 					},
-					Body: &HealthCheckBodyMatch{
-						Value: ".*",
-						Type:  "regexp",
+					Body:     "easegress",
+					Username: "admin",
+					Password: "test",
+					Match: &HealthCheckMatch{
+						StatusCode: [][]int{{200, 300}},
+						Headers: []HealthCheckHeaderMatch{
+							{Name: "X-Test", Type: "exact", Value: "easegress"},
+							{Name: "X-Test-Re", Type: "regexp", Value: ".*"},
+						},
+						Body: &HealthCheckBodyMatch{
+							Value: ".*",
+							Type:  "regexp",
+						},
 					},
 				},
 			},
@@ -185,11 +212,13 @@ func TestHealthCheckSpec(t *testing.T) {
 		}
 	}
 
-	hc := NewHTTPHealthChecker(nil, &HealthCheckSpec{}).(*healthChecker)
-	expected := &HealthCheckSpec{
-		Method: "GET",
-		Match: &HealthCheckMatch{
-			StatusCode: [][]int{{200, 399}},
+	hc := NewHTTPHealthChecker(nil, &ProxyHealthCheckSpec{}).(*httpHealthChecker)
+	expected := &ProxyHealthCheckSpec{
+		HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+			Method: "GET",
+			Match: &HealthCheckMatch{
+				StatusCode: [][]int{{200, 399}},
+			},
 		},
 	}
 	assert.Equal(t, expected, hc.spec, "default spec")
@@ -213,7 +242,7 @@ func startServer(port int, handler http.Handler, checkReq func() *http.Request) 
 	return nil, fmt.Errorf("failed to start server")
 }
 
-func TestHealthCheck(t *testing.T) {
+func TestHTTPHealthCheck(t *testing.T) {
 	assert := assert.New(t)
 
 	handleFunc := atomic.Value{}
@@ -244,25 +273,27 @@ func TestHealthCheck(t *testing.T) {
 	}
 
 	{
-		spec := &HealthCheckSpec{
-			Port:   10080,
-			URI:    "/healthz?test=easegress",
-			Method: http.MethodPost,
-			Headers: map[string]string{
-				"X-Test": "easegress",
-			},
-			Body:     "easegress",
-			Username: "admin",
-			Password: "test",
-			Match: &HealthCheckMatch{
-				StatusCode: [][]int{{200, 299}, {400, 499}},
-				Headers: []HealthCheckHeaderMatch{
-					{Name: "H-One", Type: "exact", Value: "V-One"},
-					{Name: "H-Prefix", Type: "regexp", Value: "^V-"},
+		spec := &ProxyHealthCheckSpec{
+			HTTPHealthCheckSpec: HTTPHealthCheckSpec{
+				Port:   10080,
+				URI:    "/healthz?test=easegress",
+				Method: http.MethodPost,
+				Headers: map[string]string{
+					"X-Test": "easegress",
 				},
-				Body: &HealthCheckBodyMatch{
-					Value: "success",
-					Type:  "contains",
+				Body:     "easegress",
+				Username: "admin",
+				Password: "test",
+				Match: &HealthCheckMatch{
+					StatusCode: [][]int{{200, 299}, {400, 499}},
+					Headers: []HealthCheckHeaderMatch{
+						{Name: "H-One", Type: "exact", Value: "V-One"},
+						{Name: "H-Prefix", Type: "regexp", Value: "^V-"},
+					},
+					Body: &HealthCheckBodyMatch{
+						Value: "success",
+						Type:  "contains",
+					},
 				},
 			},
 		}
@@ -277,7 +308,7 @@ func TestHealthCheck(t *testing.T) {
 			}
 		}
 
-		hc := NewHTTPHealthChecker(nil, spec).(*healthChecker)
+		hc := NewHTTPHealthChecker(nil, spec).(*httpHealthChecker)
 		handleFunc.Store(func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal("POST", r.Method)
 			assert.Equal("/healthz", r.URL.Path)
@@ -336,5 +367,264 @@ func TestHealthCheck(t *testing.T) {
 			respHandler(w, cfg)
 		})
 		assert.True(hc.Check(s))
+	}
+}
+
+func TestWebSocketHealthCheckSpec(t *testing.T) {
+	testCases := []struct {
+		spec   *WSProxyHealthCheckSpec
+		failed bool
+		msg    string
+	}{
+		{
+			spec:   &WSProxyHealthCheckSpec{},
+			failed: true,
+			msg:    "empty health check spec",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				HTTP: &HTTPHealthCheckSpec{},
+				WS:   &WSHealthCheckSpec{},
+			},
+			failed: false,
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				HTTP: &HTTPHealthCheckSpec{
+					Method: "not-a-method",
+				},
+			},
+			failed: true,
+			msg:    "invalid method",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Port: -100,
+				},
+			},
+			failed: true,
+			msg:    "invalid port",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					URI: "::::::",
+				},
+			},
+			failed: true,
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						StatusCode: [][]int{{2, 1}},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid status code range",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						StatusCode: [][]int{{1, 2, 3}},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid status code range",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: ""},
+						},
+					},
+				},
+			},
+			failed: true,
+			msg:    "empty match header name",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: "X-Test", Type: "not-a-type"},
+						},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid match header type",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Headers: []HealthCheckHeaderMatch{
+							{Name: "X-Test", Type: "regexp", Value: "["},
+						},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid match header regex",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Body: &HealthCheckBodyMatch{
+							Type:  "not-a-type",
+							Value: "123",
+						},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid match body type",
+		},
+		{
+			spec: &WSProxyHealthCheckSpec{
+				WS: &WSHealthCheckSpec{
+					Match: &HealthCheckMatch{
+						Body: &HealthCheckBodyMatch{
+							Type:  "regexp",
+							Value: "[",
+						},
+					},
+				},
+			},
+			failed: true,
+			msg:    "invalid match body regex",
+		},
+	}
+	for _, tc := range testCases {
+		err := tc.spec.Validate()
+		if tc.failed {
+			assert.NotNil(t, err, tc)
+			assert.Contains(t, err.Error(), tc.msg, tc)
+		} else {
+			assert.Nil(t, err, tc)
+		}
+	}
+
+	hc := NewWebSocketHealthChecker(&WSProxyHealthCheckSpec{
+		WS: &WSHealthCheckSpec{},
+	}).(*wsHealthChecker)
+
+	expected := &WSProxyHealthCheckSpec{
+		WS: &WSHealthCheckSpec{
+			Match: &HealthCheckMatch{
+				StatusCode: [][]int{{101, 101}},
+			},
+		},
+	}
+	assert.Equal(t, expected, hc.spec, "default spec")
+}
+
+func TestWebSocketHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	mux := http.ServeMux{}
+
+	httpHandler := atomic.Value{}
+	httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		httpHandler.Load().(func(w http.ResponseWriter, r *http.Request))(w, r)
+	})
+
+	wsHandler := atomic.Value{}
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {})
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		wsHandler.Load().(func(w http.ResponseWriter, r *http.Request))(w, r)
+	})
+
+	server, err := startServer(10080, &mux, func() *http.Request {
+		req, _ := http.NewRequest("GET", "http://127.0.0.1:10080/healthz", nil)
+		return req
+	})
+	assert.Nil(err)
+	defer server.Shutdown(context.Background())
+
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+
+	{
+		spec := &WSProxyHealthCheckSpec{
+			HTTP: &HTTPHealthCheckSpec{
+				Port: 10080,
+				URI:  "/healthz",
+				Match: &HealthCheckMatch{
+					StatusCode: [][]int{{200, 299}, {400, 499}},
+				},
+			},
+			WS: &WSHealthCheckSpec{
+				Port: 10080,
+				URI:  "/ws",
+				Headers: map[string]string{
+					"X-Test": "easegress",
+				},
+				Match: &HealthCheckMatch{
+					Headers: []HealthCheckHeaderMatch{
+						{Name: "H-One", Type: "exact", Value: "V-One"},
+						{Name: "H-Prefix", Type: "regexp", Value: "^V-"},
+					},
+				},
+			},
+		}
+
+		hc := NewWebSocketHealthChecker(spec).(*wsHealthChecker)
+
+		httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal("easegress", r.Header.Get("X-Test"))
+			header := http.Header{}
+			header.Set("H-One", "V-One")
+			header.Set("H-Prefix", "V-Two")
+			conn, err := upgrader.Upgrade(w, r, header)
+			assert.Nil(err)
+			defer conn.Close()
+		})
+		s := &proxies.Server{URL: "http://127.0.0.1:8080?test=megaease"}
+		assert.True(hc.Check(s))
+
+		s = &proxies.Server{URL: "ws://127.0.0.1:8080?test=megaease"}
+		assert.True(hc.Check(s))
+
+		// wrong http status code
+		httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusFound)
+		})
+		assert.False(hc.Check(s))
+
+		// wrong websocket header
+		httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			conn, err := upgrader.Upgrade(w, r, nil)
+			assert.Nil(err)
+			defer conn.Close()
+		})
+		assert.False(hc.Check(s))
+
+		// wrong websocket status code
+		wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+			header := http.Header{}
+			header.Set("H-One", "V-One")
+			header.Set("H-Prefix", "V-Two")
+			w.WriteHeader(http.StatusOK)
+		})
+		assert.False(hc.Check(s))
 	}
 }
