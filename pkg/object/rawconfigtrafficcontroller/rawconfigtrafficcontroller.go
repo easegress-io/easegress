@@ -92,8 +92,10 @@ func (rctc *RawConfigTrafficController) Init(superSpec *supervisor.Spec) {
 func (rctc *RawConfigTrafficController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	rctc.superSpec, rctc.spec = superSpec, superSpec.ObjectSpec().(*Spec)
 
-	watcher := previousGeneration.(*RawConfigTrafficController).watcher
-	previousGeneration.Close()
+	// Close will clean all the using resources.
+	prev := previousGeneration.(*RawConfigTrafficController)
+	watcher := prev.watcher
+	close(prev.done)
 
 	rctc.reload(watcher)
 }

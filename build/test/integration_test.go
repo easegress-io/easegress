@@ -318,7 +318,7 @@ func TestEgctlCmd(t *testing.T) {
 		output, stderr, err := runCmd(cmd)
 		assert.NoError(err)
 		assert.Empty(stderr)
-		head := []string{"NAME", "ALIASES", "KIND", "ACTION"}
+		head := []string{"NAME", "ALIASES", "CATEGORY", "KIND", "ACTION"}
 		assert.True(matchTable(head, output))
 		assert.True(matchTable([]string{"member", "m,mem,members", "Member", "delete,get,describe"}, output))
 		assert.Contains(output, "create,apply,delete,get,describe")
@@ -623,7 +623,7 @@ func TestLogs(t *testing.T) {
 		// check if new logs are printed
 		yamlStr := `
 kind: HTTPServer
-name: test-egctl-logs        
+name: test-egctl-logs
 port: 12345
 rules:
 - paths:
