@@ -31,6 +31,7 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -912,6 +913,7 @@ filters:
 	// health check passed
 	time.Sleep(1 * time.Second)
 	resp := doReq()
+	resp.Body.Close()
 	assert.Equal(http.StatusOK, resp.StatusCode)
 	assert.Equal("server", resp.Header.Get("X-Server"))
 
@@ -923,6 +925,7 @@ filters:
 	})
 	time.Sleep(1 * time.Second)
 	resp = doReq()
+	resp.Body.Close()
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
 
 	// health check failed, wrong body
@@ -933,6 +936,7 @@ filters:
 	})
 	time.Sleep(1 * time.Second)
 	resp = doReq()
+	resp.Body.Close()
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
 
 	// health check failed, wrong header
@@ -943,6 +947,7 @@ filters:
 	})
 	time.Sleep(800 * time.Millisecond)
 	resp = doReq()
+	resp.Body.Close()
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
 
 	// health check passed
@@ -953,9 +958,121 @@ filters:
 	})
 	time.Sleep(1 * time.Second)
 	resp = doReq()
+	resp.Body.Close()
 	assert.Equal(http.StatusOK, resp.StatusCode)
 	assert.Equal("server", resp.Header.Get("X-Server"))
 
 	called := callHealthCheck.Load()
 	assert.True(called)
+}
+
+func TestWebSocketHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	httpSeverYaml := `
+name: httpserver-hc
+kind: HTTPServer
+port: 9099
+rules:
+- paths:
+  - headers:
+    - key: Upgrade
+      values:
+      - websocket
+    backend: pipeline-ws
+    clientMaxBodySize: -1
+`
+	wsYaml := `
+name: pipeline-ws
+kind: Pipeline
+filters:
+- name: websocket
+  kind: WebSocketProxy
+  pools:
+  - servers:
+    - url: ws://127.0.0.1:12345
+    healthCheck:
+      interval: 200ms
+      timeout: 200ms
+      http:
+        uri: /health
+      ws:
+        uri: /ws
+`
+
+	upgrader := &websocket.Upgrader{}
+
+	httpHandler := atomic.Value{}
+	httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	wsHandler := atomic.Value{}
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		_, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+	})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// for websocket proxy filter to access
+		conn, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+		defer conn.Close()
+		conn.WriteMessage(websocket.TextMessage, []byte("hello from websocket"))
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// for http health check of websocket proxy filter
+		handler := httpHandler.Load().(func(w http.ResponseWriter, r *http.Request))
+		handler(w, r)
+	})
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		// for ws health check of websocket proxy filter
+		handler := wsHandler.Load().(func(w http.ResponseWriter, r *http.Request))
+		handler(w, r)
+	})
+	server := mustStartServer(12345, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12345/health", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer server.Shutdown(context.Background())
+
+	err := createResource(httpSeverYaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-hc")
+	err = createResource(wsYaml)
+	assert.Nil(err)
+	defer deleteResource("pipeline", "pipeline-ws")
+	time.Sleep(1 * time.Second)
+
+	// health check passed
+	time.Sleep(1 * time.Second)
+	conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.Nil(err)
+	_, data, err := conn.ReadMessage()
+	assert.Nil(err)
+	assert.Equal("hello from websocket", string(data))
+	conn.Close()
+
+	// health check failed
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	time.Sleep(1 * time.Second)
+	_, resp, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.NotNil(err)
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+
+	// health check passed again
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		_, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+	})
+	time.Sleep(1 * time.Second)
+	conn, resp, err = websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.Nil(err)
+	assert.Equal(http.StatusSwitchingProtocols, resp.StatusCode)
+	_, data, err = conn.ReadMessage()
+	assert.Nil(err)
+	assert.Equal("hello from websocket", string(data))
 }
