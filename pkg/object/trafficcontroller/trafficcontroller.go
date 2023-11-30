@@ -21,8 +21,10 @@ package trafficcontroller
 import (
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
 
+	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
@@ -97,6 +99,12 @@ var _ easemonitor.Metricer = (*TrafficObjectStatus)(nil)
 
 func init() {
 	supervisor.Register(&TrafficController{})
+	api.RegisterObject(&api.APIResource{
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"trafficcontroller", "tc"},
+	})
 }
 
 // ToMetrics implements easemonitor.Metricer.
@@ -157,7 +165,7 @@ func (tc *TrafficController) Init(superSpec *supervisor.Spec) {
 
 // Inherit inherits previous generation of TrafficController.
 func (tc *TrafficController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
-	tc.superSpec, tc.super = superSpec, superSpec.Super()
+	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 	tc.reload(previousGeneration.(*TrafficController))
 }
 

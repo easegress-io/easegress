@@ -45,9 +45,10 @@ var _ supervisor.TrafficObject = (*MQTTProxy)(nil)
 func init() {
 	supervisor.Register(&MQTTProxy{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"mqtt", "mp"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"mqtt", "mp"},
 	})
 }
 

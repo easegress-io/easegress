@@ -43,9 +43,10 @@ var aliases = []string{"globalfilters"}
 func init() {
 	supervisor.Register(&GlobalFilter{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 

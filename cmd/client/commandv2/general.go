@@ -134,13 +134,13 @@ func APIResourcesCmd() *cobra.Command {
 				sort.Slice(r.Aliases, func(i, j int) bool {
 					return len(r.Aliases[i]) < len(r.Aliases[j])
 				})
-				tables = append(tables, []string{r.Name, strings.Join(r.Aliases, ","), r.Kind, action})
+				tables = append(tables, []string{r.Name, strings.Join(r.Aliases, ","), r.Category, r.Kind, action})
 			}
 			sort.Slice(tables, func(i, j int) bool {
 				return tables[i][0] < tables[j][0]
 			})
 
-			tables = append([][]string{{"NAME", "ALIASES", "KIND", "ACTION"}}, tables...)
+			tables = append([][]string{{"NAME", "ALIASES", "CATEGORY", "KIND", "ACTION"}}, tables...)
 			tables = append(tables, []string{cdk.Name, strings.Join(cdk.Aliases, ","), cdk.Kind, action})
 			tables = append(tables, []string{cd.Name, strings.Join(cd.Aliases, ","), cd.Kind, action})
 			tables = append(tables, []string{member.Name, strings.Join(member.Aliases, ","), member.Kind, "delete,get,describe"})

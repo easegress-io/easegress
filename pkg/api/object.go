@@ -138,6 +138,10 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if spec.Categroy() == supervisor.CategorySystemController {
+		HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("can't create system controller object"))
+	}
+
 	name := spec.Name()
 
 	s.Lock()
@@ -164,6 +168,12 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	defer s.Unlock()
 
 	spec := s._getObject(name)
+
+	if spec.Categroy() == supervisor.CategorySystemController {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("can't delete system controller object"))
+		return
+	}
+
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return

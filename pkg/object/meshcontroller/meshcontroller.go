@@ -43,9 +43,10 @@ const (
 func init() {
 	supervisor.Register(&MeshController{})
 	egapi.RegisterObject(&egapi.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"mesh", "meshcontrollers"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"mesh", "meshcontrollers"},
 	})
 }
 

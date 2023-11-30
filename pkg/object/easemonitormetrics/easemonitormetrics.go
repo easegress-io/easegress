@@ -37,6 +37,9 @@ import (
 )
 
 const (
+	// Category is the category of EaseMonitorMetrics.
+	Category = supervisor.CategoryBusinessController
+
 	// Kind is EaseMonitorMetrics kind.
 	Kind = "EaseMonitorMetrics"
 )
@@ -54,9 +57,10 @@ func init() {
 	}
 
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 
