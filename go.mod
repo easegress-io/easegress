@@ -13,7 +13,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/cors v1.2.1
-	github.com/go-logr/zapr v1.2.4
+	github.com/go-logr/zapr v1.3.0
 	github.com/go-task/slim-sprig v2.20.0+incompatible
 	github.com/go-zookeeper/zk v1.0.3
 	github.com/goccy/go-json v0.10.2
