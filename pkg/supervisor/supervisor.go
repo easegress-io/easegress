@@ -57,6 +57,10 @@ type (
 
 var globalSuper *Supervisor
 
+func GetGlobalSuper() *Supervisor {
+	return globalSuper
+}
+
 func loadInitialObjects(s *Supervisor, paths []string) map[string]string {
 	objs := map[string]string{}
 	for _, path := range paths {

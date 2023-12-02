@@ -560,39 +560,39 @@ directoryURL: ` + url
 	acmWg.Wait()
 	time.Sleep(1 * time.Second)
 
-	if _, err := GetCertificate(helloInfo(""), false); err == nil {
+	if _, err := acm.GetCertificate(helloInfo(""), false); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
-	if _, err := GetCertificate(helloInfo("."), false); err == nil {
+	if _, err := acm.GetCertificate(helloInfo("."), false); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
 	hello := helloInfo("example.org")
 	hello.SupportedProtos = []string{acme.ALPNProto}
-	if _, err := GetCertificate(hello, false); err == nil {
+	if _, err := acm.GetCertificate(hello, false); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
 
 	hello = helloInfo(".megaease.com")
 	hello.SupportedProtos = []string{acme.ALPNProto}
-	if _, err := GetCertificate(hello, false); err == nil {
+	if _, err := acm.GetCertificate(hello, false); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
 	acm.spec.EnableTLSALPN01 = false
-	if _, err := GetCertificate(hello, false); err == nil {
+	if _, err := acm.GetCertificate(hello, false); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
 	acm.spec.EnableTLSALPN01 = true
 
 	hello.SupportedProtos = []string{"proto"}
-	if _, err := GetCertificate(hello, false); err != nil {
+	if _, err := acm.GetCertificate(hello, false); err != nil {
 		t.Errorf("GetCertificate failed; %v", err.Error())
 	}
-	if _, err := GetCertificate(hello, true); err == nil {
+	if _, err := acm.GetCertificate(hello, true); err == nil {
 		t.Errorf("GetCertificate should fail")
 	}
 	hello = helloInfo("unexistingdomain.io")
 	hello.SupportedProtos = []string{"proto"}
-	if _, err := GetCertificate(hello, false); err != nil {
+	if _, err := acm.GetCertificate(hello, false); err != nil {
 		t.Errorf("GetCertificate failed; %v", err.Error())
 	}
 
@@ -602,20 +602,20 @@ directoryURL: ` + url
 		t.Errorf(err.Error())
 	}
 	acm.spec.EnableHTTP01 = false
-	HandleHTTP01Challenge(w, r)
+	acm.HandleHTTP01Challenge(w, r)
 	if !strings.Contains(w.Body.String(), "HTTP01 challenge is disabled") {
 		t.Error("should be disabled")
 	}
 	acm.spec.EnableHTTP01 = true
 	w = httptest.NewRecorder()
-	HandleHTTP01Challenge(w, r)
+	acm.HandleHTTP01Challenge(w, r)
 	if !strings.Contains(w.Body.String(), `host "example.org" is not configured`) {
 		t.Error("host should not exist")
 	}
 	// fake host
 	r.Host = "*.megaease.com"
 	w = httptest.NewRecorder()
-	HandleHTTP01Challenge(w, r)
+	acm.HandleHTTP01Challenge(w, r)
 	if !strings.Contains(w.Body.String(), `token does not exist`) {
 		t.Error("token should not exist")
 	}
@@ -628,7 +628,7 @@ directoryURL: ` + url
 	}
 
 	w = httptest.NewRecorder()
-	HandleHTTP01Challenge(w, r)
+	acm.HandleHTTP01Challenge(w, r)
 	if !strings.Contains(w.Body.String(), token) {
 		t.Error("token should exist")
 	}
@@ -749,22 +749,6 @@ directoryURL: ` + url
 	closeWG.Add(1)
 	cls.CloseServer(closeWG)
 	closeWG.Wait()
-}
-
-func TestAutoCertManagerNotRunning(t *testing.T) {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		HandleHTTP01Challenge(w, r)
-		wg.Done()
-	}))
-	defer ts.Close()
-	_, err := http.Get(ts.URL)
-	if err != nil {
-		t.Errorf(err.Error())
-	}
-	wg.Wait()
-	GetCertificate(helloInfo("example.org"), false)
 }
 
 func TestCertificateHelpers(t *testing.T) {

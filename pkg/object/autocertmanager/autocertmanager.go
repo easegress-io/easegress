@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/v2/pkg/api"
@@ -39,8 +38,7 @@ import (
 
 const (
 	// Category is the category of AutoCertManager.
-	// It is a business controller by now, but should be a system controller.
-	Category = supervisor.CategoryBusinessController
+	Category = supervisor.CategorySystemController
 
 	// Kind is the kind of AutoCertManager.
 	Kind = "AutoCertManager"
@@ -107,8 +105,6 @@ type (
 	}
 )
 
-var globalACM atomic.Value
-
 // Validate validates the spec of AutoCertManager.
 func (spec *Spec) Validate() error {
 	if !(spec.EnableHTTP01 || spec.EnableTLSALPN01 || spec.EnableDNS01) {
@@ -168,6 +164,7 @@ func (acm *AutoCertManager) DefaultSpec() interface{} {
 		EnableHTTP01:    true,
 		EnableTLSALPN01: true,
 		EnableDNS01:     true,
+		Domains:         []DomainSpec{},
 	}
 }
 
@@ -176,11 +173,6 @@ func (acm *AutoCertManager) Init(superSpec *supervisor.Spec) {
 	acm.superSpec = superSpec
 	acm.spec = superSpec.ObjectSpec().(*Spec)
 	acm.super = superSpec.Super()
-
-	// TODO: remove this check after converting AutoCertManager to a system controller.
-	if p := globalACM.Load(); p != nil && p.(*AutoCertManager) != nil {
-		logger.Warnf("an AutoCertManager instance is already exist")
-	}
 
 	acm.reload()
 }
@@ -242,7 +234,6 @@ func (acm *AutoCertManager) reload() {
 		d.certificate.Store(cert)
 	}
 
-	globalACM.Store(acm)
 	go acm.run()
 	go acm.watchCertificate()
 }
@@ -263,11 +254,6 @@ func (acm *AutoCertManager) Status() *supervisor.Status {
 // Close closes AutoCertManager.
 func (acm *AutoCertManager) Close() {
 	acm.cancel()
-	// TODO: remove this after converting AutoCertManager to system controller.
-	//
-	// globalACM equals nil means the AutoCertManager is being deleted, so we
-	// need to set the globalACM to nil.
-	globalACM.CompareAndSwap(acm, (*AutoCertManager)(nil))
 }
 
 func (acm *AutoCertManager) renew() bool {
@@ -354,7 +340,8 @@ func (acm *AutoCertManager) run() {
 	}
 }
 
-func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
+// GetCertificate handles the tls hello.
+func (acm *AutoCertManager) GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
 	name := chi.ServerName
 	if name == "" {
 		return nil, fmt.Errorf("missing server name")
@@ -392,7 +379,8 @@ func (acm *AutoCertManager) getCertificate(chi *tls.ClientHelloInfo, tokenOnly b
 	return cert, nil
 }
 
-func (acm *AutoCertManager) handleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
+// HandleHTTP01Challenge handles HTTP-01 challenge.
+func (acm *AutoCertManager) HandleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
 	if !acm.spec.EnableHTTP01 {
 		http.Error(w, "HTTP01 challenge is disabled", http.StatusNotFound)
 		return
@@ -413,31 +401,11 @@ func (acm *AutoCertManager) handleHTTP01Challenge(w http.ResponseWriter, r *http
 	w.Write(data)
 }
 
-// GetCertificate handles the tls hello
-func GetCertificate(chi *tls.ClientHelloInfo, tokenOnly bool) (*tls.Certificate, error) {
-	var acm *AutoCertManager
-	if p := globalACM.Load(); p != nil {
-		acm = p.(*AutoCertManager)
-	}
-	if acm != nil {
-		return acm.getCertificate(chi, tokenOnly)
+func GetGlobalAutoCertManager() *AutoCertManager {
+	entity, exists := supervisor.GetGlobalSuper().GetSystemController(Kind)
+	if !exists {
+		return nil
 	}
 
-	// return a nil error if the AutoCertManager is not started, otherwise:
-	// * static certificates configured in an HTTP server are never used, which is a bug
-	// * the Go HTTP package logs a lot of 'TLS handshake error'
-	return nil, nil
-}
-
-// HandleHTTP01Challenge handles HTTP-01 challenge
-func HandleHTTP01Challenge(w http.ResponseWriter, r *http.Request) {
-	var acm *AutoCertManager
-	if p := globalACM.Load(); p != nil {
-		acm = p.(*AutoCertManager)
-	}
-	if acm != nil {
-		acm.handleHTTP01Challenge(w, r)
-	} else {
-		http.Error(w, "auto certificate manager is not started", http.StatusNotFound)
-	}
+	return entity.Instance().(*AutoCertManager)
 }

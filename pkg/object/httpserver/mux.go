@@ -204,8 +204,15 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// don't know which HTTP server listen on this port (consider there's an
 	// nginx sitting in front of Easegress), so all HTTP servers need to
 	// handle HTTP-01 challenges.
+	acm := autocertmanager.GetGlobalAutoCertManager()
+	if acm == nil {
+		logger.Errorf("BUG: autocert manager not found")
+		stdw.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
 	if strings.HasPrefix(stdr.URL.Path, "/.well-known/acme-challenge/") {
-		autocertmanager.HandleHTTP01Challenge(stdw, stdr)
+		acm.HandleHTTP01Challenge(stdw, stdr)
 		return
 	}
 

@@ -22,12 +22,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"testing/iotest"
 
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/option"
 
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/context/contexttest"
@@ -120,6 +123,16 @@ func TestAppendXForwardFor(t *testing.T) {
 }
 
 func TestServerACME(t *testing.T) {
+	// NOTE: For loading system controller AutoCertManager.
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	defer os.RemoveAll(etcdDirName)
+
+	cls := cluster.CreateClusterForTest(etcdDirName)
+	supervisor.MustNew(&option.Options{}, cls)
+
 	assert := assert.New(t)
 
 	mm := &contexttest.MockedMuxMapper{}
@@ -630,7 +643,6 @@ rules:
 	stdr.Header.Set("X-Real-Ip", "192.168.1.5")
 	req, _ = httpprot.NewRequest(stdr)
 	assert.Equal(403, mi.search(routers.NewContext(req)).code)
-
 }
 
 func TestAccessLog(t *testing.T) {
