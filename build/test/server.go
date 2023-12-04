@@ -21,7 +21,6 @@ package test
 import (
 	"fmt"
 	"net/http"
-	"testing"
 	"time"
 )
 
@@ -34,15 +33,23 @@ func startServer(port int, handler http.Handler) *http.Server {
 	return server
 }
 
-func checkServerStart(t *testing.T, checkReq func() *http.Request) bool {
-	for i := 0; i < 10; i++ {
+func checkServerStart(checkReq func() *http.Request) bool {
+	for i := 0; i < 100; i++ {
 		req := checkReq()
 		resp, err := http.DefaultClient.Do(req)
-		if err == nil {
+		if err == nil && resp.StatusCode == http.StatusOK {
 			resp.Body.Close()
 			return true
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	return false
+}
+
+func mustStartServer(port int, hanlder http.Handler, checkReq func() *http.Request) *http.Server {
+	server := startServer(port, hanlder)
+	if !checkServerStart(checkReq) {
+		panic(fmt.Sprintf("failed to start server on port %v", port))
+	}
+	return server
 }

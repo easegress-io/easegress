@@ -38,10 +38,11 @@ import (
 type WebSocketServerPool struct {
 	BaseServerPool
 
-	filter   RequestMatcher
-	proxy    *WebSocketProxy
-	spec     *WebSocketServerPoolSpec
-	httpStat *httpstat.HTTPStat
+	filter        RequestMatcher
+	proxy         *WebSocketProxy
+	spec          *WebSocketServerPoolSpec
+	httpStat      *httpstat.HTTPStat
+	healthChecker proxies.HealthChecker
 }
 
 // WebSocketServerPoolSpec is the spec for a server pool.
@@ -52,14 +53,17 @@ type WebSocketServerPoolSpec struct {
 	Filter             *RequestMatcherSpec `json:"filter,omitempty"`
 	InsecureSkipVerify bool                `json:"insecureSkipVerify,omitempty"`
 	OriginPatterns     []string            `json:"originPatterns,omitempty"`
+
+	HealthCheck *WSProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.
 func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec, name string) *WebSocketServerPool {
 	sp := &WebSocketServerPool{
-		proxy:    proxy,
-		spec:     spec,
-		httpStat: httpstat.New(),
+		proxy:         proxy,
+		spec:          spec,
+		httpStat:      httpstat.New(),
+		healthChecker: NewWebSocketHealthChecker(spec.HealthCheck),
 	}
 	if spec.Filter != nil {
 		sp.filter = NewRequestMatcher(spec.Filter)
@@ -71,7 +75,7 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 // CreateLoadBalancer creates a load balancer according to spec.
 func (sp *WebSocketServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := proxies.NewGeneralLoadBalancer(spec, servers)
-	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	lb.Init(proxies.NewHTTPSessionSticker, sp.healthChecker, nil)
 	return lb
 }
 

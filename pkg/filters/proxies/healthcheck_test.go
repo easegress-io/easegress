@@ -20,36 +20,27 @@ package proxies
 import (
 	"sync"
 	"sync/atomic"
-	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 type MockHealthChecker struct {
-	expect  int32
+	Expect int32
+	Result bool
+	WG     *sync.WaitGroup
+
+	spec    HealthCheckSpec
 	counter int32
-	result  bool
-	wg      *sync.WaitGroup
+}
+
+func (c *MockHealthChecker) BaseSpec() HealthCheckSpec {
+	return c.spec
 }
 
 func (c *MockHealthChecker) Check(svr *Server) bool {
-	if c.wg != nil && atomic.AddInt32(&c.counter, 1) <= c.expect {
-		c.wg.Done()
+	if c.WG != nil && atomic.AddInt32(&c.counter, 1) <= c.Expect {
+		c.WG.Done()
 	}
-	return c.result
+	return c.Result
 }
 
 func (c *MockHealthChecker) Close() {
-}
-
-func TestHTTPHealthChecker(t *testing.T) {
-	spec := &HealthCheckSpec{}
-	c := NewHTTPHealthChecker(spec)
-	assert.NotNil(t, c)
-
-	spec = &HealthCheckSpec{Timeout: "100ms"}
-	c = NewHTTPHealthChecker(spec)
-	c.Check(&Server{URL: "https://www.megaease.com"})
-
-	c.Close()
 }

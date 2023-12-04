@@ -26,10 +26,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -234,15 +236,12 @@ filters:
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "hello from backend")
 	})
-	server := startServer(8888, mux)
-	defer server.Shutdown(context.Background())
-	// check 8888 server is started
-	started := checkServerStart(t, func() *http.Request {
+	server := mustStartServer(8888, mux, func() *http.Request {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888", nil)
 		require.Nil(t, err)
 		return req
 	})
-	require.True(t, started)
+	defer server.Shutdown(context.Background())
 
 	// send request to 10081 HTTPServer
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10081/", nil)
@@ -540,22 +539,25 @@ list:
 func TestCreateHTTPProxy(t *testing.T) {
 	assert := assert.New(t)
 
-	for i, port := range []int{9096, 9097, 9098} {
+	servers := make([]*http.Server, 0)
+	for _, port := range []int{9096, 9097, 9098} {
 		currentPort := port
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "hello from backend %d", currentPort)
 		})
-
-		server := startServer(currentPort, mux)
-		defer server.Shutdown(context.Background())
-		started := checkServerStart(t, func() *http.Request {
+		server := mustStartServer(currentPort, mux, func() *http.Request {
 			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d", currentPort), nil)
 			require.Nil(t, err)
 			return req
 		})
-		require.True(t, started, i)
+		servers = append(servers, server)
 	}
+	defer func() {
+		for _, s := range servers {
+			s.Shutdown(context.Background())
+		}
+	}()
 
 	cmd := egctlCmd(
 		"create",
@@ -572,6 +574,9 @@ func TestCreateHTTPProxy(t *testing.T) {
 	_, stderr, err := runCmd(cmd)
 	assert.NoError(err)
 	assert.Empty(stderr)
+	defer func() {
+		deleteResource("httpserver", "http-proxy-test")
+	}()
 
 	output, err := getResource("httpserver")
 	assert.NoError(err)
@@ -635,6 +640,7 @@ rules:
 		time.Sleep(1 * time.Second)
 		cmd.Process.Kill()
 		assert.Contains(stdout.String(), "test-egctl-logs")
+		deleteResource("httpserver", "test-egctl-logs")
 	}
 
 	{
@@ -667,4 +673,406 @@ func TestMetrics(t *testing.T) {
 		assert.Empty(stderr)
 		assert.Contains(output, "etcd_server_has_leader")
 	}
+}
+
+func TestHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	// unhealthy server return 503 as status code
+	var invalidCode int32 = 503
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Server", "unhealthy")
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		code := atomic.LoadInt32(&invalidCode)
+		w.WriteHeader(int(code))
+	})
+	unhealthy := mustStartServer(12345, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12345", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer unhealthy.Shutdown(context.Background())
+
+	// healthy server return 200 as status code
+	mux2 := http.NewServeMux()
+	mux2.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Server", "healthy")
+		w.WriteHeader(http.StatusOK)
+	})
+	mux2.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	healthy := mustStartServer(12346, mux2, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12346", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer healthy.Shutdown(context.Background())
+
+	httpSeverYaml := `
+name: httpserver-hc
+kind: HTTPServer
+port: 9099
+rules:
+- paths:
+  - pathPrefix: /
+    backend: pipeline-hc
+`
+	pipelineYaml := `
+name: pipeline-hc
+kind: Pipeline
+flow:
+- filter: proxy
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:12345
+    - url: http://127.0.0.1:12346
+    loadBalance:
+      policy: roundRobin
+      healthCheck:
+        interval: 200ms
+        fails: 2
+        pass: 2
+        path: /health
+`
+	err := createResource(httpSeverYaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-hc")
+	err = createResource(pipelineYaml)
+	defer deleteResource("pipeline", "pipeline-hc")
+	assert.Nil(err)
+	started := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err)
+		return req
+	})
+	assert.True(started)
+
+	time.Sleep(1 * time.Second)
+	// unhealthy server not passed health check.
+	for i := 0; i < 50; i++ {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err, i)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, i)
+		assert.Equal(http.StatusOK, resp.StatusCode, i)
+		assert.Equal("healthy", resp.Header.Get("X-Server"), i)
+		resp.Body.Close()
+	}
+
+	atomic.StoreInt32(&invalidCode, 200)
+	time.Sleep(1 * time.Second)
+	last := ""
+	// unhealthy server passed health check.
+	// based on round robin, the response should be unhealthy, healthy, unhealthy, healthy...
+	for i := 0; i < 50; i++ {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err, i)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err, i)
+		assert.Equal(http.StatusOK, resp.StatusCode, i)
+		value := resp.Header.Get("X-Server")
+		if last != "" {
+			if last == "healthy" {
+				assert.Equal("unhealthy", value, i)
+			} else {
+				assert.Equal("healthy", value, i)
+			}
+		}
+		last = value
+		resp.Body.Close()
+	}
+}
+
+func TestHealthCheck2(t *testing.T) {
+	assert := assert.New(t)
+
+	httpSeverYaml := `
+name: httpserver-hc
+kind: HTTPServer
+port: 9099
+rules:
+- paths:
+  - pathPrefix: /
+    backend: pipeline-hc
+`
+	pipelineYaml := `
+name: pipeline-hc
+kind: Pipeline
+flow:
+- filter: proxy
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:12345
+    healthCheck:
+      interval: 200ms
+      fails: 2
+      pass: 2
+      uri: /health?proxy=easegress
+      method: POST
+      headers:
+        X-Health: easegress
+      body: "easegress"
+      username: admin
+      password: test-health-check
+      match:
+        statusCodes:
+        - [200, 399]
+        headers:
+        - name: X-Status
+          value: healthy
+        body:
+          value: "healthy"
+`
+	// check if health check set request correctly
+	requestChecker := func(req *http.Request) error {
+		if req.URL.Path != "/health" || req.URL.Query().Get("proxy") != "easegress" {
+			return fmt.Errorf("invalid request url: %s", req.URL.String())
+		}
+		if req.Method != http.MethodPost {
+			return fmt.Errorf("invalid request method: %s", req.Method)
+		}
+		if req.Header.Get("X-Health") != "easegress" {
+			return fmt.Errorf("invalid request header: %s", req.Header.Get("X-Health"))
+		}
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			return err
+		}
+		if string(body) != "easegress" {
+			return fmt.Errorf("invalid request body: %s", string(body))
+		}
+		username, password, ok := req.BasicAuth()
+		if !ok {
+			return fmt.Errorf("failed to get basic auth")
+		}
+		if username != "admin" || password != "test-health-check" {
+			return fmt.Errorf("invalid basic auth: %s:%s", username, password)
+		}
+		return nil
+	}
+
+	healthCheckHandler := atomic.Value{}
+	healthCheckHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Status", "healthy")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("healthy"))
+	})
+	callHealthCheck := atomic.Bool{}
+	callHealthCheck.Store(false)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Server", "server")
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		callHealthCheck.Store(true)
+		err := requestChecker(r)
+		assert.Nil(err)
+		handler := healthCheckHandler.Load().(func(w http.ResponseWriter, r *http.Request))
+		handler(w, r)
+	})
+	server := mustStartServer(12345, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12345", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer server.Shutdown(context.Background())
+
+	err := createResource(httpSeverYaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-hc")
+	err = createResource(pipelineYaml)
+	defer deleteResource("pipeline", "pipeline-hc")
+	assert.Nil(err)
+	started := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err)
+		return req
+	})
+	assert.True(started)
+
+	doReq := func() *http.Response {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
+		assert.Nil(err)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err)
+		return resp
+	}
+
+	// health check passed
+	time.Sleep(1 * time.Second)
+	resp := doReq()
+	resp.Body.Close()
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("server", resp.Header.Get("X-Server"))
+
+	// health check failed, wrong status code
+	healthCheckHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Status", "healthy")
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("healthy"))
+	})
+	time.Sleep(1 * time.Second)
+	resp = doReq()
+	resp.Body.Close()
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+
+	// health check failed, wrong body
+	healthCheckHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Status", "healthy")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("not ok"))
+	})
+	time.Sleep(1 * time.Second)
+	resp = doReq()
+	resp.Body.Close()
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+
+	// health check failed, wrong header
+	healthCheckHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Status", "unhealthy")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("healthy"))
+	})
+	time.Sleep(800 * time.Millisecond)
+	resp = doReq()
+	resp.Body.Close()
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+
+	// health check passed
+	healthCheckHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("X-Status", "healthy")
+		w.WriteHeader(http.StatusFound)
+		w.Write([]byte("very healthy"))
+	})
+	time.Sleep(1 * time.Second)
+	resp = doReq()
+	resp.Body.Close()
+	assert.Equal(http.StatusOK, resp.StatusCode)
+	assert.Equal("server", resp.Header.Get("X-Server"))
+
+	called := callHealthCheck.Load()
+	assert.True(called)
+}
+
+func TestWebSocketHealthCheck(t *testing.T) {
+	assert := assert.New(t)
+
+	httpSeverYaml := `
+name: httpserver-hc
+kind: HTTPServer
+port: 9099
+rules:
+- paths:
+  - headers:
+    - key: Upgrade
+      values:
+      - websocket
+    backend: pipeline-ws
+    clientMaxBodySize: -1
+`
+	wsYaml := `
+name: pipeline-ws
+kind: Pipeline
+filters:
+- name: websocket
+  kind: WebSocketProxy
+  pools:
+  - servers:
+    - url: ws://127.0.0.1:12345
+    healthCheck:
+      interval: 200ms
+      timeout: 200ms
+      http:
+        uri: /health
+      ws:
+        uri: /ws
+`
+
+	upgrader := &websocket.Upgrader{}
+
+	httpHandler := atomic.Value{}
+	httpHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	wsHandler := atomic.Value{}
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		_, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+	})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		// for websocket proxy filter to access
+		conn, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+		defer conn.Close()
+		conn.WriteMessage(websocket.TextMessage, []byte("hello from websocket"))
+	})
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// for http health check of websocket proxy filter
+		handler := httpHandler.Load().(func(w http.ResponseWriter, r *http.Request))
+		handler(w, r)
+	})
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		// for ws health check of websocket proxy filter
+		handler := wsHandler.Load().(func(w http.ResponseWriter, r *http.Request))
+		handler(w, r)
+	})
+	server := mustStartServer(12345, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:12345/health", nil)
+		require.Nil(t, err)
+		return req
+	})
+	defer server.Shutdown(context.Background())
+
+	err := createResource(httpSeverYaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-hc")
+	err = createResource(wsYaml)
+	assert.Nil(err)
+	defer deleteResource("pipeline", "pipeline-ws")
+	time.Sleep(1 * time.Second)
+
+	// health check passed
+	time.Sleep(1 * time.Second)
+	conn, _, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.Nil(err)
+	_, data, err := conn.ReadMessage()
+	assert.Nil(err)
+	assert.Equal("hello from websocket", string(data))
+	conn.Close()
+
+	// health check failed
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	time.Sleep(1 * time.Second)
+	_, resp, err := websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.NotNil(err)
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode)
+
+	// health check passed again
+	wsHandler.Store(func(w http.ResponseWriter, r *http.Request) {
+		_, err := upgrader.Upgrade(w, r, nil)
+		assert.Nil(err)
+	})
+	time.Sleep(1 * time.Second)
+	conn, resp, err = websocket.DefaultDialer.Dial("ws://127.0.0.1:9099", nil)
+	assert.Nil(err)
+	assert.Equal(http.StatusSwitchingProtocols, resp.StatusCode)
+	_, data, err = conn.ReadMessage()
+	assert.Nil(err)
+	assert.Equal("hello from websocket", string(data))
 }

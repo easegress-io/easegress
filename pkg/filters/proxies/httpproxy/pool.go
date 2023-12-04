@@ -41,6 +41,18 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var httpMethods = map[string]struct{}{
+	http.MethodGet:     {},
+	http.MethodHead:    {},
+	http.MethodPost:    {},
+	http.MethodPut:     {},
+	http.MethodPatch:   {},
+	http.MethodDelete:  {},
+	http.MethodConnect: {},
+	http.MethodOptions: {},
+	http.MethodTrace:   {},
+}
+
 // serverPoolError is the error returned by handler function of
 // a server pool.
 type serverPoolError struct {
@@ -172,25 +184,40 @@ type ServerPool struct {
 	retryWrapper          resilience.Wrapper
 	circuitBreakerWrapper resilience.Wrapper
 
-	httpStat    *httpstat.HTTPStat
-	memoryCache *MemoryCache
-	metrics     *metrics
+	httpStat      *httpstat.HTTPStat
+	memoryCache   *MemoryCache
+	metrics       *metrics
+	healthChecker proxies.HealthChecker
 }
 
 // ServerPoolSpec is the spec for a server pool.
 type ServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
 
-	Filter               *RequestMatcherSpec `json:"filter,omitempty"`
-	SpanName             string              `json:"spanName,omitempty"`
-	ServerMaxBodySize    int64               `json:"serverMaxBodySize,omitempty"`
-	Timeout              string              `json:"timeout,omitempty" jsonschema:"format=duration"`
-	RetryPolicy          string              `json:"retryPolicy,omitempty"`
-	CircuitBreakerPolicy string              `json:"circuitBreakerPolicy,omitempty"`
-	MemoryCache          *MemoryCacheSpec    `json:"memoryCache,omitempty"`
+	Filter               *RequestMatcherSpec   `json:"filter,omitempty"`
+	SpanName             string                `json:"spanName,omitempty"`
+	ServerMaxBodySize    int64                 `json:"serverMaxBodySize,omitempty"`
+	Timeout              string                `json:"timeout,omitempty" jsonschema:"format=duration"`
+	RetryPolicy          string                `json:"retryPolicy,omitempty"`
+	CircuitBreakerPolicy string                `json:"circuitBreakerPolicy,omitempty"`
+	MemoryCache          *MemoryCacheSpec      `json:"memoryCache,omitempty"`
+	HealthCheck          *ProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 
 	// FailureCodes would be 5xx if it isn't assigned any value.
 	FailureCodes []int `json:"failureCodes,omitempty" jsonschema:"uniqueItems=true"`
+}
+
+func (spec *ServerPoolSpec) Validate() error {
+	if err := spec.BaseServerPoolSpec.Validate(); err != nil {
+		return err
+	}
+	if spec.ServiceName != "" && spec.HealthCheck != nil {
+		return fmt.Errorf("serviceName and healthCheck can't be set at the same time")
+	}
+	if spec.HealthCheck != nil {
+		return spec.HealthCheck.Validate()
+	}
+	return nil
 }
 
 // ServerPoolStatus is the status of Pool.
@@ -200,10 +227,18 @@ type ServerPoolStatus struct {
 
 // NewServerPool creates a new server pool according to spec.
 func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool {
+	tlsConfig, _ := proxy.tlsConfig()
+	// backward compatibility, if healthCheck is not set, but loadBalance's healthCheck is set, use it.
+	if spec.HealthCheck == nil && spec.LoadBalance != nil && spec.LoadBalance.HealthCheck != nil {
+		spec.HealthCheck = &ProxyHealthCheckSpec{
+			HealthCheckSpec: *spec.LoadBalance.HealthCheck,
+		}
+	}
 	sp := &ServerPool{
-		proxy:    proxy,
-		spec:     spec,
-		httpStat: httpstat.New(),
+		proxy:         proxy,
+		spec:          spec,
+		httpStat:      httpstat.New(),
+		healthChecker: NewHTTPHealthChecker(tlsConfig, spec.HealthCheck),
 	}
 	if spec.Filter != nil {
 		sp.filter = NewRequestMatcher(spec.Filter)
@@ -231,7 +266,7 @@ func NewServerPool(proxy *Proxy, spec *ServerPoolSpec, name string) *ServerPool 
 // CreateLoadBalancer creates a load balancer according to spec.
 func (sp *ServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := proxies.NewGeneralLoadBalancer(spec, servers)
-	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	lb.Init(proxies.NewHTTPSessionSticker, sp.healthChecker, nil)
 	return lb
 }
 

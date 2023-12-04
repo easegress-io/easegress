@@ -61,7 +61,9 @@ type LoadBalanceSpec struct {
 	HeaderHashKey string             `json:"headerHashKey,omitempty"`
 	ForwardKey    string             `json:"forwardKey,omitempty"`
 	StickySession *StickySessionSpec `json:"stickySession,omitempty"`
-	HealthCheck   *HealthCheckSpec   `json:"healthCheck,omitempty"`
+	// Deprecated: HealthCheck is protocol related. It should be moved to protocol spec.
+	// This one is kept for backward compatibility.
+	HealthCheck *HealthCheckSpec `json:"healthCheck,omitempty"`
 }
 
 // LoadBalancePolicy is the interface of a load balance policy.
@@ -77,9 +79,10 @@ type GeneralLoadBalancer struct {
 
 	done chan struct{}
 
-	lbp LoadBalancePolicy
-	ss  SessionSticker
-	hc  HealthChecker
+	lbp    LoadBalancePolicy
+	ss     SessionSticker
+	hc     HealthChecker
+	hcSpec *HealthCheckSpec
 }
 
 // NewGeneralLoadBalancer creates a new GeneralLoadBalancer.
@@ -95,7 +98,7 @@ func NewGeneralLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *GeneralLo
 // Init initializes the load balancer.
 func (glb *GeneralLoadBalancer) Init(
 	fnNewSessionSticker func(*StickySessionSpec) SessionSticker,
-	fnNewHealthChecker func(*HealthCheckSpec) HealthChecker,
+	hc HealthChecker,
 	lbp LoadBalancePolicy,
 ) {
 	// load balance policy
@@ -127,28 +130,23 @@ func (glb *GeneralLoadBalancer) Init(
 		glb.ss = ss
 	}
 
-	// health check
-	if glb.spec.HealthCheck == nil {
+	if hc == nil {
 		return
 	}
 
-	if glb.spec.HealthCheck.Fails <= 0 {
-		glb.spec.HealthCheck.Fails = 1
+	spec := hc.BaseSpec()
+	if spec.Fails <= 0 {
+		spec.Fails = 1
 	}
-
-	if glb.spec.HealthCheck.Passes <= 0 {
-		glb.spec.HealthCheck.Passes = 1
+	if spec.Passes <= 0 {
+		spec.Passes = 1
 	}
+	glb.hc = hc
+	glb.hcSpec = &spec
 
-	glb.hc = fnNewHealthChecker(glb.spec.HealthCheck)
-
-	interval, _ := time.ParseDuration(glb.spec.HealthCheck.Interval)
-	if interval <= 0 {
-		interval = time.Minute
-	}
-
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(spec.GetInterval())
 	glb.done = make(chan struct{})
+	glb.checkServers()
 	go func() {
 		for {
 			select {
@@ -173,7 +171,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 				svr.HealthCounter = 0
 			}
 			svr.HealthCounter++
-			if svr.Unhealth && svr.HealthCounter >= glb.spec.HealthCheck.Passes {
+			if svr.Unhealth && svr.HealthCounter >= glb.hcSpec.Passes {
 				logger.Warnf("server:%v becomes healthy.", svr.ID())
 				svr.Unhealth = false
 				changed = true
@@ -183,7 +181,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 				svr.HealthCounter = 0
 			}
 			svr.HealthCounter--
-			if svr.Healthy() && svr.HealthCounter <= -glb.spec.HealthCheck.Fails {
+			if svr.Healthy() && svr.HealthCounter <= -glb.hcSpec.Fails {
 				logger.Warnf("server:%v becomes unhealthy.", svr.ID())
 				svr.Unhealth = true
 				changed = true

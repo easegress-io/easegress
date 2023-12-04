@@ -17,58 +17,46 @@
 
 package proxies
 
-import (
-	"net/http"
-	"time"
-)
+import "time"
 
 // HealthCheckSpec is the spec for health check.
 type HealthCheckSpec struct {
 	// Interval is the interval duration for health check.
 	Interval string `json:"interval,omitempty" jsonschema:"format=duration"`
-	// Path is the health check path for server
-	Path string `json:"path,omitempty"`
 	// Timeout is the timeout duration for health check, default is 3.
 	Timeout string `json:"timeout,omitempty" jsonschema:"format=duration"`
 	// Fails is the consecutive fails count for assert fail, default is 1.
 	Fails int `json:"fails,omitempty" jsonschema:"minimum=1"`
 	// Passes is the consecutive passes count for assert pass, default is 1.
 	Passes int `json:"passes,omitempty" jsonschema:"minimum=1"`
+
+	// Deprecated: other fields in this struct are general, but this field is
+	// specific to HTTP health check. It should be moved to HTTP health check.
+	// In HTTP health check, we should use URI instead of path.
+	Path string `json:"path,omitempty"`
+}
+
+// GetTimeout returns the timeout duration.
+func (s *HealthCheckSpec) GetTimeout() time.Duration {
+	timeout, _ := time.ParseDuration(s.Timeout)
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+	return timeout
+}
+
+// GetInterval returns the interval duration.
+func (s *HealthCheckSpec) GetInterval() time.Duration {
+	interval, _ := time.ParseDuration(s.Interval)
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	return interval
 }
 
 // HealthChecker checks whether a server is healthy or not.
 type HealthChecker interface {
+	BaseSpec() HealthCheckSpec
 	Check(svr *Server) bool
 	Close()
-}
-
-// HTTPHealthChecker is a health checker for HTTP protocol.
-type HTTPHealthChecker struct {
-	path   string
-	client *http.Client
-}
-
-// NewHTTPHealthChecker creates a new HTTPHealthChecker.
-func NewHTTPHealthChecker(spec *HealthCheckSpec) HealthChecker {
-	timeout, _ := time.ParseDuration(spec.Timeout)
-	if timeout <= 0 {
-		timeout = 3 * time.Second
-	}
-
-	return &HTTPHealthChecker{
-		path:   spec.Path,
-		client: &http.Client{Timeout: timeout},
-	}
-}
-
-// Check checks whether a server is healthy or not.
-func (hc *HTTPHealthChecker) Check(svr *Server) bool {
-	// TODO: should use url.JoinPath?
-	url := svr.URL + hc.path
-	resp, err := hc.client.Get(url)
-	return err == nil && resp.StatusCode < 500
-}
-
-// Close closes the health checker
-func (hc *HTTPHealthChecker) Close() {
 }

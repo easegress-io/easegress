@@ -61,9 +61,8 @@ func TestGeneralLoadBalancer(t *testing.T) {
 	lb := NewGeneralLoadBalancer(spec, servers)
 	wg := &sync.WaitGroup{}
 	wg.Add(serverCount)
-	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
-		return &MockHealthChecker{expect: int32(serverCount), wg: wg, result: false}
-	}, nil)
+	hc := &MockHealthChecker{Expect: int32(serverCount), WG: wg, Result: false}
+	lb.Init(NewHTTPSessionSticker, hc, nil)
 	wg.Wait()
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, len(lb.healthyServers.Load().Servers), 0)
@@ -74,9 +73,8 @@ func TestGeneralLoadBalancer(t *testing.T) {
 	lb = NewGeneralLoadBalancer(spec, servers)
 
 	wg.Add(serverCount)
-	lb.Init(NewHTTPSessionSticker, func(hcs *HealthCheckSpec) HealthChecker {
-		return &MockHealthChecker{expect: int32(serverCount), wg: wg, result: true}
-	}, nil)
+	hc = &MockHealthChecker{Expect: int32(serverCount), WG: wg, Result: true}
+	lb.Init(NewHTTPSessionSticker, hc, nil)
 	wg.Wait()
 	time.Sleep(20 * time.Millisecond)
 	assert.Equal(t, len(lb.healthyServers.Load().Servers), 10)

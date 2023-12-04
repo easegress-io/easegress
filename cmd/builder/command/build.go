@@ -28,6 +28,7 @@ import (
 
 var buildConfig string
 
+// BuildCmd builds Easegress with custom plugins.
 func BuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "build",
@@ -40,14 +41,14 @@ func BuildCmd() *cobra.Command {
 	return cmd
 }
 
-func buildArgs(cmd *cobra.Command, args []string) error {
+func buildArgs(_ *cobra.Command, _ []string) error {
 	if len(buildConfig) == 0 {
 		return errors.New("config file is required")
 	}
 	return nil
 }
 
-func buildRun(cmd *cobra.Command, args []string) {
+func buildRun(_ *cobra.Command, _ []string) {
 	ctx, stop := utils.WithInterrupt(context.Background())
 	defer stop()
 
