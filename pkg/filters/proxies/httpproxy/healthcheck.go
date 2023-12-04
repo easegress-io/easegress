@@ -59,9 +59,9 @@ type HTTPHealthCheckSpec struct {
 
 // HealthCheckMatch is the match spec of health check.
 type HealthCheckMatch struct {
-	StatusCode [][]int                  `json:"statusCode,omitempty"`
-	Headers    []HealthCheckHeaderMatch `json:"headers,omitempty"`
-	Body       *HealthCheckBodyMatch    `json:"body,omitempty"`
+	StatusCodes [][]int                  `json:"statusCodes,omitempty"`
+	Headers     []HealthCheckHeaderMatch `json:"headers,omitempty"`
+	Body        *HealthCheckBodyMatch    `json:"body,omitempty"`
 }
 
 // HealthCheckHeaderMatch is the match spec of health check header.
@@ -83,7 +83,7 @@ type HealthCheckBodyMatch struct {
 
 func (match *HealthCheckMatch) Match(resp *http.Response) error {
 	var valid bool
-	for _, r := range match.StatusCode {
+	for _, r := range match.StatusCodes {
 		if resp.StatusCode >= r[0] && resp.StatusCode <= r[1] {
 			valid = true
 			break
@@ -123,8 +123,8 @@ func (match *HealthCheckMatch) Match(resp *http.Response) error {
 }
 
 func (match *HealthCheckMatch) Validate() error {
-	if len(match.StatusCode) != 0 {
-		for _, s := range match.StatusCode {
+	if len(match.StatusCodes) != 0 {
+		for _, s := range match.StatusCodes {
 			if len(s) != 2 {
 				return fmt.Errorf("invalid status code range: %v", s)
 			}
@@ -270,8 +270,8 @@ func NewHTTPHealthChecker(tlsConfig *tls.Config, spec *ProxyHealthCheckSpec) pro
 		uri, _ = url.Parse(spec.URI)
 	}
 	if spec.Match != nil {
-		if len(spec.Match.StatusCode) == 0 {
-			spec.Match.StatusCode = [][]int{{200, 399}}
+		if len(spec.Match.StatusCodes) == 0 {
+			spec.Match.StatusCodes = [][]int{{200, 399}}
 		}
 		for i := range spec.Match.Headers {
 			h := &spec.Match.Headers[i]
@@ -286,7 +286,7 @@ func NewHTTPHealthChecker(tlsConfig *tls.Config, spec *ProxyHealthCheckSpec) pro
 		}
 	} else {
 		spec.Match = &HealthCheckMatch{
-			StatusCode: [][]int{{200, 399}},
+			StatusCodes: [][]int{{200, 399}},
 		}
 	}
 	transport := &http.Transport{
@@ -427,9 +427,9 @@ func NewWebSocketHealthChecker(spec *WSProxyHealthCheckSpec) proxies.HealthCheck
 		res.uri = uri
 	}
 	if ws.Match != nil {
-		if len(ws.Match.StatusCode) == 0 {
+		if len(ws.Match.StatusCodes) == 0 {
 			// default status code for websocket is 101
-			ws.Match.StatusCode = [][]int{{101, 101}}
+			ws.Match.StatusCodes = [][]int{{101, 101}}
 		}
 		for i := range ws.Match.Headers {
 			h := &ws.Match.Headers[i]
@@ -444,7 +444,7 @@ func NewWebSocketHealthChecker(spec *WSProxyHealthCheckSpec) proxies.HealthCheck
 		}
 	} else {
 		ws.Match = &HealthCheckMatch{
-			StatusCode: [][]int{{101, 101}},
+			StatusCodes: [][]int{{101, 101}},
 		}
 	}
 	return res

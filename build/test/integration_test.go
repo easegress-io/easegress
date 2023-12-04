@@ -825,7 +825,7 @@ filters:
       username: admin
       password: test-health-check
       match:
-        statusCode:
+        statusCodes:
         - [200, 399]
         headers:
         - name: X-Status

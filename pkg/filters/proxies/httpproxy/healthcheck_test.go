@@ -89,7 +89,7 @@ func TestHTTPHealthCheckSpec(t *testing.T) {
 			spec: &ProxyHealthCheckSpec{
 				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
 					Match: &HealthCheckMatch{
-						StatusCode: [][]int{{2, 1}},
+						StatusCodes: [][]int{{2, 1}},
 					},
 				},
 			},
@@ -100,7 +100,7 @@ func TestHTTPHealthCheckSpec(t *testing.T) {
 			spec: &ProxyHealthCheckSpec{
 				HTTPHealthCheckSpec: HTTPHealthCheckSpec{
 					Match: &HealthCheckMatch{
-						StatusCode: [][]int{{1, 2, 3}},
+						StatusCodes: [][]int{{1, 2, 3}},
 					},
 				},
 			},
@@ -187,7 +187,7 @@ func TestHTTPHealthCheckSpec(t *testing.T) {
 					Username: "admin",
 					Password: "test",
 					Match: &HealthCheckMatch{
-						StatusCode: [][]int{{200, 300}},
+						StatusCodes: [][]int{{200, 300}},
 						Headers: []HealthCheckHeaderMatch{
 							{Name: "X-Test", Type: "exact", Value: "easegress"},
 							{Name: "X-Test-Re", Type: "regexp", Value: ".*"},
@@ -217,7 +217,7 @@ func TestHTTPHealthCheckSpec(t *testing.T) {
 		HTTPHealthCheckSpec: HTTPHealthCheckSpec{
 			Method: "GET",
 			Match: &HealthCheckMatch{
-				StatusCode: [][]int{{200, 399}},
+				StatusCodes: [][]int{{200, 399}},
 			},
 		},
 	}
@@ -285,7 +285,7 @@ func TestHTTPHealthCheck(t *testing.T) {
 				Username: "admin",
 				Password: "test",
 				Match: &HealthCheckMatch{
-					StatusCode: [][]int{{200, 299}, {400, 499}},
+					StatusCodes: [][]int{{200, 299}, {400, 499}},
 					Headers: []HealthCheckHeaderMatch{
 						{Name: "H-One", Type: "exact", Value: "V-One"},
 						{Name: "H-Prefix", Type: "regexp", Value: "^V-"},
@@ -418,7 +418,7 @@ func TestWebSocketHealthCheckSpec(t *testing.T) {
 			spec: &WSProxyHealthCheckSpec{
 				WS: &WSHealthCheckSpec{
 					Match: &HealthCheckMatch{
-						StatusCode: [][]int{{2, 1}},
+						StatusCodes: [][]int{{2, 1}},
 					},
 				},
 			},
@@ -429,7 +429,7 @@ func TestWebSocketHealthCheckSpec(t *testing.T) {
 			spec: &WSProxyHealthCheckSpec{
 				WS: &WSHealthCheckSpec{
 					Match: &HealthCheckMatch{
-						StatusCode: [][]int{{1, 2, 3}},
+						StatusCodes: [][]int{{1, 2, 3}},
 					},
 				},
 			},
@@ -521,7 +521,7 @@ func TestWebSocketHealthCheckSpec(t *testing.T) {
 	expected := &WSProxyHealthCheckSpec{
 		WS: &WSHealthCheckSpec{
 			Match: &HealthCheckMatch{
-				StatusCode: [][]int{{101, 101}},
+				StatusCodes: [][]int{{101, 101}},
 			},
 		},
 	}
@@ -563,7 +563,7 @@ func TestWebSocketHealthCheck(t *testing.T) {
 				Port: 10080,
 				URI:  "/healthz",
 				Match: &HealthCheckMatch{
-					StatusCode: [][]int{{200, 299}, {400, 499}},
+					StatusCodes: [][]int{{200, 299}, {400, 499}},
 				},
 			},
 			WS: &WSHealthCheckSpec{
