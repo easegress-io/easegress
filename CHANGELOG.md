@@ -1,5 +1,12 @@
 # Changelog
 
+## [v2.6.4](https://github.com/megaease/easegress/tree/v2.6.4) (2023-12-04)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.3...v2.6.4)
+
+**Significant changes:**
+* Support health check for Proxy and WebSocketProxy filter.
+
 ## [v2.6.3](https://github.com/megaease/easegress/tree/v2.6.3) (2023-11-23)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.2...v2.6.3)
