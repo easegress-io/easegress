@@ -138,6 +138,9 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	acm := autocertmanager.GetGlobalAutoCertManager()
+	if acm == nil {
+		return nil, fmt.Errorf("BUG: autocert manager is not initialized")
+	}
 
 	tlsConf.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return acm.GetCertificate(chi, !spec.AutoCert /* tokenOnly */)

@@ -157,8 +157,7 @@ func (s *Supervisor) syncSystemControllerInCluster(spec *Spec) {
 		return
 	}
 
-	err = s.cls.Put(s.cls.Layout().ConfigObjectKey(spec.Name()),
-		spec.JSONConfig())
+	err = s.cls.Put(s.cls.Layout().ConfigObjectKey(spec.Name()), spec.JSONConfig())
 	if err != nil {
 		panic(err)
 	}

@@ -38,7 +38,7 @@ import (
 
 const (
 	// Category is the category of AutoCertManager.
-	Category = supervisor.CategorySystemController
+	Category = supervisor.CategoryBusinessController
 
 	// Kind is the kind of AutoCertManager.
 	Kind = "AutoCertManager"
@@ -53,11 +53,32 @@ var aliases = []string{
 func init() {
 	supervisor.Register(&AutoCertManager{})
 	api.RegisterObject(&api.APIResource{
-		Category: Category,
-		Kind:     Kind,
-		Name:     strings.ToLower(Kind),
-		Aliases:  aliases,
+		Category:    Category,
+		Kind:        Kind,
+		Name:        strings.ToLower(Kind),
+		Aliases:     aliases,
+		ValiateHook: validateHook,
 	})
+}
+
+func validateHook(operationType api.OperationType, spec *supervisor.Spec) error {
+	if operationType != api.OperationTypeCreate || spec.Kind() != Kind {
+		return nil
+	}
+
+	acms := []string{}
+	supervisor.GetGlobalSuper().WalkControllers(func(controller *supervisor.ObjectEntity) bool {
+		if controller.Spec().Kind() == Kind {
+			acms = append(acms, controller.Spec().Name())
+		}
+		return true
+	})
+
+	if len(acms) >= 1 {
+		return fmt.Errorf("only one AutoCertManager is allowed, existed: %v", acms)
+	}
+
+	return nil
 }
 
 type (

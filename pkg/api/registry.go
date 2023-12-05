@@ -20,17 +20,37 @@ package api
 
 import (
 	"fmt"
+
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
-type APIResource struct {
-	Category string
-	Kind     string
-	Name     string
-	Aliases  []string
-}
+type (
+	APIResource struct {
+		Category string
+		Kind     string
+		Name     string
+		Aliases  []string
+
+		// ValiateHook is optional, if set, will be called before create/update/delete object.
+		// If it returns an error, the operation will be rejected.
+		ValiateHook ValidateHookFunc `json:"-"`
+	}
+
+	ValidateHookFunc func(operationType OperationType, spec *supervisor.Spec) error
+
+	OperationType string
+)
+
+const (
+	OperationTypeCreate OperationType = "create"
+	OperationTypeUpdate OperationType = "update"
+	OperationTypeDelete OperationType = "delete"
+)
 
 // key is Kind name, now only contains api resource of object.
 var objectAPIResource = map[string]*APIResource{}
+
+var objectValidateHooks = []ValidateHookFunc{}
 
 func RegisterObject(r *APIResource) {
 	if r.Kind == "" {
@@ -45,6 +65,10 @@ func RegisterObject(r *APIResource) {
 		panic(fmt.Errorf("%v and %v got same kind: %s", r, existedObject, r.Kind))
 	}
 	objectAPIResource[r.Kind] = r
+
+	if r.ValiateHook != nil {
+		objectValidateHooks = append(objectValidateHooks, r.ValiateHook)
+	}
 }
 
 func ObjectAPIResources() []*APIResource {
