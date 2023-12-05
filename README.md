@@ -119,7 +119,7 @@ $ easegress-server
 
 By default, Easegress opens ports 2379, 2380, and 2381; however, you can modify these settings along with other arguments either in the configuration file or via command-line arguments. For a complete list of arguments, please refer to the `easegress-server --help` command.
 
-After launching successfully, we could check the status of the one-node cluster. 
+After launching successfully, we could check the status of the one-node cluster.
 
 ```bash
 $ egctl get member
@@ -134,7 +134,7 @@ $ egctl describe member
 Assuming you have two backend HTTP services running at `127.0.0.1:9095` and `127.0.0.1:9096`, you can initiate an HTTP proxy from port 10080 to these backends using the following command:
 
 ```bash
-$ egctl create httpproxy demo --port 10080 \ 
+$ egctl create httpproxy demo --port 10080 \
   --rule="/pipeline=http://127.0.0.1:9095,http://127.0.0.1:9096"
 ```
 
@@ -168,7 +168,7 @@ The following examples show how to use Easegress for different scenarios.
 - [Performance](docs/03.Advanced-Cookbook/3.11.Performance.md) - Performance optimization - compression, caching etc.
 - [Pipeline](docs/02.Tutorials/2.3.Pipeline-Explained.md) - How to orchestrate HTTP filters for requests/responses handling
 - [Resilience and Fault Tolerance](docs/02.Tutorials/2.4.Resilience.md) - CircuitBreaker, RateLimiter, Retry, TimeLimiter, etc. (Porting from [Java resilience4j](https://github.com/resilience4j/resilience4j))
-- [Security](docs/02.Tutorials/2.5.HTTPS-Lets-Encrypt.md#security-verify-credential) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
+- [Security](docs/02.Tutorials/2.5.Traffic-Verification.md) - How to do authentication by Header, JWT, HMAC, OAuth2, etc.
 - [Service Registry](docs/03.Advanced-Cookbook/3.06.Service-Registry.md) - Supporting the Microservice registries - Zookeeper, Eureka, Consul, Nacos, etc.
 - [WebAssembly](docs/03.Advanced-Cookbook/3.07.WasmHost.md) - Using AssemblyScript to extend the Easegress
 - [WebSocket](docs/02.Tutorials/2.6.Websocket.md) - WebSocket proxy for Easegress
