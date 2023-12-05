@@ -308,10 +308,11 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	}
 	buff.Write(configBuff)
 
-	err = os.Rename(or.configLocalPath, or.backupConfigLocalPath)
-	if err != nil {
-		logger.Errorf("rename %s to %s failed: %v", or.configLocalPath, or.backupConfigLocalPath, err)
-		return
+	if _, err := os.Stat(or.configLocalPath); err == nil {
+		err = os.Rename(or.configLocalPath, or.backupConfigLocalPath)
+		if err != nil {
+			logger.Errorf("rename %s to %s failed: %v", or.configLocalPath, or.backupConfigLocalPath, err)
+		}
 	}
 
 	err = os.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)

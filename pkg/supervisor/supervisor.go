@@ -91,7 +91,7 @@ func MustNew(opt *option.Options, cls cluster.Cluster) *Supervisor {
 	s.objectRegistry = newObjectRegistry(s, initObjs, opt.ObjectsDumpInterval)
 	s.watcher = s.objectRegistry.NewWatcher(watcherName, FilterCategory(
 		// NOTE: SystemController is only initialized internally.
-		// CategorySystemController,
+		CategorySystemController,
 		CategoryBusinessController))
 
 	globalSuper = s
@@ -137,6 +137,26 @@ func (s *Supervisor) initSystemControllers() {
 
 		entity.InitWithRecovery(nil /* muxMapper */)
 		s.systemControllers.Store(kind, entity)
+
+		s.syncSystemControllerInCluster(spec)
+	}
+}
+
+func (s *Supervisor) syncSystemControllerInCluster(spec *Spec) {
+	value, err := s.cls.Get(s.cls.Layout().ConfigObjectKey(spec.Name()))
+	if err != nil {
+		panic(err)
+	}
+
+	// NOTE: The spec is already in cluster.
+	if value != nil {
+		return
+	}
+
+	err = s.cls.Put(s.cls.Layout().ConfigObjectKey(spec.Name()),
+		spec.JSONConfig())
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -172,7 +192,16 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 	}
 
 	for name, entity := range event.Create {
-		_, exists := s.businessControllers.Load(name)
+		// This will be caused from the stored system controller spec while the system launching.
+		previousEntity, exists := s.systemControllers.Load(name)
+		if exists {
+			logger.Infof("update %s", name)
+			entity.InheritWithRecovery(previousEntity.(*ObjectEntity), nil /* muxMapper */)
+			s.systemControllers.Store(name, entity)
+			continue
+		}
+
+		_, exists = s.businessControllers.Load(name)
 		if exists {
 			logger.Errorf("BUG: create %s already existed", name)
 			continue
@@ -184,15 +213,27 @@ func (s *Supervisor) handleEvent(event *ObjectEntityWatcherEvent) {
 	}
 
 	for name, entity := range event.Update {
-		previousEntity, exists := s.businessControllers.Load(name)
+		isSystemController := false
+
+		previousEntity, exists := s.systemControllers.Load(name)
 		if !exists {
-			logger.Errorf("BUG: update %s not found", name)
-			continue
+			previousEntity, exists = s.businessControllers.Load(name)
+			if !exists {
+				logger.Errorf("BUG: update %s not found", name)
+				continue
+			}
+		} else {
+			isSystemController = true
 		}
 
 		logger.Infof("update %s", name)
 		entity.InheritWithRecovery(previousEntity.(*ObjectEntity), nil /* muxMapper */)
-		s.businessControllers.Store(name, entity)
+
+		if isSystemController {
+			s.systemControllers.Store(name, entity)
+		} else {
+			s.businessControllers.Store(name, entity)
+		}
 	}
 }
 

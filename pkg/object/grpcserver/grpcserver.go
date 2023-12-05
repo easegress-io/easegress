@@ -37,9 +37,10 @@ const (
 func init() {
 	supervisor.Register(&GRPCServer{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"grpc"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"grpc"},
 	})
 }
 

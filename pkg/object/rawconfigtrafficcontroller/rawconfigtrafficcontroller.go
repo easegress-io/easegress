@@ -20,7 +20,9 @@ package rawconfigtrafficcontroller
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/pipeline"
@@ -47,7 +49,6 @@ type (
 		spec      *Spec
 
 		watcher   *supervisor.ObjectEntityWatcher
-		tc        *trafficcontroller.TrafficController
 		namespace string
 		done      chan struct{}
 	}
@@ -58,6 +59,12 @@ type (
 
 func init() {
 	supervisor.Register(&RawConfigTrafficController{})
+	api.RegisterObject(&api.APIResource{
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"rawconfigtrafficcontroller", "rctc"},
+	})
 }
 
 // Category returns the category of RawConfigTrafficController.
@@ -78,18 +85,26 @@ func (rctc *RawConfigTrafficController) DefaultSpec() interface{} {
 // Init initializes RawConfigTrafficController.
 func (rctc *RawConfigTrafficController) Init(superSpec *supervisor.Spec) {
 	rctc.superSpec, rctc.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-	rctc.reload()
+	rctc.reload(nil)
 }
 
 // Inherit inherits previous generation of RawConfigTrafficController.
-func (rctc *RawConfigTrafficController) Inherit(spec *supervisor.Spec, previousGeneration supervisor.Object) {
-	previousGeneration.Close()
-	rctc.Init(spec)
+func (rctc *RawConfigTrafficController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	rctc.superSpec, rctc.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+
+	// Close will clean all the using resources.
+	prev := previousGeneration.(*RawConfigTrafficController)
+	watcher := prev.watcher
+	close(prev.done)
+
+	rctc.reload(watcher)
 }
 
 // GetPipeline gets Pipeline within the default namespace
 func (rctc *RawConfigTrafficController) GetPipeline(name string) (context.Handler, bool) {
-	p, exist := rctc.tc.GetPipeline(DefaultNamespace, name)
+	tc := rctc.getTrafficController()
+
+	p, exist := tc.GetPipeline(DefaultNamespace, name)
 	if !exist {
 		return nil, false
 	}
@@ -97,7 +112,23 @@ func (rctc *RawConfigTrafficController) GetPipeline(name string) (context.Handle
 	return handler, true
 }
 
-func (rctc *RawConfigTrafficController) reload() {
+func (rctc *RawConfigTrafficController) reload(watcher *supervisor.ObjectEntityWatcher) {
+	rctc.namespace = DefaultNamespace
+
+	rctc.watcher = watcher
+	if rctc.watcher == nil {
+		rctc.watcher = rctc.superSpec.Super().ObjectRegistry().NewWatcher(rctc.superSpec.Name(),
+			supervisor.FilterCategory(
+				supervisor.CategoryTrafficGate,
+				supervisor.CategoryPipeline))
+	}
+
+	rctc.done = make(chan struct{})
+
+	go rctc.run()
+}
+
+func (rctc *RawConfigTrafficController) getTrafficController() *trafficcontroller.TrafficController {
 	entity, exists := rctc.superSpec.Super().GetSystemController(trafficcontroller.Kind)
 	if !exists {
 		panic(fmt.Errorf("BUG: traffic controller not found"))
@@ -107,16 +138,8 @@ func (rctc *RawConfigTrafficController) reload() {
 	if !ok {
 		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
 	}
-	rctc.tc = tc
-	rctc.namespace = DefaultNamespace
 
-	rctc.watcher = rctc.superSpec.Super().ObjectRegistry().NewWatcher(rctc.superSpec.Name(),
-		supervisor.FilterCategory(
-			supervisor.CategoryTrafficGate,
-			supervisor.CategoryPipeline))
-	rctc.done = make(chan struct{})
-
-	go rctc.run()
+	return tc
 }
 
 func (rctc *RawConfigTrafficController) run() {
@@ -131,14 +154,16 @@ func (rctc *RawConfigTrafficController) run() {
 }
 
 func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEntityWatcherEvent) {
+	tc := rctc.getTrafficController()
+
 	for name, entity := range event.Delete {
 		var err error
 
 		kind := entity.Spec().Kind()
 		if kind == pipeline.Kind {
-			err = rctc.tc.DeletePipeline(DefaultNamespace, name)
+			err = tc.DeletePipeline(DefaultNamespace, name)
 		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
-			err = rctc.tc.DeleteTrafficGate(DefaultNamespace, name)
+			err = tc.DeleteTrafficGate(DefaultNamespace, name)
 		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -153,9 +178,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 
 		kind := entity.Spec().Kind()
 		if kind == pipeline.Kind {
-			_, err = rctc.tc.CreatePipeline(DefaultNamespace, entity)
+			_, err = tc.CreatePipeline(DefaultNamespace, entity)
 		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
-			_, err = rctc.tc.CreateTrafficGate(DefaultNamespace, entity)
+			_, err = tc.CreateTrafficGate(DefaultNamespace, entity)
 		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -170,9 +195,9 @@ func (rctc *RawConfigTrafficController) handleEvent(event *supervisor.ObjectEnti
 
 		kind := entity.Instance().Kind()
 		if kind == pipeline.Kind {
-			_, err = rctc.tc.UpdatePipeline(DefaultNamespace, entity)
+			_, err = tc.UpdatePipeline(DefaultNamespace, entity)
 		} else if _, ok := supervisor.TrafficObjectKinds[kind]; ok {
-			_, err = rctc.tc.UpdateTrafficGate(DefaultNamespace, entity)
+			_, err = tc.UpdateTrafficGate(DefaultNamespace, entity)
 		} else {
 			logger.Errorf("BUG: unexpected kind %T", kind)
 		}
@@ -198,5 +223,6 @@ func (rctc *RawConfigTrafficController) Status() *supervisor.Status {
 func (rctc *RawConfigTrafficController) Close() {
 	close(rctc.done)
 	rctc.superSpec.Super().ObjectRegistry().CloseWatcher(rctc.superSpec.Name())
-	rctc.tc.Clean(rctc.namespace)
+	tc := rctc.getTrafficController()
+	tc.Clean(rctc.namespace)
 }

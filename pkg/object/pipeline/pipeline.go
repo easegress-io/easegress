@@ -47,9 +47,10 @@ const (
 func init() {
 	supervisor.Register(&Pipeline{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"pipelines", "pl"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"pipelines", "pl"},
 	})
 }
 

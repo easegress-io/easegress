@@ -44,9 +44,10 @@ var aliases = []string{
 func init() {
 	supervisor.Register(&FaasController{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 

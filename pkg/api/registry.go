@@ -23,13 +23,14 @@ import (
 )
 
 type APIResource struct {
-	Kind    string
-	Name    string
-	Aliases []string
+	Category string
+	Kind     string
+	Name     string
+	Aliases  []string
 }
 
 // key is Kind name, now only contains api resource of object.
-var objectApiResource = map[string]*APIResource{}
+var objectAPIResource = map[string]*APIResource{}
 
 func RegisterObject(r *APIResource) {
 	if r.Kind == "" {
@@ -39,16 +40,16 @@ func RegisterObject(r *APIResource) {
 		panic(fmt.Errorf("%v: empty name", r))
 	}
 
-	existedObject, existed := objectApiResource[r.Kind]
+	existedObject, existed := objectAPIResource[r.Kind]
 	if existed {
 		panic(fmt.Errorf("%v and %v got same kind: %s", r, existedObject, r.Kind))
 	}
-	objectApiResource[r.Kind] = r
+	objectAPIResource[r.Kind] = r
 }
 
 func ObjectAPIResources() []*APIResource {
 	resources := []*APIResource{}
-	for _, r := range objectApiResource {
+	for _, r := range objectAPIResource {
 		resources = append(resources, r)
 	}
 	return resources

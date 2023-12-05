@@ -45,9 +45,10 @@ const (
 func init() {
 	supervisor.Register(&IngressController{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"ingresscontrollers", "ingress"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"ingresscontrollers", "ingress"},
 	})
 }
 

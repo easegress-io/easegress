@@ -39,9 +39,10 @@ const (
 func init() {
 	supervisor.Register(&ServiceRegistry{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"sr", "serviceregistries"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"sr", "serviceregistry"},
 	})
 }
 
@@ -54,7 +55,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		mutex sync.Mutex
+		mutex *sync.Mutex
 
 		// The key is registry name.
 		registryBuckets map[string]*registryBucket
@@ -81,9 +82,6 @@ type (
 
 	// Spec describes ServiceRegistry.
 	Spec struct {
-		// TODO: Support updating for system controller.
-		// Please notice some components may reference of old system controller
-		// after reloading, this should be fixed.
 		SyncInterval string `json:"syncInterval" jsonschema:"required,format=duration"`
 	}
 
@@ -368,17 +366,25 @@ func (sr *ServiceRegistry) DefaultSpec() interface{} {
 // Init initializes ServiceRegistry.
 func (sr *ServiceRegistry) Init(superSpec *supervisor.Spec) {
 	sr.superSpec, sr.spec = superSpec, superSpec.ObjectSpec().(*Spec)
-	sr.reload()
+	sr.reload(nil)
 }
 
 // Inherit inherits previous generation of ServiceRegistry.
 func (sr *ServiceRegistry) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	sr.superSpec, sr.spec = superSpec, superSpec.ObjectSpec().(*Spec)
+	sr.reload(previousGeneration.(*ServiceRegistry))
 	previousGeneration.Close()
-	sr.Init(superSpec)
 }
 
-func (sr *ServiceRegistry) reload() {
-	sr.registryBuckets = make(map[string]*registryBucket)
+func (sr *ServiceRegistry) reload(previousGeneration *ServiceRegistry) {
+	if previousGeneration != nil {
+		sr.registryBuckets = previousGeneration.registryBuckets
+		sr.mutex = previousGeneration.mutex
+	} else {
+		sr.registryBuckets = make(map[string]*registryBucket)
+		sr.mutex = &sync.Mutex{}
+	}
+
 	sr.done = make(chan struct{})
 }
 

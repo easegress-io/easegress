@@ -34,6 +34,7 @@ type (
 	Spec struct {
 		super *Supervisor
 
+		category   ObjectCategory
 		jsonConfig string
 		meta       *MetaSpec
 		rawSpec    map[string]interface{}
@@ -141,6 +142,7 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 
 	jsonConfig := string(codectool.MustMarshalJSON(rawSpec))
 
+	spec.category = rootObject.Category()
 	spec.meta = meta
 	spec.objectSpec = objectSpec
 	spec.rawSpec = rawSpec
@@ -157,6 +159,10 @@ func (s *Spec) Super() *Supervisor {
 // MarshalJSON marshals the spec to json.
 func (s *Spec) MarshalJSON() ([]byte, error) {
 	return []byte(s.jsonConfig), nil
+}
+
+func (s *Spec) Categroy() ObjectCategory {
+	return s.category
 }
 
 // Name returns name.

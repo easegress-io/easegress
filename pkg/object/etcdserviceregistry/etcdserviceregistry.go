@@ -50,9 +50,10 @@ var aliases = []string{"etcd"}
 func init() {
 	supervisor.Register(&EtcdServiceRegistry{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 
