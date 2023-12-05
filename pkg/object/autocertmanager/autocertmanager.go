@@ -422,11 +422,21 @@ func (acm *AutoCertManager) HandleHTTP01Challenge(w http.ResponseWriter, r *http
 	w.Write(data)
 }
 
-func GetGlobalAutoCertManager() *AutoCertManager {
-	entity, exists := supervisor.GetGlobalSuper().GetSystemController(Kind)
-	if !exists {
-		return nil
+func GetGlobalAutoCertManager() (*AutoCertManager, bool) {
+	var acm *AutoCertManager
+
+	supervisor.GetGlobalSuper().WalkControllers(func(controller *supervisor.ObjectEntity) bool {
+		if controller.Spec().Kind() == Kind {
+			acm = controller.Instance().(*AutoCertManager)
+			return false
+		}
+
+		return true
+	})
+
+	if acm == nil {
+		return nil, false
 	}
 
-	return entity.Instance().(*AutoCertManager)
+	return acm, true
 }

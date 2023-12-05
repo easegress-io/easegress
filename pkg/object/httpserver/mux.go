@@ -206,9 +206,9 @@ func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 	// handle HTTP-01 challenges.
 
 	if strings.HasPrefix(stdr.URL.Path, "/.well-known/acme-challenge/") {
-		acm := autocertmanager.GetGlobalAutoCertManager()
-		if acm == nil {
-			logger.Errorf("BUG: autocert manager is not initialized")
+		acm, exists := autocertmanager.GetGlobalAutoCertManager()
+		if !exists {
+			logger.Errorf("there is no one AutoCertManager")
 			stdw.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
