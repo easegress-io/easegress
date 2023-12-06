@@ -156,7 +156,7 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 	}
 
 	conn, _, err := websocket.Dial(stdctx.Background(), u, opts)
-	if err == nil && sp.spec.ServerMaxMsgSize > 0 {
+	if err == nil && (sp.spec.ServerMaxMsgSize > 0 || sp.spec.ServerMaxMsgSize == -1) {
 		conn.SetReadLimit(sp.spec.ServerMaxMsgSize)
 	}
 	return conn, err
@@ -204,7 +204,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		metric.StatusCode = http.StatusBadRequest
 		return resultClientError
 	}
-	if sp.spec.ClientMaxMsgSize > 0 {
+	if sp.spec.ClientMaxMsgSize > 0 || sp.spec.ClientMaxMsgSize == -1 {
 		clntConn.SetReadLimit(sp.spec.ClientMaxMsgSize)
 	}
 
