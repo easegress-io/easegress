@@ -138,12 +138,13 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 	}
 
 	if spec.AutoCert {
-		acm, exists := autocertmanager.GetGlobalAutoCertManager()
-		if !exists {
-			return nil, fmt.Errorf("there is no AutoCertManager")
-		}
-
 		tlsConf.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			// NOTE: Need to get the latest.
+			acm, exists := autocertmanager.GetGlobalAutoCertManager()
+			if !exists {
+				return nil, fmt.Errorf("there is no AutoCertManager")
+			}
+
 			return acm.GetCertificate(chi, !spec.AutoCert /* tokenOnly */)
 		}
 	}
