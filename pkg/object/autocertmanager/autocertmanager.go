@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/megaease/easegress/v2/pkg/api"
@@ -44,11 +45,15 @@ const (
 	Kind = "AutoCertManager"
 )
 
-var aliases = []string{
-	"autocert",
-	"autocerts",
-	"autocertmanagers",
-}
+var (
+	aliases = []string{
+		"autocert",
+		"autocerts",
+		"autocertmanagers",
+	}
+
+	globalACM atomic.Value
+)
 
 func init() {
 	supervisor.Register(&AutoCertManager{})
@@ -257,6 +262,8 @@ func (acm *AutoCertManager) reload() {
 
 	go acm.run()
 	go acm.watchCertificate()
+
+	globalACM.Store(acm)
 }
 
 // Status returns the status of AutoCertManager.
@@ -275,6 +282,8 @@ func (acm *AutoCertManager) Status() *supervisor.Status {
 // Close closes AutoCertManager.
 func (acm *AutoCertManager) Close() {
 	acm.cancel()
+
+	globalACM.CompareAndSwap(acm, (*AutoCertManager)(nil))
 }
 
 func (acm *AutoCertManager) renew() bool {
@@ -423,16 +432,12 @@ func (acm *AutoCertManager) HandleHTTP01Challenge(w http.ResponseWriter, r *http
 }
 
 func GetGlobalAutoCertManager() (*AutoCertManager, bool) {
-	var acm *AutoCertManager
+	value := globalACM.Load()
+	if value == nil {
+		return nil, false
+	}
 
-	supervisor.GetGlobalSuper().WalkControllers(func(controller *supervisor.ObjectEntity) bool {
-		if controller.Spec().Kind() == Kind {
-			acm = controller.Instance().(*AutoCertManager)
-			return false
-		}
-
-		return true
-	})
+	acm := value.(*AutoCertManager)
 
 	if acm == nil {
 		return nil, false
