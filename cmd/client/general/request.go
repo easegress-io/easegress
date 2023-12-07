@@ -147,16 +147,26 @@ func HandleReqWithStreamResp(httpMethod string, path string, yamlBody []byte) (i
 	}
 
 	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest {
-		resp, err = doRequest(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			resp.Body.Close()
+			return nil, fmt.Errorf("read response body failed: %v", err)
+		}
+		resp.Body.Close()
+
+		// https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/server.go#L1878-L1885
+		if strings.Contains(string(body), "Client sent an HTTP request to an HTTPS server") {
+			resp, err = doRequest(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			resp.Body = io.NopCloser(bytes.NewReader(body))
 		}
 	}
 
 	if !SuccessfulStatusCode(resp.StatusCode) {
-		defer func() {
-			resp.Body.Close()
-		}()
+		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("read response body failed: %v", err)
@@ -198,7 +208,8 @@ func HandleRequest(httpMethod string, path string, yamlBody []byte) (body []byte
 	}
 
 	msg := string(body)
-	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest && strings.Contains(strings.ToUpper(msg), "HTTPS") {
+	// https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/server.go#L1878-L1885
+	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest && strings.Contains(msg, "Client sent an HTTP request to an HTTPS server") {
 		resp, body, err = doRequestWithBody(httpMethod, HTTPSProtocol+strings.TrimPrefix(url, HTTPProtocol), jsonBody, client)
 		if err != nil {
 			return nil, err
