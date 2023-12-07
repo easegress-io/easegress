@@ -148,11 +148,10 @@ func HandleReqWithStreamResp(httpMethod string, path string, yamlBody []byte) (i
 
 	if strings.HasPrefix(url, HTTPProtocol) && resp.StatusCode == http.StatusBadRequest {
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
-			resp.Body.Close()
 			return nil, fmt.Errorf("read response body failed: %v", err)
 		}
-		resp.Body.Close()
 
 		// https://github.com/golang/go/blob/release-branch.go1.20/src/net/http/server.go#L1878-L1885
 		if strings.Contains(string(body), "Client sent an HTTP request to an HTTPS server") {
