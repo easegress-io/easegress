@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -1075,4 +1076,232 @@ filters:
 	_, data, err = conn.ReadMessage()
 	assert.Nil(err)
 	assert.Equal("hello from websocket", string(data))
+}
+
+func TestEgbuilder(t *testing.T) {
+	assert := assert.New(t)
+
+	tempDir, err := os.MkdirTemp("", "easegress-test")
+	require.Nil(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// init a new plugin repo
+	initCmd := egbuilderCmd(
+		"init",
+		"--repo", "github.com/test/repo",
+		"--filters=MyFilter1",
+		"--controllers=MyController1,MyController2",
+	)
+	initCmd.Dir = tempDir
+	stdout, stderr, err := runCmd(initCmd)
+	fmt.Printf("init stdout:\n%s\n", stdout)
+	fmt.Printf("init stderr:\n%s\n", stderr)
+	assert.NoError(err)
+
+	// add a new filters and controllers
+	addCmd := egbuilderCmd(
+		"add",
+		"--filters=MyFilter2",
+		"--controllers=MyController3",
+	)
+	addCmd.Dir = tempDir
+	stdout, stderr, err = runCmd(addCmd)
+	fmt.Printf("add stdout:\n%s\n", stdout)
+	fmt.Printf("add stderr:\n%s\n", stderr)
+	assert.NoError(err)
+
+	// build easegress with new plugins
+	buildConfig := `
+plugins:
+- module: github.com/test/repo
+  version: ""
+  replacement: %s
+
+output: "%s/easegress-server"
+`
+	buildConfig = fmt.Sprintf(buildConfig, tempDir, tempDir)
+	err = os.WriteFile(filepath.Join(tempDir, "build.yaml"), []byte(buildConfig), os.ModePerm)
+	assert.NoError(err)
+
+	buildCmd := egbuilderCmd(
+		"build",
+		"-f",
+		"build.yaml",
+	)
+	buildCmd.Dir = tempDir
+	stdout, stderr, err = runCmd(buildCmd)
+	fmt.Printf("build stdout:\n%s\n", stdout)
+	fmt.Printf("build stderr:\n%s\n", stderr)
+	assert.NoError(err)
+
+	// run easegress with new plugins
+	egserverConfig := `
+name: egbuilder
+cluster-name: egbuilder-test
+cluster-role: primary
+cluster:
+  listen-peer-urls:
+   - http://localhost:22380
+  listen-client-urls:
+   - http://localhost:22379
+  advertise-client-urls:
+   - http://localhost:22379
+  initial-advertise-peer-urls:
+   - http://localhost:22380
+  initial-cluster:
+   - egbuilder: http://localhost:22380
+api-addr: 127.0.0.1:22381
+`
+	apiURL := "http://127.0.0.1:22381"
+	err = os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte(egserverConfig), os.ModePerm)
+	assert.Nil(err)
+
+	runEgCmd := exec.Command(
+		filepath.Join(tempDir, "easegress-server"),
+		"--config-file",
+		"config.yaml",
+	)
+	runEgCmd.Dir = tempDir
+	var stdoutBuf, stderrBuf bytes.Buffer
+	runEgCmd.Stdout = &stdoutBuf
+	runEgCmd.Stderr = &stderrBuf
+	err = runEgCmd.Start()
+	assert.Nil(err)
+	defer runEgCmd.Process.Kill()
+
+	started := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, apiURL+"/apis/v2/healthz", nil)
+		assert.Nil(err)
+		return req
+	})
+	assert.True(started)
+
+	egctl := func(args ...string) *exec.Cmd {
+		return egctlWithServer(apiURL, args...)
+	}
+
+	// create, apply, delete new controllers
+	controllers := `
+name: c1
+kind: MyController1
+
+---
+
+name: c2
+kind: MyController2
+
+---
+
+name: c3
+kind: MyController3
+`
+	controllerNames := []string{"c1", "c2", "c3"}
+	controllerKinds := []string{"MyController1", "MyController2", "MyController3"}
+
+	cmd := egctl("create", "-f", "-")
+	cmd.Stdin = strings.NewReader(controllers)
+	stdout, stderr, err = runCmd(cmd)
+	fmt.Printf("egctl create stdout:\n%s\n", stdout)
+	assert.Contains(stdout, "create MyController1 c1 successfully")
+	assert.Contains(stdout, "create MyController2 c2 successfully")
+	assert.Contains(stdout, "create MyController3 c3 successfully")
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	cmd = egctl("get", "all")
+	stdout, stderr, err = runCmd(cmd)
+	for i := range controllerNames {
+		assert.Contains(stdout, controllerNames[i])
+		assert.Contains(stdout, controllerKinds[i])
+	}
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	cmd = egctl("apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(controllers)
+	stdout, stderr, err = runCmd(cmd)
+	fmt.Printf("egctl apply stdout:\n%s\n", stdout)
+	assert.Contains(stdout, "update MyController1 c1 successfully")
+	assert.Contains(stdout, "update MyController2 c2 successfully")
+	assert.Contains(stdout, "update MyController3 c3 successfully")
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	for i := range controllerNames {
+		cmd = egctl("delete", controllerKinds[i], controllerNames[i])
+		stdout, stderr, err = runCmd(cmd)
+		fmt.Printf("egctl delete stdout:\n%s\n", stdout)
+		assert.Contains(stdout, fmt.Sprintf("delete %s %s successfully", controllerKinds[i], controllerNames[i]))
+		assert.Empty(stderr)
+		assert.NoError(err)
+	}
+
+	cmd = egctl("get", "all")
+	stdout, stderr, err = runCmd(cmd)
+	for i := range controllerNames {
+		assert.NotContains(stdout, controllerNames[i])
+		assert.NotContains(stdout, controllerKinds[i])
+	}
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	// create, apply, delete new filters
+	filters := `
+name: httpserver
+kind: HTTPServer
+port: 22399
+rules:
+- paths:
+  - backend: pipeline
+
+---
+
+name: pipeline
+kind: Pipeline
+flow:
+- filter: filter1
+- filter: filter2
+- filter: mock
+filters:
+- name: filter1
+  kind: MyFilter1
+- name: filter2
+  kind: MyFilter2
+- name: mock
+  kind: ResponseBuilder
+  template: |
+    statusCode: 200
+    body: "body from response builder"
+`
+
+	cmd = egctl("create", "-f", "-")
+	cmd.Stdin = strings.NewReader(filters)
+	stdout, stderr, err = runCmd(cmd)
+	fmt.Printf("egctl create stdout:\n%s\n", stdout)
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	cmd = egctl("apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(filters)
+	stdout, stderr, err = runCmd(cmd)
+	fmt.Printf("egctl apply stdout:\n%s\n", stdout)
+	assert.Empty(stderr)
+	assert.NoError(err)
+
+	started = checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:22399", nil)
+		assert.Nil(err)
+		return req
+	})
+	assert.True(started)
+
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:22399", nil)
+	assert.Nil(err)
+	resp, err := http.DefaultClient.Do(req)
+	assert.Nil(err)
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	assert.Nil(err)
+	// get this body means our pipeline is working.
+	assert.Equal("body from response builder", string(data))
 }

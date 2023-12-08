@@ -26,14 +26,18 @@ import (
 	"strings"
 )
 
-func egctlCmd(args ...string) *exec.Cmd {
+func egctlWithServer(server string, args ...string) *exec.Cmd {
 	egctl := os.Getenv("EGCTL")
 	if egctl == "" {
 		egctl = "egctl"
 	}
 	cmd := exec.Command(egctl, args...)
-	cmd.Args = append(cmd.Args, "--server", "http://127.0.0.1:12381")
+	cmd.Args = append(cmd.Args, "--server", server)
 	return cmd
+}
+
+func egctlCmd(args ...string) *exec.Cmd {
+	return egctlWithServer("http://127.0.0.1:12381", args...)
 }
 
 func runCmd(cmd *exec.Cmd) (string, string, error) {
@@ -109,4 +113,13 @@ func matchTable(array []string, output string) bool {
 
 	// Check if the regular expression matches the output string
 	return re.MatchString(output)
+}
+
+func egbuilderCmd(args ...string) *exec.Cmd {
+	egbuilder := os.Getenv("EGBUILDER")
+	if egbuilder == "" {
+		egbuilder = "egbuilder"
+	}
+	cmd := exec.Command(egbuilder, args...)
+	return cmd
 }

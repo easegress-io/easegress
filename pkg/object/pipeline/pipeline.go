@@ -289,7 +289,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 		// add the filter to pipeline, and if the pipeline does not define a
 		// flow, append it to the flow we just created.
-		p.filters[filter.Name()] = filter
+		p.filters[spec.Name()] = filter
 		if len(p.spec.Flow) == 0 {
 			flow = append(flow, FlowNode{FilterName: spec.Name()})
 		}
