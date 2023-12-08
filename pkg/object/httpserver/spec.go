@@ -136,8 +136,17 @@ func (spec *Spec) tlsConfig() (*tls.Config, error) {
 		Certificates: certificates,
 		NextProtos:   []string{"acme-tls/1"},
 	}
-	tlsConf.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return autocertmanager.GetCertificate(chi, !spec.AutoCert /* tokenOnly */)
+
+	if spec.AutoCert {
+		tlsConf.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			// NOTE: Need to get the latest.
+			acm, exists := autocertmanager.GetGlobalAutoCertManager()
+			if !exists {
+				return nil, fmt.Errorf("there is no AutoCertManager")
+			}
+
+			return acm.GetCertificate(chi, !spec.AutoCert /* tokenOnly */)
+		}
 	}
 
 	// if caCertBase64 configuration is provided, should enable tls.ClientAuth and

@@ -472,8 +472,10 @@ func (r *runtime) newMetrics(name string) *metrics {
 		"clusterRole":    r.superSpec.Super().Options().ClusterRole,
 		"instanceName":   r.superSpec.Super().Options().Name,
 	}
-	httpserverLabels := []string{"clusterName", "clusterRole",
-		"instanceName", "httpServerName", "kind", "routerKind", "backend"}
+	httpserverLabels := []string{
+		"clusterName", "clusterRole",
+		"instanceName", "httpServerName", "kind", "routerKind", "backend",
+	}
 	return &metrics{
 		Health: prometheushelper.NewGauge(
 			"httpserver_health",

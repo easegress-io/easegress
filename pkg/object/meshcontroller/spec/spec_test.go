@@ -22,12 +22,15 @@ import (
 	"os"
 	"testing"
 
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/filters/mock"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/ratelimiter"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	_ "github.com/megaease/easegress/v2/pkg/object/httpserver"
+	"github.com/megaease/easegress/v2/pkg/option"
 	"github.com/megaease/easegress/v2/pkg/resilience"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/megaease/easegress/v2/pkg/util/urlrule"
@@ -788,6 +791,16 @@ func TestIngressPipelineSpec(t *testing.T) {
 }
 
 func TestSidecarIngressPipelineSpecCert(t *testing.T) {
+	// NOTE: For loading system controller AutoCertManager.
+	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	defer os.RemoveAll(etcdDirName)
+
+	cls := cluster.CreateClusterForTest(etcdDirName)
+	supervisor.MustNew(&option.Options{}, cls)
+
 	s := &Service{
 		Name: "order-001",
 		LoadBalance: &LoadBalance{

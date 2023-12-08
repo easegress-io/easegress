@@ -57,6 +57,10 @@ type (
 
 var globalSuper *Supervisor
 
+func GetGlobalSuper() *Supervisor {
+	return globalSuper
+}
+
 func loadInitialObjects(s *Supervisor, paths []string) map[string]string {
 	objs := map[string]string{}
 	for _, path := range paths {
@@ -153,8 +157,7 @@ func (s *Supervisor) syncSystemControllerInCluster(spec *Spec) {
 		return
 	}
 
-	err = s.cls.Put(s.cls.Layout().ConfigObjectKey(spec.Name()),
-		spec.JSONConfig())
+	err = s.cls.Put(s.cls.Layout().ConfigObjectKey(spec.Name()), spec.JSONConfig())
 	if err != nil {
 		panic(err)
 	}

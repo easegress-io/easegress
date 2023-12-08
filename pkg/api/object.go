@@ -47,6 +47,8 @@ const (
 	ObjectAPIResourcesPrefix = "/object-api-resources"
 )
 
+func RegisterValidateHook() {}
+
 func (s *Server) objectAPIEntries() []*Entry {
 	return []*Entry{
 		{
@@ -57,7 +59,7 @@ func (s *Server) objectAPIEntries() []*Entry {
 		{
 			Path:    ObjectAPIResourcesPrefix,
 			Method:  "GET",
-			Handler: s.listObjectApiResources,
+			Handler: s.listObjectAPIResources,
 		},
 		{
 			Path:    ObjectPrefix,
@@ -153,6 +155,15 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeCreate, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
+	}
+
 	s._putObject(spec)
 	s.upgradeConfigVersion(w, r)
 
@@ -179,6 +190,15 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeDelete, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
+	}
+
 	s._deleteObject(name)
 	s.upgradeConfigVersion(w, r)
 }
@@ -191,6 +211,19 @@ func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 		specs := s._listObjects()
 		for _, spec := range specs {
+			if spec.Categroy() == supervisor.CategorySystemController {
+				continue
+			}
+
+			// Validate hooks.
+			for _, hook := range objectValidateHooks {
+				err := hook(OperationTypeDelete, spec)
+				if err != nil {
+					HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+					return
+				}
+			}
+
 			s._deleteObject(spec.Name())
 		}
 
@@ -274,6 +307,15 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeUpdate, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
+	}
+
 	s._putObject(spec)
 	s.upgradeConfigVersion(w, r)
 }
@@ -341,7 +383,7 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	WriteBody(w, r, kinds)
 }
 
-func (s *Server) listObjectApiResources(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listObjectAPIResources(w http.ResponseWriter, r *http.Request) {
 	res := ObjectAPIResources()
 	WriteBody(w, r, res)
 }
