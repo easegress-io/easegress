@@ -113,7 +113,7 @@
 - [高性能](docs/03.Advanced-Cookbook/3.11.Performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](docs/02.Tutorials/2.3.Pipeline-Explained.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](docs/02.Tutorials/2.4.Resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
-- [安全](docs/02.Tutorials/2.5.HTTPS-Lets-Encrypt.md#security-verify-credential) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
+- [安全](docs/02.Tutorials/2.5.Traffic-Verification.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
 - [服务注册](docs/03.Advanced-Cookbook/3.06.Service-Registry.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](docs/03.Advanced-Cookbook/3.07.WasmHost.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](docs/02.Tutorials/2.6.Websocket.md) - Easegress 的 WebSocket 代理。
