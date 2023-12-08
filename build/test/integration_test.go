@@ -1167,7 +1167,14 @@ api-addr: 127.0.0.1:22381
 	runEgCmd.Stderr = &stderrBuf
 	err = runEgCmd.Start()
 	assert.Nil(err)
-	defer runEgCmd.Process.Kill()
+	defer func() {
+		err := runEgCmd.Process.Signal(os.Interrupt)
+		assert.Nil(err)
+		err = runEgCmd.Wait()
+		assert.Nil(err)
+		assert.NotContains(stderrBuf.String(), "panic")
+		assert.NotContains(stdoutBuf.String(), "panic")
+	}()
 
 	started := checkServerStart(func() *http.Request {
 		req, err := http.NewRequest(http.MethodGet, apiURL+"/apis/v2/healthz", nil)
