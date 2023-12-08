@@ -131,7 +131,7 @@ func defineFilterMethods(file *j.File, info *FilterInfo) {
 	nameFunc := receiver()
 	nameFunc.Name = "Name"
 	nameFunc.Returns = []j.Code{j.String()}
-	nameFunc.Block = []j.Code{j.Return(j.Lit(info.Name))}
+	nameFunc.Block = []j.Code{j.Return(j.Id(info.ReceiverName).Dot("spec").Dot("Name()"))}
 	file.Add(nameFunc.Def())
 
 	// define filter Kind method

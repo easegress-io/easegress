@@ -28,6 +28,7 @@ pushd $SCRIPTPATH"/../../example" > /dev/null
 EXAMPLEDIR="$SCRIPTPATH"/../../example
 PRIMARYDIR=$EXAMPLEDIR"/primary-single"
 EGCTL=$PRIMARYDIR"/bin/egctl"
+EGBUILDER=$PRIMARYDIR"/bin/egbuilder"
 
 # target file related define.
 server="primary-single/bin/easegress-server"
@@ -75,7 +76,7 @@ else
 fi
 
 # run go test
-env EGCTL=$EGCTL go test -v $SCRIPTPATH
+env EGCTL=$EGCTL EGBUILDER=$EGBUILDER go test -v $SCRIPTPATH
 
 popd > /dev/null
 exit 0
