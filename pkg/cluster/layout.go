@@ -36,7 +36,7 @@ const (
 	statusMemberFormat        = "/status/members/%s" // +memberName
 	statusObjectPrefix        = "/status/objects/"
 	statusObjectFormat        = "/status/objects/%s/%s/%s" // +namespace +objectName +memberName
-	statusObjectAllNodePrefix = "/status/objects/%s/%s"    // +namespace +objectName
+	statusObjectAllNodePrefix = "/status/objects/%s/%s/"   // +namespace +objectName
 	configObjectPrefix        = "/config/objects/"
 	configObjectFormat        = "/config/objects/%s" // +objectName
 	configVersion             = "/config/version"
