@@ -123,6 +123,12 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 		CompressionMode: websocket.CompressionDisabled,
 	}
 
+	// only set host when server address is not host name OR
+	// server is explicitly told to keep the host of the request.
+	if !svr.AddrIsHostName || svr.KeepHost {
+		opts.Host = req.Host()
+	}
+
 	opts.HTTPHeader.Del("Sec-WebSocket-Origin")
 	opts.HTTPHeader.Del("Sec-WebSocket-Protocol")
 	opts.HTTPHeader.Del("Sec-WebSocket-Accept")
