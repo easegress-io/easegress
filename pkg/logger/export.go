@@ -21,10 +21,20 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/megaease/easegress/v2/pkg/option"
 	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/openzipkin/zipkin-go/model"
+	"go.uber.org/zap"
 )
+
+// MustNewPlainLogger creates a plain logger, it panics if any error occurs.
+func MustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
+	l := mustNewPlainLogger(opt, filename, maxCacheCount)
+	lh.register(filename, l)
+
+	return l
+}
 
 type lazyLogBuilder struct {
 	fn func() string
@@ -68,6 +78,8 @@ func Sync() {
 	httpFilterAccessLogger.Sync()
 	httpFilterDumpLogger.Sync()
 	restAPILogger.Sync()
+
+	lh.sync()
 }
 
 // APIAccess logs admin api log.
