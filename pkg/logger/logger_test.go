@@ -25,9 +25,7 @@ import (
 )
 
 func TestMustPlainLogger(t *testing.T) {
-	opt := &option.Options{
-		AbsLogDir: "/tmp",
-	}
+	opt := &option.Options{AbsLogDir: "."}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Errorf("mustPlainLogger() panic: %v", rv)
@@ -35,7 +33,7 @@ func TestMustPlainLogger(t *testing.T) {
 	}()
 
 	MustNewPlainLogger(opt, "test.log", 1)
-	_, err := os.Stat("/tmp/test.log")
+	_, err := os.Stat("test.log")
 	if err == nil {
 		return
 	}
@@ -46,17 +44,15 @@ func TestMustPlainLogger(t *testing.T) {
 }
 
 func TestMustPlainLoggerPanic(t *testing.T) {
-	opt := &option.Options{
-		AbsLogDir: "/",
-	}
+	opt := &option.Options{AbsLogDir: "."}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Logf("mustPlainLogger() panic: %v", rv)
 		}
 	}()
 
-	MustNewPlainLogger(opt, "test.log", 1)
-	_, err := os.Stat("/test.log")
+	MustNewPlainLogger(opt, "test.log", 0)
+	_, err := os.Stat("test.log")
 	if err == nil {
 		return
 	}
@@ -67,9 +63,7 @@ func TestMustPlainLoggerPanic(t *testing.T) {
 }
 
 func TestMustPlainLoggerWrite(t *testing.T) {
-	opt := &option.Options{
-		AbsLogDir: "/tmp/",
-	}
+	opt := &option.Options{AbsLogDir: "."}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Errorf("mustPlainLogger() panic: %v", rv)
