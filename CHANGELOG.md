@@ -1,5 +1,21 @@
 # Changelog
 
+## [v2.7.0](https://github.com/megaease/easegress/tree/v2.7.0) (2023-12-29)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.4...v2.7.0)
+
+**Significant changes:**
+* Support updating system controllers.
+
+**Implemented enhancements:**
+* Enabled unlimited single message capability for WebsocketProxy.
+* Add a hook in AutoCertManager for singular instance management.
+
+**Fixed bugs:**
+* Resolved WebsocketProxy keepHost issue.
+* Corrected the object status prefix in some special cases.
+* Fixed creation error in egbuilder filter.
+
 ## [v2.6.4](https://github.com/megaease/easegress/tree/v2.6.4) (2023-12-04)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.3...v2.6.4)
