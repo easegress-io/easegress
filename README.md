@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
 [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8265/badge)](https://www.bestpractices.dev/projects/8265)
 
 <a href="https://megaease.com/easegress">
     <img src="./docs/imgs/easegress.svg"
@@ -211,7 +212,7 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ## Contributing
 
-See [Contributing guide](./CONTRIBUTING.md#contributing).
+See [Contributing guide](./CONTRIBUTING.md#contributing). The project welcomes contributions and suggestions that abide by the [CNCF Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 
