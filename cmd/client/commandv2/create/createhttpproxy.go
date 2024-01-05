@@ -70,7 +70,11 @@ egctl create httpproxy NAME --port PORT \
 	[--auto-cert] \
 	[--ca-cert-file CA_CERT_FILE] \
 	[--cert-file CERT_FILE] \
-	[--key-file KEY_FILE]
+	[--key-file KEY_FILE] \
+	[--auto-cert-email EMAIL] \
+	[--auto-cert-domain-name DOMAIN_NAME] \
+	[--dns-provider KEY=VALUE] \
+	[--dns-provider KEY2=VALUE2]
 
 # Create a HTTPServer (with port 10080) and corresponding Pipelines to direct 
 # request with path "/bar" to "http://127.0.0.1:8080" and "http://127.0.0.1:8081" and 
@@ -83,6 +87,27 @@ egctl create httpproxy demo --port 10080 \
 # with path prefix "foo.com/prefix" to "http://127.0.0.1:8083".
 egctl create httpproxy demo2 --port 10081 \
 	--rule="foo.com/prefix*=http://127.0.0.1:8083"
+
+# Create HTTPServer, Pipelines with a new AutoCertManager.
+# auto-cert-email is required for creating a new AutoCertManager. 
+# If an AutoCertManager exists, this updates its email field.
+egctl create httpproxy demo2 --port 10081 \
+	--rule="/bar=http://127.0.0.1:8083" \
+	--auto-cert \
+	--auto-cert-email someone@megaease.com \
+	--auto-cert-domain-name="*.foo.com" \
+	--dns-provider name=dnspod \
+	--dns-provider zone=megaease.com \
+	--dns-provider="apiToken=<tokenvalue>"
+
+# Create HTTPServer, Pipelines with an existing AutoCertManager and update it.
+egctl create httpproxy demo2 --port 10081 \
+	--rule="/bar=http://127.0.0.1:8083" \
+	--auto-cert \
+	--auto-cert-domain-name="*.foo.com" \
+	--dns-provider name=dnspod \
+	--dns-provider zone=megaease.com \
+	--dns-provider="apiToken=<tokenvalue>"
 `
 
 // HTTPProxyCmd returns create command of HTTPProxy.
@@ -225,10 +250,10 @@ func (o *HTTPProxyOptions) Parse() error {
 			return fmt.Errorf("auto cert domain name or dns provider is set, but auto cert is not enabled")
 		}
 		if o.AutoCertDomainName == "" {
-			return fmt.Errorf("auto cert domain name is required")
+			return fmt.Errorf("auto cert domain name is required when provide dns provider")
 		}
 		if len(o.AutoCertDNSProvider) == 0 {
-			return fmt.Errorf("auto cert dns provider is required")
+			return fmt.Errorf("auto cert dns provider is required when provide auto cert domain name")
 		}
 	}
 	o.dnsProvider = map[string]string{}
@@ -303,6 +328,7 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*specs.PipelineSpe
 	return rules, pipelines
 }
 
+// TranslateAutoCertManager translates AutoCertManagerSpec.
 func (o *HTTPProxyOptions) TranslateAutoCertManager() (*specs.AutoCertManagerSpec, error) {
 	url := general.MakePath(general.ObjectsURL)
 	body, err := general.HandleRequest(http.MethodGet, url, nil)

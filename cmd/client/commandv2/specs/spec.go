@@ -121,9 +121,10 @@ type AutoCertManagerSpec struct {
 	autocertmanager.Spec `json:",inline"`
 }
 
+// NewAutoCertManagerSpec returns a new AutoCertManagerSpec.
 func NewAutoCertManagerSpec() *AutoCertManagerSpec {
 	return &AutoCertManagerSpec{
-		Name: "default",
+		Name: "autocertmanager",
 		Kind: autocertmanager.Kind,
 		Spec: *getDefaultAutoCertManagerSpec(),
 	}
