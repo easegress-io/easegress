@@ -328,10 +328,12 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*specs.PipelineSpe
 	return rules, pipelines
 }
 
+var handleReqHook = general.HandleRequest
+
 // TranslateAutoCertManager translates AutoCertManagerSpec.
 func (o *HTTPProxyOptions) TranslateAutoCertManager() (*specs.AutoCertManagerSpec, error) {
 	url := general.MakePath(general.ObjectsURL)
-	body, err := general.HandleRequest(http.MethodGet, url, nil)
+	body, err := handleReqHook(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
