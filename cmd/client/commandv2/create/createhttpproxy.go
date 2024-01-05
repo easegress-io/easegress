@@ -20,6 +20,7 @@ package create
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
+	"github.com/megaease/easegress/v2/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
@@ -47,10 +49,15 @@ type HTTPProxyOptions struct {
 	CertFiles  []string
 	KeyFiles   []string
 
-	caCert string
-	certs  []string
-	keys   []string
-	rules  []*HTTPProxyRule
+	AutoCertDomainName  string
+	AutoCertEmail       string
+	AutoCertDNSProvider []string
+
+	caCert      string
+	certs       []string
+	keys        []string
+	rules       []*HTTPProxyRule
+	dnsProvider map[string]string
 }
 
 var httpProxyOptions = &HTTPProxyOptions{}
@@ -103,6 +110,9 @@ func HTTPProxyCmd() *cobra.Command {
 	cmd.Flags().StringVar(&o.CaCertFile, "ca-cert-file", "", "CA cert file")
 	cmd.Flags().StringArrayVar(&o.CertFiles, "cert-file", []string{}, "Cert file")
 	cmd.Flags().StringArrayVar(&o.KeyFiles, "key-file", []string{}, "Key file")
+	cmd.Flags().StringVar(&o.AutoCertDomainName, "auto-cert-domain-name", "", "Auto cert domain name")
+	cmd.Flags().StringArrayVar(&o.AutoCertDNSProvider, "dns-provider", []string{}, "Auto cert DNS provider")
+	cmd.Flags().StringVar(&o.AutoCertEmail, "auto-cert-email", "", "Auto cert email")
 	return cmd
 }
 
@@ -133,6 +143,20 @@ func httpProxyRun(cmd *cobra.Command, args []string) error {
 	allSpec := []interface{}{hs}
 	for _, p := range pls {
 		allSpec = append(allSpec, p)
+	}
+	if o.AutoCertDomainName != "" {
+		autoCertSpec, err := o.TranslateAutoCertManager()
+		if err != nil {
+			return err
+		}
+		generalSpec, err := toGeneralSpec(autoCertSpec)
+		if err != nil {
+			return err
+		}
+		err = resources.ApplyObject(cmd, generalSpec)
+		if err != nil {
+			return err
+		}
 	}
 	for _, s := range allSpec {
 		spec, err := toGeneralSpec(s)
@@ -194,6 +218,27 @@ func (o *HTTPProxyOptions) Parse() error {
 		keys = append(keys, key)
 	}
 	o.keys = keys
+
+	// parse dns provider
+	if o.AutoCertDomainName != "" || len(o.AutoCertDNSProvider) != 0 {
+		if !o.AutoCert {
+			return fmt.Errorf("auto cert domain name or dns provider is set, but auto cert is not enabled")
+		}
+		if o.AutoCertDomainName == "" {
+			return fmt.Errorf("auto cert domain name is required")
+		}
+		if len(o.AutoCertDNSProvider) == 0 {
+			return fmt.Errorf("auto cert dns provider is required")
+		}
+	}
+	o.dnsProvider = map[string]string{}
+	for _, dnsProvider := range o.AutoCertDNSProvider {
+		parts := strings.SplitN(dnsProvider, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("dns provider %s should in format 'name=secret', invalid format", dnsProvider)
+		}
+		o.dnsProvider[parts[0]] = parts[1]
+	}
 	return nil
 }
 
@@ -256,6 +301,50 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*specs.PipelineSpe
 		}
 	}
 	return rules, pipelines
+}
+
+func (o *HTTPProxyOptions) TranslateAutoCertManager() (*specs.AutoCertManagerSpec, error) {
+	url := general.MakePath(general.ObjectsURL)
+	body, err := general.HandleRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	allSpecs, err := general.UnmarshalMapInterface(body, true)
+	if err != nil {
+		return nil, err
+	}
+	var spec *specs.AutoCertManagerSpec
+	for _, s := range allSpecs {
+		if s["kind"] == "AutoCertManager" {
+			if spec == nil {
+				spec = &specs.AutoCertManagerSpec{}
+				data, err := codectool.MarshalYAML(s)
+				if err != nil {
+					return nil, err
+				}
+				if err := codectool.Unmarshal(data, spec); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, fmt.Errorf("there are more than one AutoCertManager")
+			}
+		}
+	}
+	if spec == nil {
+		if o.AutoCertEmail != "" {
+			spec = specs.NewAutoCertManagerSpec()
+			spec.Email = o.AutoCertEmail
+		} else {
+			return nil, fmt.Errorf("there is no AutoCertManager and auto-cert-email is not set, please create one or set auto-cert-email")
+		}
+	} else if o.AutoCertEmail != "" {
+		spec.Email = o.AutoCertEmail
+	}
+	spec.AddOrUpdateDomain(&autocertmanager.DomainSpec{
+		Name:        o.AutoCertDomainName,
+		DNSProvider: o.dnsProvider,
+	})
+	return spec, nil
 }
 
 func toGeneralSpec(data interface{}) (*general.Spec, error) {

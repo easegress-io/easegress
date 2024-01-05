@@ -22,6 +22,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
+	"github.com/megaease/easegress/v2/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver"
 	"github.com/megaease/easegress/v2/pkg/object/pipeline"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
@@ -79,6 +80,10 @@ func getDefaultPipelineSpec() *pipeline.Spec {
 	return (&pipeline.Pipeline{}).DefaultSpec().(*pipeline.Spec)
 }
 
+func getDefaultAutoCertManagerSpec() *autocertmanager.Spec {
+	return (&autocertmanager.AutoCertManager{}).DefaultSpec().(*autocertmanager.Spec)
+}
+
 // NewProxyFilterSpec returns a new ProxyFilterSpec.
 func NewProxyFilterSpec(name string) *httpproxy.Spec {
 	spec := GetDefaultFilterSpec(httpproxy.Kind).(*httpproxy.Spec)
@@ -106,4 +111,31 @@ func NewRequestAdaptorFilterSpec(name string) *builder.RequestAdaptorSpec {
 // GetDefaultFilterSpec returns the default filter spec of the kind.
 func GetDefaultFilterSpec(kind string) filters.Spec {
 	return filters.GetKind(kind).DefaultSpec()
+}
+
+// PipelineSpec is the spec of Pipeline.
+type AutoCertManagerSpec struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+
+	autocertmanager.Spec `json:",inline"`
+}
+
+func NewAutoCertManagerSpec() *AutoCertManagerSpec {
+	return &AutoCertManagerSpec{
+		Name: "default",
+		Kind: autocertmanager.Kind,
+		Spec: *getDefaultAutoCertManagerSpec(),
+	}
+}
+
+// AddOrUpdateDomain adds or updates a domain.
+func (a *AutoCertManagerSpec) AddOrUpdateDomain(domain *autocertmanager.DomainSpec) {
+	for i, d := range a.Domains {
+		if d.Name == domain.Name {
+			a.Domains[i] = *domain
+			return
+		}
+	}
+	a.Domains = append(a.Domains, *domain)
 }
