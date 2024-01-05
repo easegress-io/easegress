@@ -255,15 +255,27 @@ func TestCreateHTTPProxyOptions(t *testing.T) {
 			"foo.com/bar*=http://127.0.0.1:9095",
 			"/bar=http://127.0.0.1:9095",
 		},
-		TLS:        true,
-		AutoCert:   true,
-		CaCertFile: createCert("ca.cert"),
-		CertFiles:  []string{createCert("cert1"), createCert("cert2")},
-		KeyFiles:   []string{createCert("key1"), createCert("key2")},
+		TLS:                true,
+		AutoCert:           true,
+		CaCertFile:         createCert("ca.cert"),
+		CertFiles:          []string{createCert("cert1"), createCert("cert2")},
+		KeyFiles:           []string{createCert("key1"), createCert("key2")},
+		AutoCertEmail:      "someone@easegress.com",
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=dnspod",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
 	}
 	o.Complete([]string{"test"})
 	err = o.Parse()
 	assert.Nil(err)
+
+	// auto cert
+	assert.Equal("dnspod", o.dnsProvider["name"])
+	assert.Equal("easegress.com", o.dnsProvider["zone"])
+	assert.Equal("abc", o.dnsProvider["apiToken"])
 
 	hs, pls := o.Translate()
 
@@ -382,4 +394,84 @@ func TestCreateHTTPProxyCmd(t *testing.T) {
 	// test run
 	err = httpProxyRun(cmd, []string{"demo"})
 	assert.NotNil(t, err)
+}
+
+func TestTranslateAutoCertManager(t *testing.T) {
+	assert := assert.New(t)
+
+	originalHook := handleReqHook
+	defer func() {
+		handleReqHook = originalHook
+	}()
+	handleReqHook = func(httpMethod string, path string, yamlBody []byte) ([]byte, error) {
+		return []byte("[]"), nil
+	}
+	option := &HTTPProxyOptions{
+		AutoCert:           true,
+		AutoCertEmail:      "some@easegress.com",
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=dnspod",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
+	}
+	option.Complete([]string{"test"})
+	err := option.Parse()
+	assert.Nil(err)
+
+	spec, err := option.TranslateAutoCertManager()
+	assert.Nil(err)
+	assert.Equal("AutoCertManager", spec.Kind)
+	assert.Equal("autocertmanager", spec.Name)
+	assert.Equal("some@easegress.com", spec.Email)
+	assert.Equal(1, len(spec.Domains))
+	assert.Equal("*.easegress.example", spec.Domains[0].Name)
+	assert.Equal(map[string]string{
+		"name":     "dnspod",
+		"zone":     "easegress.com",
+		"apiToken": "abc",
+	}, spec.Domains[0].DNSProvider)
+
+	handleReqHook = func(httpMethod string, path string, yamlBody []byte) ([]byte, error) {
+		return []byte(`[
+			{
+				"kind": "AutoCertManager",
+				"name": "autocert",
+				"email": "anybody@easegress.com",
+				domains: [
+					{
+						"name": "*.easegress.org",
+						"dnsProvider": {
+							"name": "dnspod",
+							"zone": "easegress.org",
+							"apiToken": "abc"
+						}
+					}
+				]
+			}
+		]`), nil
+	}
+	option = &HTTPProxyOptions{
+		AutoCert:           true,
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=aliyun",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
+	}
+	option.Complete([]string{"test"})
+	err = option.Parse()
+	assert.Nil(err)
+
+	spec, err = option.TranslateAutoCertManager()
+	assert.Nil(err)
+	assert.Equal("AutoCertManager", spec.Kind)
+	assert.Equal("autocert", spec.Name)
+	assert.Equal("anybody@easegress.com", spec.Email)
+
+	assert.Equal(2, len(spec.Domains))
+	assert.Equal("*.easegress.org", spec.Domains[0].Name)
+	assert.Equal("*.easegress.example", spec.Domains[1].Name)
 }
