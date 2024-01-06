@@ -20,6 +20,7 @@ package api
 import (
 	"net/http"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
@@ -32,8 +33,10 @@ import (
 type (
 	dynamicMux struct {
 		server *Server
-		done   chan struct{}
 		router atomic.Value
+
+		done      chan struct{}
+		closeOnce sync.Once
 	}
 )
 
@@ -136,5 +139,7 @@ func (m *dynamicMux) reloadAPIs() {
 }
 
 func (m *dynamicMux) close() {
-	close(m.done)
+	m.closeOnce.Do(func() {
+		close(m.done)
+	})
 }
