@@ -19,6 +19,7 @@
 package logger
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -111,6 +112,7 @@ func SetLogLevel(level zapcore.Level) {
 	globalLogLevel.SetLevel(level)
 }
 
+// GetLogLevel returns log level.
 func GetLogLevel() string {
 	return globalLogLevel.String()
 }
@@ -228,6 +230,32 @@ func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) 
 
 	syncer := zapcore.AddSync(fr)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, zap.DebugLevel)
+
+	return zap.New(core).Sugar()
+}
+
+func mustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:       "",
+		LevelKey:      "",
+		NameKey:       "",
+		CallerKey:     "",
+		MessageKey:    "message",
+		StacktraceKey: "",
+		LineEnding:    zapcore.DefaultLineEnding,
+	}
+
+	var err error
+	var fr io.Writer = os.Stdout
+	if opt.AbsLogDir != "" {
+		fr, err = newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
+		if err != nil {
+			panic(fmt.Errorf("new log file %s failed: %w", filename, err))
+		}
+	}
+
+	syncer := zapcore.AddSync(fr)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, globalLogLevel) // use global log level
 
 	return zap.New(core).Sugar()
 }
