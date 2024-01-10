@@ -47,7 +47,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.17.0
-	github.com/quic-go/quic-go v0.40.0
+	github.com/quic-go/quic-go v0.40.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/cors v1.10.1
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
