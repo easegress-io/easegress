@@ -53,9 +53,11 @@ Contributing code, like bug fixes or new features are equally encouraged! Easegr
 - New unit test or improvement of existing test
 
 
-If you’re unsure, whether your code contribution will be beneficial, open a ticket or ask in Slack. You can check the [Developer Guide](./doc/developer-guide.md#developer-guide) to understand the high level architecture and Filter and Object extensions of Easegress.
+If you’re unsure, whether your code contribution will be beneficial, open a ticket or ask in Slack. You can check the [Developer Guide](./docs/06.Development-for-Easegress/6.1.Developer-Guide.md) to understand the high level architecture and Filter and Object extensions of Easegress.
 
 For any code or documentation change, please read the following Pull request guide.
+
+For coding standards, refer to the [Uber Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md).
 
 ## Pull request guide
 
