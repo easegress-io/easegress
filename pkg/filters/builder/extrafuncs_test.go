@@ -59,6 +59,11 @@ func TestExtraFuncs(t *testing.T) {
 
 	assert.Equal(`abcd\"ABCD`, extraFuncs["jsonEscape"].(func(s string) string)(`abcd"ABCD`))
 
+	assert.Equal("https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FUTF-8%23Description",
+		extraFuncs["urlQueryEscape"].(func(s string) string)("https://en.wikipedia.org/wiki/UTF-8#Description"))
+	assert.Equal("https://en.wikipedia.org/wiki/UTF-8#Description",
+		extraFuncs["urlQueryUnescape"].(func(s string) string)("https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FUTF-8%23Description"))
+
 	assert.Panics(func() { extraFuncs["panic"].(func(v interface{}))("") })
 }
 

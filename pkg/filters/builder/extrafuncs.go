@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -153,5 +154,17 @@ var extraFuncs = template.FuncMap{
 		}
 		username, _, _ := req.(BasicAuth).BasicAuth()
 		return username
+	},
+
+	"urlQueryUnescape": func(s string) string {
+		unescapedStr, err := url.QueryUnescape(s)
+		if err != nil {
+			panic(err)
+		}
+		return unescapedStr
+	},
+
+	"urlQueryEscape": func(s string) string {
+		return url.QueryEscape(s)
 	},
 }
