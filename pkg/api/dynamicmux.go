@@ -20,6 +20,7 @@ package api
 import (
 	"net/http"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
@@ -32,8 +33,10 @@ import (
 type (
 	dynamicMux struct {
 		server *Server
-		done   chan struct{}
 		router atomic.Value
+
+		done      chan struct{}
+		closeOnce sync.Once
 	}
 )
 
@@ -136,5 +139,12 @@ func (m *dynamicMux) reloadAPIs() {
 }
 
 func (m *dynamicMux) close() {
-	close(m.done)
+	// make sure to close channel only once.
+	// when use "signal-upgrade", easegress will start a new process gracefully,
+	// which may cause the old process be closed twice.
+	// here we use sync.Once to make sure the channel is closed only once.
+	// more discussion here: https://github.com/easegress-io/easegress/issues/1170
+	m.closeOnce.Do(func() {
+		close(m.done)
+	})
 }
