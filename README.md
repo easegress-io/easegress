@@ -8,6 +8,7 @@
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
 [![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8265/badge)](https://www.bestpractices.dev/projects/8265)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress?ref=badge_shield)
 
 <a href="https://megaease.com/easegress">
     <img src="./docs/imgs/easegress.svg"
@@ -217,3 +218,6 @@ See [Contributing guide](./CONTRIBUTING.md#contributing). The project welcomes c
 ## License
 
 Easegress is under the Apache 2.0 license. See the [LICENSE](./LICENSE) file for details.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress?ref=badge_large)
