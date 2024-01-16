@@ -120,8 +120,6 @@ type cluster struct {
 
 	layout *Layout
 
-	members *members
-
 	server       *embed.Etcd
 	client       *clientv3.Client
 	lease        *clientv3.LeaseID
@@ -143,21 +141,13 @@ func New(opt *option.Options) (Cluster, error) {
 		return nil, fmt.Errorf("invalid cluster request timeout: %v", err)
 	}
 
-	// Member file, members.ClusterMembers and members.KnownMembers will be deprecated in the future.
-	// When the new configuration way (cluster.initial-cluster or cluster.primary-listen-peer-urls) is used, let's not create member
-	// instance but let's read member information from pkg/option/options.go's Options.ClusterOptions directly.
-	var membersFile *members
 	if len(opt.GetPeerURLs()) == 0 {
-		membersFile, err = newMembers(opt)
-		if err != nil {
-			return nil, fmt.Errorf("new members failed: %v", err)
-		}
+		return nil, fmt.Errorf("no peer urls in cluster.initial-cluster for primary and cluster.primary-listen-peer-url for secondary")
 	}
 
 	c := &cluster{
 		opt:            opt,
 		requestTimeout: requestTimeout,
-		members:        membersFile,
 		done:           make(chan struct{}),
 	}
 
@@ -320,15 +310,7 @@ func (c *cluster) getClient() (*clientv3.Client, error) {
 		return c.client, nil
 	}
 
-	var endpoints []string
-	if c.members == nil {
-		endpoints = c.opt.GetPeerURLs()
-	} else {
-		endpoints = c.members.knownPeerURLs()
-		if c.opt.ForceNewCluster {
-			endpoints = []string{c.members.self().PeerURL}
-		}
-	}
+	endpoints := c.opt.GetPeerURLs()
 	logger.Infof("client connect with endpoints: %v", endpoints)
 	client, err := clientv3.New(clientv3.Config{
 		Endpoints:            endpoints,
@@ -675,10 +657,6 @@ func (c *cluster) heartbeat() {
 			if err != nil {
 				logger.Errorf("sync status failed: %v", err)
 			}
-			err = c.updateMembers()
-			if err != nil {
-				logger.Errorf("update members failed: %v", err)
-			}
 		case <-c.done:
 			return
 		}
@@ -752,27 +730,6 @@ func (c *cluster) syncStatus() error {
 	err = c.PutUnderLease(c.Layout().StatusMemberKey(), string(buff))
 	if err != nil {
 		return fmt.Errorf("put status failed: %v", err)
-	}
-	return nil
-}
-
-func (c *cluster) updateMembers() error {
-	client, err := c.getClient()
-	if err != nil {
-		return err
-	}
-
-	resp, err := func() (*clientv3.MemberListResponse, error) {
-		ctx, cancel := c.requestContext()
-		defer cancel()
-		return client.MemberList(ctx)
-	}()
-	if err != nil {
-		return err
-	}
-
-	if c.members != nil {
-		c.members.updateClusterMembers(resp.Members)
 	}
 	return nil
 }

@@ -51,7 +51,6 @@ func CreateOptionsForTest(tempDir string) *option.Options {
 	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
 	opt.DataDir = fmt.Sprintf("%s/data", tempDir)
 	opt.LogDir = fmt.Sprintf("%s/log", tempDir)
-	opt.MemberDir = fmt.Sprintf("%s/member", tempDir)
 
 	err = opt.Parse()
 	check(err)

@@ -87,11 +87,11 @@ type Options struct {
 	Cluster               ClusterOptions `yaml:"cluster"`
 
 	// Path.
-	HomeDir   string `yaml:"home-dir"`
-	DataDir   string `yaml:"data-dir"`
-	WALDir    string `yaml:"wal-dir"`
-	LogDir    string `yaml:"log-dir"`
-	MemberDir string `yaml:"member-dir"`
+	HomeDir string `yaml:"home-dir"`
+	DataDir string `yaml:"data-dir"`
+	WALDir  string `yaml:"wal-dir"`
+	LogDir  string `yaml:"log-dir"`
+	// MemberDir string `yaml:"member-dir"`
 
 	// Profile.
 	CPUProfileFile    string `yaml:"cpu-profile-file"`
@@ -101,11 +101,11 @@ type Options struct {
 	StatusUpdateMaxBatchSize int `yaml:"status-update-max-batch-size"`
 
 	// Prepare the items below in advance.
-	AbsHomeDir   string `yaml:"-"`
-	AbsDataDir   string `yaml:"-"`
-	AbsWALDir    string `yaml:"-"`
-	AbsLogDir    string `yaml:"-"`
-	AbsMemberDir string `yaml:"-"`
+	AbsHomeDir string `yaml:"-"`
+	AbsDataDir string `yaml:"-"`
+	AbsWALDir  string `yaml:"-"`
+	AbsLogDir  string `yaml:"-"`
+	// AbsMemberDir string `yaml:"-"`
 }
 
 // addClusterVars introduces cluster arguments.
@@ -154,7 +154,6 @@ func New() *Options {
 	opt.flags.StringVar(&opt.DataDir, "data-dir", "data", "Path to the data directory.")
 	opt.flags.StringVar(&opt.WALDir, "wal-dir", "", "Path to the WAL directory.")
 	opt.flags.StringVar(&opt.LogDir, "log-dir", "", "Path to the log directory.")
-	opt.flags.StringVar(&opt.MemberDir, "member-dir", "member", "Path to the member directory.")
 
 	opt.flags.StringVar(&opt.CPUProfileFile, "cpu-profile-file", "", "Path to the CPU profile file.")
 	opt.flags.StringVar(&opt.MemoryProfileFile, "memory-profile-file", "", "Path to the memory profile file.")
@@ -348,9 +347,6 @@ func (opt *Options) validate() error {
 	if opt.DataDir == "" {
 		return fmt.Errorf("empty data-dir")
 	}
-	if !opt.UseInitialCluster() && opt.MemberDir == "" {
-		return fmt.Errorf("empty member-dir")
-	}
 	if opt.TLS && (opt.CertFile == "" || opt.KeyFile == "") {
 		return fmt.Errorf("empty cert file or key file")
 	}
@@ -388,7 +384,6 @@ func (opt *Options) prepare() error {
 	table := []dirItem{
 		{dir: opt.DataDir, absDir: &opt.AbsDataDir},
 		{dir: opt.WALDir, absDir: &opt.AbsWALDir},
-		{dir: opt.MemberDir, absDir: &opt.AbsMemberDir},
 	}
 	if opt.LogDir != "" {
 		table = append(table, dirItem{dir: opt.LogDir, absDir: &opt.AbsLogDir})

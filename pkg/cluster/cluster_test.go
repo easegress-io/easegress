@@ -23,7 +23,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +37,72 @@ import (
 	"github.com/megaease/easegress/v2/pkg/option"
 	"github.com/stretchr/testify/assert"
 )
+
+var memberCounter = 0
+
+func mockTestOpt(ports []int) *option.Options {
+	memberCounter++
+	name := fmt.Sprintf("test-member-%03d", memberCounter)
+
+	opt := option.New()
+	opt.Name = name
+	opt.ClusterName = "test-cluster"
+	opt.ClusterRole = "primary"
+	opt.ClusterRequestTimeout = "10s"
+	opt.Cluster.ListenClientURLs = []string{fmt.Sprintf("http://localhost:%d", ports[0])}
+	opt.Cluster.AdvertiseClientURLs = opt.Cluster.ListenClientURLs
+	opt.Cluster.ListenPeerURLs = []string{fmt.Sprintf("http://localhost:%d", ports[1])}
+	opt.Cluster.InitialAdvertisePeerURLs = opt.Cluster.ListenPeerURLs
+	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
+	opt.HomeDir = filepath.Join(tempDir, name)
+	opt.DataDir = "data"
+	opt.LogDir = "log"
+	opt.Debug = false
+
+	if err := opt.Parse(); err != nil {
+		panic(fmt.Errorf("parse option failed: %v", err))
+	}
+
+	return opt
+}
+
+func mockMembers(count int) ([]*option.Options, []*pb.Member) {
+	ports, err := freeport.GetFreePorts(count * 3)
+	if err != nil {
+		panic(fmt.Errorf("get %d free ports failed: %v", count*3, err))
+	}
+
+	opts := make([]*option.Options, count)
+	pbMembers := make([]*pb.Member, count)
+
+	for i := 0; i < count; i++ {
+		id := i + 1
+		opt := mockTestOpt(ports[i*3 : (i+1)*3])
+
+		opts[i] = opt
+		pbMembers[i] = &pb.Member{
+			ID:         uint64(id),
+			Name:       opt.Name,
+			PeerURLs:   []string{opt.Cluster.InitialAdvertisePeerURLs[0]},
+			ClientURLs: []string{opt.Cluster.AdvertiseClientURLs[0]},
+		}
+
+		env.InitServerDir(opt)
+	}
+
+	initCluster := map[string]string{}
+	for _, opt := range opts {
+		if opt.ClusterRole == "primary" {
+			initCluster[opt.Name] = opt.Cluster.ListenPeerURLs[0]
+		}
+	}
+	for _, opt := range opts {
+		if opt.ClusterRole == "primary" {
+			opt.Cluster.InitialCluster = initCluster
+		}
+	}
+	return opts, pbMembers
+}
 
 var tempDir = os.TempDir()
 
@@ -55,9 +120,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb.Member) {
+func mockStaticClusterMembers(count int) ([]*option.Options, []*pb.Member) {
 	opts := make([]*option.Options, count)
-	members := make(membersSlice, count)
 	pbMembers := make([]*pb.Member, count)
 
 	portCount := (count * 2) + 1 // two for each member and one for egctl API.
@@ -91,7 +155,6 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		opt.HomeDir = filepath.Join(tempDir, name)
 		opt.DataDir = "data"
 		opt.LogDir = "log"
-		opt.MemberDir = "member"
 		opt.Debug = false
 		err = opt.Parse() // create directories
 		if err != nil {
@@ -101,11 +164,6 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		id := uint64(i + 1)
 
 		opts[i] = opt
-		members[i] = &member{
-			ID:      id,
-			Name:    opt.Name,
-			PeerURL: opt.Cluster.InitialAdvertisePeerURLs[0],
-		}
 		pbMembers[i] = &pb.Member{
 			ID:         id,
 			Name:       opt.Name,
@@ -114,18 +172,11 @@ func mockStaticClusterMembers(count int) ([]*option.Options, membersSlice, []*pb
 		}
 		env.InitServerDir(opts[i])
 	}
-	sort.Sort(members)
-	noexistMember := members.getByPeerURL("no-exist")
-	if noexistMember != nil {
-		panic("get a member not exist succ, should failed")
-	}
-	members.deleteByName("no-exist")
-	members.deleteByPeerURL("no-exist-purl")
-	return opts, members, pbMembers
+	return opts, pbMembers
 }
 
 func mockStaticCluster(count int) []*cluster {
-	opts, _, _ := mockStaticClusterMembers(count)
+	opts, _ := mockStaticClusterMembers(count)
 
 	clusterNodes := make([]*cluster, count)
 	clusterNodesLock := sync.Mutex{}
@@ -216,7 +267,7 @@ func TestLeaseInvalid(t *testing.T) {
 }
 
 func TestClusterStart(t *testing.T) {
-	opts, _, _ := mockMembers(1)
+	opts, _ := mockMembers(1)
 
 	cls, err := New(opts[0])
 
@@ -234,7 +285,7 @@ func TestClusterStart(t *testing.T) {
 
 func TestClusterPurgeMember(t *testing.T) {
 	assert := assert.New(t)
-	opts, _, _ := mockMembers(2)
+	opts, _ := mockMembers(2)
 
 	go func() {
 		_, err := New(opts[1])
@@ -250,7 +301,7 @@ func TestClusterPurgeMember(t *testing.T) {
 }
 
 func TestClusterSyncer(t *testing.T) {
-	opts, _, _ := mockMembers(1)
+	opts, _ := mockMembers(1)
 	cls, err := New(opts[0])
 
 	if err != nil {
@@ -330,7 +381,7 @@ func TestClusterSyncer(t *testing.T) {
 }
 
 func TestClusterWatcher(t *testing.T) {
-	opts, _, _ := mockMembers(1)
+	opts, _ := mockMembers(1)
 	cls, err := New(opts[0])
 
 	if err != nil {
@@ -471,7 +522,7 @@ func TestUtil(t *testing.T) {
 }
 
 func TestMutexAndOP(t *testing.T) {
-	opts, _, _ := mockMembers(1)
+	opts, _ := mockMembers(1)
 	cls, err := New(opts[0])
 
 	if err != nil {
