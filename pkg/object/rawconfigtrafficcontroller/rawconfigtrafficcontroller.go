@@ -38,7 +38,7 @@ const (
 	Kind = "RawConfigTrafficController"
 
 	// DefaultNamespace is the namespace of RawConfigTrafficController
-	DefaultNamespace = "default"
+	DefaultNamespace = api.DefaultNamespace
 )
 
 type (

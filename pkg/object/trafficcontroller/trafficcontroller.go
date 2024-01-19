@@ -21,10 +21,8 @@ package trafficcontroller
 import (
 	"fmt"
 	"runtime/debug"
-	"strings"
 	"sync"
 
-	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
@@ -99,12 +97,6 @@ var _ easemonitor.Metricer = (*TrafficObjectStatus)(nil)
 
 func init() {
 	supervisor.Register(&TrafficController{})
-	api.RegisterObject(&api.APIResource{
-		Category: Category,
-		Kind:     Kind,
-		Name:     strings.ToLower(Kind),
-		Aliases:  []string{"trafficcontroller", "tc"},
-	})
 }
 
 // ToMetrics implements easemonitor.Metricer.
@@ -713,4 +705,25 @@ func (tc *TrafficController) Close() {
 		delete(tc.namespaces, name)
 		logger.Infof("delete namespace %s", name)
 	}
+}
+
+// ListAllNamespace lists all namespaces pipelines and traffic gates.
+func (tc *TrafficController) ListAllNamespace() map[string][]*supervisor.ObjectEntity {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	res := make(map[string][]*supervisor.ObjectEntity)
+	for namespace, space := range tc.namespaces {
+		entities := []*supervisor.ObjectEntity{}
+		space.pipelines.Range(func(k, v interface{}) bool {
+			entities = append(entities, v.(*supervisor.ObjectEntity))
+			return true
+		})
+		space.trafficGates.Range(func(k, v interface{}) bool {
+			entities = append(entities, v.(*supervisor.ObjectEntity))
+			return true
+		})
+		res[namespace] = entities
+	}
+	return res
 }

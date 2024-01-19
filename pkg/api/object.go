@@ -22,10 +22,12 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
@@ -270,15 +272,24 @@ func (s *Server) getObjectTemplate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	_, namespace := parseNamespaces(r)
+	if namespace != "" && namespace != DefaultNamespace {
+		spec := s._getObjectByNamespace(namespace, name)
+		if spec == nil {
+			HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
+			return
+		}
+
+		WriteBody(w, r, spec)
+		return
+	}
 
 	// No need to lock.
-
 	spec := s._getObject(name)
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
-
 	WriteBody(w, r, spec)
 }
 
@@ -320,7 +331,35 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 	s.upgradeConfigVersion(w, r)
 }
 
+func parseNamespaces(r *http.Request) (bool, string) {
+	allNamespaces := r.URL.Query().Get("all-namespaces")
+	namespace := r.URL.Query().Get("namespace")
+	flag, err := strconv.ParseBool(allNamespaces)
+	if err != nil {
+		return false, namespace
+	}
+	return flag, namespace
+}
+
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
+	allNamespaces, namespace := parseNamespaces(r)
+	if allNamespaces && namespace != "" {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("conflict query params, can't set all-namespaces and namespace at the same time"))
+		return
+	}
+	if allNamespaces {
+		allSpecs := s._listAllNamespace()
+		allSpecs[DefaultNamespace] = s._listObjects()
+		WriteBody(w, r, allSpecs)
+		return
+	}
+	if namespace != "" && namespace != DefaultNamespace {
+		specs := s._listNamespace(namespace)
+		WriteBody(w, r, specs)
+		return
+	}
+
+	// allNamespaces == false && namespace == ""
 	// No need to lock.
 	specs := specList(s._listObjects())
 	// NOTE: Keep it consistent.
@@ -386,4 +425,67 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listObjectAPIResources(w http.ResponseWriter, r *http.Request) {
 	res := ObjectAPIResources()
 	WriteBody(w, r, res)
+}
+
+func getTrafficController(super *supervisor.Supervisor) *trafficcontroller.TrafficController {
+	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		return nil
+	}
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		return nil
+	}
+	return tc
+}
+
+func (s *Server) _listAllNamespace() map[string][]*supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	res := make(map[string][]*supervisor.Spec)
+	allObjects := tc.ListAllNamespace()
+	for namespace, objects := range allObjects {
+		specs := make([]*supervisor.Spec, 0, len(objects))
+		for _, o := range objects {
+			specs = append(specs, o.Spec())
+		}
+		res[namespace] = specs
+	}
+	return res
+}
+
+func (s *Server) _listNamespace(ns string) []*supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	traffics := tc.ListTrafficGates(ns)
+	pipelines := tc.ListPipelines(ns)
+	specs := make([]*supervisor.Spec, 0, len(traffics)+len(pipelines))
+	for _, t := range traffics {
+		specs = append(specs, t.Spec())
+	}
+	for _, p := range pipelines {
+		specs = append(specs, p.Spec())
+	}
+	return specs
+}
+
+func (s *Server) _getObjectByNamespace(ns string, name string) *supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	object, ok := tc.GetPipeline(ns, name)
+	if ok {
+		return object.Spec()
+	}
+
+	object, ok = tc.GetTrafficGate(ns, name)
+	if ok {
+		return object.Spec()
+	}
+	return nil
 }
