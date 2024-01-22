@@ -200,8 +200,38 @@ func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 	name = name[0 : len(name)-len(d.Zone())-1]
 	record := libdns.Record{Type: "TXT", Name: name}
 
-	// ignore the error of DeleteRecords because the record may not exist
-	dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+	allRecords, err := dp.GetRecords(d.ctx, d.Zone())
+	if err != nil {
+		logger.Errorf("get records for zone %s failed, %v", d.Zone(), err)
+		_, err := dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+		if err != nil {
+			logger.Warnf("delete records with name %s from zone %s failed, %v", record.Name, d.Zone(), err)
+		}
+
+	} else {
+		diffNames := []string{}
+		delRecords := []libdns.Record{}
+		for _, r := range allRecords {
+			if r.Type == record.Type && r.Name == record.Name {
+				delRecords = append(delRecords, r)
+			} else if r.Type == record.Type {
+				diffNames = append(diffNames, r.Name)
+			}
+		}
+		// for debug
+		logger.Infof("dns records with same type but different names %v, append record name %s", diffNames, record.Name)
+		if len(delRecords) > 0 {
+			_, err := dp.DeleteRecords(d.ctx, d.Zone(), delRecords)
+			if err != nil {
+				logger.Warnf("delete records %v from zone %s failed, %v", delRecords, d.Zone(), err)
+			}
+		} else {
+			_, err := dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+			if err != nil {
+				logger.Warnf("delete records with name %s from zone %s failed, %v", record.Name, d.Zone(), err)
+			}
+		}
+	}
 
 	record.Value = value
 	_, err = dp.AppendRecords(d.ctx, d.Zone(), []libdns.Record{record})
