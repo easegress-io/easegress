@@ -176,6 +176,51 @@ func (d *Domain) waitDNSRecord(value string) error {
 	}
 }
 
+func (d *Domain) deleteDuplicateRecord(dp dnsProvider, record libdns.Record) {
+	if record.ID != "" {
+		_, err := dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+		if err != nil {
+			logger.Warnf("delete record id %s name %s failed, %v", record.ID, record.Name, err)
+		}
+		return
+	}
+
+	allRecords, err := dp.GetRecords(d.ctx, d.Zone())
+	if err != nil {
+		logger.Errorf("get records from zone %s failed, %v", d.Zone(), err)
+		_, err := dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+		if err != nil {
+			logger.Warnf("delete records %s from zone %s failed, %v", record.Name, d.Zone(), err)
+		}
+		return
+	}
+
+	diffNames := []string{}
+	delRecords := []libdns.Record{}
+	for _, r := range allRecords {
+		if r.Type == record.Type && r.Name == record.Name {
+			delRecords = append(delRecords, r)
+		} else if r.Type == record.Type {
+			diffNames = append(diffNames, r.Name)
+		}
+	}
+	// for debug
+	logger.Infof("dns records with same type %s but different names %v, append record %s", record.Type, diffNames, record.Name)
+	if len(delRecords) > 0 {
+		_, err := dp.DeleteRecords(d.ctx, d.Zone(), delRecords)
+		if err != nil {
+			logger.Warnf("delete records %v from zone %s failed, %v", delRecords, d.Zone(), err)
+		}
+		return
+	}
+
+	// del records is empty, try to delete record directly.
+	_, err = dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+	if err != nil {
+		logger.Warnf("delete records with name %s from zone %s failed, %v", record.Name, d.Zone(), err)
+	}
+}
+
 func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 	client := acm.client
 
@@ -200,8 +245,7 @@ func (d *Domain) runDNS01(acm *AutoCertManager, chal *acme.Challenge) error {
 	name = name[0 : len(name)-len(d.Zone())-1]
 	record := libdns.Record{Type: "TXT", Name: name}
 
-	// ignore the error of DeleteRecords because the record may not exist
-	dp.DeleteRecords(d.ctx, d.Zone(), []libdns.Record{record})
+	d.deleteDuplicateRecord(dp, record)
 
 	record.Value = value
 	_, err = dp.AppendRecords(d.ctx, d.Zone(), []libdns.Record{record})
