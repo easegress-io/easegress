@@ -415,12 +415,7 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flag
 	//    status: ...
 	//  - node: eg2
 	//    status: ...
-	printNamespace := func(namespace string) {
-		msg := fmt.Sprintf("In Namespace %s:", namespace)
-		fmt.Println(strings.Repeat("=", len(msg)))
-		fmt.Println(msg)
-		fmt.Println(strings.Repeat("=", len(msg)))
-	}
+
 	printSpace := false
 	specs := namespaceSpecs[DefaultNamespace]
 	if len(specs) > 0 {
@@ -444,6 +439,13 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flag
 		printSpace = true
 	}
 	return nil
+}
+
+func printNamespace(ns string) {
+	msg := fmt.Sprintf("In Namespace %s:", ns)
+	fmt.Println(strings.Repeat("=", len(msg)))
+	fmt.Println(msg)
+	fmt.Println(strings.Repeat("=", len(msg)))
 }
 
 // CreateObject creates an object.
@@ -610,8 +612,8 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 
 // NodeStatus is the status of a node.
 type NodeStatus struct {
-	Node   string
-	Status map[string]interface{}
+	Node   string                 `json:"node"`
+	Status map[string]interface{} `json:"status"`
 }
 
 const objectStatusKeyInSpec = "allStatus"
