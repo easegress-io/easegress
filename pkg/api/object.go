@@ -461,7 +461,7 @@ func (s *Server) _listAllNamespaces() map[string][]*supervisor.Spec {
 	return res
 }
 
-func (s *Server) _listNamespace(ns string) []*supervisor.Spec {
+func (s *Server) _listNamespaces(ns string) []*supervisor.Spec {
 	tc := getTrafficController(s.super)
 	if tc == nil {
 		return nil
