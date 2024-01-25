@@ -118,7 +118,8 @@ func (s *Server) _deleteObject(name string) {
 
 // _getStatusObject returns the status object with the specified name.
 // in easegress, since TrafficController contain multiply namespaces.
-// it need a special prefix to store the status object.
+// and it use special prefix to store status of httpserver, pipeline, or grpcserver.
+// so we need to diff them by using isTraffic. previous, we actually can't get status for business controller like autocertmanager.
 func (s *Server) _getStatusObject(namespace string, name string, isTraffic bool) map[string]interface{} {
 	ns := namespace
 	if ns == "" {

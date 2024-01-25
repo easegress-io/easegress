@@ -65,7 +65,9 @@ func ObjectAPIResources() ([]*api.APIResource, error) {
 }
 
 // trafficObjectStatusNamespace return namespace of traffic object status.
-// to get traffic object status of httpserver of pipeline, we need this function.
+// In easegress, when we put traffic object like httpserver, pipeline into namespace "default",
+// then their status will be put into namespace "eg-traffic-default".
+// the status is updated by TrafficController.
 func trafficObjectStatusNamespace(objectNamespace string) string {
 	return cluster.TrafficNamespace(objectNamespace)
 }
@@ -568,8 +570,8 @@ type ObjectStatus struct {
 func unmarshalObjectStatus(data []byte) (ObjectStatus, error) {
 	var status ObjectStatus
 	err := codectool.Unmarshal(data, &status)
-	// if status.Spec and status.Status is all nil
-	// then means the status is not traffic controller object status.
+	// if status.Spec and status.Status are all nil
+	// then means the status is not traffic controller object status (not httpserver, pipeline).
 	// we need to re-unmarshal to get true status.
 	if status.Spec == nil && status.Status == nil {
 		status.Status = map[string]interface{}{}

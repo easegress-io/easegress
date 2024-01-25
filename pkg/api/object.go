@@ -348,13 +348,13 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if allNamespaces {
-		allSpecs := s._listAllNamespace()
+		allSpecs := s._listAllNamespaces()
 		allSpecs[DefaultNamespace] = s._listObjects()
 		WriteBody(w, r, allSpecs)
 		return
 	}
 	if namespace != "" && namespace != DefaultNamespace {
-		specs := s._listNamespace(namespace)
+		specs := s._listNamespaces(namespace)
 		WriteBody(w, r, specs)
 		return
 	}
