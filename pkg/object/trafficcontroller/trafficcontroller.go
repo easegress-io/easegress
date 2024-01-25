@@ -707,7 +707,7 @@ func (tc *TrafficController) Close() {
 	}
 }
 
-// ListAllNamespace lists all namespaces pipelines and traffic gates.
+// ListAllNamespace lists pipelines and traffic gates in all namespaces.
 func (tc *TrafficController) ListAllNamespace() map[string][]*supervisor.ObjectEntity {
 	tc.mutex.Lock()
 	defer tc.mutex.Unlock()
