@@ -28,7 +28,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var getFlags resources.GetObjectFlags
+var getFlags resources.ObjectNamespaceFlags
 
 // GetCmd returns get command.
 func GetCmd() *cobra.Command {

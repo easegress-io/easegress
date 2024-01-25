@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var describeFlags resources.ObjectNamespaceFlags
+
 // DescribeCmd returns describe command.
 func DescribeCmd() *cobra.Command {
 	examples := []general.Example{
@@ -37,6 +39,8 @@ func DescribeCmd() *cobra.Command {
 		{Desc: "Describe all members", Command: "egctl describe member"},
 		{Desc: "Describe a customdata kind", Command: "egctl describe customdatakind <name>"},
 		{Desc: "Describe a customdata of given kind", Command: "egctl describe customdata <kind> <name>"},
+		{Desc: "Describe pipeline resources from all namespaces, including httpservers and pipelines created by IngressController, MeshController and GatewayController", Command: "egctl describe pipeline --all-namespaces"},
+		{Desc: "Describe httpserver resources from a certain namespace", Command: "egctl describe httpserver --namespace <namespace>"},
 		{Desc: "Check all possible api resources", Command: "egctl api-resources"},
 	}
 	cmd := &cobra.Command{
@@ -47,6 +51,11 @@ func DescribeCmd() *cobra.Command {
 		Run:     describeCmdRun,
 	}
 	cmd.Flags().BoolVarP(&general.CmdGlobalFlags.Verbose, "verbose", "v", false, "Print verbose information")
+	cmd.Flags().StringVar(&describeFlags.Namespace, "namespace", "",
+		"namespace is used to describe httpservers and pipelines created by IngressController, MeshController or GatewayController"+
+			"(these objects create httpservers and pipelines in an independent namespace)")
+	cmd.Flags().BoolVar(&describeFlags.AllNamespace, "all-namespaces", false,
+		"describe all resources in all namespaces (including the ones created by IngressController, MeshController and GatewayController that are in an independent namespace)")
 	return cmd
 }
 
@@ -71,7 +80,7 @@ func describeCmdRun(cmd *cobra.Command, args []string) {
 	case resources.Member().Kind:
 		err = resources.DescribeMember(cmd, a)
 	default:
-		err = resources.DescribeObject(cmd, a, kind)
+		err = resources.DescribeObject(cmd, a, kind, &describeFlags)
 	}
 }
 

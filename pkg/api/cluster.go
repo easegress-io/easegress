@@ -116,8 +116,18 @@ func (s *Server) _deleteObject(name string) {
 	}
 }
 
-func (s *Server) _getStatusObject(name string) map[string]interface{} {
-	prefix := s.cluster.Layout().StatusObjectPrefix(cluster.TrafficNamespace(cluster.NamespaceDefault), name)
+// _getStatusObject returns the status object of the name.
+// in easegress, since TrafficController contain multiply namespaces.
+// it need a special prefix to store the status object.
+func (s *Server) _getStatusObject(namespace string, name string, isTraffic bool) map[string]interface{} {
+	ns := namespace
+	if ns == "" {
+		ns = cluster.NamespaceDefault
+	}
+	prefix := s.cluster.Layout().StatusObjectPrefix(ns, name)
+	if isTraffic {
+		prefix = s.cluster.Layout().StatusObjectPrefix(cluster.TrafficNamespace(ns), name)
+	}
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		ClusterPanic(err)

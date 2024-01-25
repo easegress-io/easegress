@@ -332,8 +332,8 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 }
 
 func parseNamespaces(r *http.Request) (bool, string) {
-	allNamespaces := r.URL.Query().Get("all-namespaces")
-	namespace := r.URL.Query().Get("namespace")
+	allNamespaces := strings.TrimSpace(r.URL.Query().Get("all-namespaces"))
+	namespace := strings.TrimSpace(r.URL.Query().Get("namespace"))
 	flag, err := strconv.ParseBool(allNamespaces)
 	if err != nil {
 		return false, namespace
@@ -370,16 +370,21 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	_, namespace := parseNamespaces(r)
 
-	spec := s._getObject(name)
-
+	var spec *supervisor.Spec
+	if namespace == "" || namespace == DefaultNamespace {
+		spec = s._getObject(name)
+	} else {
+		spec = s._getObjectByNamespace(namespace, name)
+	}
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
-	status := s._getStatusObject(name)
-
+	_, isTraffic := supervisor.TrafficObjectKinds[spec.Kind()]
+	status := s._getStatusObject(namespace, name, isTraffic)
 	WriteBody(w, r, status)
 }
 
