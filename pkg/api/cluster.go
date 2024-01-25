@@ -116,7 +116,7 @@ func (s *Server) _deleteObject(name string) {
 	}
 }
 
-// _getStatusObject returns the status object of the name.
+// _getStatusObject returns the status object with the specified name.
 // in easegress, since TrafficController contain multiply namespaces.
 // it need a special prefix to store the status object.
 func (s *Server) _getStatusObject(namespace string, name string, isTraffic bool) map[string]interface{} {
