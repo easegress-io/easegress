@@ -20,9 +20,23 @@ package api
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
+
+func init() {
+	// to avoid import cycle
+	RegisterObject(&APIResource{
+		Category: trafficcontroller.Category,
+		Kind:     trafficcontroller.Kind,
+		Name:     strings.ToLower(trafficcontroller.Kind),
+		Aliases:  []string{"trafficcontroller", "tc"},
+	})
+}
+
+const DefaultNamespace = "default"
 
 type (
 	APIResource struct {

@@ -116,8 +116,19 @@ func (s *Server) _deleteObject(name string) {
 	}
 }
 
-func (s *Server) _getStatusObject(name string) map[string]interface{} {
-	prefix := s.cluster.Layout().StatusObjectPrefix(cluster.TrafficNamespace(cluster.NamespaceDefault), name)
+// _getStatusObject returns the status object with the specified name.
+// in easegress, since TrafficController contain multiply namespaces.
+// and it use special prefix to store status of httpserver, pipeline, or grpcserver.
+// so we need to diff them by using isTraffic. previous, we actually can't get status for business controller like autocertmanager.
+func (s *Server) _getStatusObject(namespace string, name string, isTraffic bool) map[string]interface{} {
+	ns := namespace
+	if ns == "" {
+		ns = cluster.NamespaceDefault
+	}
+	prefix := s.cluster.Layout().StatusObjectPrefix(ns, name)
+	if isTraffic {
+		prefix = s.cluster.Layout().StatusObjectPrefix(cluster.TrafficNamespace(ns), name)
+	}
 	kvs, err := s.cluster.GetPrefix(prefix)
 	if err != nil {
 		ClusterPanic(err)

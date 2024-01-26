@@ -56,6 +56,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/object/httpserver"
 	_ "github.com/megaease/easegress/v2/pkg/object/ingresscontroller"
 	_ "github.com/megaease/easegress/v2/pkg/object/meshcontroller"
+	_ "github.com/megaease/easegress/v2/pkg/object/mock"
 	_ "github.com/megaease/easegress/v2/pkg/object/mqttproxy"
 	_ "github.com/megaease/easegress/v2/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/pipeline"

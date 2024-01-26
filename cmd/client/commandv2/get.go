@@ -28,6 +28,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var getFlags resources.ObjectNamespaceFlags
+
 // GetCmd returns get command.
 func GetCmd() *cobra.Command {
 	examples := []general.Example{
@@ -41,6 +43,8 @@ func GetCmd() *cobra.Command {
 		{Desc: "Get a customdata kind", Command: "egctl get customdatakind <name>"},
 		{Desc: "Get a customdata of given kind", Command: "egctl get customdata <kind> <name>"},
 		{Desc: "Check all possible api resources", Command: "egctl api-resources"},
+		{Desc: "Check all possible api resources from all namespaces, including httpservers and pipelines created by IngressController, MeshController and GatewayController", Command: "egctl get all --all-namespaces"},
+		{Desc: "Check all possible api resources from certain namespace", Command: "egctl get all --namespace <namespace>"},
 	}
 	cmd := &cobra.Command{
 		Use:     "get",
@@ -49,6 +53,11 @@ func GetCmd() *cobra.Command {
 		Example: createMultiExample(examples),
 		Run:     getCmdRun,
 	}
+	cmd.Flags().StringVar(&getFlags.Namespace, "namespace", "",
+		"namespace is used to get httpservers and pipelines created by IngressController, MeshController or GatewayController"+
+			"(these objects create httpservers and pipelines in an independent namespace)")
+	cmd.Flags().BoolVar(&getFlags.AllNamespace, "all-namespaces", false,
+		"get all resources in all namespaces (including the ones created by IngressController, MeshController and GatewayController that are in an independent namespace)")
 	return cmd
 }
 
@@ -59,11 +68,16 @@ func getAllResources(cmd *cobra.Command) error {
 			errs = append(errs, err.Error())
 		}
 	}
-	err := resources.GetAllObject(cmd)
+	err := resources.GetAllObject(cmd, &getFlags)
 	if err != nil {
 		appendErr(err)
 	} else {
 		fmt.Printf("\n")
+	}
+
+	// non-default namespace is not supported for members and custom data kinds.
+	if getFlags.Namespace != "" && getFlags.Namespace != resources.DefaultNamespace {
+		return nil
 	}
 
 	funcs := []func(*cobra.Command, *general.ArgInfo) error{
@@ -109,7 +123,7 @@ func getCmdRun(cmd *cobra.Command, args []string) {
 	case resources.Member().Kind:
 		err = resources.GetMember(cmd, a)
 	default:
-		err = resources.GetObject(cmd, a, kind)
+		err = resources.GetObject(cmd, a, kind, &getFlags)
 	}
 }
 

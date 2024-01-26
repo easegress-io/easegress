@@ -28,6 +28,8 @@ import (
 	"github.com/megaease/easegress/v2/cmd/client/general"
 )
 
+const DefaultNamespace = "default"
+
 // GetResourceKind returns the kind of the resource.
 func GetResourceKind(arg string) (string, error) {
 	if general.InAPIResource(arg, CustomData()) {

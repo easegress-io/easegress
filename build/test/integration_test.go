@@ -577,6 +577,7 @@ func TestCreateHTTPProxy(t *testing.T) {
 	assert.Empty(stderr)
 	defer func() {
 		deleteResource("httpserver", "http-proxy-test")
+		deleteResource("pipeline", "--all")
 	}()
 
 	output, err := getResource("httpserver")
@@ -1311,4 +1312,229 @@ filters:
 	assert.Nil(err)
 	// get this body means our pipeline is working.
 	assert.Equal("body from response builder", string(data))
+}
+
+func TestEgctlNamespace(t *testing.T) {
+	assert := assert.New(t)
+	mockNamespace := `
+name: mockNamespace
+kind: MockNamespacer
+namespace: mockNamespace 
+httpservers:
+- kind: HTTPServer
+  name: mock-httpserver
+  port: 10222
+  https: false
+  rules:
+    - paths:
+      - path: /pipeline
+        backend: mock-pipeline
+pipelines:
+- name: mock-pipeline
+  kind: Pipeline
+  flow:
+    - filter: proxy
+  filters:
+    - name: proxy
+      kind: Proxy
+      pools:
+      - servers:
+        - url: http://127.0.0.1:9095
+        - url: http://127.0.0.1:9096
+        loadBalance:
+          policy: roundRobin
+`
+	err := createResource(mockNamespace)
+	assert.Nil(err)
+	defer func() {
+		err := deleteResource("MockNamespacer", "mockNamespace")
+		assert.Nil(err)
+	}()
+
+	httpserver := `
+name: httpserver-test
+kind: HTTPServer
+port: 10181
+https: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - backend: pipeline-test
+`
+	err = createResource(httpserver)
+	assert.Nil(err)
+	defer func() {
+		err := deleteResource("HTTPServer", "httpserver-test")
+		assert.Nil(err)
+	}()
+
+	pipeline := `
+name: pipeline-test
+kind: Pipeline
+flow:
+- filter: proxy
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:8888
+`
+	err = createResource(pipeline)
+	assert.Nil(err)
+	defer func() {
+		err := deleteResource("Pipeline", "pipeline-test")
+		assert.Nil(err)
+	}()
+
+	// egctl get all
+	{
+		// by default, list resources in "default" namespace
+		cmd := egctlCmd("get", "all")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "httpserver-test")
+		assert.Contains(output, "pipeline-test")
+		assert.NotContains(output, "mock-httpserver")
+		assert.NotContains(output, "mock-pipeline")
+	}
+
+	// egctl get all --all-namespaces
+	{
+		cmd := egctlCmd("get", "all", "--all-namespaces")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "httpserver-test")
+		assert.Contains(output, "pipeline-test")
+		assert.Contains(output, "mock-httpserver")
+		assert.Contains(output, "mock-pipeline")
+	}
+
+	// egctl get all --namespace mockNamespace
+	{
+		cmd := egctlCmd("get", "all", "--namespace", "mockNamespace")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.NotContains(output, "httpserver-test")
+		assert.NotContains(output, "pipeline-test")
+		assert.Contains(output, "mock-httpserver")
+		assert.Contains(output, "mock-pipeline")
+	}
+
+	// egctl get all --namespace default
+	{
+		cmd := egctlCmd("get", "all", "--namespace", "default")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "httpserver-test")
+		assert.Contains(output, "pipeline-test")
+		assert.NotContains(output, "mock-httpserver")
+		assert.NotContains(output, "mock-pipeline")
+	}
+
+	// egctl get hs --namespace mockNamespace
+	{
+		cmd := egctlCmd("get", "hs", "--namespace", "mockNamespace")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.NotContains(output, "httpserver-test")
+		assert.NotContains(output, "pipeline-test")
+		assert.Contains(output, "mock-httpserver")
+		assert.NotContains(output, "mock-pipeline")
+	}
+
+	// egctl get hs --all-namespaces
+	{
+		cmd := egctlCmd("get", "hs", "--all-namespaces")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "httpserver-test")
+		assert.NotContains(output, "pipeline-test")
+		assert.Contains(output, "mock-httpserver")
+		assert.NotContains(output, "mock-pipeline")
+	}
+
+	// egctl get hs mock-httpserver --namespace mockNamespace -o yaml
+	{
+		cmd := egctlCmd("get", "hs", "mock-httpserver", "--namespace", "mockNamespace", "-o", "yaml")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.NotContains(output, "httpserver-test")
+		assert.NotContains(output, "pipeline-test")
+		assert.Contains(output, "mock-httpserver")
+		assert.Contains(output, "port: 10222")
+	}
+
+	// easegress update status every 5 seconds
+	time.Sleep(5 * time.Second)
+
+	// egctl describe httpserver --all-namespaces
+	{
+		cmd := egctlCmd("describe", "httpserver", "--all-namespaces")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "Name: httpserver-test")
+		assert.Contains(output, "Name: mock-httpserver")
+		assert.NotContains(output, "Name: pipeline-test")
+		assert.NotContains(output, "Name: mock-pipeline")
+		assert.Contains(output, "In Namespace default")
+		assert.Contains(output, "In Namespace mockNamespace")
+		// check if status is updated
+		assert.Equal(2, strings.Count(output, "node: primary-single"))
+		assert.Equal(2, strings.Count(output, "m1ErrPercent: 0"))
+	}
+
+	// egctl describe httpserver --namespace mockNamespace
+	{
+		cmd := egctlCmd("describe", "httpserver", "--namespace", "mockNamespace")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.Contains(output, "Name: mock-httpserver")
+		assert.NotContains(output, "Name: httpserver-test")
+		assert.NotContains(output, "Name: pipeline-test")
+		assert.NotContains(output, "Name: mock-pipeline")
+		// check if status is updated
+		assert.Equal(1, strings.Count(output, "node: primary-single"))
+		assert.Equal(1, strings.Count(output, "m1ErrPercent: 0"))
+	}
+
+	// egctl describe pipeline --namespace default
+	{
+		cmd := egctlCmd("describe", "pipeline", "--namespace", "default")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.NotContains(output, "Name: httpserver-test")
+		assert.Contains(output, "Name: pipeline-test")
+		assert.NotContains(output, "Name: mock-httpserver")
+		assert.NotContains(output, "Name: mock-pipeline")
+		// check if status is updated
+		assert.Equal(1, strings.Count(output, "node: primary-single"))
+		assert.Equal(1, strings.Count(output, "p999: 0"))
+	}
+
+	// egctl describe hs mock-httpserver --namespace mockNamespace -o yaml
+	{
+		cmd := egctlCmd("describe", "hs", "mock-httpserver", "--namespace", "mockNamespace", "-o", "yaml")
+		output, stderr, err := runCmd(cmd)
+		assert.Nil(err)
+		assert.Empty(stderr)
+		assert.NotContains(output, "httpserver-test")
+		assert.NotContains(output, "pipeline-test")
+		assert.Contains(output, "name: mock-httpserver")
+		assert.Contains(output, "port: 10222")
+		assert.Contains(output, "node: primary-single")
+	}
 }

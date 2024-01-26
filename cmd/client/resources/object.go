@@ -22,8 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,8 +37,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ObjectNamespaceFlags contains the flags for get objects.
+type ObjectNamespaceFlags struct {
+	Namespace    string
+	AllNamespace bool
+}
+
+var globalAPIResources []*api.APIResource
+
 // ObjectAPIResources returns the object api resources.
 func ObjectAPIResources() ([]*api.APIResource, error) {
+	if globalAPIResources != nil {
+		return globalAPIResources, nil
+	}
 	url := makePath(general.ObjectAPIResources)
 	body, err := handleReq(http.MethodGet, url, nil)
 	if err != nil {
@@ -47,30 +60,41 @@ func ObjectAPIResources() ([]*api.APIResource, error) {
 	if err != nil {
 		return nil, err
 	}
+	globalAPIResources = res
 	return res, nil
 }
 
-func defaultObjectNameSpace() string {
-	return cluster.TrafficNamespace(cluster.NamespaceDefault)
+// trafficObjectStatusNamespace return namespace of traffic object status.
+// In easegress, when we put traffic object like httpserver, pipeline into namespace "default",
+// then their status will be put into namespace "eg-traffic-default".
+// the status is updated by TrafficController.
+func trafficObjectStatusNamespace(objectNamespace string) string {
+	return cluster.TrafficNamespace(objectNamespace)
 }
 
-func httpGetObject(name string) ([]byte, error) {
-	url := func(name string) string {
+func httpGetObject(name string, flags *ObjectNamespaceFlags) ([]byte, error) {
+	objectURL := func(name string) string {
 		if len(name) == 0 {
 			return makePath(general.ObjectsURL)
 		}
 		return makePath(general.ObjectItemURL, name)
 	}(name)
-	return handleReq(http.MethodGet, url, nil)
+	if flags != nil {
+		values := url.Values{}
+		values.Add("namespace", flags.Namespace)
+		values.Add("all-namespaces", strconv.FormatBool(flags.AllNamespace))
+		objectURL = fmt.Sprintf("%s?%s", objectURL, values.Encode())
+	}
+	return handleReq(http.MethodGet, objectURL, nil)
 }
 
 // GetAllObject gets all objects.
-func GetAllObject(cmd *cobra.Command) error {
+func GetAllObject(cmd *cobra.Command, flags *ObjectNamespaceFlags) error {
 	getErr := func(err error) error {
 		return general.ErrorMsg(general.GetCmd, err, "resource")
 	}
 
-	body, err := httpGetObject("")
+	body, err := httpGetObject("", flags)
 	if err != nil {
 		return getErr(err)
 	}
@@ -80,14 +104,18 @@ func GetAllObject(cmd *cobra.Command) error {
 		return nil
 	}
 
-	metas, err := unmarshalMetaSpec(body, true)
+	if flags.AllNamespace {
+		err := unmarshalPrintNamespaceMetaSpec(body, nil)
+		if err != nil {
+			return getErr(err)
+		}
+		return nil
+	}
+
+	err = unmarshalPrintMetaSpec(body, true, nil)
 	if err != nil {
 		return getErr(err)
 	}
-	sort.Slice(metas, func(i, j int) bool {
-		return metas[i].Name < metas[j].Name
-	})
-	printMetaSpec(metas)
 	return nil
 }
 
@@ -125,7 +153,7 @@ func EditObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 }
 
 func getObjectYaml(objectName string) (string, error) {
-	body, err := httpGetObject(objectName)
+	body, err := httpGetObject(objectName, nil)
 	if err != nil {
 		return "", err
 	}
@@ -154,7 +182,7 @@ func getObjectYaml(objectName string) (string, error) {
 }
 
 // GetObject gets an object.
-func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
+func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *ObjectNamespaceFlags) error {
 	msg := fmt.Sprintf("all %s", kind)
 	if args.ContainName() {
 		msg = fmt.Sprintf("%s %s", kind, args.Name)
@@ -163,7 +191,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	body, err := httpGetObject(args.Name)
+	body, err := httpGetObject(args.Name, flags)
 	if err != nil {
 		return getErr(err)
 	}
@@ -173,7 +201,6 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 			general.PrintBody(body)
 			return nil
 		}
-
 		maps, err := general.UnmarshalMapInterface(body, true)
 		if err != nil {
 			return getErr(err)
@@ -189,18 +216,59 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
 		return nil
 	}
 
-	metas, err := unmarshalMetaSpec(body, !args.ContainName())
+	if flags.AllNamespace {
+		err := unmarshalPrintNamespaceMetaSpec(body, func(m *supervisor.MetaSpec) bool {
+			return m.Kind == kind
+		})
+		if err != nil {
+			return getErr(err)
+		}
+		return nil
+	}
+
+	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(m *supervisor.MetaSpec) bool {
+		return m.Kind == kind
+	})
 	if err != nil {
 		return getErr(err)
 	}
-	metas = general.Filter(metas, func(m *supervisor.MetaSpec) bool {
-		return m.Kind == kind
-	})
+	return nil
+}
 
+func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*supervisor.MetaSpec) bool) error {
+	metas, err := unmarshalMetaSpec(body, list)
+	if err != nil {
+		return err
+	}
+	if filter != nil {
+		metas = general.Filter(metas, filter)
+	}
 	sort.Slice(metas, func(i, j int) bool {
 		return metas[i].Name < metas[j].Name
 	})
 	printMetaSpec(metas)
+	return nil
+}
+
+func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*supervisor.MetaSpec) bool) error {
+	allMetas, err := unmarshalNamespaceMetaSpec(body)
+	if err != nil {
+		return err
+	}
+	if filter != nil {
+		for k, v := range allMetas {
+			allMetas[k] = general.Filter(v, filter)
+		}
+	}
+	for k, v := range allMetas {
+		if len(v) > 0 {
+			sort.Slice(v, func(i, j int) bool {
+				return v[i].Name < v[j].Name
+			})
+			allMetas[k] = v
+		}
+	}
+	printNamespaceMetaSpec(allMetas)
 	return nil
 }
 
@@ -215,12 +283,39 @@ func unmarshalMetaSpec(body []byte, listBody bool) ([]*supervisor.MetaSpec, erro
 	return []*supervisor.MetaSpec{meta}, err
 }
 
+func unmarshalNamespaceMetaSpec(body []byte) (map[string][]*supervisor.MetaSpec, error) {
+	res := map[string][]*supervisor.MetaSpec{}
+	err := codectool.Unmarshal(body, &res)
+	return res, err
+}
+
 func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
 	createdAt, err := time.Parse(time.RFC3339, meta.CreatedAt)
 	if err != nil {
 		return "unknown"
 	}
 	return general.DurationMostSignificantUnit(time.Since(createdAt))
+}
+
+func printNamespaceMetaSpec(metas map[string][]*supervisor.MetaSpec) {
+	// Output:
+	// NAME KIND NAMESPACE AGE
+	// ...
+	table := [][]string{}
+	table = append(table, []string{"NAME", "KIND", "NAMESPACE", "AGE"})
+	defaults := metas[DefaultNamespace]
+	for _, meta := range defaults {
+		table = append(table, []string{meta.Name, meta.Kind, DefaultNamespace, getAgeFromMetaSpec(meta)})
+	}
+	for namespace, metas := range metas {
+		if namespace == DefaultNamespace {
+			continue
+		}
+		for _, meta := range metas {
+			table = append(table, []string{meta.Name, meta.Kind, namespace, getAgeFromMetaSpec(meta)})
+		}
+	}
+	general.PrintTable(table)
 }
 
 func printMetaSpec(metas []*supervisor.MetaSpec) {
@@ -236,7 +331,7 @@ func printMetaSpec(metas []*supervisor.MetaSpec) {
 }
 
 // DescribeObject describes an object.
-func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) error {
+func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *ObjectNamespaceFlags) error {
 	msg := fmt.Sprintf("all %s", kind)
 	if args.ContainName() {
 		msg = fmt.Sprintf("%s %s", kind, args.Name)
@@ -245,27 +340,50 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) erro
 		return general.ErrorMsg(general.GetCmd, err, msg)
 	}
 
-	body, err := httpGetObject(args.Name)
+	body, err := httpGetObject(args.Name, flags)
 	if err != nil {
 		return getErr(err)
 	}
 
-	specs, err := general.UnmarshalMapInterface(body, !args.ContainName())
-	if err != nil {
-		return getErr(err)
+	namespaceSpecs := map[string][]map[string]interface{}{}
+	if flags.AllNamespace {
+		err := codectool.Unmarshal(body, &namespaceSpecs)
+		if err != nil {
+			return getErr(err)
+		}
+	} else {
+		specs, err := general.UnmarshalMapInterface(body, !args.ContainName())
+		if err != nil {
+			return getErr(err)
+		}
+		namespace := DefaultNamespace
+		if flags.Namespace != "" {
+			namespace = flags.Namespace
+		}
+		namespaceSpecs[namespace] = specs
 	}
 
-	specs = general.Filter(specs, func(m map[string]interface{}) bool {
-		return m["kind"] == kind
-	})
+	for namespace, specs := range namespaceSpecs {
+		namespaceSpecs[namespace] = general.Filter(specs, func(m map[string]interface{}) bool {
+			return m["kind"] == kind
+		})
+	}
 
-	err = addObjectStatusToSpec(specs, args)
+	err = addObjectStatusToSpec(namespaceSpecs, args, flags)
 	if err != nil {
 		return getErr(err)
 	}
 
 	if !general.CmdGlobalFlags.DefaultFormat() {
-		body, err = codectool.MarshalJSON(specs)
+		var input interface{}
+		if flags.AllNamespace {
+			input = namespaceSpecs
+		} else {
+			for _, v := range namespaceSpecs {
+				input = v
+			}
+		}
+		body, err = codectool.MarshalJSON(input)
 		if err != nil {
 			return getErr(err)
 		}
@@ -299,8 +417,37 @@ func DescribeObject(cmd *cobra.Command, args *general.ArgInfo, kind string) erro
 	//    status: ...
 	//  - node: eg2
 	//    status: ...
-	general.PrintMapInterface(specs, specials, []string{objectStatusKeyInSpec})
+
+	printSpace := false
+	specs := namespaceSpecs[DefaultNamespace]
+	if len(specs) > 0 {
+		printNamespace(DefaultNamespace)
+		general.PrintMapInterface(specs, specials, []string{objectStatusKeyInSpec})
+		printSpace = true
+	}
+	for k, v := range namespaceSpecs {
+		if k == DefaultNamespace {
+			continue
+		}
+		if len(v) == 0 {
+			continue
+		}
+		if printSpace {
+			fmt.Println()
+			fmt.Println()
+		}
+		printNamespace(k)
+		general.PrintMapInterface(v, specials, []string{objectStatusKeyInSpec})
+		printSpace = true
+	}
 	return nil
+}
+
+func printNamespace(ns string) {
+	msg := fmt.Sprintf("In Namespace %s:", ns)
+	fmt.Println(strings.Repeat("=", len(msg)))
+	fmt.Println(msg)
+	fmt.Println(strings.Repeat("=", len(msg)))
 }
 
 // CreateObject creates an object.
@@ -325,7 +472,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 	}
 
 	// get all objects and filter by kind
-	body, err := httpGetObject("")
+	body, err := httpGetObject("", nil)
 	if err != nil {
 		return getErr(err)
 	}
@@ -368,7 +515,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 // ApplyObject applies an object.
 func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
 	checkObjExist := func(cmd *cobra.Command, name string) bool {
-		_, err := httpGetObject(name)
+		_, err := httpGetObject(name, nil)
 		return err == nil
 	}
 
@@ -414,7 +561,7 @@ func splitObjectStatusKey(key string) (*objectStatusInfo, error) {
 	}, nil
 }
 
-// ObjectStatus is the status of an object.
+// ObjectStatus is the status of an TrafficObject.
 type ObjectStatus struct {
 	Spec   map[string]interface{} `json:"spec"`
 	Status map[string]interface{} `json:"status"`
@@ -423,6 +570,13 @@ type ObjectStatus struct {
 func unmarshalObjectStatus(data []byte) (ObjectStatus, error) {
 	var status ObjectStatus
 	err := codectool.Unmarshal(data, &status)
+	// if status.Spec and status.Status are all nil
+	// then means the status is not traffic controller object status (not httpserver, pipeline).
+	// we need to re-unmarshal to get true status.
+	if status.Spec == nil && status.Status == nil {
+		status.Status = map[string]interface{}{}
+		codectool.Unmarshal(data, &status.Status)
+	}
 	return status, err
 }
 
@@ -438,10 +592,6 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 		info, err := splitObjectStatusKey(k)
 		if err != nil {
 			return nil, err
-		}
-		// only show objects in default namespace, objects in other namespaces is not created by user.
-		if info.namespace != defaultObjectNameSpace() {
-			continue
 		}
 		if name != "" && info.name != name {
 			continue
@@ -464,18 +614,20 @@ func unmarshalObjectStatusInfo(body []byte, name string) ([]*objectStatusInfo, e
 
 // NodeStatus is the status of a node.
 type NodeStatus struct {
-	Node   string
-	Status map[string]interface{}
+	Node   string                 `json:"node"`
+	Status map[string]interface{} `json:"status"`
 }
 
 const objectStatusKeyInSpec = "allStatus"
 
-func addObjectStatusToSpec(specs []map[string]interface{}, args *general.ArgInfo) error {
+func addObjectStatusToSpec(allSpecs map[string][]map[string]interface{}, args *general.ArgInfo, flags *ObjectNamespaceFlags) error {
 	getUrl := func(args *general.ArgInfo) string {
-		if !args.ContainName() {
+		// no name, all namespaces, non default namespace, then get all status
+		if !args.ContainName() || flags.AllNamespace {
 			return makePath(general.StatusObjectsURL)
 		}
-		return makePath(general.StatusObjectItemURL, args.Name)
+		url := makePath(general.StatusObjectItemURL, args.Name)
+		return fmt.Sprintf("%s?namespace=%s", url, flags.Namespace)
 	}
 
 	body, err := handleReq(http.MethodGet, getUrl(args), nil)
@@ -488,18 +640,52 @@ func addObjectStatusToSpec(specs []map[string]interface{}, args *general.ArgInfo
 		return err
 	}
 
+	keyFn := func(namespace, name string) string {
+		return namespace + "/" + name
+	}
 	// key is name, value is array of node and status
 	status := map[string][]*NodeStatus{}
 	for _, info := range infos {
-		status[info.name] = append(status[info.name], &NodeStatus{
+		key := keyFn(info.namespace, info.name)
+		status[key] = append(status[key], &NodeStatus{
 			Node:   info.node,
 			Status: info.status,
 		})
 	}
 
-	for _, s := range specs {
-		name := s["name"].(string)
-		s[objectStatusKeyInSpec] = status[name]
+	categoryMap := func() map[string]string {
+		rs, err := ObjectAPIResources()
+		if err != nil {
+			return map[string]string{}
+		}
+		res := map[string]string{}
+		for _, r := range rs {
+			res[r.Kind] = r.Category
+		}
+		return res
+	}()
+	getNamespace := func(kind string, namespace string) string {
+		category := categoryMap[kind]
+		if category == "" {
+			switch kind {
+			case "HTTPServer":
+				category = supervisor.CategoryTrafficGate
+			case "Pipeline":
+				category = supervisor.CategoryPipeline
+			}
+		}
+		if category == supervisor.CategoryPipeline || category == supervisor.CategoryTrafficGate {
+			return trafficObjectStatusNamespace(namespace)
+		}
+		return namespace
+	}
+	for namespace, specs := range allSpecs {
+		for i := range specs {
+			spec := specs[i]
+			ns := getNamespace(spec["kind"].(string), namespace)
+			name := spec["name"].(string)
+			allSpecs[namespace][i][objectStatusKeyInSpec] = status[keyFn(ns, name)]
+		}
 	}
 	return nil
 }
