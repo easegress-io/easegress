@@ -40,7 +40,7 @@ require (
 	github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.4
-	github.com/nacos-group/nacos-sdk-go/v2 v2.2.3
+	github.com/nacos-group/nacos-sdk-go/v2 v2.2.5
 	github.com/nginxinc/nginx-go-crossplane v0.4.33
 	github.com/open-policy-agent/opa v0.58.0
 	github.com/openzipkin/zipkin-go v0.4.2
@@ -94,6 +94,11 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
+	github.com/alibabacloud-go/debug v0.0.0-20190504072949-9472017b5c68 // indirect
+	github.com/alibabacloud-go/tea v1.1.17 // indirect
+	github.com/alibabacloud-go/tea-utils v1.4.4 // indirect
+	github.com/aliyun/alibabacloud-dkms-gcs-go-sdk v0.2.2 // indirect
+	github.com/aliyun/alibabacloud-dkms-transfer-go-sdk v0.1.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.0 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
