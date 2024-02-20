@@ -138,7 +138,8 @@ func removeHopByHopHeaders(h http.Header) {
 func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context, mirror bool) error {
 	req := spCtx.req
 
-	url := svr.URL + req.Path()
+	u := req.Std().URL
+	url := svr.URL + u.EscapedPath()
 	if rq := req.Std().URL.RawQuery; rq != "" {
 		url += "?" + rq
 	}
