@@ -1596,7 +1596,14 @@ filters:
 	})
 	defer server.Shutdown(context.Background())
 
-	// create some test cases for me, i want to test escape
+	httpServerStarted := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10088", nil)
+		req.Header.Add("Must-Start", "true")
+		require.Nil(t, err)
+		return req
+	})
+	assert.True(httpServerStarted)
+
 	testCases := []struct {
 		path  string
 		query map[string]string
