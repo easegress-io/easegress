@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1536,5 +1537,108 @@ filters:
 		assert.Contains(output, "name: mock-httpserver")
 		assert.Contains(output, "port: 10222")
 		assert.Contains(output, "node: primary-single")
+	}
+}
+
+func TestPathEscapeInProxyFilter(t *testing.T) {
+	assert := assert.New(t)
+	var err error
+
+	yamlStr := `
+name: httpserver-escape
+kind: HTTPServer
+port: 10088
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: pipeline-escape
+`
+	err = createResource(yamlStr)
+	assert.NoError(err)
+	defer func() {
+		err := deleteResource("httpserver", "httpserver-escape")
+		assert.NoError(err)
+	}()
+
+	yamlStr = `
+name: pipeline-escape
+kind: Pipeline
+flow:
+- filter: proxy
+filters:
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:9999
+`
+	err = createResource(yamlStr)
+	assert.NoError(err)
+	defer func() {
+		err := deleteResource("pipeline", "pipeline-escape")
+		assert.NoError(err)
+	}()
+
+	ch := make(chan *http.Request, 100)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Must-Start") == "true" {
+			return
+		}
+		fmt.Println("receive url from backend", r.URL.String())
+		ch <- r.Clone(context.Background())
+	})
+	server := mustStartServer(9999, mux, func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9999", nil)
+		req.Header.Add("Must-Start", "true")
+		require.Nil(t, err)
+		return req
+	})
+	defer server.Shutdown(context.Background())
+
+	httpServerStarted := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10088", nil)
+		req.Header.Add("Must-Start", "true")
+		require.Nil(t, err)
+		return req
+	})
+	assert.True(httpServerStarted)
+
+	testCases := []struct {
+		path  string
+		query map[string]string
+	}{
+		{"/", map[string]string{}},
+		{"/中文", map[string]string{"foo": "bar"}},
+		{"/with-query?foo=bar", map[string]string{"foo": "中文"}},
+		{"/with-fragment#123", map[string]string{"??==##": "!!##?"}},
+	}
+	for _, tc := range testCases {
+		u := url.URL{}
+		u.Scheme = "http"
+		u.Host = "127.0.0.1:10088"
+		u.Path = tc.path
+		query := url.Values{}
+		for k, v := range tc.query {
+			query.Add(k, v)
+		}
+		u.RawQuery = query.Encode()
+		fmt.Println("request url", u.String())
+
+		req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+		assert.Nil(err)
+		resp, err := http.DefaultClient.Do(req)
+		assert.Nil(err)
+		resp.Body.Close()
+
+		recvReq := <-ch
+		fmt.Println("received url from channel", recvReq.URL.String())
+		fmt.Println(recvReq.URL)
+		assert.Equal(tc.path, recvReq.URL.Path)
+		queryMap := map[string]string{}
+		for k, v := range recvReq.URL.Query() {
+			queryMap[k] = v[0]
+		}
+		assert.Equal(tc.query, queryMap)
 	}
 }
