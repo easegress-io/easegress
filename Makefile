@@ -9,11 +9,12 @@ export GO111MODULE=on
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MKFILE_DIR := $(dir $(MKFILE_PATH))
 RELEASE_DIR := ${MKFILE_DIR}bin
-GO_PATH := $(shell go env | grep GOPATH | awk -F '"' '{print $$2}')
+GO_PATH := $(shell go env | grep GOPATH | awk -F "=" '{print $$2}' | tr -d "'")
 INTEGRATION_TEST_PATH := build/test
 
 # Image Name
 IMAGE_NAME?=megaease/easegress
+BUILDER_IMAGE_NAME?=megaease/golang:1.21.7-alpine
 
 # Version
 RELEASE?=v2.7.0
@@ -94,14 +95,20 @@ build_docker:
 	cd ${MKFILE_DIR}
 	mkdir -p build/cache
 	mkdir -p build/bin
-	docker run -w /egsrc -u ${shell id -u}:${shell id -g} --rm \
+	docker run -w /egsrc --rm \
 	-v ${GO_PATH}:/gopath -v ${MKFILE_DIR}:/egsrc -v ${MKFILE_DIR}build/cache:/gocache \
 	-e GOPROXY=https://goproxy.io,direct -e GOCACHE=/gocache -e GOPATH=/gopath \
-	megaease/golang:1.21.0-alpine make build DOCKER=true
+	${BUILDER_IMAGE_NAME} make build DOCKER=true
 	docker buildx build --platform linux/amd64 --load -t ${IMAGE_NAME}:${RELEASE} -f ./build/package/Dockerfile .
 	docker tag ${IMAGE_NAME}:${RELEASE} ${IMAGE_NAME}:latest
 	docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:server-sidecar
 	docker tag ${IMAGE_NAME}:latest ${IMAGE_NAME}:easemesh
+
+build_golang_docker:
+	docker buildx build \
+	--platform linux/amd64 \
+	-t ${BUILDER_IMAGE_NAME} \
+	-f build/package/Dockerfile.builder .
 
 test:
 	cd ${MKFILE_DIR}
