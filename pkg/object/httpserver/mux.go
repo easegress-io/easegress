@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -246,9 +247,56 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 		header[k] = v
 	}
 	stdw.WriteHeader(resp.StatusCode())
-	respBodySize, _ := io.Copy(stdw, resp.GetPayload())
+
+	var writer io.Writer
+	if responseNeedFlush(resp) {
+		writer = NewResponseFlushWriter(stdw)
+	} else {
+		writer = stdw
+	}
+	respBodySize, _ := io.Copy(writer, resp.GetPayload())
 
 	return resp.StatusCode(), uint64(respBodySize) + uint64(resp.MetaSize()), header
+}
+
+// ResponseFlushWriter is a wrapper of http.ResponseWriter, which flushes the
+// response immediately if the response needs to be flushed.
+type ResponseFlushWriter struct {
+	w     http.ResponseWriter
+	flush func()
+}
+
+// Write writes the data to the connection as part of an HTTP reply.
+func (w *ResponseFlushWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	w.flush()
+	return n, err
+}
+
+// NewResponseFlushWriter creates a ResponseFlushWriter.
+func NewResponseFlushWriter(w http.ResponseWriter) *ResponseFlushWriter {
+	if flusher, ok := w.(http.Flusher); ok {
+		return &ResponseFlushWriter{
+			w:     w,
+			flush: flusher.Flush,
+		}
+	}
+	return &ResponseFlushWriter{
+		w:     w,
+		flush: func() {},
+	}
+}
+
+func responseNeedFlush(resp *httpprot.Response) bool {
+	resCTHeader := resp.Std().Header.Get("Content-Type")
+	resCT, _, err := mime.ParseMediaType(resCTHeader)
+
+	// For Server-Sent Events responses, flush immediately.
+	// The MIME type is defined in https://www.w3.org/TR/eventsource/#text-event-stream
+	if err == nil && resCT == "text/event-stream" {
+		return true
+	}
+	return false
 }
 
 func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
