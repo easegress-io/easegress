@@ -11,27 +11,25 @@ on:
       - ".github/workflows/code.analysis.yml"
 
 env:
-  GO_VERSION: "1.20"
+  GO_VERSION: "1.21"
 
 jobs:
-
   analysis:
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ env.GO_VERSION }}
-    
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v3
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
 
-    - name: Revive Action
-      uses: morphy2k/revive-action@v2.5.2
+      - name: Revive Action
+        uses: morphy2k/revive-action@v2.5.2
 
-    - name: Check formatting
-      run: test -z $(gofmt -l .) || (gofmt -l . && exit 1)
-      
-    - name: misspell
-      uses: sobolevn/misspell-fixer-action@0.1.0
+      - name: Check formatting
+        run: test -z $(gofmt -l .) || (gofmt -l . && exit 1)
+
+      - name: misspell
+        uses: sobolevn/misspell-fixer-action@0.1.0
