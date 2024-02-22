@@ -5,6 +5,7 @@
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.0...v2.7.1)
 
 **Implemented enhancements:**
+* Upgraded to Golang version 1.21.
 * Enabled `egctl create httpproxy` command to support automatic updates for `AutoCertManager`.
 * Introduced an exportable custom plain logger.
 * Expanded `egctl` command utility across various namespaces.
