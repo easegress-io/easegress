@@ -1,5 +1,23 @@
 # Changelog
 
+## [v2.7.1](https://github.com/megaease/easegress/tree/v2.7.1) (2024-02-22)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.0...v2.7.1)
+
+**Implemented enhancements:**
+* Upgraded to Golang version 1.21.
+* Enabled `egctl create httpproxy` command to support automatic updates for `AutoCertManager`.
+* Introduced an exportable custom plain logger.
+* Expanded `egctl` command utility across various namespaces.
+* Optimized proxy filter to immediately flush responses for Server-Sent Events (SSE).
+* Enhanced template functionality with additional functions in `RequestBuilder` and `ResponseBuilder`.
+* Updated documentation and adhered to the latest CNCF Code of Conduct for community guidelines.
+
+**Fixed bugs:**
+* Resolved the `AutoCertManager` did not remove duplicate DNS records issue.
+* Corrected proxy filter behavior to properly escape paths.
+
+
 ## [v2.7.0](https://github.com/megaease/easegress/tree/v2.7.0) (2023-12-29)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.4...v2.7.0)
