@@ -1320,7 +1320,7 @@ func TestEgctlNamespace(t *testing.T) {
 	mockNamespace := `
 name: mockNamespace
 kind: MockNamespacer
-namespace: mockNamespace 
+namespace: mockNamespace
 httpservers:
 - kind: HTTPServer
   name: mock-httpserver
@@ -1641,4 +1641,167 @@ filters:
 		}
 		assert.Equal(tc.query, queryMap)
 	}
+}
+
+func TestGlobalFilterFallthrough(t *testing.T) {
+	assert := assert.New(t)
+
+	gfYamlTmpl := `
+name: global-filter
+kind: GlobalFilter
+beforePipeline:
+  filters:
+  - name: validator
+    kind: Validator
+    headers:
+      Before-Pipeline:
+        values: ["valid"]
+afterPipeline:
+  filters:
+  - name: adaptor
+    kind: ResponseAdaptor
+    header:
+      add:
+        After-Pipeline: valid
+%s
+`
+	yaml := fmt.Sprintf(gfYamlTmpl, "")
+	err := createResource(yaml)
+	assert.Nil(err)
+	defer deleteResource("globalfilter", "global-filter")
+
+	yaml = `
+name: httpserver-gf
+kind: HTTPServer
+port: 10099
+globalFilter: global-filter
+rules:
+- paths:
+  - pathPrefix: /health
+    backend: pipeline-ok
+  - pathPrefix: /
+    backend: pipeline-gf
+`
+	err = createResource(yaml)
+	assert.Nil(err)
+	defer deleteResource("httpserver", "httpserver-gf")
+
+	makeReq := func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10099", nil)
+		assert.Nil(err)
+		return req
+	}
+
+	yaml = `
+name: pipeline-ok
+kind: Pipeline
+filters: 
+- name: responsebuilder
+  kind: ResponseBuilder
+  protocol: http
+  template: |
+    statusCode: 200
+`
+	err = createResource(yaml)
+	assert.Nil(err)
+	defer deleteResource("pipeline", "pipeline-ok")
+
+	// invalid url
+	yaml = `
+name: pipeline-gf
+kind: Pipeline
+filters: 
+- name: proxy
+  kind: Proxy
+  pools:
+  - servers:
+    - url: http://127.0.0.1:11111
+`
+	err = createResource(yaml)
+	assert.Nil(err)
+	defer deleteResource("pipeline", "pipeline-gf")
+
+	httpServerStarted := checkServerStart(func() *http.Request {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10099/health", nil)
+		req.Header.Add("Before-Pipeline", "valid")
+		require.Nil(t, err)
+		return req
+	})
+	assert.True(httpServerStarted)
+	time.Sleep(3 * time.Second)
+
+	// not pass before, not exec pipeline and after
+	// bad request from before
+	// not header of after
+	req := makeReq()
+	resp, err := http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusBadRequest, resp.StatusCode, resp)
+	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
+
+	// pass before, exec pipeline, meet error, not exec after
+	// status code of 503, error in filter
+	req = makeReq()
+	req.Header.Add("Before-Pipeline", "valid")
+	resp, err = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
+	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
+
+	// pass before, exec pipeline, exec after
+	req = makeReq()
+	req.URL.Path = "/health"
+	req.Header.Add("Before-Pipeline", "valid")
+	resp, err = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusOK, resp.StatusCode, resp)
+	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
+
+	// update gfYaml to fallthrough before pipeline
+	yaml = fmt.Sprintf(gfYamlTmpl, `
+fallthrough:
+  beforePipeline: true
+`)
+	err = applyResource(yaml)
+	assert.Nil(err)
+	time.Sleep(3 * time.Second)
+
+	// pass before, exec pipeline, meet error, exec after
+	// not add header to before
+	req = makeReq()
+	resp, err = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
+	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
+
+	// pass before, exec pipeline, exec after
+	req = makeReq()
+	req.URL.Path = "/health"
+	resp, err = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusOK, resp.StatusCode, resp)
+	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
+
+	// update gfYaml to fallthrough before pipeline
+	yaml = fmt.Sprintf(gfYamlTmpl, `
+fallthrough:
+  beforePipeline: true
+  pipeline: true
+`)
+	err = applyResource(yaml)
+	assert.Nil(err)
+	time.Sleep(3 * time.Second)
+
+	// fallthrough before, fallthrough pipeline, exec after
+	req = makeReq()
+	resp, err = http.DefaultClient.Do(req)
+	resp.Body.Close()
+	assert.Nil(err)
+	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
+	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
 }

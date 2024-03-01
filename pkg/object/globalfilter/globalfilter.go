@@ -66,6 +66,13 @@ type (
 	Spec struct {
 		BeforePipeline *pipeline.Spec `json:"beforePipeline,omitempty"`
 		AfterPipeline  *pipeline.Spec `json:"afterPipeline,omitempty"`
+		Fallthrough    Fallthrough    `json:"fallthrough,omitempty"`
+	}
+
+	// Fallthrough describes the fallthrough behavior.
+	Fallthrough struct {
+		BeforePipeline bool `json:"beforePipeline,omitempty"`
+		Pipeline       bool `json:"pipeline,omitempty"`
 	}
 
 	// pipelineSpec defines pipeline spec to create an pipeline entity.
@@ -197,7 +204,11 @@ func (gf *GlobalFilter) Handle(ctx *context.Context, handler context.Handler) {
 
 	before, _ := gf.beforePipeline.Load().(*pipeline.Pipeline)
 	after, _ := gf.afterPipeline.Load().(*pipeline.Pipeline)
-	p.HandleWithBeforeAfter(ctx, before, after)
+	option := pipeline.HandleWithBeforeAfterOption{
+		FallthroughBefore:   gf.spec.Fallthrough.BeforePipeline,
+		FallthroughPipeline: gf.spec.Fallthrough.Pipeline,
+	}
+	p.HandleWithBeforeAfter(ctx, before, after, option)
 }
 
 // Close closes GlobalFilter itself.
