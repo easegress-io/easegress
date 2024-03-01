@@ -310,9 +310,17 @@ func (p *Pipeline) getFilter(name string) filters.Filter {
 	return p.filters[name]
 }
 
+// HandleWithBeforeAfterOption is the option of HandleWithBeforeAfter.
+// FallthroughBefore: if true, the pipeline will be executed even if the before pipeline ends.
+// FallthroughPipeline: if true, the after pipeline will be executed even if the pipeline ends.
+type HandleWithBeforeAfterOption struct {
+	FallthroughBefore   bool
+	FallthroughPipeline bool
+}
+
 // HandleWithBeforeAfter handles the request, with additional flow defined by
 // the before/after pipeline.
-func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pipeline) string {
+func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pipeline, option HandleWithBeforeAfterOption) string {
 	if len(p.spec.Data) > 0 {
 		ctx.SetData("PIPELINE", p.spec.Data)
 	}
@@ -331,11 +339,11 @@ func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pi
 		result, stats, sawEnd = p.doHandle(ctx, before.flow, stats)
 	}
 
-	if !sawEnd {
+	if !sawEnd || option.FallthroughBefore {
 		result, stats, sawEnd = p.doHandle(ctx, p.flow, stats)
 	}
 
-	if !sawEnd && after != nil {
+	if (after != nil) && (!sawEnd || option.FallthroughPipeline) {
 		result, stats, _ = p.doHandle(ctx, after.flow, stats)
 	}
 
