@@ -103,7 +103,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string, ingress *apinetv1.Ing
 	}
 
 	var timeout time.Duration
-	if proxyTimeout == "" {
+	if proxyTimeout != "" {
 		result, err := time.ParseDuration(proxyTimeout)
 		if err != nil {
 			return fmt.Errorf("invalid proxy-timeout: %v", err)
