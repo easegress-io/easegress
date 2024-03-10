@@ -2,6 +2,10 @@ module github.com/megaease/easegress/v2
 
 go 1.21
 
+// replace (
+// 	github/megaease/easegress => ./
+// )
+
 require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/MicahParks/keyfunc v1.9.0

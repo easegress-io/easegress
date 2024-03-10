@@ -6,7 +6,7 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
+[![Join Easegress Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8265/badge)](https://www.bestpractices.dev/projects/8265)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress?ref=badge_shield)
 
@@ -91,7 +91,7 @@ The architecture of Easegress:
   - **Compression:** compresses body for the response.
   - **Hot-Update:** updates both config and binary of Easegress in place without losing connections.
 - **Operation**
-  - **Easy to Integrate:** command line([egctl](docs/02.Tutorials/2.1.egctl-Usage.md)), MegaEase Portal, HTTP clients such as curl, postman, etc.
+  - **Easy to Integrate:** command line([egctl](docs/02.Tutorials/2.1.egctl-Usage.md)), Easegress Portal, HTTP clients such as curl, postman, etc.
   - **Distributed Tracing**
     - Built-in [OpenTelemetry](https://opentelemetry.io/), which provides a vendor-neutral API.
   - **Observability**
@@ -208,7 +208,7 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ## Community
 
-- [Join Slack Workspace](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA) for requirement, issue and development.
+- [Join Slack Workspace](https://cloud-native.slack.com/messages/easegress) for requirement, issue and development.
 - [MegaEase on Twitter](https://twitter.com/megaease)
 
 ## Contributing

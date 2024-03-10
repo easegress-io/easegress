@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -143,7 +143,7 @@ func (m *dynamicMux) close() {
 	// when use "signal-upgrade", easegress will start a new process gracefully,
 	// which may cause the old process be closed twice.
 	// here we use sync.Once to make sure the channel is closed only once.
-	// more discussion here: https://github.com/easegress-io/easegress/issues/1170
+	// more discussion here: https://github.com/megaease/easegress/issues/1170
 	m.closeOnce.Do(func() {
 		close(m.done)
 	})
