@@ -58,7 +58,7 @@ kubectl delete pvc easegress-pv-easegress-0 -n easegress
 
 ## Parameters
 
-The following table lists the configurable parameters of the MegaEase Easegress Helm installation.
+The following table lists the configurable parameters of the Easegress Helm installation.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
