@@ -1,5 +1,19 @@
 # Changelog
 
+## [v2.7.2](https://github.com/megaease/easegress/tree/v2.7.2) (2024-03-11)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.1...v2.7.2)
+
+**Community works**
+* Replace Github related megaease links to easegress-io
+
+**Implemented enhancements:**
+* Support global filter fallthrough when meet error
+
+**Fixed bugs:**
+* Fix empty proxy-timeout failure
+
+
 ## [v2.7.1](https://github.com/megaease/easegress/tree/v2.7.1) (2024-02-22)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.0...v2.7.1)
@@ -48,7 +62,7 @@
 **Significant changes:**
 * Support Kubernetes Gateway API v1.
 * Converts Nginx configurations into Easegress YAMLs.
-* Integrates all Easegress filters and resilience policies with Kubernetes Gateway API. 
+* Integrates all Easegress filters and resilience policies with Kubernetes Gateway API.
 
 **Implemented enhancements:**
 * New RedirectorV2 filter added.
