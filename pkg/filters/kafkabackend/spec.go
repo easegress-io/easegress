@@ -25,7 +25,10 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Backend []string `json:"backend" jsonschema:"required,uniqueItems=true"`
-		Topic   *Topic   `json:"topic" jsonschema:"required"`
+		Sync    bool     `json:"sync,omitempty"`
+
+		Topic *Topic `json:"topic" jsonschema:"required"`
+		Key   Key    `json:"key,omitempty"`
 	}
 
 	// Topic defined ways to get Kafka topic
@@ -37,5 +40,11 @@ type (
 	// Dynamic defines dynamic ways to get Kafka topic from http request
 	Dynamic struct {
 		Header string `json:"header,omitempty"`
+	}
+
+	// Key defined ways to get Kafka key
+	Key struct {
+		Default string   `json:"default"`
+		Dynamic *Dynamic `json:"dynamic,omitempty"`
 	}
 )
