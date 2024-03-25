@@ -20,6 +20,7 @@ package builder
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -154,6 +155,16 @@ var extraFuncs = template.FuncMap{
 		}
 		username, _, _ := req.(BasicAuth).BasicAuth()
 		return username
+	},
+
+	"host": func(hostPort string) string {
+		addr, _, _ := net.SplitHostPort(hostPort)
+		return addr
+	},
+
+	"port": func(hostPort string) string {
+		_, port, _ := net.SplitHostPort(hostPort)
+		return port
 	},
 
 	"urlQueryUnescape": func(s string) string {
