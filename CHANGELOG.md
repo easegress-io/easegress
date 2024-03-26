@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.7.3](https://github.com/megaease/easegress/tree/v2.7.3) (2024-03-26) 
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.2...v2.7.3) 
+
+**Implemented enhancements:**
+* Kafka filter supports synchronous producer and message key.
+* host and port Functions added for template of request-response builder. 
+* Proxy support set upstream host for outgoing requests.
+
 ## [v2.7.2](https://github.com/megaease/easegress/tree/v2.7.2) (2024-03-11)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.1...v2.7.2)
