@@ -77,7 +77,10 @@ func getAllResources(cmd *cobra.Command) error {
 
 	// non-default namespace is not supported for members and custom data kinds.
 	if getFlags.Namespace != "" && getFlags.Namespace != resources.DefaultNamespace {
-		return nil
+		if len(errs) == 0 {
+			return nil
+		}
+		return errors.New(strings.Join(errs, "\n"))
 	}
 
 	funcs := []func(*cobra.Command, *general.ArgInfo) error{
