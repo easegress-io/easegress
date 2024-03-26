@@ -135,7 +135,7 @@ func removeHopByHopHeaders(h http.Header) {
 	*/
 }
 
-func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Context, mirror bool) error {
+func (spCtx *serverPoolContext) prepareRequest(pool *ServerPool, svr *Server, ctx stdcontext.Context, mirror bool) error {
 	req := spCtx.req
 
 	u := req.Std().URL
@@ -154,6 +154,7 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 	if err != nil {
 		return err
 	}
+	svrHost := stdr.Host
 
 	stdr.Header = req.HTTPHeader().Clone()
 	removeHopByHopHeaders(stdr.Header)
@@ -162,6 +163,13 @@ func (spCtx *serverPoolContext) prepareRequest(svr *Server, ctx stdcontext.Conte
 	// server is explicitly told to keep the host of the request.
 	if !svr.AddrIsHostName || svr.KeepHost {
 		stdr.Host = req.Host()
+	}
+
+	// set upstream host if server is explicitly told to set the host of the request.
+	// KeepHost has higher priority than SetUpstreamHost.
+	if pool.spec.SetUpstreamHost && !svr.KeepHost {
+		stdr.Host = svrHost
+		stdr.Header.Add("Host", svrHost)
 	}
 
 	if spCtx.span != nil {
@@ -352,7 +360,7 @@ func (sp *ServerPool) handleMirror(spCtx *serverPoolContext) {
 		return
 	}
 
-	err := spCtx.prepareRequest(svr, spCtx.req.Context(), true)
+	err := spCtx.prepareRequest(sp, svr, spCtx.req.Context(), true)
 	if err != nil {
 		logger.Errorf("%s: failed to prepare request: %v", sp.Name, err)
 		return
@@ -463,7 +471,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 	// prepare the request to send.
 	statResult := &gohttpstat.Result{}
 	stdctx = gohttpstat.WithHTTPStat(stdctx, statResult)
-	if err := spCtx.prepareRequest(svr, stdctx, false); err != nil {
+	if err := spCtx.prepareRequest(sp, svr, stdctx, false); err != nil {
 		logger.Errorf("%s: failed to prepare request: %v", sp.Name, err)
 		return serverPoolError{http.StatusInternalServerError, resultInternalError}
 	}
