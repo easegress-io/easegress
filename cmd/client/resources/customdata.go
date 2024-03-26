@@ -234,7 +234,7 @@ func getCustomDataBatchYaml(args *general.ArgInfo) (string, error) {
 	return fmt.Sprintf("name: %s\nkind: CustomData\n\n%s", args.Name, yamlStr), nil
 }
 
-func editCustomDataItem(cmd *cobra.Command, args *general.ArgInfo) error {
+func editCustomDataItem(_ *cobra.Command, args *general.ArgInfo) error {
 	getErr := func(err error) error {
 		return general.ErrorMsg(general.EditCmd, err, fmt.Sprintf("%s %s %s", CustomData().Kind, args.Name, args.Other))
 	}

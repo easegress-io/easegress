@@ -242,12 +242,12 @@ func DeleteCustomDataKind(cmd *cobra.Command, names []string, all bool) error {
 
 // ApplyCustomDataKind applies the custom data kind.
 func ApplyCustomDataKind(cmd *cobra.Command, s *general.Spec) error {
-	checkKindExist := func(cmd *cobra.Command, name string) bool {
+	checkKindExist := func(_ *cobra.Command, name string) bool {
 		_, err := httpGetCustomDataKind(name)
 		return err == nil
 	}
 
-	createOrUpdate := func(cmd *cobra.Command, yamlDoc []byte, exist bool) error {
+	createOrUpdate := func(_ *cobra.Command, yamlDoc []byte, exist bool) error {
 		if exist {
 			_, err := handleReq(http.MethodPut, makePath(general.CustomDataKindURL), yamlDoc)
 			return err

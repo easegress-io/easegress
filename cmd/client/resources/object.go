@@ -45,6 +45,16 @@ type ObjectNamespaceFlags struct {
 
 var globalAPIResources []*api.APIResource
 
+// MetaSpec is the meta spec of an object.
+// It contains the basic information of an object and extra information for httpserver.
+type MetaSpec struct {
+	supervisor.MetaSpec `json:",inline"`
+
+	// httpserver only
+	Port  int  `json:"port"`
+	HTTPS bool `json:"https"`
+}
+
 // ObjectAPIResources returns the object api resources.
 func ObjectAPIResources() ([]*api.APIResource, error) {
 	if globalAPIResources != nil {
@@ -217,7 +227,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceMetaSpec(body, func(m *supervisor.MetaSpec) bool {
+		err := unmarshalPrintNamespaceMetaSpec(body, func(m *MetaSpec) bool {
 			return m.Kind == kind
 		})
 		if err != nil {
@@ -226,7 +236,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 		return nil
 	}
 
-	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(m *supervisor.MetaSpec) bool {
+	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(m *MetaSpec) bool {
 		return m.Kind == kind
 	})
 	if err != nil {
@@ -235,7 +245,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	return nil
 }
 
-func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*supervisor.MetaSpec) bool) error {
+func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*MetaSpec) bool) error {
 	metas, err := unmarshalMetaSpec(body, list)
 	if err != nil {
 		return err
@@ -250,7 +260,7 @@ func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*supervisor.Meta
 	return nil
 }
 
-func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*supervisor.MetaSpec) bool) error {
+func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*MetaSpec) bool) error {
 	allMetas, err := unmarshalNamespaceMetaSpec(body)
 	if err != nil {
 		return err
@@ -272,24 +282,24 @@ func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*supervisor.MetaSp
 	return nil
 }
 
-func unmarshalMetaSpec(body []byte, listBody bool) ([]*supervisor.MetaSpec, error) {
+func unmarshalMetaSpec(body []byte, listBody bool) ([]*MetaSpec, error) {
 	if listBody {
-		metas := []*supervisor.MetaSpec{}
+		metas := []*MetaSpec{}
 		err := codectool.Unmarshal(body, &metas)
 		return metas, err
 	}
-	meta := &supervisor.MetaSpec{}
+	meta := &MetaSpec{}
 	err := codectool.Unmarshal(body, meta)
-	return []*supervisor.MetaSpec{meta}, err
+	return []*MetaSpec{meta}, err
 }
 
-func unmarshalNamespaceMetaSpec(body []byte) (map[string][]*supervisor.MetaSpec, error) {
-	res := map[string][]*supervisor.MetaSpec{}
+func unmarshalNamespaceMetaSpec(body []byte) (map[string][]*MetaSpec, error) {
+	res := map[string][]*MetaSpec{}
 	err := codectool.Unmarshal(body, &res)
 	return res, err
 }
 
-func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
+func getAgeFromMetaSpec(meta *MetaSpec) string {
 	createdAt, err := time.Parse(time.RFC3339, meta.CreatedAt)
 	if err != nil {
 		return "unknown"
@@ -297,36 +307,65 @@ func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
 	return general.DurationMostSignificantUnit(time.Since(createdAt))
 }
 
-func printNamespaceMetaSpec(metas map[string][]*supervisor.MetaSpec) {
+func printNamespaceMetaSpec(metas map[string][]*MetaSpec) {
 	// Output:
+	// NAME KIND NAMESPACE PORT HTTPS AGE
+	// ...
+	//
 	// NAME KIND NAMESPACE AGE
 	// ...
+	tableHTTPServer := [][]string{}
+	tableHTTPServer = append(tableHTTPServer, []string{"NAME", "KIND", "NAMESPACE", "PORT", "HTTPS", "AGE"})
 	table := [][]string{}
 	table = append(table, []string{"NAME", "KIND", "NAMESPACE", "AGE"})
+
 	defaults := metas[DefaultNamespace]
 	for _, meta := range defaults {
-		table = append(table, []string{meta.Name, meta.Kind, DefaultNamespace, getAgeFromMetaSpec(meta)})
+		if meta.Kind == "HTTPServer" {
+			tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, DefaultNamespace, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
+		} else {
+			table = append(table, []string{meta.Name, meta.Kind, DefaultNamespace, getAgeFromMetaSpec(meta)})
+		}
 	}
+
 	for namespace, metas := range metas {
 		if namespace == DefaultNamespace {
 			continue
 		}
 		for _, meta := range metas {
-			table = append(table, []string{meta.Name, meta.Kind, namespace, getAgeFromMetaSpec(meta)})
+			if meta.Kind == "HTTPServer" {
+				tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, namespace, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
+			} else {
+				table = append(table, []string{meta.Name, meta.Kind, namespace, getAgeFromMetaSpec(meta)})
+			}
 		}
 	}
+	general.PrintTable(tableHTTPServer)
+	fmt.Println("")
 	general.PrintTable(table)
 }
 
-func printMetaSpec(metas []*supervisor.MetaSpec) {
+func printMetaSpec(metas []*MetaSpec) {
 	// Output:
+	// NAME  KIND  PORT HTTPS AGE
+	// ...
+	//
 	// NAME  KIND  AGE
 	// ...
+	tableHTTPServer := [][]string{}
+	tableHTTPServer = append(tableHTTPServer, []string{"NAME", "KIND", "PORT", "HTTPS", "AGE"})
+
 	table := [][]string{}
 	table = append(table, []string{"NAME", "KIND", "AGE"})
 	for _, meta := range metas {
-		table = append(table, []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)})
+		if meta.Kind == "HTTPServer" {
+			tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
+		} else {
+			table = append(table, []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)})
+		}
 	}
+	general.PrintTable(tableHTTPServer)
+	fmt.Println("")
 	general.PrintTable(table)
 }
 
@@ -480,7 +519,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 	if err != nil {
 		return getErr(err)
 	}
-	metas = general.Filter(metas, func(m *supervisor.MetaSpec) bool {
+	metas = general.Filter(metas, func(m *MetaSpec) bool {
 		return m.Kind == kind
 	})
 
@@ -514,12 +553,12 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 
 // ApplyObject applies an object.
 func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
-	checkObjExist := func(cmd *cobra.Command, name string) bool {
+	checkObjExist := func(_ *cobra.Command, name string) bool {
 		_, err := httpGetObject(name, nil)
 		return err == nil
 	}
 
-	createOrUpdate := func(cmd *cobra.Command, s *general.Spec, exist bool) error {
+	createOrUpdate := func(_ *cobra.Command, s *general.Spec, exist bool) error {
 		if exist {
 			_, err := handleReq(http.MethodPut, makePath(general.ObjectItemURL, s.Name), []byte(s.Doc()))
 			return err
