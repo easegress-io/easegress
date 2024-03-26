@@ -45,6 +45,80 @@ type ObjectNamespaceFlags struct {
 
 var globalAPIResources []*api.APIResource
 
+const defaultTableType = "__default__"
+
+type Table [][]string
+type TableRow []string
+
+var kindToTableHeader = map[string][]string{
+	"HTTPServer":     {"NAME", "KIND", "PORT", "HTTPS", "AGE"},
+	defaultTableType: {"NAME", "KIND", "AGE"},
+}
+
+var kindToTableRow = map[string]func(meta *MetaSpec) TableRow{
+	"HTTPServer": func(meta *MetaSpec) TableRow {
+		return TableRow{meta.Name, meta.Kind, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)}
+	},
+	defaultTableType: func(meta *MetaSpec) TableRow {
+		return []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)}
+	},
+}
+
+func getTableRow(meta *MetaSpec, namespace string) (string, TableRow) {
+	var res TableRow
+	tableType := defaultTableType
+	if rowFn, ok := kindToTableRow[meta.Kind]; ok {
+		tableType = meta.Kind
+		res = rowFn(meta)
+	} else {
+		res = kindToTableRow[defaultTableType](meta)
+	}
+
+	if namespace != "" {
+		res = append(res, namespace)
+	}
+	return tableType, res
+}
+
+func getTableHeader(kind string, namespace string) (string, TableRow) {
+	res := kindToTableHeader[defaultTableType]
+	tableType := defaultTableType
+	if header, ok := kindToTableHeader[kind]; ok {
+		res = header
+		tableType = kind
+	}
+	if namespace != "" {
+		return tableType, append(res, "NAMESPACE")
+	}
+	return tableType, res
+}
+
+func generateTableMap(metas []*MetaSpec, namespace string) map[string]Table {
+	tables := map[string]Table{}
+	for _, meta := range metas {
+		tableType, row := getTableRow(meta, namespace)
+		if val, ok := tables[tableType]; ok {
+			tables[tableType] = append(val, row)
+		} else {
+			_, header := getTableHeader(meta.Kind, namespace)
+			tables[tableType] = Table{header, row}
+		}
+	}
+	return tables
+}
+
+func tableMapToArray(tableMap map[string]Table) []Table {
+	res := []Table{}
+	for _, table := range tableMap {
+		res = append(res, table)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		// res[i][0] is header, res[i][1] is first row
+		return res[i][1][0] < res[j][1][0]
+	})
+	return res
+}
+
 // MetaSpec is the meta spec of an object.
 // It contains the basic information of an object and extra information for httpserver.
 type MetaSpec struct {
@@ -308,65 +382,38 @@ func getAgeFromMetaSpec(meta *MetaSpec) string {
 }
 
 func printNamespaceMetaSpec(metas map[string][]*MetaSpec) {
-	// Output:
-	// NAME KIND NAMESPACE PORT HTTPS AGE
-	// ...
-	//
-	// NAME KIND NAMESPACE AGE
-	// ...
-	tableHTTPServer := [][]string{}
-	tableHTTPServer = append(tableHTTPServer, []string{"NAME", "KIND", "NAMESPACE", "PORT", "HTTPS", "AGE"})
-	table := [][]string{}
-	table = append(table, []string{"NAME", "KIND", "NAMESPACE", "AGE"})
-
 	defaults := metas[DefaultNamespace]
-	for _, meta := range defaults {
-		if meta.Kind == "HTTPServer" {
-			tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, DefaultNamespace, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
-		} else {
-			table = append(table, []string{meta.Name, meta.Kind, DefaultNamespace, getAgeFromMetaSpec(meta)})
-		}
-	}
+	res := generateTableMap(defaults, DefaultNamespace)
 
 	for namespace, metas := range metas {
 		if namespace == DefaultNamespace {
 			continue
 		}
-		for _, meta := range metas {
-			if meta.Kind == "HTTPServer" {
-				tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, namespace, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
+		tableMap := generateTableMap(metas, namespace)
+		for k, v := range tableMap {
+			if _, ok := res[k]; ok {
+				// remove table header
+				res[k] = append(res[k], v[1:]...)
 			} else {
-				table = append(table, []string{meta.Name, meta.Kind, namespace, getAgeFromMetaSpec(meta)})
+				res[k] = v
 			}
 		}
 	}
-	general.PrintTable(tableHTTPServer)
-	fmt.Println("")
-	general.PrintTable(table)
+
+	tables := tableMapToArray(res)
+	for _, table := range tables {
+		general.PrintTable(table)
+		fmt.Println("")
+	}
 }
 
 func printMetaSpec(metas []*MetaSpec) {
-	// Output:
-	// NAME  KIND  PORT HTTPS AGE
-	// ...
-	//
-	// NAME  KIND  AGE
-	// ...
-	tableHTTPServer := [][]string{}
-	tableHTTPServer = append(tableHTTPServer, []string{"NAME", "KIND", "PORT", "HTTPS", "AGE"})
-
-	table := [][]string{}
-	table = append(table, []string{"NAME", "KIND", "AGE"})
-	for _, meta := range metas {
-		if meta.Kind == "HTTPServer" {
-			tableHTTPServer = append(tableHTTPServer, []string{meta.Name, meta.Kind, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)})
-		} else {
-			table = append(table, []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)})
-		}
+	tableMap := generateTableMap(metas, "")
+	tables := tableMapToArray(tableMap)
+	for _, table := range tables {
+		general.PrintTable(table)
+		fmt.Println("")
 	}
-	general.PrintTable(tableHTTPServer)
-	fmt.Println("")
-	general.PrintTable(table)
 }
 
 // DescribeObject describes an object.
