@@ -47,6 +47,7 @@ type ServerPoolBase struct {
 type ServerPoolBaseSpec struct {
 	ServerTags      []string         `json:"serverTags,omitempty" jsonschema:"uniqueItems=true"`
 	Servers         []*Server        `json:"servers,omitempty"`
+	SetUpstreamHost bool             `json:"setUpstreamHost,omitempty"`
 	ServiceRegistry string           `json:"serviceRegistry,omitempty"`
 	ServiceName     string           `json:"serviceName,omitempty"`
 	LoadBalance     *LoadBalanceSpec `json:"loadBalance,omitempty"`
