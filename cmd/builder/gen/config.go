@@ -91,6 +91,29 @@ func (c *Config) CheckDuplicate(conf *Config) error {
 	return nil
 }
 
+func (c *Config) GenBuildYaml(dir string) error {
+	buildYaml := `
+# egVersion: the version of Easegress used for building. Supports versions v2.5.2 and later.
+# An empty egVersion value means using the latest version of Easegress.
+egVersion: ""
+
+# plugins: custom plugins.
+# It is recommended to use plugins created with "egbuilder init".
+# Generally, any plugin containing "registry/registry.go" can utilize the "egbuilder build" command.
+# You can initialize a project to see for yourself.
+plugins:
+- module: %s
+  version: ""
+  replacement: "."
+
+# output: path of output file.
+output: "./easegress-server"
+`
+	buildYaml = fmt.Sprintf(buildYaml, c.Repo)
+	fileName := path.Join(dir, "build.yaml")
+	return os.WriteFile(fileName, []byte(buildYaml), os.ModePerm)
+}
+
 func (c *Config) GenFilters(dir string) error {
 	for _, f := range c.Filters {
 		err := os.MkdirAll(getModulePath(dir, moduleFilter, f, false), os.ModePerm)
