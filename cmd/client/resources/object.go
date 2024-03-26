@@ -108,14 +108,15 @@ func generateTableMap(metas []*MetaSpec, namespace string) map[string]Table {
 }
 
 func tableMapToArray(tableMap map[string]Table) []Table {
-	res := []Table{}
-	for _, table := range tableMap {
-		res = append(res, table)
+	res := make([]Table, len(tableMap))
+	keys := make([]string, 0, len(tableMap))
+	for k := range tableMap {
+		keys = append(keys, k)
 	}
-	sort.Slice(res, func(i, j int) bool {
-		// res[i][0] is header, res[i][1] is first row
-		return res[i][1][0] < res[j][1][0]
-	})
+	sort.Strings(keys)
+	for i, k := range keys {
+		res[i] = tableMap[k]
+	}
 	return res
 }
 
