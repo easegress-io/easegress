@@ -27,7 +27,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/api"
@@ -45,63 +44,24 @@ type ObjectNamespaceFlags struct {
 
 var globalAPIResources []*api.APIResource
 
-const defaultTableType = "__default__"
-
-type Table [][]string
-type TableRow []string
-
-var kindToTableHeader = map[string][]string{
-	"HTTPServer":     {"NAME", "KIND", "PORT", "HTTPS", "AGE"},
-	defaultTableType: {"NAME", "KIND", "AGE"},
-}
-
-var kindToTableRow = map[string]func(meta *MetaSpec) TableRow{
-	"HTTPServer": func(meta *MetaSpec) TableRow {
-		return TableRow{meta.Name, meta.Kind, strconv.Itoa(meta.Port), strconv.FormatBool(meta.HTTPS), getAgeFromMetaSpec(meta)}
-	},
-	defaultTableType: func(meta *MetaSpec) TableRow {
-		return []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)}
-	},
-}
-
-func getTableRow(meta *MetaSpec, namespace string) (string, TableRow) {
-	var res TableRow
-	tableType := defaultTableType
-	if rowFn, ok := kindToTableRow[meta.Kind]; ok {
-		tableType = meta.Kind
-		res = rowFn(meta)
-	} else {
-		res = kindToTableRow[defaultTableType](meta)
-	}
-
-	if namespace != "" {
-		res = append(res, namespace)
-	}
-	return tableType, res
-}
-
-func getTableHeader(kind string, namespace string) (string, TableRow) {
-	res := kindToTableHeader[defaultTableType]
-	tableType := defaultTableType
-	if header, ok := kindToTableHeader[kind]; ok {
-		res = header
-		tableType = kind
-	}
-	if namespace != "" {
-		return tableType, append(res, "NAMESPACE")
-	}
-	return tableType, res
-}
-
-func generateTableMap(metas []*MetaSpec, namespace string) map[string]Table {
+func generateTableMap(objectSpecs []ObjectSpec, namespace string) map[string]Table {
 	tables := map[string]Table{}
-	for _, meta := range metas {
-		tableType, row := getTableRow(meta, namespace)
+
+	wrapRow := func(row TableRow) TableRow {
+		if namespace != "" {
+			return row.WithNamespace(namespace)
+		}
+		return row
+	}
+
+	for _, spec := range objectSpecs {
+		tableType, row := spec.TableRow()
+
 		if val, ok := tables[tableType]; ok {
-			tables[tableType] = append(val, row)
+			tables[tableType] = append(val, wrapRow(row))
 		} else {
-			_, header := getTableHeader(meta.Kind, namespace)
-			tables[tableType] = Table{header, row}
+			_, header := spec.TableHeader()
+			tables[tableType] = Table{wrapRow(header), wrapRow(row)}
 		}
 	}
 	return tables
@@ -118,16 +78,6 @@ func tableMapToArray(tableMap map[string]Table) []Table {
 		res[i] = tableMap[k]
 	}
 	return res
-}
-
-// MetaSpec is the meta spec of an object.
-// It contains the basic information of an object and extra information for httpserver.
-type MetaSpec struct {
-	supervisor.MetaSpec `json:",inline"`
-
-	// httpserver only
-	Port  int  `json:"port"`
-	HTTPS bool `json:"https"`
 }
 
 // ObjectAPIResources returns the object api resources.
@@ -190,7 +140,7 @@ func GetAllObject(cmd *cobra.Command, flags *ObjectNamespaceFlags) error {
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceMetaSpec(body, nil)
+		err := unmarshalPrintNamespaceObjectSpec(body, nil)
 		if err != nil {
 			return getErr(err)
 		}
@@ -302,8 +252,8 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceMetaSpec(body, func(m *MetaSpec) bool {
-			return m.Kind == kind
+		err := unmarshalPrintNamespaceObjectSpec(body, func(s ObjectSpec) bool {
+			return s.GetKind() == kind
 		})
 		if err != nil {
 			return getErr(err)
@@ -311,8 +261,8 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 		return nil
 	}
 
-	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(m *MetaSpec) bool {
-		return m.Kind == kind
+	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(o ObjectSpec) bool {
+		return o.GetKind() == kind
 	})
 	if err != nil {
 		return getErr(err)
@@ -320,69 +270,87 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	return nil
 }
 
-func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*MetaSpec) bool) error {
-	metas, err := unmarshalMetaSpec(body, list)
+func unmarshalPrintMetaSpec(body []byte, list bool, filter func(ObjectSpec) bool) error {
+	specs, err := unmarshalObjectSpec(body, list)
 	if err != nil {
 		return err
 	}
 	if filter != nil {
-		metas = general.Filter(metas, filter)
+		specs = general.Filter(specs, filter)
 	}
-	sort.Slice(metas, func(i, j int) bool {
-		return metas[i].Name < metas[j].Name
+	sort.Slice(specs, func(i, j int) bool {
+		return specs[i].GetName() < specs[j].GetName()
 	})
-	printMetaSpec(metas)
+	printObjectSpec(specs)
 	return nil
 }
 
-func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*MetaSpec) bool) error {
-	allMetas, err := unmarshalNamespaceMetaSpec(body)
+func unmarshalPrintNamespaceObjectSpec(body []byte, filter func(ObjectSpec) bool) error {
+	allObjectSpecs, err := unmarshalNamespaceMetaSpec(body)
 	if err != nil {
 		return err
 	}
 	if filter != nil {
-		for k, v := range allMetas {
-			allMetas[k] = general.Filter(v, filter)
+		for k, v := range allObjectSpecs {
+			allObjectSpecs[k] = general.Filter(v, filter)
 		}
 	}
-	for k, v := range allMetas {
+	for k, v := range allObjectSpecs {
 		if len(v) > 0 {
 			sort.Slice(v, func(i, j int) bool {
-				return v[i].Name < v[j].Name
+				return v[i].GetName() < v[j].GetName()
 			})
-			allMetas[k] = v
+			allObjectSpecs[k] = v
 		}
 	}
-	printNamespaceMetaSpec(allMetas)
+	printNamespaceObjectSpec(allObjectSpecs)
 	return nil
 }
 
-func unmarshalMetaSpec(body []byte, listBody bool) ([]*MetaSpec, error) {
-	if listBody {
-		metas := []*MetaSpec{}
-		err := codectool.Unmarshal(body, &metas)
-		return metas, err
-	}
-	meta := &MetaSpec{}
-	err := codectool.Unmarshal(body, meta)
-	return []*MetaSpec{meta}, err
-}
-
-func unmarshalNamespaceMetaSpec(body []byte) (map[string][]*MetaSpec, error) {
-	res := map[string][]*MetaSpec{}
-	err := codectool.Unmarshal(body, &res)
-	return res, err
-}
-
-func getAgeFromMetaSpec(meta *MetaSpec) string {
-	createdAt, err := time.Parse(time.RFC3339, meta.CreatedAt)
+func unmarshalObjectSpec(body []byte, listBody bool) ([]ObjectSpec, error) {
+	res, err := general.UnmarshalMapInterface(body, listBody)
 	if err != nil {
-		return "unknown"
+		return nil, err
 	}
-	return general.DurationMostSignificantUnit(time.Since(createdAt))
+	specs := []ObjectSpec{}
+	for _, m := range res {
+		data, err := codectool.MarshalJSON(m)
+		if err != nil {
+			return nil, err
+		}
+		spec, err := GetObjectSpec(m["kind"].(string), data)
+		if err != nil {
+			return nil, err
+		}
+		specs = append(specs, spec)
+	}
+	return specs, nil
 }
 
-func printNamespaceMetaSpec(metas map[string][]*MetaSpec) {
+func unmarshalNamespaceMetaSpec(body []byte) (map[string][]ObjectSpec, error) {
+	raw := map[string][]map[string]interface{}{}
+	err := codectool.Unmarshal(body, &raw)
+	if err != nil {
+		return nil, err
+	}
+	res := map[string][]ObjectSpec{}
+	for ns, v := range raw {
+		for _, s := range v {
+			data, err := codectool.MarshalJSON(s)
+			if err != nil {
+				return nil, err
+			}
+			spec, err := GetObjectSpec(s["kind"].(string), data)
+			if err != nil {
+				return nil, err
+			}
+			res[ns] = append(res[ns], spec)
+		}
+	}
+	return res, nil
+}
+
+func printNamespaceObjectSpec(metas map[string][]ObjectSpec) {
 	defaults := metas[DefaultNamespace]
 	res := generateTableMap(defaults, DefaultNamespace)
 
@@ -408,7 +376,7 @@ func printNamespaceMetaSpec(metas map[string][]*MetaSpec) {
 	}
 }
 
-func printMetaSpec(metas []*MetaSpec) {
+func printObjectSpec(metas []ObjectSpec) {
 	tableMap := generateTableMap(metas, "")
 	tables := tableMapToArray(tableMap)
 	for _, table := range tables {
@@ -545,6 +513,17 @@ func CreateObject(cmd *cobra.Command, s *general.Spec) error {
 	}
 	fmt.Println(general.SuccessMsg(general.CreateCmd, s.Kind, s.Name))
 	return nil
+}
+
+func unmarshalMetaSpec(body []byte, listBody bool) ([]*MetaSpec, error) {
+	if listBody {
+		metas := []*MetaSpec{}
+		err := codectool.Unmarshal(body, &metas)
+		return metas, err
+	}
+	meta := &MetaSpec{}
+	err := codectool.Unmarshal(body, meta)
+	return []*MetaSpec{meta}, err
 }
 
 // DeleteObject deletes an object.
