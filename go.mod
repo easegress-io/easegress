@@ -45,7 +45,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nacos-group/nacos-sdk-go v1.1.4
 	github.com/nacos-group/nacos-sdk-go/v2 v2.2.3
-	github.com/nginxinc/nginx-go-crossplane v0.4.33
+	github.com/nginxinc/nginx-go-crossplane v0.4.36
 	github.com/open-policy-agent/opa v0.58.0
 	github.com/openzipkin/zipkin-go v0.4.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible

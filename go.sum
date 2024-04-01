@@ -633,8 +633,8 @@ github.com/nacos-group/nacos-sdk-go v1.1.4 h1:qyrZ7HTWM4aeymFfqnbgNRERh7TWuER10p
 github.com/nacos-group/nacos-sdk-go v1.1.4/go.mod h1:cBv9wy5iObs7khOqov1ERFQrCuTR4ILpgaiaVMxEmGI=
 github.com/nacos-group/nacos-sdk-go/v2 v2.2.3 h1:sUQx4f1bXDeeOOEQZjGAitzxYApbYY9fVDbxVCaBW+I=
 github.com/nacos-group/nacos-sdk-go/v2 v2.2.3/go.mod h1:UL4U89WYdnyajgKJUMpuT1Rr6iNmbjrxOO40JRgtA00=
-github.com/nginxinc/nginx-go-crossplane v0.4.33 h1:Sr6ptE+xzQ7Vc5xs1SXNDDBWvVwKA7BTtQJZIGTS7RY=
-github.com/nginxinc/nginx-go-crossplane v0.4.33/go.mod h1:UzbZnyFv0vPlt1Urbnp/mrFCzBL4tYCReFuNBpFQEfI=
+github.com/nginxinc/nginx-go-crossplane v0.4.36 h1:JWkMTVJA7Mez560LOXUWgJF07w3Bh+J7o2jg8Ow+p8o=
+github.com/nginxinc/nginx-go-crossplane v0.4.36/go.mod h1:UzbZnyFv0vPlt1Urbnp/mrFCzBL4tYCReFuNBpFQEfI=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nrdcg/dnspod-go v0.4.0 h1:c/jn1mLZNKF3/osJ6mz3QPxTudvPArXTjpkmYj0uK6U=
 github.com/nrdcg/dnspod-go v0.4.0/go.mod h1:vZSoFSFeQVm2gWLMkyX61LZ8HI3BaqtHZWgPTGKr6KQ=
