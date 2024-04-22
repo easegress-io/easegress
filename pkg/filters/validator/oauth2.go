@@ -120,6 +120,7 @@ func (v *OAuth2Validator) introspectToken(tokenStr string) (*tokenInfo, error) {
 	if e != nil {
 		return nil, e
 	}
+	defer resp.Body.Close()
 
 	var ti struct {
 		tokenInfo
