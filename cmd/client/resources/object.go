@@ -44,7 +44,7 @@ type ObjectNamespaceFlags struct {
 
 var globalAPIResources []*api.APIResource
 
-func generateTableMap(objectSpecs []ObjectSpec, namespace string) map[string]Table {
+func generateTableMap(objectSpecs []SpecInfo, namespace string) map[string]Table {
 	tables := map[string]Table{}
 
 	wrapRow := func(row TableRow) TableRow {
@@ -252,7 +252,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceObjectSpec(body, func(s ObjectSpec) bool {
+		err := unmarshalPrintNamespaceObjectSpec(body, func(s SpecInfo) bool {
 			return s.GetKind() == kind
 		})
 		if err != nil {
@@ -261,7 +261,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 		return nil
 	}
 
-	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(o ObjectSpec) bool {
+	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(o SpecInfo) bool {
 		return o.GetKind() == kind
 	})
 	if err != nil {
@@ -270,7 +270,7 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	return nil
 }
 
-func unmarshalPrintMetaSpec(body []byte, list bool, filter func(ObjectSpec) bool) error {
+func unmarshalPrintMetaSpec(body []byte, list bool, filter func(SpecInfo) bool) error {
 	specs, err := unmarshalObjectSpec(body, list)
 	if err != nil {
 		return err
@@ -285,7 +285,7 @@ func unmarshalPrintMetaSpec(body []byte, list bool, filter func(ObjectSpec) bool
 	return nil
 }
 
-func unmarshalPrintNamespaceObjectSpec(body []byte, filter func(ObjectSpec) bool) error {
+func unmarshalPrintNamespaceObjectSpec(body []byte, filter func(SpecInfo) bool) error {
 	allObjectSpecs, err := unmarshalNamespaceMetaSpec(body)
 	if err != nil {
 		return err
@@ -307,18 +307,18 @@ func unmarshalPrintNamespaceObjectSpec(body []byte, filter func(ObjectSpec) bool
 	return nil
 }
 
-func unmarshalObjectSpec(body []byte, listBody bool) ([]ObjectSpec, error) {
+func unmarshalObjectSpec(body []byte, listBody bool) ([]SpecInfo, error) {
 	res, err := general.UnmarshalMapInterface(body, listBody)
 	if err != nil {
 		return nil, err
 	}
-	specs := []ObjectSpec{}
+	specs := []SpecInfo{}
 	for _, m := range res {
 		data, err := codectool.MarshalJSON(m)
 		if err != nil {
 			return nil, err
 		}
-		spec, err := GetObjectSpec(m["kind"].(string), data)
+		spec, err := GetSpecInfo(m["kind"].(string), data)
 		if err != nil {
 			return nil, err
 		}
@@ -327,20 +327,20 @@ func unmarshalObjectSpec(body []byte, listBody bool) ([]ObjectSpec, error) {
 	return specs, nil
 }
 
-func unmarshalNamespaceMetaSpec(body []byte) (map[string][]ObjectSpec, error) {
+func unmarshalNamespaceMetaSpec(body []byte) (map[string][]SpecInfo, error) {
 	raw := map[string][]map[string]interface{}{}
 	err := codectool.Unmarshal(body, &raw)
 	if err != nil {
 		return nil, err
 	}
-	res := map[string][]ObjectSpec{}
+	res := map[string][]SpecInfo{}
 	for ns, v := range raw {
 		for _, s := range v {
 			data, err := codectool.MarshalJSON(s)
 			if err != nil {
 				return nil, err
 			}
-			spec, err := GetObjectSpec(s["kind"].(string), data)
+			spec, err := GetSpecInfo(s["kind"].(string), data)
 			if err != nil {
 				return nil, err
 			}
@@ -350,7 +350,7 @@ func unmarshalNamespaceMetaSpec(body []byte) (map[string][]ObjectSpec, error) {
 	return res, nil
 }
 
-func printNamespaceObjectSpec(metas map[string][]ObjectSpec) {
+func printNamespaceObjectSpec(metas map[string][]SpecInfo) {
 	defaults := metas[DefaultNamespace]
 	res := generateTableMap(defaults, DefaultNamespace)
 
@@ -376,7 +376,7 @@ func printNamespaceObjectSpec(metas map[string][]ObjectSpec) {
 	}
 }
 
-func printObjectSpec(metas []ObjectSpec) {
+func printObjectSpec(metas []SpecInfo) {
 	tableMap := generateTableMap(metas, "")
 	tables := tableMapToArray(tableMap)
 	for _, table := range tables {

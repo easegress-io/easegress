@@ -31,13 +31,13 @@ import (
 const defaultTableType = "__default__"
 
 // kindToSpec maps the kind to the spec.
-var kindToSpec = map[string]func() ObjectSpec{
-	httpserver.Kind:  func() ObjectSpec { return &HTTPServerSpec{} },
-	defaultTableType: func() ObjectSpec { return &MetaSpec{} },
+var kindToSpec = map[string]func() SpecInfo{
+	httpserver.Kind:  func() SpecInfo { return &HTTPServerSpec{} },
+	defaultTableType: func() SpecInfo { return &MetaSpec{} },
 }
 
-// GetObjectSpec returns the spec of the object, used to generate table.
-func GetObjectSpec(kind string, data []byte) (ObjectSpec, error) {
+// GetSpecInfo returns the spec of the object, used to generate table.
+func GetSpecInfo(kind string, data []byte) (SpecInfo, error) {
 	specFn, ok := kindToSpec[kind]
 	if !ok {
 		specFn = kindToSpec[defaultTableType]
@@ -60,8 +60,8 @@ func (row TableRow) WithNamespace(namespace string) TableRow {
 	return append(row, namespace)
 }
 
-// ObjectSpec is the interface of the object spec.
-type ObjectSpec interface {
+// SpecInfo is the interface for the object specs to get information used by table.
+type SpecInfo interface {
 	GetName() string
 	GetKind() string
 	GetAge() string
@@ -74,7 +74,7 @@ type MetaSpec struct {
 	supervisor.MetaSpec `json:",inline"`
 }
 
-var _ ObjectSpec = &MetaSpec{}
+var _ SpecInfo = &MetaSpec{}
 
 // GetName returns the name of the object.
 func (m *MetaSpec) GetName() string {
@@ -111,7 +111,7 @@ type HTTPServerSpec struct {
 	httpserver.Spec `json:",inline"`
 }
 
-var _ ObjectSpec = &HTTPServerSpec{}
+var _ SpecInfo = &HTTPServerSpec{}
 
 // TableHeader returns the table header.
 func (h *HTTPServerSpec) TableHeader() (string, TableRow) {
