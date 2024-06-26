@@ -27,7 +27,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/pkg/api"
@@ -44,6 +43,42 @@ type ObjectNamespaceFlags struct {
 }
 
 var globalAPIResources []*api.APIResource
+
+func generateTableMap(objectSpecs []SpecInfo, namespace string) map[string]Table {
+	tables := map[string]Table{}
+
+	wrapRow := func(row TableRow) TableRow {
+		if namespace != "" {
+			return row.WithNamespace(namespace)
+		}
+		return row
+	}
+
+	for _, spec := range objectSpecs {
+		tableType, row := spec.TableRow()
+
+		if val, ok := tables[tableType]; ok {
+			tables[tableType] = append(val, wrapRow(row))
+		} else {
+			_, header := spec.TableHeader()
+			tables[tableType] = Table{wrapRow(header), wrapRow(row)}
+		}
+	}
+	return tables
+}
+
+func tableMapToArray(tableMap map[string]Table) []Table {
+	res := make([]Table, len(tableMap))
+	keys := make([]string, 0, len(tableMap))
+	for k := range tableMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for i, k := range keys {
+		res[i] = tableMap[k]
+	}
+	return res
+}
 
 // ObjectAPIResources returns the object api resources.
 func ObjectAPIResources() ([]*api.APIResource, error) {
@@ -105,7 +140,7 @@ func GetAllObject(cmd *cobra.Command, flags *ObjectNamespaceFlags) error {
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceMetaSpec(body, nil)
+		err := unmarshalPrintNamespaceObjectSpec(body, nil)
 		if err != nil {
 			return getErr(err)
 		}
@@ -217,8 +252,8 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	}
 
 	if flags.AllNamespace {
-		err := unmarshalPrintNamespaceMetaSpec(body, func(m *supervisor.MetaSpec) bool {
-			return m.Kind == kind
+		err := unmarshalPrintNamespaceObjectSpec(body, func(s SpecInfo) bool {
+			return s.GetKind() == kind
 		})
 		if err != nil {
 			return getErr(err)
@@ -226,8 +261,8 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 		return nil
 	}
 
-	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(m *supervisor.MetaSpec) bool {
-		return m.Kind == kind
+	err = unmarshalPrintMetaSpec(body, !args.ContainName(), func(o SpecInfo) bool {
+		return o.GetKind() == kind
 	})
 	if err != nil {
 		return getErr(err)
@@ -235,99 +270,119 @@ func GetObject(cmd *cobra.Command, args *general.ArgInfo, kind string, flags *Ob
 	return nil
 }
 
-func unmarshalPrintMetaSpec(body []byte, list bool, filter func(*supervisor.MetaSpec) bool) error {
-	metas, err := unmarshalMetaSpec(body, list)
+func unmarshalPrintMetaSpec(body []byte, list bool, filter func(SpecInfo) bool) error {
+	specs, err := unmarshalObjectSpec(body, list)
 	if err != nil {
 		return err
 	}
 	if filter != nil {
-		metas = general.Filter(metas, filter)
+		specs = general.Filter(specs, filter)
 	}
-	sort.Slice(metas, func(i, j int) bool {
-		return metas[i].Name < metas[j].Name
+	sort.Slice(specs, func(i, j int) bool {
+		return specs[i].GetName() < specs[j].GetName()
 	})
-	printMetaSpec(metas)
+	printObjectSpec(specs)
 	return nil
 }
 
-func unmarshalPrintNamespaceMetaSpec(body []byte, filter func(*supervisor.MetaSpec) bool) error {
-	allMetas, err := unmarshalNamespaceMetaSpec(body)
+func unmarshalPrintNamespaceObjectSpec(body []byte, filter func(SpecInfo) bool) error {
+	allObjectSpecs, err := unmarshalNamespaceMetaSpec(body)
 	if err != nil {
 		return err
 	}
 	if filter != nil {
-		for k, v := range allMetas {
-			allMetas[k] = general.Filter(v, filter)
+		for k, v := range allObjectSpecs {
+			allObjectSpecs[k] = general.Filter(v, filter)
 		}
 	}
-	for k, v := range allMetas {
+	for k, v := range allObjectSpecs {
 		if len(v) > 0 {
 			sort.Slice(v, func(i, j int) bool {
-				return v[i].Name < v[j].Name
+				return v[i].GetName() < v[j].GetName()
 			})
-			allMetas[k] = v
+			allObjectSpecs[k] = v
 		}
 	}
-	printNamespaceMetaSpec(allMetas)
+	printNamespaceObjectSpec(allObjectSpecs)
 	return nil
 }
 
-func unmarshalMetaSpec(body []byte, listBody bool) ([]*supervisor.MetaSpec, error) {
-	if listBody {
-		metas := []*supervisor.MetaSpec{}
-		err := codectool.Unmarshal(body, &metas)
-		return metas, err
-	}
-	meta := &supervisor.MetaSpec{}
-	err := codectool.Unmarshal(body, meta)
-	return []*supervisor.MetaSpec{meta}, err
-}
-
-func unmarshalNamespaceMetaSpec(body []byte) (map[string][]*supervisor.MetaSpec, error) {
-	res := map[string][]*supervisor.MetaSpec{}
-	err := codectool.Unmarshal(body, &res)
-	return res, err
-}
-
-func getAgeFromMetaSpec(meta *supervisor.MetaSpec) string {
-	createdAt, err := time.Parse(time.RFC3339, meta.CreatedAt)
+func unmarshalObjectSpec(body []byte, listBody bool) ([]SpecInfo, error) {
+	res, err := general.UnmarshalMapInterface(body, listBody)
 	if err != nil {
-		return "unknown"
+		return nil, err
 	}
-	return general.DurationMostSignificantUnit(time.Since(createdAt))
+	specs := []SpecInfo{}
+	for _, m := range res {
+		data, err := codectool.MarshalJSON(m)
+		if err != nil {
+			return nil, err
+		}
+		spec, err := GetSpecInfo(m["kind"].(string), data)
+		if err != nil {
+			return nil, err
+		}
+		specs = append(specs, spec)
+	}
+	return specs, nil
 }
 
-func printNamespaceMetaSpec(metas map[string][]*supervisor.MetaSpec) {
-	// Output:
-	// NAME KIND NAMESPACE AGE
-	// ...
-	table := [][]string{}
-	table = append(table, []string{"NAME", "KIND", "NAMESPACE", "AGE"})
-	defaults := metas[DefaultNamespace]
-	for _, meta := range defaults {
-		table = append(table, []string{meta.Name, meta.Kind, DefaultNamespace, getAgeFromMetaSpec(meta)})
+func unmarshalNamespaceMetaSpec(body []byte) (map[string][]SpecInfo, error) {
+	raw := map[string][]map[string]interface{}{}
+	err := codectool.Unmarshal(body, &raw)
+	if err != nil {
+		return nil, err
 	}
+	res := map[string][]SpecInfo{}
+	for ns, v := range raw {
+		for _, s := range v {
+			data, err := codectool.MarshalJSON(s)
+			if err != nil {
+				return nil, err
+			}
+			spec, err := GetSpecInfo(s["kind"].(string), data)
+			if err != nil {
+				return nil, err
+			}
+			res[ns] = append(res[ns], spec)
+		}
+	}
+	return res, nil
+}
+
+func printNamespaceObjectSpec(metas map[string][]SpecInfo) {
+	defaults := metas[DefaultNamespace]
+	res := generateTableMap(defaults, DefaultNamespace)
+
 	for namespace, metas := range metas {
 		if namespace == DefaultNamespace {
 			continue
 		}
-		for _, meta := range metas {
-			table = append(table, []string{meta.Name, meta.Kind, namespace, getAgeFromMetaSpec(meta)})
+		tableMap := generateTableMap(metas, namespace)
+		for k, v := range tableMap {
+			if _, ok := res[k]; ok {
+				// remove table header
+				res[k] = append(res[k], v[1:]...)
+			} else {
+				res[k] = v
+			}
 		}
 	}
-	general.PrintTable(table)
+
+	tables := tableMapToArray(res)
+	for _, table := range tables {
+		general.PrintTable(table)
+		fmt.Println("")
+	}
 }
 
-func printMetaSpec(metas []*supervisor.MetaSpec) {
-	// Output:
-	// NAME  KIND  AGE
-	// ...
-	table := [][]string{}
-	table = append(table, []string{"NAME", "KIND", "AGE"})
-	for _, meta := range metas {
-		table = append(table, []string{meta.Name, meta.Kind, getAgeFromMetaSpec(meta)})
+func printObjectSpec(metas []SpecInfo) {
+	tableMap := generateTableMap(metas, "")
+	tables := tableMapToArray(tableMap)
+	for _, table := range tables {
+		general.PrintTable(table)
+		fmt.Println("")
 	}
-	general.PrintTable(table)
 }
 
 // DescribeObject describes an object.
@@ -460,6 +515,17 @@ func CreateObject(cmd *cobra.Command, s *general.Spec) error {
 	return nil
 }
 
+func unmarshalMetaSpec(body []byte, listBody bool) ([]*MetaSpec, error) {
+	if listBody {
+		metas := []*MetaSpec{}
+		err := codectool.Unmarshal(body, &metas)
+		return metas, err
+	}
+	meta := &MetaSpec{}
+	err := codectool.Unmarshal(body, meta)
+	return []*MetaSpec{meta}, err
+}
+
 // DeleteObject deletes an object.
 func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) error {
 	// define error msg
@@ -480,7 +546,7 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 	if err != nil {
 		return getErr(err)
 	}
-	metas = general.Filter(metas, func(m *supervisor.MetaSpec) bool {
+	metas = general.Filter(metas, func(m *MetaSpec) bool {
 		return m.Kind == kind
 	})
 
@@ -514,12 +580,12 @@ func DeleteObject(cmd *cobra.Command, kind string, names []string, all bool) err
 
 // ApplyObject applies an object.
 func ApplyObject(cmd *cobra.Command, s *general.Spec) error {
-	checkObjExist := func(cmd *cobra.Command, name string) bool {
+	checkObjExist := func(_ *cobra.Command, name string) bool {
 		_, err := httpGetObject(name, nil)
 		return err == nil
 	}
 
-	createOrUpdate := func(cmd *cobra.Command, s *general.Spec, exist bool) error {
+	createOrUpdate := func(_ *cobra.Command, s *general.Spec, exist bool) error {
 		if exist {
 			_, err := handleReq(http.MethodPut, makePath(general.ObjectItemURL, s.Name), []byte(s.Doc()))
 			return err
