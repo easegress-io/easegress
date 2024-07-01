@@ -27,7 +27,7 @@ require (
 	github.com/hashicorp/consul/api v1.26.1
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/invopop/jsonschema v0.12.0
-	github.com/invopop/yaml v0.2.0
+	github.com/invopop/yaml v0.3.1
 	github.com/jtblin/go-ldap-client v0.0.0-20170223121919-b73f66626b33
 	github.com/libdns/alidns v1.0.3
 	github.com/libdns/azure v0.3.0
