@@ -36,8 +36,8 @@ require (
 	github.com/libdns/dnspod v0.0.3
 	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/hetzner v0.0.1
-	github.com/libdns/libdns v0.2.2-0.20230227175549-2dc480633939
-	github.com/libdns/route53 v1.3.3
+	github.com/libdns/libdns v0.2.2
+	github.com/libdns/route53 v1.4.0
 	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
 	github.com/megaease/grace v1.0.0
@@ -98,7 +98,8 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.19.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.25.1 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
@@ -150,18 +151,18 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.596 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.22.1 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.21.0 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.15.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.5.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.33.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.17.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.25.0 // indirect
-	github.com/aws/smithy-go v1.16.0 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.30.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.27.21 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.21 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.8 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.12 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.14 // indirect
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.41.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.21.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.29.1 // indirect
+	github.com/aws/smithy-go v1.20.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
