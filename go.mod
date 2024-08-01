@@ -58,7 +58,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.17.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/tcnksm/go-httpstat v0.2.1-0.20191008022543-e866bb274419
 	github.com/tg123/go-htpasswd v1.2.2
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
@@ -128,7 +128,7 @@ require (
 	github.com/sagikazarmark/locafero v0.3.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
-	github.com/stretchr/objx v0.5.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
 	github.com/vultr/govultr/v3 v3.3.4 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
