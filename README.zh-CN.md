@@ -9,7 +9,7 @@
 [![Join Easegress Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
 
 <a href="https://megaease.com/easegress">
-    <img src="./doc/imgs/easegress.svg"
+    <img src="./docs/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -34,7 +34,7 @@
 
 下面是其架构图：
 
-![架构](./doc/imgs/architecture.png)
+![架构](./docs/imgs/architecture.png)
 
 ## 功能
 
