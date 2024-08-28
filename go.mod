@@ -31,12 +31,12 @@ require (
 	github.com/jtblin/go-ldap-client v0.0.0-20170223121919-b73f66626b33
 	github.com/libdns/alidns v1.0.3
 	github.com/libdns/azure v0.3.0
-	github.com/libdns/cloudflare v0.1.0
+	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea
 	github.com/libdns/dnspod v0.0.3
 	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/hetzner v0.0.1
-	github.com/libdns/libdns v0.2.2-0.20230227175549-2dc480633939
+	github.com/libdns/libdns v0.2.2
 	github.com/libdns/route53 v1.3.3
 	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
