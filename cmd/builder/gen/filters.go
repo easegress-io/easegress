@@ -177,7 +177,8 @@ func defineFilterMethods(file *j.File, info *FilterInfo) {
 	handleFunc.Params = []j.Code{j.Id("ctx").Op("*").Qual(egContext, "Context")}
 	handleFunc.Returns = []j.Code{j.String()}
 	handleFunc.Block = []j.Code{
-		j.Comment("hint: req := ctx.GetRequest().(*httpprot.Request)"),
+		j.Comment("hint: req := ctx.GetInputRequest().(*httpprot.Request)"),
+		j.Comment("hint: use req.HTTPHeader() to get the http headers"),
 		j.Comment("empty string means success"),
 		j.Comment(yourCodeHere),
 		j.Return(j.Lit("")),
