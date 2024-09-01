@@ -20,7 +20,7 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/go-task/slim-sprig v2.20.0+incompatible
 	github.com/go-zookeeper/zk v1.0.3
-	github.com/goccy/go-json v0.10.2
+	github.com/goccy/go-json v0.10.3
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.6.0
