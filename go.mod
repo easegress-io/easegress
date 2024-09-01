@@ -36,7 +36,7 @@ require (
 	github.com/libdns/dnspod v0.0.3
 	github.com/libdns/duckdns v0.2.0
 	github.com/libdns/hetzner v0.0.1
-	github.com/libdns/libdns v0.2.2-0.20230227175549-2dc480633939
+	github.com/libdns/libdns v0.2.2
 	github.com/libdns/route53 v1.3.3
 	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
