@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -335,9 +335,9 @@ func (r *builderResponse) YAMLBody() (interface{}, error) {
 
 // responseInfo stores the information of a response.
 type responseInfo struct {
-	StatusCode int                 `json:"statusCode" jsonschema:"omitempty"`
-	Headers    map[string][]string `json:"headers" jsonschema:"omitempty"`
-	Body       string              `json:"body" jsonschema:"omitempty"`
+	StatusCode int                 `json:"statusCode,omitempty"`
+	Headers    map[string][]string `json:"headers,omitempty"`
+	Body       string              `json:"body,omitempty"`
 }
 
 // NewResponseInfo returns a new responseInfo.

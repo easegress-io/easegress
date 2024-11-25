@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -38,28 +38,32 @@ import (
 type WebSocketServerPool struct {
 	BaseServerPool
 
-	filter   RequestMatcher
-	proxy    *WebSocketProxy
-	spec     *WebSocketServerPoolSpec
-	httpStat *httpstat.HTTPStat
+	filter        RequestMatcher
+	proxy         *WebSocketProxy
+	spec          *WebSocketServerPoolSpec
+	httpStat      *httpstat.HTTPStat
+	healthChecker proxies.HealthChecker
 }
 
 // WebSocketServerPoolSpec is the spec for a server pool.
 type WebSocketServerPoolSpec struct {
 	BaseServerPoolSpec `json:",inline"`
-	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize" jsonschema:"omitempty"`
-	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize" jsonschema:"omitempty"`
-	Filter             *RequestMatcherSpec `json:"filter" jsonschema:"omitempty"`
-	InsecureSkipVerify bool                `json:"insecureSkipVerify" jsonschema:"omitempty"`
-	OriginPatterns     []string            `json:"originPatterns" jsonschema:"omitempty"`
+	ClientMaxMsgSize   int64               `json:"clientMaxMsgSize,omitempty"`
+	ServerMaxMsgSize   int64               `json:"serverMaxMsgSize,omitempty"`
+	Filter             *RequestMatcherSpec `json:"filter,omitempty"`
+	InsecureSkipVerify bool                `json:"insecureSkipVerify,omitempty"`
+	OriginPatterns     []string            `json:"originPatterns,omitempty"`
+
+	HealthCheck *WSProxyHealthCheckSpec `json:"healthCheck,omitempty"`
 }
 
 // NewWebSocketServerPool creates a new server pool according to spec.
 func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec, name string) *WebSocketServerPool {
 	sp := &WebSocketServerPool{
-		proxy:    proxy,
-		spec:     spec,
-		httpStat: httpstat.New(),
+		proxy:         proxy,
+		spec:          spec,
+		httpStat:      httpstat.New(),
+		healthChecker: NewWebSocketHealthChecker(spec.HealthCheck),
 	}
 	if spec.Filter != nil {
 		sp.filter = NewRequestMatcher(spec.Filter)
@@ -71,7 +75,7 @@ func NewWebSocketServerPool(proxy *WebSocketProxy, spec *WebSocketServerPoolSpec
 // CreateLoadBalancer creates a load balancer according to spec.
 func (sp *WebSocketServerPool) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := proxies.NewGeneralLoadBalancer(spec, servers)
-	lb.Init(proxies.NewHTTPSessionSticker, proxies.NewHTTPHealthChecker, nil)
+	lb.Init(proxies.NewHTTPSessionSticker, sp.healthChecker, nil)
 	return lb
 }
 
@@ -83,6 +87,22 @@ func (sp *WebSocketServerPool) buildFailureResponse(ctx *context.Context, status
 
 	resp.SetStatusCode(statusCode)
 	ctx.SetOutputResponse(resp)
+}
+
+// buildSuccessResponse builds a success response for WebSocket.
+// The response is from WebSocket dial process.
+// Here we leave the response body alone, and only set the status code and headers.
+// The response body will be handled by the WebSocket protocol.
+func (sp *WebSocketServerPool) buildSuccessResponse(ctx *context.Context, resp *http.Response) {
+	newResp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if newResp == nil {
+		newResp, _ = httpprot.NewResponse(nil)
+	}
+	if resp != nil {
+		newResp.SetStatusCode(resp.StatusCode)
+		newResp.Std().Header = resp.Header.Clone()
+	}
+	ctx.SetOutputResponse(newResp)
 }
 
 func buildServerURL(svr *Server, req *httpprot.Request) (string, error) {
@@ -108,15 +128,21 @@ func buildServerURL(svr *Server, req *httpprot.Request) (string, error) {
 	return u.String(), nil
 }
 
-func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*websocket.Conn, error) {
+func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*websocket.Conn, *http.Response, error) {
 	u, err := buildServerURL(svr, req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	opts := &websocket.DialOptions{
 		HTTPHeader:      req.HTTPHeader().Clone(),
 		CompressionMode: websocket.CompressionDisabled,
+	}
+
+	// only set host when server address is not host name OR
+	// server is explicitly told to keep the host of the request.
+	if !svr.AddrIsHostName || svr.KeepHost {
+		opts.Host = req.Host()
 	}
 
 	opts.HTTPHeader.Del("Sec-WebSocket-Origin")
@@ -151,11 +177,11 @@ func (sp *WebSocketServerPool) dialServer(svr *Server, req *httpprot.Request) (*
 		opts.HTTPHeader.Set(xForwardedProto, "https")
 	}
 
-	conn, _, err := websocket.Dial(stdctx.Background(), u, opts)
-	if err == nil && sp.spec.ServerMaxMsgSize > 0 {
+	conn, resp, err := websocket.Dial(stdctx.Background(), u, opts)
+	if err == nil && (sp.spec.ServerMaxMsgSize > 0 || sp.spec.ServerMaxMsgSize == -1) {
 		conn.SetReadLimit(sp.spec.ServerMaxMsgSize)
 	}
-	return conn, err
+	return conn, resp, err
 }
 
 func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
@@ -200,11 +226,11 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 		metric.StatusCode = http.StatusBadRequest
 		return resultClientError
 	}
-	if sp.spec.ClientMaxMsgSize > 0 {
+	if sp.spec.ClientMaxMsgSize > 0 || sp.spec.ClientMaxMsgSize == -1 {
 		clntConn.SetReadLimit(sp.spec.ClientMaxMsgSize)
 	}
 
-	svrConn, err := sp.dialServer(svr, req)
+	svrConn, resp, err := sp.dialServer(svr, req)
 	if err != nil {
 		logger.Errorf("%s: dial to %s failed: %v", sp.Name, svr.URL, err)
 		clntConn.Close(websocket.StatusGoingAway, "")
@@ -286,6 +312,7 @@ func (sp *WebSocketServerPool) handle(ctx *context.Context) (result string) {
 	wg.Wait()
 	close(stop)
 
+	sp.buildSuccessResponse(ctx, resp)
 	metric.StatusCode = http.StatusSwitchingProtocols
 	ctx.SetData("HTTP_METRIC", metric)
 	return

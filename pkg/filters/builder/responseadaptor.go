@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,14 +70,14 @@ type (
 		Spec             `json:",inline"`
 
 		ResponseAdaptorTemplate `json:",inline"`
-		Compress                string `json:"compress" jsonschema:"omitempty"`
-		Decompress              string `json:"decompress" jsonschema:"omitempty"`
+		Compress                string `json:"compress,omitempty"`
+		Decompress              string `json:"decompress,omitempty"`
 	}
 
 	// ResponseAdaptorTemplate is the template of ResponseAdaptor.
 	ResponseAdaptorTemplate struct {
-		Header *httpheader.AdaptSpec `json:"header" jsonschema:"omitempty"`
-		Body   string                `json:"body" jsonschema:"omitempty"`
+		Header *httpheader.AdaptSpec `json:"header,omitempty"`
+		Body   string                `json:"body,omitempty"`
 	}
 )
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -82,12 +82,12 @@ type (
 	SimpleHTTPProxySpec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Compression         *CompressionSpec `json:"compression,omitempty" jsonschema:"omitempty"`
-		MaxIdleConns        int              `json:"maxIdleConns" jsonschema:"omitempty"`
-		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost" jsonschema:"omitempty"`
-		ServerMaxBodySize   int64            `json:"serverMaxBodySize" jsonschema:"omitempty"`
-		Timeout             string           `json:"timeout" jsonschema:"omitempty,format=duration"`
-		RetryPolicy         string           `json:"retryPolicy" jsonschema:"omitempty"`
+		Compression         *CompressionSpec `json:"compression,omitempty"`
+		MaxIdleConns        int              `json:"maxIdleConns,omitempty"`
+		MaxIdleConnsPerHost int              `json:"maxIdleConnsPerHost,omitempty"`
+		ServerMaxBodySize   int64            `json:"serverMaxBodySize,omitempty"`
+		Timeout             string           `json:"timeout,omitempty" jsonschema:"format=duration"`
+		RetryPolicy         string           `json:"retryPolicy,omitempty"`
 	}
 )
 
@@ -282,7 +282,7 @@ func (shp *SimpleHTTPProxy) Handle(ctx *context.Context) (result string) {
 
 	maxBodySize := shp.spec.ServerMaxBodySize
 	if err = httpResp.FetchPayload(maxBodySize); err != nil {
-		logger.Errorf("%s: failed to fetch response payload: %v", shp.Name(), err)
+		logger.Errorf("%s: failed to fetch response payload: %v, please consider to set serverMaxBodySize of SimpleHTTPProxy to -1.", shp.Name(), err)
 		return resultServerError
 	}
 

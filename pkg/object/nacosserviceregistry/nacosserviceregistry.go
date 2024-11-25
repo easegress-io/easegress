@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,11 +31,11 @@ import (
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/v"
 
-	"github.com/nacos-group/nacos-sdk-go/clients"
-	"github.com/nacos-group/nacos-sdk-go/clients/naming_client"
-	"github.com/nacos-group/nacos-sdk-go/common/constant"
-	"github.com/nacos-group/nacos-sdk-go/model"
-	"github.com/nacos-group/nacos-sdk-go/vo"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
+	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
+	"github.com/nacos-group/nacos-sdk-go/v2/model"
+	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 )
 
 const (
@@ -55,9 +55,10 @@ const (
 func init() {
 	supervisor.Register(&NacosServiceRegistry{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"nacos"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"nacos"},
 	})
 }
 
@@ -85,15 +86,15 @@ type (
 	Spec struct {
 		Servers      []*ServerSpec `json:"servers" jsonschema:"required"`
 		SyncInterval string        `json:"syncInterval" jsonschema:"required,format=duration"`
-		Namespace    string        `json:"namespace" jsonschema:"omitempty"`
-		Username     string        `json:"username" jsonschema:"omitempty"`
-		Password     string        `json:"password" jsonschema:"omitempty"`
+		Namespace    string        `json:"namespace,omitempty"`
+		Username     string        `json:"username,omitempty"`
+		Password     string        `json:"password,omitempty"`
 	}
 
 	// ServerSpec is the server config of Nacos.
 	ServerSpec struct {
-		Scheme      string `json:"scheme" jsonschema:"omitempty,enum=http,enum=https"`
-		ContextPath string `json:"contextPath" jsonschema:"omitempty"`
+		Scheme      string `json:"scheme,omitempty" jsonschema:"enum=http,enum=https"`
+		ContextPath string `json:"contextPath,omitempty"`
 		IPAddr      string `json:"ipAddr" jsonschema:"required"`
 		Port        uint16 `json:"port" jsonschema:"required"`
 	}

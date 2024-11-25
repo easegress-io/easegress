@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,11 +49,11 @@ type (
 
 	// RetryRule is the detailed config of retry
 	RetryRule struct {
-		MaxAttempts         int    `json:"maxAttempts" jsonschema:"omitempty,minimum=1"`
-		WaitDuration        string `json:"waitDuration" jsonschema:"omitempty,format=duration"`
+		MaxAttempts         int    `json:"maxAttempts,omitempty" jsonschema:"minimum=1"`
+		WaitDuration        string `json:"waitDuration,omitempty" jsonschema:"format=duration"`
 		waitDuration        time.Duration
-		BackOffPolicy       string  `json:"backOffPolicy" jsonschema:"omitempty,enum=random,enum=exponential"`
-		RandomizationFactor float64 `json:"randomizationFactor" jsonschema:"omitempty,minimum=0,maximum=1"`
+		BackOffPolicy       string  `json:"backOffPolicy,omitempty" jsonschema:"enum=random,enum=exponential"`
+		RandomizationFactor float64 `json:"randomizationFactor,omitempty" jsonschema:"minimum=0,maximum=1"`
 	}
 )
 

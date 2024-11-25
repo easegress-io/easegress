@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -109,7 +109,7 @@ func MustNewServer(opt *option.Options, cls cluster.Cluster, super *supervisor.S
 			logger.Infof("api server running in %s", opt.APIAddr)
 			err = s.server.ListenAndServe()
 		}
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			logger.Errorf("start api server failed: %v", err)
 		}
 	}()

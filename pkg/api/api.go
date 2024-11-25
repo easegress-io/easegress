@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +31,7 @@ import (
 )
 
 func aboutText() string {
-	return fmt.Sprintf(`Copyright © 2017 - %d MegaEase(https://megaease.com). All rights reserved.
+	return fmt.Sprintf(`Copyright © 2017 - %d The Easegress Authors. All rights reserved.
 Powered by open-source software: Etcd(https://etcd.io), Apache License 2.0.
 `, time.Now().Year())
 }

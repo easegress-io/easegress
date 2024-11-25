@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -268,7 +268,7 @@ func (r *runtime) startHTTP3Server() {
 	}
 
 	r.server3 = &http3.Server{
-		Addr:      fmt.Sprintf(":%d", r.spec.Port),
+		Addr:      fmt.Sprintf("%s:%d", r.spec.Address, r.spec.Port),
 		Handler:   r.mux,
 		TLSConfig: tlsConfig,
 		QuicConfig: &quic.Config{
@@ -303,14 +303,14 @@ func (r *runtime) startHTTP1And2Server() {
 		return !bytes.Contains(p, []byte("TLS handshake error"))
 	})
 	r.server = &http.Server{
-		Addr:        fmt.Sprintf(":%d", r.spec.Port),
+		Addr:        fmt.Sprintf("%s:%d", r.spec.Address, r.spec.Port),
 		Handler:     r.mux,
 		IdleTimeout: keepAliveTimeout,
 		ErrorLog:    log.New(fw, "", log.LstdFlags),
 	}
 	r.server.SetKeepAlivesEnabled(r.spec.KeepAlive)
 
-	listener, err := gnet.Listen("tcp", fmt.Sprintf(":%d", r.spec.Port))
+	listener, err := gnet.Listen("tcp", fmt.Sprintf("%s:%d", r.spec.Address, r.spec.Port))
 	if err != nil {
 		logger.Errorf("httpserver %s failed to listen: %v", r.superSpec.Name(), err)
 		r.setState(stateFailed)
@@ -472,8 +472,10 @@ func (r *runtime) newMetrics(name string) *metrics {
 		"clusterRole":    r.superSpec.Super().Options().ClusterRole,
 		"instanceName":   r.superSpec.Super().Options().Name,
 	}
-	httpserverLabels := []string{"clusterName", "clusterRole",
-		"instanceName", "httpServerName", "kind", "routerKind", "backend"}
+	httpserverLabels := []string{
+		"clusterName", "clusterRole",
+		"instanceName", "httpServerName", "kind", "routerKind", "backend",
+	}
 	return &metrics{
 		Health: prometheushelper.NewGauge(
 			"httpserver_health",

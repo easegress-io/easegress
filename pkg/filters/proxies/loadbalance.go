@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,6 +39,9 @@ const (
 	LoadBalancePolicyIPHash = "ipHash"
 	// LoadBalancePolicyHeaderHash is the load balance policy of HTTP header hash.
 	LoadBalancePolicyHeaderHash = "headerHash"
+	// LoadBalancePolicyCookieHash is the load balance policy of HTTP cookie hash,
+	// which is the shorthand of headerHash with hash key Set-Cookie.
+	LoadBalancePolicyCookieHash = "cookieHash"
 )
 
 // LoadBalancer is the interface of a load balancer.
@@ -54,11 +57,13 @@ type LoadBalancer interface {
 // this is not good as new policies could be added in the future, we should
 // convert it to a map later.
 type LoadBalanceSpec struct {
-	Policy        string             `json:"policy" jsonschema:"omitempty"`
-	HeaderHashKey string             `json:"headerHashKey" jsonschema:"omitempty"`
-	ForwardKey    string             `json:"forwardKey" jsonschema:"omitempty"`
-	StickySession *StickySessionSpec `json:"stickySession" jsonschema:"omitempty"`
-	HealthCheck   *HealthCheckSpec   `json:"healthCheck" jsonschema:"omitempty"`
+	Policy        string             `json:"policy,omitempty"`
+	HeaderHashKey string             `json:"headerHashKey,omitempty"`
+	ForwardKey    string             `json:"forwardKey,omitempty"`
+	StickySession *StickySessionSpec `json:"stickySession,omitempty"`
+	// Deprecated: HealthCheck is protocol related. It should be moved to protocol spec.
+	// This one is kept for backward compatibility.
+	HealthCheck *HealthCheckSpec `json:"healthCheck,omitempty"`
 }
 
 // LoadBalancePolicy is the interface of a load balance policy.
@@ -74,9 +79,10 @@ type GeneralLoadBalancer struct {
 
 	done chan struct{}
 
-	lbp LoadBalancePolicy
-	ss  SessionSticker
-	hc  HealthChecker
+	lbp    LoadBalancePolicy
+	ss     SessionSticker
+	hc     HealthChecker
+	hcSpec *HealthCheckSpec
 }
 
 // NewGeneralLoadBalancer creates a new GeneralLoadBalancer.
@@ -92,7 +98,7 @@ func NewGeneralLoadBalancer(spec *LoadBalanceSpec, servers []*Server) *GeneralLo
 // Init initializes the load balancer.
 func (glb *GeneralLoadBalancer) Init(
 	fnNewSessionSticker func(*StickySessionSpec) SessionSticker,
-	fnNewHealthChecker func(*HealthCheckSpec) HealthChecker,
+	hc HealthChecker,
 	lbp LoadBalancePolicy,
 ) {
 	// load balance policy
@@ -108,6 +114,8 @@ func (glb *GeneralLoadBalancer) Init(
 			lbp = &IPHashLoadBalancePolicy{}
 		case LoadBalancePolicyHeaderHash:
 			lbp = &HeaderHashLoadBalancePolicy{spec: glb.spec}
+		case LoadBalancePolicyCookieHash:
+			lbp = &HeaderHashLoadBalancePolicy{spec: &LoadBalanceSpec{HeaderHashKey: "Cookie"}}
 		default:
 			logger.Errorf("unsupported load balancing policy: %s", glb.spec.Policy)
 			lbp = &RoundRobinLoadBalancePolicy{}
@@ -122,28 +130,23 @@ func (glb *GeneralLoadBalancer) Init(
 		glb.ss = ss
 	}
 
-	// health check
-	if glb.spec.HealthCheck == nil {
+	if hc == nil {
 		return
 	}
 
-	if glb.spec.HealthCheck.Fails <= 0 {
-		glb.spec.HealthCheck.Fails = 1
+	spec := hc.BaseSpec()
+	if spec.Fails <= 0 {
+		spec.Fails = 1
 	}
-
-	if glb.spec.HealthCheck.Passes <= 0 {
-		glb.spec.HealthCheck.Passes = 1
+	if spec.Passes <= 0 {
+		spec.Passes = 1
 	}
+	glb.hc = hc
+	glb.hcSpec = &spec
 
-	glb.hc = fnNewHealthChecker(glb.spec.HealthCheck)
-
-	interval, _ := time.ParseDuration(glb.spec.HealthCheck.Interval)
-	if interval <= 0 {
-		interval = time.Minute
-	}
-
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(spec.GetInterval())
 	glb.done = make(chan struct{})
+	glb.checkServers()
 	go func() {
 		for {
 			select {
@@ -168,7 +171,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 				svr.HealthCounter = 0
 			}
 			svr.HealthCounter++
-			if svr.Unhealth && svr.HealthCounter >= glb.spec.HealthCheck.Passes {
+			if svr.Unhealth && svr.HealthCounter >= glb.hcSpec.Passes {
 				logger.Warnf("server:%v becomes healthy.", svr.ID())
 				svr.Unhealth = false
 				changed = true
@@ -178,7 +181,7 @@ func (glb *GeneralLoadBalancer) checkServers() {
 				svr.HealthCounter = 0
 			}
 			svr.HealthCounter--
-			if svr.Healthy() && svr.HealthCounter <= -glb.spec.HealthCheck.Fails {
+			if svr.Healthy() && svr.HealthCounter <= -glb.hcSpec.Fails {
 				logger.Warnf("server:%v becomes unhealthy.", svr.ID())
 				svr.Unhealth = true
 				changed = true
@@ -235,8 +238,7 @@ func (glb *GeneralLoadBalancer) Close() {
 }
 
 // RandomLoadBalancePolicy is a load balance policy that chooses a server randomly.
-type RandomLoadBalancePolicy struct {
-}
+type RandomLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server randomly.
 func (lbp *RandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
@@ -255,8 +257,7 @@ func (lbp *RoundRobinLoadBalancePolicy) ChooseServer(req protocols.Request, sg *
 }
 
 // WeightedRandomLoadBalancePolicy is a load balance policy that chooses a server randomly by weight.
-type WeightedRandomLoadBalancePolicy struct {
-}
+type WeightedRandomLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server randomly by weight.
 func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {
@@ -272,8 +273,7 @@ func (lbp *WeightedRandomLoadBalancePolicy) ChooseServer(req protocols.Request, 
 }
 
 // IPHashLoadBalancePolicy is a load balance policy that chooses a server by ip hash.
-type IPHashLoadBalancePolicy struct {
-}
+type IPHashLoadBalancePolicy struct{}
 
 // ChooseServer chooses a server by ip hash.
 func (lbp *IPHashLoadBalancePolicy) ChooseServer(req protocols.Request, sg *ServerGroup) *Server {

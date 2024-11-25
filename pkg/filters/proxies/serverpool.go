@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,11 +45,12 @@ type ServerPoolBase struct {
 
 // ServerPoolBaseSpec is the spec for a base server pool.
 type ServerPoolBaseSpec struct {
-	ServerTags      []string         `json:"serverTags" jsonschema:"omitempty,uniqueItems=true"`
-	Servers         []*Server        `json:"servers" jsonschema:"omitempty"`
-	ServiceRegistry string           `json:"serviceRegistry" jsonschema:"omitempty"`
-	ServiceName     string           `json:"serviceName" jsonschema:"omitempty"`
-	LoadBalance     *LoadBalanceSpec `json:"loadBalance" jsonschema:"omitempty"`
+	ServerTags      []string         `json:"serverTags,omitempty" jsonschema:"uniqueItems=true"`
+	Servers         []*Server        `json:"servers,omitempty"`
+	SetUpstreamHost bool             `json:"setUpstreamHost,omitempty"`
+	ServiceRegistry string           `json:"serviceRegistry,omitempty"`
+	ServiceName     string           `json:"serviceName,omitempty"`
+	LoadBalance     *LoadBalanceSpec `json:"loadBalance,omitempty"`
 }
 
 // Validate validates ServerPoolSpec.

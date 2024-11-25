@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,6 +56,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/object/httpserver"
 	_ "github.com/megaease/easegress/v2/pkg/object/ingresscontroller"
 	_ "github.com/megaease/easegress/v2/pkg/object/meshcontroller"
+	_ "github.com/megaease/easegress/v2/pkg/object/mock"
 	_ "github.com/megaease/easegress/v2/pkg/object/mqttproxy"
 	_ "github.com/megaease/easegress/v2/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/pipeline"

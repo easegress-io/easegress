@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,9 +43,10 @@ var aliases = []string{"globalfilters"}
 func init() {
 	supervisor.Register(&GlobalFilter{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 
@@ -63,14 +64,21 @@ type (
 
 	// Spec describes the GlobalFilter.
 	Spec struct {
-		BeforePipeline *pipeline.Spec `json:"beforePipeline" jsonschema:"omitempty"`
-		AfterPipeline  *pipeline.Spec `json:"afterPipeline" jsonschema:"omitempty"`
+		BeforePipeline *pipeline.Spec `json:"beforePipeline,omitempty"`
+		AfterPipeline  *pipeline.Spec `json:"afterPipeline,omitempty"`
+		Fallthrough    Fallthrough    `json:"fallthrough,omitempty"`
+	}
+
+	// Fallthrough describes the fallthrough behavior.
+	Fallthrough struct {
+		BeforePipeline bool `json:"beforePipeline,omitempty"`
+		Pipeline       bool `json:"pipeline,omitempty"`
 	}
 
 	// pipelineSpec defines pipeline spec to create an pipeline entity.
 	pipelineSpec struct {
-		Kind           string `json:"kind" jsonschema:"omitempty"`
-		Name           string `json:"name" jsonschema:"omitempty"`
+		Kind           string `json:"kind,omitempty"`
+		Name           string `json:"name,omitempty"`
 		*pipeline.Spec `json:",inline"`
 	}
 )
@@ -196,7 +204,11 @@ func (gf *GlobalFilter) Handle(ctx *context.Context, handler context.Handler) {
 
 	before, _ := gf.beforePipeline.Load().(*pipeline.Pipeline)
 	after, _ := gf.afterPipeline.Load().(*pipeline.Pipeline)
-	p.HandleWithBeforeAfter(ctx, before, after)
+	option := pipeline.HandleWithBeforeAfterOption{
+		FallthroughBefore:   gf.spec.Fallthrough.BeforePipeline,
+		FallthroughPipeline: gf.spec.Fallthrough.Pipeline,
+	}
+	p.HandleWithBeforeAfter(ctx, before, after, option)
 }
 
 // Close closes GlobalFilter itself.

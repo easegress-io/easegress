@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -119,7 +119,7 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		URL     string `json:"url" jsonschema:"required,format=uri"`
-		Timeout string `json:"timeout" jsonschema:"omitempty,format=duration"`
+		Timeout string `json:"timeout,omitempty" jsonschema:"format=duration"`
 
 		timeout time.Duration
 	}

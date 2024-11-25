@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -91,7 +91,7 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	p := &Proxy{}
+	p := kind.CreateInstance(kind.DefaultSpec()).(*Proxy)
 	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, spec, "test")
@@ -133,7 +133,7 @@ servers:
 	assert.NoError(err)
 	assert.NoError(spec.Validate())
 
-	p := &Proxy{}
+	p := kind.CreateInstance(kind.DefaultSpec()).(*Proxy)
 	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, spec, "test")
@@ -176,7 +176,7 @@ func TestCopyCORSHeaders(t *testing.T) {
 	src.Add("X-Src", "src")
 	dst.Add("X-Dst", "dst")
 
-	p := &Proxy{}
+	p := kind.CreateInstance(kind.DefaultSpec()).(*Proxy)
 	p.super = supervisor.NewMock(option.New(), nil, nil,
 		nil, false, nil, nil)
 	sp := NewServerPool(p, &ServerPoolSpec{}, "test")

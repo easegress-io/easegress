@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +26,10 @@ import (
 	"github.com/megaease/easegress/v2/pkg/logger"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	corev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/informers/internalinterfaces"
 	"k8s.io/client-go/rest"
@@ -38,10 +41,10 @@ import (
 	kinformers "k8s.io/client-go/informers"
 	kclientset "k8s.io/client-go/kubernetes"
 
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 	gwclientset "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gwinformers "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions"
-	gwinformerapis "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1beta1"
+	gwinformerapis "sigs.k8s.io/gateway-api/pkg/client/informers/externalversions/apis/v1"
 )
 
 const (
@@ -123,6 +126,8 @@ type k8sClient struct {
 	gwcs      *gwclientset.Clientset
 	gwFactory gwinformers.SharedInformerFactory
 
+	dc *dynamic.DynamicClient
+
 	eventCh chan interface{}
 }
 
@@ -176,6 +181,12 @@ func newK8sClient(masterURL string, kubeConfig string) (*k8sClient, error) {
 		return nil, err
 	}
 
+	dc, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		logger.Errorf("error building dynamic clientset: %s", err.Error())
+		return nil, err
+	}
+
 	err = checkKubernetesVersion(cfg)
 	if err != nil {
 		logger.Errorf("error checking kubernetes version: %s", err.Error())
@@ -185,6 +196,7 @@ func newK8sClient(masterURL string, kubeConfig string) (*k8sClient, error) {
 	return &k8sClient{
 		kcs:     kcs,
 		gwcs:    gwcs,
+		dc:      dc,
 		eventCh: make(chan interface{}, 1),
 	}, nil
 }
@@ -239,9 +251,9 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 	}
 
 	/*
-		labelSelectorOptions := func(options *metav1.ListOptions) {
-			options.LabelSelector = c.labelSelector
-		}
+		 labelSelectorOptions := func(options *metav1.ListOptions) {
+			 options.LabelSelector = c.labelSelector
+		 }
 	*/
 
 	c.kFactory = kinformers.NewSharedInformerFactory(c.kcs, resyncPeriod)
@@ -251,11 +263,12 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 	}
 
 	c.gwFactory = gwinformers.NewSharedInformerFactoryWithOptions(c.gwcs, resyncPeriod, gwinformers.WithTweakListOptions(notHelm))
-	_, err = c.gwFactory.Gateway().V1beta1().GatewayClasses().Informer().AddEventHandler(c)
+	_, err = c.gwFactory.Gateway().V1().GatewayClasses().Informer().AddEventHandler(c)
 	if err != nil {
 		return nil, err
 	}
 
+	dFactories := []dynamicinformer.DynamicSharedInformerFactory{}
 	for _, ns := range namespaces {
 		gwinformerapis.New(c.gwFactory, ns, nil).Gateways().Informer().AddEventHandler(c)
 		gwinformerapis.New(c.gwFactory, ns, nil).HTTPRoutes().Informer().AddEventHandler(c)
@@ -264,10 +277,17 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 		corev1.New(c.kFactory, ns, nil).Services().Informer().AddEventHandler(c)
 		corev1.New(c.kFactory, ns, nil).Endpoints().Informer().AddEventHandler(c)
 		corev1.New(c.kFactory, ns, internalinterfaces.TweakListOptionsFunc(notHelm)).Secrets().Informer().AddEventHandler(c)
+
+		dFactory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.dc, resyncPeriod, ns, nil)
+		dFactory.ForResource(FilterSpecGVR).Informer().AddEventHandler(c)
+		dFactories = append(dFactories, dFactory)
 	}
 
 	c.kFactory.Start(stopCh)
 	c.gwFactory.Start(stopCh)
+	for _, f := range dFactories {
+		f.Start(stopCh)
+	}
 
 	for typ, ok := range c.kFactory.WaitForCacheSync(stopCh) {
 		if !ok {
@@ -289,7 +309,7 @@ func (c *k8sClient) watch(namespaces []string) (chan struct{}, error) {
 func (c *k8sClient) GetHTTPRoutes() []*gwapis.HTTPRoute {
 	var results []*gwapis.HTTPRoute
 
-	lister := c.gwFactory.Gateway().V1beta1().HTTPRoutes().Lister()
+	lister := c.gwFactory.Gateway().V1().HTTPRoutes().Lister()
 	for _, ns := range c.namespaces {
 		if !c.isNamespaceWatched(ns) {
 			logger.Warnf("failed to get HTTPRoutes: %q is not within watched namespaces", ns)
@@ -316,7 +336,7 @@ func (c *k8sClient) GetHTTPRoutes() []*gwapis.HTTPRoute {
 func (c *k8sClient) GetGateways() []*gwapis.Gateway {
 	var result []*gwapis.Gateway
 
-	lister := c.gwFactory.Gateway().V1beta1().Gateways().Lister()
+	lister := c.gwFactory.Gateway().V1().Gateways().Lister()
 	for _, ns := range c.namespaces {
 		gateways, err := lister.Gateways(ns).List(labels.Everything())
 		if err != nil {
@@ -331,7 +351,7 @@ func (c *k8sClient) GetGateways() []*gwapis.Gateway {
 }
 
 func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayClass {
-	classes, err := c.gwFactory.Gateway().V1beta1().GatewayClasses().Lister().List(labels.Everything())
+	classes, err := c.gwFactory.Gateway().V1().GatewayClasses().Lister().List(labels.Everything())
 	if err != nil {
 		logger.Errorf("Failed to list GatewayClasses: %v", err)
 		return nil
@@ -347,34 +367,17 @@ func (c *k8sClient) GetGatewayClasses(controllerName string) []*gwapis.GatewayCl
 	return result
 }
 
-func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, condition metav1.Condition) error {
+func (c *k8sClient) UpdateGatewayClassStatus(gatewayClass *gwapis.GatewayClass, status gwapis.GatewayClassStatus) error {
 	gc := gatewayClass.DeepCopy()
-
-	var newConditions []metav1.Condition
-	for _, cond := range gc.Status.Conditions {
-		// No update for identical condition.
-		if cond.Type == condition.Type && cond.Status == condition.Status {
-			return nil
-		}
-
-		// Keep other condition types.
-		if cond.Type != condition.Type {
-			newConditions = append(newConditions, cond)
-		}
-	}
-
-	// Append the condition to update.
-	newConditions = append(newConditions, condition)
-	gc.Status.Conditions = newConditions
+	gc.Status = status
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := c.gwcs.GatewayV1beta1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
+	_, err := c.gwcs.GatewayV1().GatewayClasses().UpdateStatus(ctx, gc, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update GatewayClass %q status: %w", gatewayClass.Name, err)
+		return fmt.Errorf("failed to update GatewayClass %s/%s status: %w", gatewayClass.Namespace, gatewayClass.Name, err)
 	}
-
 	return nil
 }
 
@@ -446,7 +449,7 @@ func (c *k8sClient) UpdateGatewayStatus(gateway *gwapis.Gateway, status gwapis.G
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := c.gwcs.GatewayV1beta1().Gateways(gateway.Namespace).UpdateStatus(ctx, g, metav1.UpdateOptions{})
+	_, err := c.gwcs.GatewayV1().Gateways(gateway.Namespace).UpdateStatus(ctx, g, metav1.UpdateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to update Gateway %q status: %w", gateway.Name, err)
 	}
@@ -475,9 +478,51 @@ func (c *k8sClient) isNamespaceWatched(ns string) bool {
 		return true
 	}
 	for _, watchedNamespace := range c.namespaces {
+		if watchedNamespace == metav1.NamespaceAll {
+			return true
+		}
 		if watchedNamespace == ns {
 			return true
 		}
 	}
 	return false
+}
+
+// FilterSpecFromCR is filter spec from kubernetes custom resource.
+type FilterSpecFromCR struct {
+	Name string
+	Kind string
+	Spec string
+}
+
+var FilterSpecGVR = schema.GroupVersionResource{
+	Group:    "easegress.megaease.com",
+	Version:  "v1",
+	Resource: "filterspecs",
+}
+
+// GetFilterSpecFromCustomResource get filter spec from kubernetes custom resource.
+func (c *k8sClient) GetFilterSpecFromCustomResource(namespace string, objName string) (*FilterSpecFromCR, error) {
+	cr, err := c.dc.Resource(FilterSpecGVR).Namespace(namespace).Get(context.Background(), objName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	crSpec := cr.Object["spec"].(map[string]interface{})
+	name, ok := crSpec["name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string name field", FilterSpecGVR, objName)
+	}
+	kind, ok := crSpec["kind"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string kind field", FilterSpecGVR, objName)
+	}
+	spec, ok := crSpec["spec"].(string)
+	if !ok {
+		return nil, fmt.Errorf("custom resource %v/%s does not have string spec field", FilterSpecGVR, objName)
+	}
+	return &FilterSpecFromCR{
+		Name: name,
+		Kind: kind,
+		Spec: spec,
+	}, nil
 }

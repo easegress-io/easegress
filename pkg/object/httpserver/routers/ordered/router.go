@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,6 +84,10 @@ func newMuxPath(p *routers.Path) *muxPath {
 		Path:   *p,
 		pathRE: pathRE,
 	}
+}
+
+func (mp *muxPath) Protocol() string {
+	return "http"
 }
 
 func (mp *muxPath) matchPath(path string) bool {

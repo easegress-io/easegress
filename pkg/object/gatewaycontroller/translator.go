@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,21 +21,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/builder"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/v2/pkg/filters/redirector"
+	redirector "github.com/megaease/easegress/v2/pkg/filters/redirectorv2"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/object/pipeline"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpheader"
+	"github.com/megaease/easegress/v2/pkg/resilience"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/pathadaptor"
 	"golang.org/x/exp/slices"
 	apicorev1 "k8s.io/api/core/v1"
-	gwapis "sigs.k8s.io/gateway-api/apis/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gwapis "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // specTranslator translates k8s gateway related specs to Easegress
@@ -52,6 +55,8 @@ type pipelineSpecBuilder struct {
 	Name          string `json:"name"`
 	pipeline.Spec `json:",inline"`
 
+	filters     []map[string]interface{}     `json:"-"`
+	resilience  []map[string]interface{}     `json:"-"`
 	reqAdaptor  *builder.RequestAdaptorSpec  `json:"-"`
 	redirector  *redirector.Spec             `json:"-"`
 	respAdaptor *builder.ResponseAdaptorSpec `json:"-"`
@@ -66,13 +71,26 @@ type httpServerSpecBuilder struct {
 
 func newPipelineSpecBuilder(name string) *pipelineSpecBuilder {
 	return &pipelineSpecBuilder{
-		Kind: pipeline.Kind,
-		Name: name,
-		Spec: pipeline.Spec{},
+		Kind:       pipeline.Kind,
+		Name:       name,
+		Spec:       pipeline.Spec{},
+		filters:    make([]map[string]interface{}, 0),
+		resilience: []map[string]interface{}{},
 	}
 }
 
 func (b *pipelineSpecBuilder) jsonConfig() string {
+	if len(b.filters) > 0 {
+		for _, f := range b.filters {
+			kind := f["kind"]
+			if kind == builder.ResponseAdaptorKind || kind == builder.ResponseBuilderKind {
+				continue
+			}
+			b.Filters = append(b.Filters, f)
+			b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: f["name"].(string)})
+		}
+	}
+
 	if b.reqAdaptor != nil {
 		b.reqAdaptor.BaseSpec.MetaSpec.Name = "requestAdaptor"
 		b.reqAdaptor.BaseSpec.MetaSpec.Kind = builder.RequestAdaptorKind
@@ -96,6 +114,15 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 	if b.proxy != nil {
 		b.proxy.BaseSpec.MetaSpec.Name = "proxy"
 		b.proxy.BaseSpec.MetaSpec.Kind = httpproxy.Kind
+		for i := range b.proxy.Pools {
+			for _, r := range b.resilience {
+				if r["kind"] == resilience.CircuitBreakerKind.Name {
+					b.proxy.Pools[i].CircuitBreakerPolicy = r["name"].(string)
+				} else if r["kind"] == resilience.RetryKind.Name {
+					b.proxy.Pools[i].RetryPolicy = r["name"].(string)
+				}
+			}
+		}
 		buf, _ := codectool.MarshalJSON(b.proxy)
 		m := map[string]any{}
 		codectool.UnmarshalJSON(buf, &m)
@@ -113,11 +140,46 @@ func (b *pipelineSpecBuilder) jsonConfig() string {
 		b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: b.respAdaptor.Name()})
 	}
 
+	if len(b.filters) > 0 {
+		for _, f := range b.filters {
+			kind := f["kind"]
+			if kind == builder.ResponseAdaptorKind || kind == builder.ResponseBuilderKind {
+				b.Filters = append(b.Filters, f)
+				b.Flow = append(b.Flow, pipeline.FlowNode{FilterName: f["name"].(string)})
+			}
+		}
+	}
+
+	b.Resilience = b.resilience
+
 	buf, err := codectool.MarshalJSON(b)
 	if err != nil {
 		logger.Errorf("BUG: marshal %#v to json failed: %v", b, err)
 	}
 	return string(buf)
+}
+
+func (b *pipelineSpecBuilder) addExtensionRef(spec *FilterSpecFromCR) {
+	data := map[string]interface{}{}
+	err := codectool.UnmarshalYAML([]byte(spec.Spec), &data)
+	if err != nil {
+		logger.Errorf("unmarshal filter spec %v failed: %v", spec, err)
+		return
+	}
+	data["name"] = spec.Name
+	data["kind"] = spec.Kind
+
+	if spec.Kind == "CircuitBreaker" || spec.Kind == "Retry" {
+		b.resilience = append(b.resilience, data)
+		return
+	}
+
+	kind := filters.GetKind(spec.Kind)
+	if kind == nil {
+		logger.Errorf("unknown filter kind %s in extensionRef", spec.Kind)
+		return
+	}
+	b.filters = append(b.filters, data)
 }
 
 func (b *pipelineSpecBuilder) addRequestHeaderModifier(f *gwapis.HTTPHeaderFilter) {
@@ -164,39 +226,7 @@ func (b *pipelineSpecBuilder) addURLRewrite(f *gwapis.HTTPURLRewriteFilter) {
 }
 
 func (b *pipelineSpecBuilder) addRequestRedirect(f *gwapis.HTTPRequestRedirectFilter) {
-	// TODO: The current redirector filter does not compatible with the
-	// Gateway API spec.
-	logger.Errorf("redirector filter is not supported currently")
-	/*
-		if b.redirector == nil {
-			b.redirector = &redirector.Spec{StatusCode: 302}
-		}
-
-		var repl string
-
-		re := `^([^:]*)://([^:/]+)(:\d+)?/`
-		if f.Scheme == nil {
-			repl = "$1://"
-		} else {
-			repl = *f.Scheme + "://"
-		}
-
-		if f.Hostname == nil {
-			repl += "$2"
-		} else {
-			repl += string(*f.Hostname)
-		}
-
-		if f.Port == nil {
-			repl += "$3"
-		} else {
-			repl += fmt.Sprintf(":%d", *f.Port)
-		}
-
-		if f.StatusCode != nil {
-			b.redirector.StatusCode = *f.StatusCode
-		}
-	*/
+	b.redirector.HTTPRequestRedirectFilter = *f
 }
 
 func (b *pipelineSpecBuilder) addRequestMirror(addr string) {
@@ -304,6 +334,7 @@ func (st *specTranslator) pipelineSpecs() map[string]*supervisor.Spec {
 
 	for _, sb := range st.pipelines {
 		cfg := sb.jsonConfig()
+		logger.Debugf("pipeline spec: %s", cfg)
 		spec, err := supervisor.NewSpec(cfg)
 		if err != nil {
 			logger.Errorf("failed to build pipeline spec: %v", err)
@@ -527,6 +558,18 @@ func (st *specTranslator) translatePipeline(ns, name string, r *gwapis.HTTPRoute
 			}
 		case gwapis.HTTPRouteFilterResponseHeaderModifier:
 			sb.addResponseHeaderModifier(f.ResponseHeaderModifier)
+		case gwapis.HTTPRouteFilterExtensionRef:
+			g := string(f.ExtensionRef.Group)
+			if g != FilterSpecGVR.Group {
+				logger.Errorf("extension group %s is not supported, only support %s", g, FilterSpecGVR.Group)
+				continue
+			}
+			filterSpec, err := st.k8sClient.GetFilterSpecFromCustomResource(ns, string(f.ExtensionRef.Name))
+			if err != nil {
+				logger.Errorf("failed to get filter spec %s/%s/%s, %v", ns, FilterSpecGVR.Group, f.ExtensionRef.Name, err)
+				continue
+			}
+			sb.addExtensionRef(filterSpec)
 		}
 	}
 
@@ -648,13 +691,111 @@ func (st *specTranslator) translate() error {
 	st.routes = st.k8sClient.GetHTTPRoutes()
 
 	for _, c := range classes {
+		err := st.updateGatewayClassStatus(c)
+		if err != nil {
+			logger.Errorf("%v", err)
+		}
 		for _, g := range gateways {
 			if string(g.Spec.GatewayClassName) != c.Name {
 				continue
+			}
+			err := st.updateGatewayStatus(c, g)
+			if err != nil {
+				logger.Errorf("%v", err)
 			}
 			st.translateGateway(c, g)
 		}
 	}
 
 	return nil
+}
+
+// Conditions:
+//
+//	Last Transition Time:  1970-01-01T00:00:00Z
+//	Message:               Waiting for controller
+//	Reason:                Pending
+//	Status:                Unknown
+//	Type:                  Accepted
+//	Last Transition Time:  1970-01-01T00:00:00Z
+//	Message:               Waiting for controller
+//	Reason:                Pending
+//	Status:                Unknown
+//	Type:                  Programmed
+//
+// we need to remove init conditions and add new.
+func (st *specTranslator) updateGatewayStatus(c *gwapis.GatewayClass, g *gwapis.Gateway) error {
+	compareCondition := func(c1, c2 metav1.Condition) bool {
+		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
+	}
+	condition := metav1.Condition{
+		Type:               string(gwapis.GatewayConditionAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gwapis.GatewayReasonAccepted),
+		Message:            "Gateway is accepted",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	gateway := g.DeepCopy()
+	newConditions := []metav1.Condition{}
+	for _, cond := range gateway.Status.Conditions {
+		// remove the init condition.
+		if cond.Type == string(gwapis.GatewayConditionAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		if cond.Type == string(gwapis.GatewayConditionProgrammed) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		// if we already have the condition, just return.
+		if compareCondition(cond, condition) {
+			return nil
+		}
+		newConditions = append(newConditions, cond)
+	}
+	newConditions = append(newConditions, condition)
+	gateway.Status.Conditions = newConditions
+	return st.k8sClient.UpdateGatewayStatus(g, gateway.Status)
+}
+
+// GatewayClass starts with status:
+// Status:
+//
+//	Conditions:
+//	  Last Transition Time:  1970-01-01T00:00:00Z
+//	  Message:               Waiting for controller
+//	  Reason:                Waiting
+//	  Status:                Unknown
+//	  Type:                  Accepted
+//
+// we need to remove init status and add new.
+func (st *specTranslator) updateGatewayClassStatus(c *gwapis.GatewayClass) error {
+	compareCondition := func(c1, c2 metav1.Condition) bool {
+		return c1.Type == c2.Type && c1.Status == c2.Status && c1.Reason == c2.Reason && c1.Message == c2.Message
+	}
+	condition := metav1.Condition{
+		Type:               string(gwapis.GatewayClassConditionStatusAccepted),
+		Status:             metav1.ConditionTrue,
+		Reason:             string(gwapis.GatewayClassReasonAccepted),
+		Message:            "GatewayClass is accepted",
+		LastTransitionTime: metav1.Now(),
+	}
+
+	gc := c.DeepCopy()
+	newConditions := []metav1.Condition{}
+	for _, cond := range gc.Status.Conditions {
+		// remove the init condition.
+		if cond.Type == string(gwapis.GatewayClassConditionStatusAccepted) && cond.Status == metav1.ConditionUnknown && cond.Message == "Waiting for controller" {
+			continue
+		}
+		// if we already have the condition, just return.
+		if compareCondition(cond, condition) {
+			return nil
+		}
+		newConditions = append(newConditions, cond)
+	}
+
+	newConditions = append(newConditions, condition)
+	gc.Status.Conditions = newConditions
+	err := st.k8sClient.UpdateGatewayClassStatus(c, gc.Status)
+	return err
 }

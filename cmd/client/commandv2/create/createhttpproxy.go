@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,18 +20,19 @@ package create
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/cmd/client/resources"
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
-	"github.com/megaease/easegress/v2/pkg/object/httpserver"
+	"github.com/megaease/easegress/v2/pkg/object/autocertmanager"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
-	"github.com/megaease/easegress/v2/pkg/object/pipeline"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
@@ -48,10 +49,15 @@ type HTTPProxyOptions struct {
 	CertFiles  []string
 	KeyFiles   []string
 
-	caCert string
-	certs  []string
-	keys   []string
-	rules  []*HTTPProxyRule
+	AutoCertDomainName  string
+	AutoCertEmail       string
+	AutoCertDNSProvider []string
+
+	caCert      string
+	certs       []string
+	keys        []string
+	rules       []*HTTPProxyRule
+	dnsProvider map[string]string
 }
 
 var httpProxyOptions = &HTTPProxyOptions{}
@@ -64,7 +70,11 @@ egctl create httpproxy NAME --port PORT \
 	[--auto-cert] \
 	[--ca-cert-file CA_CERT_FILE] \
 	[--cert-file CERT_FILE] \
-	[--key-file KEY_FILE]
+	[--key-file KEY_FILE] \
+	[--auto-cert-email EMAIL] \
+	[--auto-cert-domain-name DOMAIN_NAME] \
+	[--dns-provider KEY=VALUE] \
+	[--dns-provider KEY2=VALUE2]
 
 # Create a HTTPServer (with port 10080) and corresponding Pipelines to direct 
 # request with path "/bar" to "http://127.0.0.1:8080" and "http://127.0.0.1:8081" and 
@@ -77,6 +87,27 @@ egctl create httpproxy demo --port 10080 \
 # with path prefix "foo.com/prefix" to "http://127.0.0.1:8083".
 egctl create httpproxy demo2 --port 10081 \
 	--rule="foo.com/prefix*=http://127.0.0.1:8083"
+
+# Create HTTPServer, Pipelines with a new AutoCertManager.
+# auto-cert-email is required for creating a new AutoCertManager. 
+# If an AutoCertManager exists, this updates its email field.
+egctl create httpproxy demo2 --port 10081 \
+	--rule="/bar=http://127.0.0.1:8083" \
+	--auto-cert \
+	--auto-cert-email someone@megaease.com \
+	--auto-cert-domain-name="*.foo.com" \
+	--dns-provider name=dnspod \
+	--dns-provider zone=megaease.com \
+	--dns-provider="apiToken=<tokenvalue>"
+
+# Create HTTPServer, Pipelines with an existing AutoCertManager and update it.
+egctl create httpproxy demo2 --port 10081 \
+	--rule="/bar=http://127.0.0.1:8083" \
+	--auto-cert \
+	--auto-cert-domain-name="*.foo.com" \
+	--dns-provider name=dnspod \
+	--dns-provider zone=megaease.com \
+	--dns-provider="apiToken=<tokenvalue>"
 `
 
 // HTTPProxyCmd returns create command of HTTPProxy.
@@ -104,6 +135,9 @@ func HTTPProxyCmd() *cobra.Command {
 	cmd.Flags().StringVar(&o.CaCertFile, "ca-cert-file", "", "CA cert file")
 	cmd.Flags().StringArrayVar(&o.CertFiles, "cert-file", []string{}, "Cert file")
 	cmd.Flags().StringArrayVar(&o.KeyFiles, "key-file", []string{}, "Key file")
+	cmd.Flags().StringVar(&o.AutoCertDomainName, "auto-cert-domain-name", "", "Auto cert domain name")
+	cmd.Flags().StringArrayVar(&o.AutoCertDNSProvider, "dns-provider", []string{}, "Auto cert DNS provider")
+	cmd.Flags().StringVar(&o.AutoCertEmail, "auto-cert-email", "", "Auto cert email")
 	return cmd
 }
 
@@ -135,6 +169,20 @@ func httpProxyRun(cmd *cobra.Command, args []string) error {
 	for _, p := range pls {
 		allSpec = append(allSpec, p)
 	}
+	if o.AutoCertDomainName != "" {
+		autoCertSpec, err := o.TranslateAutoCertManager()
+		if err != nil {
+			return err
+		}
+		generalSpec, err := toGeneralSpec(autoCertSpec)
+		if err != nil {
+			return err
+		}
+		err = resources.ApplyObject(cmd, generalSpec)
+		if err != nil {
+			return err
+		}
+	}
 	for _, s := range allSpec {
 		spec, err := toGeneralSpec(s)
 		if err != nil {
@@ -145,22 +193,6 @@ func httpProxyRun(cmd *cobra.Command, args []string) error {
 		}
 	}
 	return nil
-}
-
-// HTTPServerSpec is the spec of HTTPServer.
-type HTTPServerSpec struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
-
-	httpserver.Spec `json:",inline"`
-}
-
-// PipelineSpec is the spec of Pipeline.
-type PipelineSpec struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
-
-	pipeline.Spec `json:",inline"`
 }
 
 // Complete completes all the required options.
@@ -211,6 +243,27 @@ func (o *HTTPProxyOptions) Parse() error {
 		keys = append(keys, key)
 	}
 	o.keys = keys
+
+	// parse dns provider
+	if o.AutoCertDomainName != "" || len(o.AutoCertDNSProvider) != 0 {
+		if !o.AutoCert {
+			return fmt.Errorf("auto cert domain name or dns provider is set, but auto cert is not enabled")
+		}
+		if o.AutoCertDomainName == "" {
+			return fmt.Errorf("auto cert domain name is required when provide dns provider")
+		}
+		if len(o.AutoCertDNSProvider) == 0 {
+			return fmt.Errorf("auto cert dns provider is required when provide auto cert domain name")
+		}
+	}
+	o.dnsProvider = map[string]string{}
+	for _, dnsProvider := range o.AutoCertDNSProvider {
+		parts := strings.SplitN(dnsProvider, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("dns provider %s should in format 'name=secret', invalid format", dnsProvider)
+		}
+		o.dnsProvider[parts[0]] = parts[1]
+	}
 	return nil
 }
 
@@ -223,12 +276,8 @@ func (o *HTTPProxyOptions) getPipelineName(id int) string {
 }
 
 // Translate translates HTTPProxyOptions to HTTPServerSpec and PipelineSpec.
-func (o *HTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) {
-	hs := &HTTPServerSpec{
-		Name: o.getServerName(),
-		Kind: httpserver.Kind,
-		Spec: *getDefaultHTTPServerSpec(),
-	}
+func (o *HTTPProxyOptions) Translate() (*specs.HTTPServerSpec, []*specs.PipelineSpec) {
+	hs := specs.NewHTTPServerSpec(o.getServerName())
 	hs.Port = uint16(o.Port)
 	if o.TLS {
 		hs.HTTPS = true
@@ -247,9 +296,9 @@ func (o *HTTPProxyOptions) Translate() (*HTTPServerSpec, []*PipelineSpec) {
 	return hs, pipelines
 }
 
-func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpec) {
+func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*specs.PipelineSpec) {
 	var rules routers.Rules
-	var pipelines []*PipelineSpec
+	var pipelines []*specs.PipelineSpec
 	pipelineID := 0
 
 	for _, rule := range o.rules {
@@ -261,11 +310,10 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpec) {
 			PathPrefix: rule.PathPrefix,
 			Backend:    pipelineName,
 		}
-		pipelines = append(pipelines, &PipelineSpec{
-			Name: pipelineName,
-			Kind: pipeline.Kind,
-			Spec: *translateToPipeline(rule.Endpoints),
-		})
+
+		pipelineSpec := specs.NewPipelineSpec(pipelineName)
+		translateToPipeline(rule.Endpoints, pipelineSpec)
+		pipelines = append(pipelines, pipelineSpec)
 
 		l := len(rules)
 		if l != 0 && rules[l-1].Host == rule.Host {
@@ -278,6 +326,53 @@ func (o *HTTPProxyOptions) translateRules() (routers.Rules, []*PipelineSpec) {
 		}
 	}
 	return rules, pipelines
+}
+
+var handleReqHook = general.HandleRequest
+
+// TranslateAutoCertManager translates AutoCertManagerSpec.
+func (o *HTTPProxyOptions) TranslateAutoCertManager() (*specs.AutoCertManagerSpec, error) {
+	url := general.MakePath(general.ObjectsURL)
+	body, err := handleReqHook(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	allSpecs, err := general.UnmarshalMapInterface(body, true)
+	if err != nil {
+		return nil, err
+	}
+	var spec *specs.AutoCertManagerSpec
+	for _, s := range allSpecs {
+		if s["kind"] == "AutoCertManager" {
+			if spec == nil {
+				spec = &specs.AutoCertManagerSpec{}
+				data, err := codectool.MarshalYAML(s)
+				if err != nil {
+					return nil, err
+				}
+				if err := codectool.Unmarshal(data, spec); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, fmt.Errorf("there are more than one AutoCertManager")
+			}
+		}
+	}
+	if spec == nil {
+		if o.AutoCertEmail != "" {
+			spec = specs.NewAutoCertManagerSpec()
+			spec.Email = o.AutoCertEmail
+		} else {
+			return nil, fmt.Errorf("there is no AutoCertManager and auto-cert-email is not set, please create one or set auto-cert-email")
+		}
+	} else if o.AutoCertEmail != "" {
+		spec.Email = o.AutoCertEmail
+	}
+	spec.AddOrUpdateDomain(&autocertmanager.DomainSpec{
+		Name:        o.AutoCertDomainName,
+		DNSProvider: o.dnsProvider,
+	})
+	return spec, nil
 }
 
 func toGeneralSpec(data interface{}) (*general.Spec, error) {
@@ -306,20 +401,13 @@ func loadCertFile(filePath string) (string, error) {
 	return base64.StdEncoding.EncodeToString(data), nil
 }
 
-func translateToPipeline(endpoints []string) *pipeline.Spec {
+func translateToPipeline(endpoints []string, spec *specs.PipelineSpec) {
 	proxy := translateToProxyFilter(endpoints)
-	data := codectool.MustMarshalYAML(proxy)
-	maps, _ := general.UnmarshalMapInterface(data, false)
-
-	spec := getDefaultPipelineSpec()
-	spec.Filters = maps
-	return spec
+	spec.SetFilters([]filters.Spec{proxy})
 }
 
 func translateToProxyFilter(endpoints []string) *httpproxy.Spec {
-	spec := getDefaultProxyFilterSpec()
-	spec.BaseSpec.MetaSpec.Name = "proxy"
-	spec.BaseSpec.MetaSpec.Kind = httpproxy.Kind
+	spec := specs.NewProxyFilterSpec("proxy")
 
 	servers := make([]*proxies.Server, len(endpoints))
 	for i, endpoint := range endpoints {
@@ -380,16 +468,4 @@ type HTTPProxyRule struct {
 	Path       string
 	PathPrefix string
 	Endpoints  []string
-}
-
-func getDefaultHTTPServerSpec() *httpserver.Spec {
-	return (&httpserver.HTTPServer{}).DefaultSpec().(*httpserver.Spec)
-}
-
-func getDefaultPipelineSpec() *pipeline.Spec {
-	return (&pipeline.Pipeline{}).DefaultSpec().(*pipeline.Spec)
-}
-
-func getDefaultProxyFilterSpec() *httpproxy.Spec {
-	return filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
 }

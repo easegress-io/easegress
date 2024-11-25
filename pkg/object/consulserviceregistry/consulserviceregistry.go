@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,9 +50,10 @@ var aliases = []string{"consul", "consulserviceregistrys"}
 func init() {
 	supervisor.Register(&ConsulServiceRegistry{})
 	egapi.RegisterObject(&egapi.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  aliases,
 	})
 }
 
@@ -80,11 +81,11 @@ type (
 	Spec struct {
 		Address      string   `json:"address" jsonschema:"required"`
 		Scheme       string   `json:"scheme" jsonschema:"required,enum=http,enum=https"`
-		Datacenter   string   `json:"datacenter" jsonschema:"omitempty"`
-		Token        string   `json:"token" jsonschema:"omitempty"`
-		Namespace    string   `json:"namespace" jsonschema:"omitempty"`
+		Datacenter   string   `json:"datacenter,omitempty"`
+		Token        string   `json:"token,omitempty"`
+		Namespace    string   `json:"namespace,omitempty"`
 		SyncInterval string   `json:"syncInterval" jsonschema:"required,format=duration"`
-		ServiceTags  []string `json:"serviceTags" jsonschema:"omitempty"`
+		ServiceTags  []string `json:"serviceTags,omitempty"`
 	}
 
 	// Status is the status of ConsulServiceRegistry.
@@ -394,7 +395,6 @@ func (c *ConsulServiceRegistry) ListServiceInstances(serviceName string) (map[st
 	}
 
 	catalogServices, err := client.ListServiceInstances(serviceName)
-
 	if err != nil {
 		return nil, err
 	}

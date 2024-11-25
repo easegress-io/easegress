@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,10 +20,12 @@ package api
 import (
 	"net/http"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
 )
@@ -31,8 +33,10 @@ import (
 type (
 	dynamicMux struct {
 		server *Server
-		done   chan struct{}
 		router atomic.Value
+
+		done      chan struct{}
+		closeOnce sync.Once
 	}
 )
 
@@ -84,6 +88,13 @@ func (m *dynamicMux) reloadAPIs() {
 		router.Use(m.basicAuth("easegress-basic-auth", m.server.opt.BasicAuth))
 	}
 
+	// For access from browser.
+	cors := cors.New(cors.Options{
+		// By default, not allow delete method.
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"},
+	})
+	router.Use(cors.Handler)
+
 	for _, apiGroup := range apiGroups {
 		for _, api := range apiGroup.Entries {
 			pathV1 := APIPrefixV1 + api.Path
@@ -128,5 +139,12 @@ func (m *dynamicMux) reloadAPIs() {
 }
 
 func (m *dynamicMux) close() {
-	close(m.done)
+	// make sure to close channel only once.
+	// when use "signal-upgrade", easegress will start a new process gracefully,
+	// which may cause the old process be closed twice.
+	// here we use sync.Once to make sure the channel is closed only once.
+	// more discussion here: https://github.com/megaease/easegress/issues/1170
+	m.closeOnce.Do(func() {
+		close(m.done)
+	})
 }

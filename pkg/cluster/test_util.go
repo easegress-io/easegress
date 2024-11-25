@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, MegaEase
+* Copyright (c) 2017, The Easegress Authors
 * All rights reserved.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -51,7 +51,6 @@ func CreateOptionsForTest(tempDir string) *option.Options {
 	opt.APIAddr = fmt.Sprintf("localhost:%d", ports[2])
 	opt.DataDir = fmt.Sprintf("%s/data", tempDir)
 	opt.LogDir = fmt.Sprintf("%s/log", tempDir)
-	opt.MemberDir = fmt.Sprintf("%s/member", tempDir)
 
 	err = opt.Parse()
 	check(err)

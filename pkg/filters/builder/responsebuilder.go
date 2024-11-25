@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,8 +58,8 @@ type (
 	ResponseBuilderSpec struct {
 		filters.BaseSpec `json:",inline"`
 		Spec             `json:",inline"`
-		SourceNamespace  string `json:"sourceNamespace" jsonschema:"omitempty"`
-		Protocol         string `json:"protocol" jsonschema:"omitempty"`
+		SourceNamespace  string `json:"sourceNamespace,omitempty"`
+		Protocol         string `json:"protocol,omitempty"`
 	}
 )
 

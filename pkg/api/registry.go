@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,16 +20,51 @@ package api
 
 import (
 	"fmt"
+	"strings"
+
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 )
 
-type APIResource struct {
-	Kind    string
-	Name    string
-	Aliases []string
+func init() {
+	// to avoid import cycle
+	RegisterObject(&APIResource{
+		Category: trafficcontroller.Category,
+		Kind:     trafficcontroller.Kind,
+		Name:     strings.ToLower(trafficcontroller.Kind),
+		Aliases:  []string{"trafficcontroller", "tc"},
+	})
 }
 
+const DefaultNamespace = "default"
+
+type (
+	APIResource struct {
+		Category string
+		Kind     string
+		Name     string
+		Aliases  []string
+
+		// ValiateHook is optional, if set, will be called before create/update/delete object.
+		// If it returns an error, the operation will be rejected.
+		ValiateHook ValidateHookFunc `json:"-"`
+	}
+
+	ValidateHookFunc func(operationType OperationType, spec *supervisor.Spec) error
+
+	OperationType string
+)
+
+const (
+	OperationTypeCreate OperationType = "create"
+	OperationTypeUpdate OperationType = "update"
+	OperationTypeDelete OperationType = "delete"
+)
+
 // key is Kind name, now only contains api resource of object.
-var objectApiResource = map[string]*APIResource{}
+var objectAPIResource = map[string]*APIResource{}
+
+var objectValidateHooks = []ValidateHookFunc{}
 
 func RegisterObject(r *APIResource) {
 	if r.Kind == "" {
@@ -39,16 +74,20 @@ func RegisterObject(r *APIResource) {
 		panic(fmt.Errorf("%v: empty name", r))
 	}
 
-	existedObject, existed := objectApiResource[r.Kind]
+	existedObject, existed := objectAPIResource[r.Kind]
 	if existed {
 		panic(fmt.Errorf("%v and %v got same kind: %s", r, existedObject, r.Kind))
 	}
-	objectApiResource[r.Kind] = r
+	objectAPIResource[r.Kind] = r
+
+	if r.ValiateHook != nil {
+		objectValidateHooks = append(objectValidateHooks, r.ValiateHook)
+	}
 }
 
 func ObjectAPIResources() []*APIResource {
 	resources := []*APIResource{}
-	for _, r := range objectApiResource {
+	for _, r := range objectAPIResource {
 		resources = append(resources, r)
 	}
 	return resources

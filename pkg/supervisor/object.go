@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -308,10 +308,11 @@ func (or *ObjectRegistry) storeConfigInLocal(config map[string]string) {
 	}
 	buff.Write(configBuff)
 
-	err = os.Rename(or.configLocalPath, or.backupConfigLocalPath)
-	if err != nil {
-		logger.Errorf("rename %s to %s failed: %v", or.configLocalPath, or.backupConfigLocalPath, err)
-		return
+	if _, err := os.Stat(or.configLocalPath); err == nil {
+		err = os.Rename(or.configLocalPath, or.backupConfigLocalPath)
+		if err != nil {
+			logger.Errorf("rename %s to %s failed: %v", or.configLocalPath, or.backupConfigLocalPath, err)
+		}
 	}
 
 	err = os.WriteFile(or.configLocalPath, buff.Bytes(), 0o644)

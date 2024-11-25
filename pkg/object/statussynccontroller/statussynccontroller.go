@@ -1,4 +1,4 @@
-/* * Copyright (c) 2017, MegaEase
+/* * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,8 +19,10 @@ package statussynccontroller
 
 import (
 	"runtime/debug"
+	"strings"
 	"sync"
 
+	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
@@ -123,6 +125,12 @@ func (s *statusUnit) marshal() ([]byte, error) {
 
 func init() {
 	supervisor.Register(&StatusSyncController{})
+	api.RegisterObject(&api.APIResource{
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"statussynccontroller", "ssc"},
+	})
 }
 
 // Category returns the category of StatusSyncController.

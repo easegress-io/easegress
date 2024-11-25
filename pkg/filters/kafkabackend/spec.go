@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,17 +25,26 @@ type (
 		filters.BaseSpec `json:",inline"`
 
 		Backend []string `json:"backend" jsonschema:"required,uniqueItems=true"`
-		Topic   *Topic   `json:"topic" jsonschema:"required"`
+		Sync    bool     `json:"sync,omitempty"`
+
+		Topic *Topic `json:"topic" jsonschema:"required"`
+		Key   Key    `json:"key,omitempty"`
 	}
 
 	// Topic defined ways to get Kafka topic
 	Topic struct {
 		Default string   `json:"default" jsonschema:"required"`
-		Dynamic *Dynamic `json:"dynamic" jsonschema:"omitempty"`
+		Dynamic *Dynamic `json:"dynamic,omitempty"`
 	}
 
 	// Dynamic defines dynamic ways to get Kafka topic from http request
 	Dynamic struct {
-		Header string `json:"header" jsonschema:"omitempty"`
+		Header string `json:"header,omitempty"`
+	}
+
+	// Key defined ways to get Kafka key
+	Key struct {
+		Default string   `json:"default"`
+		Dynamic *Dynamic `json:"dynamic,omitempty"`
 	}
 )

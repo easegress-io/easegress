@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Shopify/sarama"
@@ -87,6 +88,41 @@ func newMockAsyncProducer() sarama.AsyncProducer {
 	}
 }
 
+type mockSyncProducer struct {
+	msgs []*sarama.ProducerMessage
+	mu   sync.Mutex
+}
+
+func newMockSyncProducer() sarama.SyncProducer {
+	return &mockSyncProducer{}
+}
+
+func (s *mockSyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.msgs = append(s.msgs, msg)
+	return 0, 0, nil
+}
+func (s *mockSyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.msgs = append(s.msgs, msgs...)
+	return nil
+}
+
+func (s *mockSyncProducer) Close() error                            { return nil }
+func (s *mockSyncProducer) TxnStatus() sarama.ProducerTxnStatusFlag { return 0 }
+func (s *mockSyncProducer) IsTransactional() bool                   { return false }
+func (s *mockSyncProducer) BeginTxn() error                         { return nil }
+func (s *mockSyncProducer) CommitTxn() error                        { return nil }
+func (s *mockSyncProducer) AbortTxn() error                         { return nil }
+func (s *mockSyncProducer) AddOffsetsToTxn(offsets map[string][]*sarama.PartitionOffsetMetadata, groupId string) error {
+	return nil
+}
+func (s *mockSyncProducer) AddMessageToTxn(msg *sarama.ConsumerMessage, groupId string, metadata *string) error {
+	return nil
+}
+
 func defaultFilterSpec(t *testing.T, spec *Spec) filters.Spec {
 	spec.BaseSpec.MetaSpec.Kind = Kind
 	spec.BaseSpec.MetaSpec.Name = "kafka"
@@ -109,6 +145,9 @@ func TestKafka(t *testing.T) {
 	spec := defaultFilterSpec(t, &Spec{
 		Topic: &Topic{
 			Default: "default-topic",
+		},
+		Key: Key{
+			Default: "default-key",
 		},
 	})
 	k := kind.CreateInstance(spec)
@@ -133,11 +172,16 @@ func TestHandleHTTP(t *testing.T) {
 					Header: "x-kafka-topic",
 				},
 			},
+			Key: Key{
+				Dynamic: &Dynamic{
+					Header: "x-kafka-key",
+				},
+			},
 		},
-		producer: newMockAsyncProducer(),
-		done:     make(chan struct{}),
+		asyncProducer: newMockAsyncProducer(),
+		done:          make(chan struct{}),
 	}
-	kafka.setHeader(kafka.spec)
+	kafka.setHeader()
 	go kafka.checkProduceError()
 	defer kafka.Close()
 
@@ -147,14 +191,19 @@ func TestHandleHTTP(t *testing.T) {
 	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
 	assert.Nil(err)
 	req.Header.Add("x-kafka-topic", "kafka")
+	req.Header.Add("x-kafka-key", "key")
 	setRequest(t, ctx, req)
 
 	ans := kafka.Handle(ctx)
 	assert.Equal("", ans)
 
-	msg := <-kafka.producer.(*mockAsyncProducer).ch
+	msg := <-kafka.asyncProducer.(*mockAsyncProducer).ch
 	assert.Equal("kafka", msg.Topic)
 	assert.Equal(0, len(msg.Headers))
+
+	key, err := msg.Key.Encode()
+	assert.Nil(err)
+	assert.Equal("key", string(key))
 	value, err := msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))
@@ -167,9 +216,87 @@ func TestHandleHTTP(t *testing.T) {
 	ans = kafka.Handle(ctx)
 	assert.Equal("", ans)
 
-	msg = <-kafka.producer.(*mockAsyncProducer).ch
+	msg = <-kafka.asyncProducer.(*mockAsyncProducer).ch
 	assert.Equal("default-topic", msg.Topic)
 	assert.Equal(0, len(msg.Headers))
+
+	assert.Nil(msg.Key)
+	value, err = msg.Value.Encode()
+	assert.Nil(err)
+	assert.Equal("text", string(value))
+}
+
+func TestHandleHTTPSync(t *testing.T) {
+	assert := assert.New(t)
+	kafka := Kafka{
+		spec: &Spec{
+			Sync: true,
+			Topic: &Topic{
+				Default: "default-topic",
+				Dynamic: &Dynamic{
+					Header: "x-kafka-topic",
+				},
+			},
+			Key: Key{
+				Dynamic: &Dynamic{
+					Header: "x-kafka-key",
+				},
+			},
+		},
+		syncProcuder: newMockSyncProducer(),
+		done:         make(chan struct{}),
+	}
+	kafka.setHeader()
+	defer kafka.Close()
+
+	getMsg := func() *sarama.ProducerMessage {
+		p := kafka.syncProcuder.(*mockSyncProducer)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		if len(p.msgs) == 0 {
+			return nil
+		}
+		msg := p.msgs[0]
+		p.msgs = p.msgs[1:]
+		return msg
+	}
+
+	ctx := context.New(nil)
+
+	// test header
+	req, err := http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
+	assert.Nil(err)
+	req.Header.Add("x-kafka-topic", "kafka")
+	req.Header.Add("x-kafka-key", "key")
+	setRequest(t, ctx, req)
+
+	ans := kafka.Handle(ctx)
+	assert.Equal("", ans)
+
+	msg := getMsg()
+	assert.Equal("kafka", msg.Topic)
+	assert.Equal(0, len(msg.Headers))
+
+	key, err := msg.Key.Encode()
+	assert.Nil(err)
+	assert.Equal("key", string(key))
+	value, err := msg.Value.Encode()
+	assert.Nil(err)
+	assert.Equal("text", string(value))
+
+	// test default
+	req, err = http.NewRequest(http.MethodPost, "127.0.0.1", strings.NewReader("text"))
+	assert.Nil(err)
+	setRequest(t, ctx, req)
+
+	ans = kafka.Handle(ctx)
+	assert.Equal("", ans)
+
+	msg = getMsg()
+	assert.Equal("default-topic", msg.Topic)
+	assert.Equal(0, len(msg.Headers))
+
+	assert.Nil(msg.Key)
 	value, err = msg.Value.Encode()
 	assert.Nil(err)
 	assert.Equal("text", string(value))

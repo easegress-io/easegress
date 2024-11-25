@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -97,10 +97,10 @@ func IsAnyEmpty(strs ...string) bool {
 
 // StringMatcher defines the match rule of a string
 type StringMatcher struct {
-	Exact  string `json:"exact" jsonschema:"omitempty"`
-	Prefix string `json:"prefix" jsonschema:"omitempty"`
-	RegEx  string `json:"regex" jsonschema:"omitempty,format=regexp"`
-	Empty  bool   `json:"empty" jsonschema:"omitempty"`
+	Exact  string `json:"exact,omitempty"`
+	Prefix string `json:"prefix,omitempty"`
+	RegEx  string `json:"regex,omitempty" jsonschema:"format=regexp"`
+	Empty  bool   `json:"empty,omitempty"`
 	re     *regexp.Regexp
 }
 

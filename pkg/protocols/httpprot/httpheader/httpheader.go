@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,11 +31,11 @@ type (
 
 	// AdaptSpec describes rules for adapting.
 	AdaptSpec struct {
-		Del []string `json:"del" jsonschema:"omitempty,uniqueItems=true"`
+		Del []string `json:"del,omitempty" jsonschema:"uniqueItems=true"`
 
 		// NOTE: Set and Add allow empty value.
-		Set map[string]string `json:"set" jsonschema:"omitempty"`
-		Add map[string]string `json:"add" jsonschema:"omitempty"`
+		Set map[string]string `json:"set,omitempty"`
+		Add map[string]string `json:"add,omitempty"`
 	}
 )
 

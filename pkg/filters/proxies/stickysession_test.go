@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,7 +47,7 @@ func TestStickySession_ConsistentHash(t *testing.T) {
 	}
 
 	lb := NewGeneralLoadBalancer(spec, servers)
-	lb.Init(NewHTTPSessionSticker, NewHTTPHealthChecker, nil)
+	lb.Init(NewHTTPSessionSticker, nil, nil)
 
 	req := &http.Request{Header: http.Header{}}
 	req.AddCookie(&http.Cookie{Name: "AppCookie", Value: "abcd-1"})
@@ -72,7 +72,7 @@ func TestStickySession_DurationBased(t *testing.T) {
 	}
 
 	lb := NewGeneralLoadBalancer(spec, servers)
-	lb.Init(NewHTTPSessionSticker, NewHTTPHealthChecker, nil)
+	lb.Init(NewHTTPSessionSticker, nil, nil)
 
 	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
 	svr1 := lb.ChooseServer(r)
@@ -106,7 +106,7 @@ func TestStickySession_ApplicationBased(t *testing.T) {
 		},
 	}
 	lb := NewGeneralLoadBalancer(spec, servers)
-	lb.Init(NewHTTPSessionSticker, NewHTTPHealthChecker, nil)
+	lb.Init(NewHTTPSessionSticker, nil, nil)
 
 	r, _ := httpprot.NewRequest(&http.Request{Header: http.Header{}})
 	svr1 := lb.ChooseServer(r)

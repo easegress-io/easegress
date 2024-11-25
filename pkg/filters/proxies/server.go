@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,9 +27,9 @@ import (
 // Server is a backend proxy server.
 type Server struct {
 	URL            string   `json:"url" jsonschema:"required,format=url"`
-	Tags           []string `json:"tags" jsonschema:"omitempty,uniqueItems=true"`
-	Weight         int      `json:"weight" jsonschema:"omitempty,minimum=0,maximum=100"`
-	KeepHost       bool     `json:"keepHost" jsonschema:"omitempty,default=false"`
+	Tags           []string `json:"tags,omitempty" jsonschema:"uniqueItems=true"`
+	Weight         int      `json:"weight,omitempty" jsonschema:"minimum=0,maximum=100"`
+	KeepHost       bool     `json:"keepHost,omitempty" jsonschema:"default=false"`
 	AddrIsHostName bool     `json:"-"`
 	Unhealth       bool     `json:"-"`
 	// HealthCounter is used to count the number of successive health checks

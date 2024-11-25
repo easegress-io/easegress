@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +27,7 @@ import (
 // RequestMatcherSpec describe RequestMatcher
 type RequestMatcherSpec struct {
 	proxies.RequestMatcherBaseSpec `json:",inline"`
-	Methods                        []*stringtool.StringMatcher `json:"methods" jsonschema:"omitempty"`
+	Methods                        []*stringtool.StringMatcher `json:"methods,omitempty"`
 }
 
 // Validate validates the RequestMatcherSpec.

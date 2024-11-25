@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,14 +26,18 @@ import (
 	"strings"
 )
 
-func egctlCmd(args ...string) *exec.Cmd {
+func egctlWithServer(server string, args ...string) *exec.Cmd {
 	egctl := os.Getenv("EGCTL")
 	if egctl == "" {
 		egctl = "egctl"
 	}
 	cmd := exec.Command(egctl, args...)
-	cmd.Args = append(cmd.Args, "--server", "http://127.0.0.1:12381")
+	cmd.Args = append(cmd.Args, "--server", server)
 	return cmd
+}
+
+func egctlCmd(args ...string) *exec.Cmd {
+	return egctlWithServer("http://127.0.0.1:12381", args...)
 }
 
 func runCmd(cmd *exec.Cmd) (string, string, error) {
@@ -48,7 +52,7 @@ func createResource(yamlFile string) error {
 	cmd := egctlCmd("create", "-f", "-")
 	cmd.Stdin = strings.NewReader(yamlFile)
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("create resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -58,7 +62,7 @@ func applyResource(yamlFile string) error {
 	cmd := egctlCmd("apply", "-f", "-")
 	cmd.Stdin = strings.NewReader(yamlFile)
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("apply resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -70,7 +74,7 @@ func deleteResource(kind string, args ...string) error {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	_, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return fmt.Errorf("delete resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return nil
@@ -82,7 +86,7 @@ func describeResource(kind string, args ...string) (string, error) {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	stdout, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return stdout, nil
@@ -94,7 +98,7 @@ func getResource(kind string, args ...string) (string, error) {
 		cmd.Args = append(cmd.Args, args...)
 	}
 	stdout, stderr, err := runCmd(cmd)
-	if err != nil {
+	if err != nil || stderr != "" {
 		return "", fmt.Errorf("describe resource failed\nstderr: %v\nerr: %v", stderr, err)
 	}
 	return stdout, nil
@@ -109,4 +113,13 @@ func matchTable(array []string, output string) bool {
 
 	// Check if the regular expression matches the output string
 	return re.MatchString(output)
+}
+
+func egbuilderCmd(args ...string) *exec.Cmd {
+	egbuilder := os.Getenv("EGBUILDER")
+	if egbuilder == "" {
+		egbuilder = "egbuilder"
+	}
+	cmd := exec.Command(egbuilder, args...)
+	return cmd
 }

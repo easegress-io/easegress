@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,10 +35,10 @@ var (
 type (
 	// Spec describes IPFilter.
 	Spec struct {
-		BlockByDefault bool `json:"blockByDefault" jsonschema:"omitempty"`
+		BlockByDefault bool `json:"blockByDefault,omitempty"`
 
-		AllowIPs []string `json:"allowIPs" jsonschema:"omitempty,uniqueItems=true,format=ipcidr-array"`
-		BlockIPs []string `json:"blockIPs" jsonschema:"omitempty,uniqueItems=true,format=ipcidr-array"`
+		AllowIPs []string `json:"allowIPs,omitempty" jsonschema:"uniqueItems=true,format=ipcidr-array"`
+		BlockIPs []string `json:"blockIPs,omitempty" jsonschema:"uniqueItems=true,format=ipcidr-array"`
 	}
 
 	// IPFilter is the IP filter.

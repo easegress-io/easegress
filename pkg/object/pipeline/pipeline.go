@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -47,9 +47,10 @@ const (
 func init() {
 	supervisor.Register(&Pipeline{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"pipelines", "pl"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"pipelines", "pl"},
 	})
 }
 
@@ -70,18 +71,18 @@ type (
 
 	// Spec describes the Pipeline.
 	Spec struct {
-		Flow       []FlowNode               `json:"flow" jsonschema:"omitempty"`
+		Flow       []FlowNode               `json:"flow,omitempty"`
 		Filters    []map[string]interface{} `json:"filters" jsonschema:"required"`
-		Resilience []map[string]interface{} `json:"resilience" jsonschema:"omitempty"`
-		Data       map[string]interface{}   `json:"data" jsonschema:"omitempty"`
+		Resilience []map[string]interface{} `json:"resilience,omitempty"`
+		Data       map[string]interface{}   `json:"data,omitempty"`
 	}
 
 	// FlowNode describes one node of the pipeline flow.
 	FlowNode struct {
 		FilterName  string            `json:"filter" jsonschema:"required,format=urlname"`
-		FilterAlias string            `json:"alias" jsonschema:"omitempty"`
-		Namespace   string            `json:"namespace" jsonschema:"omitempty"`
-		JumpIf      map[string]string `json:"jumpIf" jsonschema:"omitempty"`
+		FilterAlias string            `json:"alias,omitempty"`
+		Namespace   string            `json:"namespace,omitempty"`
+		JumpIf      map[string]string `json:"jumpIf,omitempty"`
 		filter      filters.Filter
 	}
 
@@ -288,7 +289,7 @@ func (p *Pipeline) reload(previousGeneration *Pipeline) {
 
 		// add the filter to pipeline, and if the pipeline does not define a
 		// flow, append it to the flow we just created.
-		p.filters[filter.Name()] = filter
+		p.filters[spec.Name()] = filter
 		if len(p.spec.Flow) == 0 {
 			flow = append(flow, FlowNode{FilterName: spec.Name()})
 		}
@@ -309,9 +310,17 @@ func (p *Pipeline) getFilter(name string) filters.Filter {
 	return p.filters[name]
 }
 
+// HandleWithBeforeAfterOption is the option of HandleWithBeforeAfter.
+// FallthroughBefore: if true, the pipeline will be executed even if the before pipeline ends.
+// FallthroughPipeline: if true, the after pipeline will be executed even if the pipeline ends.
+type HandleWithBeforeAfterOption struct {
+	FallthroughBefore   bool
+	FallthroughPipeline bool
+}
+
 // HandleWithBeforeAfter handles the request, with additional flow defined by
 // the before/after pipeline.
-func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pipeline) string {
+func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pipeline, option HandleWithBeforeAfterOption) string {
 	if len(p.spec.Data) > 0 {
 		ctx.SetData("PIPELINE", p.spec.Data)
 	}
@@ -330,11 +339,11 @@ func (p *Pipeline) HandleWithBeforeAfter(ctx *context.Context, before, after *Pi
 		result, stats, sawEnd = p.doHandle(ctx, before.flow, stats)
 	}
 
-	if !sawEnd {
+	if !sawEnd || option.FallthroughBefore {
 		result, stats, sawEnd = p.doHandle(ctx, p.flow, stats)
 	}
 
-	if !sawEnd && after != nil {
+	if (after != nil) && (!sawEnd || option.FallthroughPipeline) {
 		result, stats, _ = p.doHandle(ctx, after.flow, stats)
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,6 +40,11 @@ var basicGroup = &cobra.Group{
 	Title: `Basic Commands`,
 }
 
+var advancedGroup = &cobra.Group{
+	ID:    "advanced",
+	Title: `Advanced Commands`,
+}
+
 var otherGroup = &cobra.Group{
 	ID:    "other",
 	Title: `Other Commands`,
@@ -78,6 +83,11 @@ func main() {
 	)
 
 	addCommandWithGroup(
+		advancedGroup,
+		commandv2.ConvertCmd(),
+	)
+
+	addCommandWithGroup(
 		otherGroup,
 		commandv2.APIsCmd(),
 		commandv2.CompletionCmd(),
@@ -87,6 +97,7 @@ func main() {
 		commandv2.WasmCmd(),
 		commandv2.ConfigCmd(),
 		commandv2.LogsCmd(),
+		commandv2.MetricsCmd(),
 	)
 
 	addCommandWithGroup(
@@ -98,7 +109,7 @@ func main() {
 		command.CustomDataCmd(),
 	)
 
-	rootCmd.AddGroup(basicGroup, otherGroup, deprecatedGroup)
+	rootCmd.AddGroup(basicGroup, advancedGroup, otherGroup, deprecatedGroup)
 
 	for _, c := range rootCmd.Commands() {
 		general.GenerateExampleFromChild(c)

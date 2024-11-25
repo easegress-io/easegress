@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,36 +39,36 @@ func TestDialServer(t *testing.T) {
 	req, _ := httpprot.NewRequest(stdr)
 
 	svr.URL = "####"
-	_, err := sp.dialServer(svr, req)
+	_, _, err := sp.dialServer(svr, req)
 	assert.Error(err)
 
 	svr.URL = "http://127.0.0.1:9999"
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	svr.URL = "https://127.0.0.1:9999"
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	svr.URL = "tcp://127.0.0.1:9999"
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	svr.URL = "ws://127.0.0.1:9999"
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	stdr.Header.Add("Origin", "$#@#@$#$#")
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	stdr.Header.Set("Origin", "http://127.0.0.1/hello")
 	stdr.RemoteAddr = "127.0.0.1:8080"
 	stdr.TLS = &tls.ConnectionState{}
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 
 	stdr.Header.Set("X-Forwarded-For", "192.168.1.1")
-	_, err = sp.dialServer(svr, req)
+	_, _, err = sp.dialServer(svr, req)
 	assert.Error(err)
 }

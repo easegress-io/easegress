@@ -6,10 +6,10 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join MegaEase Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)
+[![Join Easegress Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
 
 <a href="https://megaease.com/easegress">
-    <img src="./doc/imgs/easegress.svg"
+    <img src="./docs/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
 
@@ -34,7 +34,7 @@
 
 下面是其架构图：
 
-![架构](./doc/imgs/architecture.png)
+![架构](./docs/imgs/architecture.png)
 
 ## 功能
 
@@ -84,7 +84,7 @@
   - **压缩**：减少应答数据的体积。
   - **热更新**：线上更新 Easegress 的配置和二进制文件，服务不中断。
 - **操作**
-  - **易于集成**：命令行([egctl](docs/02.Tutorials/2.1.egctl-Usage.md))、MegaEase Portal，以及 HTTP 客户端，如 curl、postman 等。
+  - **易于集成**：命令行([egctl](docs/02.Tutorials/2.1.egctl-Usage.md))、Easegress Portal，以及 HTTP 客户端，如 curl、postman 等。
   - **分布式跟踪**
     - 内置 [OpenTelemetry](https://opentelemetry.io/)，提供厂商中立的 API。
   - **可观察性**
@@ -113,7 +113,7 @@
 - [高性能](docs/03.Advanced-Cookbook/3.11.Performance.md) - 性能优化，压缩、缓存等。
 - [管道编排](docs/02.Tutorials/2.3.Pipeline-Explained.md) - 如何编排 HTTP 过滤器来处理请求和应答。
 - [弹力和容错设计](docs/02.Tutorials/2.4.Resilience.md) - 断路器、速率限制、重试、时间限制等（移植自[Java resilience4j](https://github.com/resilience4j/resilience4j)
-- [安全](docs/02.Tutorials/2.5.HTTPS-Lets-Encrypt.md#security-verify-credential) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
+- [安全](docs/02.Tutorials/2.5.Traffic-Verification.md) - 如何通过标头、JWT、HMAC、OAuth2 等进行认证。
 - [服务注册](docs/03.Advanced-Cookbook/3.06.Service-Registry.md) - 使用 Zookeeper、Eureka、Consul、Nacos 等进行服务注册。
 - [WebAssembly](docs/03.Advanced-Cookbook/3.07.WasmHost.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](docs/02.Tutorials/2.6.Websocket.md) - Easegress 的 WebSocket 代理。
@@ -140,7 +140,7 @@
 
 ## 社区
 
-- [加入Slack工作区](https://join.slack.com/t/openmegaease/shared_invite/zt-upo7v306-lYPHvVwKnvwlqR0Zl2vveA)，提出需求、讨论问题、解决问题。
+- [加入Slack工作区](https://cloud-native.slack.com/messages/easegress)，提出需求、讨论问题、解决问题。
 - [推特上的 MegaEase](https://twitter.com/megaease)
 
 ## 许可证

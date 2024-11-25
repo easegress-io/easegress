@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -53,7 +53,7 @@ type MockServerPoolImpl struct {
 
 func (m *MockServerPoolImpl) CreateLoadBalancer(spec *LoadBalanceSpec, servers []*Server) LoadBalancer {
 	lb := NewGeneralLoadBalancer(spec, servers)
-	lb.Init(NewHTTPSessionSticker, NewHTTPHealthChecker, nil)
+	lb.Init(NewHTTPSessionSticker, nil, nil)
 	return lb
 }
 

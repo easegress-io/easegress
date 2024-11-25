@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -483,6 +483,10 @@ func (mp *muxPath) initRewrite() {
 	}
 
 	mp.rewriteTemplate = template.Must(template.New("").Parse(repl))
+}
+
+func (mp *muxPath) Protocol() string {
+	return "http"
 }
 
 func (mp *muxPath) Rewrite(context *routers.RouteContext) {

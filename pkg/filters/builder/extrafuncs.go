@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +20,9 @@ package builder
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -140,5 +143,39 @@ var extraFuncs = template.FuncMap{
 
 	"panic": func(v interface{}) interface{} {
 		panic(v)
+	},
+
+	"header": func(header http.Header, key string) string {
+		return header.Get(key)
+	},
+
+	"username": func(req interface{}) string {
+		type BasicAuth interface {
+			BasicAuth() (username, password string, ok bool)
+		}
+		username, _, _ := req.(BasicAuth).BasicAuth()
+		return username
+	},
+
+	"host": func(hostPort string) string {
+		addr, _, _ := net.SplitHostPort(hostPort)
+		return addr
+	},
+
+	"port": func(hostPort string) string {
+		_, port, _ := net.SplitHostPort(hostPort)
+		return port
+	},
+
+	"urlQueryUnescape": func(s string) string {
+		unescapedStr, err := url.QueryUnescape(s)
+		if err != nil {
+			panic(err)
+		}
+		return unescapedStr
+	},
+
+	"urlQueryEscape": func(s string) string {
+		return url.QueryEscape(s)
 	},
 }

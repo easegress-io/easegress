@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +22,12 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
@@ -47,6 +49,8 @@ const (
 	ObjectAPIResourcesPrefix = "/object-api-resources"
 )
 
+func RegisterValidateHook() {}
+
 func (s *Server) objectAPIEntries() []*Entry {
 	return []*Entry{
 		{
@@ -57,7 +61,7 @@ func (s *Server) objectAPIEntries() []*Entry {
 		{
 			Path:    ObjectAPIResourcesPrefix,
 			Method:  "GET",
-			Handler: s.listObjectApiResources,
+			Handler: s.listObjectAPIResources,
 		},
 		{
 			Path:    ObjectPrefix,
@@ -138,6 +142,10 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if spec.Categroy() == supervisor.CategorySystemController {
+		HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("can't create system controller object"))
+	}
+
 	name := spec.Name()
 
 	s.Lock()
@@ -147,6 +155,15 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 	if existedSpec != nil {
 		HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("conflict name: %s", name))
 		return
+	}
+
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeCreate, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
 	}
 
 	s._putObject(spec)
@@ -164,9 +181,24 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	defer s.Unlock()
 
 	spec := s._getObject(name)
+
+	if spec.Categroy() == supervisor.CategorySystemController {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("can't delete system controller object"))
+		return
+	}
+
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
+	}
+
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeDelete, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
 	}
 
 	s._deleteObject(name)
@@ -181,6 +213,19 @@ func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 		specs := s._listObjects()
 		for _, spec := range specs {
+			if spec.Categroy() == supervisor.CategorySystemController {
+				continue
+			}
+
+			// Validate hooks.
+			for _, hook := range objectValidateHooks {
+				err := hook(OperationTypeDelete, spec)
+				if err != nil {
+					HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+					return
+				}
+			}
+
 			s._deleteObject(spec.Name())
 		}
 
@@ -227,15 +272,24 @@ func (s *Server) getObjectTemplate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getObject(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	_, namespace := parseNamespaces(r)
+	if namespace != "" && namespace != DefaultNamespace {
+		spec := s._getObjectByNamespace(namespace, name)
+		if spec == nil {
+			HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
+			return
+		}
+
+		WriteBody(w, r, spec)
+		return
+	}
 
 	// No need to lock.
-
 	spec := s._getObject(name)
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
-
 	WriteBody(w, r, spec)
 }
 
@@ -264,11 +318,48 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate hooks.
+	for _, hook := range objectValidateHooks {
+		err := hook(OperationTypeUpdate, spec)
+		if err != nil {
+			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
+			return
+		}
+	}
+
 	s._putObject(spec)
 	s.upgradeConfigVersion(w, r)
 }
 
+func parseNamespaces(r *http.Request) (bool, string) {
+	allNamespaces := strings.TrimSpace(r.URL.Query().Get("all-namespaces"))
+	namespace := strings.TrimSpace(r.URL.Query().Get("namespace"))
+	flag, err := strconv.ParseBool(allNamespaces)
+	if err != nil {
+		return false, namespace
+	}
+	return flag, namespace
+}
+
 func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
+	allNamespaces, namespace := parseNamespaces(r)
+	if allNamespaces && namespace != "" {
+		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("conflict query params, can't set all-namespaces and namespace at the same time"))
+		return
+	}
+	if allNamespaces {
+		allSpecs := s._listAllNamespaces()
+		allSpecs[DefaultNamespace] = s._listObjects()
+		WriteBody(w, r, allSpecs)
+		return
+	}
+	if namespace != "" && namespace != DefaultNamespace {
+		specs := s._listNamespaces(namespace)
+		WriteBody(w, r, specs)
+		return
+	}
+
+	// allNamespaces == false && namespace == ""
 	// No need to lock.
 	specs := specList(s._listObjects())
 	// NOTE: Keep it consistent.
@@ -279,16 +370,21 @@ func (s *Server) listObjects(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getStatusObject(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
+	_, namespace := parseNamespaces(r)
 
-	spec := s._getObject(name)
-
+	var spec *supervisor.Spec
+	if namespace == "" || namespace == DefaultNamespace {
+		spec = s._getObject(name)
+	} else {
+		spec = s._getObjectByNamespace(namespace, name)
+	}
 	if spec == nil {
 		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
-	status := s._getStatusObject(name)
-
+	_, isTraffic := supervisor.TrafficObjectKinds[spec.Kind()]
+	status := s._getStatusObject(namespace, name, isTraffic)
 	WriteBody(w, r, status)
 }
 
@@ -331,7 +427,70 @@ func (s *Server) listObjectKinds(w http.ResponseWriter, r *http.Request) {
 	WriteBody(w, r, kinds)
 }
 
-func (s *Server) listObjectApiResources(w http.ResponseWriter, r *http.Request) {
+func (s *Server) listObjectAPIResources(w http.ResponseWriter, r *http.Request) {
 	res := ObjectAPIResources()
 	WriteBody(w, r, res)
+}
+
+func getTrafficController(super *supervisor.Supervisor) *trafficcontroller.TrafficController {
+	entity, exists := super.GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		return nil
+	}
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		return nil
+	}
+	return tc
+}
+
+func (s *Server) _listAllNamespaces() map[string][]*supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	res := make(map[string][]*supervisor.Spec)
+	allObjects := tc.ListAllNamespace()
+	for namespace, objects := range allObjects {
+		specs := make([]*supervisor.Spec, 0, len(objects))
+		for _, o := range objects {
+			specs = append(specs, o.Spec())
+		}
+		res[namespace] = specs
+	}
+	return res
+}
+
+func (s *Server) _listNamespaces(ns string) []*supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	traffics := tc.ListTrafficGates(ns)
+	pipelines := tc.ListPipelines(ns)
+	specs := make([]*supervisor.Spec, 0, len(traffics)+len(pipelines))
+	for _, t := range traffics {
+		specs = append(specs, t.Spec())
+	}
+	for _, p := range pipelines {
+		specs = append(specs, p.Spec())
+	}
+	return specs
+}
+
+func (s *Server) _getObjectByNamespace(ns string, name string) *supervisor.Spec {
+	tc := getTrafficController(s.super)
+	if tc == nil {
+		return nil
+	}
+	object, ok := tc.GetPipeline(ns, name)
+	if ok {
+		return object.Spec()
+	}
+
+	object, ok = tc.GetTrafficGate(ns, name)
+	if ok {
+		return object.Spec()
+	}
+	return nil
 }

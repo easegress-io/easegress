@@ -6,9 +6,9 @@ before:
     - go generate ./...
 
 snapshot:
-  name_template: '{{ .Version }}'
+  name_template: "{{ .Version }}"
 checksum:
-  name_template: 'checksums.txt'
+  name_template: "checksums.txt"
 changelog:
   skip: true
 
@@ -23,10 +23,10 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
-      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
-      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
-  
+      - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.REPO=easegress-io/easegress
+
   - id: builder
     main: cmd/builder/main.go
     binary: bin/egbuilder
@@ -37,9 +37,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
-      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
-      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
+      - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.REPO=easegress-io/easegress
 
   - id: server
     main: cmd/server/main.go
@@ -51,9 +51,9 @@ builds:
       - darwin
     ldflags:
       - -s -w
-      - -X github.com/megaease/easegress/v2/pkg/version.RELEASE={{ .Tag }}
-      - -X github.com/megaease/easegress/v2/pkg/version.COMMIT={{.Commit}}
-      - -X github.com/megaease/easegress/v2/pkg/version.REPO=megaease/easegress
+      - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.COMMIT={{.Commit}}
+      - -X github.com/easegress-io/easegress/v2/pkg/version.REPO=easegress-io/easegress
 
 archives:
   - id: easegress
@@ -64,16 +64,17 @@ archives:
 
 release:
   github:
-    owner: megaease
+    owner: easegress-io
     name: easegress
   name_template: "{{ .ProjectName }}-v{{ .Version }}"
 
 dockers:
   - image_templates:
-    - megaease/easegress:latest
-    - megaease/easegress:{{ .Tag }}
-    - megaease/easegress:easemesh
-    - megaease/easegress:server-sidecar
+      # Still use MegaEase DockerHub account until we have a dedicatd one.
+      - megaease/easegress:latest
+      - megaease/easegress:{{ .Tag }}
+      - megaease/easegress:easemesh
+      - megaease/easegress:server-sidecar
 
     goos: linux
     goarch: amd64

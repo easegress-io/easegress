@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,6 +34,7 @@ type (
 	Spec struct {
 		super *Supervisor
 
+		category   ObjectCategory
 		jsonConfig string
 		meta       *MetaSpec
 		rawSpec    map[string]interface{}
@@ -44,10 +45,10 @@ type (
 	MetaSpec struct {
 		Name    string `json:"name" jsonschema:"required,format=urlname"`
 		Kind    string `json:"kind" jsonschema:"required"`
-		Version string `json:"version" jsonschema:"required"`
+		Version string `json:"version,omitempty"`
 
 		// RFC3339 format
-		CreatedAt string `json:"createdAt" jsonschema:"omitempty"`
+		CreatedAt string `json:"createdAt,omitempty"`
 	}
 )
 
@@ -141,6 +142,7 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 
 	jsonConfig := string(codectool.MustMarshalJSON(rawSpec))
 
+	spec.category = rootObject.Category()
 	spec.meta = meta
 	spec.objectSpec = objectSpec
 	spec.rawSpec = rawSpec
@@ -157,6 +159,10 @@ func (s *Spec) Super() *Supervisor {
 // MarshalJSON marshals the spec to json.
 func (s *Spec) MarshalJSON() ([]byte, error) {
 	return []byte(s.jsonConfig), nil
+}
+
+func (s *Spec) Categroy() ObjectCategory {
+	return s.category
 }
 
 // Name returns name.

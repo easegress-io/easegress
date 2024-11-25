@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,9 +28,9 @@ type (
 	// URLRule defines the match rule of a http request
 	URLRule struct {
 		id        string
-		Methods   []string                 `json:"methods" jsonschema:"omitempty,uniqueItems=true,format=httpmethod-array"`
+		Methods   []string                 `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
 		URL       stringtool.StringMatcher `json:"url" jsonschema:"required"`
-		PolicyRef string                   `json:"policyRef" jsonschema:"omitempty"`
+		PolicyRef string                   `json:"policyRef,omitempty"`
 	}
 )
 

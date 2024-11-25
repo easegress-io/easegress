@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,9 +49,10 @@ var aliases = []string{"eureka"}
 func init() {
 	supervisor.Register(&EurekaServiceRegistry{})
 	api.RegisterObject(&api.APIResource{
-		Kind:    Kind,
-		Name:    name,
-		Aliases: aliases,
+		Category: Category,
+		Kind:     Kind,
+		Name:     name,
+		Aliases:  aliases,
 	})
 }
 

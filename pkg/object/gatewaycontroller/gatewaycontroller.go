@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,9 +55,9 @@ type (
 
 	// Spec is the ingress controller spec
 	Spec struct {
-		KubeConfig string   `json:"kubeConfig" jsonschema:"omitempty"`
-		MasterURL  string   `json:"masterURL" jsonschema:"omitempty"`
-		Namespaces []string `json:"namespaces" jsonschema:"omitempty"`
+		KubeConfig string   `json:"kubeConfig,omitempty"`
+		MasterURL  string   `json:"masterURL,omitempty"`
+		Namespaces []string `json:"namespaces,omitempty"`
 	}
 )
 
@@ -86,7 +86,6 @@ func (gc *GatewayController) Init(superSpec *supervisor.Spec) {
 	gc.spec = superSpec.ObjectSpec().(*Spec)
 	gc.super = superSpec.Super()
 	gc.reload()
-
 }
 
 // Inherit inherits previous generation of GatewayController.
@@ -151,6 +150,7 @@ func (gc *GatewayController) run() {
 	}
 	logger.Infof("successfully watched gateway related resources")
 
+	gc.translate()
 	// process resource update events
 	for {
 		select {

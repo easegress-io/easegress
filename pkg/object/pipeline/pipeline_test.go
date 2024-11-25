@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, MegaEase
+* Copyright (c) 2017, The Easegress Authors
 * All rights reserved.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -442,7 +442,7 @@ filters:
 	ctx := context.New(tracing.NoopSpan)
 	ctx.SetRequest(context.DefaultNamespace, req)
 
-	pipeline.HandleWithBeforeAfter(ctx, nil, nil)
+	pipeline.HandleWithBeforeAfter(ctx, nil, nil, HandleWithBeforeAfterOption{})
 	tags := ctx.Tags()
 	assert.NotContains(tags, "filter1")
 	assert.Contains(tags, "filter2")
@@ -467,7 +467,7 @@ filters:
 
 	ctx = context.New(tracing.NoopSpan)
 	ctx.SetRequest(context.DefaultNamespace, req)
-	pipeline.HandleWithBeforeAfter(ctx, nil, after)
+	pipeline.HandleWithBeforeAfter(ctx, nil, after, HandleWithBeforeAfterOption{})
 	tags = ctx.Tags()
 	assert.NotContains(tags, "filter1")
 	assert.Contains(tags, "filter2")
@@ -492,7 +492,7 @@ filters:
 
 	ctx = context.New(tracing.NoopSpan)
 	ctx.SetRequest(context.DefaultNamespace, req)
-	pipeline.HandleWithBeforeAfter(ctx, before, after)
+	pipeline.HandleWithBeforeAfter(ctx, before, after, HandleWithBeforeAfterOption{})
 	tags = ctx.Tags()
 	assert.Contains(tags, "filter1")
 	assert.NotContains(tags, "filter2")

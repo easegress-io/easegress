@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,12 +49,6 @@ func InitServerDir(opt *option.Options) error {
 			return err
 		}
 	}
-
-	err = common.MkdirAll(opt.AbsMemberDir)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -68,6 +62,5 @@ func CleanServerDir(opt *option.Options) {
 	if opt.AbsLogDir != "" {
 		common.RemoveAll(opt.AbsLogDir)
 	}
-	common.RemoveAll(opt.AbsMemberDir)
 	common.RemoveAll(opt.AbsHomeDir)
 }

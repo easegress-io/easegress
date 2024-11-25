@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,14 +43,15 @@ const (
 func init() {
 	supervisor.Register(&MeshController{})
 	egapi.RegisterObject(&egapi.APIResource{
-		Kind:    Kind,
-		Name:    strings.ToLower(Kind),
-		Aliases: []string{"mesh", "meshcontrollers"},
+		Category: Category,
+		Kind:     Kind,
+		Name:     strings.ToLower(Kind),
+		Aliases:  []string{"mesh", "meshcontrollers"},
 	})
 }
 
 type (
-	// MeshController is a business controller to complete MegaEase Service Mesh.
+	// MeshController is a business controller to complete EaseMesh.
 	MeshController struct {
 		superSpec *supervisor.Spec
 		spec      *spec.Admin

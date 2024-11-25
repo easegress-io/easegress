@@ -1,5 +1,96 @@
 # Changelog
 
+## [v2.7.3](https://github.com/megaease/easegress/tree/v2.7.3) (2024-03-26) 
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.2...v2.7.3) 
+
+**Implemented enhancements:**
+* Kafka filter supports synchronous producer and message key.
+* host and port Functions added for template of request-response builder. 
+* Proxy support set upstream host for outgoing requests.
+
+## [v2.7.2](https://github.com/megaease/easegress/tree/v2.7.2) (2024-03-11)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.1...v2.7.2)
+
+**Community works**
+* Replace Github related megaease links to easegress-io
+
+**Implemented enhancements:**
+* Support global filter fallthrough when meet error
+
+**Fixed bugs:**
+* Fix empty proxy-timeout failure
+
+
+## [v2.7.1](https://github.com/megaease/easegress/tree/v2.7.1) (2024-02-22)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.0...v2.7.1)
+
+**Implemented enhancements:**
+* Upgraded to Golang version 1.21.
+* Enabled `egctl create httpproxy` command to support automatic updates for `AutoCertManager`.
+* Introduced an exportable custom plain logger.
+* Expanded `egctl` command utility across various namespaces.
+* Optimized proxy filter to immediately flush responses for Server-Sent Events (SSE).
+* Enhanced template functionality with additional functions in `RequestBuilder` and `ResponseBuilder`.
+* Updated documentation and adhered to the latest CNCF Code of Conduct for community guidelines.
+
+**Fixed bugs:**
+* Resolved the `AutoCertManager` did not remove duplicate DNS records issue.
+* Corrected proxy filter behavior to properly escape paths.
+
+
+## [v2.7.0](https://github.com/megaease/easegress/tree/v2.7.0) (2023-12-29)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.4...v2.7.0)
+
+**Significant changes:**
+* Support updating system controllers.
+
+**Implemented enhancements:**
+* Enabled unlimited single message capability for WebsocketProxy.
+* Add a hook in AutoCertManager for singular instance management.
+
+**Fixed bugs:**
+* Resolved WebsocketProxy keepHost issue.
+* Corrected the object status prefix in some special cases.
+* Fixed creation error in egbuilder filter.
+
+## [v2.6.4](https://github.com/megaease/easegress/tree/v2.6.4) (2023-12-04)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.3...v2.6.4)
+
+**Significant changes:**
+* Support health check for Proxy and WebSocketProxy filter.
+
+## [v2.6.3](https://github.com/megaease/easegress/tree/v2.6.3) (2023-11-23)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.2...v2.6.3)
+
+**Significant changes:**
+* Support Kubernetes Gateway API v1.
+* Converts Nginx configurations into Easegress YAMLs.
+* Integrates all Easegress filters and resilience policies with Kubernetes Gateway API.
+
+**Implemented enhancements:**
+* New RedirectorV2 filter added.
+* Runtime log level adjustment enabled.
+* Updated omitempty jsonschema in Specs.
+* Introduced cookie hash support.
+
+## [v2.6.2](https://github.com/megaease/easegress/tree/v2.6.2) (2023-10-19)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.6.1...v2.6.2)
+
+**Significant changes:**
+* Introduced a new user-friendly document.
+
+**Implemented enhancements:**
+* Added support for additional annotations in Kubernetes ingress.
+* Enabled CORS support in the easegress-server APIs.
+* Updated the helm chart.
+
 ## [v2.6.1](https://github.com/megaease/easegress/tree/v2.6.1) (2023-09-01)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.6.0...v2.6.1)

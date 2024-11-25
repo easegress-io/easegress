@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,6 +27,8 @@ import (
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
 )
+
+const DefaultNamespace = "default"
 
 // GetResourceKind returns the kind of the resource.
 func GetResourceKind(arg string) (string, error) {

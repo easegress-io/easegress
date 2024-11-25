@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, MegaEase
+* Copyright (c) 2017, The Easegress Authors
 * All rights reserved.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,8 +78,8 @@ type (
 
 	// HeaderSetterSpec defines etcd source key and request destination header.
 	HeaderSetterSpec struct {
-		EtcdKey   string `json:"etcdKey,omitempty" jsonschema:"omitempty"`
-		HeaderKey string `json:"headerKey,omitempty" jsonschema:"omitempty"`
+		EtcdKey   string `json:"etcdKey,omitempty"`
+		HeaderKey string `json:"headerKey,omitempty"`
 	}
 
 	// Spec defines header key and etcd prefix that form etcd key like /custom-data/{etcdPrefix}/{headerKey's value}.
@@ -95,7 +95,7 @@ type (
 
 		HeaderKey     string              `json:"headerKey" jsonschema:"required"`
 		EtcdPrefix    string              `json:"etcdPrefix" jsonschema:"required"`
-		PathRegExp    string              `json:"pathRegExp" jsonschema:"omitempty"`
+		PathRegExp    string              `json:"pathRegExp,omitempty"`
 		HeaderSetters []*HeaderSetterSpec `json:"headerSetters" jsonschema:"required"`
 	}
 )

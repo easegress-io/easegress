@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -103,7 +103,7 @@ func (b *pipelineSpecBuilder) addProxy(endpoints []string, ingress *apinetv1.Ing
 	}
 
 	var timeout time.Duration
-	if proxyTimeout == "" {
+	if proxyTimeout != "" {
 		result, err := time.ParseDuration(proxyTimeout)
 		if err != nil {
 			return fmt.Errorf("invalid proxy-timeout: %v", err)

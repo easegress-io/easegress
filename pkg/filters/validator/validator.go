@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,11 +70,11 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		Headers   *httpheader.ValidatorSpec `json:"headers,omitempty" jsonschema:"omitempty"`
-		JWT       *JWTValidatorSpec         `json:"jwt,omitempty" jsonschema:"omitempty"`
-		Signature *signer.Spec              `json:"signature,omitempty" jsonschema:"omitempty"`
-		OAuth2    *OAuth2ValidatorSpec      `json:"oauth2,omitempty" jsonschema:"omitempty"`
-		BasicAuth *BasicAuthValidatorSpec   `json:"basicAuth,omitempty" jsonschema:"omitempty"`
+		Headers   *httpheader.ValidatorSpec `json:"headers,omitempty"`
+		JWT       *JWTValidatorSpec         `json:"jwt,omitempty"`
+		Signature *signer.Spec              `json:"signature,omitempty"`
+		OAuth2    *OAuth2ValidatorSpec      `json:"oauth2,omitempty"`
+		BasicAuth *BasicAuthValidatorSpec   `json:"basicAuth,omitempty"`
 	}
 )
 

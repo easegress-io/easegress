@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,18 +68,18 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 
-		BannedClientRe string   `json:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClients  []string `json:"bannedClients" jsonschema:"omitempty"`
-		BannedTopicRe  string   `json:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopics   []string `json:"bannedTopics" jsonschema:"omitempty"`
+		BannedClientRe string   `json:"bannedClientRe,omitempty"`
+		BannedClients  []string `json:"bannedClients,omitempty"`
+		BannedTopicRe  string   `json:"bannedTopicRe,omitempty"`
+		BannedTopics   []string `json:"bannedTopics,omitempty"`
 	}
 
 	// Status is ConnectControl filter status
 	Status struct {
-		BannedClientRe  string `json:"bannedClientRe" jsonschema:"omitempty"`
-		BannedClientNum int    `json:"bannedClientNum" jsonschema:"omitempty"`
-		BannedTopicRe   string `json:"bannedTopicRe" jsonschema:"omitempty"`
-		BannedTopicNum  int    `json:"bannedTopicNum" jsonschema:"omitempty"`
+		BannedClientRe  string `json:"bannedClientRe,omitempty"`
+		BannedClientNum int    `json:"bannedClientNum,omitempty"`
+		BannedTopicRe   string `json:"bannedTopicRe,omitempty"`
+		BannedTopicNum  int    `json:"bannedTopicNum,omitempty"`
 	}
 )
 

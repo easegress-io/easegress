@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -157,7 +157,7 @@ func (tc *TrafficController) Init(superSpec *supervisor.Spec) {
 
 // Inherit inherits previous generation of TrafficController.
 func (tc *TrafficController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
-	tc.superSpec, tc.super = superSpec, superSpec.Super()
+	tc.superSpec, tc.spec, tc.super = superSpec, superSpec.ObjectSpec().(*Spec), superSpec.Super()
 	tc.reload(previousGeneration.(*TrafficController))
 }
 
@@ -705,4 +705,25 @@ func (tc *TrafficController) Close() {
 		delete(tc.namespaces, name)
 		logger.Infof("delete namespace %s", name)
 	}
+}
+
+// ListAllNamespace lists pipelines and traffic gates in all namespaces.
+func (tc *TrafficController) ListAllNamespace() map[string][]*supervisor.ObjectEntity {
+	tc.mutex.Lock()
+	defer tc.mutex.Unlock()
+
+	res := make(map[string][]*supervisor.ObjectEntity)
+	for namespace, space := range tc.namespaces {
+		entities := []*supervisor.ObjectEntity{}
+		space.pipelines.Range(func(k, v interface{}) bool {
+			entities = append(entities, v.(*supervisor.ObjectEntity))
+			return true
+		})
+		space.trafficGates.Range(func(k, v interface{}) bool {
+			entities = append(entities, v.(*supervisor.ObjectEntity))
+			return true
+		})
+		res[namespace] = entities
+	}
+	return res
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MegaEase
+ * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/cmd/client/commandv2/specs"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
@@ -44,7 +44,7 @@ pools:
   loadBalance:
     policy: roundRobin
 `
-	expected := getDefaultProxyFilterSpec()
+	expected := specs.NewProxyFilterSpec("proxy")
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
@@ -71,12 +71,13 @@ filters:
       policy: roundRobin
 `
 	// compare expected and got pipeline
-	expected := getDefaultPipelineSpec()
+	expected := specs.NewPipelineSpec("pipeline")
 	err := codectool.UnmarshalYAML([]byte(yamlStr), expected)
 	assert.Nil(err)
 
 	endpoints := []string{"http://127.0.0.1:9095", "http://127.0.0.1:9096"}
-	got := translateToPipeline(endpoints)
+	got := specs.NewPipelineSpec("pipeline")
+	translateToPipeline(endpoints, got)
 
 	// filters part is not compare here, because the filter part is map[string]interface{},
 	// the expected map[string]interface{} is unmarshal from yaml,
@@ -92,7 +93,7 @@ filters:
 	// if marshal it once, some part of expectedFilter will be nil.
 	// but gotFilter will be empty. for example []string{} vs nil.
 	// []string{} and nil are actually same in this case.
-	expectedFilter := getDefaultProxyFilterSpec()
+	expectedFilter := specs.NewProxyFilterSpec("proxy")
 	filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
 	err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 	assert.Nil(err)
@@ -100,7 +101,7 @@ filters:
 	err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 	assert.Nil(err)
 
-	gotFilter := filters.GetKind(httpproxy.Kind).DefaultSpec().(*httpproxy.Spec)
+	gotFilter := specs.NewProxyFilterSpec("proxy")
 	filterYaml = codectool.MustMarshalYAML(got.Filters[0])
 	err = codectool.UnmarshalYAML(filterYaml, gotFilter)
 	assert.Nil(err)
@@ -254,15 +255,27 @@ func TestCreateHTTPProxyOptions(t *testing.T) {
 			"foo.com/bar*=http://127.0.0.1:9095",
 			"/bar=http://127.0.0.1:9095",
 		},
-		TLS:        true,
-		AutoCert:   true,
-		CaCertFile: createCert("ca.cert"),
-		CertFiles:  []string{createCert("cert1"), createCert("cert2")},
-		KeyFiles:   []string{createCert("key1"), createCert("key2")},
+		TLS:                true,
+		AutoCert:           true,
+		CaCertFile:         createCert("ca.cert"),
+		CertFiles:          []string{createCert("cert1"), createCert("cert2")},
+		KeyFiles:           []string{createCert("key1"), createCert("key2")},
+		AutoCertEmail:      "someone@easegress.com",
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=dnspod",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
 	}
 	o.Complete([]string{"test"})
 	err = o.Parse()
 	assert.Nil(err)
+
+	// auto cert
+	assert.Equal("dnspod", o.dnsProvider["name"])
+	assert.Equal("easegress.com", o.dnsProvider["zone"])
+	assert.Equal("abc", o.dnsProvider["apiToken"])
 
 	hs, pls := o.Translate()
 
@@ -311,11 +324,11 @@ filters:
       policy: roundRobin
 `
 	expectedFilter := func() *httpproxy.Spec {
-		expected := getDefaultPipelineSpec()
+		expected := specs.NewPipelineSpec("pipeline")
 		err = codectool.UnmarshalYAML([]byte(yamlStr), expected)
 		assert.Nil(err)
 
-		expectedFilter := getDefaultProxyFilterSpec()
+		expectedFilter := specs.NewProxyFilterSpec("proxy")
 		filterYaml := codectool.MustMarshalYAML(expected.Filters[0])
 		err = codectool.UnmarshalYAML(filterYaml, expectedFilter)
 		assert.Nil(err)
@@ -326,7 +339,7 @@ filters:
 	}()
 
 	for i, p := range pls {
-		gotFilter := getDefaultProxyFilterSpec()
+		gotFilter := specs.NewProxyFilterSpec("proxy")
 		filterYaml := codectool.MustMarshalYAML(p.Filters[0])
 		err = codectool.UnmarshalYAML(filterYaml, gotFilter)
 		assert.Nil(err)
@@ -381,4 +394,84 @@ func TestCreateHTTPProxyCmd(t *testing.T) {
 	// test run
 	err = httpProxyRun(cmd, []string{"demo"})
 	assert.NotNil(t, err)
+}
+
+func TestTranslateAutoCertManager(t *testing.T) {
+	assert := assert.New(t)
+
+	originalHook := handleReqHook
+	defer func() {
+		handleReqHook = originalHook
+	}()
+	handleReqHook = func(httpMethod string, path string, yamlBody []byte) ([]byte, error) {
+		return []byte("[]"), nil
+	}
+	option := &HTTPProxyOptions{
+		AutoCert:           true,
+		AutoCertEmail:      "some@easegress.com",
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=dnspod",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
+	}
+	option.Complete([]string{"test"})
+	err := option.Parse()
+	assert.Nil(err)
+
+	spec, err := option.TranslateAutoCertManager()
+	assert.Nil(err)
+	assert.Equal("AutoCertManager", spec.Kind)
+	assert.Equal("autocertmanager", spec.Name)
+	assert.Equal("some@easegress.com", spec.Email)
+	assert.Equal(1, len(spec.Domains))
+	assert.Equal("*.easegress.example", spec.Domains[0].Name)
+	assert.Equal(map[string]string{
+		"name":     "dnspod",
+		"zone":     "easegress.com",
+		"apiToken": "abc",
+	}, spec.Domains[0].DNSProvider)
+
+	handleReqHook = func(httpMethod string, path string, yamlBody []byte) ([]byte, error) {
+		return []byte(`[
+			{
+				"kind": "AutoCertManager",
+				"name": "autocert",
+				"email": "anybody@easegress.com",
+				domains: [
+					{
+						"name": "*.easegress.org",
+						"dnsProvider": {
+							"name": "dnspod",
+							"zone": "easegress.org",
+							"apiToken": "abc"
+						}
+					}
+				]
+			}
+		]`), nil
+	}
+	option = &HTTPProxyOptions{
+		AutoCert:           true,
+		AutoCertDomainName: "*.easegress.example",
+		AutoCertDNSProvider: []string{
+			"name=aliyun",
+			"zone=easegress.com",
+			"apiToken=abc",
+		},
+	}
+	option.Complete([]string{"test"})
+	err = option.Parse()
+	assert.Nil(err)
+
+	spec, err = option.TranslateAutoCertManager()
+	assert.Nil(err)
+	assert.Equal("AutoCertManager", spec.Kind)
+	assert.Equal("autocert", spec.Name)
+	assert.Equal("anybody@easegress.com", spec.Email)
+
+	assert.Equal(2, len(spec.Domains))
+	assert.Equal("*.easegress.org", spec.Domains[0].Name)
+	assert.Equal("*.easegress.example", spec.Domains[1].Name)
 }
