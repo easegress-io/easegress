@@ -1,6 +1,7 @@
 module github.com/megaease/easegress/v2
 
 go 1.21
+toolchain go1.22.5
 
 // replace (
 // 	github/megaease/easegress => ./
@@ -280,7 +281,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
-	golang.org/x/mod v0.17.0
+	golang.org/x/mod v0.22.0
 	golang.org/x/oauth2 v0.22.0 // indirect
 	golang.org/x/term v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
