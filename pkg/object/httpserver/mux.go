@@ -287,15 +287,24 @@ func NewResponseFlushWriter(w http.ResponseWriter) *ResponseFlushWriter {
 	}
 }
 
+// responseNeedFlush returns whether the response needs to be flushed immediately.
+// The response needs to be flushed immediately if the response has no content length (chunked),
+// or the response is a Server-Sent Events response.
 func responseNeedFlush(resp *httpprot.Response) bool {
+	// If Content-Length is not set, the response is chunked.
+	// For chunked responses, we should flush immediately.
+	if resp.ContentLength <= 0 {
+		return true
+	}
+
 	resCTHeader := resp.Std().Header.Get("Content-Type")
 	resCT, _, err := mime.ParseMediaType(resCTHeader)
-
 	// For Server-Sent Events responses, flush immediately.
 	// The MIME type is defined in https://www.w3.org/TR/eventsource/#text-event-stream
 	if err == nil && resCT == "text/event-stream" {
 		return true
 	}
+
 	return false
 }
 
