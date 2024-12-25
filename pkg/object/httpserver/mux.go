@@ -249,7 +249,7 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	stdw.WriteHeader(resp.StatusCode())
 
 	var writer io.Writer
-	if responseNeedFlush(resp) {
+	if responseIsRealTime(resp) {
 		writer = NewResponseFlushWriter(stdw)
 	} else {
 		writer = stdw
@@ -287,13 +287,11 @@ func NewResponseFlushWriter(w http.ResponseWriter) *ResponseFlushWriter {
 	}
 }
 
-// responseNeedFlush returns whether the response needs to be flushed immediately.
+// responseIsRealTime returns whether the response needs to be flushed immediately.
 // The response needs to be flushed immediately if the response has no content length (chunked),
 // or the response is a Server-Sent Events response.
-func responseNeedFlush(resp *httpprot.Response) bool {
-	// If Content-Length is not set, the response is chunked.
-	// For chunked responses, we should flush immediately.
-	if resp.ContentLength <= 0 {
+func responseIsRealTime(resp *httpprot.Response) bool {
+	if len(resp.TransferEncoding) > 0 && resp.TransferEncoding[0] == "chunked" && resp.ContentLength <= 0 {
 		return true
 	}
 
