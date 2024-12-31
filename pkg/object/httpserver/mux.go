@@ -291,6 +291,9 @@ func NewResponseFlushWriter(w http.ResponseWriter) *ResponseFlushWriter {
 // The response needs to be flushed immediately if the response has no content length (chunked),
 // or the response is a Server-Sent Events response.
 func responseIsRealTime(resp *httpprot.Response) bool {
+	// Based on https://en.wikipedia.org/wiki/Chunked_transfer_encoding
+	// If the Transfer-Encoding header field is present in a response and its value is "chunked",
+	// then the body of response is considered as a stream of chunks.
 	if len(resp.TransferEncoding) > 0 && resp.TransferEncoding[0] == "chunked" && resp.ContentLength <= 0 {
 		return true
 	}
