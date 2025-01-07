@@ -91,12 +91,21 @@ func initRun(cmd *cobra.Command, args []string) {
 		utils.ExitWithErrorf("directory %s is not empty, please call init in an empty directory", cwd)
 	}
 
+	initBuildYaml(cmd, cwd)
 	initGenerateFiles(cmd, cwd)
 	initGenerateMod(ctx, cmd)
 	err = initConfig.Save(cwd)
 	if err != nil {
 		utils.ExitWithError(err)
 	}
+}
+
+func initBuildYaml(_ *cobra.Command, cwd string) {
+	err := initConfig.GenBuildYaml(cwd)
+	if err != nil {
+		utils.ExitWithError(err)
+	}
+	fmt.Println("generate build.yaml success")
 }
 
 func initGenerateFiles(_ *cobra.Command, cwd string) {
