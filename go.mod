@@ -12,7 +12,7 @@ require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/dave/jennifer v1.7.0
-	github.com/eclipse/paho.mqtt.golang v1.4.3
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.0.10
