@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.7.5](https://github.com/megaease/easegress/tree/v2.7.5) (2025-02-18)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.4...v2.7.5)
+
+**Fixed bugs:**
+* Replace test urls to make unit test more stable.
 
 ## [v2.7.4](https://github.com/megaease/easegress/tree/v2.7.4) (2025-02-18) 
 
