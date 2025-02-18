@@ -58,7 +58,7 @@ kind: SimpleHTTPProxy
 `
 	proxy := newTestSimpleHttpProxy(yamlConfig, assert)
 
-	stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+	stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 	ctx := getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
 	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
@@ -76,7 +76,7 @@ kind: SimpleHTTPProxy
 timeout: 1ms
 `
 	proxy = newTestSimpleHttpProxy(yamlConfig2, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 	ctx = getCtx(stdr)
 	assert.NotEmpty(proxy.Handle(ctx), "should timeout")
 
@@ -88,7 +88,7 @@ compression:
   minLength: 1024
 `
 	proxy = newTestSimpleHttpProxy(yamlConfig3, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 	ctx = getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
 	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
@@ -109,7 +109,7 @@ kind: SimpleHTTPProxy
 maxBodySize: 1024
 `
 	proxy = newTestSimpleHttpProxy(yamlConfig4, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 	ctx = getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
 	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)

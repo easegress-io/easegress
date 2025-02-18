@@ -183,20 +183,20 @@ compression:
 
 	atomic.StoreInt32(&fnKind, 0)
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Mirror", "mirror")
 		ctx := getCtx(stdr)
 		assert.Equal("", proxy.Handle(ctx))
 	}
 
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		ctx := getCtx(stdr)
 		assert.Equal("", proxy.Handle(ctx))
 	}
 
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Test", "testheader")
 		ctx := getCtx(stdr)
 		assert.Equal("", proxy.Handle(ctx))
@@ -204,7 +204,7 @@ compression:
 
 	atomic.StoreInt32(&fnKind, 1)
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Test", "testheader")
 		ctx := getCtx(stdr)
 		assert.NotEqual("", proxy.Handle(ctx))
@@ -212,7 +212,7 @@ compression:
 
 	atomic.StoreInt32(&fnKind, 2)
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Test", "testheader")
 		ctx := getCtx(stdr)
 		assert.NotEqual("", proxy.Handle(ctx))
@@ -220,7 +220,7 @@ compression:
 
 	atomic.StoreInt32(&fnKind, 3)
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Test", "stream")
 		ctx := getCtx(stdr)
 		resp, _ := httpprot.NewResponse(nil)
