@@ -1,5 +1,18 @@
 # Changelog
 
+
+## [v2.7.4](https://github.com/megaease/easegress/tree/v2.7.4) (2025-02-18) 
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.3...v2.7.4) 
+
+**Implemented enhancements:**
+* Stream Response Flushing: Improved handling of stream responses to ensure true streaming behavior.
+
+**Fixed bugs:**
+* Fixed an issue where the response body was not closed in some scenarios.
+* Update README.zh-CN.md image link.
+
+
 ## [v2.7.3](https://github.com/megaease/easegress/tree/v2.7.3) (2024-03-26) 
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.2...v2.7.3) 
