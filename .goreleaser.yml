@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -9,8 +11,6 @@ snapshot:
   name_template: "{{ .Version }}"
 checksum:
   name_template: "checksums.txt"
-changelog:
-  skip: true
 
 builds:
   - id: client
