@@ -1,5 +1,11 @@
 # Changelog
 
+## [v2.7.5](https://github.com/megaease/easegress/tree/v2.7.5) (2025-04-02) 
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.7.4...v2.7.5) 
+
+**Fixed bugs:**
+* Maintain the original request's content length in the proxy request for stream mode.
 
 ## [v2.7.4](https://github.com/megaease/easegress/tree/v2.7.4) (2025-02-18) 
 
