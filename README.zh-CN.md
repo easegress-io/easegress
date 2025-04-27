@@ -36,6 +36,8 @@
 
 ![架构](./docs/imgs/architecture.png)
 
+你可以查看 [Easegress DeepWiki页面](https://deepwiki.com/easegress-io/easegress)，了解更多详细信息。
+
 ## 功能
 
 - **服务管理**
@@ -118,7 +120,6 @@
 - [WebAssembly](docs/03.Advanced-Cookbook/3.07.WasmHost.md) - 使用 AssemblyScript 来扩展 Easegress。
 - [WebSocket](docs/02.Tutorials/2.6.Websocket.md) - Easegress 的 WebSocket 代理。
 - [工作流](docs/03.Advanced-Cookbook/3.10.Workflow.md) - 将若干 API 进行组合，定制为工作流。
-
 
 完整的列表请参见 [Tutorials](docs/02.Tutorials/README.md) 和 [Cookbook](docs/03.Advanced-Cookbook/README.md)。
 
