@@ -34,9 +34,9 @@ require (
 	github.com/libdns/cloudflare v0.1.1
 	github.com/libdns/digitalocean v0.0.0-20230728223659-4f9064657aea
 	github.com/libdns/dnspod v0.0.3
-	github.com/libdns/duckdns v0.2.0
+	github.com/libdns/duckdns v0.3.0
 	github.com/libdns/hetzner v0.0.1
-	github.com/libdns/libdns v0.2.2
+	github.com/libdns/libdns v1.0.0-beta.1
 	github.com/libdns/route53 v1.3.3
 	github.com/libdns/vultr v1.0.0
 	github.com/megaease/easemesh-api v1.4.4
