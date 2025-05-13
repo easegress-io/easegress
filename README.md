@@ -43,6 +43,8 @@ The architecture of Easegress:
 
 ![architecture](./docs/imgs/architecture.png)
 
+And you can check [Easegress DeepWiki Page](https://deepwiki.com/easegress-io/easegress) to dive into more details.
+
 ## Features
 
 - **Service Management**
@@ -104,12 +106,12 @@ The architecture of Easegress:
       - **TopN:** sorted by aggregated APIs(only in server dimension).
 
 ## Getting Started
+
 The basic usage of Easegress is to quickly set up a proxy for the backend servers.
 
 ### Launch Easegress
 
 Easegress can be installed from pre-built binaries or from source. For details, see [Install](docs/01.Getting-Started/1.2.Install.md).
-
 
 Then we can execute the server:
 
@@ -141,8 +143,9 @@ $ egctl create httpproxy demo --port 10080 \
 ```
 
 Then try it:
+
 ```bash
-$ curl -v 127.0.0.1:10080/pipeline
+curl -v 127.0.0.1:10080/pipeline
 ```
 
 The request will be forwarded to either `127.0.0.1:9095/pipeline` or `127.0.0.1:9096/pipeline`, utilizing a round-robin load-balancing policy.
@@ -177,6 +180,7 @@ The following examples show how to use Easegress for different scenarios.
 - [Workflow](docs/03.Advanced-Cookbook/3.10.Workflow.md) - An Example to make a workflow for a number of APIs.
 
 For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/03.Advanced-Cookbook/README.md).
+
 ## Documentation
 
 - [Getting Started](docs/01.Getting-Started/README.md)
@@ -205,7 +209,6 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ![pipeline detail](./docs/imgs/portal/pipeline-detail.png)
 
-
 ## Community
 
 - [Join Slack Workspace](https://cloud-native.slack.com/messages/easegress) for requirement, issue and development.
@@ -218,6 +221,5 @@ See [Contributing guide](./CONTRIBUTING.md#contributing). The project welcomes c
 ## License
 
 Easegress is under the Apache 2.0 license. See the [LICENSE](./LICENSE) file for details.
-
 
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress?ref=badge_large)
