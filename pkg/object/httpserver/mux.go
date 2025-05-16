@@ -252,10 +252,10 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	var writer io.Writer
 	if responseIsRealTime(resp) {
 		writer = NewResponseFlushWriter(stdw)
-		ctx.AddTag("resp stream: true")
+		ctx.AddTag("real time stream: true")
 	} else {
 		writer = stdw
-		ctx.AddTag("resp stream: false")
+		ctx.AddTag("real time stream: false")
 	}
 	respBodySize, _ := io.Copy(writer, resp.GetPayload())
 
