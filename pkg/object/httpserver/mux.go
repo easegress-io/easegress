@@ -51,6 +51,7 @@ import (
 
 const (
 	defaultAccessLogFormat = "[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]"
+	maxURISizeInAccessLog  = 512
 )
 
 type (
@@ -251,8 +252,10 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	var writer io.Writer
 	if responseIsRealTime(resp) {
 		writer = NewResponseFlushWriter(stdw)
+		ctx.AddTag("real time stream: true")
 	} else {
 		writer = stdw
+		ctx.AddTag("real time stream: false")
 	}
 	respBodySize, _ := io.Copy(writer, resp.GetPayload())
 
@@ -368,6 +371,10 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 		span.End()
 
+		uri := stdr.RequestURI
+		if len(uri) > maxURISizeInAccessLog {
+			uri = uri[:maxURISizeInAccessLog] + "..."
+		}
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
 			log := &accessLog{
@@ -375,7 +382,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				RemoteAddr:  stdr.RemoteAddr,
 				RealIP:      req.RealIP(),
 				Method:      stdr.Method,
-				URI:         stdr.RequestURI,
+				URI:         uri,
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,
