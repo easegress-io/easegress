@@ -1,6 +1,6 @@
 module github.com/megaease/easegress/v2
 
-go 1.21
+go 1.23
 
 // replace (
 // 	github/megaease/easegress => ./
