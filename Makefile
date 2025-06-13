@@ -14,7 +14,7 @@ INTEGRATION_TEST_PATH := build/test
 
 # Image Name
 IMAGE_NAME?=megaease/easegress
-BUILDER_IMAGE_NAME?=megaease/golang:1.21.7-alpine
+BUILDER_IMAGE_NAME?=megaease/golang:1.23-alpine
 
 # Version
 RELEASE?=v2.7.5
