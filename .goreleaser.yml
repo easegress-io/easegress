@@ -1,3 +1,5 @@
+version: 2
+
 before:
   hooks:
     # You may remove this if you don't use go modules.
@@ -6,11 +8,9 @@ before:
     - go generate ./...
 
 snapshot:
-  name_template: "{{ .Version }}"
+  version_template: "{{ .Version }}"
 checksum:
   name_template: "checksums.txt"
-changelog:
-  skip: true
 
 builds:
   - id: client
@@ -57,7 +57,8 @@ builds:
 
 archives:
   - id: easegress
-    format: tar.gz
+    formats:
+      - tar.gz
     name_template: "{{ .ProjectName }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     files:
       - none*

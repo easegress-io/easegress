@@ -51,6 +51,7 @@ import (
 
 const (
 	defaultAccessLogFormat = "[{{Time}}] [{{RemoteAddr}} {{RealIP}} {{Method}} {{URI}} {{Proto}} {{StatusCode}}] [{{Duration}} rx:{{ReqSize}}B tx:{{RespSize}}B] [{{Tags}}]"
+	maxURISizeInAccessLog  = 512
 )
 
 type (
@@ -249,10 +250,12 @@ func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWrit
 	stdw.WriteHeader(resp.StatusCode())
 
 	var writer io.Writer
-	if responseNeedFlush(resp) {
+	if responseIsRealTime(resp) {
 		writer = NewResponseFlushWriter(stdw)
+		ctx.AddTag("real time stream: true")
 	} else {
 		writer = stdw
+		ctx.AddTag("real time stream: false")
 	}
 	respBodySize, _ := io.Copy(writer, resp.GetPayload())
 
@@ -287,15 +290,25 @@ func NewResponseFlushWriter(w http.ResponseWriter) *ResponseFlushWriter {
 	}
 }
 
-func responseNeedFlush(resp *httpprot.Response) bool {
+// responseIsRealTime returns whether the response needs to be flushed immediately.
+// The response needs to be flushed immediately if the response has no content length (chunked),
+// or the response is a Server-Sent Events response.
+func responseIsRealTime(resp *httpprot.Response) bool {
+	// Based on https://en.wikipedia.org/wiki/Chunked_transfer_encoding
+	// If the Transfer-Encoding header field is present in a response and its value is "chunked",
+	// then the body of response is considered as a stream of chunks.
+	if len(resp.TransferEncoding) > 0 && resp.TransferEncoding[0] == "chunked" && resp.ContentLength <= 0 {
+		return true
+	}
+
 	resCTHeader := resp.Std().Header.Get("Content-Type")
 	resCT, _, err := mime.ParseMediaType(resCTHeader)
-
 	// For Server-Sent Events responses, flush immediately.
 	// The MIME type is defined in https://www.w3.org/TR/eventsource/#text-event-stream
 	if err == nil && resCT == "text/event-stream" {
 		return true
 	}
+
 	return false
 }
 
@@ -358,6 +371,10 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 
 		span.End()
 
+		uri := stdr.RequestURI
+		if len(uri) > maxURISizeInAccessLog {
+			uri = uri[:maxURISizeInAccessLog] + "..."
+		}
 		// Write access log.
 		logger.LazyHTTPAccess(func() string {
 			log := &accessLog{
@@ -365,7 +382,7 @@ func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request) {
 				RemoteAddr:  stdr.RemoteAddr,
 				RealIP:      req.RealIP(),
 				Method:      stdr.Method,
-				URI:         stdr.RequestURI,
+				URI:         uri,
 				Proto:       stdr.Proto,
 				StatusCode:  metric.StatusCode,
 				Duration:    metric.Duration,

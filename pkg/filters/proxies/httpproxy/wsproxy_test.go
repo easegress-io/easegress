@@ -135,13 +135,13 @@ pools:
 	assert.NotNil(proxy.Status())
 
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.cncf.io", nil)
 		ctx := getCtx(stdr)
 		assert.Equal(resultInternalError, proxy.Handle(ctx))
 	}
 
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "https://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
 		stdr.Header.Set("X-Test", "testheader")
 		ctx := getCtx(stdr)
 		assert.Equal(resultInternalError, proxy.Handle(ctx))
@@ -155,7 +155,7 @@ pools:
 	proxy = proxy2
 
 	{
-		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.megaease.com", nil)
+		stdr, _ := http.NewRequest(http.MethodGet, "wss://www.cncf.io", nil)
 		ctx := getCtx(stdr)
 		ctx.SetData("HTTP_RESPONSE_WRITER", httptest.NewRecorder())
 		assert.Equal(resultClientError, proxy.Handle(ctx))

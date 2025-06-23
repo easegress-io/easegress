@@ -18,6 +18,7 @@
 package httpproxy
 
 import (
+	"bytes"
 	stdcontext "context"
 	"fmt"
 	"io"
@@ -150,6 +151,16 @@ func (spCtx *serverPoolContext) prepareRequest(pool *ServerPool, svr *Server, ct
 	} else {
 		payload = req.GetPayload()
 	}
+
+	// Keep Content-Length header when the request Content-Length is present.
+	if spCtx.req.IsStream() && spCtx.req.ContentLength > 0 {
+		data, err := io.ReadAll(payload)
+		if err != nil {
+			return err
+		}
+		payload = bytes.NewReader(data)
+	}
+
 	stdr, err := http.NewRequestWithContext(ctx, req.Method(), url, payload)
 	if err != nil {
 		return err

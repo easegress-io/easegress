@@ -181,6 +181,10 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 	defer s.Unlock()
 
 	spec := s._getObject(name)
+	if spec == nil {
+		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
+		return
+	}
 
 	if spec.Categroy() == supervisor.CategorySystemController {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("can't delete system controller object"))
