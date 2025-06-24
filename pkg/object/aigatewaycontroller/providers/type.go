@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2017, The Easegress Authors
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package providers
+
+import (
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+)
+
+type Provider interface {
+	Type() string
+	// TODO req is simple http.Request with extra methods.
+	// In Easegress, we have multiple namespaces. Every namespace has its own request and response.
+	// Here the resp is not the actual response, this resp is used to load data and write to real response when finish.
+	// check func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request)
+	// and func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header)
+	// for more details.
+	// For non-stream data is simple, just SetPayload([]byte)
+	// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
+	Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response) (*protocol.Metric, error)
+}
