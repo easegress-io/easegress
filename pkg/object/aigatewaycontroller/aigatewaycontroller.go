@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 
 	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/common"
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
@@ -101,16 +102,57 @@ type (
 
 	// Spec describes AIGatewayController.
 	Spec struct {
-		Providers []*providers.ProviderSpec `json:"providers,omitempty"`
+		Providers     []*ProviderSpec    `json:"providers,omitempty"`
+		Observability *ObservabilitySpec `json:"observability,omitempty"`
 	}
 
-	Status struct {
+	ProviderSpec struct {
+		Name         string            `json:"name"`
+		ProviderType string            `json:"providerType"`
+		BaseURL      string            `json:"baseURL"`
+		APIKey       string            `json:"apiKey"`
+		Headers      map[string]string `json:"headers,omitempty"`
 	}
+
+	ObservabilitySpec struct {
+		// TODO: add observability options
+	}
+
+	Status struct{}
 )
 
 // Validate validates the spec of AIGatewayController.
 func (spec *Spec) Validate() error {
-	// TODO
+	nameSet := make(map[string]struct{})
+	for _, p := range spec.Providers {
+		if p.Name == "" {
+			return fmt.Errorf("provider name cannot be empty")
+		}
+		if common.ValidateName(p.Name) != nil {
+			return fmt.Errorf("invalid provider name: %s", p.Name)
+		}
+		if _, exists := nameSet[p.Name]; exists {
+			return fmt.Errorf("duplicate provider name: %s", p.Name)
+		}
+		nameSet[p.Name] = struct{}{}
+
+		switch strings.ToLower(p.ProviderType) {
+		case "openai", "deepseek", "ollama":
+		case "":
+			return fmt.Errorf("provider type cannot be empty for provider: %s", p.Name)
+		default:
+			return fmt.Errorf("unknown provider type: %s for provider: %s", p.ProviderType, p.Name)
+		}
+
+		if p.BaseURL == "" {
+			return fmt.Errorf("baseURL cannot be empty for provider: %s", p.Name)
+		}
+
+		if p.APIKey == "" {
+			return fmt.Errorf("APIKey cannot be empty for provider: %s", p.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -126,7 +168,11 @@ func (agc *AIGatewayController) Kind() string {
 
 // DefaultSpec returns the default spec of AIGatewayController.
 func (agc *AIGatewayController) DefaultSpec() interface{} {
-	return &Spec{}
+	return &Spec{
+		Observability: &ObservabilitySpec{
+			// TODO: add observability default options
+		},
+	}
 }
 
 // Init initializes AIGatewayController.
