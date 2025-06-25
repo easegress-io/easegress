@@ -102,8 +102,8 @@ type (
 
 	// Spec describes AIGatewayController.
 	Spec struct {
-		Providers     []*ProviderSpec    `json:"providers,omitempty"`
-		Observability *ObservabilitySpec `json:"observability,omitempty"`
+		Providers     []*providers.ProviderSpec `json:"providers,omitempty"`
+		Observability *ObservabilitySpec        `json:"observability,omitempty"`
 	}
 
 	ProviderSpec struct {
