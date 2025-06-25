@@ -101,15 +101,7 @@ type (
 
 	// Spec describes AIGatewayController.
 	Spec struct {
-		Providers []*ProviderSpec `json:"providers,omitempty"`
-	}
-
-	ProviderSpec struct {
-		Name         string            `json:"name"`
-		ProviderType string            `json:"providerType"`
-		BaseURL      string            `json:"baseURL"`
-		APIKey       string            `json:"apiKey"`
-		Headers      map[string]string `json:"headers,omitempty"`
+		Providers []*providers.ProviderSpec `json:"providers,omitempty"`
 	}
 
 	Status struct {
@@ -183,7 +175,7 @@ func (agc *AIGatewayController) Close() {
 func (agc *AIGatewayController) Handle(ctx *context.Context, providerName string) string {
 	if _, ok := agc.providers[providerName]; !ok || providerName == "" {
 		setErrResponse(ctx, fmt.Errorf("provider %s not found", providerName))
-		return resultProviderNotFoundError
+		return providers.ResultProviderNotFoundError
 	}
 
 	req := ctx.GetInputRequest().(*httpprot.Request)
@@ -194,14 +186,10 @@ func (agc *AIGatewayController) Handle(ctx *context.Context, providerName string
 	}
 
 	provider := agc.providers[providerName]
-	metrics, err := provider.Handle(ctx, req, resp)
-	if err != nil {
-		setErrResponse(ctx, err)
-		return resultInternalError
-	}
-
-	agc.metricshub.Update(metrics)
-	return ""
+	result := provider.Handle(ctx, req, resp, func(m *metricshub.Metric) {
+		agc.metricshub.Update(m)
+	})
+	return result
 }
 
 func GetGlobalAIGatewayHandler() (AIGatewayHandler, error) {

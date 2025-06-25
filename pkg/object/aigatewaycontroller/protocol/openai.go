@@ -44,3 +44,7 @@ func NewError(code int, message string) ErrorResponse {
 	}
 	return ErrorResponse{Error{Type: etype, Message: message}}
 }
+
+type GeneralRequest struct {
+	Stream bool `json:"stream"`
+}

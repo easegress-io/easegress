@@ -17,7 +17,16 @@
 
 package metricshub
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
+type Metric struct {
+	Success      bool   `json:"success"`
+	Duration     int64  `json:"duration"` // in milliseconds
+	Provider     string `json:"provider"`
+	ProviderType string `json:"providerType"`
+	InputTokens  int64  `json:"inputTokens"`
+	OutputTokens int64  `json:"outputTokens"`
+	Model        string `json:"model"`
+	BaseURL      string `json:"baseURL"`
+}
 
 type MetricsHub struct {
 }
@@ -26,6 +35,6 @@ func New() *MetricsHub {
 	return &MetricsHub{}
 }
 
-func (m *MetricsHub) Update(metric *protocol.Metric) {
+func (m *MetricsHub) Update(metric *Metric) {
 	// TODO: Implement the logic to update the metrics hub with the provided metric.
 }

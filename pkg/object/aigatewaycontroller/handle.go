@@ -17,17 +17,11 @@
 
 package aigatewaycontroller
 
-const (
-	resultInternalError         = "internalError"
-	resultClientError           = "clientError"
-	resultServerError           = "serverError"
-	resultFailureCode           = "failureCodeError"
-	resultProviderNotFoundError = "providerNotFoundError"
-)
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
 
 // HandlerResults return the results of handler
 func HandlerResults() []string {
 	return []string{
-		resultClientError, resultClientError, resultServerError, resultFailureCode, resultProviderNotFoundError,
+		providers.ResultClientError, providers.ResultClientError, providers.ResultServerError, providers.ResultFailureCode, providers.ResultProviderNotFoundError,
 	}
 }

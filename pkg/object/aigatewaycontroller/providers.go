@@ -21,7 +21,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
 )
 
-func NewProvider(spec *ProviderSpec) providers.Provider {
+func NewProvider(spec *providers.ProviderSpec) providers.Provider {
 	// TODO: Add more providers
 	return nil
 }

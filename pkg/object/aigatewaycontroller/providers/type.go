@@ -19,19 +19,38 @@ package providers
 
 import (
 	"github.com/megaease/easegress/v2/pkg/context"
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
-type Provider interface {
-	Type() string
-	// TODO req is simple http.Request with extra methods.
-	// In Easegress, we have multiple namespaces. Every namespace has its own request and response.
-	// Here the resp is not the actual response, this resp is used to load data and write to real response when finish.
-	// check func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request)
-	// and func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header)
-	// for more details.
-	// For non-stream data is simple, just SetPayload([]byte)
-	// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
-	Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response) (*protocol.Metric, error)
-}
+type (
+	Provider interface {
+		Type() string
+		// TODO req is simple http.Request with extra methods.
+		// In Easegress, we have multiple namespaces. Every namespace has its own request and response.
+		// Here the resp is not the actual response, this resp is used to load data and write to real response when finish.
+		// check func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request)
+		// and func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header)
+		// for more details.
+		// For non-stream data is simple, just SetPayload([]byte)
+		// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
+		Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string
+	}
+
+	// ProviderSpec is the specification for an AI provider.
+	ProviderSpec struct {
+		Name         string            `json:"name"`
+		ProviderType string            `json:"providerType"`
+		BaseURL      string            `json:"baseURL"`
+		APIKey       string            `json:"apiKey"`
+		Headers      map[string]string `json:"headers,omitempty"`
+	}
+)
+
+const (
+	ResultInternalError         = "internalError"
+	ResultClientError           = "clientError"
+	ResultServerError           = "serverError"
+	ResultFailureCode           = "failureCodeError"
+	ResultProviderNotFoundError = "providerNotFoundError"
+)
