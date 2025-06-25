@@ -54,3 +54,13 @@ const (
 	ResultFailureCode           = "failureCodeError"
 	ResultProviderNotFoundError = "providerNotFoundError"
 )
+
+func codeToResult(statusCode int) string {
+	if statusCode < 400 {
+		return ""
+	}
+	if statusCode < 500 {
+		return ResultClientError
+	}
+	return ResultServerError
+}

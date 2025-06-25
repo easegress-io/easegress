@@ -18,14 +18,21 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"maps"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/util/httphelper"
+	"github.com/megaease/easegress/v2/pkg/util/readers"
 )
 
 type (
@@ -34,32 +41,74 @@ type (
 	}
 )
 
+var _ Provider = (*OpenAIProvider)(nil)
+
 func (p *OpenAIProvider) Type() string {
 	return "openai"
 }
 
-func (p *OpenAIProvider) Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response) string {
+func (p *OpenAIProvider) Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string {
 	providerContext := &ProviderContext{
 		Ctx:      ctx,
 		Req:      req,
 		Resp:     resp,
 		Provider: p.providerSpec,
 	}
-	request, isStream, err := prepareRequest(providerContext, openaiRequestMapper)
+	request, openaiReq, err := prepareRequest(providerContext, openaiRequestMapper)
 	if err != nil {
-		setErrResponse(resp, http.StatusInternalServerError, err)
+		setEgErrResponse(resp, http.StatusInternalServerError, err)
 		return ResultInternalError
 	}
-	return openaiProxyRequest(providerContext, request, isStream)
+	return openaiProxyRequest(providerContext, openaiReq, request, updateMetricFn)
 }
 
-func openaiProxyRequest(pc *ProviderContext, req *http.Request, isStream bool) string {
+func openaiProxyRequest(pc *ProviderContext, openaiReq *protocol.GeneralRequest, req *http.Request, updateMetricFn func(*metricshub.Metric)) string {
+	// TODO add metrics
+	start := time.Now()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		setEgErrResponse(pc.Resp, http.StatusInternalServerError, err)
+		return ResultInternalError
+	}
+	// cant use defer to close body here.
+	// for stream data, we need to return this function and use a goroutine to send data and close body after than.
+	duration := time.Since(start).Milliseconds()
+
+	// copy response data to buf
+	var buf bytes.Buffer
+	tee := io.TeeReader(resp.Body, &buf)
+	body := readers.NewCallbackReader(tee)
+	body.OnClose(func() {
+		resp.Body.Close()
+	})
+	body.OnClose(func() {
+		metric := metricshub.Metric{
+			Success:      resp.StatusCode == http.StatusOK,
+			Duration:     duration,
+			Provider:     pc.Provider.Name,
+			ProviderType: pc.Provider.ProviderType,
+			Model:        openaiReq.Model,
+			BaseURL:      pc.Provider.BaseURL,
+		}
+		inputToken, outputToken, err := parseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
+		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
+		updateMetricFn(&metric)
+	})
+
+	pc.Resp.SetStatusCode(resp.StatusCode)
+	httphelper.RemoveHopByHopHeaders(resp.Header)
+	maps.Copy(pc.Resp.HTTPHeader(), resp.Header)
+	pc.Resp.SetPayload(body)
+	return codeToResult(resp.StatusCode)
+}
+
+func parseTokens(openaiReq *protocol.GeneralRequest, path string, resp *http.Response, respBody []byte) (inputToken int, outputToken int, err error) {
 	// TODO
-	return ""
+	return 0, 0, nil
 }
 
 // openaiRequestMapper is a RequestMapper to map user request to OpenAI provider request.
-func openaiRequestMapper(req *httpprot.Request, body []byte) (string, bool, []byte, error) {
+func openaiRequestMapper(req *httpprot.Request, body []byte) (string, *protocol.GeneralRequest, []byte, error) {
 	// remove the routing prefix from the request path
 	path := req.URL().Path
 	if strings.HasSuffix(path, "/v1/chat/completions") {
@@ -67,12 +116,12 @@ func openaiRequestMapper(req *httpprot.Request, body []byte) (string, bool, []by
 	} else if strings.HasSuffix(path, "/v1/completions") {
 		path = "/v1/completions"
 	} else {
-		return "", false, nil, fmt.Errorf("unsupported OpenAI request path: %s", path)
+		return "", nil, nil, fmt.Errorf("unsupported OpenAI request path: %s", path)
 	}
 
 	openaiReq := &protocol.GeneralRequest{}
 	if err := json.Unmarshal(body, openaiReq); err != nil {
-		return "", false, nil, fmt.Errorf("failed to unmarshal OpenAI request: %w", err)
+		return "", nil, nil, fmt.Errorf("failed to unmarshal OpenAI request: %w", err)
 	}
-	return path, openaiReq.Stream, body, nil
+	return path, openaiReq, body, nil
 }

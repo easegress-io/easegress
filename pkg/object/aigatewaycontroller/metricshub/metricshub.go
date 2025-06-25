@@ -26,6 +26,7 @@ type Metric struct {
 	OutputTokens int64  `json:"outputTokens"`
 	Model        string `json:"model"`
 	BaseURL      string `json:"baseURL"`
+	Error        string `json:"error"`
 }
 
 type MetricsHub struct {

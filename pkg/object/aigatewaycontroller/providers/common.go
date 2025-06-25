@@ -41,22 +41,22 @@ type (
 	}
 
 	// RequestMapper is a function that maps user OpenAI request to a provider request.
-	RequestMapper func(req *httpprot.Request, body []byte) (path string, isStream bool, newBody []byte, err error)
+	RequestMapper func(req *httpprot.Request, body []byte) (path string, config *protocol.GeneralRequest, newBody []byte, err error)
 )
 
-func prepareRequest(pc *ProviderContext, mapper RequestMapper) (request *http.Request, isStram bool, err error) {
+func prepareRequest(pc *ProviderContext, mapper RequestMapper) (request *http.Request, config *protocol.GeneralRequest, err error) {
 	u, err := url.Parse(pc.Provider.BaseURL)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 	body, err := io.ReadAll(pc.Req.GetPayload())
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 
 	path, stream, newBody, err := mapper(pc.Req, body)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 
 	u.Path = path
@@ -76,9 +76,17 @@ func prepareRequest(pc *ProviderContext, mapper RequestMapper) (request *http.Re
 	return req, stream, err
 }
 
-func setErrResponse(resp *httpprot.Response, code int, err error) {
+func setEgErrResponse(resp *httpprot.Response, code int, err error) {
 	resp.SetStatusCode(code)
 	errMsg := protocol.NewError(code, err.Error())
 	data, _ := codectool.MarshalJSON(errMsg)
 	resp.SetPayload(data)
+}
+
+func setEgResponseFromResponse(egResp *httpprot.Response, resp *http.Response, body []byte) {
+	egResp.SetStatusCode(resp.StatusCode)
+	header := resp.Header
+	httphelper.RemoveHopByHopHeaders(header)
+	maps.Copy(egResp.HTTPHeader(), header)
+	egResp.SetPayload(body)
 }
