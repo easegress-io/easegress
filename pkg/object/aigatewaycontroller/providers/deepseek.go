@@ -16,3 +16,24 @@
  */
 
 package providers
+
+type (
+	DeepSeekProvider struct {
+		BaseProvider
+	}
+)
+
+var _ Provider = (*DeepSeekProvider)(nil)
+
+// NewDeepSeekProvider initializes a DeepSeekProvider with the given ProviderSpec.
+func NewDeepSeekProvider(spec *ProviderSpec) *DeepSeekProvider {
+	return &DeepSeekProvider{
+		BaseProvider: BaseProvider{
+			providerSpec: spec,
+		},
+	}
+}
+
+func (p *DeepSeekProvider) Type() string {
+	return "deepseek"
+}

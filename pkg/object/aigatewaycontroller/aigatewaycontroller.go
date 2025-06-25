@@ -195,7 +195,7 @@ func (agc *AIGatewayController) Inherit(superSpec *supervisor.Spec, previousGene
 }
 
 func (agc *AIGatewayController) reload() {
-	// TODO
+	// TODO register providers
 	agc.providers = make(map[string]providers.Provider)
 	for _, s := range agc.spec.Providers {
 		provider := NewProvider(s)
