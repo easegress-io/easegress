@@ -21,11 +21,13 @@ import (
 	"net/http"
 )
 
+// Error reference from https://platform.openai.com/docs/api-reference/responses-streaming/error
 type Error struct {
-	Message string      `json:"message"`
-	Type    string      `json:"type"`
-	Param   interface{} `json:"param"`
-	Code    *string     `json:"code"`
+	Message        string  `json:"message"`
+	Type           string  `json:"type"`
+	SequenceNumber int     `json:"sequence_number,omitempty"`
+	Param          *string `json:"param"`
+	Code           *string `json:"code"`
 }
 
 type ErrorResponse struct {
