@@ -149,6 +149,9 @@ func newBroker(spec *Spec, store storage, muxMapper context.MuxMapper, memberURL
 		broker.sessionCacheMgr = newSessionCacheManager(spec, broker.topicMgr)
 	}
 	broker.connectWatcher()
+
+	broker.registerAPIs()
+
 	return broker
 }
 
@@ -326,7 +329,6 @@ func (b *Broker) handleNewSessionInCluster(clientID string, v *string, sessionIn
 		c.ClientID(), info.EGName)
 	c.kickOut()
 	b.removeClient(clientID)
-
 }
 
 func (b *Broker) deleteSession(clientID string) {
@@ -470,7 +472,6 @@ func (b *Broker) handleConn(conn net.Conn) {
 		b.clients[client.info.cid] = client
 		return nil, nil
 	}(client.info.cid)
-
 	if err != nil {
 		// Concurrent connection exceed maxium quotas, returned
 		return
@@ -639,7 +640,6 @@ func (b *Broker) requestTransferToCertainInstances(span *model.SpanContext, publ
 			resp.Body.Close()
 		}
 	}
-
 }
 
 func (b *Broker) processBrokerModePublish(clientID string, publish *packets.PublishPacket) {
@@ -859,6 +859,10 @@ func (b *Broker) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
+func (b *Broker) unregisterAPIs() {
+	api.UnregisterAPIs(b.name)
+}
+
 func (b *Broker) setClose() {
 	atomic.StoreInt32(&b.closeFlag, 1)
 }
@@ -869,6 +873,8 @@ func (b *Broker) closed() bool {
 }
 
 func (b *Broker) close() {
+	b.unregisterAPIs()
+
 	b.setClose()
 	close(b.done)
 	b.listener.Close()
