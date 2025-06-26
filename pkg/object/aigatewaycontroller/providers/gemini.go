@@ -18,22 +18,22 @@
 package providers
 
 type (
-	OllamaProvider struct {
+	GeminiProvider struct {
 		BaseProvider
 	}
 )
 
-var _ Provider = (*OllamaProvider)(nil)
+var _ Provider = (*GeminiProvider)(nil)
 
 // NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
-func NewOllamaProvider(spec *ProviderSpec) *OllamaProvider {
-	return &OllamaProvider{
+func NewGeminiProvider(spec *ProviderSpec) *GeminiProvider {
+	return &GeminiProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,
 		},
 	}
 }
 
-func (p *OllamaProvider) Type() string {
-	return "ollama"
+func (p *GeminiProvider) Type() string {
+	return "gemini"
 }

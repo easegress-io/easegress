@@ -18,22 +18,22 @@
 package providers
 
 type (
-	OllamaProvider struct {
+	CoHereProvider struct {
 		BaseProvider
 	}
 )
 
-var _ Provider = (*OllamaProvider)(nil)
+var _ Provider = (*CoHereProvider)(nil)
 
 // NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
-func NewOllamaProvider(spec *ProviderSpec) *OllamaProvider {
-	return &OllamaProvider{
+func NewCoHereProvider(spec *ProviderSpec) *CoHereProvider {
+	return &CoHereProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,
 		},
 	}
 }
 
-func (p *OllamaProvider) Type() string {
-	return "ollama"
+func (p *CoHereProvider) Type() string {
+	return "cohere"
 }
