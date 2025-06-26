@@ -155,7 +155,6 @@ func (mp *MQTTProxy) Init(superSpec *supervisor.Spec, muxMapper context.MuxMappe
 	if mp.broker == nil {
 		panic(fmt.Sprintf("broker %v start failed", spec.Name))
 	}
-	mp.broker.registerAPIs()
 }
 
 // Inherit inherits previous generation of MQTTProxy.

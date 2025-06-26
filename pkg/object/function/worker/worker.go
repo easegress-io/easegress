@@ -188,6 +188,8 @@ func (worker *Worker) Close() {
 	worker.mutex.Lock()
 	defer worker.mutex.Unlock()
 
+	worker.unregisterAPIs()
+
 	close(worker.done)
 	worker.ingress.Close()
 }

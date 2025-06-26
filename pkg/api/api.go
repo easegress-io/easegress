@@ -74,7 +74,11 @@ func RegisterAPIs(apiGroup *Group) {
 	apis[apiGroup.Group] = apiGroup
 
 	logger.Infof("register api group %s", apiGroup.Group)
-	apisChangeChan <- struct{}{}
+
+	select {
+	case apisChangeChan <- struct{}{}:
+	default:
+	}
 }
 
 // UnregisterAPIs unregisters the API group.
@@ -91,7 +95,11 @@ func UnregisterAPIs(group string) {
 	delete(apis, group)
 
 	logger.Infof("unregister api group %s", group)
-	apisChangeChan <- struct{}{}
+
+	select {
+	case apisChangeChan <- struct{}{}:
+	default:
+	}
 }
 
 func (s *Server) registerAPIs() {
