@@ -116,19 +116,17 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.Ge
 		resp.Body.Close()
 	})
 	body.OnClose(func() {
-		go func() {
-			metric := metricshub.Metric{
-				Success:      resp.StatusCode == http.StatusOK,
-				Duration:     duration,
-				Provider:     pc.Provider.Name,
-				ProviderType: pc.Provider.ProviderType,
-				Model:        openaiReq.Model,
-				BaseURL:      pc.Provider.BaseURL,
-			}
-			inputToken, outputToken, err := bp.ParseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
-			metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
-			updateMetricFn(&metric)
-		}()
+		metric := metricshub.Metric{
+			Success:      resp.StatusCode == http.StatusOK,
+			Duration:     duration,
+			Provider:     pc.Provider.Name,
+			ProviderType: pc.Provider.ProviderType,
+			Model:        openaiReq.Model,
+			BaseURL:      pc.Provider.BaseURL,
+		}
+		inputToken, outputToken, err := bp.ParseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
+		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
+		updateMetricFn(&metric)
 	})
 
 	pc.Resp.SetStatusCode(resp.StatusCode)
