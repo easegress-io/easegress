@@ -20,6 +20,7 @@ package providers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -28,12 +29,27 @@ import (
 	"time"
 
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/v2/pkg/util/httphelper"
 	"github.com/megaease/easegress/v2/pkg/util/readers"
 )
+
+type ResponseType string
+
+const (
+	ResponseTypeCompletions     ResponseType = "/v1/completions"
+	ResponseTypeChatCompletions ResponseType = "/v1/chat/completions"
+)
+
+// pathToResponseType maps the request path to the corresponding response type.
+// some of provider support OpenAI API with differne path.
+var pathToResponseType = map[string]ResponseType{
+	"/v1/completions":      ResponseTypeCompletions,
+	"/v1/chat/completions": ResponseTypeChatCompletions,
+}
 
 // BaseProvider is a struct that contains the common fields for all AI gateway providers.
 // Almost all providers compatible with OpenAI API, so we abstract the common logic.
@@ -100,17 +116,19 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.Ge
 		resp.Body.Close()
 	})
 	body.OnClose(func() {
-		metric := metricshub.Metric{
-			Success:      resp.StatusCode == http.StatusOK,
-			Duration:     duration,
-			Provider:     pc.Provider.Name,
-			ProviderType: pc.Provider.ProviderType,
-			Model:        openaiReq.Model,
-			BaseURL:      pc.Provider.BaseURL,
-		}
-		inputToken, outputToken, err := bp.ParseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
-		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
-		updateMetricFn(&metric)
+		go func() {
+			metric := metricshub.Metric{
+				Success:      resp.StatusCode == http.StatusOK,
+				Duration:     duration,
+				Provider:     pc.Provider.Name,
+				ProviderType: pc.Provider.ProviderType,
+				Model:        openaiReq.Model,
+				BaseURL:      pc.Provider.BaseURL,
+			}
+			inputToken, outputToken, err := bp.ParseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
+			metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
+			updateMetricFn(&metric)
+		}()
 	})
 
 	pc.Resp.SetStatusCode(resp.StatusCode)
@@ -121,6 +139,95 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.Ge
 }
 
 func (bp *BaseProvider) ParseTokens(openaiReq *protocol.GeneralRequest, path string, resp *http.Response, respBody []byte) (inputToken int, outputToken int, err error) {
-	// TODO
-	return 0, 0, nil
+	if resp.StatusCode != http.StatusOK {
+		respErr := &protocol.ErrorResponse{}
+		err := json.Unmarshal(respBody, &respErr)
+		if err != nil {
+			logger.Errorf("failed to unmarshal resp body, %v", err)
+			return 0, 0, ErrUnmarshalResponse
+		}
+		return 0, 0, errors.New(respErr.Error.Type)
+	}
+	respType, ok := pathToResponseType[path]
+	if !ok {
+		logger.Errorf("unknow path %s to parse response", path)
+		return 0, 0, ErrInternalServer
+	}
+
+	switch respType {
+	case ResponseTypeCompletions:
+		return parseCompletions(openaiReq, respBody)
+	case ResponseTypeChatCompletions:
+		return parseChatCompletions(openaiReq, respBody)
+	default:
+		logger.Errorf("unsupported resp type %s", respType)
+		return 0, 0, ErrInternalServer
+	}
+}
+
+func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, err error) {
+	if openaiReq.Stream {
+		chunk, err := getLastChunkFromOpenAIStream(respBody)
+		if err != nil {
+			return 0, 0, err
+		}
+		resp := &protocol.CompletionChunk{}
+		err = json.Unmarshal(chunk, &resp)
+		if err != nil {
+			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
+			return 0, 0, ErrUnmarshalResponse
+		}
+		if resp.Usage != nil {
+			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+		}
+		return 0, 0, nil
+	}
+	resp := &protocol.Completion{}
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
+		return 0, 0, ErrUnmarshalResponse
+	}
+	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+}
+
+func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, err error) {
+	if openaiReq.Stream {
+		chunk, err := getLastChunkFromOpenAIStream(respBody)
+		if err != nil {
+			return 0, 0, err
+		}
+		resp := &protocol.ChatCompletionChunk{}
+		err = json.Unmarshal(chunk, &resp)
+		if err != nil {
+			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
+			return 0, 0, ErrUnmarshalResponse
+		}
+		if resp.Usage != nil {
+			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+		}
+		return 0, 0, nil
+	}
+	resp := &protocol.ChatCompletion{}
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
+		return 0, 0, ErrUnmarshalResponse
+	}
+	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+}
+
+func getLastChunkFromOpenAIStream(body []byte) ([]byte, error) {
+	bodyString := strings.TrimSpace(string(body))
+	chunks := strings.Split(bodyString, "\n\n")
+	l := len(chunks)
+	if l <= 1 {
+		logger.Errorf("failed to get last chunk from response %s", string(body))
+		return nil, ErrUnmarshalResponse
+	}
+	if chunks[l-1] != "data: [DONE]" {
+		logger.Errorf("failed to get last chunk from response %s", string(body))
+		return nil, ErrUnmarshalResponse
+	}
+	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), nil
 }

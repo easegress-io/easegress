@@ -19,6 +19,7 @@ package providers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -31,6 +32,10 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/httphelper"
 )
+
+var ErrInternalServer = errors.New("internal_server_err")
+var ErrUnmarshalResponse = errors.New("unmarshal_response_err")
+var ErrUnmarshalRequest = errors.New("unmarshal_request_err")
 
 type (
 	ProviderContext struct {

@@ -51,3 +51,36 @@ type GeneralRequest struct {
 	Model  string `json:"model"`
 	Stream bool   `json:"stream"`
 }
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
+type GeneralResponse struct {
+	Id      string `json:"id"`
+	Object  string `json:"object"`
+	Created int64  `json:"created"`
+	Model   string `json:"model"`
+}
+
+type ChatCompletion struct {
+	GeneralResponse
+	Usage Usage `json:"usage,omitempty"`
+}
+
+type ChatCompletionChunk struct {
+	GeneralResponse
+	Usage *Usage `json:"usage,omitempty"`
+}
+
+type Completion struct {
+	GeneralResponse
+	Usage Usage `json:"usage,omitempty"`
+}
+
+type CompletionChunk struct {
+	GeneralResponse
+	Usage *Usage `json:"usage,omitempty"`
+}
