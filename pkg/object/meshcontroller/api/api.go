@@ -127,7 +127,7 @@ type (
 	}
 )
 
-const apiGroupName = "mesh_admin"
+const APIGroupName = "mesh_admin"
 
 // New creates a API
 func New(superSpec *supervisor.Spec) *API {
@@ -148,12 +148,12 @@ func New(superSpec *supervisor.Spec) *API {
 
 // Close unregisters a API
 func (a *API) Close() {
-	api.UnregisterAPIs(apiGroupName)
+	api.UnregisterAPIs(APIGroupName)
 }
 
 func (a *API) registerAPIs() {
 	group := &api.Group{
-		Group: apiGroupName,
+		Group: APIGroupName,
 		Entries: []*api.Entry{
 			{Path: MeshTenantPrefix, Method: "GET", Handler: a.listTenants},
 			{Path: MeshTenantPrefix, Method: "POST", Handler: a.createTenant},
