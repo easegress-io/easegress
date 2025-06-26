@@ -181,6 +181,8 @@ func (agc *AIGatewayController) Init(superSpec *supervisor.Spec) {
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
 
+	agc.registerAPIs()
+
 	agc.reload()
 }
 
@@ -215,6 +217,8 @@ func (agc *AIGatewayController) Status() *supervisor.Status {
 // Close closes AIGatewayController.
 func (agc *AIGatewayController) Close() {
 	// TODO close
+	agc.unregisterAPIs()
+
 	globalAGC.CompareAndSwap(agc, (*AIGatewayController)(nil))
 }
 
