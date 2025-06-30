@@ -40,8 +40,11 @@ import (
 type ResponseType string
 
 const (
-	ResponseTypeCompletions     ResponseType = "/v1/completions"
-	ResponseTypeChatCompletions ResponseType = "/v1/chat/completions"
+	ResponseTypeCompletions      ResponseType = "/v1/completions"
+	ResponseTypeChatCompletions  ResponseType = "/v1/chat/completions"
+	ResponseTypeEmbeddings       ResponseType = "/v1/embeddings"
+	ResponseTypeModels           ResponseType = "/v1/models"
+	ResponseTypeImageGenerations ResponseType = "/v1/images/generations"
 )
 
 // pathToResponseType maps the request path to the corresponding response type.
@@ -81,10 +84,16 @@ func (bp *BaseProvider) Handle(ctx *context.Context, req *httpprot.Request, resp
 func (bp *BaseProvider) RequestMapper(req *httpprot.Request, body []byte) (string, *protocol.GeneralRequest, []byte, error) {
 	// remove the routing prefix from the request path
 	path := req.URL().Path
-	if strings.HasSuffix(path, "/v1/chat/completions") {
-		path = "/v1/chat/completions"
-	} else if strings.HasSuffix(path, "/v1/completions") {
-		path = "/v1/completions"
+	if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
+		path = string(ResponseTypeChatCompletions)
+	} else if strings.HasSuffix(path, string(ResponseTypeCompletions)) {
+		path = string(ResponseTypeCompletions)
+	} else if strings.HasSuffix(path, string(ResponseTypeEmbeddings)) {
+		path = string(ResponseTypeEmbeddings)
+	} else if strings.HasSuffix(path, string(ResponseTypeModels)) {
+		path = string(ResponseTypeModels)
+	} else if strings.HasSuffix(path, string(ResponseTypeImageGenerations)) {
+		path = string(ResponseTypeImageGenerations)
 	} else {
 		return "", nil, nil, fmt.Errorf("unsupported %s request path: %s", bp.Type(), path)
 	}
@@ -157,6 +166,13 @@ func (bp *BaseProvider) ParseTokens(openaiReq *protocol.GeneralRequest, path str
 		return parseCompletions(openaiReq, respBody)
 	case ResponseTypeChatCompletions:
 		return parseChatCompletions(openaiReq, respBody)
+	// TODO:
+	case ResponseTypeEmbeddings:
+		return 0, 0, nil
+	case ResponseTypeModels:
+		return 0, 0, nil
+	case ResponseTypeImageGenerations:
+		return 0, 0, nil
 	default:
 		logger.Errorf("unsupported resp type %s", respType)
 		return 0, 0, ErrInternalServer

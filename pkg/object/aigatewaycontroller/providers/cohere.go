@@ -27,6 +27,9 @@ var _ Provider = (*CoHereProvider)(nil)
 
 // NewCoHereProvider initializes an NewCoHereProvider with the given ProviderSpec.
 func NewCoHereProvider(spec *ProviderSpec) *CoHereProvider {
+	if spec != nil && spec.BaseURL == "" {
+		spec.BaseURL = "https://api.cohere.ai/compatibility"
+	}
 	return &CoHereProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,

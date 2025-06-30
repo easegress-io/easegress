@@ -27,6 +27,9 @@ var _ Provider = (*AnthropicProvider)(nil)
 
 // NewAnthropicProvider initializes an NewAnthropicProvider with the given ProviderSpec.
 func NewAnthropicProvider(spec *ProviderSpec) *AnthropicProvider {
+	if spec != nil && spec.BaseURL == "" {
+		spec.BaseURL = "https://api.anthropic.com"
+	}
 	return &AnthropicProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,

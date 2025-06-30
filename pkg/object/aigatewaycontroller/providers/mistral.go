@@ -27,6 +27,9 @@ var _ Provider = (*MistralProvider)(nil)
 
 // NewMistralProvider initializes an NewMistralProvider with the given ProviderSpec.
 func NewMistralProvider(spec *ProviderSpec) *MistralProvider {
+	if spec != nil && spec.BaseURL == "" {
+		spec.BaseURL = "https://api.mistral.ai"
+	}
 	return &MistralProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,
