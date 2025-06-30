@@ -25,7 +25,7 @@ type (
 
 var _ Provider = (*AnthropicProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
+// NewAnthropicProvider initializes an NewAnthropicProvider with the given ProviderSpec.
 func NewAnthropicProvider(spec *ProviderSpec) *AnthropicProvider {
 	return &AnthropicProvider{
 		BaseProvider: BaseProvider{

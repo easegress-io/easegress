@@ -25,7 +25,7 @@ type (
 
 var _ Provider = (*CoHereProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
+// NewCoHereProvider initializes an NewCoHereProvider with the given ProviderSpec.
 func NewCoHereProvider(spec *ProviderSpec) *CoHereProvider {
 	return &CoHereProvider{
 		BaseProvider: BaseProvider{

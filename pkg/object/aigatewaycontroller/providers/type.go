@@ -44,6 +44,10 @@ type (
 		BaseURL      string            `json:"baseURL"`
 		APIKey       string            `json:"apiKey"`
 		Headers      map[string]string `json:"headers,omitempty"`
+		// Optional parameters for specific providers, such as Azure.
+		Endpoint     string `json:"endpoint,omitempty"`     // It is used for Azure OpenAI.
+		DeploymentID string `json:"deploymentID,omitempty"` // It is used for Azure OpenAI.
+		APIVersion   string `json:"apiVersion,omitempty"`   // It is used for Azure OpenAI.
 	}
 )
 

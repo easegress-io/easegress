@@ -17,23 +17,28 @@
 
 package providers
 
+import "fmt"
+
 type (
-	QwenProvider struct {
+	AzureProvider struct {
 		BaseProvider
 	}
 )
 
-var _ Provider = (*QwenProvider)(nil)
+var _ Provider = (*AzureProvider)(nil)
 
-// NewQwenProvider initializes an NewQwenProvider with the given ProviderSpec.
-func NewQwenProvider(spec *ProviderSpec) *QwenProvider {
-	return &QwenProvider{
+// NewAzureProvider initializes an NewAzureProvider with the given ProviderSpec.
+func NewAzureProvider(spec *ProviderSpec) *AzureProvider {
+	if spec != nil && spec.BaseURL == "" {
+		spec.BaseURL = fmt.Sprintf("https://%s/openai/deployments/%s", spec.Endpoint, spec.DeploymentID)
+	}
+	return &AzureProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,
 		},
 	}
 }
 
-func (p *QwenProvider) Type() string {
-	return "qwen"
+func (p *AzureProvider) Type() string {
+	return "azure"
 }

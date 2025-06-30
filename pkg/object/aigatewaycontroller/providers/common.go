@@ -65,6 +65,11 @@ func prepareRequest(pc *ProviderContext, mapper RequestMapper) (request *http.Re
 	}
 
 	u.Path = path
+	if pc.Provider.APIVersion != "" {
+		query := u.Query()
+		query.Set("api-version", pc.Provider.APIVersion)
+		u.RawQuery = query.Encode()
+	}
 	u.RawQuery = pc.Req.URL().RawQuery
 	req, err := http.NewRequestWithContext(pc.Req.Context(), pc.Req.Method(), u.String(), bytes.NewReader(newBody))
 	if err != nil {

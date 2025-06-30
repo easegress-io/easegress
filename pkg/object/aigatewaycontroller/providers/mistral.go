@@ -25,7 +25,7 @@ type (
 
 var _ Provider = (*MistralProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
+// NewMistralProvider initializes an NewMistralProvider with the given ProviderSpec.
 func NewMistralProvider(spec *ProviderSpec) *MistralProvider {
 	return &MistralProvider{
 		BaseProvider: BaseProvider{

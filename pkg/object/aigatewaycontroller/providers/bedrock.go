@@ -25,7 +25,7 @@ type (
 
 var _ Provider = (*BedrockProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
+// NewBedrockProvider initializes an NewBedrockProvider with the given ProviderSpec.
 func NewBedrockProvider(spec *ProviderSpec) *BedrockProvider {
 	return &BedrockProvider{
 		BaseProvider: BaseProvider{

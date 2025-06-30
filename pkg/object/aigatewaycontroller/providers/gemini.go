@@ -25,7 +25,7 @@ type (
 
 var _ Provider = (*GeminiProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
+// NewGeminiProvider initializes an NewGeminiProvider with the given ProviderSpec.
 func NewGeminiProvider(spec *ProviderSpec) *GeminiProvider {
 	return &GeminiProvider{
 		BaseProvider: BaseProvider{
