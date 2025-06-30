@@ -17,6 +17,14 @@
 
 package metricshub
 
+import (
+	"maps"
+
+	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/prometheushelper"
+	"github.com/prometheus/client_golang/prometheus"
+)
+
 type Metric struct {
 	Success      bool   `json:"success"`
 	Duration     int64  `json:"duration"` // in milliseconds
@@ -30,12 +38,82 @@ type Metric struct {
 }
 
 type MetricsHub struct {
+	totalRequest    *prometheus.CounterVec
+	successRequest  *prometheus.CounterVec
+	failedRequest   *prometheus.CounterVec
+	requestDuration prometheus.ObserverVec
+
+	promptTokens     *prometheus.CounterVec
+	completionTokens *prometheus.CounterVec
 }
 
-func New() *MetricsHub {
-	return &MetricsHub{}
+func New(spec *supervisor.Spec) *MetricsHub {
+	commonLabels := prometheus.Labels{
+		"kind":         "AIGatewayController",
+		"clusterName":  spec.Super().Options().ClusterName,
+		"clusterRole":  spec.Super().Options().ClusterRole,
+		"instanceName": spec.Super().Options().Name,
+	}
+	labels := []string{"provider", "providerType", "baseUrl", "model"}
+	return &MetricsHub{
+		totalRequest: prometheushelper.NewCounter(
+			"aigateway_total_request",
+			"Total number of requests received by AIGatewayController",
+			labels,
+		).MustCurryWith(commonLabels),
+		successRequest: prometheushelper.NewCounter(
+			"aigateway_success_request",
+			"Total number of successful requests processed by AIGatewayController",
+			labels,
+		).MustCurryWith(commonLabels),
+		failedRequest: prometheushelper.NewCounter(
+			"aigateway_failed_request",
+			"Total number of failed requests processed by AIGatewayController",
+			append(labels, "error"),
+		).MustCurryWith(commonLabels),
+		requestDuration: prometheushelper.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "aigateway_requests_duration",
+				Help:    "Request processing duration histogram of a provider by AIGatewayController",
+				Buckets: prometheushelper.DefaultDurationBuckets(),
+			},
+			labels,
+		).MustCurryWith(commonLabels),
+		promptTokens: prometheushelper.NewCounter(
+			"aigateway_prompt_tokens",
+			"Total number of prompt tokens processed by AIGatewayController",
+			labels,
+		).MustCurryWith(commonLabels),
+		completionTokens: prometheushelper.NewCounter(
+			"aigateway_completion_tokens",
+			"Total number of completion tokens processed by AIGatewayController",
+			labels,
+		).MustCurryWith(commonLabels),
+	}
 }
 
 func (m *MetricsHub) Update(metric *Metric) {
-	// TODO: Implement the logic to update the metrics hub with the provided metric.
+	if metric == nil {
+		return
+	}
+
+	labels := prometheus.Labels{
+		"provider":     metric.Provider,
+		"providerType": metric.ProviderType,
+		"baseUrl":      metric.BaseURL,
+		"model":        metric.Model,
+	}
+
+	m.totalRequest.With(labels).Inc()
+	if !metric.Success {
+		newLabels := maps.Clone(labels)
+		newLabels["error"] = metric.Error
+		m.failedRequest.With(newLabels).Inc()
+		return
+	}
+
+	m.successRequest.With(labels).Inc()
+	m.requestDuration.With(labels).Observe(float64(metric.Duration))
+	m.promptTokens.With(labels).Add(float64(metric.InputTokens))
+	m.completionTokens.With(labels).Add(float64(metric.OutputTokens))
 }

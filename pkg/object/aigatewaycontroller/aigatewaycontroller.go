@@ -203,7 +203,7 @@ func (agc *AIGatewayController) reload() {
 		provider := NewProvider(s)
 		agc.providers[s.Name] = provider
 	}
-	agc.metricshub = metricshub.New()
+	agc.metricshub = metricshub.New(agc.superSpec)
 
 	globalAGC.Store(agc)
 }
