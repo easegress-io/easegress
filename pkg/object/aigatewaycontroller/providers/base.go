@@ -111,6 +111,11 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, req *http.Request) str
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		setEgErrResponse(pc.Resp, http.StatusInternalServerError, err)
+
+		fc := &FinishContext{
+			Error: err,
+		}
+		pc.Finish(fc)
 		return ResultInternalError
 	}
 	// cant use defer to close body here.
