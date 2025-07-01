@@ -117,3 +117,8 @@ func (m *MetricsHub) Update(metric *Metric) {
 	m.promptTokens.With(labels).Add(float64(metric.InputTokens))
 	m.completionTokens.With(labels).Add(float64(metric.OutputTokens))
 }
+
+func (m *MetricsHub) GetAllStats() any {
+	// TODO
+	return nil
+}

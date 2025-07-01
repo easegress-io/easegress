@@ -47,13 +47,6 @@ const (
 	ResponseTypeImageGenerations ResponseType = "/v1/images/generations"
 )
 
-// pathToResponseType maps the request path to the corresponding response type.
-// some of provider support OpenAI API with differne path.
-var pathToResponseType = map[string]ResponseType{
-	"/v1/completions":      ResponseTypeCompletions,
-	"/v1/chat/completions": ResponseTypeChatCompletions,
-}
-
 // BaseProvider is a struct that contains the common fields for all AI gateway providers.
 // Almost all providers compatible with OpenAI API, so we abstract the common logic.
 type BaseProvider struct {
@@ -66,47 +59,54 @@ func (bp *BaseProvider) Type() string {
 	return bp.providerSpec.ProviderType
 }
 
+func (bp *BaseProvider) HealthCheck() error {
+	// TODO
+	return nil
+}
+
 func (bp *BaseProvider) Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string {
-	providerContext := &ProviderContext{
-		Ctx:      ctx,
-		Req:      req,
-		Resp:     resp,
-		Provider: bp.providerSpec,
+	providerContext, err := NewProviderContext(ctx, bp.providerSpec, req, resp)
+	if err != nil {
+		setEgErrResponse(resp, http.StatusInternalServerError, fmt.Errorf("failed to create provider context: %w", err))
+		return ResultInternalError
 	}
-	request, openaiReq, err := prepareRequest(providerContext, bp.RequestMapper)
+	request, err := prepareRequest(providerContext, bp.RequestMapper)
 	if err != nil {
 		setEgErrResponse(resp, http.StatusInternalServerError, err)
 		return ResultInternalError
 	}
-	return bp.ProxyRequest(providerContext, openaiReq, request, updateMetricFn)
+
+	providerContext.AddCallBack(func(pc *ProviderContext, fc *FinishContext) {
+		metric := metricshub.Metric{
+			Provider:     pc.Provider.Name,
+			ProviderType: pc.Provider.ProviderType,
+			Model:        pc.ReqInfo.Model,
+			BaseURL:      pc.Provider.BaseURL,
+		}
+		if fc.Error != nil || fc.Resp == nil || fc.Resp.StatusCode != http.StatusOK {
+			metric.Success = false
+			metric.Error = MetricErrInternalServer.Error()
+			updateMetricFn(&metric)
+			if fc.Error != nil {
+				logger.Errorf("provider %s request failed: %v", pc.Provider.Name, fc.Error)
+			}
+		}
+		metric.Success = true
+		metric.Duration = fc.Duration
+
+		inputToken, outputToken, err := bp.ParseTokens(pc, fc.Resp, fc.RespBody)
+		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
+		updateMetricFn(&metric)
+	})
+
+	return bp.ProxyRequest(providerContext, request)
 }
 
-func (bp *BaseProvider) RequestMapper(req *httpprot.Request, body []byte) (string, *protocol.GeneralRequest, []byte, error) {
-	// remove the routing prefix from the request path
-	path := req.URL().Path
-	if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
-		path = string(ResponseTypeChatCompletions)
-	} else if strings.HasSuffix(path, string(ResponseTypeCompletions)) {
-		path = string(ResponseTypeCompletions)
-	} else if strings.HasSuffix(path, string(ResponseTypeEmbeddings)) {
-		path = string(ResponseTypeEmbeddings)
-	} else if strings.HasSuffix(path, string(ResponseTypeModels)) {
-		path = string(ResponseTypeModels)
-	} else if strings.HasSuffix(path, string(ResponseTypeImageGenerations)) {
-		path = string(ResponseTypeImageGenerations)
-	} else {
-		return "", nil, nil, fmt.Errorf("unsupported %s request path: %s", bp.Type(), path)
-	}
-
-	openaiReq := &protocol.GeneralRequest{}
-	if err := json.Unmarshal(body, openaiReq); err != nil {
-		return "", nil, nil, fmt.Errorf("failed to unmarshal %s request: %w", bp.Type(), err)
-	}
-	return path, openaiReq, body, nil
+func (bp *BaseProvider) RequestMapper(pc *ProviderContext) (string, []byte, error) {
+	return string(pc.RespType), pc.ReqBody, nil
 }
 
-func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.GeneralRequest, req *http.Request, updateMetricFn func(*metricshub.Metric)) string {
-	// TODO add metrics
+func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, req *http.Request) string {
 	start := time.Now()
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -125,17 +125,13 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.Ge
 		resp.Body.Close()
 	})
 	body.OnClose(func() {
-		metric := metricshub.Metric{
-			Success:      resp.StatusCode == http.StatusOK,
-			Duration:     duration,
-			Provider:     pc.Provider.Name,
-			ProviderType: pc.Provider.ProviderType,
-			Model:        openaiReq.Model,
-			BaseURL:      pc.Provider.BaseURL,
+		fc := &FinishContext{
+			Resp:     resp,
+			RespBody: buf.Bytes(),
+			Duration: duration,
+			Error:    nil,
 		}
-		inputToken, outputToken, err := bp.ParseTokens(openaiReq, req.URL.Path, resp, buf.Bytes())
-		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
-		updateMetricFn(&metric)
+		pc.Finish(fc)
 	})
 
 	pc.Resp.SetStatusCode(resp.StatusCode)
@@ -145,23 +141,19 @@ func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, openaiReq *protocol.Ge
 	return codeToResult(resp.StatusCode)
 }
 
-func (bp *BaseProvider) ParseTokens(openaiReq *protocol.GeneralRequest, path string, resp *http.Response, respBody []byte) (inputToken int, outputToken int, err error) {
+func (bp *BaseProvider) ParseTokens(pc *ProviderContext, resp *http.Response, respBody []byte) (inputToken int, outputToken int, err error) {
+	openaiReq := pc.ReqInfo
 	if resp.StatusCode != http.StatusOK {
 		respErr := &protocol.ErrorResponse{}
 		err := json.Unmarshal(respBody, &respErr)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp body, %v", err)
-			return 0, 0, ErrUnmarshalResponse
+			return 0, 0, MetricErrUnmarshalResponse
 		}
 		return 0, 0, errors.New(respErr.Error.Type)
 	}
-	respType, ok := pathToResponseType[path]
-	if !ok {
-		logger.Errorf("unknow path %s to parse response", path)
-		return 0, 0, ErrInternalServer
-	}
 
-	switch respType {
+	switch pc.RespType {
 	case ResponseTypeCompletions:
 		return parseCompletions(openaiReq, respBody)
 	case ResponseTypeChatCompletions:
@@ -174,8 +166,8 @@ func (bp *BaseProvider) ParseTokens(openaiReq *protocol.GeneralRequest, path str
 	case ResponseTypeImageGenerations:
 		return 0, 0, nil
 	default:
-		logger.Errorf("unsupported resp type %s", respType)
-		return 0, 0, ErrInternalServer
+		logger.Errorf("unsupported resp type %s", pc.RespType)
+		return 0, 0, MetricErrInternalServer
 	}
 }
 
@@ -189,7 +181,7 @@ func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inpu
 		err = json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, ErrUnmarshalResponse
+			return 0, 0, MetricErrUnmarshalResponse
 		}
 		if resp.Usage != nil {
 			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
@@ -200,7 +192,7 @@ func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inpu
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrUnmarshalResponse
+		return 0, 0, MetricErrUnmarshalResponse
 	}
 	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
 }
@@ -215,7 +207,7 @@ func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (
 		err = json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, ErrUnmarshalResponse
+			return 0, 0, MetricErrUnmarshalResponse
 		}
 		if resp.Usage != nil {
 			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
@@ -226,7 +218,7 @@ func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrUnmarshalResponse
+		return 0, 0, MetricErrUnmarshalResponse
 	}
 	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
 }
@@ -237,11 +229,11 @@ func getLastChunkFromOpenAIStream(body []byte) ([]byte, error) {
 	l := len(chunks)
 	if l <= 1 {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, ErrUnmarshalResponse
+		return nil, MetricErrUnmarshalResponse
 	}
 	if chunks[l-1] != "data: [DONE]" {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, ErrUnmarshalResponse
+		return nil, MetricErrUnmarshalResponse
 	}
 	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), nil
 }

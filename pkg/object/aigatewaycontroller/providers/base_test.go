@@ -40,7 +40,7 @@ func TestGetLastChunkFromOpenAIStream(t *testing.T) {
 	}{
 		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]\n\n", output: "234", err: nil},
 		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]", output: "234", err: nil},
-		{input: "data: 123\n\ndata: 234\n\n", output: "", err: ErrUnmarshalResponse},
+		{input: "data: 123\n\ndata: 234\n\n", output: "", err: MetricErrUnmarshalResponse},
 	}
 
 	for _, c := range cases {
