@@ -36,9 +36,9 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/httphelper"
 )
 
-var MetricErrInternalServer = errors.New("internal_server_err")
-var MetricErrUnmarshalResponse = errors.New("unmarshal_response_err")
-var MetricErrUnmarshalRequest = errors.New("unmarshal_request_err")
+var ErrMetricInternalServer = errors.New("internal_server_err")
+var ErrMetricUnmarshalResponse = errors.New("unmarshal_response_err")
+var ErrMetricUnmarshalRequest = errors.New("unmarshal_request_err")
 
 type (
 	// RequestMapper is a function that maps user OpenAI request to a provider request.

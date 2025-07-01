@@ -85,7 +85,7 @@ func (bp *BaseProvider) Handle(ctx *context.Context, req *httpprot.Request, resp
 		}
 		if fc.Error != nil || fc.Resp == nil || fc.Resp.StatusCode != http.StatusOK {
 			metric.Success = false
-			metric.Error = MetricErrInternalServer.Error()
+			metric.Error = ErrMetricInternalServer.Error()
 			updateMetricFn(&metric)
 			if fc.Error != nil {
 				logger.Errorf("provider %s request failed: %v", pc.Provider.Name, fc.Error)
@@ -148,7 +148,7 @@ func (bp *BaseProvider) ParseTokens(pc *ProviderContext, resp *http.Response, re
 		err := json.Unmarshal(respBody, &respErr)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp body, %v", err)
-			return 0, 0, MetricErrUnmarshalResponse
+			return 0, 0, ErrMetricUnmarshalResponse
 		}
 		return 0, 0, errors.New(respErr.Error.Type)
 	}
@@ -167,7 +167,7 @@ func (bp *BaseProvider) ParseTokens(pc *ProviderContext, resp *http.Response, re
 		return 0, 0, nil
 	default:
 		logger.Errorf("unsupported resp type %s", pc.RespType)
-		return 0, 0, MetricErrInternalServer
+		return 0, 0, ErrMetricInternalServer
 	}
 }
 
@@ -181,7 +181,7 @@ func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inpu
 		err = json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, MetricErrUnmarshalResponse
+			return 0, 0, ErrMetricUnmarshalResponse
 		}
 		if resp.Usage != nil {
 			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
@@ -192,7 +192,7 @@ func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inpu
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, MetricErrUnmarshalResponse
+		return 0, 0, ErrMetricUnmarshalResponse
 	}
 	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
 }
@@ -207,7 +207,7 @@ func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (
 		err = json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, MetricErrUnmarshalResponse
+			return 0, 0, ErrMetricUnmarshalResponse
 		}
 		if resp.Usage != nil {
 			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
@@ -218,7 +218,7 @@ func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, MetricErrUnmarshalResponse
+		return 0, 0, ErrMetricUnmarshalResponse
 	}
 	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
 }
@@ -229,11 +229,11 @@ func getLastChunkFromOpenAIStream(body []byte) ([]byte, error) {
 	l := len(chunks)
 	if l <= 1 {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, MetricErrUnmarshalResponse
+		return nil, ErrMetricUnmarshalResponse
 	}
 	if chunks[l-1] != "data: [DONE]" {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, MetricErrUnmarshalResponse
+		return nil, ErrMetricUnmarshalResponse
 	}
 	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), nil
 }
