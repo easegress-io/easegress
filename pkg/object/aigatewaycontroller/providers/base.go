@@ -65,7 +65,7 @@ func (bp *BaseProvider) Name() string {
 }
 
 func (bp *BaseProvider) HealthCheck() error {
-	checkURL, err := url.JoinPath(bp.providerSpec.BaseURL, "health")
+	checkURL, err := url.JoinPath(bp.providerSpec.BaseURL, string(ResponseTypeModels))
 	if err != nil {
 		return fmt.Errorf("failed to join health check URL: %w", err)
 	}
