@@ -25,6 +25,7 @@ import (
 
 type (
 	Provider interface {
+		Name() string
 		Type() string
 		// TODO req is simple http.Request with extra methods.
 		// In Easegress, we have multiple namespaces. Every namespace has its own request and response.
@@ -35,6 +36,10 @@ type (
 		// For non-stream data is simple, just SetPayload([]byte)
 		// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
 		Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string
+
+		// HealthCheck checks the health of the provider.
+		// It should return nil if the provider is healthy, otherwise it returns an error.
+		HealthCheck() error
 	}
 
 	// ProviderSpec is the specification for an AI provider.

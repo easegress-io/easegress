@@ -25,6 +25,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -59,8 +60,31 @@ func (bp *BaseProvider) Type() string {
 	return bp.providerSpec.ProviderType
 }
 
+func (bp *BaseProvider) Name() string {
+	return bp.providerSpec.Name
+}
+
 func (bp *BaseProvider) HealthCheck() error {
-	// TODO
+	checkURL, err := url.JoinPath(bp.providerSpec.BaseURL, "health")
+	if err != nil {
+		return fmt.Errorf("failed to join health check URL: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, checkURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create health check request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("health check request failed: %w", err)
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("health check failed, status code: %d", resp.StatusCode)
+	}
+
 	return nil
 }
 
