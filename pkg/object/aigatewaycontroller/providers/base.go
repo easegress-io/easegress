@@ -163,12 +163,11 @@ func (bp *BaseProvider) ParseTokens(pc *ProviderContext, resp *http.Response, re
 		return parseCompletions(openaiReq, respBody)
 	case ResponseTypeChatCompletions:
 		return parseChatCompletions(openaiReq, respBody)
-	// TODO:
 	case ResponseTypeEmbeddings:
-		return 0, 0, nil
-	case ResponseTypeModels:
-		return 0, 0, nil
+		return parseEmbeddings(respBody)
 	case ResponseTypeImageGenerations:
+		return parseImageGenerations(respBody)
+	case ResponseTypeModels:
 		return 0, 0, nil
 	default:
 		logger.Errorf("unsupported resp type %s", pc.RespType)
@@ -226,6 +225,26 @@ func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (
 		return 0, 0, ErrMetricUnmarshalResponse
 	}
 	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+}
+
+func parseEmbeddings(respBody []byte) (inputToken int, outputToken int, err error) {
+	resp := &protocol.EmbeddingResponse{}
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
+		return 0, 0, ErrMetricUnmarshalResponse
+	}
+	return resp.Usage.PromptTokens, resp.Usage.TotalTokens, nil
+}
+
+func parseImageGenerations(respBody []byte) (inputToken int, outputToken int, err error) {
+	resp := &protocol.ImageResponse{}
+	err = json.Unmarshal(respBody, &resp)
+	if err != nil {
+		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
+		return 0, 0, ErrMetricUnmarshalResponse
+	}
+	return resp.Usage.InputTokens, resp.Usage.OutputTokens, nil
 }
 
 func getLastChunkFromOpenAIStream(body []byte) ([]byte, error) {
