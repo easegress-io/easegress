@@ -84,3 +84,57 @@ type CompletionChunk struct {
 	GeneralResponse
 	Usage *Usage `json:"usage,omitempty"`
 }
+
+// ================================== Embedding Response Structure ==================================
+
+// Embedding represents the response structure for OpenAI embeddings.
+// see more details from https://platform.openai.com/docs/guides/embeddings
+type Embedding struct {
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
+	Embedding []float64 `json:"embedding"`
+}
+
+type EmbeddingUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
+type EmbeddingResponse struct {
+	Object string         `json:"object"`
+	Data   []Embedding    `json:"data"`
+	Model  string         `json:"model"`
+	Usage  EmbeddingUsage `json:"usage"`
+}
+
+// ================================== Image Response Structure ==================================
+
+// ImageObject represents the structure of an image object in the OpenAI API response.
+// see more details from https://platform.openai.com/docs/api-reference/images/object
+type ImageObject struct {
+	B64Json       string `json:"b64_json"`
+	URL           string `json:"url"`
+	RevisedPrompt string `json:"revised_prompt,omitempty"`
+}
+
+type ImageUsageInputTokensDetails struct {
+	ImageTokens int `json:"image_tokens"`
+	TextTokens  int `json:"text_tokens"`
+}
+
+type ImageUsage struct {
+	InputTokens        int                          `json:"input_tokens"`
+	OutputTokens       int                          `json:"output_tokens"`
+	TotalTokens        int                          `json:"total_tokens"`
+	InputTokensDetails ImageUsageInputTokensDetails `json:"input_tokens_details,omitempty"`
+}
+
+type ImageResponse struct {
+	Background   string        `json:"background,omitempty"`
+	Created      int64         `json:"created"`
+	Data         []ImageObject `json:"data"`
+	OutputFormat string        `json:"output_format,omitempty"`
+	Quality      string        `json:"quality,omitempty"`
+	Size         string        `json:"size,omitempty"`
+	Usage        ImageUsage    `json:"usage,omitempty"`
+}
