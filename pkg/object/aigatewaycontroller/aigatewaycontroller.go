@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/common"
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
@@ -210,7 +211,14 @@ func (agc *AIGatewayController) reload() {
 
 // Status returns the status of AIGatewayController.
 func (agc *AIGatewayController) Status() *supervisor.Status {
-	status := &Status{}
+	stats, err := agc.metricshub.GetStats()
+	if err != nil {
+		logger.Errorf("failed to get AI gateway metrics: %v", err)
+		stats = []metricshub.MetricStats{}
+	}
+
+	status := make(map[string]interface{})
+	status["providerStats"] = stats
 	return &supervisor.Status{ObjectStatus: status}
 }
 
@@ -218,6 +226,7 @@ func (agc *AIGatewayController) Status() *supervisor.Status {
 func (agc *AIGatewayController) Close() {
 	// TODO close
 	agc.unregisterAPIs()
+	agc.metricshub.Close()
 
 	globalAGC.CompareAndSwap(agc, (*AIGatewayController)(nil))
 }

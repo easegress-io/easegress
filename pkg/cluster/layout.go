@@ -45,6 +45,8 @@ const (
 	customDataKindPrefix      = "/custom-data-kinds/"
 	customDataPrefix          = "/custom-data/"
 
+	statsAIGatewayFormat = "/stats/aigateway/%s" // + memberName
+
 	// the cluster name of this eg group will be registered under this path in etcd
 	// any new member(primary or secondary ) will be rejected if it is configured a different cluster name
 	clusterNameKey = "/eg/cluster/name"
@@ -156,4 +158,12 @@ func (l *Layout) CustomDataPrefix() string {
 // CustomDataKindPrefix returns the prefix of all custom data kind
 func (l *Layout) CustomDataKindPrefix() string {
 	return customDataKindPrefix
+}
+
+func (l *Layout) AIGatewayStatsKey() string {
+	return fmt.Sprintf(statsAIGatewayFormat, l.memberName)
+}
+
+func (l *Layout) AIGatewayStatsPrefix() string {
+	return fmt.Sprintf(statsAIGatewayFormat, "")
 }

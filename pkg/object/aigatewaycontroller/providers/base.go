@@ -106,6 +106,7 @@ func (bp *BaseProvider) Handle(ctx *context.Context, req *httpprot.Request, resp
 			ProviderType: pc.Provider.ProviderType,
 			Model:        pc.ReqInfo.Model,
 			BaseURL:      pc.Provider.BaseURL,
+			ResponseType: string(pc.RespType),
 		}
 		if fc.Error != nil || fc.Resp == nil || fc.Resp.StatusCode != http.StatusOK {
 			metric.Success = false
