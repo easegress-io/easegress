@@ -191,11 +191,6 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if spec == nil {
-		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
-		return
-	}
-
 	// Validate hooks.
 	for _, hook := range objectValidateHooks {
 		err := hook(OperationTypeDelete, spec)
