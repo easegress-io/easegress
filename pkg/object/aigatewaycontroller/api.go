@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
@@ -22,6 +23,10 @@ type (
 		ProviderType string `json:"providerType"`
 		Healthy      bool   `json:"healthy"`
 		Error        string `json:"error,omitempty"`
+	}
+
+	StatsResponse struct {
+		Stats []*metricshub.MetricStats `json:"stats"`
 	}
 )
 
@@ -63,11 +68,9 @@ func (agc *AIGatewayController) checkProvidersStatus(w http.ResponseWriter, r *h
 }
 
 func (agc *AIGatewayController) stat(w http.ResponseWriter, r *http.Request) {
-	// TODO: Gather statistics for the AI Gateway.
-	// Statistics items:
-	// - Pipelines containing AIFilter.
-	// - Total requests processed
-	// - Total successful responses
-	// - Total error responses
-	// - etc.
+	stats := agc.metricshub.GetStats()
+	resp := StatsResponse{
+		Stats: stats,
+	}
+	w.Write(codectool.MustMarshalJSON(resp))
 }

@@ -88,8 +88,8 @@ type (
 
 	// MetricStats combines MetricLabel and MetricDetails, and includes average request duration.
 	MetricStats struct {
-		MetricLabel
-		MetricDetails
+		MetricLabel            `json:",inline"`
+		MetricDetails          `json:",inline"`
 		RequestAverageDuration int64 `json:"requestAverageDuration"`
 	}
 
