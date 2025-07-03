@@ -18,9 +18,7 @@
 package providers
 
 import (
-	"github.com/megaease/easegress/v2/pkg/context"
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
-	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 )
 
 type (
@@ -35,41 +33,11 @@ type (
 		// for more details.
 		// For non-stream data is simple, just SetPayload([]byte)
 		// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
-		Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string
+		Handle(ctx *aicontext.Context)
+		Spec() *aicontext.ProviderSpec
 
 		// HealthCheck checks the health of the provider.
 		// It should return nil if the provider is healthy, otherwise it returns an error.
 		HealthCheck() error
 	}
-
-	// ProviderSpec is the specification for an AI provider.
-	ProviderSpec struct {
-		Name         string            `json:"name"`
-		ProviderType string            `json:"providerType"`
-		BaseURL      string            `json:"baseURL"`
-		APIKey       string            `json:"apiKey"`
-		Headers      map[string]string `json:"headers,omitempty"`
-		// Optional parameters for specific providers, such as Azure.
-		Endpoint     string `json:"endpoint,omitempty"`     // It is used for Azure OpenAI.
-		DeploymentID string `json:"deploymentID,omitempty"` // It is used for Azure OpenAI.
-		APIVersion   string `json:"apiVersion,omitempty"`   // It is used for Azure OpenAI.
-	}
 )
-
-const (
-	ResultInternalError         = "internalError"
-	ResultClientError           = "clientError"
-	ResultServerError           = "serverError"
-	ResultFailureCode           = "failureCodeError"
-	ResultProviderNotFoundError = "providerNotFoundError"
-)
-
-func codeToResult(statusCode int) string {
-	if statusCode < 400 {
-		return ""
-	}
-	if statusCode < 500 {
-		return ResultClientError
-	}
-	return ResultServerError
-}

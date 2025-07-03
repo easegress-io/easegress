@@ -18,40 +18,22 @@
 package providers
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"maps"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
-	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
-	"github.com/megaease/easegress/v2/pkg/util/httphelper"
-	"github.com/megaease/easegress/v2/pkg/util/readers"
-)
-
-type ResponseType string
-
-const (
-	ResponseTypeCompletions      ResponseType = "/v1/completions"
-	ResponseTypeChatCompletions  ResponseType = "/v1/chat/completions"
-	ResponseTypeEmbeddings       ResponseType = "/v1/embeddings"
-	ResponseTypeModels           ResponseType = "/v1/models"
-	ResponseTypeImageGenerations ResponseType = "/v1/images/generations"
 )
 
 // BaseProvider is a struct that contains the common fields for all AI gateway providers.
 // Almost all providers compatible with OpenAI API, so we abstract the common logic.
 type BaseProvider struct {
-	providerSpec *ProviderSpec
+	providerSpec *aicontext.ProviderSpec
 }
 
 var _ Provider = (*BaseProvider)(nil)
@@ -64,8 +46,12 @@ func (bp *BaseProvider) Name() string {
 	return bp.providerSpec.Name
 }
 
+func (bp *BaseProvider) Spec() *aicontext.ProviderSpec {
+	return bp.providerSpec
+}
+
 func (bp *BaseProvider) HealthCheck() error {
-	checkURL, err := url.JoinPath(bp.providerSpec.BaseURL, string(ResponseTypeModels))
+	checkURL, err := url.JoinPath(bp.providerSpec.BaseURL, string(aicontext.ResponseTypeModels))
 	if err != nil {
 		return fmt.Errorf("failed to join health check URL: %w", err)
 	}
@@ -84,205 +70,177 @@ func (bp *BaseProvider) HealthCheck() error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("health check failed, status code: %d", resp.StatusCode)
 	}
-
 	return nil
 }
 
-func (bp *BaseProvider) Handle(ctx *context.Context, req *httpprot.Request, resp *httpprot.Response, updateMetricFn func(*metricshub.Metric)) string {
-	providerContext, err := NewProviderContext(ctx, bp.providerSpec, req, resp)
+func (bp *BaseProvider) Handle(ctx *aicontext.Context) {
+	request, err := prepareRequest(ctx, bp.RequestMapper)
 	if err != nil {
-		setEgErrResponse(resp, http.StatusInternalServerError, fmt.Errorf("failed to create provider context: %w", err))
-		return ResultInternalError
-	}
-	request, err := prepareRequest(providerContext, bp.RequestMapper)
-	if err != nil {
-		setEgErrResponse(resp, http.StatusInternalServerError, err)
-		return ResultInternalError
+		logger.Errorf("failed to prepare request for provider %s: %v", bp.providerSpec.Name, err)
+		setErrResponse(ctx, http.StatusInternalServerError, err)
+		return
 	}
 
-	providerContext.AddCallBack(func(pc *ProviderContext, fc *FinishContext) {
-		metric := metricshub.Metric{
-			Provider:     pc.Provider.Name,
-			ProviderType: pc.Provider.ProviderType,
-			Model:        pc.ReqInfo.Model,
-			BaseURL:      pc.Provider.BaseURL,
-			ResponseType: string(pc.RespType),
+	ctx.ParseMetricFn = func(fc *aicontext.FinishContext) *metricshub.Metric {
+		metric := &metricshub.Metric{
+			Provider:     ctx.Provider.Name,
+			ProviderType: ctx.Provider.ProviderType,
+			Model:        ctx.ReqInfo.Model,
+			BaseURL:      ctx.Provider.BaseURL,
+			ResponseType: string(ctx.RespType),
 		}
-		if fc.Error != nil || fc.Resp == nil || fc.Resp.StatusCode != http.StatusOK {
+		if fc.StatusCode != http.StatusOK {
 			metric.Success = false
-			metric.Error = ErrMetricInternalServer.Error()
-			updateMetricFn(&metric)
-			if fc.Error != nil {
-				logger.Errorf("provider %s request failed: %v", pc.Provider.Name, fc.Error)
-			}
+			metric.Error = metricshub.MetricInternalError
+			return metric
 		}
 		metric.Success = true
 		metric.Duration = fc.Duration
+		inputToken, outputToken, err := bp.ParseTokens(ctx, fc, fc.RespBody)
+		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err
+		return metric
+	}
 
-		inputToken, outputToken, err := bp.ParseTokens(pc, fc.Resp, fc.RespBody)
-		metric.InputTokens, metric.OutputTokens, metric.Error = int64(inputToken), int64(outputToken), err.Error()
-		updateMetricFn(&metric)
-	})
-
-	return bp.ProxyRequest(providerContext, request)
+	bp.ProxyRequest(ctx, request)
 }
 
-func (bp *BaseProvider) RequestMapper(pc *ProviderContext) (string, []byte, error) {
+func (bp *BaseProvider) RequestMapper(pc *aicontext.Context) (string, []byte, error) {
 	return string(pc.RespType), pc.ReqBody, nil
 }
 
-func (bp *BaseProvider) ProxyRequest(pc *ProviderContext, req *http.Request) string {
-	start := time.Now()
+func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) {
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		setEgErrResponse(pc.Resp, http.StatusInternalServerError, err)
-
-		fc := &FinishContext{
-			Error: err,
-		}
-		pc.Finish(fc)
-		return ResultInternalError
+		setErrResponse(ctx, http.StatusInternalServerError, err)
+		return
 	}
-	// cant use defer to close body here.
-	// for stream data, we need to return this function and use a goroutine to send data and close body after than.
-	duration := time.Since(start).Milliseconds()
-
-	// copy response data to buf
-	var buf bytes.Buffer
-	tee := io.TeeReader(resp.Body, &buf)
-	body := readers.NewCallbackReader(tee)
-	body.OnClose(func() {
+	ctx.AddCallBack(func(*aicontext.FinishContext) {
 		resp.Body.Close()
 	})
-	body.OnClose(func() {
-		fc := &FinishContext{
-			Resp:     resp,
-			RespBody: buf.Bytes(),
-			Duration: duration,
-			Error:    nil,
-		}
-		pc.Finish(fc)
-	})
 
-	pc.Resp.SetStatusCode(resp.StatusCode)
-	httphelper.RemoveHopByHopHeaders(resp.Header)
-	maps.Copy(pc.Resp.HTTPHeader(), resp.Header)
-	pc.Resp.SetPayload(body)
-	return codeToResult(resp.StatusCode)
+	ctx.SetResponse(&aicontext.Response{
+		StatusCode:    resp.StatusCode,
+		ContentLength: resp.ContentLength,
+		Header:        resp.Header,
+		BodyReader:    resp.Body,
+	})
+	if resp.StatusCode != http.StatusOK {
+		ctx.Stop(aicontext.ResultProviderError)
+	}
 }
 
-func (bp *BaseProvider) ParseTokens(pc *ProviderContext, resp *http.Response, respBody []byte) (inputToken int, outputToken int, err error) {
-	openaiReq := pc.ReqInfo
-	if resp.StatusCode != http.StatusOK {
+func (bp *BaseProvider) ParseTokens(ctx *aicontext.Context, fc *aicontext.FinishContext, respBody []byte) (inputToken int, outputToken int, err metricshub.MetricError) {
+	openaiReq := ctx.ReqInfo
+	if fc.StatusCode != http.StatusOK {
 		respErr := &protocol.ErrorResponse{}
 		err := json.Unmarshal(respBody, &respErr)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp body, %v", err)
-			return 0, 0, ErrMetricUnmarshalResponse
+			return 0, 0, metricshub.MetricMarshalError
 		}
-		return 0, 0, errors.New(respErr.Error.Type)
+		return 0, 0, metricshub.MetricError(respErr.Error.Type)
 	}
 
-	switch pc.RespType {
-	case ResponseTypeCompletions:
-		return parseCompletions(openaiReq, respBody)
-	case ResponseTypeChatCompletions:
-		return parseChatCompletions(openaiReq, respBody)
-	case ResponseTypeEmbeddings:
-		return parseEmbeddings(respBody)
-	case ResponseTypeImageGenerations:
-		return parseImageGenerations(respBody)
-	case ResponseTypeModels:
-		return 0, 0, nil
+	switch ctx.RespType {
+	case aicontext.ResponseTypeCompletions:
+		return parseCompletions(openaiReq, fc.RespBody)
+	case aicontext.ResponseTypeChatCompletions:
+		return parseChatCompletions(openaiReq, fc.RespBody)
+	case aicontext.ResponseTypeEmbeddings:
+		return parseEmbeddings(fc.RespBody)
+	case aicontext.ResponseTypeImageGenerations:
+		return parseImageGenerations(fc.RespBody)
+	case aicontext.ResponseTypeModels:
+		return 0, 0, metricshub.MetricNoError
 	default:
-		logger.Errorf("unsupported resp type %s", pc.RespType)
-		return 0, 0, ErrMetricInternalServer
+		logger.Errorf("unsupported resp type %s", ctx.RespType)
+		return 0, 0, metricshub.MetricNoError
 	}
 }
 
-func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, err error) {
+func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, e metricshub.MetricError) {
 	if openaiReq.Stream {
-		chunk, err := getLastChunkFromOpenAIStream(respBody)
-		if err != nil {
-			return 0, 0, err
+		chunk, e := getLastChunkFromOpenAIStream(respBody)
+		if e != "" {
+			return 0, 0, e
 		}
 		resp := &protocol.CompletionChunk{}
-		err = json.Unmarshal(chunk, &resp)
+		err := json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, ErrMetricUnmarshalResponse
+			return 0, 0, metricshub.MetricMarshalError
 		}
 		if resp.Usage != nil {
-			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, ""
 		}
-		return 0, 0, nil
+		return 0, 0, ""
 	}
 	resp := &protocol.Completion{}
-	err = json.Unmarshal(respBody, &resp)
+	err := json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrMetricUnmarshalResponse
+		return 0, 0, metricshub.MetricMarshalError
 	}
-	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, ""
 }
 
-func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, err error) {
+func parseChatCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, e metricshub.MetricError) {
 	if openaiReq.Stream {
-		chunk, err := getLastChunkFromOpenAIStream(respBody)
-		if err != nil {
-			return 0, 0, err
+		chunk, e := getLastChunkFromOpenAIStream(respBody)
+		if e != "" {
+			return 0, 0, e
 		}
 		resp := &protocol.ChatCompletionChunk{}
-		err = json.Unmarshal(chunk, &resp)
+		err := json.Unmarshal(chunk, &resp)
 		if err != nil {
 			logger.Errorf("failed to unmarshal resp %s, %v", string(chunk), err)
-			return 0, 0, ErrMetricUnmarshalResponse
+			return 0, 0, metricshub.MetricMarshalError
 		}
 		if resp.Usage != nil {
-			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+			return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, ""
 		}
-		return 0, 0, nil
+		return 0, 0, ""
 	}
 	resp := &protocol.ChatCompletion{}
-	err = json.Unmarshal(respBody, &resp)
+	err := json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrMetricUnmarshalResponse
+		return 0, 0, metricshub.MetricMarshalError
 	}
-	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, nil
+	return resp.Usage.PromptTokens, resp.Usage.CompletionTokens, ""
 }
 
-func parseEmbeddings(respBody []byte) (inputToken int, outputToken int, err error) {
+func parseEmbeddings(respBody []byte) (inputToken int, outputToken int, e metricshub.MetricError) {
 	resp := &protocol.EmbeddingResponse{}
-	err = json.Unmarshal(respBody, &resp)
+	err := json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrMetricUnmarshalResponse
+		return 0, 0, metricshub.MetricMarshalError
 	}
-	return resp.Usage.PromptTokens, resp.Usage.TotalTokens, nil
+	return resp.Usage.PromptTokens, resp.Usage.TotalTokens, ""
 }
 
-func parseImageGenerations(respBody []byte) (inputToken int, outputToken int, err error) {
+func parseImageGenerations(respBody []byte) (inputToken int, outputToken int, e metricshub.MetricError) {
 	resp := &protocol.ImageResponse{}
-	err = json.Unmarshal(respBody, &resp)
+	err := json.Unmarshal(respBody, &resp)
 	if err != nil {
 		logger.Errorf("failed to unmarshal resp %s, %v", string(respBody), err)
-		return 0, 0, ErrMetricUnmarshalResponse
+		return 0, 0, metricshub.MetricMarshalError
 	}
-	return resp.Usage.InputTokens, resp.Usage.OutputTokens, nil
+	return resp.Usage.InputTokens, resp.Usage.OutputTokens, ""
 }
 
-func getLastChunkFromOpenAIStream(body []byte) ([]byte, error) {
+func getLastChunkFromOpenAIStream(body []byte) ([]byte, metricshub.MetricError) {
 	bodyString := strings.TrimSpace(string(body))
 	chunks := strings.Split(bodyString, "\n\n")
 	l := len(chunks)
 	if l <= 1 {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, ErrMetricUnmarshalResponse
+		return nil, metricshub.MetricMarshalError
 	}
 	if chunks[l-1] != "data: [DONE]" {
 		logger.Errorf("failed to get last chunk from response %s", string(body))
-		return nil, ErrMetricUnmarshalResponse
+		return nil, metricshub.MetricMarshalError
 	}
-	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), nil
+	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), ""
 }

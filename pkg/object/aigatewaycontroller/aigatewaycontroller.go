@@ -19,15 +19,23 @@
 package aigatewaycontroller
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"maps"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/common"
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
@@ -87,7 +95,7 @@ func validateHook(operationType api.OperationType, spec *supervisor.Spec) error 
 type (
 	// AIGatewayHandler is used to handle AI traffic.
 	AIGatewayHandler interface {
-		Handle(ctx *context.Context, providerName string) string
+		Handle(ctx *context.Context, providerName string, middlewares []string) string
 	}
 
 	// AIGatewayController is the controller for AI Gateway.
@@ -96,13 +104,14 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		providers  map[string]providers.Provider
-		metricshub *metricshub.MetricsHub
+		providers   map[string]providers.Provider
+		middlewares map[string]middlewares.Middleware
+		metricshub  *metricshub.MetricsHub
 	}
 
 	// Spec describes AIGatewayController.
 	Spec struct {
-		Providers     []*providers.ProviderSpec `json:"providers,omitempty"`
+		Providers     []*aicontext.ProviderSpec `json:"providers,omitempty"`
 		Observability *ObservabilitySpec        `json:"observability,omitempty"`
 	}
 
@@ -226,24 +235,31 @@ func (agc *AIGatewayController) Close() {
 	globalAGC.CompareAndSwap(agc, (*AIGatewayController)(nil))
 }
 
-func (agc *AIGatewayController) Handle(ctx *context.Context, providerName string) string {
+func (agc *AIGatewayController) Handle(ctx *context.Context, providerName string, middlewares []string) string {
 	if _, ok := agc.providers[providerName]; !ok || providerName == "" {
-		setErrResponse(ctx, fmt.Errorf("provider %s not found", providerName))
-		return providers.ResultProviderNotFoundError
+		agc.setErrResponse(ctx, fmt.Errorf("provider %s not found", providerName))
+		return string(aicontext.ResultProviderError)
 	}
 
-	req := ctx.GetInputRequest().(*httpprot.Request)
-	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
-	if resp == nil {
-		resp, _ = httpprot.NewResponse(nil)
-		ctx.SetOutputResponse(resp)
+	aiCtx, err := aicontext.New(ctx, agc.providers[providerName].Spec())
+	if err != nil {
+		agc.setErrResponse(ctx, fmt.Errorf("failed to create AI context: %w", err))
+		return string(aicontext.ResultInternalError)
 	}
 
+	start := time.Now().UnixMilli()
+	for _, middlewareName := range middlewares {
+		if middleware, ok := agc.middlewares[middlewareName]; ok {
+			middleware.Handle(aiCtx)
+			if aiCtx.IsStopped() {
+				agc.processResult(ctx, aiCtx, start)
+				return string(aiCtx.Result())
+			}
+		}
+	}
 	provider := agc.providers[providerName]
-	result := provider.Handle(ctx, req, resp, func(m *metricshub.Metric) {
-		agc.metricshub.Update(m)
-	})
-	return result
+	provider.Handle(aiCtx)
+	return agc.processResult(ctx, aiCtx, start)
 }
 
 func GetGlobalAIGatewayHandler() (AIGatewayHandler, error) {
@@ -259,7 +275,7 @@ func GetGlobalAIGatewayHandler() (AIGatewayHandler, error) {
 	return agc, nil
 }
 
-func setErrResponse(ctx *context.Context, err error) {
+func (agc *AIGatewayController) setErrResponse(ctx *context.Context, err error) {
 	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
 	if resp == nil {
 		resp, _ = httpprot.NewResponse(nil)
@@ -269,4 +285,81 @@ func setErrResponse(ctx *context.Context, err error) {
 	data, _ := codectool.MarshalJSON(errMsg)
 	resp.SetPayload(data)
 	ctx.SetOutputResponse(resp)
+}
+
+func (agc *AIGatewayController) processResult(ctx *context.Context, aiCtx *aicontext.Context, startTime int64) string {
+	endTime := time.Now().UnixMilli()
+	// create easegress response
+	egResp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if egResp == nil {
+		egResp, _ = httpprot.NewResponse(nil)
+	}
+	// get AI response
+	aiResp := aiCtx.GetResponse()
+	if aiResp == nil {
+		agc.setErrResponse(ctx, fmt.Errorf("no response found in AI context"))
+		return string(aicontext.ResultInternalError)
+	}
+
+	// set ai response to easegress response
+	egResp.SetStatusCode(aiResp.StatusCode)
+	if aiResp.ContentLength > 0 {
+		egResp.ContentLength = aiResp.ContentLength
+	}
+	maps.Copy(egResp.HTTPHeader(), aiResp.Header)
+
+	var getRespBody func() []byte
+	if aiResp.BodyBytes != nil {
+		egResp.SetPayload(aiResp.BodyBytes)
+		getRespBody = func() []byte {
+			return aiResp.BodyBytes
+		}
+	} else if aiResp.BodyReader != nil {
+		var buf bytes.Buffer
+		tee := io.TeeReader(aiResp.BodyReader, &buf)
+		egResp.SetPayload(tee)
+		getRespBody = func() []byte {
+			return buf.Bytes()
+		}
+	}
+	ctx.SetOutputResponse(egResp)
+
+	ctx.OnFinish(func() {
+		fc := &aicontext.FinishContext{
+			StatusCode: aiResp.StatusCode,
+			Header:     aiResp.Header,
+			RespBody:   getRespBody(),
+			Duration:   endTime - startTime,
+		}
+		for _, cb := range aiCtx.Callbacks() {
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						logger.Errorf("failed to execute finish action: %v, stack trace: \n%s\n", err, debug.Stack())
+					}
+				}()
+
+				cb(fc)
+			}()
+		}
+		if aiCtx.ParseMetricFn != nil {
+			metric := aiCtx.ParseMetricFn(fc)
+			agc.metricshub.Update(metric)
+			return
+		}
+		metric := metricshub.Metric{
+			Success:      aiResp.StatusCode == http.StatusOK,
+			Provider:     aiCtx.Provider.Name,
+			Duration:     fc.Duration,
+			Model:        aiCtx.ReqInfo.Model,
+			BaseURL:      aiCtx.Provider.BaseURL,
+			ResponseType: string(aiCtx.RespType),
+			ProviderType: aiCtx.Provider.ProviderType,
+		}
+		if aiResp.StatusCode != http.StatusOK {
+			metric.Error = metricshub.MetricInternalError
+		}
+		agc.metricshub.Update(&metric)
+	})
+	return string(aiCtx.Result())
 }

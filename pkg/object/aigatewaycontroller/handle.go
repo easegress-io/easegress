@@ -17,11 +17,11 @@
 
 package aigatewaycontroller
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
+import (
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 // HandlerResults return the results of handler
 func HandlerResults() []string {
-	return []string{
-		providers.ResultClientError, providers.ResultClientError, providers.ResultServerError, providers.ResultFailureCode, providers.ResultProviderNotFoundError,
-	}
+	return aicontext.ContextResults()
 }

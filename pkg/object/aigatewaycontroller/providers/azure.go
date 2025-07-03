@@ -17,7 +17,11 @@
 
 package providers
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	AzureProvider struct {
@@ -28,7 +32,7 @@ type (
 var _ Provider = (*AzureProvider)(nil)
 
 // NewAzureProvider initializes an NewAzureProvider with the given ProviderSpec.
-func NewAzureProvider(spec *ProviderSpec) *AzureProvider {
+func NewAzureProvider(spec *aicontext.ProviderSpec) *AzureProvider {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = fmt.Sprintf("https://%s/openai/deployments/%s", spec.Endpoint, spec.DeploymentID)
 	}

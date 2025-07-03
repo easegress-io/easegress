@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -36,11 +37,11 @@ func TestGetLastChunkFromOpenAIStream(t *testing.T) {
 	cases := []struct {
 		input  string
 		output string
-		err    error
+		err    metricshub.MetricError
 	}{
-		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]\n\n", output: "234", err: nil},
-		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]", output: "234", err: nil},
-		{input: "data: 123\n\ndata: 234\n\n", output: "", err: ErrMetricUnmarshalResponse},
+		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]\n\n", output: "234", err: ""},
+		{input: "data: 123\n\ndata: 234\n\ndata: [DONE]", output: "234", err: ""},
+		{input: "data: 123\n\ndata: 234\n\n", output: "", err: metricshub.MetricMarshalError},
 	}
 
 	for _, c := range cases {

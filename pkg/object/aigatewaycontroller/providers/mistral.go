@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	MistralProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*MistralProvider)(nil)
 
 // NewMistralProvider initializes an NewMistralProvider with the given ProviderSpec.
-func NewMistralProvider(spec *ProviderSpec) *MistralProvider {
+func NewMistralProvider(spec *aicontext.ProviderSpec) *MistralProvider {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.mistral.ai"
 	}

@@ -15,27 +15,13 @@
  * limitations under the License.
  */
 
-package providers
+package middlewares
 
 import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 
 type (
-	BedrockProvider struct {
-		BaseProvider
+	// Middleware defines the interface for middleware in the AI Gateway Controller.
+	Middleware interface {
+		Handle(ctx *aicontext.Context)
 	}
 )
-
-var _ Provider = (*BedrockProvider)(nil)
-
-// NewBedrockProvider initializes an NewBedrockProvider with the given ProviderSpec.
-func NewBedrockProvider(spec *aicontext.ProviderSpec) *BedrockProvider {
-	return &BedrockProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
-}
-
-func (p *BedrockProvider) Type() string {
-	return "bedrock"
-}

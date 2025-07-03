@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	AnthropicProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*AnthropicProvider)(nil)
 
 // NewAnthropicProvider initializes an NewAnthropicProvider with the given ProviderSpec.
-func NewAnthropicProvider(spec *ProviderSpec) *AnthropicProvider {
+func NewAnthropicProvider(spec *aicontext.ProviderSpec) *AnthropicProvider {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.anthropic.com"
 	}

@@ -31,19 +31,32 @@ import (
 
 const saveMetricSnapshotInterval = 5 * time.Second
 
+type MetricError string
+
+const (
+	MetricNoError          MetricError = "" // No error occurred
+	MetricInternalError    MetricError = "internalError"
+	MetricClientError      MetricError = "clientError"
+	MetricServerError      MetricError = "serverError"
+	MetricFailureCodeError MetricError = "failureCodeError"
+	MetricProviderError    MetricError = "providerError"
+	MetricMiddlewareError  MetricError = "middlewareError"
+	MetricMarshalError     MetricError = "marshalError"
+)
+
 type (
 	// Metric represents a single API call's original metric information.
 	Metric struct {
-		Success      bool   `json:"success"`
-		Duration     int64  `json:"duration"` // in milliseconds
-		Provider     string `json:"provider"`
-		ProviderType string `json:"providerType"`
-		InputTokens  int64  `json:"inputTokens"`
-		OutputTokens int64  `json:"outputTokens"`
-		Model        string `json:"model"`
-		BaseURL      string `json:"baseURL"`
-		ResponseType string `json:"responseType"`
-		Error        string `json:"error"`
+		Success      bool        `json:"success"`
+		Duration     int64       `json:"duration"` // in milliseconds
+		Provider     string      `json:"provider"`
+		ProviderType string      `json:"providerType"`
+		InputTokens  int64       `json:"inputTokens"`
+		OutputTokens int64       `json:"outputTokens"`
+		Model        string      `json:"model"`
+		BaseURL      string      `json:"baseURL"`
+		ResponseType string      `json:"responseType"`
+		Error        MetricError `json:"error"`
 	}
 
 	metricEvent struct {
@@ -279,7 +292,7 @@ func (m *MetricsHub) Update(metric *Metric) {
 	m.totalRequest.With(labels).Inc()
 	if !metric.Success {
 		newLabels := maps.Clone(labels)
-		newLabels["error"] = metric.Error
+		newLabels["error"] = string(metric.Error)
 		m.failedRequest.With(newLabels).Inc()
 		return
 	}

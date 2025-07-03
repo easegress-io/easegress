@@ -61,7 +61,8 @@ type (
 	// Spec describes the AIGatewayProxy.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
-		ProviderName     string `json:"providerName"`
+		ProviderName     string   `json:"providerName"`
+		Middlewares      []string `json:"middlewares"`
 	}
 )
 
@@ -100,7 +101,7 @@ func (p *AIGatewayProxy) Handle(ctx *context.Context) string {
 		setErrResponse(ctx, err)
 		return resultNoController
 	}
-	return handler.Handle(ctx, p.spec.ProviderName)
+	return handler.Handle(ctx, p.spec.ProviderName, p.spec.Middlewares)
 }
 
 func setErrResponse(ctx *context.Context, err error) {

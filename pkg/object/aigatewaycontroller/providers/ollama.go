@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	OllamaProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*OllamaProvider)(nil)
 
 // NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
-func NewOllamaProvider(spec *ProviderSpec) *OllamaProvider {
+func NewOllamaProvider(spec *aicontext.ProviderSpec) *OllamaProvider {
 	return &OllamaProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,

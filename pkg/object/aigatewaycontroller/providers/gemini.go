@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	GeminiProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*GeminiProvider)(nil)
 
 // NewGeminiProvider initializes an NewGeminiProvider with the given ProviderSpec.
-func NewGeminiProvider(spec *ProviderSpec) *GeminiProvider {
+func NewGeminiProvider(spec *aicontext.ProviderSpec) *GeminiProvider {
 	return &GeminiProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,

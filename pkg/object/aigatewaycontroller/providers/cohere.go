@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	CoHereProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*CoHereProvider)(nil)
 
 // NewCoHereProvider initializes an NewCoHereProvider with the given ProviderSpec.
-func NewCoHereProvider(spec *ProviderSpec) *CoHereProvider {
+func NewCoHereProvider(spec *aicontext.ProviderSpec) *CoHereProvider {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.cohere.ai/compatibility"
 	}

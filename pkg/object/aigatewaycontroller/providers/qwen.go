@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	QwenProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*QwenProvider)(nil)
 
 // NewQwenProvider initializes an NewQwenProvider with the given ProviderSpec.
-func NewQwenProvider(spec *ProviderSpec) *QwenProvider {
+func NewQwenProvider(spec *aicontext.ProviderSpec) *QwenProvider {
 	return &QwenProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,

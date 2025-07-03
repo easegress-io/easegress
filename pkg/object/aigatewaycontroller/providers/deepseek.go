@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	DeepSeekProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*DeepSeekProvider)(nil)
 
 // NewDeepSeekProvider initializes a DeepSeekProvider with the given ProviderSpec.
-func NewDeepSeekProvider(spec *ProviderSpec) *DeepSeekProvider {
+func NewDeepSeekProvider(spec *aicontext.ProviderSpec) *DeepSeekProvider {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.deepseek.com"
 	}

@@ -17,6 +17,8 @@
 
 package providers
 
+import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+
 type (
 	OpenAIProvider struct {
 		BaseProvider
@@ -26,7 +28,7 @@ type (
 var _ Provider = (*OpenAIProvider)(nil)
 
 // NewOpenAIProvider initializes an OpenAIProvider with the given ProviderSpec.
-func NewOpenAIProvider(spec *ProviderSpec) *OpenAIProvider {
+func NewOpenAIProvider(spec *aicontext.ProviderSpec) *OpenAIProvider {
 	return &OpenAIProvider{
 		BaseProvider: BaseProvider{
 			providerSpec: spec,
