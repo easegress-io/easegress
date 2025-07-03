@@ -19,7 +19,7 @@ package metricshub
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"maps"
 	"time"
 
@@ -29,7 +29,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const saveMetricSnapshotInterval = 5 * time.Second
+
 type (
+	// Metric represents a single API call's original metric information.
 	Metric struct {
 		Success      bool   `json:"success"`
 		Duration     int64  `json:"duration"` // in milliseconds
@@ -43,6 +46,12 @@ type (
 		Error        string `json:"error"`
 	}
 
+	metricEvent struct {
+		metric  *Metric
+		statsCh chan []*MetricStats
+	}
+
+	// MetricsHub manages collection, aggregation, and exposure of all metrics.
 	MetricsHub struct {
 		totalRequest    *prometheus.CounterVec
 		successRequest  *prometheus.CounterVec
@@ -54,12 +63,11 @@ type (
 
 		spec *supervisor.Spec
 		// stats is lock-free, please access it through run goroutine only.
-		stats      map[MetricLabel]*MetricDetails
-		metricCh   chan *Metric
-		getStatsCh chan chan []MetricStats
-		done       chan bool
+		stats   map[MetricLabel]*MetricDetails
+		eventCh chan *metricEvent
 	}
 
+	// MetricLabel uniquely identifies a set of metric statistics by its labels.
 	MetricLabel struct {
 		Provider     string `json:"provider"`
 		ProviderType string `json:"providerType"`
@@ -68,6 +76,7 @@ type (
 		RespType     string `json:"respType"`
 	}
 
+	// MetricDetails stores detailed statistics for a particular label.
 	MetricDetails struct {
 		TotalRequests          int64 `json:"totalRequests"`
 		SuccessRequests        int64 `json:"successRequests"`
@@ -77,13 +86,21 @@ type (
 		CompletionTokens       int64 `json:"completionTokens"`
 	}
 
+	// MetricStats combines MetricLabel and MetricDetails, and includes average request duration.
 	MetricStats struct {
 		MetricLabel
 		MetricDetails
 		RequestAverageDuration int64 `json:"requestAverageDuration"`
 	}
+
+	// MetricSnapshot captures a full snapshot of all metrics at a specific timestamp.
+	MetricSnapshot struct {
+		Timestamp int64          `json:"timestamp"`
+		Metrics   []*MetricStats `json:"metrics"`
+	}
 )
 
+// New create a new MetricsHub instance.
 func New(spec *supervisor.Spec) *MetricsHub {
 	commonLabels := prometheus.Labels{
 		"kind":         "AIGatewayController",
@@ -127,78 +144,31 @@ func New(spec *supervisor.Spec) *MetricsHub {
 			labels,
 		).MustCurryWith(commonLabels),
 
-		spec:       spec,
-		stats:      make(map[MetricLabel]*MetricDetails),
-		metricCh:   make(chan *Metric, 10000),
-		getStatsCh: make(chan chan []MetricStats, 10),
-		done:       make(chan bool),
+		spec:    spec,
+		stats:   make(map[MetricLabel]*MetricDetails),
+		eventCh: make(chan *metricEvent, 5000),
 	}
-	hub.init()
 	go hub.run()
 	return hub
 }
 
-func (m *MetricsHub) init() {
-	cluster := m.spec.Super().Cluster()
-	key := cluster.Layout().AIGatewayStatsKey()
-
-	var data *string
-	var err error
-	for range 3 {
-		data, err = cluster.Get(key)
-		if err != nil {
-			logger.Errorf("failed to get AI gateway metrics from store: %v", err)
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		break
-	}
-	if data == nil {
-		return
-	}
-	var stats []MetricStats
-	if err := json.Unmarshal([]byte(*data), &stats); err != nil {
-		logger.Errorf("failed to unmarshal AI gateway metrics: %v", err)
-		return
-	}
-	for _, stat := range stats {
-		label := MetricLabel{
-			Provider:     stat.Provider,
-			ProviderType: stat.ProviderType,
-			BaseURL:      stat.BaseURL,
-			Model:        stat.Model,
-			RespType:     stat.RespType,
-		}
-		m.stats[label] = &MetricDetails{
-			TotalRequests:          stat.TotalRequests,
-			SuccessRequests:        stat.SuccessRequests,
-			FailedRequests:         stat.FailedRequests,
-			SuccessRequestDuration: stat.SuccessRequestDuration,
-			PromptTokens:           stat.PromptTokens,
-			CompletionTokens:       stat.CompletionTokens,
-		}
-	}
-	logger.Infof("loaded AI gateway metrics from store, total %d labels", len(m.stats))
-}
-
 func (m *MetricsHub) run() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(saveMetricSnapshotInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-m.done:
-			m.saveStats()
-			return
-		case ch := <-m.getStatsCh:
-			stats := m.currentStats()
-			select {
-			case ch <- stats:
-			default:
-				logger.Warnf("getStatsCh channel is full, dropping stats")
+		case event := <-m.eventCh:
+			if event == nil {
+				// eventCh is closed and no more events will be sent.
+				logger.Infof("MetricsHub event channel closed, stopping working goroutine")
+				return
 			}
-		case metric := <-m.metricCh:
-			m.updateStats(metric)
+			if event.statsCh != nil {
+				event.statsCh <- m.currentStats()
+			} else if event.metric != nil {
+				m.updateStats(event.metric)
+			}
 		case <-ticker.C:
 			m.saveStats()
 		}
@@ -232,14 +202,14 @@ func (m *MetricsHub) updateStats(metric *Metric) {
 	details.CompletionTokens += metric.OutputTokens
 }
 
-func (m *MetricsHub) currentStats() []MetricStats {
-	stats := make([]MetricStats, 0, len(m.stats))
+func (m *MetricsHub) currentStats() []*MetricStats {
+	stats := make([]*MetricStats, 0, len(m.stats))
 	for label, details := range m.stats {
 		avgDuration := int64(0)
 		if details.SuccessRequests > 0 {
 			avgDuration = details.SuccessRequestDuration / details.SuccessRequests
 		}
-		stats = append(stats, MetricStats{
+		stats = append(stats, &MetricStats{
 			MetricLabel:            label,
 			MetricDetails:          *details,
 			RequestAverageDuration: avgDuration,
@@ -254,7 +224,12 @@ func (m *MetricsHub) saveStats() {
 		return
 	}
 
-	data, err := json.Marshal(stats)
+	snapshot := &MetricSnapshot{
+		Timestamp: time.Now().UnixMilli(),
+		Metrics:   stats,
+	}
+
+	data, err := json.Marshal(snapshot)
 	if err != nil {
 		logger.Errorf("failed to marshal AI gateway metrics: %v", err)
 		return
@@ -267,12 +242,20 @@ func (m *MetricsHub) saveStats() {
 	}
 }
 
-func (m *MetricsHub) sendMetric(metric *Metric) {
-	select {
-	case m.metricCh <- metric:
-	default:
-		logger.Warnf("metric channel of ai gateway controlller is full")
-	}
+func (m *MetricsHub) sendEvent(event *metricEvent) (err error) {
+	// it only panics when send event to a close channel when metrichub is closed.
+	defer func() {
+		var ok bool
+		if r := recover(); r != nil {
+			if err, ok = r.(error); ok {
+				return
+			} else {
+				err = fmt.Errorf("failed to send MetricsHub event: %v", r)
+			}
+		}
+	}()
+	m.eventCh <- event
+	return
 }
 
 // Update updates the metrics with the given metric data.
@@ -281,7 +264,9 @@ func (m *MetricsHub) Update(metric *Metric) {
 		return
 	}
 
-	m.sendMetric(metric)
+	m.sendEvent(&metricEvent{
+		metric: metric,
+	})
 
 	labels := prometheus.Labels{
 		"provider":     metric.Provider,
@@ -306,21 +291,19 @@ func (m *MetricsHub) Update(metric *Metric) {
 }
 
 // GetStats returns the current stats of AI gateway metrics.
-func (m *MetricsHub) GetStats() ([]MetricStats, error) {
-	ch := make(chan []MetricStats, 1)
-	select {
-	case m.getStatsCh <- ch:
-	case <-time.After(5 * time.Second):
-		logger.Errorf("failed to get AI gateway metrics, channel is full")
-		return nil, errors.New("failed to get AI gateway metrics, channel is full")
+func (m *MetricsHub) GetStats() []*MetricStats {
+	ch := make(chan []*MetricStats, 1)
+
+	err := m.sendEvent(&metricEvent{
+		statsCh: ch,
+	})
+	if err != nil {
+		logger.Errorf("failed to get AI gateway metrics, send event failed: %v", err)
+		return nil
 	}
-	select {
-	case stats := <-ch:
-		return stats, nil
-	case <-time.After(5 * time.Second):
-		logger.Errorf("failed to get AI gateway metrics, not received in time")
-		return nil, errors.New("failed to get AI gateway metrics, not received in time")
-	}
+
+	result := <-ch
+	return result
 }
 
 // GetAllStats get all stats from the store, it will merge the stats from all members in the cluster.
@@ -335,13 +318,20 @@ func (m *MetricsHub) GetAllStats() ([]MetricStats, error) {
 
 	allMetricMap := map[MetricLabel]*MetricDetails{}
 
-	for _, item := range data {
-		stats := []MetricStats{}
-		if err := json.Unmarshal([]byte(item), &stats); err != nil {
+	for key, item := range data {
+		snapshot := MetricSnapshot{}
+		if err := json.Unmarshal([]byte(item), &snapshot); err != nil {
 			logger.Errorf("failed to unmarshal AI gateway metrics: %v", err)
 			return nil, err
 		}
-		for _, stat := range stats {
+
+		if time.Now().UnixMilli()-snapshot.Timestamp > 10*saveMetricSnapshotInterval.Milliseconds() {
+			logger.Infof("AIGateway %s seems offline, remove its metrics", key)
+			cluster.Delete(key)
+			continue
+		}
+
+		for _, stat := range snapshot.Metrics {
 			label := MetricLabel{
 				Provider:     stat.Provider,
 				ProviderType: stat.ProviderType,
@@ -383,5 +373,5 @@ func (m *MetricsHub) GetAllStats() ([]MetricStats, error) {
 
 // Close closes the MetricsHub and stops the goroutine.
 func (m *MetricsHub) Close() {
-	close(m.done)
+	close(m.eventCh)
 }
