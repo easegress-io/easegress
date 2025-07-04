@@ -22,12 +22,31 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
+)
+
+var ( // ProviderTypeRegistry is a registry for AI gateway providers.
+	ProviderTypeRegistry = map[string]reflect.Type{}
+)
+
+// All Supported Provider types
+const (
+	OpenAIProviderType    = "openai"
+	AzureProviderType     = "azure"
+	AnthropicProviderType = "anthropic"
+	BedrockProviderType   = "bedrock"
+	CohereProviderType    = "cohere"
+	DeepSeekProviderType  = "deepseek"
+	GeminiProviderType    = "gemini"
+	MistralProviderType   = "mistral"
+	OllamaProviderType    = "ollama"
+	QwenProviderType      = "qwen"
 )
 
 // BaseProvider is a struct that contains the common fields for all AI gateway providers.
@@ -48,6 +67,10 @@ func (bp *BaseProvider) Name() string {
 
 func (bp *BaseProvider) Spec() *aicontext.ProviderSpec {
 	return bp.providerSpec
+}
+
+func (bp *BaseProvider) SetSpec(spec *aicontext.ProviderSpec) {
+	bp.providerSpec = spec
 }
 
 func (bp *BaseProvider) HealthCheck() error {

@@ -19,6 +19,7 @@ package providers
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 )
@@ -31,18 +32,18 @@ type (
 
 var _ Provider = (*AzureProvider)(nil)
 
-// NewAzureProvider initializes an NewAzureProvider with the given ProviderSpec.
-func NewAzureProvider(spec *aicontext.ProviderSpec) *AzureProvider {
+// Register the AzureProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[AzureProviderType] = reflect.TypeOf(&AzureProvider{})
+}
+
+func (p *AzureProvider) SetSpec(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = fmt.Sprintf("https://%s/openai/deployments/%s", spec.Endpoint, spec.DeploymentID)
 	}
-	return &AzureProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *AzureProvider) Type() string {
-	return "azure"
+	return AzureProviderType
 }

@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	MistralProvider struct {
@@ -27,18 +31,18 @@ type (
 
 var _ Provider = (*MistralProvider)(nil)
 
-// NewMistralProvider initializes an NewMistralProvider with the given ProviderSpec.
-func NewMistralProvider(spec *aicontext.ProviderSpec) *MistralProvider {
+// Register the MistralProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[MistralProviderType] = reflect.TypeOf(&MistralProvider{})
+}
+
+func (p *MistralProvider) SetSpec(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.mistral.ai"
 	}
-	return &MistralProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *MistralProvider) Type() string {
-	return "mistral"
+	return MistralProviderType
 }

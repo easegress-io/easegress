@@ -18,11 +18,17 @@
 package aigatewaycontroller
 
 import (
+	"reflect"
+
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
 )
 
 func NewProvider(spec *aicontext.ProviderSpec) providers.Provider {
-	// TODO: Add more providers
+	if providerType, exists := providers.ProviderTypeRegistry[spec.ProviderType]; exists {
+		provider := reflect.New(providerType).Interface().(providers.Provider)
+		provider.SetSpec(spec)
+		return provider
+	}
 	return nil
 }

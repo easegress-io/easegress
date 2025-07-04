@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	CoHereProvider struct {
@@ -27,18 +31,18 @@ type (
 
 var _ Provider = (*CoHereProvider)(nil)
 
-// NewCoHereProvider initializes an NewCoHereProvider with the given ProviderSpec.
-func NewCoHereProvider(spec *aicontext.ProviderSpec) *CoHereProvider {
+// Register the CoHereProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[CohereProviderType] = reflect.TypeOf(&CoHereProvider{})
+}
+
+func (p *CoHereProvider) SetSpec(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.cohere.ai/compatibility"
 	}
-	return &CoHereProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *CoHereProvider) Type() string {
-	return "cohere"
+	return CohereProviderType
 }

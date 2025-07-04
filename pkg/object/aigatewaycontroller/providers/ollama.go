@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	OllamaProvider struct {
@@ -27,15 +31,15 @@ type (
 
 var _ Provider = (*OllamaProvider)(nil)
 
-// NewOllamaProvider initializes an OllamaProvider with the given ProviderSpec.
-func NewOllamaProvider(spec *aicontext.ProviderSpec) *OllamaProvider {
-	return &OllamaProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+// Register the OllamaProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[OllamaProviderType] = reflect.TypeOf(&OllamaProvider{})
+}
+
+func (p *OllamaProvider) SetSpec(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *OllamaProvider) Type() string {
-	return "ollama"
+	return OllamaProviderType
 }

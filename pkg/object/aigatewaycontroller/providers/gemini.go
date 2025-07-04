@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	GeminiProvider struct {
@@ -27,15 +31,15 @@ type (
 
 var _ Provider = (*GeminiProvider)(nil)
 
-// NewGeminiProvider initializes an NewGeminiProvider with the given ProviderSpec.
-func NewGeminiProvider(spec *aicontext.ProviderSpec) *GeminiProvider {
-	return &GeminiProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+// Register the GeminiProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[GeminiProviderType] = reflect.TypeOf(&GeminiProvider{})
+}
+
+func (p *GeminiProvider) SetSpec(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *GeminiProvider) Type() string {
-	return "gemini"
+	return GeminiProviderType
 }

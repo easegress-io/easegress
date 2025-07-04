@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	BedrockProvider struct {
@@ -27,15 +31,15 @@ type (
 
 var _ Provider = (*BedrockProvider)(nil)
 
-// NewBedrockProvider initializes an NewBedrockProvider with the given ProviderSpec.
-func NewBedrockProvider(spec *aicontext.ProviderSpec) *BedrockProvider {
-	return &BedrockProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+// Register the BedrockProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[BedrockProviderType] = reflect.TypeOf(&BedrockProvider{})
+}
+
+func (p *BedrockProvider) SetSpec(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *BedrockProvider) Type() string {
-	return "bedrock"
+	return BedrockProviderType
 }

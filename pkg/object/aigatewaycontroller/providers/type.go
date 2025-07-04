@@ -35,6 +35,7 @@ type (
 		// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
 		Handle(ctx *aicontext.Context)
 		Spec() *aicontext.ProviderSpec
+		SetSpec(spec *aicontext.ProviderSpec)
 
 		// HealthCheck checks the health of the provider.
 		// It should return nil if the provider is healthy, otherwise it returns an error.

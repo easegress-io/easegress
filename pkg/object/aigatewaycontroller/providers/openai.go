@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	OpenAIProvider struct {
@@ -27,15 +31,16 @@ type (
 
 var _ Provider = (*OpenAIProvider)(nil)
 
+// Register the OpenAIProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[OpenAIProviderType] = reflect.TypeOf(&OpenAIProvider{})
+}
+
 // NewOpenAIProvider initializes an OpenAIProvider with the given ProviderSpec.
-func NewOpenAIProvider(spec *aicontext.ProviderSpec) *OpenAIProvider {
-	return &OpenAIProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+func (p *OpenAIProvider) SetSpec(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *OpenAIProvider) Type() string {
-	return "openai"
+	return OpenAIProviderType
 }

@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	DeepSeekProvider struct {
@@ -27,18 +31,18 @@ type (
 
 var _ Provider = (*DeepSeekProvider)(nil)
 
-// NewDeepSeekProvider initializes a DeepSeekProvider with the given ProviderSpec.
-func NewDeepSeekProvider(spec *aicontext.ProviderSpec) *DeepSeekProvider {
+// Register the DeepSeekProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[DeepSeekProviderType] = reflect.TypeOf(&DeepSeekProvider{})
+}
+
+func (p *DeepSeekProvider) SetSpec(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.deepseek.com"
 	}
-	return &DeepSeekProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *DeepSeekProvider) Type() string {
-	return "deepseek"
+	return DeepSeekProviderType
 }

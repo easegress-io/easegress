@@ -17,7 +17,11 @@
 
 package providers
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
 	AnthropicProvider struct {
@@ -27,18 +31,18 @@ type (
 
 var _ Provider = (*AnthropicProvider)(nil)
 
-// NewAnthropicProvider initializes an NewAnthropicProvider with the given ProviderSpec.
-func NewAnthropicProvider(spec *aicontext.ProviderSpec) *AnthropicProvider {
+// Register the AnthropicProvider type in the ProviderTypeRegistry.
+func init() {
+	ProviderTypeRegistry[AnthropicProviderType] = reflect.TypeOf(&AnthropicProvider{})
+}
+
+func (p *AnthropicProvider) SetSpec(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.anthropic.com"
 	}
-	return &AnthropicProvider{
-		BaseProvider: BaseProvider{
-			providerSpec: spec,
-		},
-	}
+	p.BaseProvider.SetSpec(spec)
 }
 
 func (p *AnthropicProvider) Type() string {
-	return "anthropic"
+	return AnthropicProviderType
 }
