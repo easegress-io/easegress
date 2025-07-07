@@ -154,6 +154,14 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 	if streamStr != nil {
 		stream, _ = strconv.ParseBool(streamStr.(string))
 	}
+	streamOptions, ok := openAIReq["stream_options"].(protocol.StreamOptions)
+	if ok {
+		if streamOptions.IncludeUsage == nil {
+			// Default to true if not specified
+			streamOptions.IncludeUsage = new(bool)
+			*streamOptions.IncludeUsage = true
+		}
+	}
 
 	path := req.URL().Path
 	respType := ResponseType("")
@@ -178,8 +186,9 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		ReqBody:   body,
 		OpenAIReq: openAIReq,
 		ReqInfo: &protocol.GeneralRequest{
-			Model:  model,
-			Stream: stream,
+			Model:         model,
+			Stream:        stream,
+			StreamOptions: streamOptions,
 		},
 		RespType: respType,
 	}

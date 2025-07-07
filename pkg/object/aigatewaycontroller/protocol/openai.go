@@ -48,8 +48,15 @@ func NewError(code int, message string) ErrorResponse {
 }
 
 type GeneralRequest struct {
-	Model  string `json:"model"`
-	Stream bool   `json:"stream"`
+	Model         string        `json:"model"`
+	Stream        bool          `json:"stream"`
+	StreamOptions StreamOptions `json:"stream_options,omitempty"`
+}
+
+// StreamOptions defines options for streaming requests options.
+// Note: It is different from the OpenAI API, we'll set `include_usage` to true by default.
+type StreamOptions struct {
+	IncludeUsage *bool `json:"include_usage,omitempty"`
 }
 
 type Usage struct {
