@@ -121,7 +121,12 @@ func New(spec *supervisor.Spec) *MetricsHub {
 		"clusterRole":  spec.Super().Options().ClusterRole,
 		"instanceName": spec.Super().Options().Name,
 	}
-	labels := []string{"provider", "providerType", "baseUrl", "model", "respType"}
+	labels := []string{
+		// common labels
+		"kind", "clusterName", "clusterRole", "instanceName",
+		// metric labels
+		"provider", "providerType", "baseUrl", "model", "respType",
+	}
 	hub := &MetricsHub{
 		totalRequest: prometheushelper.NewCounter(
 			"aigateway_total_request",
