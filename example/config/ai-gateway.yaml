@@ -1,0 +1,7 @@
+kind: AIGatewayController
+name: AIGatewayController
+providers:
+- name: openai-provider
+  providerType: openai
+  baseURL: https://api.openai.com
+  apiKey: ${OPENAI_API_KEY}
