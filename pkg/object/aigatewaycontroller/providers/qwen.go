@@ -33,7 +33,7 @@ var _ Provider = (*QwenProvider)(nil)
 
 // Register the QwenProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[QwenProviderType] = reflect.TypeOf(&QwenProvider{})
+	ProviderTypeRegistry[QwenProviderType] = reflect.TypeOf(QwenProvider{})
 }
 
 func (p *QwenProvider) SetSpec(spec *aicontext.ProviderSpec) {

@@ -33,7 +33,7 @@ var _ Provider = (*CoHereProvider)(nil)
 
 // Register the CoHereProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[CohereProviderType] = reflect.TypeOf(&CoHereProvider{})
+	ProviderTypeRegistry[CohereProviderType] = reflect.TypeOf(CoHereProvider{})
 }
 
 func (p *CoHereProvider) SetSpec(spec *aicontext.ProviderSpec) {

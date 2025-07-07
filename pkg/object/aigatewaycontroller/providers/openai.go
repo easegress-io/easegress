@@ -33,7 +33,7 @@ var _ Provider = (*OpenAIProvider)(nil)
 
 // Register the OpenAIProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[OpenAIProviderType] = reflect.TypeOf(&OpenAIProvider{})
+	ProviderTypeRegistry[OpenAIProviderType] = reflect.TypeOf(OpenAIProvider{})
 }
 
 // NewOpenAIProvider initializes an OpenAIProvider with the given ProviderSpec.

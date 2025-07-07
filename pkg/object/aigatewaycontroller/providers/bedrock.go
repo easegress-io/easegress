@@ -33,7 +33,7 @@ var _ Provider = (*BedrockProvider)(nil)
 
 // Register the BedrockProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[BedrockProviderType] = reflect.TypeOf(&BedrockProvider{})
+	ProviderTypeRegistry[BedrockProviderType] = reflect.TypeOf(BedrockProvider{})
 }
 
 func (p *BedrockProvider) SetSpec(spec *aicontext.ProviderSpec) {

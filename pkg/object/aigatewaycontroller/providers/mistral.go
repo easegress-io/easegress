@@ -33,7 +33,7 @@ var _ Provider = (*MistralProvider)(nil)
 
 // Register the MistralProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[MistralProviderType] = reflect.TypeOf(&MistralProvider{})
+	ProviderTypeRegistry[MistralProviderType] = reflect.TypeOf(MistralProvider{})
 }
 
 func (p *MistralProvider) SetSpec(spec *aicontext.ProviderSpec) {

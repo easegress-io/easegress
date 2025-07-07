@@ -34,7 +34,7 @@ var _ Provider = (*AzureProvider)(nil)
 
 // Register the AzureProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[AzureProviderType] = reflect.TypeOf(&AzureProvider{})
+	ProviderTypeRegistry[AzureProviderType] = reflect.TypeOf(AzureProvider{})
 }
 
 func (p *AzureProvider) SetSpec(spec *aicontext.ProviderSpec) {

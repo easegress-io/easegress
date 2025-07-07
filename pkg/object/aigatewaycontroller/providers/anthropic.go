@@ -33,7 +33,7 @@ var _ Provider = (*AnthropicProvider)(nil)
 
 // Register the AnthropicProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[AnthropicProviderType] = reflect.TypeOf(&AnthropicProvider{})
+	ProviderTypeRegistry[AnthropicProviderType] = reflect.TypeOf(AnthropicProvider{})
 }
 
 func (p *AnthropicProvider) SetSpec(spec *aicontext.ProviderSpec) {

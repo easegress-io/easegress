@@ -33,7 +33,7 @@ var _ Provider = (*GeminiProvider)(nil)
 
 // Register the GeminiProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[GeminiProviderType] = reflect.TypeOf(&GeminiProvider{})
+	ProviderTypeRegistry[GeminiProviderType] = reflect.TypeOf(GeminiProvider{})
 }
 
 func (p *GeminiProvider) SetSpec(spec *aicontext.ProviderSpec) {

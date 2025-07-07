@@ -33,7 +33,7 @@ var _ Provider = (*OllamaProvider)(nil)
 
 // Register the OllamaProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[OllamaProviderType] = reflect.TypeOf(&OllamaProvider{})
+	ProviderTypeRegistry[OllamaProviderType] = reflect.TypeOf(OllamaProvider{})
 }
 
 func (p *OllamaProvider) SetSpec(spec *aicontext.ProviderSpec) {

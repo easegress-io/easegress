@@ -33,7 +33,7 @@ var _ Provider = (*DeepSeekProvider)(nil)
 
 // Register the DeepSeekProvider type in the ProviderTypeRegistry.
 func init() {
-	ProviderTypeRegistry[DeepSeekProviderType] = reflect.TypeOf(&DeepSeekProvider{})
+	ProviderTypeRegistry[DeepSeekProviderType] = reflect.TypeOf(DeepSeekProvider{})
 }
 
 func (p *DeepSeekProvider) SetSpec(spec *aicontext.ProviderSpec) {
