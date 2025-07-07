@@ -129,35 +129,35 @@ func New(spec *supervisor.Spec) *MetricsHub {
 	}
 	hub := &MetricsHub{
 		totalRequest: prometheushelper.NewCounter(
-			"aigateway_total_request",
+			"ai_gateway_total_request",
 			"Total number of requests received by AIGatewayController",
 			labels,
 		).MustCurryWith(commonLabels),
 		successRequest: prometheushelper.NewCounter(
-			"aigateway_success_request",
+			"ai_gateway_success_request",
 			"Total number of successful requests processed by AIGatewayController",
 			labels,
 		).MustCurryWith(commonLabels),
 		failedRequest: prometheushelper.NewCounter(
-			"aigateway_failed_request",
+			"ai_gateway_failed_request",
 			"Total number of failed requests processed by AIGatewayController",
 			append(labels, "error"),
 		).MustCurryWith(commonLabels),
 		requestDuration: prometheushelper.NewHistogram(
 			prometheus.HistogramOpts{
-				Name:    "aigateway_requests_duration",
+				Name:    "ai_gateway_requests_duration",
 				Help:    "Request processing duration histogram of a provider by AIGatewayController",
 				Buckets: prometheushelper.DefaultDurationBuckets(),
 			},
 			labels,
 		).MustCurryWith(commonLabels),
 		promptTokens: prometheushelper.NewCounter(
-			"aigateway_prompt_tokens",
+			"ai_gateway_prompt_tokens",
 			"Total number of prompt tokens processed by AIGatewayController",
 			labels,
 		).MustCurryWith(commonLabels),
 		completionTokens: prometheushelper.NewCounter(
-			"aigateway_completion_tokens",
+			"ai_gateway_completion_tokens",
 			"Total number of completion tokens processed by AIGatewayController",
 			labels,
 		).MustCurryWith(commonLabels),
@@ -268,7 +268,9 @@ func (m *MetricsHub) sendEvent(event *metricEvent) (err error) {
 			if err, ok = r.(error); ok {
 				return
 			} else {
-				err = fmt.Errorf("failed to send MetricsHub event: %v", r)
+				err = fmt.Errorf("failed to send MetricsHub event: %v, try to recreate the event channel", r)
+				close(m.eventCh)
+				m.eventCh = make(chan *metricEvent, 5000)
 			}
 		}
 	}()
@@ -282,9 +284,15 @@ func (m *MetricsHub) Update(metric *Metric) {
 		return
 	}
 
-	m.sendEvent(&metricEvent{
-		metric: metric,
-	})
+	// retry sending the event if it fails, this is a best effort.
+	for i := 0; i < 3; i++ {
+		if err := m.sendEvent(&metricEvent{
+			metric: metric,
+		}); err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond) // wait before retrying
+	}
 
 	labels := prometheus.Labels{
 		"provider":     metric.Provider,
