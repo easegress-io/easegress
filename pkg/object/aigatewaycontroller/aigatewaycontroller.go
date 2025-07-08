@@ -191,28 +191,35 @@ func (agc *AIGatewayController) Init(superSpec *supervisor.Spec) {
 	agc.super = superSpec.Super()
 	agc.registerAPIs()
 
-	agc.reload()
+	agc.reload(nil)
 }
 
 // Inherit inherits previous generation of AIGatewayController.
 func (agc *AIGatewayController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	// call this first to unregister api and set globalAGC to nil
+	previousGeneration.(*AIGatewayController).InheritClose()
+	prev := previousGeneration.(*AIGatewayController)
+
 	agc.superSpec = superSpec
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
 	agc.registerAPIs()
-
-	agc.reload()
-	previousGeneration.(*AIGatewayController).Close()
+	agc.reload(prev)
 }
 
-func (agc *AIGatewayController) reload() {
+func (agc *AIGatewayController) reload(prev *AIGatewayController) {
 	agc.providers = make(map[string]providers.Provider)
 	for _, s := range agc.spec.Providers {
 		provider := NewProvider(s)
 		agc.providers[s.Name] = provider
 	}
-	agc.metricshub = metricshub.New(agc.superSpec)
-
+	if prev != nil {
+		agc.metricshub = prev.metricshub
+		logger.Infof("AIGatewayController reusing MetricsHub from previous generation")
+	} else {
+		agc.metricshub = metricshub.New(agc.superSpec)
+		logger.Infof("AIGatewayController created new MetricsHub for AIGatewayController")
+	}
 	globalAGC.Store(agc)
 }
 
@@ -225,12 +232,17 @@ func (agc *AIGatewayController) Status() *supervisor.Status {
 	return &supervisor.Status{ObjectStatus: status}
 }
 
+func (agc *AIGatewayController) InheritClose() {
+	logger.Infof("close previous generation of AIGatewayController because of inherit")
+	agc.unregisterAPIs()
+	globalAGC.CompareAndSwap(agc, (*AIGatewayController)(nil))
+}
+
 // Close closes AIGatewayController.
 func (agc *AIGatewayController) Close() {
-	// TODO close
-	agc.unregisterAPIs()
+	logger.Infof("closing AIGatewayController")
 	agc.metricshub.Close()
-
+	agc.unregisterAPIs()
 	globalAGC.CompareAndSwap(agc, (*AIGatewayController)(nil))
 }
 

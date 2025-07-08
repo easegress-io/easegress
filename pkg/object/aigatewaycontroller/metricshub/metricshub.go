@@ -166,20 +166,25 @@ func New(spec *supervisor.Spec) *MetricsHub {
 		stats:   make(map[MetricLabel]*MetricDetails),
 		eventCh: make(chan *metricEvent, 5000),
 	}
+	logger.Infof("MetricsHub initialized for AIGatewayController")
 	go hub.run()
 	return hub
 }
 
 func (m *MetricsHub) run() {
+	logger.Infof("AIGatewayController MetricsHub working goroutine started")
 	ticker := time.NewTicker(saveMetricSnapshotInterval)
-	defer ticker.Stop()
+	defer func() {
+		logger.Infof("AIGatewayController MetricsHub working goroutine stopped")
+		ticker.Stop()
+	}()
 
 	for {
 		select {
 		case event := <-m.eventCh:
 			if event == nil {
 				// eventCh is closed and no more events will be sent.
-				logger.Infof("MetricsHub event channel closed, stopping working goroutine")
+				logger.Infof("AIGatewayController MetricsHub event channel closed, stopping working goroutine")
 				return
 			}
 			if event.statsCh != nil {
@@ -242,38 +247,43 @@ func (m *MetricsHub) saveStats() {
 		return
 	}
 
-	snapshot := &MetricSnapshot{
-		Timestamp: time.Now().UnixMilli(),
-		Metrics:   stats,
-	}
-
-	data, err := json.Marshal(snapshot)
-	if err != nil {
-		logger.Errorf("failed to marshal AI gateway metrics: %v", err)
-		return
-	}
-
-	cluster := m.spec.Super().Cluster()
-	key := cluster.Layout().AIGatewayStatsKey()
-	if err := cluster.Put(key, string(data)); err != nil {
-		logger.Errorf("failed to save AI gateway metrics to store: %v", err)
-	}
+	// use a goroutine to avoid blocking the MetricsHub run loop
+	go func() {
+		snapshot := &MetricSnapshot{
+			Timestamp: time.Now().UnixMilli(),
+			Metrics:   stats,
+		}
+		data, err := json.Marshal(snapshot)
+		if err != nil {
+			logger.Errorf("failed to marshal AI gateway metrics: %v", err)
+			return
+		}
+		cluster := m.spec.Super().Cluster()
+		key := cluster.Layout().AIGatewayStatsKey()
+		if err := cluster.Put(key, string(data)); err != nil {
+			logger.Errorf("failed to save AI gateway metrics to store: %v", err)
+		}
+	}()
 }
 
 func (m *MetricsHub) sendEvent(event *metricEvent) (err error) {
-	// it only panics when send event to a close channel when metrichub is closed.
 	defer func() {
+		// Sending to a closed channel triggers a panic in Go.
+		// This can happen if AIGatewayController is shutting down and MetricsHub is already closed.
+		// Ideally, no events should be sent after the channel is closed, but
+		// there may still be in-flight requests attempting to send metrics.
+		// To prevent the panic from crashing the program, we recover here and log the error.
 		var ok bool
 		if r := recover(); r != nil {
 			if err, ok = r.(error); ok {
 				return
 			} else {
-				err = fmt.Errorf("failed to send MetricsHub event: %v, try to recreate the event channel", r)
-				close(m.eventCh)
-				m.eventCh = make(chan *metricEvent, 5000)
+				// In practice, this would never happen by design of golang.
+				err = fmt.Errorf("failed to send MetricsHub event: %v", r)
 			}
 		}
 	}()
+	// no select here, otherwise it may block GetStats.
 	m.eventCh <- event
 	return
 }
@@ -284,14 +294,11 @@ func (m *MetricsHub) Update(metric *Metric) {
 		return
 	}
 
-	// retry sending the event if it fails, this is a best effort.
-	for i := 0; i < 3; i++ {
-		if err := m.sendEvent(&metricEvent{
-			metric: metric,
-		}); err == nil {
-			break
-		}
-		time.Sleep(100 * time.Millisecond) // wait before retrying
+	err := m.sendEvent(&metricEvent{
+		metric: metric,
+	})
+	if err != nil {
+		logger.Errorf("failed to update AI gateway metrics, send event failed: %v", err)
 	}
 
 	labels := prometheus.Labels{
@@ -352,7 +359,7 @@ func (m *MetricsHub) GetAllStats() ([]MetricStats, error) {
 		}
 
 		if time.Now().UnixMilli()-snapshot.Timestamp > 10*saveMetricSnapshotInterval.Milliseconds() {
-			logger.Infof("AIGateway %s seems offline, remove its metrics", key)
+			logger.Infof("AIGatewayController %s seems offline, remove its metrics", key)
 			cluster.Delete(key)
 			continue
 		}
