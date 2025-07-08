@@ -17,11 +17,57 @@
 
 package middlewares
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+)
 
 type (
+	// MiddlewareSpec defines the specification for middleware in the AI Gateway Controller.
+	MiddlewareSpec struct {
+		Name          string             `json:"name" jsonschema:"required"`
+		Kind          string             `json:"kind" jsonschema:"required"`
+		SemanticCache *SemanticCacheSpec `json:"semanticCache,omitempty"`
+	}
+
 	// Middleware defines the interface for middleware in the AI Gateway Controller.
 	Middleware interface {
+		Name() string
+		Kind() string
+		Spec() *MiddlewareSpec
 		Handle(ctx *aicontext.Context)
+
+		init(spec *MiddlewareSpec)
+		validate(spec *MiddlewareSpec) error
 	}
 )
+
+var (
+	middlewareTypeRegistry = map[string]reflect.Type{}
+)
+
+const (
+	semanticCacheMiddlewareKind = "SemanticCache"
+)
+
+func NewMiddleware(spec *MiddlewareSpec) Middleware {
+	if middlewareType, exists := middlewareTypeRegistry[spec.Kind]; exists {
+		middleware := reflect.New(middlewareType).Interface().(Middleware)
+		middleware.init(spec)
+		return middleware
+	}
+	return nil
+}
+
+func ValidateSpec(spec *MiddlewareSpec) error {
+	if spec == nil {
+		return fmt.Errorf("middleware spec cannot be nil")
+	}
+	if middlewareType, exists := middlewareTypeRegistry[spec.Kind]; exists {
+		middleware := reflect.New(middlewareType).Interface().(Middleware)
+		return middleware.validate(spec)
+	}
+	return fmt.Errorf("unknown middleware type: %s", spec.Kind)
+}
