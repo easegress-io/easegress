@@ -189,7 +189,6 @@ func (agc *AIGatewayController) Init(superSpec *supervisor.Spec) {
 	agc.superSpec = superSpec
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
-	agc.registerAPIs()
 
 	agc.reload(nil)
 }
@@ -203,7 +202,6 @@ func (agc *AIGatewayController) Inherit(superSpec *supervisor.Spec, previousGene
 	agc.superSpec = superSpec
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
-	agc.registerAPIs()
 	agc.reload(prev)
 }
 
@@ -221,6 +219,8 @@ func (agc *AIGatewayController) reload(prev *AIGatewayController) {
 		logger.Infof("AIGatewayController created new MetricsHub for AIGatewayController")
 	}
 	globalAGC.Store(agc)
+
+	agc.registerAPIs()
 }
 
 // Status returns the status of AIGatewayController.
