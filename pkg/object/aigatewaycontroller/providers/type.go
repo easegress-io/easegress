@@ -25,20 +25,14 @@ type (
 	Provider interface {
 		Name() string
 		Type() string
-		// TODO req is simple http.Request with extra methods.
-		// In Easegress, we have multiple namespaces. Every namespace has its own request and response.
-		// Here the resp is not the actual response, this resp is used to load data and write to real response when finish.
-		// check func (mi *muxInstance) serveHTTP(stdw http.ResponseWriter, stdr *http.Request)
-		// and func (mi *muxInstance) sendResponse(ctx *context.Context, stdw http.ResponseWriter) (int, uint64, http.Header)
-		// for more details.
-		// For non-stream data is simple, just SetPayload([]byte)
-		// For stream data, SetPayload(reader) and use a goroutine to read data from backend transfer to openai format and write to reader.
 		Handle(ctx *aicontext.Context)
 		Spec() *aicontext.ProviderSpec
-		SetSpec(spec *aicontext.ProviderSpec)
 
 		// HealthCheck checks the health of the provider.
 		// It should return nil if the provider is healthy, otherwise it returns an error.
 		HealthCheck() error
+
+		init(spec *aicontext.ProviderSpec)
+		validate(spec *aicontext.ProviderSpec) error
 	}
 )

@@ -36,8 +36,12 @@ func init() {
 	ProviderTypeRegistry[BedrockProviderType] = reflect.TypeOf(BedrockProvider{})
 }
 
-func (p *BedrockProvider) SetSpec(spec *aicontext.ProviderSpec) {
-	p.BaseProvider.SetSpec(spec)
+func (p *BedrockProvider) init(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.init(spec)
+}
+
+func (p *BedrockProvider) validate(spec *aicontext.ProviderSpec) error {
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *BedrockProvider) Type() string {

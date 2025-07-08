@@ -145,20 +145,8 @@ func (spec *Spec) Validate() error {
 		}
 		nameSet[p.Name] = struct{}{}
 
-		switch strings.ToLower(p.ProviderType) {
-		case "openai", "deepseek", "ollama":
-		case "":
-			return fmt.Errorf("provider type cannot be empty for provider: %s", p.Name)
-		default:
-			return fmt.Errorf("unknown provider type: %s for provider: %s", p.ProviderType, p.Name)
-		}
-
-		if p.BaseURL == "" {
-			return fmt.Errorf("baseURL cannot be empty for provider: %s", p.Name)
-		}
-
-		if p.APIKey == "" {
-			return fmt.Errorf("APIKey cannot be empty for provider: %s", p.Name)
+		if err := providers.ValidateSpec(p); err != nil {
+			return err
 		}
 	}
 
@@ -208,10 +196,10 @@ func (agc *AIGatewayController) Inherit(superSpec *supervisor.Spec, previousGene
 func (agc *AIGatewayController) reload(prev *AIGatewayController) {
 	agc.providers = make(map[string]providers.Provider)
 	for _, s := range agc.spec.Providers {
-		provider := NewProvider(s)
+		provider := providers.NewProvider(s)
 		agc.providers[s.Name] = provider
 	}
-	if prev != nil {
+	if prev != nil && prev.metricshub != nil {
 		agc.metricshub = prev.metricshub
 		logger.Infof("AIGatewayController reusing MetricsHub from previous generation")
 	} else {

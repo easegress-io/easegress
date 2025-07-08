@@ -36,8 +36,12 @@ func init() {
 	ProviderTypeRegistry[GeminiProviderType] = reflect.TypeOf(GeminiProvider{})
 }
 
-func (p *GeminiProvider) SetSpec(spec *aicontext.ProviderSpec) {
-	p.BaseProvider.SetSpec(spec)
+func (p *GeminiProvider) init(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.init(spec)
+}
+
+func (p *GeminiProvider) validate(spec *aicontext.ProviderSpec) error {
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *GeminiProvider) Type() string {

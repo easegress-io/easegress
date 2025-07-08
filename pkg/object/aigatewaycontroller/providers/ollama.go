@@ -36,8 +36,12 @@ func init() {
 	ProviderTypeRegistry[OllamaProviderType] = reflect.TypeOf(OllamaProvider{})
 }
 
-func (p *OllamaProvider) SetSpec(spec *aicontext.ProviderSpec) {
-	p.BaseProvider.SetSpec(spec)
+func (p *OllamaProvider) init(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.init(spec)
+}
+
+func (p *OllamaProvider) validate(spec *aicontext.ProviderSpec) error {
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *OllamaProvider) Type() string {

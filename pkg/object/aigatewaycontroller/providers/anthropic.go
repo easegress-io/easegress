@@ -36,11 +36,18 @@ func init() {
 	ProviderTypeRegistry[AnthropicProviderType] = reflect.TypeOf(AnthropicProvider{})
 }
 
-func (p *AnthropicProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (p *AnthropicProvider) init(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.anthropic.com"
 	}
-	p.BaseProvider.SetSpec(spec)
+	p.BaseProvider.init(spec)
+}
+
+func (p *AnthropicProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec.BaseURL == "" {
+		spec.BaseURL = "https://api.anthropic.com"
+	}
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *AnthropicProvider) Type() string {

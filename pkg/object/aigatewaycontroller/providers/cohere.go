@@ -36,11 +36,18 @@ func init() {
 	ProviderTypeRegistry[CohereProviderType] = reflect.TypeOf(CoHereProvider{})
 }
 
-func (p *CoHereProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (p *CoHereProvider) init(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.cohere.ai/compatibility"
 	}
-	p.BaseProvider.SetSpec(spec)
+	p.BaseProvider.init(spec)
+}
+
+func (p *CoHereProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec.BaseURL == "" {
+		spec.BaseURL = "https://api.cohere.ai/compatibility"
+	}
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *CoHereProvider) Type() string {

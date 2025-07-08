@@ -36,11 +36,18 @@ func init() {
 	ProviderTypeRegistry[DeepSeekProviderType] = reflect.TypeOf(DeepSeekProvider{})
 }
 
-func (p *DeepSeekProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (p *DeepSeekProvider) init(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.deepseek.com"
 	}
-	p.BaseProvider.SetSpec(spec)
+	p.BaseProvider.init(spec)
+}
+
+func (p *DeepSeekProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec.BaseURL == "" {
+		spec.BaseURL = "https://api.deepseek.com"
+	}
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *DeepSeekProvider) Type() string {

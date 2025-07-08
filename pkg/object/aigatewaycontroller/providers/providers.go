@@ -15,20 +15,31 @@
  * limitations under the License.
  */
 
-package aigatewaycontroller
+package providers
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/providers"
 )
 
-func NewProvider(spec *aicontext.ProviderSpec) providers.Provider {
-	if providerType, exists := providers.ProviderTypeRegistry[spec.ProviderType]; exists {
-		provider := reflect.New(providerType).Interface().(providers.Provider)
-		provider.SetSpec(spec)
+func NewProvider(spec *aicontext.ProviderSpec) Provider {
+	if providerType, exists := ProviderTypeRegistry[spec.ProviderType]; exists {
+		provider := reflect.New(providerType).Interface().(Provider)
+		provider.init(spec)
 		return provider
 	}
 	return nil
+}
+
+func ValidateSpec(spec *aicontext.ProviderSpec) error {
+	if spec == nil {
+		return fmt.Errorf("provider spec cannot be nil")
+	}
+	if providerType, exist := ProviderTypeRegistry[spec.ProviderType]; exist {
+		provider := reflect.New(providerType).Interface().(Provider)
+		return provider.validate(spec)
+	}
+	return fmt.Errorf("unknown provider type: %s", spec.ProviderType)
 }

@@ -69,8 +69,21 @@ func (bp *BaseProvider) Spec() *aicontext.ProviderSpec {
 	return bp.providerSpec
 }
 
-func (bp *BaseProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (bp *BaseProvider) init(spec *aicontext.ProviderSpec) {
 	bp.providerSpec = spec
+}
+
+func (bp *BaseProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec == nil {
+		return fmt.Errorf("provider spec cannot be nil")
+	}
+	if spec.BaseURL == "" {
+		return fmt.Errorf("BaseURL cannot be empty for provider: %s", spec.Name)
+	}
+	if spec.APIKey == "" {
+		return fmt.Errorf("APIKey cannot be empty for provider: %s", spec.Name)
+	}
+	return nil
 }
 
 func (bp *BaseProvider) HealthCheck() error {

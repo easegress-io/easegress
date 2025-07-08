@@ -36,11 +36,18 @@ func init() {
 	ProviderTypeRegistry[MistralProviderType] = reflect.TypeOf(MistralProvider{})
 }
 
-func (p *MistralProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (p *MistralProvider) init(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = "https://api.mistral.ai"
 	}
-	p.BaseProvider.SetSpec(spec)
+	p.BaseProvider.init(spec)
+}
+
+func (p *MistralProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec.BaseURL == "" {
+		spec.BaseURL = "https://api.mistral.ai"
+	}
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *MistralProvider) Type() string {

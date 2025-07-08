@@ -37,11 +37,25 @@ func init() {
 	ProviderTypeRegistry[AzureProviderType] = reflect.TypeOf(AzureProvider{})
 }
 
-func (p *AzureProvider) SetSpec(spec *aicontext.ProviderSpec) {
+func (p *AzureProvider) init(spec *aicontext.ProviderSpec) {
 	if spec != nil && spec.BaseURL == "" {
 		spec.BaseURL = fmt.Sprintf("https://%s/openai/deployments/%s", spec.Endpoint, spec.DeploymentID)
 	}
-	p.BaseProvider.SetSpec(spec)
+	p.BaseProvider.init(spec)
+}
+
+func (p *AzureProvider) validate(spec *aicontext.ProviderSpec) error {
+	if spec.BaseURL != "" {
+		return p.BaseProvider.validate(spec)
+	}
+	if spec.Endpoint == "" {
+		return fmt.Errorf("endpoint is required for Azure provider")
+	}
+	if spec.DeploymentID == "" {
+		return fmt.Errorf("deployment ID is required for Azure provider")
+	}
+	spec.BaseURL = fmt.Sprintf("https://%s/openai/deployments/%s", spec.Endpoint, spec.DeploymentID)
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *AzureProvider) Type() string {

@@ -36,8 +36,12 @@ func init() {
 	ProviderTypeRegistry[QwenProviderType] = reflect.TypeOf(QwenProvider{})
 }
 
-func (p *QwenProvider) SetSpec(spec *aicontext.ProviderSpec) {
-	p.BaseProvider.SetSpec(spec)
+func (p *QwenProvider) init(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.init(spec)
+}
+
+func (p *QwenProvider) validate(spec *aicontext.ProviderSpec) error {
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *QwenProvider) Type() string {

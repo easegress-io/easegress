@@ -36,9 +36,12 @@ func init() {
 	ProviderTypeRegistry[OpenAIProviderType] = reflect.TypeOf(OpenAIProvider{})
 }
 
-// NewOpenAIProvider initializes an OpenAIProvider with the given ProviderSpec.
-func (p *OpenAIProvider) SetSpec(spec *aicontext.ProviderSpec) {
-	p.BaseProvider.SetSpec(spec)
+func (p *OpenAIProvider) init(spec *aicontext.ProviderSpec) {
+	p.BaseProvider.init(spec)
+}
+
+func (p *OpenAIProvider) validate(spec *aicontext.ProviderSpec) error {
+	return p.BaseProvider.validate(spec)
 }
 
 func (p *OpenAIProvider) Type() string {
