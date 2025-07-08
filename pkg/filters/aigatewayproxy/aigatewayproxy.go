@@ -62,7 +62,7 @@ type (
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
 		ProviderName     string   `json:"providerName"`
-		Middlewares      []string `json:"middlewares"`
+		Middlewares      []string `json:"middlewares,omitempty"`
 	}
 )
 
