@@ -189,7 +189,6 @@ func (agc *AIGatewayController) Init(superSpec *supervisor.Spec) {
 	agc.superSpec = superSpec
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
-
 	agc.registerAPIs()
 
 	agc.reload()
@@ -200,6 +199,7 @@ func (agc *AIGatewayController) Inherit(superSpec *supervisor.Spec, previousGene
 	agc.superSpec = superSpec
 	agc.spec = superSpec.ObjectSpec().(*Spec)
 	agc.super = superSpec.Super()
+	agc.registerAPIs()
 
 	agc.reload()
 	previousGeneration.(*AIGatewayController).Close()
