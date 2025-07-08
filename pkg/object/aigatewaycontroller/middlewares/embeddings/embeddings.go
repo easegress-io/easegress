@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package middlewares
+package embeddings
 
 import "fmt"
 
 type (
 	// EmbeddingHandler defines the interface for embedding handlers in the AI Gateway Controller.
 	EmbeddingHandler interface {
-		Embed(text string) ([]float32, error)
+		EmbedDocuments(text string) ([]float32, error)
+
+		EmbedQuery(text string) ([]float32, error)
 
 		init(spec *EmbeddingSpec)
 	}
@@ -77,7 +79,12 @@ func (h *ollamaEmbeddingHanlder) init(spec *EmbeddingSpec) {
 	// TODO
 }
 
-func (h *ollamaEmbeddingHanlder) Embed(text string) ([]float32, error) {
+func (h *ollamaEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) {
+	// TODO
+	return nil, nil
+}
+
+func (h *ollamaEmbeddingHanlder) EmbedQuery(text string) ([]float32, error) {
 	// TODO
 	return nil, nil
 }
@@ -92,7 +99,12 @@ func (h *openAIEmbeddingHandler) init(spec *EmbeddingSpec) {
 	// TODO
 }
 
-func (h *openAIEmbeddingHandler) Embed(text string) ([]float32, error) {
+func (h *openAIEmbeddingHandler) EmbedDocuments(text string) ([]float32, error) {
+	// TODO
+	return nil, nil
+}
+
+func (h *openAIEmbeddingHandler) EmbedQuery(text string) ([]float32, error) {
 	// TODO
 	return nil, nil
 }
