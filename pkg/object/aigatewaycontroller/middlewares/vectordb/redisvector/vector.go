@@ -1,48 +1,51 @@
 package redisvector
 
 import (
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
+	"fmt"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
 type (
 	// RedisVectorDBSpec defines the specification for a vector database middleware.
 	RedisVectorDBSpec struct {
-		vectordb.VectorDBSpec
 		URL string `json:"url" jsonschema:"required"`
 	}
 
 	RedisVector struct {
-		Spec *RedisVectorDBSpec `json:"spec,omitempty" jsonschema:"required"`
+		CommonSpec *vecdbtypes.CommonSpec
+		Spec       *RedisVectorDBSpec `json:"spec,omitempty" jsonschema:"required"`
 		// TODO: It should have more internal fields, such as schema and index.
 		client *RedisClient
 	}
 )
 
-// NewRedisVectorDB creates a new NewRedisVectorDB with the given URL.
+// New creates a new NewRedisVectorDB with the given URL.
 // TODO: This is a placeholder logic, it should be refactored later.
-func NewRedisVectorDB(url string) *RedisVector {
+func New(common *vecdbtypes.CommonSpec, spec *RedisVectorDBSpec) *RedisVector {
 	return &RedisVector{
-		Spec: &RedisVectorDBSpec{
-			VectorDBSpec: vectordb.VectorDBSpec{
-				Dimensions: 128, // Default dimensions, can be changed later.
-				Threshold:  0.7, // Default threshold, can be changed later.
-			},
-			URL: url,
-		},
-		client: &RedisClient{}, // Initialize RedisClient here.
+		CommonSpec: common,
+		Spec:       spec,
+		client:     &RedisClient{}, // Initialize RedisClient here.
 	}
 }
 
-var _ vectordb.VectorDBHandler = (*RedisVector)(nil)
+var _ vecdbtypes.VectorDBHandler = (*RedisVector)(nil)
 
-func (r *RedisVector) Init(spec *vectordb.VectorDBSpec) {
-	return
+func ValidateSpec(spec *RedisVectorDBSpec) error {
+	if spec == nil {
+		return fmt.Errorf("redis vector spec is nil")
+	}
+	if spec.URL == "" {
+		return fmt.Errorf("redis vector url is empty")
+	}
+	return nil
 }
 
-func (r *RedisVector) SimilaritySearch(query string, options ...vectordb.Option) ([]vectordb.Document, error) {
-	return nil, nil // Placeholder for similarity search logic.
+func (r *RedisVector) SimilaritySearch(vec []float32, options ...vecdbtypes.Option) (string, error) {
+	return "", nil // Placeholder for similarity search logic.
 }
 
-func (r *RedisVector) InsertDocuments(docs []vectordb.Document, options ...vectordb.Option) ([]string, error) {
+func (r *RedisVector) InsertDocuments(vec []float32, doc string, options ...vecdbtypes.Option) ([]string, error) {
 	return nil, nil // Placeholder for document insertion logic.
 }

@@ -22,18 +22,20 @@ import (
 	"reflect"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
 )
 
 type (
 	SemanticCacheSpec struct {
-		Embeddings *EmbeddingSpec `json:"embeddings" jsonschema:"required"`
-		VectorDB   *VectorDBSpec  `json:"vectorDB" jsonschema:"required"`
+		Embeddings *embeddings.EmbeddingSpec `json:"embeddings" jsonschema:"required"`
+		VectorDB   *vectordb.Spec            `json:"vectorDB" jsonschema:"required"`
 	}
 
 	semanticCacheMiddleware struct {
 		spec              *MiddlewareSpec
-		embeddingsHandler EmbeddingHandler
-		vectorDBHandler   VectorDBHandler
+		embeddingsHandler embeddings.EmbeddingHandler
+		vectorDBHandler   vectordb.VectorDBHandler
 	}
 )
 
@@ -45,8 +47,8 @@ var _ Middleware = (*semanticCacheMiddleware)(nil)
 
 func (m *semanticCacheMiddleware) init(spec *MiddlewareSpec) {
 	m.spec = spec
-	m.embeddingsHandler = newEmbeddingHandler(spec.SemanticCache.Embeddings)
-	m.vectorDBHandler = newVectorDBHandler(spec.SemanticCache.VectorDB)
+	m.embeddingsHandler = embeddings.New(spec.SemanticCache.Embeddings)
+	m.vectorDBHandler = vectordb.New(spec.SemanticCache.VectorDB)
 }
 
 func (m *semanticCacheMiddleware) validate(spec *MiddlewareSpec) error {
@@ -59,10 +61,10 @@ func (m *semanticCacheMiddleware) validate(spec *MiddlewareSpec) error {
 	if spec.SemanticCache.VectorDB == nil {
 		return fmt.Errorf("semanticCache middleware %s must have a vectorDB spec", spec.Name)
 	}
-	if err := spec.SemanticCache.Embeddings.validate(); err != nil {
+	if err := embeddings.ValidateSpec(spec.SemanticCache.Embeddings); err != nil {
 		return fmt.Errorf("semanticCache middleware %s has invalid embeddings spec: %w", spec.Name, err)
 	}
-	if err := spec.SemanticCache.VectorDB.validate(); err != nil {
+	if err := vectordb.ValidateSpec(spec.SemanticCache.VectorDB); err != nil {
 		return fmt.Errorf("semanticCache middleware %s has invalid vectorDB spec: %w", spec.Name, err)
 	}
 	return nil

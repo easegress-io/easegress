@@ -17,78 +17,39 @@
 
 package vectordb
 
-type (
-	// Document represents a document in the vector database.
-	Document struct {
-		Content string `json:"content"`
-		// Metadata can be used to store additional information about the document.
-		Metadata map[string]interface{} `json:"metadata,omitempty"`
-	}
+import (
+	"fmt"
 
-	// VectorDBHandler is the interface for vector database middleware.
-	VectorDBHandler interface {
-		// TODO: should be extended params before release?
-		SimilaritySearch(query string, options ...Option) ([]Document, error)
-		// TODO: should be extended params before release?
-		// InsertDocuments inserts documents into the vector database, returning the IDs of the inserted documents or error if any.
-		InsertDocuments(docs []Document, options ...Option) ([]string, error)
-
-		Init(spec *VectorDBSpec)
-	}
-
-	// VectorDBSpec defines the specification for a vector database middleware.
-	VectorDBSpec struct {
-		Dimensions int     `json:"dimensions" jsonschema:"required"`
-		Threshold  float64 `json:"threshold" jsonschema:"required"`
-	}
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
-//func (spec *VectorDBSpec) validate() error {
-//	if spec.Redis == nil {
-//		return fmt.Errorf("vectorDB spec must have a redis spec")
-//	}
-//	if err := spec.Redis.validate(); err != nil {
-//		return fmt.Errorf("vectorDB redis spec validation failed: %w", err)
-//	}
-//	if spec.Dimensions <= 0 {
-//		return fmt.Errorf("vectorDB dimensions must be greater than 0")
-//	}
-//	if spec.Threshold < 0 || spec.Threshold > 1 {
-//		return fmt.Errorf("vectorDB threshold must be between 0 and 1")
-//	}
-//	return nil
-//}
+type (
+	Spec struct {
+		vecdbtypes.CommonSpec
+		Redis *redisvector.RedisVectorDBSpec
+	}
 
-//func newVectorDBHandler(spec *VectorDBSpec) VectorDBHandler {
-//	handler := &redisVectorDBHandler{}
-//	handler.init(spec)
-//	return handler
-//}
+	VectorDBHandler = vecdbtypes.VectorDBHandler
+)
 
-//type (
-//	redisVectorDBHandler struct {
-//	}
-//)
-//
-//var _ VectorDBHandler = (*redisVectorDBHandler)(nil)
-//
-//func (spec *VectorRedisSpec) validate() error {
-//	if spec.URL == "" {
-//		return fmt.Errorf("redis URL is required for vectorDB")
-//	}
-//	return nil
-//}
-//
-//func (h *redisVectorDBHandler) init(spec *VectorDBSpec) {
-//	// TODO
-//}
-//
-//func (h *redisVectorDBHandler) Get(input []float32) (body []byte, err error) {
-//	// TODO
-//	return nil, nil
-//}
-//
-//func (h *redisVectorDBHandler) Put(input []float32, body []byte) (err error) {
-//	// TODO
-//	return nil
-//}
+func New(spec *Spec) VectorDBHandler {
+	switch spec.Type {
+	case "redis":
+		return redisvector.New(&spec.CommonSpec, spec.Redis)
+	}
+	return nil
+}
+
+func ValidateSpec(spec *Spec) error {
+	if spec.Dimensions <= 0 {
+		return fmt.Errorf("vector dimension less than 1")
+	}
+	if spec.Threshold <= 0 || spec.Threshold > 1.0 {
+		return fmt.Errorf("invalid threshold")
+	}
+	if spec.Type == "redis" {
+		return redisvector.ValidateSpec(spec.Redis)
+	}
+	return fmt.Errorf("invalid spec type")
+}

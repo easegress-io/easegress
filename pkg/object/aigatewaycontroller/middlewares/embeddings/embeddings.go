@@ -17,46 +17,37 @@
 
 package embeddings
 
-import "fmt"
+import (
+	"fmt"
 
-type (
-	// EmbeddingHandler defines the interface for embedding handlers in the AI Gateway Controller.
-	EmbeddingHandler interface {
-		EmbedDocuments(text string) ([]float32, error)
-
-		EmbedQuery(text string) ([]float32, error)
-
-		init(spec *EmbeddingSpec)
-	}
-
-	// EmbeddingSpec defines the specification for embedding providers.
-	EmbeddingSpec struct {
-		ProviderType string            `json:"providerType"`
-		BaseURL      string            `json:"baseURL"`
-		APIKey       string            `json:"apiKey"`
-		Headers      map[string]string `json:"headers,omitempty"`
-		Model        string            `json:"model"`
-	}
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/embedtypes"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/huggingface"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/ollama"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/openai"
 )
 
-// newEmbeddingHandler creates a new EmbeddingHandler based on the provided EmbeddingSpec.
-// It supports "ollama" and "openai" providers.
-// validate checks the EmbeddingSpec for required fields and supported provider types.
-func newEmbeddingHandler(spec *EmbeddingSpec) EmbeddingHandler {
-	if spec.ProviderType == "ollama" {
-		handler := &ollamaEmbeddingHanlder{}
-		handler.init(spec)
-		return handler
-	}
-	handler := &openAIEmbeddingHandler{}
-	handler.init(spec)
-	return handler
+type EmbeddingSpec = embedtypes.EmbeddingSpec
+type EmbeddingHandler = embedtypes.EmbeddingHandler
+
+// registryMap maps embedding provider types to their respective handler constructors.
+var registryMap = map[string]func(*EmbeddingSpec) EmbeddingHandler{
+	"ollama":      ollama.New,
+	"openai":      openai.New,
+	"huggingface": huggingface.New,
 }
 
-func (spec *EmbeddingSpec) validate() error {
-	if spec.ProviderType != "ollama" && spec.ProviderType != "openai" {
-		return fmt.Errorf("unsupported embedding provider type: %s, only support ollama and openai for now", spec.ProviderType)
+func New(spec *EmbeddingSpec) EmbeddingHandler {
+	return registryMap[spec.ProviderType](spec)
+}
+
+func ValidateSpec(spec *EmbeddingSpec) error {
+	if spec == nil {
+		return fmt.Errorf("embedding spec cannot be nil")
 	}
+	if _, exists := registryMap[spec.ProviderType]; !exists {
+		return fmt.Errorf("unknown embedding provider type: %s", spec.ProviderType)
+	}
+
 	if spec.BaseURL == "" {
 		return fmt.Errorf("baseURL is required for embedding provider")
 	}
@@ -67,44 +58,4 @@ func (spec *EmbeddingSpec) validate() error {
 		return fmt.Errorf("model is required for embedding provider")
 	}
 	return nil
-}
-
-type (
-	ollamaEmbeddingHanlder struct{}
-)
-
-var _ EmbeddingHandler = (*ollamaEmbeddingHanlder)(nil)
-
-func (h *ollamaEmbeddingHanlder) init(spec *EmbeddingSpec) {
-	// TODO
-}
-
-func (h *ollamaEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
-}
-
-func (h *ollamaEmbeddingHanlder) EmbedQuery(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
-}
-
-type (
-	openAIEmbeddingHandler struct{}
-)
-
-var _ EmbeddingHandler = (*openAIEmbeddingHandler)(nil)
-
-func (h *openAIEmbeddingHandler) init(spec *EmbeddingSpec) {
-	// TODO
-}
-
-func (h *openAIEmbeddingHandler) EmbedDocuments(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
-}
-
-func (h *openAIEmbeddingHandler) EmbedQuery(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
 }
