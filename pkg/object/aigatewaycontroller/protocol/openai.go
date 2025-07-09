@@ -92,14 +92,21 @@ type CompletionChunk struct {
 	Usage *Usage `json:"usage,omitempty"`
 }
 
-// ================================== Embedding Response Structure ==================================
+// ================================== Embedding Structure ==================================
+
+// EmbedRequest represents the request structure for OpenAI embeddings.
+type EmbedRequest struct {
+	Input          any    `json:"input"`
+	Model          string `json:"model"`
+	EncodingFormat string `json:"encoding_format"`
+}
 
 // Embedding represents the response structure for OpenAI embeddings.
 // see more details from https://platform.openai.com/docs/guides/embeddings
 type Embedding struct {
 	Object    string    `json:"object"`
 	Index     int       `json:"index"`
-	Embedding []float64 `json:"embedding"`
+	Embedding []float32 `json:"embedding"`
 }
 
 type EmbeddingUsage struct {

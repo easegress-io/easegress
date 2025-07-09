@@ -67,6 +67,7 @@ func New(spec *embedtypes.EmbeddingSpec) embedtypes.EmbeddingHandler {
 }
 
 func (h *ollamaEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) {
+	// prepare the request
 	embedReq := &EmbedRequest{
 		Model: h.spec.Model,
 		Input: text,
@@ -83,6 +84,11 @@ func (h *ollamaEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) 
 	if err != nil {
 		return nil, err
 	}
+	for k, v := range h.spec.Headers {
+		req.Header.Set(k, v)
+	}
+
+	// parse the response
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err

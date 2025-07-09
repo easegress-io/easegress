@@ -17,7 +17,19 @@
 
 package openai
 
-import "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/embedtypes"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/embedtypes"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
+)
+
+const openaiEmbedPath = "/v1/embeddings"
 
 // TODO: Add logic for this package
 type (
@@ -27,13 +39,57 @@ type (
 )
 
 func New(spec *embedtypes.EmbeddingSpec) embedtypes.EmbeddingHandler {
-	handler := &openaiEmbeddingHanlder{}
+	handler := &openaiEmbeddingHanlder{
+		spec: spec,
+	}
 	return handler
 }
 
 func (h *openaiEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
+	// prepare the request body
+	embedReq := &protocol.EmbedRequest{
+		Model:          h.spec.Model,
+		Input:          text,
+		EncodingFormat: "float",
+	}
+	reqBody, err := json.Marshal(embedReq)
+	if err != nil {
+		return nil, err
+	}
+	u, err := url.JoinPath(h.spec.BaseURL, openaiEmbedPath)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodPost, u, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+h.spec.APIKey)
+	for k, v := range h.spec.Headers {
+		req.Header.Set(k, v)
+	}
+
+	// parse the response body
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama embedding request failed with status code %d, %s", resp.StatusCode, string(data))
+	}
+	var embedResp protocol.EmbeddingResponse
+	if err := json.Unmarshal(data, &embedResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	if len(embedResp.Data) == 0 || len(embedResp.Data[0].Embedding) == 0 {
+		return nil, fmt.Errorf("openai embedding response is empty")
+	}
+	return embedResp.Data[0].Embedding, nil
 }
 
 func (h *openaiEmbeddingHanlder) EmbedQuery(text string) ([]float32, error) {
