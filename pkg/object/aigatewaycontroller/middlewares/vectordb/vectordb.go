@@ -30,14 +30,12 @@ type (
 		Redis *redisvector.RedisVectorDBSpec
 	}
 
-	VectorDBHandler = vecdbtypes.VectorDBHandler
+	VectorHandler = vecdbtypes.VectorHandler
+
+	VectorDB = vecdbtypes.VectorDB
 )
 
-func New(spec *Spec) VectorDBHandler {
-	switch spec.Type {
-	case "redis":
-		return redisvector.New(&spec.CommonSpec, spec.Redis)
-	}
+func New(spec *Spec) vecdbtypes.VectorDB {
 	return nil
 }
 

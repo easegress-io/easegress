@@ -35,7 +35,7 @@ type (
 	semanticCacheMiddleware struct {
 		spec              *MiddlewareSpec
 		embeddingsHandler embeddings.EmbeddingHandler
-		vectorDBHandler   vectordb.VectorDBHandler
+		vectorDB          vectordb.VectorDB
 	}
 )
 
@@ -48,7 +48,7 @@ var _ Middleware = (*semanticCacheMiddleware)(nil)
 func (m *semanticCacheMiddleware) init(spec *MiddlewareSpec) {
 	m.spec = spec
 	m.embeddingsHandler = embeddings.New(spec.SemanticCache.Embeddings)
-	m.vectorDBHandler = vectordb.New(spec.SemanticCache.VectorDB)
+	m.vectorDB = vectordb.New(spec.SemanticCache.VectorDB)
 }
 
 func (m *semanticCacheMiddleware) validate(spec *MiddlewareSpec) error {

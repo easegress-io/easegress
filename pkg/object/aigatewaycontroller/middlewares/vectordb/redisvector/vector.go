@@ -30,7 +30,7 @@ func New(common *vecdbtypes.CommonSpec, spec *RedisVectorDBSpec) *RedisVector {
 	}
 }
 
-var _ vecdbtypes.VectorDBHandler = (*RedisVector)(nil)
+// var _ vecdbtypes.VectorDBHandler = (*RedisVector)(nil)
 
 func ValidateSpec(spec *RedisVectorDBSpec) error {
 	if spec == nil {
