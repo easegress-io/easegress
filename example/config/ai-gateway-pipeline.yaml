@@ -6,4 +6,4 @@ flow:
 filters:
   - name: ai-gateway-proxy
     kind: AIGatewayProxy
-    providerName: openai-provider
+    providerName: deepseek-provider
