@@ -18,24 +18,43 @@
 package middlewares
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"html/template"
+	"net/http"
 	"reflect"
+	"strconv"
+	"sync"
 
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
 )
 
+const semanticCacheDefaultContentTemplate = `{{ $last := "" }}{{ range .messages}}{{ $last = .content }}{{ end }}{{ $last }}`
+
 type (
 	SemanticCacheSpec struct {
-		Embeddings *embeddings.EmbeddingSpec `json:"embeddings" jsonschema:"required"`
-		VectorDB   *vectordb.Spec            `json:"vectorDB" jsonschema:"required"`
+		Embeddings      *embeddings.EmbeddingSpec `json:"embeddings" jsonschema:"required"`
+		VectorDB        *vectordb.Spec            `json:"vectorDB" jsonschema:"required"`
+		ReadOnly        bool                      `json:"readOnly" jsonschema:"default=false"`
+		ContentTemplate string                    `json:"contentTemplate,omitempty"`
+	}
+
+	semanticCacheVectorHandler struct {
+		spec        *MiddlewareSpec
+		vectorDB    vectordb.VectorDB
+		handlerLock sync.RWMutex
+		handlers    map[string]vectordb.VectorHandler
 	}
 
 	semanticCacheMiddleware struct {
 		spec              *MiddlewareSpec
 		embeddingsHandler embeddings.EmbeddingHandler
-		vectorDB          vectordb.VectorDB
+		vectorHandler     *semanticCacheVectorHandler
+		template          *template.Template
 	}
 )
 
@@ -48,7 +67,15 @@ var _ Middleware = (*semanticCacheMiddleware)(nil)
 func (m *semanticCacheMiddleware) init(spec *MiddlewareSpec) {
 	m.spec = spec
 	m.embeddingsHandler = embeddings.New(spec.SemanticCache.Embeddings)
-	m.vectorDB = vectordb.New(spec.SemanticCache.VectorDB)
+	m.vectorHandler = &semanticCacheVectorHandler{
+		spec:     spec,
+		vectorDB: vectordb.New(spec.SemanticCache.VectorDB),
+	}
+	templateText := spec.SemanticCache.ContentTemplate
+	if templateText == "" {
+		templateText = semanticCacheDefaultContentTemplate
+	}
+	m.template = template.Must(template.New("").Parse(templateText))
 }
 
 func (m *semanticCacheMiddleware) validate(spec *MiddlewareSpec) error {
@@ -82,6 +109,156 @@ func (m *semanticCacheMiddleware) Spec() *MiddlewareSpec {
 	return m.spec
 }
 
+func (m *semanticCacheMiddleware) getContext(ctx *aicontext.Context) (string, error) {
+	var result bytes.Buffer
+	if err := m.template.Execute(&result, ctx.OpenAIReq); err != nil {
+		return "", fmt.Errorf("failed to execute template for semantic cache: %w", err)
+	}
+	if result.Len() == 0 {
+		return "", fmt.Errorf("the content template for semantic cache is empty")
+	}
+	return result.String(), nil
+}
+
+func (m *semanticCacheMiddleware) addInsertCacheCallback(ctx *aicontext.Context, embedding []float32) {
+	if m.spec.SemanticCache.ReadOnly {
+		return
+	}
+
+	ctx.AddCallBack(func(fc *aicontext.FinishContext) {
+		if fc.StatusCode != 200 {
+			return
+		}
+		handler, err := m.vectorHandler.GetHandler(ctx)
+		if err != nil {
+			logger.Errorf("failed to get vector handler for semantic cache: %v", err)
+			return
+		}
+
+		header, err := json.Marshal(fc.Header)
+		if err != nil {
+			logger.Errorf("failed to marshal response header: %v", err)
+			return
+		}
+		cache := map[string]any{
+			"data":   string(fc.RespBody),
+			"header": string(header),
+			"status": fc.StatusCode,
+		}
+		handler.InsertDocuments(embedding, cache)
+	})
+}
+
+func (m *semanticCacheMiddleware) writeRespWithCache(ctx *aicontext.Context, cache map[string]any) {
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok {
+				logger.Errorf("panic in writeRespWithCache: %v", err)
+			} else {
+				logger.Errorf("panic in writeRespWithCache: %v", r)
+			}
+		}
+	}()
+
+	data := cache["data"].(string)
+	headerStr := cache["header"].(string)
+	status := cache["status"].(int)
+
+	h := http.Header{}
+	if err := json.Unmarshal([]byte(headerStr), &h); err != nil {
+		logger.Errorf("failed to unmarshal response header: %v", err)
+		return
+	}
+
+	resp := &aicontext.Response{
+		StatusCode: status,
+		Header:     h,
+	}
+	if ctx.ReqInfo.Stream {
+		resp.BodyReader = bytes.NewReader([]byte(data))
+	} else {
+		resp.BodyBytes = []byte(data)
+		resp.ContentLength = int64(len(resp.BodyBytes))
+	}
+	ctx.SetResponse(resp)
+	ctx.Stop("")
+}
+
 func (m *semanticCacheMiddleware) Handle(ctx *aicontext.Context) {
-	// TODO
+	if ctx.RespType != aicontext.ResponseTypeChatCompletions && ctx.RespType != aicontext.ResponseTypeCompletions {
+		return
+	}
+
+	context, err := m.getContext(ctx)
+	if err != nil {
+		logger.Errorf("failed to get context for semantic cache: %v", err)
+		return
+	}
+	embedding, err := m.embeddingsHandler.EmbedQuery(context)
+	if err != nil {
+		logger.Errorf("failed to embed context for semantic cache: %v", err)
+		return
+	}
+	handler, err := m.vectorHandler.GetHandler(ctx)
+	if err != nil {
+		logger.Errorf("failed to get vector handler for semantic cache: %v", err)
+		return
+	}
+	cache, err := handler.SimilaritySearch(embedding)
+	if err != nil {
+		if err == vectordb.ErrSimilaritySearchNotFound {
+			m.addInsertCacheCallback(ctx, embedding)
+			return
+		}
+		logger.Errorf("failed to search similarity in vector database: %v", err)
+		return
+	}
+	m.writeRespWithCache(ctx, cache)
+}
+
+func (h *semanticCacheVectorHandler) getKey(ctx *aicontext.Context) string {
+	return string(ctx.RespType) + strconv.FormatBool(ctx.ReqInfo.Stream)
+}
+
+func (h *semanticCacheVectorHandler) getDBName(ctx *aicontext.Context) string {
+	spec := h.spec.SemanticCache.VectorDB
+	dbName := spec.CollectionName
+	switch ctx.RespType {
+	case aicontext.ResponseTypeChatCompletions:
+		dbName += "_chat"
+	case aicontext.ResponseTypeCompletions:
+		dbName += "_completion"
+	default:
+		// should not reach here, check code in semanticCacheMiddleware
+		panic(fmt.Sprintf("unsupported response type: %s", ctx.RespType))
+	}
+	if ctx.ReqInfo.Stream {
+		dbName += "_stream"
+	} else {
+		dbName += "_non_stream"
+	}
+	return dbName
+}
+
+func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context) (vectordb.VectorHandler, error) {
+	key := h.getKey(ctx)
+
+	h.handlerLock.RLock()
+	if handler, exists := h.handlers[key]; exists {
+		h.handlerLock.RUnlock()
+		return handler, nil
+	}
+	h.handlerLock.RUnlock()
+
+	h.handlerLock.Lock()
+	defer h.handlerLock.Unlock()
+	// re-check to avoid in race condition re-create the handler
+	if handler, exists := h.handlers[key]; exists {
+		return handler, nil
+	}
+
+	spec := h.spec.SemanticCache.VectorDB
+	handler := h.vectorDB.CreateSchema(vectordb.WithDBName(h.getDBName(ctx)), vectordb.WithScoreThreshold(float32(spec.Threshold)))
+	h.handlers[key] = handler
+	return handler, nil
 }

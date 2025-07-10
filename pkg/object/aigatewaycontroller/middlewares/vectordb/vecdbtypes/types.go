@@ -17,6 +17,10 @@
 
 package vecdbtypes
 
+import "errors"
+
+var ErrSimilaritySearchNotFound = errors.New("not found a result that matches the query in vector database")
+
 type (
 	// Document represents a document in the vector database.
 	Document struct {
@@ -46,8 +50,9 @@ type (
 
 	// CommonSpec defines the specification for a vector database middleware.
 	CommonSpec struct {
-		Type       string  `json:"type"`
-		Dimensions int     `json:"dimensions" jsonschema:"required"`
-		Threshold  float64 `json:"threshold" jsonschema:"required"`
+		Type           string  `json:"type"`
+		Dimensions     int     `json:"dimensions" jsonschema:"required"`
+		Threshold      float64 `json:"threshold" jsonschema:"required"`
+		CollectionName string  `json:"collectionName" jsonschema:"required"`
 	}
 )

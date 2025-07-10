@@ -24,6 +24,8 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
+var ErrSimilaritySearchNotFound = vecdbtypes.ErrSimilaritySearchNotFound
+
 type (
 	Spec struct {
 		vecdbtypes.CommonSpec
@@ -33,6 +35,9 @@ type (
 	VectorHandler = vecdbtypes.VectorHandler
 
 	VectorDB = vecdbtypes.VectorDB
+
+	Option  = vecdbtypes.Option
+	Options = vecdbtypes.Options
 )
 
 func New(spec *Spec) vecdbtypes.VectorDB {
@@ -50,4 +55,25 @@ func ValidateSpec(spec *Spec) error {
 		return redisvector.ValidateSpec(spec.Redis)
 	}
 	return fmt.Errorf("invalid spec type")
+}
+
+// WithDBName returns an Option for setting the vector database name.
+func WithDBName(dbName string) Option {
+	return func(o *Options) {
+		o.DBName = dbName
+	}
+}
+
+// WithScoreThreshold returns an Option for setting the score threshold.
+func WithScoreThreshold(scoreThreshold float32) Option {
+	return func(o *Options) {
+		o.ScoreThreshold = scoreThreshold
+	}
+}
+
+// WithFilters returns an Option for setting the metadata filters.
+func WithFilters(filters interface{}) Option {
+	return func(o *Options) {
+		o.Filters = filters
+	}
 }
