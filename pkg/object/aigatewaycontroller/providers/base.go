@@ -31,9 +31,8 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 )
 
-var ( // ProviderTypeRegistry is a registry for AI gateway providers.
-	ProviderTypeRegistry = map[string]reflect.Type{}
-)
+// ProviderTypeRegistry is a registry for AI gateway providers.
+var ProviderTypeRegistry = map[string]reflect.Type{}
 
 // All Supported Provider types
 const (
@@ -96,6 +95,8 @@ func (bp *BaseProvider) HealthCheck() error {
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)
 	}
+
+	req.Header.Set("Authorization", "Bearer "+bp.providerSpec.APIKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
