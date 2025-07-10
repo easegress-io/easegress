@@ -119,6 +119,10 @@ func (bp *BaseProvider) Handle(ctx *aicontext.Context) {
 	}
 
 	ctx.ParseMetricFn = func(fc *aicontext.FinishContext) *metricshub.Metric {
+		if ctx.RespType == aicontext.ResponseTypeModels {
+			return nil
+		}
+
 		metric := &metricshub.Metric{
 			Provider:     ctx.Provider.Name,
 			ProviderType: ctx.Provider.ProviderType,

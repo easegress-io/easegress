@@ -140,6 +140,31 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		return nil, err
 	}
 
+	path := req.URL().Path
+	respType := ResponseType("")
+	if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
+		respType = ResponseTypeChatCompletions
+	} else if strings.HasSuffix(path, string(ResponseTypeCompletions)) {
+		respType = ResponseTypeCompletions
+	} else if strings.HasSuffix(path, string(ResponseTypeModels)) {
+		respType = ResponseTypeModels
+	} else {
+		return nil, fmt.Errorf("unsupported request path: %s", path)
+	}
+
+	if respType == ResponseTypeModels {
+		c := &Context{
+			Ctx:       ctx,
+			Provider:  provider,
+			Req:       req,
+			ReqBody:   body,
+			OpenAIReq: map[string]any{},
+			ReqInfo:   &protocol.GeneralRequest{},
+			RespType:  respType,
+		}
+		return c, nil
+	}
+
 	// parse OpenAI request
 	openAIReq := make(map[string]interface{})
 	err = json.Unmarshal(body, &openAIReq)
@@ -161,22 +186,6 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 			streamOptions.IncludeUsage = new(bool)
 			*streamOptions.IncludeUsage = true
 		}
-	}
-
-	path := req.URL().Path
-	respType := ResponseType("")
-	if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
-		respType = ResponseTypeChatCompletions
-	} else if strings.HasSuffix(path, string(ResponseTypeCompletions)) {
-		respType = ResponseTypeCompletions
-	} else if strings.HasSuffix(path, string(ResponseTypeEmbeddings)) {
-		respType = ResponseTypeEmbeddings
-	} else if strings.HasSuffix(path, string(ResponseTypeModels)) {
-		respType = ResponseTypeModels
-	} else if strings.HasSuffix(path, string(ResponseTypeImageGenerations)) {
-		respType = ResponseTypeImageGenerations
-	} else {
-		return nil, fmt.Errorf("unsupported request path: %s", path)
 	}
 
 	c := &Context{
