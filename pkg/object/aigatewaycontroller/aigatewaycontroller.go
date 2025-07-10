@@ -111,8 +111,8 @@ type (
 
 	// Spec describes AIGatewayController.
 	Spec struct {
-		Providers     []*aicontext.ProviderSpec `json:"providers,omitempty"`
-		Observability *ObservabilitySpec        `json:"observability,omitempty"`
+		Providers   []*aicontext.ProviderSpec     `json:"providers,omitempty"`
+		Middlewares []*middlewares.MiddlewareSpec `json:"middlewares,omitempty"`
 	}
 
 	ProviderSpec struct {
@@ -149,6 +149,12 @@ func (spec *Spec) Validate() error {
 			return err
 		}
 	}
+	for _, m := range spec.Middlewares {
+		err := middlewares.ValidateSpec(m)
+		if err != nil {
+			return fmt.Errorf("middleware %s has invalid spec: %w", m.Name, err)
+		}
+	}
 
 	return nil
 }
@@ -165,11 +171,7 @@ func (agc *AIGatewayController) Kind() string {
 
 // DefaultSpec returns the default spec of AIGatewayController.
 func (agc *AIGatewayController) DefaultSpec() interface{} {
-	return &Spec{
-		Observability: &ObservabilitySpec{
-			// TODO: add observability default options
-		},
-	}
+	return &Spec{}
 }
 
 // Init initializes AIGatewayController.
@@ -199,6 +201,11 @@ func (agc *AIGatewayController) reload(prev *AIGatewayController) {
 		provider := providers.NewProvider(s)
 		agc.providers[s.Name] = provider
 	}
+	for _, m := range agc.spec.Middlewares {
+		middleware := middlewares.NewMiddleware(m)
+		agc.middlewares[m.Name] = middleware
+	}
+
 	if prev != nil && prev.metricshub != nil {
 		agc.metricshub = prev.metricshub
 		logger.Infof("AIGatewayController reusing MetricsHub from previous generation")
