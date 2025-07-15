@@ -22,13 +22,6 @@ import "errors"
 var ErrSimilaritySearchNotFound = errors.New("not found a result that matches the query in vector database")
 
 type (
-	// Document represents a document in the vector database.
-	Document struct {
-		Content string `json:"content"`
-		// Metadata can be used to store additional information about the document.
-		Metadata map[string]interface{} `json:"metadata,omitempty"`
-	}
-
 	// VectorDBHandler is the interface for vector database middleware.
 	VectorDB interface {
 		// // TODO: should be extended params before release?
