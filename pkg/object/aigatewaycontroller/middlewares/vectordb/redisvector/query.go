@@ -11,34 +11,34 @@ const (
 )
 
 type (
-	RedisVectorFind struct {
-		index          string
-		query          string
-		noContent      bool
-		verbatim       bool
-		withScores     bool
-		withSortKeys   bool
-		inKeys         []string
-		inFields       []string
-		returns        []string
-		limit          int
-		timeout        int
-		paramsValues   []float32
-		scoreThreshold float32
-		offset         int
-		sortBy         []string
-		paramsKey      string
+	RedisVectorQuery struct {
+		index              string
+		filters            string
+		vectorFilterValues []float32
+		vectorFilterKey    string
+		noContent          bool
+		verbatim           bool
+		withScores         bool
+		withSortKeys       bool
+		inKeys             []string
+		inFields           []string
+		returns            []string
+		limit              int
+		timeout            int
+		scoreThreshold     float32
+		offset             int
+		sortBy             []string
 	}
 
-	Option func(*RedisVectorFind)
+	Option func(*RedisVectorQuery)
 )
 
-func NewRedisVectorFind(index, query string, paramsValues []float32, paramsKey string, opts ...Option) *RedisVectorFind {
-	find := &RedisVectorFind{
-		index:        index,
-		query:        query,
-		paramsValues: paramsValues,
-		paramsKey:    paramsKey,
+func NewRedisVectorQuery(index, filters string, vectorFilterKey string, vectorFilterValues []float32, opts ...Option) *RedisVectorQuery {
+	find := &RedisVectorQuery{
+		index:              index,
+		filters:            filters,
+		vectorFilterValues: vectorFilterValues,
+		vectorFilterKey:    vectorFilterKey,
 	}
 
 	for _, opt := range opts {
@@ -49,78 +49,78 @@ func NewRedisVectorFind(index, query string, paramsValues []float32, paramsKey s
 }
 
 func WithNoContent() Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.noContent = true
 	}
 }
 
 func WithVerbatim() Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.verbatim = true
 	}
 }
 
-func WithWithScores() Option {
-	return func(f *RedisVectorFind) {
+func WithScores() Option {
+	return func(f *RedisVectorQuery) {
 		f.withScores = true
 	}
 }
 
-func WithWithSortKeys() Option {
-	return func(f *RedisVectorFind) {
+func WithSortKeys() Option {
+	return func(f *RedisVectorQuery) {
 		f.withSortKeys = true
 	}
 }
 
 func WithInKeys(inKeys []string) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.inKeys = inKeys
 	}
 }
 
 func WithInFields(inFields []string) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.inFields = inFields
 	}
 }
 
 func WithReturns(returns []string) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.returns = returns
 	}
 }
 
 func WithLimit(limit int) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.limit = limit
 	}
 }
 
 func WithTimeout(timeout int) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.timeout = timeout
 	}
 }
 
 func WithScoreThreshold(scoreThreshold float32) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.scoreThreshold = scoreThreshold
 	}
 }
 
 func WithOffset(offset int) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.offset = offset
 	}
 }
 
 func WithSortBy(sortBy []string) Option {
-	return func(f *RedisVectorFind) {
+	return func(f *RedisVectorQuery) {
 		f.sortBy = sortBy
 	}
 }
 
-func (f *RedisVectorFind) ToCommand() *RedisArbitraryCommand {
+func (f *RedisVectorQuery) ToCommand() *RedisArbitraryCommand {
 	command := &RedisArbitraryCommand{
 		Commands: []string{"FT.SEARCH"},
 		Keys:     []string{f.index},
@@ -133,20 +133,20 @@ func (f *RedisVectorFind) ToCommand() *RedisArbitraryCommand {
 		f.limit = 1
 	}
 
-	params := []string{vectorPlaceHolder, float32VectorToString(f.paramsValues)}
+	params := []string{vectorPlaceHolder, float32VectorToString(f.vectorFilterValues)}
 	if f.scoreThreshold > 0 && f.scoreThreshold < 1 {
-		filter := fmt.Sprintf("@%s:[VECTOR_RANGE $distance_threshold $%s]=>{$YIELD_DISTANCE_AS: %s}", f.paramsKey, vectorPlaceHolder, distancePlaceHolder)
-		if f.query != "" {
-			filter = fmt.Sprintf("(%s) %s", f.query, filter)
+		filter := fmt.Sprintf("@%s:[VECTOR_RANGE $distance_threshold $%s]=>{$YIELD_DISTANCE_AS: %s}", f.vectorFilterKey, vectorPlaceHolder, distancePlaceHolder)
+		if f.filters != "" {
+			filter = fmt.Sprintf("(%s) %s", f.filters, filter)
 			command.Args = append(command.Args, filter)
 			params = append(params, "distance_threshold", strconv.FormatFloat(float64(1.0-f.scoreThreshold), 'f', -1, 32))
 		}
 	} else {
 		filter := "*"
-		if f.query != "" {
-			filter = f.query
+		if f.filters != "" {
+			filter = f.filters
 		}
-		command.Args = append(command.Args, fmt.Sprintf("(%s)=>[KNN %d @%s $%s AS %s]", filter, f.limit, f.paramsKey, vectorPlaceHolder, distancePlaceHolder))
+		command.Args = append(command.Args, fmt.Sprintf("(%s)=>[KNN %d @%s $%s AS %s]", filter, f.limit, f.vectorFilterKey, vectorPlaceHolder, distancePlaceHolder))
 	}
 
 	if l := len(f.returns); l > 0 {

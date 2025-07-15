@@ -101,7 +101,7 @@ func (c *RedisClient) InsertManyWithHash(ctx context.Context, prefix string, doc
 	return docIDs, errors.Join(errs...)
 }
 
-func (c *RedisClient) Find(ctx context.Context, query RedisVectorFind) (int64, []map[string]any, error) {
+func (c *RedisClient) Find(ctx context.Context, query *RedisVectorQuery) (int64, []map[string]any, error) {
 	command := query.ToCommand()
 	total, docs, err := c.client.Do(ctx, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build()).AsFtSearch()
 	if err != nil {
@@ -147,12 +147,15 @@ func toHmsetCommand(prefix string, doc map[string]any) *RedisArbitraryCommand {
 		}
 	}
 
-	if idx, ok := doc["ids"]; ok {
+	if idx, ok := doc["id"]; ok {
 		command.Keys = []string{fmt.Sprintf("%s:%s", prefix, idx)}
 	} else if keys, ok := doc["keys"]; ok {
+		doc["id"] = keys
 		command.Keys = []string{fmt.Sprintf("%s:%s", prefix, keys)}
 	} else {
-		command.Keys = []string{fmt.Sprintf("%s:%s", prefix, uuid.New().String())}
+		uuidx := uuid.New().String()
+		doc["id"] = uuidx
+		command.Keys = []string{fmt.Sprintf("%s:%s", prefix, uuidx)}
 	}
 	return command
 }

@@ -246,6 +246,28 @@ func (v *Vector) ToCommand() []string {
 	return commands
 }
 
+func (s *IndexSchema) GetDefaultSelectedFields() []string {
+	fields := make([]string, 0)
+
+	for _, tag := range s.Tags {
+		fields = append(fields, tag.Name)
+	}
+
+	for _, text := range s.Texts {
+		fields = append(fields, text.Name)
+	}
+
+	for _, numeric := range s.Numerics {
+		fields = append(fields, numeric.Name)
+	}
+
+	for _, vector := range s.Vectors {
+		fields = append(fields, vector.Name)
+	}
+
+	return fields
+}
+
 func (s *IndexSchema) ToCommand() []string {
 	commands := make([]string, 0)
 

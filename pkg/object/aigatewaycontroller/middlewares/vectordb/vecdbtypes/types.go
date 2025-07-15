@@ -17,28 +17,22 @@
 
 package vecdbtypes
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 var ErrSimilaritySearchNotFound = errors.New("not found a result that matches the query in vector database")
 
 type (
-	// VectorDBHandler is the interface for vector database middleware.
+	// VectorDB is the interface for vector database middleware.
 	VectorDB interface {
-		// // TODO: should be extended params before release?
-		// SimilaritySearch(query string, options ...Option) ([]Document, error)
-		// // TODO: should be extended params before release?
-		// // InsertDocuments inserts documents into the vector database, returning the IDs of the inserted documents or error if any.
-		// InsertDocuments(docs []Document, options ...Option) ([]string, error)
-
-		// SimilaritySearch(vec []float32, options ...Option) (string, error)
-		// InsertDocuments(vec []float32, doc string, options ...Option) ([]string, error)
-
-		CreateSchema(options ...Option) VectorHandler
+		CreateSchema(ctx context.Context, options ...Option) (VectorHandler, error)
 	}
 
 	VectorHandler interface {
-		SimilaritySearch(vec []float32, options ...Option) (map[string]any, error)
-		InsertDocuments(vec []float32, doc map[string]any, options ...Option) ([]string, error)
+		SimilaritySearch(ctx context.Context, vec []float32, options ...HandlerSearchOption) ([]map[string]any, error)
+		InsertDocuments(ctx context.Context, doc []map[string]any, options ...HandlerInsertOption) ([]string, error)
 	}
 
 	// CommonSpec defines the specification for a vector database middleware.

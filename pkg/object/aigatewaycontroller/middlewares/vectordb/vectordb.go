@@ -71,9 +71,9 @@ func WithScoreThreshold(scoreThreshold float32) Option {
 	}
 }
 
-// WithFilters returns an Option for setting the metadata filters.
-func WithFilters(filters interface{}) Option {
+// WithSchema returns an Option for setting the schema.
+func WithSchema(schema any) Option {
 	return func(o *Options) {
-		o.Filters = filters
+		o.Schema = schema
 	}
 }
