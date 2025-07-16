@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/context"
@@ -172,20 +171,31 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		return nil, err
 	}
 
-	// parse model and stream
-	model, _ := openAIReq["model"].(string)
-	streamStr := openAIReq["stream"]
-	stream := false
-	if streamStr != nil {
-		stream, _ = strconv.ParseBool(streamStr.(string))
-	}
-	streamOptions, ok := openAIReq["stream_options"].(protocol.StreamOptions)
-	if ok {
-		if streamOptions.IncludeUsage == nil {
-			// Default to true if not specified
-			streamOptions.IncludeUsage = new(bool)
-			*streamOptions.IncludeUsage = true
+	model, stream, streamOptions, err := func() (model string, stream bool, options protocol.StreamOptions, err error) {
+		defer func() {
+			var ok bool
+			if r := recover(); r != nil {
+				if err, ok = r.(error); !ok {
+					err = fmt.Errorf("failed to parse OpenAI request: %v", r)
+				}
+			}
+		}()
+
+		model = openAIReq["model"].(string)
+		stream = openAIReq["stream"].(bool)
+		var ok bool
+		options, ok = openAIReq["stream_options"].(protocol.StreamOptions)
+		if ok {
+			if options.IncludeUsage == nil {
+				// Default to true if not specified
+				options.IncludeUsage = new(bool)
+				*options.IncludeUsage = true
+			}
 		}
+		return
+	}()
+	if err != nil {
+		return nil, fmt.Errorf("invalid OpenAI request body: %w", err)
 	}
 
 	c := &Context{
