@@ -31,14 +31,13 @@ type (
 	}
 
 	VectorHandler interface {
-		SimilaritySearch(ctx context.Context, vec []float32, options ...HandlerSearchOption) ([]map[string]any, error)
+		SimilaritySearch(ctx context.Context, options ...HandlerSearchOption) ([]map[string]any, error)
 		InsertDocuments(ctx context.Context, doc []map[string]any, options ...HandlerInsertOption) ([]string, error)
 	}
 
 	// CommonSpec defines the specification for a vector database middleware.
 	CommonSpec struct {
 		Type           string  `json:"type"`
-		Dimensions     int     `json:"dimensions" jsonschema:"required"`
 		Threshold      float64 `json:"threshold" jsonschema:"required"`
 		CollectionName string  `json:"collectionName" jsonschema:"required"`
 	}

@@ -41,13 +41,14 @@ type (
 )
 
 func New(spec *Spec) vecdbtypes.VectorDB {
-	return nil
+	if spec.Type == "redis" {
+		return redisvector.New(&spec.CommonSpec, spec.Redis)
+	}
+	// This can't reach since we check vector type in ValidateSpec.
+	panic("not supported vector db type")
 }
 
 func ValidateSpec(spec *Spec) error {
-	if spec.Dimensions <= 0 {
-		return fmt.Errorf("vector dimension less than 1")
-	}
 	if spec.Threshold <= 0 || spec.Threshold > 1.0 {
 		return fmt.Errorf("invalid threshold")
 	}
@@ -55,25 +56,4 @@ func ValidateSpec(spec *Spec) error {
 		return redisvector.ValidateSpec(spec.Redis)
 	}
 	return fmt.Errorf("invalid spec type")
-}
-
-// WithDBName returns an Option for setting the vector database name.
-func WithDBName(dbName string) Option {
-	return func(o *Options) {
-		o.DBName = dbName
-	}
-}
-
-// WithScoreThreshold returns an Option for setting the score threshold.
-func WithScoreThreshold(scoreThreshold float32) Option {
-	return func(o *Options) {
-		o.ScoreThreshold = scoreThreshold
-	}
-}
-
-// WithSchema returns an Option for setting the schema.
-func WithSchema(schema any) Option {
-	return func(o *Options) {
-		o.Schema = schema
-	}
 }

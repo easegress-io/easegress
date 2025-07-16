@@ -19,14 +19,16 @@ package vecdbtypes
 
 type Option func(*Options)
 
+type Schema interface {
+	SchemaType() string
+}
+
 // Options is the struct for options.
 type Options struct {
 	// DBName is the name of the vector database.
 	DBName string
-	// ScoreThreshold is the threshold for the similarity score.
-	ScoreThreshold float32
 	// Schema is the schema for the vector database.
-	Schema any
+	Schema Schema
 }
 
 type HandlerInsertOption func(*HandlerInsertOptions)

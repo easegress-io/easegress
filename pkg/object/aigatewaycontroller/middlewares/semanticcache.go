@@ -19,6 +19,7 @@ package middlewares
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -31,6 +32,8 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
 const semanticCacheDefaultContentTemplate = `{{ $last := "" }}{{ range .messages}}{{ $last = .content }}{{ end }}{{ $last }}`
@@ -129,7 +132,7 @@ func (m *semanticCacheMiddleware) addInsertCacheCallback(ctx *aicontext.Context,
 		if fc.StatusCode != 200 {
 			return
 		}
-		handler, err := m.vectorHandler.GetHandler(ctx)
+		handler, err := m.vectorHandler.GetHandler(ctx, embedding)
 		if err != nil {
 			logger.Errorf("failed to get vector handler for semantic cache: %v", err)
 			return
@@ -141,11 +144,12 @@ func (m *semanticCacheMiddleware) addInsertCacheCallback(ctx *aicontext.Context,
 			return
 		}
 		cache := map[string]any{
-			"data":   string(fc.RespBody),
-			"header": string(header),
-			"status": fc.StatusCode,
+			"embedding": embedding,
+			"data":      string(fc.RespBody),
+			"header":    string(header),
+			"status":    fc.StatusCode,
 		}
-		handler.InsertDocuments(embedding, cache)
+		handler.InsertDocuments(ctx.Req.Std().Context(), []map[string]any{cache})
 	})
 }
 
@@ -199,12 +203,17 @@ func (m *semanticCacheMiddleware) Handle(ctx *aicontext.Context) {
 		logger.Errorf("failed to embed context for semantic cache: %v", err)
 		return
 	}
-	handler, err := m.vectorHandler.GetHandler(ctx)
+	handler, err := m.vectorHandler.GetHandler(ctx, embedding)
 	if err != nil {
 		logger.Errorf("failed to get vector handler for semantic cache: %v", err)
 		return
 	}
-	cache, err := handler.SimilaritySearch(embedding)
+	cache, err := handler.SimilaritySearch(
+		ctx.Req.Std().Context(),
+		vecdbtypes.WithRedisVectorFilterKey("embedding"),
+		vecdbtypes.WithRedisVectorFilterValues(embedding),
+		vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
+	)
 	if err != nil {
 		if err == vectordb.ErrSimilaritySearchNotFound {
 			m.addInsertCacheCallback(ctx, embedding)
@@ -213,7 +222,11 @@ func (m *semanticCacheMiddleware) Handle(ctx *aicontext.Context) {
 		logger.Errorf("failed to search similarity in vector database: %v", err)
 		return
 	}
-	m.writeRespWithCache(ctx, cache)
+	if len(cache) == 0 {
+		m.addInsertCacheCallback(ctx, embedding)
+		return
+	}
+	m.writeRespWithCache(ctx, cache[0])
 }
 
 func (h *semanticCacheVectorHandler) getKey(ctx *aicontext.Context) string {
@@ -240,7 +253,7 @@ func (h *semanticCacheVectorHandler) getDBName(ctx *aicontext.Context) string {
 	return dbName
 }
 
-func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context) (vectordb.VectorHandler, error) {
+func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context, embedding []float32) (vectordb.VectorHandler, error) {
 	key := h.getKey(ctx)
 
 	h.handlerLock.RLock()
@@ -257,8 +270,37 @@ func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context) (vectord
 		return handler, nil
 	}
 
-	spec := h.spec.SemanticCache.VectorDB
-	handler := h.vectorDB.CreateSchema(vectordb.WithDBName(h.getDBName(ctx)), vectordb.WithScoreThreshold(float32(spec.Threshold)))
+	handler, err := h.vectorDB.CreateSchema(context.Background(), func(o *vecdbtypes.Options) {
+		o.DBName = h.getDBName(ctx)
+		o.Schema = h.createRedisSchema(len(embedding))
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create index, %v", err)
+	}
 	h.handlers[key] = handler
 	return handler, nil
+}
+
+func (h *semanticCacheVectorHandler) createRedisSchema(dim int) vecdbtypes.Schema {
+	return &redisvector.IndexSchema{
+		Vectors: []redisvector.Vector{
+			{
+				Name: "embedding",
+				Dim:  dim,
+			},
+		},
+		Texts: []redisvector.Text{
+			{
+				Name: "data",
+			},
+			{
+				Name: "header",
+			},
+		},
+		Numerics: []redisvector.Numeric{
+			{
+				Name: "status",
+			},
+		},
+	}
 }

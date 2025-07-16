@@ -83,7 +83,7 @@ func ValidateSpec(spec *RedisVectorDBSpec) error {
 
 var _ vecdbtypes.VectorHandler = (*RedisVectorHandler)(nil)
 
-func (r *RedisVectorHandler) SimilaritySearch(ctx context.Context, vec []float32, options ...vecdbtypes.HandlerSearchOption) ([]map[string]any, error) {
+func (r *RedisVectorHandler) SimilaritySearch(ctx context.Context, options ...vecdbtypes.HandlerSearchOption) ([]map[string]any, error) {
 	opts := getHandlerSearchOptions(options...)
 	if opts.SelectedFields == nil {
 		fields := r.schema.GetDefaultSelectedFields()

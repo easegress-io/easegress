@@ -1,8 +1,10 @@
 package redisvector
 
 import (
-	"golang.org/x/exp/slices"
 	"strconv"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
+	"golang.org/x/exp/slices"
 )
 
 // TODO: This file is a placeholder for the Redis Index(which is equals to the database).
@@ -113,6 +115,8 @@ type (
 		NoFields      bool
 	}
 )
+
+var _ vecdbtypes.Schema = (*IndexSchema)(nil)
 
 func (t *Tag) ToCommand() []string {
 	commands := []string{t.Name}
@@ -244,6 +248,10 @@ func (v *Vector) ToCommand() []string {
 	commands = append(commands, strconv.Itoa(count*2))
 	commands = append(commands, args...)
 	return commands
+}
+
+func (s *IndexSchema) SchemaType() string {
+	return "redis"
 }
 
 func (s *IndexSchema) GetDefaultSelectedFields() []string {
