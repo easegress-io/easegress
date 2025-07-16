@@ -19,18 +19,23 @@
 package commandv2
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/cmd/client/resources"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
 )
 
 // AICmd returns AI command.
 func AICmd() *cobra.Command {
 	examples := []general.Example{
-		{Desc: "Get AI status", Command: "egctl ai status"},
-		{Desc: "Get AI statistics", Command: "egctl ai stat"},
 		{Desc: "Enable AI (Create the AIGatewayController)", Command: "egctl enable"},
 		{Desc: "Disable AI (Delete the AIGatewayController)", Command: "egctl disable"},
+		{Desc: "Get AI statistics", Command: "egctl ai stat"},
+		{Desc: "Check AI health of providers", Command: "egctl ai check"},
 	}
 
 	cmd := &cobra.Command{
@@ -44,11 +49,15 @@ func AICmd() *cobra.Command {
 	cmd.AddCommand(
 		enableCmd(),
 		disableCmd(),
-		statusCmd(),
 		statCmd(),
+		checkCmd(),
 	)
 
 	return cmd
+}
+
+func aiCmdRun(cmd *cobra.Command, args []string) {
+	cmd.Help()
 }
 
 func enableCmd() *cobra.Command {
@@ -93,18 +102,6 @@ func disableCmd() *cobra.Command {
 	}
 }
 
-func statusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:     "status",
-		Short:   "Get AI Gateway status",
-		Example: createExample("Get AI Gateway status.", "egctl ai status"),
-		Args:    cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			// TODO
-		},
-	}
-}
-
 func statCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "stat",
@@ -112,11 +109,69 @@ func statCmd() *cobra.Command {
 		Example: createExample("Get AI Gateway statistics.", "egctl ai stat"),
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			// TODO
+			body, err := general.HandleRequest(http.MethodGet, general.AIStatURL, nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			type AIStatResponse struct {
+				Stats []metricshub.MetricStats `json:"stats"`
+			}
+
+			var statResp AIStatResponse
+			err = codectool.UnmarshalJSON(body, &statResp)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			// Output table:
+			// PROVIDER (TYPE), MODEL @ BASEURL, RESP_TYPE,
+			// TOTAL_REQUESTS, SUCCESS/FAILED, AVG_DURATION(ms),
+			// TOKENS (INPUT/OUTPUT)
+
+			table := [][]string{
+				{
+					"PROVIDER(TYPE)",
+					"MODEL@BASEURL",
+					"RESP-TYPE",
+					"TOTAL-REQ",
+					"SUCCESS/FAILED",
+					"AVG-DUR(ms)",
+					"TOKENS(INPUT/OUTPUT)",
+				},
+			}
+			for _, stat := range statResp.Stats {
+				table = append(table, []string{
+					fmt.Sprintf("%s(%s)", stat.Provider, stat.ProviderType),
+					fmt.Sprintf("%s@%s", stat.Model, stat.BaseURL),
+					stat.RespType,
+					fmt.Sprintf("%d", stat.TotalRequests),
+					fmt.Sprintf("%d/%d", stat.SuccessRequests, stat.FailedRequests),
+					fmt.Sprintf("%d", stat.RequestAverageDuration),
+					fmt.Sprintf("%d/%d", stat.PromptTokens, stat.CompletionTokens),
+				})
+			}
+			general.PrintTable(table)
 		},
 	}
 }
 
-func aiCmdRun(cmd *cobra.Command, args []string) {
-	cmd.Help()
+func checkCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "check",
+		Short: "Check AI Gateway health of providers",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			body, err := general.HandleRequest(http.MethodGet, general.AISProviderstatusURL, nil)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+			fmt.Println(string(body))
+		},
+	}
 }
