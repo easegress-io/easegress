@@ -173,7 +173,7 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 	}
 
 	// parse model and stream
-	model := openAIReq["model"].(string)
+	model, _ := openAIReq["model"].(string)
 	streamStr := openAIReq["stream"]
 	stream := false
 	if streamStr != nil {
