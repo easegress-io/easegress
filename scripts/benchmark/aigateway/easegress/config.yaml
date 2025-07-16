@@ -10,7 +10,7 @@ cacheSize: 0
 rules:
   - paths:
     - pathPrefix: /
-      backend: ai-gateway-pipeline
+      backend: benchmark-ai-gateway-pipeline
 
 --- 
 

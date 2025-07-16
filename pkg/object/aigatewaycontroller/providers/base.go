@@ -276,11 +276,11 @@ func getLastChunkFromOpenAIStream(body []byte) ([]byte, metricshub.MetricError) 
 	chunks := strings.Split(bodyString, "\n\n")
 	l := len(chunks)
 	if l <= 1 {
-		logger.Errorf("failed to get last chunk from response %s", string(body))
+		logger.Errorf("failed to get last chunk from response, data chunk less than one")
 		return nil, metricshub.MetricMarshalError
 	}
 	if chunks[l-1] != "data: [DONE]" {
-		logger.Errorf("failed to get last chunk from response %s", string(body))
+		logger.Errorf("failed to get last chunk from response, response not end with <data: [DONE]>")
 		return nil, metricshub.MetricMarshalError
 	}
 	return []byte(strings.TrimPrefix(chunks[l-2], "data: ")), ""

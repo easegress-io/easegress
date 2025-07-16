@@ -158,7 +158,6 @@ func chatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 		latency := globalLatency / time.Duration(len(chunks))
 
 		w.Header().Set("Content-Type", "text/event-stream")
-		enc := json.NewEncoder(w)
 
 		for _, chunk := range chunks {
 			if latency > 0 {
@@ -166,9 +165,11 @@ func chatCompletionsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 
 			w.Write([]byte("data: "))
-			if err := enc.Encode(chunk); err != nil {
+			data, err := json.Marshal(chunk)
+			if err != nil {
 				break
 			}
+			w.Write(data)
 			w.Write([]byte("\n\n"))
 			w.(http.Flusher).Flush()
 		}
