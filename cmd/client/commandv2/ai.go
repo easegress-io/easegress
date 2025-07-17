@@ -71,6 +71,8 @@ func enableCmd() *cobra.Command {
 				if err != nil {
 					general.ExitWithError(err)
 				}
+
+				fmt.Println("AI Gateway enabled successfully.")
 			}()
 
 			s, err := general.GetSpecFromYaml(`kind: AIGatewayController
@@ -96,6 +98,7 @@ func disableCmd() *cobra.Command {
 				if err != nil {
 					general.ExitWithError(err)
 				}
+				fmt.Println("AI Gateway disabled successfully.")
 			}()
 
 			err = resources.DeleteObject(cmd, "AIGatewayController", []string{"AIGatewayController"}, false)
