@@ -24,6 +24,7 @@ import (
 
 	"github.com/megaease/easegress/v2/cmd/client/general"
 	"github.com/megaease/easegress/v2/cmd/client/resources"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/spf13/cobra"
@@ -171,7 +172,35 @@ func checkCmd() *cobra.Command {
 			if err != nil {
 				general.ExitWithError(err)
 			}
-			fmt.Println(string(body))
+			if !general.CmdGlobalFlags.DefaultFormat() {
+				general.PrintBody(body)
+				return
+			}
+
+			var statusResp aigatewaycontroller.HealthCheckResponse
+			err = codectool.UnmarshalJSON(body, &statusResp)
+			if err != nil {
+				general.ExitWithError(err)
+			}
+
+			table := [][]string{
+				{"NAME", "PROVIDER-TYPE", "HEALTHY"},
+			}
+			for _, result := range statusResp.Results {
+				var healthy string
+				if result.Healthy {
+					healthy = "YES"
+				} else {
+					healthy = fmt.Sprintf("NO(%s)", result.Error)
+				}
+
+				table = append(table, []string{
+					result.Name,
+					result.ProviderType,
+					healthy,
+				})
+			}
+			general.PrintTable(table)
 		},
 	}
 }
