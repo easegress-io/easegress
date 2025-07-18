@@ -3,7 +3,8 @@ docker pull kong/kong-gateway:3.11.0.0
 
 
 # run container
-docker run --name benchmark-kong \
+docker run --add-host=host.docker.internal:host-gateway \
+    --name benchmark-kong \
     -e "KONG_DATABASE=off" \
     -e "KONG_PROXY_ACCESS_LOG=/dev/stdout" \
     -e "KONG_ADMIN_ACCESS_LOG=/dev/stdout" \
@@ -32,7 +33,7 @@ curl -X POST "http://localhost:8000/chat" \
     -H "Accept: application/json" \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer xxx" \
-    --json '{
+    -d '{
     "model": "gpt-4",
     "messages": [
         {
@@ -40,11 +41,12 @@ curl -X POST "http://localhost:8000/chat" \
         "content": "Say this is a test!"
         }
     ]
-    }' -v 
+    }' | jq .
+
 
 
 # hey
-hey -n 2000 -c 50 -m POST \
+hey -n 1000 -c 50 -m POST \
    -H "Content-Type: application/json" \
    -d '{
     "model": "gpt-4",

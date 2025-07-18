@@ -19,7 +19,7 @@ name: AIGatewayController
 providers:
 - name: mock-openai
   providerType: openai
-  baseURL: http://localhost:19999
+  baseURL: http://host.docker.internal:19999
   apiKey: empty
 
 ---
