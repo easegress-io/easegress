@@ -52,6 +52,7 @@ func AICmd() *cobra.Command {
 		disableCmd(),
 		statCmd(),
 		checkCmd(),
+		editCmd(),
 	)
 
 	return cmd
@@ -73,11 +74,11 @@ func enableCmd() *cobra.Command {
 				}
 
 				fmt.Println("AI Gateway enabled successfully.")
+				fmt.Println("You can use `egctl ai edit` to add providers and middlewares.")
 			}()
 
 			s, err := general.GetSpecFromYaml(`kind: AIGatewayController
 name: AIGatewayController
-providers:
 `)
 			if err != nil {
 				return
@@ -204,6 +205,17 @@ func checkCmd() *cobra.Command {
 				})
 			}
 			general.PrintTable(table)
+		},
+	}
+}
+
+func editCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit",
+		Short: "Edit AI Gateway providers",
+		Run: func(cmd *cobra.Command, args []string) {
+			args = []string{"AIGatewayController", "AIGatewayController"}
+			editCmdRun(cmd, args)
 		},
 	}
 }
