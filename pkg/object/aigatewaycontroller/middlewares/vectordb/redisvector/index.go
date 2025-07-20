@@ -2,6 +2,7 @@ package redisvector
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 	"golang.org/x/exp/slices"
@@ -243,6 +244,7 @@ func (v *Vector) ToCommand() []string {
 	}
 	if v.Epsilon > 0 {
 		args = append(args, "EPSILON", strconv.FormatFloat(float64(v.Epsilon), 'f', -1, 32))
+		count++
 	}
 
 	commands = append(commands, strconv.Itoa(count*2))
@@ -316,9 +318,9 @@ func (i *Index) ToCommand() *RedisArbitraryCommand {
 	if i.IndexType != "" {
 		if slices.Contains(validIndexTypes, i.IndexType) {
 			command.Args = append(command.Args, "ON", string(i.IndexType))
-		} else {
-			command.Args = append(command.Args, "ON", "HASH")
 		}
+	} else {
+		command.Args = append(command.Args, "ON", "HASH")
 	}
 
 	if len(i.Prefix) > 0 {
@@ -366,4 +368,15 @@ func (i *Index) ToCommand() *RedisArbitraryCommand {
 	}
 
 	return command
+}
+
+func (c *RedisArbitraryCommand) ToString() string {
+	cmd := c.Commands
+	if len(c.Keys) > 0 {
+		cmd = append(cmd, c.Keys...)
+	}
+	if len(c.Args) > 0 {
+		cmd = append(cmd, c.Args...)
+	}
+	return strings.Join(cmd, " ")
 }
