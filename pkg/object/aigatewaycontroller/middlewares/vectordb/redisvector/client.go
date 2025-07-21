@@ -66,7 +66,7 @@ func (c *RedisClient) CreateIndexIfNotExists(ctx context.Context, index string, 
 
 // getPrefix get prefix with index name.
 func getPrefix(index string) string {
-	return fmt.Sprintf("doc:%s", index)
+	return fmt.Sprintf("%s:", index)
 }
 
 func (c *RedisClient) InsertWithHash(ctx context.Context, prefix string, doc map[string]any) (string, error) {

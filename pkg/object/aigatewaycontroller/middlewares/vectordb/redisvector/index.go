@@ -205,9 +205,9 @@ func (v *Vector) ToCommand() []string {
 	}
 	commands = append(commands, "VECTOR")
 	if slices.Contains(validVectorAlgorithms, v.Algorithm) {
-		commands = append(commands, "ALGORITHM", string(v.Algorithm))
+		commands = append(commands, string(v.Algorithm))
 	} else {
-		commands = append(commands, "ALGORITHM", "FLAT")
+		commands = append(commands, "FLAT")
 	}
 
 	args := make([]string, 0)
@@ -326,6 +326,8 @@ func (i *Index) ToCommand() *RedisArbitraryCommand {
 	if len(i.Prefix) > 0 {
 		command.Args = append(command.Args, "PREFIX", strconv.Itoa(len(i.Prefix)))
 		command.Args = append(command.Args, i.Prefix...)
+	} else {
+		command.Args = append(command.Args, "PREFIX", "1", getPrefix(i.Name))
 	}
 
 	if i.Filter != "" {

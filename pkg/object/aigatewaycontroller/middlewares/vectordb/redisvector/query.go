@@ -137,7 +137,7 @@ func (f *RedisVectorQuery) ToCommand() *RedisArbitraryCommand {
 	if f.scoreThreshold > 0 && f.scoreThreshold < 1 {
 		filter := fmt.Sprintf("@%s:[VECTOR_RANGE $distance_threshold $%s]=>{$YIELD_DISTANCE_AS: %s}", f.vectorFilterKey, vectorPlaceHolder, distancePlaceHolder)
 		if f.filters != "" {
-			filter = fmt.Sprintf("(%s) %s", f.filters, filter)
+			filter = fmt.Sprintf("\"%s %s\"", f.filters, filter)
 			command.Args = append(command.Args, filter)
 			params = append(params, "distance_threshold", strconv.FormatFloat(float64(1.0-f.scoreThreshold), 'f', -1, 32))
 		}

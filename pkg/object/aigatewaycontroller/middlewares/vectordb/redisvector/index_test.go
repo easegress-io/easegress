@@ -131,7 +131,7 @@ func TestVectorToCommand(t *testing.T) {
 			vector: Vector{
 				Name: "movie vector",
 			},
-			command: "movie vector VECTOR ALGORITHM FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
+			command: "movie vector VECTOR FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
 		},
 		{
 			name: "vector with all options",
@@ -147,7 +147,7 @@ func TestVectorToCommand(t *testing.T) {
 				EfRuntime:      2000,
 				Epsilon:        0.1,
 			},
-			command: "movie vector AS vector VECTOR ALGORITHM HNSW 14 TYPE BFLOAT16 DIM 256 DISTANCE_METRIC L2 M 16 EF_CONSTRUCTION 200 EF_RUNTIME 2000 EPSILON 0.1",
+			command: "movie vector AS vector VECTOR HNSW 14 TYPE BFLOAT16 DIM 256 DISTANCE_METRIC L2 M 16 EF_CONSTRUCTION 200 EF_RUNTIME 2000 EPSILON 0.1",
 		},
 	}
 
@@ -183,7 +183,7 @@ func TestIndexSchemaToCommand(t *testing.T) {
 					{Name: "embedding"},
 				},
 			},
-			command: "genre TAG SEPARATOR , title TEXT rating NUMERIC embedding VECTOR ALGORITHM FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
+			command: "genre TAG SEPARATOR , title TEXT rating NUMERIC embedding VECTOR FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
 		},
 	}
 
@@ -207,7 +207,7 @@ func TestIndexToCommand(t *testing.T) {
 			name: "simple index",
 			index: Index{
 				Name:   "movies",
-				Prefix: []string{"doc:moves"},
+				Prefix: []string{"doc:movies"},
 				Schema: &IndexSchema{
 					Tags: []Tag{
 						{Name: "genre"},
@@ -223,13 +223,13 @@ func TestIndexToCommand(t *testing.T) {
 					},
 				},
 			},
-			command: "FT.CREATE movies ON HASH PREFIX 1 doc:moves SCORE 1.0 SCHEMA genre TAG SEPARATOR , title TEXT rating NUMERIC embedding VECTOR ALGORITHM FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
+			command: "FT.CREATE movies ON HASH PREFIX 1 doc:movies SCORE 1.0 SCHEMA genre TAG SEPARATOR , title TEXT rating NUMERIC embedding VECTOR FLAT 6 TYPE FLOAT32 DIM 128 DISTANCE_METRIC COSINE",
 		},
 		{
 			name: "index with all options",
 			index: Index{
 				Name:      "movies",
-				Prefix:    []string{"doc:moves"},
+				Prefix:    []string{"doc:movies"},
 				IndexType: "JSON",
 				Schema: &IndexSchema{
 					Tags: []Tag{
@@ -254,7 +254,7 @@ func TestIndexToCommand(t *testing.T) {
 				NoOffset:      true,
 				NoFields:      true,
 			},
-			command: "FT.CREATE movies ON JSON PREFIX 1 doc:moves FILTER @genre:{action} @rating:[1.0 5.0] LANGUAGE english LANGUAGE_FIELD title SCORE 1.5 SCORE_FIELD rating MAXTEXTFIELDS 10 NOOFFSET NOFIELDS SCHEMA genre AS g TAG SEPARATOR | CASESENSITIVE SORTABLE NOINDEX INDEXMISSING INDEXEMPTY title AS t TEXT WEIGHT 1.5 WITHSUFFIXTRIE SORTABLE NOINDEX PHONETIC dm:en INDEXMISSING INDEXEMPTY rating AS r NUMERIC SORTABLE INDEXMISSING NOINDEX embedding AS e VECTOR ALGORITHM HNSW 14 TYPE BFLOAT16 DIM 256 DISTANCE_METRIC L2 M 16 EF_CONSTRUCTION 200 EF_RUNTIME 2000 EPSILON 0.1",
+			command: "FT.CREATE movies ON JSON PREFIX 1 doc:movies FILTER @genre:{action} @rating:[1.0 5.0] LANGUAGE english LANGUAGE_FIELD title SCORE 1.5 SCORE_FIELD rating MAXTEXTFIELDS 10 NOOFFSET NOFIELDS SCHEMA genre AS g TAG SEPARATOR | CASESENSITIVE SORTABLE NOINDEX INDEXMISSING INDEXEMPTY title AS t TEXT WEIGHT 1.5 WITHSUFFIXTRIE SORTABLE NOINDEX PHONETIC dm:en INDEXMISSING INDEXEMPTY rating AS r NUMERIC SORTABLE INDEXMISSING NOINDEX embedding AS e VECTOR HNSW 14 TYPE BFLOAT16 DIM 256 DISTANCE_METRIC L2 M 16 EF_CONSTRUCTION 200 EF_RUNTIME 2000 EPSILON 0.1",
 		},
 	}
 

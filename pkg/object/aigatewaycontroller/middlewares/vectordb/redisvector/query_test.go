@@ -18,7 +18,7 @@ func TestQueryToCommand(t *testing.T) {
 		{
 			name:    "query with filters",
 			query:   NewRedisVectorQuery("books-idx", "@genre{fiction}", "title_embedding", vector, WithNoContent(), WithVerbatim(), WithScores(), WithSortBy([]string{"title", "DESC"}), WithSortKeys(), WithInKeys([]string{"book_id"}), WithInFields([]string{"title", "author"}), WithReturns([]string{"title", "author"}), WithOffset(5), WithLimit(10), WithScoreThreshold(0.7)),
-			command: "FT.SEARCH books-idx (@genre{fiction}) @title_embedding:[VECTOR_RANGE $distance_threshold $vector]=>{$YIELD_DISTANCE_AS: distance} RETURN 3 title author distance SORTBY title DESC DIALECT 2 LIMIT 5 10 PARAMS 4 vector " + vectorValue + " distance_threshold 0.3 NO_CONTENT VERBATIM WITHSCORES WITHSORTKEYS INKEYS 1 book_id INFIELDS 2 title author",
+			command: "FT.SEARCH books-idx \"@genre{fiction} @title_embedding:[VECTOR_RANGE $distance_threshold $vector]=>{$YIELD_DISTANCE_AS: distance}\" RETURN 3 title author distance SORTBY title DESC DIALECT 2 LIMIT 5 10 PARAMS 4 vector " + vectorValue + " distance_threshold 0.3 NO_CONTENT VERBATIM WITHSCORES WITHSORTKEYS INKEYS 1 book_id INFIELDS 2 title author",
 		},
 	}
 
