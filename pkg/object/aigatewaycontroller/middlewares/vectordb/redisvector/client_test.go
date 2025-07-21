@@ -131,5 +131,3 @@ func TestRedisClientIndexOperations(t *testing.T) {
 		t.Fatalf("Failed to drop index: %v", err)
 	}
 }
-
-// FT.SEARCH movie "@genre:{Crime} @embedding:[VECTOR_RANGE $distance_threshold $vector]=>{$YIELD_DISTANCE_AS: distance}" PARAMS 4 vector "\xcd\xcc\xcc=\xcd\xccL>\x9a\x99\x99>" distance_threshold 0.3 RETURN 3 title genre distance SORTBY distance ASC DIALECT 2

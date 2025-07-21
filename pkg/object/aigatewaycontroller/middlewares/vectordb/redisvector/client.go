@@ -69,18 +69,18 @@ func getPrefix(index string) string {
 	return fmt.Sprintf("%s:", index)
 }
 
-func (c *RedisClient) InsertWithHash(ctx context.Context, prefix string, doc map[string]any) (string, error) {
-	command := toHmsetCommand(prefix, doc)
+func (c *RedisClient) InsertWithHash(ctx context.Context, index string, doc map[string]any) (string, error) {
+	command := toHmsetCommand(index, doc)
 	return command.Keys[0], c.client.Do(ctx, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build()).Error()
 }
 
-func (c *RedisClient) InsertManyWithHash(ctx context.Context, prefix string, docs []map[string]any) ([]string, error) {
+func (c *RedisClient) InsertManyWithHash(ctx context.Context, index string, docs []map[string]any) ([]string, error) {
 	commands := make([]rueidis.Completed, 0, len(docs))
 	docIDs := make([]string, 0, len(docs))
 	errs := make([]error, 0, len(docs))
 
 	for _, doc := range docs {
-		command := toHmsetCommand(prefix, doc)
+		command := toHmsetCommand(index, doc)
 		docIDs = append(docIDs, command.Keys[0])
 		commands = append(commands, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build())
 	}
