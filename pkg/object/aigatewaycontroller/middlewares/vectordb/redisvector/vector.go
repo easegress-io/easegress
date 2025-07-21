@@ -29,7 +29,6 @@ type (
 )
 
 // New creates a new NewRedisVectorDB with the given URL.
-// TODO: This is a placeholder logic, it should be refactored later.
 func New(common *vecdbtypes.CommonSpec, spec *RedisVectorDBSpec) *RedisVectorDB {
 	return &RedisVectorDB{
 		CommonSpec: common,
