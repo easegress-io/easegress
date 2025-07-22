@@ -84,3 +84,20 @@ func NewErrCreatePostgresDB(message string, err error) *ErrCreatePostgresDB {
 func (e *ErrCreatePostgresDB) Error() string {
 	return e.Message + ": " + e.Err.Error()
 }
+
+type ErrInsertDocuments struct {
+	Message string
+	Err     error
+}
+
+// NewErrInsertDocuments creates a new ErrInsertDocuments with the given message and error.
+func NewErrInsertDocuments(message string, err error) *ErrInsertDocuments {
+	return &ErrInsertDocuments{
+		Message: message,
+		Err:     err,
+	}
+}
+
+func (e *ErrInsertDocuments) Error() string {
+	return e.Message + ": " + e.Err.Error()
+}

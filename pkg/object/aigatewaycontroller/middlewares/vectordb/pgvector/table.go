@@ -48,8 +48,11 @@ type (
 	IndexType string
 
 	Index struct {
-		Name string    `json:"name" jsonschema:"required"`
-		Type IndexType `json:"type" jsonschema:"required"`
+		Name    string              `json:"name" jsonschema:"required"`
+		Type    IndexType           `json:"type" jsonschema:"required"`
+		Column  string              `json:"column" jsonschema:"required"`
+		HNSW    *HNSWIndexOption    `json:"hnsw,omitempty" jsonschema:"optional"`
+		IVFFlat *IVFFlatIndexOption `json:"ivfflat,omitempty" jsonschema:"optional"`
 	}
 
 	HNSWIndexOption struct {

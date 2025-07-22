@@ -79,6 +79,15 @@ type HandlerSearchOptions struct {
 	RedisInKeys []string
 	// RedisInFields limits the result to a given set of fields specified in the list.
 	RedisInFields []string
+
+	// PostgresVectorFilterKey is the key for the vector filter in Postgres.
+	PostgresVectorFilterKey string
+	// PostgresVectorFilterValues is the value for the vector filter in Postgres.
+	PostgresVectorFilterValues []float32
+	// PostgresDistanceAlgorithm is the distance algorithm to use for the vector filter in Postgres.
+	PostgresDistanceAlgorithm string
+	// PostgresFilters is the filters conditions for Postgres vector database.
+	PostgresFilters string
 }
 
 // WithLimit returns a HandlerSearchOption for setting the limit on the number of results.

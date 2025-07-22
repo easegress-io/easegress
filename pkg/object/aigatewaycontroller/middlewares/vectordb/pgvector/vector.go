@@ -63,7 +63,7 @@ func (p *PostgresVectorDB) CreateSchema(ctx context.Context, options ...vecdbtyp
 			return nil, NewErrUnexpectedSchemaType("unexpected schema type, expected TableSchema", err)
 		}
 		clientHandler.schema = schema
-		if err := client.CreateDBIfNotExists(ctx, tx); err != nil {
+		if err := client.CreateDBIfNotExists(ctx, tx, schema); err != nil {
 			_ = tx.Rollback(ctx)
 			return nil, NewErrCreatePostgresDB("failed to create Postgres database", err)
 		}
@@ -74,12 +74,30 @@ func (p *PostgresVectorDB) CreateSchema(ctx context.Context, options ...vecdbtyp
 
 var _ vecdbtypes.VectorHandler = (*PostgresVectorHandler)(nil)
 
-func (p PostgresVectorHandler) SimilaritySearch(ctx context.Context, options ...vecdbtypes.HandlerSearchOption) ([]map[string]any, error) {
-	//TODO implement me
-	panic("implement me")
+func (p *PostgresVectorHandler) InsertDocuments(ctx context.Context, doc []map[string]any, options ...vecdbtypes.HandlerInsertOption) ([]string, error) {
+	if doc == nil || len(doc) == 0 {
+		doc = []map[string]any{}
+	}
+
+	docIDs, err := p.client.InsertWithVector(ctx, p.DBName, doc)
+	if err != nil {
+		return nil, NewErrInsertDocuments("failed to insert documents", err)
+	}
+	return docIDs, nil
 }
 
-func (p PostgresVectorHandler) InsertDocuments(ctx context.Context, doc []map[string]any, options ...vecdbtypes.HandlerInsertOption) ([]string, error) {
-	//TODO implement me
-	panic("implement me")
+func (p *PostgresVectorHandler) SimilaritySearch(ctx context.Context, options ...vecdbtypes.HandlerSearchOption) ([]map[string]any, error) {
+	opts := &vecdbtypes.HandlerSearchOptions{}
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	searchOpts, err := toPostgresQueryOptions(*opts)
+	if err != nil {
+		return nil, err
+	}
+
+	query := NewPostgresVectorQuery(p.DBName, opts.PostgresFilters, opts.PostgresVectorFilterValues, searchOpts...)
+	_, docs, err := p.client.Query(ctx, query)
+	return docs, err
 }
