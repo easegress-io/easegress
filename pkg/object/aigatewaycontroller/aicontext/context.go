@@ -182,7 +182,7 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		}()
 
 		model = openAIReq["model"].(string)
-		stream = openAIReq["stream"].(bool)
+		stream, _ = openAIReq["stream"].(bool)
 		var ok bool
 		options, ok = openAIReq["stream_options"].(protocol.StreamOptions)
 		if ok {
