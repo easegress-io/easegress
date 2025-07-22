@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-// Package AIGatewayProxy provides AIGatewayProxy filter.
-package AIGatewayProxy
+// Package aigatewayproxy provides AIGatewayProxy filter.
+package aigatewayproxy
 
 import (
 	"net/http"

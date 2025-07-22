@@ -115,14 +115,6 @@ type (
 		Middlewares []*middlewares.MiddlewareSpec `json:"middlewares,omitempty"`
 	}
 
-	ProviderSpec struct {
-		Name         string            `json:"name"`
-		ProviderType string            `json:"providerType"`
-		BaseURL      string            `json:"baseURL"`
-		APIKey       string            `json:"apiKey"`
-		Headers      map[string]string `json:"headers,omitempty"`
-	}
-
 	ObservabilitySpec struct {
 		// TODO: add observability options
 	}
