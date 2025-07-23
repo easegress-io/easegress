@@ -3,13 +3,13 @@ package pgvector
 import (
 	"context"
 	"fmt"
-	pgxvec "github.com/pgvector/pgvector-go/pgx"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pgvector/pgvector-go"
+	pgxvec "github.com/pgvector/pgvector-go/pgx"
 )
 
 const (

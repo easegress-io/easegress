@@ -3,10 +3,11 @@ package pgvector
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"testing"
 )
 
 func TestCreateTableSQL(t *testing.T) {
@@ -261,5 +262,3 @@ func TestPostgresClient(t *testing.T) {
 	assert.Equal(t, n, int64(2), "Expected some documents to match the query")
 	assert.Equal(t, len(result), 2, "Expected some documents in the result")
 }
-
-// psql -U postgres
