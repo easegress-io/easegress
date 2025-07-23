@@ -3,19 +3,18 @@ package pgvector
 import (
 	"context"
 	"fmt"
+	"slices"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pgvector/pgvector-go"
-	"slices"
-	//"github.com/jackc/pgx/v5/pgtype"
-	//"github.com/jackc/pgx/v5/pgxpool"
-	//"github.com/pgvector/pgvector-go"
 	pgxvec "github.com/pgvector/pgvector-go/pgx"
 )
 
 const (
 	DefaultPrimaryKeyColumnName = "id"               // Default primary key column name
 	EnablePGExtensionLockID     = 0x1e2d3c4b5a6b7c8d // Arbitrary lock ID for advisory lock to create extension
+	CreateTableLockID           = 0x1a2b3c4d5e6f7081 // Arbitrary lock ID for advisory lock to create table
 )
 
 type (
@@ -62,6 +61,35 @@ func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, sch
 		return fmt.Errorf("invalid schema: %v", schema)
 	}
 
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", CreateTableLockID); err != nil {
+		return err
+	}
+
+	sql, err := c.getCreateTableSQL(schema)
+	if err != nil {
+		return fmt.Errorf("failed to get create table SQL: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, fmt.Sprintf(sql, schema.TableName))
+	if err != nil {
+		return fmt.Errorf("failed to create table %s: %w", schema.TableName, err)
+	}
+
+	// Create indexes if specified
+	for _, index := range schema.Indexes {
+		indexSQL, err := c.getCreateTableIndexSQL(schema, index)
+		if err != nil {
+			return fmt.Errorf("failed to get create index SQL for index %s: %w", index.Name, err)
+		}
+		if _, err := tx.Exec(ctx, indexSQL); err != nil {
+			return fmt.Errorf("failed to create index %s on table %s: %w", index.Name, schema.TableName, err)
+		}
+	}
+
+	return err
+}
+
+func (c *PostgresClient) getCreateTableSQL(schema *TableSchema) (string, error) {
 	// Check if the schema has an "id" column
 	idExists := false
 	for _, col := range schema.Columns {
@@ -107,61 +135,53 @@ func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, sch
 		}
 	}
 
-	_, err := tx.Exec(ctx, fmt.Sprintf(sql, schema.TableName))
-	if err != nil {
-		return fmt.Errorf("failed to create table %s: %w", schema.TableName, err)
-	}
+	return sql, nil
+}
 
-	// Create indexes if specified
-	for _, index := range schema.Indexes {
-		indexSQL := "CREATE INDEX IF NOT EXISTS %s ON %s USING %s ("
-		if index.Type == IndexTypeHNSW {
-			indexSQL += "%s %s)"
-			indexSQL = fmt.Sprintf(indexSQL, index.Name, schema.TableName, index.Type, index.Column, index.HNSW.DistanceMetric)
+func (c *PostgresClient) getCreateTableIndexSQL(schema *TableSchema, index Index) (string, error) {
+	indexSQL := "CREATE INDEX IF NOT EXISTS %s ON %s USING %s ("
+	if index.Type == IndexTypeHNSW {
+		indexSQL += "%s %s)"
+		indexSQL = fmt.Sprintf(indexSQL, index.Name, schema.TableName, index.Type, index.Column, index.HNSW.DistanceMetric)
 
-			if index.HNSW.M != 0 || index.HNSW.EfConstruction != 0 {
-				if index.HNSW.DistanceMetric == "" {
-					return fmt.Errorf("distance metric is required for HNSW index")
-				}
-				if !slices.Contains(validHNSWDistanceMetrics, index.HNSW.DistanceMetric) {
-					return fmt.Errorf("invalid distance metric %s for HNSW index", index.HNSW.DistanceMetric)
-				}
-				if index.HNSW.M != 0 {
-					indexSQL += fmt.Sprintf(" WITH (m = %d", index.HNSW.M)
-				} else {
-					indexSQL += " WITH ("
-				}
-				if index.HNSW.EfConstruction != 0 {
-					indexSQL += fmt.Sprintf(", ef_construction = %d", index.HNSW.EfConstruction)
-				}
-				indexSQL += ");"
+		if index.HNSW.M != 0 || index.HNSW.EfConstruction != 0 {
+			if index.HNSW.DistanceMetric == "" {
+				return "", fmt.Errorf("distance metric is required for HNSW index")
+			}
+			if !slices.Contains(validHNSWDistanceMetrics, index.HNSW.DistanceMetric) {
+				return "", fmt.Errorf("invalid distance metric %s for HNSW index", index.HNSW.DistanceMetric)
+			}
+			if index.HNSW.M != 0 {
+				indexSQL += fmt.Sprintf(" WITH (m = %d", index.HNSW.M)
 			} else {
-				indexSQL += ");"
+				indexSQL += " WITH ("
 			}
-		} else if index.Type == IndexTypeIVFFlat {
-			if index.IVFFlat.DistanceMetric == "" {
-				return fmt.Errorf("distance metric is required for IVFFlat index")
+			if index.HNSW.EfConstruction != 0 {
+				indexSQL += fmt.Sprintf(", ef_construction = %d", index.HNSW.EfConstruction)
 			}
-			if !slices.Contains(validIVFFlatDistanceMetrics, index.IVFFlat.DistanceMetric) {
-				return fmt.Errorf("invalid distance metric %s for IVFFlat index", index.IVFFlat.DistanceMetric)
-			}
-			indexSQL += "%s %s)"
-			indexSQL = fmt.Sprintf(indexSQL, index.Name, schema.TableName, index.Type, index.Column, index.IVFFlat.DistanceMetric)
-			if index.IVFFlat.Nlist != 0 {
-				indexSQL += fmt.Sprintf(" WITH (lists = %d);", index.IVFFlat.Nlist)
-			} else {
-				indexSQL += ");"
-			}
+			indexSQL += ");"
 		} else {
-			indexSQL = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING %s (%s);",
-				index.Name, schema.TableName, index.Type, index.Column)
+			indexSQL += ");"
 		}
-		if _, err := tx.Exec(ctx, indexSQL); err != nil {
-			return fmt.Errorf("failed to create index %s on table %s: %w", index.Name, schema.TableName, err)
+	} else if index.Type == IndexTypeIVFFlat {
+		if index.IVFFlat.DistanceMetric == "" {
+			return "", fmt.Errorf("distance metric is required for IVFFlat index")
 		}
+		if !slices.Contains(validIVFFlatDistanceMetrics, index.IVFFlat.DistanceMetric) {
+			return "", fmt.Errorf("invalid distance metric %s for IVFFlat index", index.IVFFlat.DistanceMetric)
+		}
+		indexSQL += "%s %s)"
+		indexSQL = fmt.Sprintf(indexSQL, index.Name, schema.TableName, index.Type, index.Column, index.IVFFlat.DistanceMetric)
+		if index.IVFFlat.Nlist != 0 {
+			indexSQL += fmt.Sprintf(" WITH (lists = %d);", index.IVFFlat.Nlist)
+		} else {
+			indexSQL += ");"
+		}
+	} else {
+		indexSQL = fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING %s (%s);",
+			index.Name, schema.TableName, index.Type, index.Column)
 	}
-
-	return err
+	return indexSQL, nil
 }
 
 func (c *PostgresClient) InsertWithVector(ctx context.Context, tableName string, doc []map[string]any) ([]string, error) {
@@ -229,13 +249,9 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 	}
 
 	dims := len(query.vectorValues)
-	sql := fmt.Sprintf("SELECT *, (1-(%s%s$1)) AS score FROM %s WHERE vector_dims(%s) = $2", query.vectorKey, query.distanceAlgorithm, query.tableName, query.vectorKey)
-	if query.filters != "" {
-		sql += fmt.Sprintf(" AND %s", query.filters)
-	}
-	sql += fmt.Sprintf(" ORDER BY score DESC LIMIT %d", query.limit)
-	if query.offset > 0 {
-		sql += fmt.Sprintf(" OFFSET %d", query.offset)
+	sql, err := c.getQuerySQL(query)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to get query SQL: %w", err)
 	}
 
 	rows, err := c.conn.Query(ctx, sql, pgvector.NewVector(query.vectorValues), dims)
@@ -248,7 +264,6 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 	var docs []map[string]any
 	for rows.Next() {
 		doc := make(map[string]any)
-		// Scan the row into the map
 		columns, err := rows.Values()
 		if err != nil {
 			return 0, nil, fmt.Errorf("failed to get row values: %w", err)
@@ -274,4 +289,17 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 
 	total := int64(len(docs))
 	return total, docs, nil
+}
+
+func (c *PostgresClient) getQuerySQL(query *PostgresVectorQuery) (string, error) {
+	sql := fmt.Sprintf("SELECT *, (1-(%s%s$1)) AS score FROM %s WHERE vector_dims(%s) = $2", query.vectorKey, query.distanceAlgorithm, query.tableName, query.vectorKey)
+	if query.filters != "" {
+		sql += fmt.Sprintf(" AND %s", query.filters)
+	}
+	sql += fmt.Sprintf(" ORDER BY score DESC LIMIT %d", query.limit)
+	if query.offset > 0 {
+		sql += fmt.Sprintf(" OFFSET %d", query.offset)
+	}
+
+	return sql, nil
 }
