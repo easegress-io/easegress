@@ -39,6 +39,7 @@ func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request
 	httpreq, err := httpprot.NewRequest(req)
 	assert.Nil(t, err)
 	ctx.SetRequest(ns, httpreq)
+	ctx.UseNamespace(ns)
 }
 
 func TestMain(m *testing.M) {
@@ -73,7 +74,6 @@ providerName: openai
 		assert.Nil(err)
 		setRequest(t, ctx, "mock", req)
 
-		ctx.UseNamespace("mock")
 		result := p.Handle(ctx)
 		assert.Equal(resultNoController, result)
 
@@ -104,7 +104,6 @@ providers:
 		assert.Nil(err)
 		setRequest(t, ctx, "controller", req)
 
-		ctx.UseNamespace("controller")
 		result := p.Handle(ctx)
 		assert.Equal("internalError", result)
 
@@ -167,7 +166,6 @@ providers:
 		assert.Nil(err)
 		setRequest(t, ctx, "backend", req)
 
-		ctx.UseNamespace("backend")
 		result := p.Handle(ctx)
 		assert.Equal("", result)
 
