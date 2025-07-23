@@ -3,13 +3,13 @@ package pgvector
 import (
 	"context"
 	"fmt"
+	pgxvec "github.com/pgvector/pgvector-go/pgx"
 	"slices"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/pgvector/pgvector-go"
-	pgxvec "github.com/pgvector/pgvector-go/pgx"
 )
 
 const (
@@ -30,11 +30,6 @@ func NewPostgresClient(ctx context.Context, connectionURL string) (*PostgresClie
 	if err != nil {
 		return nil, err
 	}
-	err = pgxvec.RegisterTypes(ctx, conn)
-	if err != nil {
-		_ = conn.Close(ctx)
-		return nil, fmt.Errorf("failed to register pgvector types: %w", err)
-	}
 	return &PostgresClient{conn: conn}, nil
 }
 
@@ -44,6 +39,11 @@ func (c *PostgresClient) EnableVectorExtensionIfNotExists(ctx context.Context, t
 	}
 	if _, err := tx.Exec(ctx, "CREATE EXTENSION IF NOT EXISTS vector"); err != nil {
 		return err
+	}
+	err := pgxvec.RegisterTypes(ctx, c.conn)
+	if err != nil {
+		_ = c.conn.Close(ctx)
+		return fmt.Errorf("failed to register pgvector types: %w", err)
 	}
 	return nil
 }
@@ -215,12 +215,17 @@ func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName str
 
 	sql := fmt.Sprintf("INSERT INTO %s (", tableName)
 	index := 0
-	for colName := range doc {
+	args := make([]any, 0, len(doc))
+	for colName, value := range doc {
 		sql += fmt.Sprintf("%s", colName)
 		if index < len(doc)-1 {
 			sql += ", "
 		}
 		index++
+		if vec, ok := value.([]float32); ok {
+			value = pgvector.NewVector(vec)
+		}
+		args = append(args, value)
 	}
 	sql += ") VALUES ("
 	index = 0
@@ -229,16 +234,9 @@ func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName str
 		if index < len(doc)-1 {
 			sql += ", "
 		}
+		index++
 	}
 	sql += ");"
-
-	args := make([]any, 0, len(doc))
-	for _, value := range doc {
-		if vec, ok := value.([]float32); ok {
-			value = pgvector.NewVector(vec)
-		}
-		args = append(args, value)
-	}
 
 	return sql, args, nil
 }
@@ -303,4 +301,11 @@ func getQuerySQL(query *PostgresVectorQuery) (string, error) {
 	sql += ";"
 
 	return sql, nil
+}
+
+func (c *PostgresClient) Close(ctx context.Context) error {
+	if c.conn != nil {
+		return c.conn.Close(ctx)
+	}
+	return nil
 }
