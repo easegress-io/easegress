@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/pgvector/pgvector-go"
 	"slices"
 	//"github.com/jackc/pgx/v5/pgtype"
 	//"github.com/jackc/pgx/v5/pgxpool"
 	//"github.com/pgvector/pgvector-go"
-	//pgxvec "github.com/pgvector/pgvector-go/pgx"
+	pgxvec "github.com/pgvector/pgvector-go/pgx"
 )
 
 const (
@@ -28,6 +29,11 @@ func NewPostgresClient(ctx context.Context, connectionURL string) (*PostgresClie
 	conn, err := pgx.Connect(ctx, connectionURL)
 	if err != nil {
 		return nil, err
+	}
+	err = pgxvec.RegisterTypes(ctx, conn)
+	if err != nil {
+		_ = conn.Close(ctx)
+		return nil, fmt.Errorf("failed to register pgvector types: %w", err)
 	}
 	return &PostgresClient{conn: conn}, nil
 }
@@ -173,18 +179,18 @@ func (c *PostgresClient) InsertWithVector(ctx context.Context, tableName string,
 			docIDs = append(docIDs, d[DefaultPrimaryKeyColumnName].(string))
 		}
 
-		sql, err := c.insertSingleDocument(ctx, tableName, d)
+		sql, args, err := c.insertSingleDocument(ctx, tableName, d)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert document: %w", err)
 		}
-		b.Queue(sql)
+		b.Queue(sql, args...)
 	}
 	return docIDs, c.conn.SendBatch(ctx, b).Close()
 }
 
-func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName string, doc map[string]any) (string, error) {
+func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName string, doc map[string]any) (string, []any, error) {
 	if tableName == "" || doc == nil || len(doc) == 0 {
-		return "", fmt.Errorf("invalid table name or document")
+		return "", nil, fmt.Errorf("invalid table name or document")
 	}
 
 	sql := fmt.Sprintf("INSERT INTO %s (", tableName)
@@ -198,15 +204,23 @@ func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName str
 	}
 	sql += ") VALUES ("
 	index = 0
-	for _, value := range doc {
-		sql += fmt.Sprintf("%s", value)
+	for range doc {
+		sql += fmt.Sprintf("$%d", index+1)
 		if index < len(doc)-1 {
 			sql += ", "
 		}
 	}
 	sql += ");"
 
-	return sql, nil
+	args := make([]any, 0, len(doc))
+	for _, value := range doc {
+		if vec, ok := value.([]float32); ok {
+			value = pgvector.NewVector(vec)
+		}
+		args = append(args, value)
+	}
+
+	return sql, args, nil
 }
 
 func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) (int64, []map[string]any, error) {
@@ -224,7 +238,7 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 		sql += fmt.Sprintf(" OFFSET %d", query.offset)
 	}
 
-	rows, err := c.conn.Query(ctx, sql, query.vectorValues, dims)
+	rows, err := c.conn.Query(ctx, sql, pgvector.NewVector(query.vectorValues), dims)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to execute query: %w", err)
 	}
@@ -234,16 +248,22 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 	var docs []map[string]any
 	for rows.Next() {
 		doc := make(map[string]any)
-		values := make([]any, len(query.vectorValues)+1)
-		for i := range values {
-			values[i] = new(any)
+		// Scan the row into the map
+		columns, err := rows.Values()
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to get row values: %w", err)
 		}
-		if err := rows.Scan(values...); err != nil {
-			return 0, nil, fmt.Errorf("failed to scan row: %w", err)
-		}
-
-		for i, colName := range rows.FieldDescriptions() {
-			doc[colName.Name] = *(values[i].(*any))
+		for i, col := range columns {
+			colName := rows.FieldDescriptions()[i].Name
+			if colName == "score" {
+				doc["score"] = col
+			} else {
+				if vec, ok := col.(pgvector.Vector); ok {
+					doc[colName] = vec.Slice()
+				} else {
+					doc[colName] = col
+				}
+			}
 		}
 		docs = append(docs, doc)
 	}

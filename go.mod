@@ -52,6 +52,7 @@ require (
 	github.com/open-policy-agent/opa v0.58.0
 	github.com/openzipkin/zipkin-go v0.4.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/pgvector/pgvector-go v0.3.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.17.0
 	github.com/quic-go/quic-go v0.40.1
@@ -173,6 +174,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/vultr/govultr/v3 v3.3.4 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect

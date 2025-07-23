@@ -1,8 +1,9 @@
 package pgvector
 
 import (
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 	"slices"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
 var (
