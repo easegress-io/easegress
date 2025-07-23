@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/embedtypes"
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/huggingface"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/ollama"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings/openai"
 )
@@ -31,9 +30,8 @@ type EmbeddingHandler = embedtypes.EmbeddingHandler
 
 // registryMap maps embedding provider types to their respective handler constructors.
 var registryMap = map[string]func(*EmbeddingSpec) EmbeddingHandler{
-	"ollama":      ollama.New,
-	"openai":      openai.New,
-	"huggingface": huggingface.New,
+	"ollama": ollama.New,
+	"openai": openai.New,
 }
 
 func New(spec *EmbeddingSpec) EmbeddingHandler {

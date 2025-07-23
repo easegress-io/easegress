@@ -31,7 +31,6 @@ import (
 
 const openaiEmbedPath = "/v1/embeddings"
 
-// TODO: Add logic for this package
 type (
 	openaiEmbeddingHanlder struct {
 		spec *embedtypes.EmbeddingSpec
@@ -93,6 +92,5 @@ func (h *openaiEmbeddingHanlder) EmbedDocuments(text string) ([]float32, error) 
 }
 
 func (h *openaiEmbeddingHanlder) EmbedQuery(text string) ([]float32, error) {
-	// TODO
-	return nil, nil
+	return h.EmbedDocuments(text)
 }
