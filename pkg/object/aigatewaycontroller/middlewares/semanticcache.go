@@ -73,6 +73,7 @@ func (m *semanticCacheMiddleware) init(spec *MiddlewareSpec) {
 	m.vectorHandler = &semanticCacheVectorHandler{
 		spec:     spec,
 		vectorDB: vectordb.New(spec.SemanticCache.VectorDB),
+		handlers: make(map[string]vectordb.VectorHandler),
 	}
 	templateText := spec.SemanticCache.ContentTemplate
 	if templateText == "" {
