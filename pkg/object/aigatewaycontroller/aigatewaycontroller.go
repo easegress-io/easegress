@@ -115,10 +115,6 @@ type (
 		Middlewares []*middlewares.MiddlewareSpec `json:"middlewares,omitempty"`
 	}
 
-	ObservabilitySpec struct {
-		// TODO: add observability options
-	}
-
 	Status struct{}
 )
 
