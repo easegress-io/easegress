@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -65,7 +66,7 @@ func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, sch
 		return err
 	}
 
-	sql, err := c.getCreateTableSQL(schema)
+	sql, err := getCreateTableSQL(schema)
 	if err != nil {
 		return fmt.Errorf("failed to get create table SQL: %w", err)
 	}
@@ -77,7 +78,7 @@ func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, sch
 
 	// Create indexes if specified
 	for _, index := range schema.Indexes {
-		indexSQL, err := c.getCreateTableIndexSQL(schema, index)
+		indexSQL, err := getCreateTableIndexSQL(schema, index)
 		if err != nil {
 			return fmt.Errorf("failed to get create index SQL for index %s: %w", index.Name, err)
 		}
@@ -89,7 +90,7 @@ func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, sch
 	return err
 }
 
-func (c *PostgresClient) getCreateTableSQL(schema *TableSchema) (string, error) {
+func getCreateTableSQL(schema *TableSchema) (string, error) {
 	// Check if the schema has an "id" column
 	idExists := false
 	for _, col := range schema.Columns {
@@ -113,8 +114,6 @@ func (c *PostgresClient) getCreateTableSQL(schema *TableSchema) (string, error) 
 		sql += fmt.Sprintf("%s %s ", col.Name, col.DataType)
 		if col.IsNullable {
 			sql += "NULL "
-		} else {
-			sql += "NOT NULL "
 		}
 
 		if col.IsUnique {
@@ -128,6 +127,7 @@ func (c *PostgresClient) getCreateTableSQL(schema *TableSchema) (string, error) 
 		if col.DefaultValue != "" {
 			sql += fmt.Sprintf("DEFAULT %s", col.DefaultValue)
 		}
+		sql = strings.TrimSuffix(sql, " ")
 		if i == len(schema.Columns)-1 {
 			sql += fmt.Sprintf(");")
 		} else {
@@ -138,7 +138,7 @@ func (c *PostgresClient) getCreateTableSQL(schema *TableSchema) (string, error) 
 	return sql, nil
 }
 
-func (c *PostgresClient) getCreateTableIndexSQL(schema *TableSchema, index Index) (string, error) {
+func getCreateTableIndexSQL(schema *TableSchema, index Index) (string, error) {
 	indexSQL := "CREATE INDEX IF NOT EXISTS %s ON %s USING %s ("
 	if index.Type == IndexTypeHNSW {
 		indexSQL += "%s %s)"
@@ -249,7 +249,7 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 	}
 
 	dims := len(query.vectorValues)
-	sql, err := c.getQuerySQL(query)
+	sql, err := getQuerySQL(query)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to get query SQL: %w", err)
 	}
@@ -291,7 +291,7 @@ func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) 
 	return total, docs, nil
 }
 
-func (c *PostgresClient) getQuerySQL(query *PostgresVectorQuery) (string, error) {
+func getQuerySQL(query *PostgresVectorQuery) (string, error) {
 	sql := fmt.Sprintf("SELECT *, (1-(%s%s$1)) AS score FROM %s WHERE vector_dims(%s) = $2", query.vectorKey, query.distanceAlgorithm, query.tableName, query.vectorKey)
 	if query.filters != "" {
 		sql += fmt.Sprintf(" AND %s", query.filters)
@@ -300,6 +300,7 @@ func (c *PostgresClient) getQuerySQL(query *PostgresVectorQuery) (string, error)
 	if query.offset > 0 {
 		sql += fmt.Sprintf(" OFFSET %d", query.offset)
 	}
+	sql += ";"
 
 	return sql, nil
 }
