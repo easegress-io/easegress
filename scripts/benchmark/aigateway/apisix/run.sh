@@ -18,8 +18,8 @@ docker run --add-host=host.docker.internal:host-gateway \
 
 
 # clean up docker containers
-sudo docker rm benchmark-apisix-etcd
-sudo docker rm benchmark-apisix
+docker rm benchmark-apisix-etcd
+docker rm benchmark-apisix
 
 
 # create proxy
