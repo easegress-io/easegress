@@ -1,0 +1,11 @@
+kind: AIGatewayController
+name: AIGatewayController
+providers:
+- name: openai-provider
+  providerType: openai
+  baseURL: https://api.openai.com
+  apiKey: ${OPENAI_API_KEY}
+- name: deepseek-provider
+  providerType: deepseek
+  baseURL: https://api.deepseek.com
+  apiKey: ${DEEPSEEK_API_KEY}

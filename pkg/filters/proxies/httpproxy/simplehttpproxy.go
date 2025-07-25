@@ -35,6 +35,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/resilience"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/fasttime"
+	"github.com/megaease/easegress/v2/pkg/util/httphelper"
 )
 
 var simpleHTTPProxyKind = &filters.Kind{
@@ -246,7 +247,7 @@ func (shp *SimpleHTTPProxy) doRequestWithRetry(req *httpprot.Request) (*http.Res
 			return err
 		}
 		stdr.Header = req.HTTPHeader().Clone()
-		removeHopByHopHeaders(stdr.Header)
+		httphelper.RemoveHopByHopHeaders(stdr.Header)
 		resp, err = shp.client.Do(stdr)
 		return err
 	}

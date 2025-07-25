@@ -1,0 +1,22 @@
+{
+    "uri": "/llm",
+    "methods": [
+        "POST"
+    ],
+    "plugins": {
+        "ai-proxy": {
+            "provider": "openai",
+            "auth": {
+                "header": {
+                    "Authorization": "Bearer mock"
+                }
+            },
+            "options": {
+                "model": "gpt-4"
+            },
+            "override": {
+                "endpoint": "http://host.docker.internal:19999/v1/chat/completions"
+            }
+        }
+    }
+}

@@ -28,6 +28,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/tracing"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
+	"github.com/megaease/easegress/v2/pkg/util/httphelper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -205,7 +206,7 @@ func TestRemoveHopByHopHeader(t *testing.T) {
 	h.Add("X-Bar", "bar")
 	h.Add("X-Foo-Bar", "foo-bar")
 
-	removeHopByHopHeaders(h)
+	httphelper.RemoveHopByHopHeaders(h)
 	assert.Equal(1, len(h))
 	assert.Equal("foo-bar", h.Get("X-Foo-Bar"))
 }

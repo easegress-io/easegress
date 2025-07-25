@@ -20,6 +20,7 @@ package registry
 
 import (
 	// Filters
+	_ "github.com/megaease/easegress/v2/pkg/filters/aigatewayproxy"
 	_ "github.com/megaease/easegress/v2/pkg/filters/builder"
 	_ "github.com/megaease/easegress/v2/pkg/filters/certextractor"
 	_ "github.com/megaease/easegress/v2/pkg/filters/connectcontrol"
@@ -44,6 +45,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/filters/wasmhost"
 
 	// Objects
+	_ "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller"
 	_ "github.com/megaease/easegress/v2/pkg/object/autocertmanager"
 	_ "github.com/megaease/easegress/v2/pkg/object/consulserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/easemonitormetrics"

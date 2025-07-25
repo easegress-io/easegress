@@ -1,0 +1,23 @@
+_format_version: "3.0"
+services:
+  - name: llm-service
+    url: http://localhost:19999
+
+routes:
+  - name: openai-chat
+    service: llm-service
+    paths:
+    - "/chat"
+
+plugins:
+  - name: ai-proxy
+    config:
+      route_type: llm/v1/chat
+      auth:
+        header_name: Authorization
+        header_value: Bearer mock
+      model:
+        provider: openai
+        name: gpt-4
+        options:
+          upstream_url: http://host.docker.internal:19999/v1/chat/completions

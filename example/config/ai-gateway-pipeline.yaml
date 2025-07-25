@@ -1,0 +1,9 @@
+name: ai-gateway-pipeline
+kind: Pipeline
+flow:
+  - filter: ai-gateway-proxy
+
+filters:
+  - name: ai-gateway-proxy
+    kind: AIGatewayProxy
+    providerName: deepseek-provider

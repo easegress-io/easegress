@@ -1,0 +1,13 @@
+kind: HTTPServer
+name: ai-gateway-server
+port: 8080
+https: false
+http3: false
+keepAlive: true
+keepAliveTimeout: 75s
+maxConnection: 10240
+cacheSize: 0
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: ai-gateway-pipeline
