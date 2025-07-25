@@ -73,7 +73,7 @@ jobs:
           go mod download
           go test -v ./pkg/...
   integration-test-ubuntu:
-    needs: [test, test-win]
+    needs: [test-ubuntu, test-macos, test-win]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
