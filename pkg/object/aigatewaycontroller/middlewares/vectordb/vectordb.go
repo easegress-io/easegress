@@ -30,8 +30,8 @@ var ErrSimilaritySearchNotFound = vecdbtypes.ErrSimilaritySearchNotFound
 type (
 	Spec struct {
 		vecdbtypes.CommonSpec
-		Redis    *redisvector.RedisVectorDBSpec
-		Postgres *pgvector.PostgresVectorDBSpec
+		Redis    *redisvector.RedisVectorDBSpec `json:"redis,omitempty"`
+		Postgres *pgvector.PostgresVectorDBSpec `json:"postgres,omitempty"`
 	}
 
 	VectorHandler = vecdbtypes.VectorHandler
