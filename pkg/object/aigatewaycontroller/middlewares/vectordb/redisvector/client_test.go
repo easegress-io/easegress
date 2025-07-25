@@ -19,6 +19,7 @@ package redisvector
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/redis/rueidis"
@@ -27,6 +28,12 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+func skipDockerTest() bool {
+	// For windows and mac, the github action runner does not support docker for now.
+	skipDocker := os.Getenv("EASEGRESS_TEST_SKIP_DOCKER")
+	return skipDocker == "true"
+}
 
 func TestToHmsetCommands(t *testing.T) {
 	t.Parallel()
@@ -46,6 +53,9 @@ func TestToHmsetCommands(t *testing.T) {
 }
 
 func TestRedisClientIndexOperations(t *testing.T) {
+	if skipDockerTest() {
+		return
+	}
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image:        "redis:latest",

@@ -20,12 +20,19 @@ package pgvector
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+func skipDockerTest() bool {
+	// For windows and mac, the github action runner does not support docker for now.
+	skipDocker := os.Getenv("EASEGRESS_TEST_SKIP_DOCKER")
+	return skipDocker == "true"
+}
 
 func TestCreateTableSQL(t *testing.T) {
 	tests := []struct {
@@ -161,6 +168,9 @@ func TestQuerySQL(t *testing.T) {
 }
 
 func TestPostgresClient(t *testing.T) {
+	if skipDockerTest() {
+		return
+	}
 	ctx := context.Background()
 	req := testcontainers.ContainerRequest{
 		Image:        "pgvector/pgvector:pg17",
