@@ -1,5 +1,23 @@
 # Changelog
 
+## [v2.9.0](https://github.com/megaease/easegress/tree/v2.9.0) (2025-06-20)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.8.0...v2.9.0)
+
+**AI Gateway Support:**
+
+* Introduced AI Gateway support, proxy requests to LLM providers like OpenAI, DeepSeek, Anthropic, etc.
+* Vector Database: integrates with vector databases for caching.
+* Monitoring: provides insights into the performance and usage of AI models.
+
+**Implemented enancements:**
+
+* Update GoReleaser configurations (#1446)
+
+**Fixed bugs:**
+
+* Fix the match of register and unregister of APIs (#1448)
+
 ## [v2.8.0](https://github.com/megaease/easegress/tree/v2.8.0) (2025-06-13)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.5...v2.8.0)
