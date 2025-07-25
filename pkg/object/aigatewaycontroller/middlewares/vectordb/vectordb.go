@@ -20,6 +20,7 @@ package vectordb
 import (
 	"fmt"
 
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/pgvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
@@ -29,7 +30,8 @@ var ErrSimilaritySearchNotFound = vecdbtypes.ErrSimilaritySearchNotFound
 type (
 	Spec struct {
 		vecdbtypes.CommonSpec
-		Redis *redisvector.RedisVectorDBSpec
+		Redis    *redisvector.RedisVectorDBSpec
+		Postgres *pgvector.PostgresVectorDBSpec
 	}
 
 	VectorHandler = vecdbtypes.VectorHandler
