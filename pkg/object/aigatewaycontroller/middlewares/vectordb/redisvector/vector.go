@@ -30,7 +30,7 @@ type (
 	// RedisVectorDBSpec defines the specification for a vector database middleware.
 	RedisVectorDBSpec struct {
 		URL string `json:"url" jsonschema:"required"`
-		opt rueidis.ClientOption
+		// opt rueidis.ClientOption
 	}
 
 	RedisVectorDB struct {
