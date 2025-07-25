@@ -194,3 +194,15 @@ func WithRedisInFields(redisInFields []string) HandlerSearchOption {
 		opts.RedisInFields = redisInFields
 	}
 }
+
+func WithPostgresVectorFilterKey(postgresVectorFilterKey string) HandlerSearchOption {
+	return func(opts *HandlerSearchOptions) {
+		opts.PostgresVectorFilterKey = postgresVectorFilterKey
+	}
+}
+
+func WithPostgresVectorFilterValues(postgresVectorFilterValues []float32) HandlerSearchOption {
+	return func(opts *HandlerSearchOptions) {
+		opts.PostgresVectorFilterValues = postgresVectorFilterValues
+	}
+}

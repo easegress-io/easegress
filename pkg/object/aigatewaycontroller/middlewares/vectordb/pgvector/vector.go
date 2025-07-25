@@ -2,6 +2,7 @@ package pgvector
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
@@ -100,4 +101,14 @@ func (p *PostgresVectorHandler) SimilaritySearch(ctx context.Context, options ..
 	query := NewPostgresVectorQuery(p.DBName, opts.PostgresFilters, opts.PostgresVectorFilterValues, searchOpts...)
 	_, docs, err := p.client.Query(ctx, query)
 	return docs, err
+}
+
+func ValidateSpec(spec *PostgresVectorDBSpec) error {
+	if spec == nil {
+		return fmt.Errorf("postgres vector spec is nil")
+	}
+	if spec.ConnectionURL == "" {
+		return fmt.Errorf("postgres vector connection URL is empty")
+	}
+	return nil
 }

@@ -164,7 +164,7 @@ func New(spec *supervisor.Spec) *MetricsHub {
 
 		spec:    spec,
 		stats:   make(map[MetricLabel]*MetricDetails),
-		eventCh: make(chan *metricEvent, 5000),
+		eventCh: make(chan *metricEvent, 10000),
 	}
 	logger.Infof("MetricsHub initialized for AIGatewayController")
 	go hub.run()

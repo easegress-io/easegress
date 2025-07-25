@@ -42,20 +42,30 @@ type (
 	Options = vecdbtypes.Options
 )
 
+const TypeRedis = "redis"
+const TypePostgres = "postgres"
+
 func New(spec *Spec) vecdbtypes.VectorDB {
-	if spec.Type == "redis" {
+	switch spec.Type {
+	case TypeRedis:
 		return redisvector.New(&spec.CommonSpec, spec.Redis)
+	case TypePostgres:
+		return pgvector.New(&spec.CommonSpec, spec.Postgres)
+	default:
+		panic("not supported vector db type")
 	}
-	// This can't reach since we check vector type in ValidateSpec.
-	panic("not supported vector db type")
 }
 
 func ValidateSpec(spec *Spec) error {
 	if spec.Threshold <= 0 || spec.Threshold > 1.0 {
 		return fmt.Errorf("invalid threshold")
 	}
-	if spec.Type == "redis" {
+	switch spec.Type {
+	case TypeRedis:
 		return redisvector.ValidateSpec(spec.Redis)
+	case TypePostgres:
+		return pgvector.ValidateSpec(spec.Postgres)
+	default:
+		return fmt.Errorf("invalid spec type")
 	}
-	return fmt.Errorf("invalid spec type")
 }

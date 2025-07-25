@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/pgvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
@@ -44,13 +45,6 @@ type (
 		VectorDB        *vectordb.Spec            `json:"vectorDB" jsonschema:"required"`
 		ReadOnly        bool                      `json:"readOnly" jsonschema:"default=false"`
 		ContentTemplate string                    `json:"contentTemplate,omitempty"`
-	}
-
-	semanticCacheVectorHandler struct {
-		spec        *MiddlewareSpec
-		vectorDB    vectordb.VectorDB
-		handlerLock sync.RWMutex
-		handlers    map[string]vectordb.VectorHandler
 	}
 
 	semanticCacheMiddleware struct {
@@ -72,6 +66,7 @@ func (m *semanticCacheMiddleware) init(spec *MiddlewareSpec) {
 	m.embeddingsHandler = embeddings.New(spec.SemanticCache.Embeddings)
 	m.vectorHandler = &semanticCacheVectorHandler{
 		spec:     spec,
+		dbSpec:   spec.SemanticCache.VectorDB,
 		vectorDB: vectordb.New(spec.SemanticCache.VectorDB),
 		handlers: make(map[string]vectordb.VectorHandler),
 	}
@@ -211,9 +206,7 @@ func (m *semanticCacheMiddleware) Handle(ctx *aicontext.Context) {
 	}
 	cache, err := handler.SimilaritySearch(
 		ctx.Req.Std().Context(),
-		vecdbtypes.WithRedisVectorFilterKey("embedding"),
-		vecdbtypes.WithRedisVectorFilterValues(embedding),
-		vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
+		m.getSearchOptions(ctx, embedding)...,
 	)
 	if err != nil {
 		if err == vectordb.ErrSimilaritySearchNotFound {
@@ -230,11 +223,84 @@ func (m *semanticCacheMiddleware) Handle(ctx *aicontext.Context) {
 	m.writeRespWithCache(ctx, cache[0])
 }
 
-func (h *semanticCacheVectorHandler) getKey(ctx *aicontext.Context) string {
+func (m *semanticCacheMiddleware) getSearchOptions(ctx *aicontext.Context, embedding []float32) []vecdbtypes.HandlerSearchOption {
+	switch m.spec.SemanticCache.VectorDB.Type {
+	case vectordb.TypePostgres:
+		return []vecdbtypes.HandlerSearchOption{
+			vecdbtypes.WithPostgresVectorFilterKey("embedding"),
+			vecdbtypes.WithPostgresVectorFilterValues(embedding),
+			vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
+		}
+	case vectordb.TypeRedis:
+		return []vecdbtypes.HandlerSearchOption{
+			vecdbtypes.WithRedisVectorFilterKey("embedding"),
+			vecdbtypes.WithRedisVectorFilterValues(embedding),
+			vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
+		}
+	default:
+		panic(fmt.Sprintf("unsupported vector db type: %s", m.spec.SemanticCache.VectorDB.Type))
+	}
+}
+
+type (
+	semanticCacheVectorHandler struct {
+		spec        *MiddlewareSpec
+		dbSpec      *vectordb.Spec
+		vectorDB    vectordb.VectorDB
+		handlerLock sync.RWMutex
+		handlers    map[string]vectordb.VectorHandler
+	}
+)
+
+func (h *semanticCacheVectorHandler) getHandlerKey(ctx *aicontext.Context) string {
 	return string(ctx.RespType) + strconv.FormatBool(ctx.ReqInfo.Stream)
 }
 
-func (h *semanticCacheVectorHandler) getDBName(ctx *aicontext.Context) string {
+func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context, embedding []float32) (vectordb.VectorHandler, error) {
+	key := h.getHandlerKey(ctx)
+
+	h.handlerLock.RLock()
+	if handler, exists := h.handlers[key]; exists {
+		h.handlerLock.RUnlock()
+		return handler, nil
+	}
+	h.handlerLock.RUnlock()
+
+	h.handlerLock.Lock()
+	defer h.handlerLock.Unlock()
+	// re-check to avoid in race condition re-create the handler
+	if handler, exists := h.handlers[key]; exists {
+		return handler, nil
+	}
+
+	handler, err := h.vectorDB.CreateSchema(context.Background(), h.createOptions(ctx, embedding))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create index, %v", err)
+	}
+	h.handlers[key] = handler
+	return handler, nil
+}
+
+func (h *semanticCacheVectorHandler) createOptions(ctx *aicontext.Context, embedding []float32) vecdbtypes.Option {
+	switch h.dbSpec.Type {
+	case vectordb.TypePostgres:
+		return h.createPostgresOptions(ctx, embedding)
+	case vectordb.TypeRedis:
+		return h.createRedisOptions(ctx, embedding)
+	default:
+		// should not reach here, since we validate the spec before creating the handler.
+		panic(fmt.Sprintf("unsupported vector db type: %s", h.dbSpec.Type))
+	}
+}
+
+func (h *semanticCacheVectorHandler) createRedisOptions(ctx *aicontext.Context, embedding []float32) vecdbtypes.Option {
+	return func(o *vecdbtypes.Options) {
+		o.DBName = h.getRedisDBName(ctx)
+		o.Schema = h.createRedisSchema(len(embedding))
+	}
+}
+
+func (h *semanticCacheVectorHandler) getRedisDBName(ctx *aicontext.Context) string {
 	spec := h.spec.SemanticCache.VectorDB
 	dbName := spec.CollectionName
 	switch ctx.RespType {
@@ -252,34 +318,6 @@ func (h *semanticCacheVectorHandler) getDBName(ctx *aicontext.Context) string {
 		dbName += "_non_stream"
 	}
 	return dbName
-}
-
-func (h *semanticCacheVectorHandler) GetHandler(ctx *aicontext.Context, embedding []float32) (vectordb.VectorHandler, error) {
-	key := h.getKey(ctx)
-
-	h.handlerLock.RLock()
-	if handler, exists := h.handlers[key]; exists {
-		h.handlerLock.RUnlock()
-		return handler, nil
-	}
-	h.handlerLock.RUnlock()
-
-	h.handlerLock.Lock()
-	defer h.handlerLock.Unlock()
-	// re-check to avoid in race condition re-create the handler
-	if handler, exists := h.handlers[key]; exists {
-		return handler, nil
-	}
-
-	handler, err := h.vectorDB.CreateSchema(context.Background(), func(o *vecdbtypes.Options) {
-		o.DBName = h.getDBName(ctx)
-		o.Schema = h.createRedisSchema(len(embedding))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create index, %v", err)
-	}
-	h.handlers[key] = handler
-	return handler, nil
 }
 
 func (h *semanticCacheVectorHandler) createRedisSchema(dim int) vecdbtypes.Schema {
@@ -302,6 +340,44 @@ func (h *semanticCacheVectorHandler) createRedisSchema(dim int) vecdbtypes.Schem
 			{
 				Name: "status",
 			},
+		},
+	}
+}
+
+func (h *semanticCacheVectorHandler) createPostgresOptions(ctx *aicontext.Context, embedding []float32) vecdbtypes.Option {
+	return func(o *vecdbtypes.Options) {
+		o.DBName = h.dbSpec.CollectionName
+		o.Schema = h.createPostgresSchema(ctx, embedding)
+	}
+}
+
+func (h *semanticCacheVectorHandler) getPostgresTableName(ctx *aicontext.Context) string {
+	tableName := "semantic_cache"
+	switch ctx.RespType {
+	case aicontext.ResponseTypeChatCompletions:
+		tableName += "_chat"
+	case aicontext.ResponseTypeCompletions:
+		tableName += "_completion"
+	default:
+		// should not reach here, check code in semanticCacheMiddleware
+		panic(fmt.Sprintf("unsupported response type: %s", ctx.RespType))
+	}
+	if ctx.ReqInfo.Stream {
+		tableName += "_stream"
+	} else {
+		tableName += "_non_stream"
+	}
+	return tableName
+}
+
+func (h *semanticCacheVectorHandler) createPostgresSchema(ctx *aicontext.Context, embedding []float32) vecdbtypes.Schema {
+	return &pgvector.TableSchema{
+		TableName: h.getPostgresTableName(ctx),
+		Columns: []pgvector.Column{
+			{Name: "embedding", DataType: fmt.Sprintf("vector(%d)", len(embedding))},
+			{Name: "data", DataType: "text"},
+			{Name: "header", DataType: "text"},
+			{Name: "status", DataType: "int"},
 		},
 	}
 }
