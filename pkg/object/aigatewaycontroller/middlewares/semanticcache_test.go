@@ -68,6 +68,7 @@ func TestSemanticCache(t *testing.T) {
 	cache.embeddingsHandler = &mockEmbeddingHandler{}
 	cache.vectorHandler = &semanticCacheVectorHandler{
 		spec:     spec,
+		dbSpec:   spec.SemanticCache.VectorDB,
 		vectorDB: &mockVectorDB{},
 		handlers: make(map[string]vectordb.VectorHandler),
 	}
