@@ -16,7 +16,7 @@ require (
 	github.com/dave/jennifer v1.7.0
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fatih/color v1.18.0
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/cors v1.2.1
 	github.com/go-logr/zapr v1.2.4
