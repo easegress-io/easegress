@@ -1,0 +1,90 @@
+hey 1000 request with 50 concurrency
+Summary:
+  Total:	0.0903 secs
+  Slowest:	0.0203 secs
+  Fastest:	0.0005 secs
+  Average:	0.0039 secs
+  Requests/sec:	11075.6908
+
+  Total data:	502000 bytes
+  Size/request:	502 bytes
+
+Response time histogram:
+  0.000 [1]	|
+  0.002 [378]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.004 [268]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.006 [190]	|■■■■■■■■■■■■■■■■■■■■
+  0.008 [93]	|■■■■■■■■■■
+  0.010 [50]	|■■■■■
+  0.012 [14]	|■
+  0.014 [2]	|
+  0.016 [2]	|
+  0.018 [1]	|
+  0.020 [1]	|
+
+
+Latency distribution:
+  10% in 0.0012 secs
+  25% in 0.0017 secs
+  50% in 0.0034 secs
+  75% in 0.0054 secs
+  90% in 0.0074 secs
+  95% in 0.0089 secs
+  99% in 0.0113 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0001 secs, 0.0005 secs, 0.0203 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0001 secs, 0.0000 secs, 0.0043 secs
+  resp wait:	0.0032 secs, 0.0005 secs, 0.0202 secs
+  resp read:	0.0003 secs, 0.0000 secs, 0.0065 secs
+
+Status code distribution:
+  [200]	1000 responses
+
+
+
+
+hey 10000 request with 100 concurrency
+Summary:
+  Total:	0.7409 secs
+  Slowest:	0.0986 secs
+  Fastest:	0.0005 secs
+  Average:	0.0071 secs
+  Requests/sec:	13496.7521
+
+  Total data:	5020000 bytes
+  Size/request:	502 bytes
+
+Response time histogram:
+  0.000 [1]	|
+  0.010 [8607]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.020 [904]	|■■■■
+  0.030 [123]	|■
+  0.040 [83]	|
+  0.050 [120]	|■
+  0.059 [142]	|■
+  0.069 [1]	|
+  0.079 [0]	|
+  0.089 [11]	|
+  0.099 [8]	|
+
+
+Latency distribution:
+  10% in 0.0015 secs
+  25% in 0.0030 secs
+  50% in 0.0049 secs
+  75% in 0.0078 secs
+  90% in 0.0116 secs
+  95% in 0.0184 secs
+  99% in 0.0534 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0001 secs, 0.0005 secs, 0.0986 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0003 secs, 0.0000 secs, 0.0465 secs
+  resp wait:	0.0046 secs, 0.0004 secs, 0.0969 secs
+  resp read:	0.0015 secs, 0.0000 secs, 0.0524 secs
+
+Status code distribution:
+  [200]	10000 responses

@@ -1,0 +1,86 @@
+hey 1000 request with 50 concurrency
+Summary:
+  Total:	0.1328 secs
+  Slowest:	0.0176 secs
+  Fastest:	0.0008 secs
+  Average:	0.0062 secs
+  Requests/sec:	7528.8275
+
+
+Response time histogram:
+  0.001 [1]	|
+  0.003 [61]	|■■■■■■■■
+  0.004 [119]	|■■■■■■■■■■■■■■■
+  0.006 [275]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.008 [312]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.009 [135]	|■■■■■■■■■■■■■■■■■
+  0.011 [44]	|■■■■■■
+  0.013 [30]	|■■■■
+  0.014 [17]	|■■
+  0.016 [5]	|■
+  0.018 [1]	|
+
+
+Latency distribution:
+  10% in 0.0033 secs
+  25% in 0.0046 secs
+  50% in 0.0061 secs
+  75% in 0.0075 secs
+  90% in 0.0092 secs
+  95% in 0.0112 secs
+  99% in 0.0137 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0001 secs, 0.0008 secs, 0.0176 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0057 secs
+  req write:	0.0005 secs, 0.0000 secs, 0.0082 secs
+  resp wait:	0.0015 secs, 0.0007 secs, 0.0053 secs
+  resp read:	0.0027 secs, 0.0001 secs, 0.0122 secs
+
+Status code distribution:
+  [200]	1000 responses
+
+
+
+
+hey 10000 request with 100 concurrency
+Summary:
+  Total:	1.1036 secs
+  Slowest:	0.0643 secs
+  Fastest:	0.0007 secs
+  Average:	0.0107 secs
+  Requests/sec:	9061.3624
+
+
+Response time histogram:
+  0.001 [1]	|
+  0.007 [2882]	|■■■■■■■■■■■■■■■■■■■■■■■
+  0.013 [4925]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.020 [1647]	|■■■■■■■■■■■■■
+  0.026 [283]	|■■
+  0.032 [49]	|
+  0.039 [24]	|
+  0.045 [60]	|
+  0.052 [51]	|
+  0.058 [63]	|■
+  0.064 [15]	|
+
+
+Latency distribution:
+  10% in 0.0039 secs
+  25% in 0.0066 secs
+  50% in 0.0097 secs
+  75% in 0.0130 secs
+  90% in 0.0167 secs
+  95% in 0.0204 secs
+  99% in 0.0492 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0000 secs, 0.0007 secs, 0.0643 secs
+  DNS-lookup:	0.0001 secs, 0.0000 secs, 0.0398 secs
+  req write:	0.0004 secs, 0.0000 secs, 0.0365 secs
+  resp wait:	0.0028 secs, 0.0007 secs, 0.0465 secs
+  resp read:	0.0045 secs, 0.0000 secs, 0.0480 secs
+
+Status code distribution:
+  [200]	10000 responses

@@ -1,0 +1,86 @@
+hey 1000 request with 50 concurrency
+Summary:
+  Total:	0.0911 secs
+  Slowest:	0.0461 secs
+  Fastest:	0.0004 secs
+  Average:	0.0042 secs
+  Requests/sec:	10979.5405
+
+
+Response time histogram:
+  0.000 [1]	|
+  0.005 [847]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.010 [95]	|■■■■
+  0.014 [7]	|
+  0.019 [0]	|
+  0.023 [0]	|
+  0.028 [0]	|
+  0.032 [0]	|
+  0.037 [32]	|■■
+  0.042 [12]	|■
+  0.046 [6]	|
+
+
+Latency distribution:
+  10% in 0.0007 secs
+  25% in 0.0013 secs
+  50% in 0.0022 secs
+  75% in 0.0037 secs
+  90% in 0.0061 secs
+  95% in 0.0331 secs
+  99% in 0.0382 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0001 secs, 0.0004 secs, 0.0461 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0003 secs, 0.0000 secs, 0.0349 secs
+  resp wait:	0.0030 secs, 0.0004 secs, 0.0339 secs
+  resp read:	0.0005 secs, 0.0000 secs, 0.0354 secs
+
+Status code distribution:
+  [200]	1000 responses
+
+
+
+
+hey 10000 request with 100 concurrency
+Summary:
+  Total:	0.6642 secs
+  Slowest:	0.0908 secs
+  Fastest:	0.0004 secs
+  Average:	0.0064 secs
+  Requests/sec:	15055.7268
+
+
+Response time histogram:
+  0.000 [1]	|
+  0.009 [8160]	|■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
+  0.018 [1589]	|■■■■■■■■
+  0.028 [55]	|
+  0.037 [63]	|
+  0.046 [29]	|
+  0.055 [3]	|
+  0.064 [4]	|
+  0.073 [20]	|
+  0.082 [33]	|
+  0.091 [43]	|
+
+
+Latency distribution:
+  10% in 0.0008 secs
+  25% in 0.0020 secs
+  50% in 0.0047 secs
+  75% in 0.0081 secs
+  90% in 0.0116 secs
+  95% in 0.0146 secs
+  99% in 0.0555 secs
+
+Details (average, fastest, slowest):
+  DNS+dialup:	0.0000 secs, 0.0004 secs, 0.0908 secs
+  DNS-lookup:	0.0000 secs, 0.0000 secs, 0.0000 secs
+  req write:	0.0004 secs, 0.0000 secs, 0.0728 secs
+  resp wait:	0.0026 secs, 0.0003 secs, 0.0482 secs
+  resp read:	0.0021 secs, 0.0000 secs, 0.0852 secs
+
+Status code distribution:
+  [200]	10000 responses
