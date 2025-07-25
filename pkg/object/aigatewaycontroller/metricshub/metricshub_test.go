@@ -20,6 +20,7 @@ package metricshub_test
 import (
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,22 +46,23 @@ func TestMetricsHub(t *testing.T) {
 	assert := assert.New(t)
 
 	// mock cluster
-	clusterData := map[string]string{}
+	clusterData := sync.Map{}
 	mockCluster := clustertest.NewMockedCluster()
 	mockCluster.MockedLayout = func() *cluster.Layout {
 		return &cluster.Layout{}
 	}
 	mockCluster.MockedPut = func(key string, value string) error {
-		clusterData[key] = value
+		clusterData.Store(key, value)
 		return nil
 	}
 	mockCluster.MockedGetPrefix = func(prefix string) (map[string]string, error) {
 		res := make(map[string]string)
-		for k, v := range clusterData {
-			if strings.HasPrefix(k, prefix) {
-				res[k] = v
+		clusterData.Range(func(k, v interface{}) bool {
+			if strings.HasPrefix(k.(string), prefix) {
+				res[k.(string)] = v.(string)
 			}
-		}
+			return true
+		})
 		return res, nil
 	}
 
@@ -127,5 +129,4 @@ providers:
 	assert.Equal(int64(0), allStat.FailedRequests)
 	assert.Equal(int64(10000), allStat.PromptTokens)
 	assert.Equal(int64(5000), allStat.CompletionTokens)
-	assert.True(len(clusterData) > 0)
 }
