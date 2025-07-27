@@ -82,16 +82,17 @@ func (c *RedisClient) CreateIndexIfNotExists(ctx context.Context, index string, 
 	return c.client.Do(ctx, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build()).Error()
 }
 
-// getPrefix get prefix with index name.
 func getPrefix(index string) string {
 	return fmt.Sprintf("%s:", index)
 }
 
+// InsertWithHash inserts a single document into the index with the given name.
 func (c *RedisClient) InsertWithHash(ctx context.Context, index string, doc map[string]any) (string, error) {
 	command := toHmsetCommand(index, doc)
 	return command.Keys[0], c.client.Do(ctx, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build()).Error()
 }
 
+// InsertManyWithHash inserts multiple documents into the index with the given name.
 func (c *RedisClient) InsertManyWithHash(ctx context.Context, index string, docs []map[string]any) ([]string, error) {
 	commands := make([]rueidis.Completed, 0, len(docs))
 	docIDs := make([]string, 0, len(docs))
@@ -113,6 +114,7 @@ func (c *RedisClient) InsertManyWithHash(ctx context.Context, index string, docs
 	return docIDs, errors.Join(errs...)
 }
 
+// Find retrieves documents from the index based on the provided query.
 func (c *RedisClient) Find(ctx context.Context, query *RedisVectorQuery) (int64, []map[string]any, error) {
 	command := query.ToCommand()
 	total, docs, err := c.client.Do(ctx, c.client.B().Arbitrary(command.Commands...).Keys(command.Keys...).Args(command.Args...).Build()).AsFtSearch()

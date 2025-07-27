@@ -47,12 +47,16 @@ var (
 )
 
 type (
+	// TableSchema represents the schema of a table in a PostgreSQL database.
+	// It is used to define the structure of the table, including its name, columns, and indexes.
 	TableSchema struct {
 		TableName string   `json:"tableName" jsonschema:"required"`
 		Columns   []Column `json:"columns" jsonschema:"required"`
 		Indexes   []Index  `json:"indexes,omitempty" jsonschema:"optional"`
 	}
 
+	// Column represents a column in a PostgreSQL table.
+	// It is used to define the structure of the table column.
 	Column struct {
 		Name         string `json:"name" jsonschema:"required"`
 		DataType     string `json:"dataType" jsonschema:"required"`
@@ -64,6 +68,7 @@ type (
 
 	IndexType string
 
+	// Index represents an index in a PostgreSQL table.
 	Index struct {
 		Name    string              `json:"name" jsonschema:"required"`
 		Type    IndexType           `json:"type" jsonschema:"required"`
@@ -72,12 +77,14 @@ type (
 		IVFFlat *IVFFlatIndexOption `json:"ivfflat,omitempty" jsonschema:"optional"`
 	}
 
+	// HNSWIndexOption represents the options for a HNSW index in PostgreSQL.
 	HNSWIndexOption struct {
 		DistanceMetric string `json:"distanceMetric" jsonschema:"required"`
 		M              int    `json:"m" jsonschema:"required"`
 		EfConstruction int    `json:"efConstruction" jsonschema:"required"`
 	}
 
+	// IVFFlatIndexOption represents the options for a IVFFlat index in PostgreSQL.
 	IVFFlatIndexOption struct {
 		DistanceMetric string `json:"distanceMetric" jsonschema:"required"`
 		Nlist          int    `json:"nlist" jsonschema:"required"`

@@ -28,6 +28,7 @@ var (
 )
 
 type (
+	// PostgresVectorQuery represents a query for vector data in a PostgreSQL database.
 	PostgresVectorQuery struct {
 		tableName         string
 		vectorKey         string
@@ -41,6 +42,7 @@ type (
 	Option func(query *PostgresVectorQuery)
 )
 
+// NewPostgresVectorQuery creates a new PostgresVectorQuery with the specified table name, vector key, and vector values.
 func NewPostgresVectorQuery(tableName, vectorKey string, vectorValues []float32, opts ...Option) *PostgresVectorQuery {
 	query := &PostgresVectorQuery{
 		tableName:    tableName,
@@ -63,12 +65,14 @@ func NewPostgresVectorQuery(tableName, vectorKey string, vectorValues []float32,
 	return query
 }
 
+// WithFilters sets the filters for the PostgresVectorQuery.
 func WithFilters(filters string) Option {
 	return func(query *PostgresVectorQuery) {
 		query.filters = filters
 	}
 }
 
+// WithDistanceAlgorithm sets the distance algorithm for the PostgresVectorQuery.
 func WithDistanceAlgorithm(algorithm string) Option {
 	return func(query *PostgresVectorQuery) {
 		if slices.Contains(validDistanceAlgorithms, algorithm) {
@@ -79,12 +83,14 @@ func WithDistanceAlgorithm(algorithm string) Option {
 	}
 }
 
+// WithLimit sets the limit for the PostgresVectorQuery.
 func WithLimit(limit int) Option {
 	return func(query *PostgresVectorQuery) {
 		query.limit = limit
 	}
 }
 
+// WithOffset sets the offset for the PostgresVectorQuery.
 func WithOffset(offset int) Option {
 	return func(query *PostgresVectorQuery) {
 		query.offset = offset

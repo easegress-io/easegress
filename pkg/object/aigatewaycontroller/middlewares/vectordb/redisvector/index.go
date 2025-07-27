@@ -21,8 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 	"golang.org/x/exp/slices"
+
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
 
 // TODO: This file is a placeholder for the Redis Index(which is equals to the database).
