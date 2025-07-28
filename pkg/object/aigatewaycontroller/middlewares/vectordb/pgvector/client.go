@@ -30,9 +30,9 @@ import (
 )
 
 const (
-	DefaultPrimaryKeyColumnName = "id"        // Default primary key column name
-	EnablePGExtensionLockID     = 0x1e2d3c4b5 // Arbitrary lock ID for advisory lock to create extension
-	CreateTableLockID           = 0x1a2b3c4d5 // Arbitrary lock ID for advisory lock to create table
+	DefaultPrimaryKeyColumnName = "id"      // Default primary key column name
+	EnablePGExtensionLockID     = 0x1e2d3c4 // Arbitrary lock ID for advisory lock to create extension
+	CreateTableLockID           = 0x1a2b3c4 // Arbitrary lock ID for advisory lock to create table
 )
 
 type (
