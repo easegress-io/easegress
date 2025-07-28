@@ -30,12 +30,13 @@ import (
 )
 
 const (
-	DefaultPrimaryKeyColumnName = "id"               // Default primary key column name
-	EnablePGExtensionLockID     = 0x1e2d3c4b5a6b7c8d // Arbitrary lock ID for advisory lock to create extension
-	CreateTableLockID           = 0x1a2b3c4d5e6f7081 // Arbitrary lock ID for advisory lock to create table
+	DefaultPrimaryKeyColumnName       = "id"               // Default primary key column name
+	EnablePGExtensionLockID     int64 = 0x1e2d3c4b5a6b7c8d // Arbitrary lock ID for advisory lock to create extension
+	CreateTableLockID           int64 = 0x1a2b3c4d5e6f7081 // Arbitrary lock ID for advisory lock to create table
 )
 
 type (
+	// PostgresClient is a wrapper around pgx.Conn to interact with a PostgreSQL database.
 	PostgresClient struct {
 		conn *pgx.Conn
 	}
@@ -50,6 +51,8 @@ func NewPostgresClient(ctx context.Context, connectionURL string) (*PostgresClie
 	return &PostgresClient{conn: conn}, nil
 }
 
+// EnableVectorExtensionIfNotExists checks if the vector extension is enabled, and enables it if not.
+// It should be called within a transaction to ensure atomicity and commit only if the extension is successfully created.
 func (c *PostgresClient) EnableVectorExtensionIfNotExists(ctx context.Context, tx pgx.Tx) error {
 	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", EnablePGExtensionLockID); err != nil {
 		return err
@@ -65,6 +68,7 @@ func (c *PostgresClient) EnableVectorExtensionIfNotExists(ctx context.Context, t
 	return nil
 }
 
+// CheckDBExists checks if a database with the given name exists.
 func (c *PostgresClient) CheckDBExists(ctx context.Context, dbName string) bool {
 	var exists bool
 	err := c.conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)", dbName).Scan(&exists)
@@ -74,6 +78,7 @@ func (c *PostgresClient) CheckDBExists(ctx context.Context, dbName string) bool 
 	return exists
 }
 
+// CreateDBIfNotExists creates a new database with the given schema if it does not already exist.
 func (c *PostgresClient) CreateDBIfNotExists(ctx context.Context, tx pgx.Tx, schema *TableSchema) error {
 	if schema == nil || schema.TableName == "" {
 		return fmt.Errorf("invalid schema: %v", schema)
@@ -201,6 +206,7 @@ func getCreateTableIndexSQL(schema *TableSchema, index Index) (string, error) {
 	return indexSQL, nil
 }
 
+// InsertWithVector inserts a batch of documents into the specified table.
 func (c *PostgresClient) InsertWithVector(ctx context.Context, tableName string, doc []map[string]any) ([]string, error) {
 	if len(doc) == 0 {
 		return []string{}, nil
@@ -216,7 +222,7 @@ func (c *PostgresClient) InsertWithVector(ctx context.Context, tableName string,
 			docIDs = append(docIDs, d[DefaultPrimaryKeyColumnName].(string))
 		}
 
-		sql, args, err := c.insertSingleDocument(ctx, tableName, d)
+		sql, args, err := c.insertSingleDocument(tableName, d)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert document: %w", err)
 		}
@@ -225,7 +231,7 @@ func (c *PostgresClient) InsertWithVector(ctx context.Context, tableName string,
 	return docIDs, c.conn.SendBatch(ctx, b).Close()
 }
 
-func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName string, doc map[string]any) (string, []any, error) {
+func (c *PostgresClient) insertSingleDocument(tableName string, doc map[string]any) (string, []any, error) {
 	if tableName == "" || doc == nil || len(doc) == 0 {
 		return "", nil, fmt.Errorf("invalid table name or document")
 	}
@@ -258,6 +264,7 @@ func (c *PostgresClient) insertSingleDocument(ctx context.Context, tableName str
 	return sql, args, nil
 }
 
+// Query executes a vector query against the specified table and returns the results.
 func (c *PostgresClient) Query(ctx context.Context, query *PostgresVectorQuery) (int64, []map[string]any, error) {
 	if query == nil || query.tableName == "" {
 		return 0, nil, fmt.Errorf("invalid query: %v", query)
@@ -320,6 +327,7 @@ func getQuerySQL(query *PostgresVectorQuery) (string, error) {
 	return sql, nil
 }
 
+// Close closes the Postgres client connection.
 func (c *PostgresClient) Close(ctx context.Context) error {
 	if c.conn != nil {
 		return c.conn.Close(ctx)
