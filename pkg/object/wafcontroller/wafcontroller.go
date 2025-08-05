@@ -19,14 +19,21 @@ package wafcontroller
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/v2/pkg/api"
-	"github.com/megaease/easegress/v2/pkg/context"
-	"github.com/megaease/easegress/v2/pkg/logger"
+	"net/http"
 	"strings"
 	"sync/atomic"
 
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
+	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/rules"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
+
+type ResultError string
 
 const (
 	// Category is the category of the WAFController.
@@ -34,6 +41,8 @@ const (
 
 	// Kind is the kind of the WAFController.
 	Kind = "WAFController"
+
+	ResultRuleGroupNotFoundError ResultError = "ruleGroupNotFoundError"
 )
 
 var (
@@ -49,8 +58,7 @@ var (
 type (
 	// WAFHandler is used to handle WAF requests.
 	WAFHandler interface {
-		// TODO: placeholder, it needs to be refactored.
-		HandleWAFRequest(ctx *context.Context)
+		Handle(ctx *context.Context, ruleGroupName string) string
 	}
 
 	// WAFController is the controller for WAF.
@@ -58,42 +66,13 @@ type (
 		super     *supervisor.Supervisor
 		superSpec *supervisor.Spec
 		spec      *Spec
+
+		ruleGroups map[string][]rules.Rule
 	}
 
 	// Spec is the specification for WAFController.
 	Spec struct {
-		RuleGroups []*RuleGroupSpec `json:"ruleGroups" jsonschema:"required"`
-	}
-
-	// RuleGroupSpec defines the specification for a WAF rule group.
-	RuleGroupSpec struct {
-		Name        string `json:"name" jsonschema:"required"`
-		Description string `json:"description,omitempty"`
-		Rules       []Rule `json:"rules" jsonschema:"required"`
-	}
-
-	// Rule defines a WAF rule.
-	Rule struct {
-		SQLInjection SQLInjectionSpec `json:"sqlInjection,omitempty"`
-		CustomRules  []CustomRule     `json:"customRules,omitempty"`
-	}
-
-	// SQLInjectionSpec defines the specification for SQL injection detection.
-	SQLInjectionSpec struct {
-		Enabled bool `json:"enabled" jsonschema:"required"`
-		// Additional fields can be added here for SQL injection detection configuration.
-	}
-
-	// CustomRule defines a custom WAF rule.
-	CustomRule struct {
-		Spec CustomRuleSpec `json:"customRule" jsonschema:"required"`
-	}
-
-	// CustomRuleSpec defines the specification for a custom WAF rule.
-	CustomRuleSpec struct {
-		Enabled     bool   `json:"enabled" jsonschema:"required"`
-		ModSecurity string `json:"modSecurity,omitempty"` // ModSecurity rule string.
-		// Additional fields can be added here for custom rule configuration.
+		RuleGroups []*protocol.RuleGroupSpec `json:"ruleGroups" jsonschema:"required"`
 	}
 
 	Status struct{}
@@ -153,6 +132,29 @@ func (waf *WAFController) Close() {
 	// Perform any necessary cleanup here.
 }
 
+func (waf *WAFController) Init(superSpec *supervisor.Spec) {
+	waf.superSpec = superSpec
+	waf.super = superSpec.Super()
+	waf.spec = superSpec.ObjectSpec().(*Spec)
+
+	waf.reload(nil)
+}
+
+func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
+	previousGeneration.(*WAFController).Close()
+}
+
+func (waf *WAFController) reload(prev *WAFController) {
+	// TODO: Implement the logic to reload WAF rules and configurations.
+	panic(nil) // Placeholder for actual implementation
+}
+
+func (waf *WAFController) InheritClose() {
+	logger.Infof("close previous generation of WAFController because of inheriting")
+	// TODO: Implement the logic to close the previous generation of WAFController.
+	globalWAFController.CompareAndSwap(waf, (*WAFController)(nil))
+}
+
 func init() {
 	supervisor.Register(&WAFController{})
 	api.RegisterObject(&api.APIResource{
@@ -182,4 +184,31 @@ func validateHook(operationType api.OperationType, spec *supervisor.Spec) error 
 	}
 
 	return nil
+}
+
+func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) string {
+	if _, ok := waf.ruleGroups[ruleGroupName]; !ok || ruleGroupName == "" {
+		waf.setErrResponse(ctx, fmt.Errorf("rule group %s not found", ruleGroupName))
+		return string(ResultRuleGroupNotFoundError)
+	}
+
+	ruleGroup := waf.ruleGroups[ruleGroupName]
+	for _, rule := range ruleGroup {
+		rule.Handle()
+	}
+	return ""
+}
+
+func (waf *WAFController) setErrResponse(ctx *context.Context, err error) {
+	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+	resp.SetStatusCode(http.StatusInternalServerError)
+	errMsg := map[string]string{
+		"Message": err.Error(),
+	}
+	data, _ := codectool.MarshalJSON(errMsg)
+	resp.SetPayload(data)
+	ctx.SetOutputResponse(resp)
 }
