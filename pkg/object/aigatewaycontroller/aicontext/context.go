@@ -28,12 +28,19 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+
+	anthropic "github.com/anthropics/anthropic-sdk-go"
 )
 
 // ResponseType defines the type of response for AI requests.
 type ResponseType string
 
 const (
+	// Anthropic Response Types.
+	// ResponseTypeMessage is used for message requests.
+	ResponseTypeMessage ResponseType = "/v1/messages"
+
+	// OpenAI Response Types.
 	// ResponseTypeCompletions is used for standard completion requests.
 	ResponseTypeCompletions ResponseType = "/v1/completions"
 	// ResponseTypeChatCompletions is used for chat completion requests.
@@ -139,34 +146,41 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		return nil, err
 	}
 
+	c := &Context{
+		Ctx:       ctx,
+		Provider:  provider,
+		Req:       req,
+		ReqBody:   body,
+		OpenAIReq: map[string]any{},
+		ReqInfo:   &protocol.GeneralRequest{},
+		RespType:  ResponseType(""),
+	}
+
 	path := req.URL().Path
-	respType := ResponseType("")
-	if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
-		respType = ResponseTypeChatCompletions
+	if strings.HasSuffix(path, string(ResponseTypeMessage)) {
+		c.RespType = ResponseTypeMessage
+	} else if strings.HasSuffix(path, string(ResponseTypeChatCompletions)) {
+		c.RespType = ResponseTypeChatCompletions
 	} else if strings.HasSuffix(path, string(ResponseTypeCompletions)) {
-		respType = ResponseTypeCompletions
+		c.RespType = ResponseTypeCompletions
 	} else if strings.HasSuffix(path, string(ResponseTypeModels)) {
-		respType = ResponseTypeModels
+		c.RespType = ResponseTypeModels
 	} else {
 		return nil, fmt.Errorf("unsupported request path: %s", path)
 	}
 
-	if respType == ResponseTypeModels {
-		c := &Context{
-			Ctx:       ctx,
-			Provider:  provider,
-			Req:       req,
-			ReqBody:   body,
-			OpenAIReq: map[string]any{},
-			ReqInfo:   &protocol.GeneralRequest{},
-			RespType:  respType,
-		}
+	if c.RespType == ResponseTypeModels {
 		return c, nil
+	}
+
+	err = c.ensureReqBodyInOpenAI()
+	if err != nil {
+		return nil, err
 	}
 
 	// parse OpenAI request
 	openAIReq := make(map[string]interface{})
-	err = json.Unmarshal(body, &openAIReq)
+	err = json.Unmarshal(c.ReqBody, &openAIReq)
 	if err != nil {
 		return nil, err
 	}
@@ -198,20 +212,46 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		return nil, fmt.Errorf("invalid OpenAI request body: %w", err)
 	}
 
-	c := &Context{
-		Ctx:       ctx,
-		Provider:  provider,
-		Req:       req,
-		ReqBody:   body,
-		OpenAIReq: openAIReq,
-		ReqInfo: &protocol.GeneralRequest{
-			Model:         model,
-			Stream:        stream,
-			StreamOptions: streamOptions,
-		},
-		RespType: respType,
+	c.OpenAIReq = openAIReq
+	c.ReqInfo = &protocol.GeneralRequest{
+		Model:         model,
+		Stream:        stream,
+		StreamOptions: streamOptions,
 	}
+
 	return c, nil
+}
+
+func (c *Context) ensureReqBodyInOpenAI() error {
+	if c.ReqBody == nil {
+		return fmt.Errorf("request body is missing")
+	}
+
+	// Only transform Anthropic message requests to OpenAI format.
+	if c.RespType != ResponseTypeMessage {
+		return nil
+	}
+
+	var req anthropic.MessageNewParams
+	err := json.Unmarshal(c.ReqBody, &req)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal request body: %w", err)
+	}
+
+	openAIReq, err := AnthropicReqMessageToOpenAI(&req)
+	if err != nil {
+		return fmt.Errorf("failed to convert Anthropic message to OpenAI request: %w", err)
+	}
+
+	c.ReqBody, err = json.Marshal(openAIReq)
+	if err != nil {
+		return fmt.Errorf("failed to marshal OpenAI request: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Context) ensureRespBodyInOpenAI() {
 }
 
 // GetResponse returns the response of the context.
@@ -224,6 +264,7 @@ func (c *Context) GetResponse() *Response {
 // function to the context using AddCallBack method.
 func (c *Context) SetResponse(resp *Response) {
 	c.resp = resp
+	c.ensureRespBodyInOpenAI()
 }
 
 // AddCallBack adds a callback function to the context.
