@@ -89,17 +89,15 @@ func (spec *Spec) Validate() error {
 		}
 		names[group.Name] = struct{}{}
 
-		for _, rule := range group.Rules {
-			if rule.SQLInjection.Enabled && len(rule.CustomRules) > 0 {
-				return fmt.Errorf("Cannot enable SQLInjection and CustomRules at the same time")
-			}
-			for _, customRule := range rule.CustomRules {
-				if customRule.Spec.ModSecurity == "" {
-					return fmt.Errorf("CustomRule ModSecurity cannot be empty")
-				}
-			}
-			// Additional validation for other rule types can be added here.
+		if group.Rules.SQLInjection.Enabled && len(group.Rules.Customs.CustomRules) > 0 {
+			return fmt.Errorf("Cannot enable SQLInjection and CustomRules at the same time")
 		}
+		for _, customRule := range group.Rules.Customs.CustomRules {
+			if customRule.ModSecurity == "" {
+				return fmt.Errorf("CustomRule ModSecurity cannot be empty")
+			}
+		}
+		// Additional validation for other rule types can be added here.
 	}
 
 	return nil
@@ -145,8 +143,16 @@ func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration
 }
 
 func (waf *WAFController) reload(prev *WAFController) {
-	// TODO: Implement the logic to reload WAF rules and configurations.
-	panic(nil) // Placeholder for actual implementation
+	waf.ruleGroups = make(map[string][]rules.Rule)
+	for _, group := range waf.spec.RuleGroups {
+		if group == nil || group.Name == "" {
+			logger.Errorf("Invalid rule group specification: %v", group)
+			continue
+		}
+
+		rulesList := rules.NewRules(group.Rules)
+		waf.ruleGroups[group.Name] = rulesList
+	}
 }
 
 func (waf *WAFController) InheritClose() {
@@ -194,9 +200,22 @@ func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) str
 
 	ruleGroup := waf.ruleGroups[ruleGroupName]
 	for _, rule := range ruleGroup {
-		rule.Handle()
+		if rule.Handle().Result != rules.ResultOk {
+			resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+			if resp == nil {
+				resp, _ = httpprot.NewResponse(nil)
+			}
+			resp.SetStatusCode(http.StatusForbidden)
+			errMsg := map[string]string{
+				"Message": rule.Handle().Message,
+			}
+			data, _ := codectool.MarshalJSON(errMsg)
+			resp.SetPayload(data)
+			ctx.SetOutputResponse(resp)
+			return string(rule.Handle().Result)
+		}
 	}
-	return ""
+	return string(rules.ResultOk)
 }
 
 func (waf *WAFController) setErrResponse(ctx *context.Context, err error) {
