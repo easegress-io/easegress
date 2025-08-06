@@ -84,7 +84,7 @@ func (spec *Spec) Validate() error {
 			return fmt.Errorf("RuleGroup name cannot be empty")
 		}
 		if _, exists := names[group.Name]; exists {
-			return fmt.Errorf("RuleGroup name must be unique: " + group.Name)
+			return fmt.Errorf("RuleGroup name must be unique: %s", group.Name)
 		}
 		names[group.Name] = struct{}{}
 
@@ -201,15 +201,15 @@ func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) str
 	}
 
 	result := ruleGroup.Handle(ctx)
-	if result.Result != ResultOk {
+	if result.Result != protocol.ResultOk {
 		// TODO: add metrics for WAF results.
 		waf.setWafErrResponse(ctx, result)
 		return string(result.Result)
 	}
-	return string(ResultOk)
+	return string(protocol.ResultOk)
 }
 
-func (waf *WAFController) setWafErrResponse(ctx *context.Context, result *WAFResult) {
+func (waf *WAFController) setWafErrResponse(ctx *context.Context, result *protocol.WAFResult) {
 	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
 	if resp == nil {
 		resp, _ = httpprot.NewResponse(nil)

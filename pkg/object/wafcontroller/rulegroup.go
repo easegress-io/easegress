@@ -30,40 +30,21 @@ import (
 )
 
 type (
-	WAFResultType string
-
-	// WAFResult defines the result structure for WAF rules.
-	WAFResult struct {
-		Interruption *types.Interruption
-		Message      string        `json:"message,omitempty"`
-		Result       WAFResultType `json:"result,omitempty"`
-	}
-
+	// RuleGroup defines the interface for a WAF rule group.
 	RuleGroup interface {
 		Name() string
 		// Handle processes the request and returns a WAF response.
 		// TODO: how to handle the response?
 		// TODO: should we process the stream request and stream response?
-		Handle(ctx *context.Context) *WAFResult
+		Handle(ctx *context.Context) *protocol.WAFResult
 	}
 
-	rule struct {
-		needCrs    bool
-		directives string
-	}
-
+	// ruleGroup implements the RuleGroup interface.
 	ruleGroup struct {
 		spec          *protocol.RuleGroupSpec
-		preprocessors []protocol.PreprocessFn
+		preprocessors []protocol.PreWAFProcessor
 		waf           coraza.WAF
 	}
-)
-
-const (
-	// ResultOk indicates that the request is allowed. In easegress, this is empty string.
-	ResultOk WAFResultType = ""
-	// ResultBlocked indicates that the request is blocked.
-	ResultBlocked WAFResultType = "Blocked"
 )
 
 func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
@@ -79,7 +60,7 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 	}
 
 	directives := ""
-	preprocessors := make([]protocol.PreprocessFn, 0, len(rules))
+	preprocessors := make([]protocol.PreWAFProcessor, 0, len(rules))
 	for _, r := range rules {
 		directives += r.Directives() + "\n"
 		if r.GetPreprocessor() != nil {
@@ -129,11 +110,13 @@ func corazaErrorCallback(mr types.MatchedRule) {
 	}
 }
 
+// Name returns the name of the rule group.
 func (rg *ruleGroup) Name() string {
 	return rg.spec.Name
 }
 
-func (rg *ruleGroup) Handle(ctx *context.Context) *WAFResult {
+// Handle processes the request and returns a WAF response.
+func (rg *ruleGroup) Handle(ctx *context.Context) *protocol.WAFResult {
 	// TODO: Implement the logic to handle the request.
 	// First go through the preprocessors if any. For example, GEOIP lookups and put the result into the context.
 	// Then, prepare the request for WAF processing.
