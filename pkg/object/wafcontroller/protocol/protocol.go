@@ -1,23 +1,54 @@
+/*
+ * Copyright (c) 2017, The Easegress Authors
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package protocol
 
-import "reflect"
+import (
+	"reflect"
+
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+)
 
 type (
-	RuleSpecification interface {
-		// Name returns the name of the rule.
-		Name() string
+	RuleType string
+
+	PreprocessFn func(req *httpprot.Request) error
+
+	Rule interface {
+		// Type returns the type of the rule.
+		Type() RuleType
 	}
 
 	// RuleGroupSpec defines the specification for a WAF rule group.
 	RuleGroupSpec struct {
-		Name  string   `json:"name" jsonschema:"required"`
-		Rules RuleSpec `json:"rules" jsonschema:"required"`
+		Name string `json:"name" jsonschema:"required"`
+		// LoadOwaspCrs indicates whether to load the OWASP Core Rule Set.
+		// Please check https://github.com/corazawaf/coraza-coreruleset for more details.
+		LoadOwaspCrs bool     `json:"loadOwaspCrs,omitempty"`
+		Rules        RuleSpec `json:"rules" jsonschema:"required"`
 	}
 
 	// RuleSpec defines a WAF rule.
 	RuleSpec struct {
+		// OwaspRules defines the OWASP rules to be applied.
+		// See the example of https://github.com/corazawaf/coraza-coreruleset for more details.
+		OwaspRules *OwaspRulesSpec `json:"owaspRules,omitempty"`
+		Customs    *CustomsSpec    `json:"customRules,omitempty"`
+
 		SQLInjection *SQLInjectionSpec `json:"sqlInjection,omitempty"`
-		Customs      *CustomsSpec      `json:"customRules,omitempty"`
 	}
 
 	// SQLInjectionSpec defines the specification for SQL injection detection.
@@ -26,35 +57,50 @@ type (
 		// Additional fields can be added here for SQL injection detection configuration.
 	}
 
-	// CustomsSpec defines a custom WAF rule.
-	CustomsSpec struct {
-		CustomRules []CustomRuleSpec `json:"customRule" jsonschema:"required"`
-	}
+	// OwaspRulesSpec defines the specification for OWASP rules.
+	OwaspRulesSpec []string
 
-	// CustomRuleSpec defines the specification for a custom WAF rule.
-	CustomRuleSpec struct {
-		Enabled     bool   `json:"enabled" jsonschema:"required"`
-		ModSecurity string `json:"modSecurity,omitempty"` // ModSecurity rule string.
-		// Additional fields can be added here for custom rule configuration.
-	}
+	// CustomsSpec defines a custom WAF rule.
+	CustomsSpec string
 )
 
-func (sql *SQLInjectionSpec) Name() string {
-	return "SQLInjection"
+const (
+	TypeCustoms      RuleType = "Customs"
+	TypeOwaspRules   RuleType = "OwaspRules"
+	TypeSQLInjection RuleType = "SQLInjection"
+)
+
+var _ Rule = (*CustomsSpec)(nil)
+var _ Rule = (*OwaspRulesSpec)(nil)
+var _ Rule = (*SQLInjectionSpec)(nil)
+
+func (sql *SQLInjectionSpec) Type() RuleType {
+	return TypeSQLInjection
 }
 
-func (rule *CustomsSpec) Name() string {
-	return "Customs"
+func (owasp *OwaspRulesSpec) Type() RuleType {
+	return TypeOwaspRules
 }
 
-func (rule *RuleSpec) GetSpec(name string) RuleSpecification {
+func (rule *CustomsSpec) Type() RuleType {
+	return TypeCustoms
+}
+
+func (rule *CustomsSpec) Directives() string {
+	if rule == nil {
+		return ""
+	}
+	return string(*rule)
+}
+
+func (rule *RuleSpec) GetSpec(typeName string) Rule {
 	v := reflect.ValueOf(rule)
-	field := v.FieldByName(name)
+	field := v.FieldByName(typeName)
 	if !field.IsValid() {
 		return nil
 	}
 	if field.Kind() == reflect.Struct {
-		if spec, ok := field.Interface().(RuleSpecification); ok {
+		if spec, ok := field.Interface().(Rule); ok {
 			return spec
 		}
 		return nil
