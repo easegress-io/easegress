@@ -27,7 +27,6 @@ import (
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
-	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/rules"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
@@ -67,7 +66,7 @@ type (
 		superSpec *supervisor.Spec
 		spec      *Spec
 
-		ruleGroups map[string][]rules.Rule
+		ruleGroups map[string]RuleGroup
 	}
 
 	// Spec is the specification for WAFController.
@@ -89,13 +88,11 @@ func (spec *Spec) Validate() error {
 		}
 		names[group.Name] = struct{}{}
 
-		if group.Rules.SQLInjection.Enabled && len(group.Rules.Customs.CustomRules) > 0 {
-			return fmt.Errorf("Cannot enable SQLInjection and CustomRules at the same time")
-		}
-		for _, customRule := range group.Rules.Customs.CustomRules {
-			if customRule.ModSecurity == "" {
-				return fmt.Errorf("CustomRule ModSecurity cannot be empty")
-			}
+		// best way to validate the rules is to dry create the rule group
+		// TODO: update if the rule group contains state and need to close.
+		_, err := newRuleGroup(group)
+		if err != nil {
+			return fmt.Errorf("failed to create rule group %s: %v", group.Name, err)
 		}
 		// Additional validation for other rule types can be added here.
 	}
@@ -143,15 +140,19 @@ func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration
 }
 
 func (waf *WAFController) reload(prev *WAFController) {
-	waf.ruleGroups = make(map[string][]rules.Rule)
+	waf.ruleGroups = make(map[string]RuleGroup)
 	for _, group := range waf.spec.RuleGroups {
 		if group == nil || group.Name == "" {
 			logger.Errorf("Invalid rule group specification: %v", group)
 			continue
 		}
 
-		rulesList := rules.NewRules(group.Rules)
-		waf.ruleGroups[group.Name] = rulesList
+		ruleGroup, err := newRuleGroup(group)
+		if err != nil {
+			// This should not happen since we validate the spec in Validate method.
+			panic(fmt.Sprintf("Failed to create rule group %s: %v", group.Name, err))
+		}
+		waf.ruleGroups[group.Name] = ruleGroup
 	}
 }
 
@@ -193,29 +194,37 @@ func validateHook(operationType api.OperationType, spec *supervisor.Spec) error 
 }
 
 func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) string {
-	if _, ok := waf.ruleGroups[ruleGroupName]; !ok || ruleGroupName == "" {
+	ruleGroup, ok := waf.ruleGroups[ruleGroupName]
+	if !ok || ruleGroupName == "" {
 		waf.setErrResponse(ctx, fmt.Errorf("rule group %s not found", ruleGroupName))
 		return string(ResultRuleGroupNotFoundError)
 	}
 
-	ruleGroup := waf.ruleGroups[ruleGroupName]
-	for _, rule := range ruleGroup {
-		if rule.Handle().Result != rules.ResultOk {
-			resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
-			if resp == nil {
-				resp, _ = httpprot.NewResponse(nil)
-			}
-			resp.SetStatusCode(http.StatusForbidden)
-			errMsg := map[string]string{
-				"Message": rule.Handle().Message,
-			}
-			data, _ := codectool.MarshalJSON(errMsg)
-			resp.SetPayload(data)
-			ctx.SetOutputResponse(resp)
-			return string(rule.Handle().Result)
-		}
+	result := ruleGroup.Handle(ctx)
+	if result.Result != ResultOk {
+		// TODO: add metrics for WAF results.
+		waf.setWafErrResponse(ctx, result)
+		return string(result.Result)
 	}
-	return string(rules.ResultOk)
+	return string(ResultOk)
+}
+
+func (waf *WAFController) setWafErrResponse(ctx *context.Context, result *WAFResult) {
+	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+	if result.Interruption != nil && result.Interruption.Status != 0 {
+		resp.SetStatusCode(result.Interruption.Status)
+	} else {
+		resp.SetStatusCode(http.StatusForbidden)
+	}
+	errMsg := map[string]string{
+		"Message": result.Message,
+	}
+	data, _ := codectool.MarshalJSON(errMsg)
+	resp.SetPayload(data)
+	ctx.SetOutputResponse(resp)
 }
 
 func (waf *WAFController) setErrResponse(ctx *context.Context, err error) {

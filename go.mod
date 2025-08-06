@@ -13,6 +13,8 @@ require (
 	github.com/MicahParks/keyfunc v1.9.0
 	github.com/Shopify/sarama v1.38.1
 	github.com/bytecodealliance/wasmtime-go v1.0.0
+	github.com/corazawaf/coraza-coreruleset/v4 v4.16.0
+	github.com/corazawaf/coraza/v3 v3.3.3
 	github.com/dave/jennifer v1.7.0
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fatih/color v1.18.0
@@ -31,6 +33,7 @@ require (
 	github.com/invopop/jsonschema v0.12.0
 	github.com/invopop/yaml v0.2.0
 	github.com/jackc/pgx/v5 v5.7.5
+	github.com/jcchavezs/mergefs v0.1.0
 	github.com/jtblin/go-ldap-client v0.0.0-20170223121919-b73f66626b33
 	github.com/libdns/alidns v1.0.3
 	github.com/libdns/azure v0.3.0
@@ -119,6 +122,7 @@ require (
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
+	github.com/corazawaf/libinjection-go v0.2.2 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/docker v28.2.2+incompatible // indirect
@@ -146,6 +150,7 @@ require (
 	github.com/jstemmer/go-junit-report v1.0.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/magefile/mage v1.15.1-0.20241126214340-bdc92f694516 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.6.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -160,6 +165,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
+	github.com/petar-dambovaliev/aho-corasick v0.0.0-20240411101913-e07a1f0e8eb4 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
@@ -170,8 +176,12 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
+	github.com/valllabh/ocsf-schema-golang v1.0.3 // indirect
 	github.com/vultr/govultr/v3 v3.3.4 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
@@ -186,6 +196,7 @@ require (
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
 	gopkg.in/evanphx/json-patch.v5 v5.7.0 // indirect
 	gopkg.in/ldap.v2 v2.5.1 // indirect
+	rsc.io/binaryregexp v0.2.0 // indirect
 )
 
 require (
@@ -278,7 +289,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/miekg/dns v1.1.56 // indirect
+	github.com/miekg/dns v1.1.57 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
