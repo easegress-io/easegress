@@ -40,7 +40,8 @@ var ruleTypeRegistry = map[protocol.RuleType]reflect.Type{}
 
 func registryRule(typeName protocol.RuleType, rule Rule) {
 	if _, exists := ruleTypeRegistry[typeName]; exists {
-		panic("rule type already registered: " + string(typeName))
+		logger.Errorf("rule type %s is already registered", typeName)
+		return
 	}
 	ruleTypeRegistry[typeName] = reflect.TypeOf(rule).Elem()
 }

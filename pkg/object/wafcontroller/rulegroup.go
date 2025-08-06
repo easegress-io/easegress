@@ -48,10 +48,10 @@ type (
 )
 
 func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
-	rules := rules.NewRules(spec.Rules)
+	ruleset := rules.NewRules(spec.Rules)
 	loadOwaspCrs := spec.LoadOwaspCrs
 	if !loadOwaspCrs {
-		for _, r := range rules {
+		for _, r := range ruleset {
 			if r.NeedCrs() {
 				loadOwaspCrs = true
 				break
@@ -60,8 +60,8 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 	}
 
 	directives := ""
-	preprocessors := make([]protocol.PreWAFProcessor, 0, len(rules))
-	for _, r := range rules {
+	preprocessors := make([]protocol.PreWAFProcessor, 0, len(ruleset))
+	for _, r := range ruleset {
 		directives += r.Directives() + "\n"
 		if r.GetPreprocessor() != nil {
 			preprocessors = append(preprocessors, r.GetPreprocessor())

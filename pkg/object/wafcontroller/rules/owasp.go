@@ -45,7 +45,6 @@ func (owasp *OwaspRules) Directives() string {
 		directives += fmt.Sprintf("Include @owasp_crs/%s\n", rule)
 	}
 	return directives
-
 }
 
 func (owasp *OwaspRules) NeedCrs() bool {
