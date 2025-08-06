@@ -337,3 +337,175 @@ func TestAnthropicReqMessageToOpenAI_ToolChoiceSpecific(t *testing.T) {
 	assert.Equal(t, openai.ToolTypeFunction, toolChoice.Type)
 	assert.Equal(t, "get_weather", toolChoice.Function.Name)
 }
+
+func TestOpenAIToAnthropicRespMessage(t *testing.T) {
+	// Test case 1: Comprehensive OpenAI response with tool calls
+	openaiResp := &openai.ChatCompletionResponse{
+		ID:      "chatcmpl-123",
+		Object:  "chat.completion",
+		Created: 1677652288,
+		Model:   "gpt-3.5-turbo",
+		Choices: []openai.ChatCompletionChoice{
+			{
+				Index: 0,
+				Message: openai.ChatCompletionMessage{
+					Role: "assistant",
+					ToolCalls: []openai.ToolCall{
+						{
+							ID:   "call_123",
+							Type: "function",
+							Function: openai.FunctionCall{
+								Name:      "get_weather",
+								Arguments: `{"location":"San Francisco"}`,
+							},
+						},
+					},
+				},
+				FinishReason: openai.FinishReasonToolCalls,
+			},
+		},
+		Usage: openai.Usage{
+			PromptTokens:     50,
+			CompletionTokens: 25,
+			TotalTokens:      75,
+		},
+	}
+
+	fmt.Println("\n=== TEST CASE 8: OpenAI to Anthropic Response (Tool Calls) ===")
+	fmt.Println("--- OpenAI Response (Input) ---")
+	openaiJSON, _ := json.MarshalIndent(openaiResp, "", "  ")
+	fmt.Println(string(openaiJSON))
+
+	anthropicMsg, err := OpenAIToAnthropicRespMessage(openaiResp)
+	assert.NoError(t, err)
+	assert.NotNil(t, anthropicMsg)
+
+	fmt.Println("\n--- Anthropic Message (Output) ---")
+	anthropicJSON, _ := json.MarshalIndent(anthropicMsg, "", "  ")
+	fmt.Println(string(anthropicJSON))
+
+	// Validate conversion
+	assert.Equal(t, "chatcmpl-123", anthropicMsg.ID)
+	assert.Equal(t, anthropic.Model("gpt-3.5-turbo"), anthropicMsg.Model)
+	assert.Equal(t, "assistant", string(anthropicMsg.Role))
+	assert.Equal(t, anthropic.StopReasonToolUse, anthropicMsg.StopReason)
+	assert.Equal(t, int64(50), anthropicMsg.Usage.InputTokens)
+	assert.Equal(t, int64(25), anthropicMsg.Usage.OutputTokens)
+
+	// Validate content blocks
+	assert.Len(t, anthropicMsg.Content, 1)
+	assert.Equal(t, "tool_use", anthropicMsg.Content[0].Type)
+	assert.Equal(t, "call_123", anthropicMsg.Content[0].ID)
+	assert.Equal(t, "get_weather", anthropicMsg.Content[0].Name)
+}
+
+func TestOpenAIToAnthropicRespMessage_TextResponse(t *testing.T) {
+	// Test case 2: Simple text response
+	openaiResp := &openai.ChatCompletionResponse{
+		ID:      "chatcmpl-456",
+		Object:  "chat.completion",
+		Created: 1677652288,
+		Model:   "gpt-4",
+		Choices: []openai.ChatCompletionChoice{
+			{
+				Index: 0,
+				Message: openai.ChatCompletionMessage{
+					Role:    "assistant",
+					Content: "Hello! How can I help you today?",
+				},
+				FinishReason: openai.FinishReasonStop,
+			},
+		},
+		Usage: openai.Usage{
+			PromptTokens:     10,
+			CompletionTokens: 8,
+			TotalTokens:      18,
+		},
+	}
+
+	fmt.Println("\n=== TEST CASE 9: OpenAI to Anthropic Response (Text) ===")
+	fmt.Println("--- OpenAI Response (Input) ---")
+	openaiJSON, _ := json.MarshalIndent(openaiResp, "", "  ")
+	fmt.Println(string(openaiJSON))
+
+	anthropicMsg, err := OpenAIToAnthropicRespMessage(openaiResp)
+	assert.NoError(t, err)
+	assert.NotNil(t, anthropicMsg)
+
+	fmt.Println("\n--- Anthropic Message (Output) ---")
+	anthropicJSON, _ := json.MarshalIndent(anthropicMsg, "", "  ")
+	fmt.Println(string(anthropicJSON))
+
+	// Validate conversion
+	assert.Equal(t, "chatcmpl-456", anthropicMsg.ID)
+	assert.Equal(t, anthropic.Model("gpt-4"), anthropicMsg.Model)
+	assert.Equal(t, anthropic.StopReasonEndTurn, anthropicMsg.StopReason)
+
+	// Validate content
+	assert.Len(t, anthropicMsg.Content, 1)
+	assert.Equal(t, "text", anthropicMsg.Content[0].Type)
+	assert.Equal(t, "Hello! How can I help you today?", anthropicMsg.Content[0].Text)
+}
+
+func TestOpenAIToAnthropicRespMessage_ThinkingContent(t *testing.T) {
+	// Test case 3: Response with thinking patterns (from our own conversion)
+	openaiResp := &openai.ChatCompletionResponse{
+		ID:      "chatcmpl-789",
+		Object:  "chat.completion",
+		Created: 1677652288,
+		Model:   "gpt-4",
+		Choices: []openai.ChatCompletionChoice{
+			{
+				Index: 0,
+				Message: openai.ChatCompletionMessage{
+					Role:    "assistant",
+					Content: "[Thinking: Let me analyze this problem]The answer is 42.",
+				},
+				FinishReason: openai.FinishReasonStop,
+			},
+		},
+		Usage: openai.Usage{
+			PromptTokens:     15,
+			CompletionTokens: 12,
+			TotalTokens:      27,
+		},
+	}
+
+	fmt.Println("\n=== TEST CASE 10: OpenAI to Anthropic Response (Thinking) ===")
+	fmt.Println("--- OpenAI Response (Input) ---")
+	openaiJSON, _ := json.MarshalIndent(openaiResp, "", "  ")
+	fmt.Println(string(openaiJSON))
+
+	anthropicMsg, err := OpenAIToAnthropicRespMessage(openaiResp)
+	assert.NoError(t, err)
+	assert.NotNil(t, anthropicMsg)
+
+	fmt.Println("\n--- Anthropic Message (Output) ---")
+	anthropicJSON, _ := json.MarshalIndent(anthropicMsg, "", "  ")
+	fmt.Println(string(anthropicJSON))
+
+	// Validate conversion
+	assert.Len(t, anthropicMsg.Content, 2)
+
+	// First block should be thinking
+	assert.Equal(t, "thinking", anthropicMsg.Content[0].Type)
+	assert.Equal(t, "Let me analyze this problem", anthropicMsg.Content[0].Thinking)
+	assert.Equal(t, "converted_from_openai", anthropicMsg.Content[0].Signature)
+
+	// Second block should be text
+	assert.Equal(t, "text", anthropicMsg.Content[1].Type)
+	assert.Equal(t, "The answer is 42.", anthropicMsg.Content[1].Text)
+}
+
+func TestOpenAIToAnthropicRespMessage_NilInput(t *testing.T) {
+	fmt.Println("\n=== TEST CASE 11: OpenAI to Anthropic Response (Nil) ===")
+	fmt.Println("--- OpenAI Response (Input) ---")
+	fmt.Println("nil")
+
+	result, err := OpenAIToAnthropicRespMessage(nil)
+	assert.NoError(t, err)
+	assert.Nil(t, result)
+
+	fmt.Println("--- Anthropic Message (Output) ---")
+	fmt.Println("nil")
+}

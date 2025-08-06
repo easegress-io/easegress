@@ -3,6 +3,7 @@ package aicontext
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
@@ -348,4 +349,197 @@ func AnthropicReqMessageToOpenAI(req *anthropic.MessageNewParams) (*openai.ChatC
 	// - MCPServers: Anthropic-specific Model Context Protocol servers
 
 	return result, nil
+}
+
+// OpenAIToAnthropicRespMessage converts OpenAI ChatCompletionResponse to Anthropic Message
+//
+// This function provides comprehensive conversion from OpenAI's response format to Anthropic's
+// message format, handling content types and preserving semantic meaning where possible.
+//
+// Content Type Conversions:
+// 1. Text content: Direct conversion from OpenAI message content to Anthropic text blocks
+// 2. Tool calls: OpenAI function calls converted to Anthropic tool_use blocks
+// 3. Tool messages: OpenAI tool role messages converted to Anthropic tool_result blocks
+// 4. MultiContent: Images and text parts converted to appropriate Anthropic content blocks
+//
+// Response Field Mappings:
+// - ID: Direct mapping from OpenAI response ID
+// - Model: Direct string conversion
+// - Role: Always "assistant" for Anthropic responses
+// - StopReason: Mapped from OpenAI FinishReason with semantic equivalents
+// - StopSequence: Extracted from OpenAI if available
+// - Usage: Token counts mapped with appropriate field conversions
+//
+// Limitations:
+// - OpenAI's multiple choices are flattened to single choice (index 0)
+// - Some OpenAI-specific features (reasoning_content, logprobs) are not converted
+// - Complex multi-choice responses lose additional choices beyond the first
+func OpenAIToAnthropicRespMessage(resp *openai.ChatCompletionResponse) (*anthropic.Message, error) {
+	if resp == nil {
+		return nil, nil
+	}
+
+	// Handle empty choices
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("OpenAI response has no choices")
+	}
+
+	// Use the first choice (OpenAI can have multiple choices, Anthropic typically has one)
+	choice := resp.Choices[0]
+	message := choice.Message
+
+	// Build content blocks from OpenAI message
+	var contentBlocks []anthropic.ContentBlockUnion
+
+	// Handle tool calls first (they appear in assistant messages)
+	if len(message.ToolCalls) > 0 {
+		for _, toolCall := range message.ToolCalls {
+			// Parse the arguments JSON
+			var input interface{}
+			if toolCall.Function.Arguments != "" {
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &input); err != nil {
+					// If parsing fails, use the raw string
+					input = toolCall.Function.Arguments
+				}
+			}
+
+			// Create tool use block
+			contentBlock := anthropic.ContentBlockUnion{
+				Type:  "tool_use",
+				ID:    toolCall.ID,
+				Name:  toolCall.Function.Name,
+				Input: json.RawMessage(toolCall.Function.Arguments),
+			}
+			contentBlocks = append(contentBlocks, contentBlock)
+		}
+	}
+
+	// Handle MultiContent (images and text parts)
+	if len(message.MultiContent) > 0 {
+		for _, part := range message.MultiContent {
+			switch part.Type {
+			case openai.ChatMessagePartTypeText:
+				if part.Text != "" {
+					contentBlock := anthropic.ContentBlockUnion{
+						Type: "text",
+						Text: part.Text,
+					}
+					contentBlocks = append(contentBlocks, contentBlock)
+				}
+			case openai.ChatMessagePartTypeImageURL:
+				// Note: Anthropic's response format doesn't typically include images
+				// in assistant responses, but we'll convert it for completeness
+				if part.ImageURL != nil && part.ImageURL.URL != "" {
+					contentBlock := anthropic.ContentBlockUnion{
+						Type: "text",
+						Text: fmt.Sprintf("[Image: %s]", part.ImageURL.URL),
+					}
+					contentBlocks = append(contentBlocks, contentBlock)
+				}
+			}
+		}
+	} else if message.Content != "" {
+		// Handle simple text content
+		// Check if it contains thinking patterns from our conversion
+		content := message.Content
+
+		// Parse thinking blocks if they exist (from our own conversion)
+		if strings.Contains(content, "[Thinking: ") {
+			parts := strings.Split(content, "[Thinking: ")
+			if len(parts) > 1 {
+				// Add initial text if any
+				if parts[0] != "" {
+					contentBlock := anthropic.ContentBlockUnion{
+						Type: "text",
+						Text: parts[0],
+					}
+					contentBlocks = append(contentBlocks, contentBlock)
+				}
+
+				// Process thinking blocks
+				for i := 1; i < len(parts); i++ {
+					if endIdx := strings.Index(parts[i], "]"); endIdx != -1 {
+						thinkingContent := parts[i][:endIdx]
+						remainingContent := parts[i][endIdx+1:]
+
+						// Add thinking block
+						contentBlock := anthropic.ContentBlockUnion{
+							Type:      "thinking",
+							Signature: "converted_from_openai",
+							Thinking:  thinkingContent,
+						}
+						contentBlocks = append(contentBlocks, contentBlock)
+
+						// Add remaining text if any
+						if remainingContent != "" {
+							contentBlock = anthropic.ContentBlockUnion{
+								Type: "text",
+								Text: remainingContent,
+							}
+							contentBlocks = append(contentBlocks, contentBlock)
+						}
+					}
+				}
+			}
+		} else {
+			// Simple text content
+			contentBlock := anthropic.ContentBlockUnion{
+				Type: "text",
+				Text: content,
+			}
+			contentBlocks = append(contentBlocks, contentBlock)
+		}
+	}
+
+	// Handle reasoning content if present (DeepSeek specific)
+	if message.ReasoningContent != "" {
+		contentBlock := anthropic.ContentBlockUnion{
+			Type:      "thinking",
+			Signature: "reasoning_from_openai",
+			Thinking:  message.ReasoningContent,
+		}
+		contentBlocks = append(contentBlocks, contentBlock)
+	}
+
+	// Convert FinishReason to StopReason
+	var stopReason anthropic.StopReason
+	switch choice.FinishReason {
+	case openai.FinishReasonStop:
+		stopReason = anthropic.StopReasonEndTurn
+	case openai.FinishReasonLength:
+		stopReason = anthropic.StopReasonMaxTokens
+	case openai.FinishReasonFunctionCall, openai.FinishReasonToolCalls:
+		stopReason = anthropic.StopReasonToolUse
+	case openai.FinishReasonContentFilter:
+		stopReason = anthropic.StopReasonRefusal
+	default:
+		stopReason = anthropic.StopReasonEndTurn
+	}
+
+	// Convert Usage
+	usage := anthropic.Usage{
+		InputTokens:  int64(resp.Usage.PromptTokens),
+		OutputTokens: int64(resp.Usage.CompletionTokens),
+		// Set cache tokens to 0 as OpenAI doesn't provide this info
+		CacheCreationInputTokens: 0,
+		CacheReadInputTokens:     0,
+		// Set server tool use to default values
+		ServerToolUse: anthropic.ServerToolUsage{},
+		// Default service tier
+		ServiceTier: anthropic.UsageServiceTierStandard,
+	}
+
+	// Create the Anthropic Message
+	anthropicMessage := &anthropic.Message{
+		ID:           resp.ID,
+		Content:      contentBlocks,
+		Model:        anthropic.Model(resp.Model),
+		Role:         "assistant", // constant.Assistant
+		StopReason:   stopReason,
+		StopSequence: "",        // OpenAI doesn't typically provide the actual stop sequence
+		Type:         "message", // constant.Message
+		Usage:        usage,
+	}
+
+	return anthropicMessage, nil
 }
