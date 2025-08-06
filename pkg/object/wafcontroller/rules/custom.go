@@ -40,7 +40,7 @@ func (rule *Custom) NeedCrs() bool {
 	return false
 }
 
-func (rule *Custom) GetPreprocessor() protocol.PreprocessFn {
+func (rule *Custom) GetPreprocessor() protocol.PreWAFProcessor {
 	return nil // No preprocessor for custom rules
 }
 

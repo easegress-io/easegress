@@ -30,9 +30,7 @@ type (
 		Type() protocol.RuleType
 		Directives() string
 		NeedCrs() bool
-		// Preprocess processes the request before applying the rule.
-		// For example to do GEOIP lookups.
-		GetPreprocessor() protocol.PreprocessFn
+		GetPreprocessor() protocol.PreWAFProcessor
 
 		init(protocol.Rule)
 	}

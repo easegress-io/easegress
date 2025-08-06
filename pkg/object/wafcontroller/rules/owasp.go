@@ -52,7 +52,7 @@ func (owasp *OwaspRules) NeedCrs() bool {
 	return true
 }
 
-func (owasp *OwaspRules) GetPreprocessor() protocol.PreprocessFn {
+func (owasp *OwaspRules) GetPreprocessor() protocol.PreWAFProcessor {
 	// OWASP rules do not require a preprocessor.
 	return nil
 }

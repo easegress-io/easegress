@@ -19,14 +19,29 @@ package protocol
 import (
 	"reflect"
 
+	"github.com/corazawaf/coraza/v3/types"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
 type (
+	// PreWAFProcessor defines a function type for preprocessing requests before applying WAF rules.
+	PreWAFProcessor func(req *httpprot.Request) *WAFResult
+
+	// WAFResultType defines the type of WAF result.
+	WAFResultType string
+
+	// WAFResult defines the result structure for WAF rules.
+	WAFResult struct {
+		// Interruption indicates whether the request was interrupted by the WAF.
+		Interruption *types.Interruption
+		Message      string        `json:"message,omitempty"`
+		Result       WAFResultType `json:"result,omitempty"`
+	}
+
+	// RuleType defines the type of WAF rule.
 	RuleType string
 
-	PreprocessFn func(req *httpprot.Request) error
-
+	// Rule defines the interface for a WAF rule.
 	Rule interface {
 		// Type returns the type of the rule.
 		Type() RuleType
@@ -68,6 +83,13 @@ const (
 	TypeCustoms      RuleType = "Customs"
 	TypeOwaspRules   RuleType = "OwaspRules"
 	TypeSQLInjection RuleType = "SQLInjection"
+)
+
+const (
+	// ResultOk indicates that the request is allowed. In easegress, this is empty string.
+	ResultOk WAFResultType = ""
+	// ResultBlocked indicates that the request is blocked.
+	ResultBlocked WAFResultType = "Blocked"
 )
 
 var _ Rule = (*CustomsSpec)(nil)
