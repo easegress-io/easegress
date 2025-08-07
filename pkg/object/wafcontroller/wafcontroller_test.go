@@ -18,12 +18,20 @@
 package wafcontroller
 
 import (
+	"os"
 	"testing"
 
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	r "github.com/megaease/easegress/v2/pkg/object/wafcontroller/rules"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	code := m.Run()
+	os.Exit(code)
+}
 
 func TestGenerateRules(t *testing.T) {
 	assert := assert.New(t)

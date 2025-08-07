@@ -27,10 +27,10 @@ import (
 	"github.com/jcchavezs/mergefs"
 	"github.com/jcchavezs/mergefs/io"
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/rules"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
-	"github.com/nacos-group/nacos-sdk-go/common/logger"
 )
 
 type (
@@ -76,6 +76,7 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 	if loadOwaspCrs {
 		config = config.WithRootFS(mergefs.Merge(coreruleset.FS, io.OSFS))
 	}
+	logger.Infof("create WAF %s with config:\n%s", spec.Name, directives)
 	config = config.WithDirectives(directives)
 
 	waf, err := coraza.NewWAF(config)
@@ -98,19 +99,19 @@ func corazaErrorCallback(mr types.MatchedRule) {
 		types.RuleSeverityAlert,
 		types.RuleSeverityCritical,
 		types.RuleSeverityError:
-		logger.Error(logMsg)
+		logger.Errorf(logMsg)
 
 	case types.RuleSeverityWarning:
-		logger.Warn(logMsg)
+		logger.Warnf(logMsg)
 
 	case types.RuleSeverityNotice:
-		logger.Info(logMsg)
+		logger.Infof(logMsg)
 
 	case types.RuleSeverityInfo:
-		logger.Info(logMsg)
+		logger.Infof(logMsg)
 
 	case types.RuleSeverityDebug:
-		logger.Debug(logMsg)
+		logger.Debugf(logMsg)
 	}
 }
 
@@ -233,6 +234,22 @@ func (rg *ruleGroup) processRequest(_ *context.Context, tx types.Transaction, re
 				Message:      formMessage(it),
 				Result:       protocol.ResultBlocked,
 			}
+		}
+	}
+
+	// still need to call this even not RequestBodyAcces
+	it, err := tx.ProcessRequestBody()
+	if err != nil {
+		return &protocol.WAFResult{
+			Message: fmt.Sprintf("failed to process request body: %s", err.Error()),
+			Result:  protocol.ResultError,
+		}
+	}
+	if it != nil {
+		return &protocol.WAFResult{
+			Interruption: it,
+			Message:      formMessage(it),
+			Result:       protocol.ResultBlocked,
 		}
 	}
 	return &protocol.WAFResult{
