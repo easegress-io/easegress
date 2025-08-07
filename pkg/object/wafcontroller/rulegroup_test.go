@@ -1,0 +1,1297 @@
+/*
+ * Copyright (c) 2017, The Easegress Authors
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package wafcontroller
+
+import (
+	"net/http"
+	"testing"
+
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
+	"github.com/stretchr/testify/assert"
+)
+
+func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest(ns, httpreq)
+	ctx.UseNamespace(ns)
+}
+
+func TestSQLInjectionRules(t *testing.T) {
+	assert := assert.New(t)
+
+	type sqlInjectionTestCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+	}
+
+	var testCases = []sqlInjectionTestCase{
+		// Rule 942100 - libinjection detection
+		{
+			Name:        "942100_basic_sqli",
+			Method:      "GET",
+			URL:         "/test?id=1' OR '1'='1",
+			RuleID:      "942100",
+			Description: "Basic SQL injection using libinjection",
+		},
+		{
+			Name:        "942100_union_select",
+			Method:      "GET",
+			URL:         "/test?search=test' UNION SELECT username,password FROM users--",
+			RuleID:      "942100",
+			Description: "UNION SELECT injection",
+		},
+
+		// Rule 942140 - Database names
+		{
+			Name:        "942140_information_schema",
+			Method:      "GET",
+			URL:         "/test?query=SELECT * FROM information_schema.tables",
+			RuleID:      "942140",
+			Description: "Information schema access",
+		},
+		{
+			Name:        "942140_pg_catalog",
+			Method:      "GET",
+			URL:         "/test?meta=pg_catalog.pg_tables",
+			RuleID:      "942140",
+			Description: "PostgreSQL catalog access",
+		},
+
+		// Rule 942151 - SQL function names
+		{
+			Name:        "942151_concat_function",
+			Method:      "GET",
+			URL:         "/test?data=concat(user(),database())",
+			RuleID:      "942151",
+			Description: "SQL CONCAT function",
+		},
+		{
+			Name:        "942151_substring_function",
+			Method:      "GET",
+			URL:         "/test?extract=substring(password,1,1)",
+			RuleID:      "942151",
+			Description: "SQL SUBSTRING function",
+		},
+
+		// Rule 942160 - Sleep/Benchmark functions
+		{
+			Name:        "942160_sleep_function",
+			Method:      "GET",
+			URL:         "/test?delay=sleep(5)",
+			RuleID:      "942160",
+			Description: "SQL SLEEP function for time-based injection",
+		},
+		{
+			Name:        "942160_benchmark_function",
+			Method:      "GET",
+			URL:         "/test?test=benchmark(1000000,md5(1))",
+			RuleID:      "942160",
+			Description: "SQL BENCHMARK function",
+		},
+
+		// Rule 942170 - Conditional sleep/benchmark
+		{
+			Name:        "942170_conditional_sleep",
+			Method:      "GET",
+			URL:         "/test?check=SELECT IF(1=1,sleep(5),0)",
+			RuleID:      "942170",
+			Description: "Conditional sleep injection",
+		},
+		{
+			Name:        "942170_select_benchmark",
+			Method:      "GET",
+			URL:         "/test?time=; SELECT benchmark(1000000,sha1(1))",
+			RuleID:      "942170",
+			Description: "SELECT with benchmark",
+		},
+
+		// Rule 942190 - MSSQL code execution
+		{
+			Name:        "942190_mssql_exec",
+			Method:      "GET",
+			URL:         "/test?cmd=' exec master..xp_cmdshell 'dir'--",
+			RuleID:      "942190",
+			Description: "MSSQL command execution",
+		},
+		{
+			Name:        "942190_union_select_user",
+			Method:      "GET",
+			URL:         "/test?info=' UNION SELECT user()--",
+			RuleID:      "942190",
+			Description: "UNION SELECT user function",
+		},
+
+		// Rule 942220 - Integer overflow
+		{
+			Name:        "942220_integer_overflow",
+			Method:      "GET",
+			URL:         "/test?num=2147483648",
+			RuleID:      "942220",
+			Description: "Integer overflow value",
+		},
+		{
+			Name:        "942220_magic_number",
+			Method:      "GET",
+			URL:         "/test?crash=2.2250738585072011e-308",
+			RuleID:      "942220",
+			Description: "Magic number crash",
+		},
+
+		// Rule 942230 - Conditional SQL injection
+		{
+			Name:        "942230_case_when",
+			Method:      "GET",
+			URL:         "/test?logic=(CASE WHEN 1=1 THEN 'true' ELSE 'false' END)",
+			RuleID:      "942230",
+			Description: "CASE WHEN conditional",
+		},
+		{
+			Name:        "942230_if_condition",
+			Method:      "GET",
+			URL:         "/test?test=IF(1=1,'yes','no')",
+			RuleID:      "942230",
+			Description: "IF condition",
+		},
+
+		// Rule 942240 - MySQL charset and MSSQL DoS
+		{
+			Name:        "942240_alter_charset",
+			Method:      "GET",
+			URL:         "/test?set=ALTER TABLE users CHARACTER SET utf8",
+			RuleID:      "942240",
+			Description: "ALTER charset command",
+		},
+		{
+			Name:        "942240_waitfor_delay",
+			Method:      "GET",
+			URL:         "/test?delay='; WAITFOR DELAY '00:00:05'--",
+			RuleID:      "942240",
+			Description: "MSSQL WAITFOR DELAY",
+		},
+
+		// Rule 942250 - MATCH AGAINST, MERGE, EXECUTE IMMEDIATE
+		{
+			Name:        "942250_match_against",
+			Method:      "GET",
+			URL:         "/test?search=MATCH(title,content) AGAINST('test')",
+			RuleID:      "942250",
+			Description: "MATCH AGAINST fulltext search",
+		},
+		{
+			Name:        "942250_execute_immediate",
+			Method:      "GET",
+			URL:         "/test?exec=EXECUTE IMMEDIATE 'SELECT * FROM users'",
+			RuleID:      "942250",
+			Description: "EXECUTE IMMEDIATE command",
+		},
+
+		// Rule 942270 - Basic UNION SELECT
+		{
+			Name:        "942270_union_select_from",
+			Method:      "GET",
+			URL:         "/test?id=1 UNION SELECT username FROM users",
+			RuleID:      "942270",
+			Description: "Basic UNION SELECT FROM",
+		},
+
+		// Rule 942280 - pg_sleep and shutdown
+		{
+			Name:        "942280_pg_sleep",
+			Method:      "GET",
+			URL:         "/test?wait=SELECT pg_sleep(5)",
+			RuleID:      "942280",
+			Description: "PostgreSQL pg_sleep function",
+		},
+		{
+			Name:        "942280_shutdown",
+			Method:      "GET",
+			URL:         "/test?cmd=; SHUTDOWN --",
+			RuleID:      "942280",
+			Description: "Database shutdown command",
+		},
+
+		// Rule 942290 - MongoDB injection
+		{
+			Name:        "942290_mongodb_where",
+			Method:      "GET",
+			URL:         "/test?filter=$where:function(){return true}",
+			RuleID:      "942290",
+			Description: "MongoDB $where injection",
+		},
+
+		// Rule 942320 - Stored procedures
+		{
+			Name:        "942320_create_procedure",
+			Method:      "GET",
+			URL:         "/test?sql=CREATE PROCEDURE test() - comment",
+			RuleID:      "942320",
+			Description: "CREATE PROCEDURE command",
+		},
+
+		// Rule 942350 - UDF and data manipulation
+		{
+			Name:        "942350_create_function",
+			Method:      "GET",
+			URL:         "/test?udf=CREATE FUNCTION test() RETURNS STRING",
+			RuleID:      "942350",
+			Description: "CREATE FUNCTION for UDF",
+		},
+		{
+			Name:        "942350_alter_table",
+			Method:      "GET",
+			URL:         "/test?ddl=; ALTER TABLE users DROP COLUMN password",
+			RuleID:      "942350",
+			Description: "ALTER TABLE command",
+		},
+
+		// Rule 942360 - Concatenated SQL injection
+		{
+			Name:        "942360_load_file",
+			Method:      "GET",
+			URL:         "/test?file=LOAD_FILE('/etc/passwd')",
+			RuleID:      "942360",
+			Description: "LOAD_FILE function",
+		},
+		{
+			Name:        "942360_select_into_outfile",
+			Method:      "GET",
+			URL:         "/test?export=SELECT * FROM users INTO OUTFILE '/tmp/dump'",
+			RuleID:      "942360",
+			Description: "SELECT INTO OUTFILE",
+		},
+
+		// Rule 942500 - MySQL inline comments
+		{
+			Name:        "942500_mysql_comment",
+			Method:      "GET",
+			URL:         "/test?bypass=/*! SELECT */ * FROM users",
+			RuleID:      "942500",
+			Description: "MySQL inline comment bypass",
+		},
+		{
+			Name:        "942500_version_comment",
+			Method:      "GET",
+			URL:         "/test?ver=/*!50000 SELECT version() */",
+			RuleID:      "942500",
+			Description: "MySQL version-specific comment",
+		},
+
+		// Rule 942540 - Authentication bypass
+		{
+			Name:        "942540_quote_bypass",
+			Method:      "GET",
+			URL:         "/test?user=admin';",
+			RuleID:      "942540",
+			Description: "Quote-based authentication bypass",
+		},
+
+		// Rule 942550 - JSON-based SQL injection
+		{
+			Name:        "942550_json_extract",
+			Method:      "GET",
+			URL:         "/test?json=JSON_EXTRACT(data,'$.password')",
+			RuleID:      "942550",
+			Description: "JSON_EXTRACT function",
+		},
+
+		// Header-based injections
+		{
+			Name:   "942100_user_agent_sqli",
+			Method: "GET",
+			URL:    "/test",
+			Headers: map[string]string{
+				"User-Agent": "Mozilla/5.0' OR 1=1--",
+			},
+			RuleID:      "942100",
+			Description: "SQL injection in User-Agent header",
+		},
+		{
+			Name:   "942100_referer_sqli",
+			Method: "GET",
+			URL:    "/test",
+			Headers: map[string]string{
+				"Referer": "http://evil.com' UNION SELECT password FROM users--",
+			},
+			RuleID:      "942100",
+			Description: "SQL injection in Referer header",
+		},
+
+		// Cookie-based injections
+		{
+			Name:   "942100_cookie_sqli",
+			Method: "GET",
+			URL:    "/test",
+			Cookies: map[string]string{
+				"sessionid": "abc123' OR 1=1--",
+			},
+			RuleID:      "942100",
+			Description: "SQL injection in cookie value",
+		},
+		{
+			Name:   "942140_cookie_db_name",
+			Method: "GET",
+			URL:    "/test",
+			Cookies: map[string]string{
+				"dbinfo": "information_schema.columns",
+			},
+			RuleID:      "942140",
+			Description: "Database name in cookie",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-942-APPLICATION-ATTACK-SQLI.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range testCases {
+		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
+// https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
+// coraza corerule set example set up
+const crsSetupConf = `
+# ------------------------------------------------------------------------
+# OWASP CRS ver.4.16.0
+# Copyright (c) 2006-2020 Trustwave and contributors. All rights reserved.
+# Copyright (c) 2021-2025 CRS project. All rights reserved.
+#
+# The OWASP CRS is distributed under
+# Apache Software License (ASL) version 2
+# Please see the enclosed LICENSE file for full details.
+# ------------------------------------------------------------------------
+
+
+#
+# -- [[ Introduction ]] --------------------------------------------------------
+#
+# The OWASP CRS is a set of generic attack
+# detection rules that provide a base level of protection for any web
+# application. They are written for the open source, cross-platform
+# ModSecurity Web Application Firewall.
+#
+# See also:
+# https://coreruleset.org/
+# https://github.com/coreruleset/coreruleset
+# https://owasp.org/www-project-modsecurity-core-rule-set/
+#
+
+
+#
+# -- [[ System Requirements ]] -------------------------------------------------
+#
+# CRS requires ModSecurity version 2.8.0 or above.
+# We recommend to always use the newest ModSecurity version.
+#
+# The configuration directives/settings in this file are used to control
+# the OWASP ModSecurity CRS. These settings do **NOT** configure the main
+# ModSecurity settings (modsecurity.conf) such as SecRuleEngine,
+# SecRequestBodyAccess, SecAuditEngine, SecDebugLog, and XML processing.
+#
+# The CRS assumes that modsecurity.conf has been loaded. It is bundled with
+# ModSecurity. If you don't have it, you can get it from:
+# 2.x: https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v2/master/modsecurity.conf-recommended
+# 3.x: https://raw.githubusercontent.com/owasp-modsecurity/ModSecurity/v3/master/modsecurity.conf-recommended
+#
+# The order of file inclusion in your webserver configuration should always be:
+# 1. modsecurity.conf
+# 2. crs-setup.conf (this file)
+# 3. rules/*.conf (the CRS rule files)
+#
+# Please refer to the INSTALL file for detailed installation instructions.
+#
+
+
+#
+# -- [[ Mode of Operation: Anomaly Scoring vs. Self-Contained ]] ---------------
+#
+# The CRS can run in two modes:
+#
+# -- [[ Anomaly Scoring Mode (default) ]] --
+# In CRS3, anomaly mode is the default and recommended mode, since it gives the
+# most accurate log information and offers the most flexibility in setting your
+# blocking policies. It is also called "collaborative detection mode".
+# In this mode, each matching rule increases an 'anomaly score'.
+# At the conclusion of the inbound rules, and again at the conclusion of the
+# outbound rules, the anomaly score is checked, and the blocking evaluation
+# rules apply a disruptive action, by default returning an error 403.
+#
+# -- [[ Self-Contained Mode ]] --
+# In this mode, rules apply an action instantly. This was the CRS2 default.
+# It can lower resource usage, at the cost of less flexibility in blocking policy
+# and less informative audit logs (only the first detected threat is logged).
+# Rules inherit the disruptive action that you specify (i.e. deny, drop, etc).
+# The first rule that matches will execute this action. In most cases this will
+# cause evaluation to stop after the first rule has matched, similar to how many
+# IDSs function.
+#
+# -- [[ Alert Logging Control ]] --
+# In the mode configuration, you must also adjust the desired logging options.
+# There are three common options for dealing with logging. By default CRS enables
+# logging to the webserver error log (or Event viewer) plus detailed logging to
+# the ModSecurity audit log (configured under SecAuditLog in modsecurity.conf).
+#
+# - To log to both error log and ModSecurity audit log file, use: "log,auditlog"
+# - To log *only* to the ModSecurity audit log file, use: "nolog,auditlog"
+# - To log *only* to the error log file, use: "log,noauditlog"
+#
+# Examples for the various modes follow.
+# You must leave one of the following options enabled.
+# Note that you must specify the same line for phase:1 and phase:2.
+#
+
+# Default: Anomaly Scoring mode, log to error log, log to ModSecurity audit log
+# - By default, offending requests are blocked with an error 403 response.
+# - To change the disruptive action, see RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example
+#   and review section 'Changing the Disruptive Action for Anomaly Mode'.
+# - In Apache, you can use ErrorDocument to show a friendly error page or
+#   perform a redirect: https://httpd.apache.org/docs/2.4/custom-error.html
+#
+SecDefaultAction "phase:1,log,auditlog,pass"
+SecDefaultAction "phase:2,log,auditlog,pass"
+
+# Example: Anomaly Scoring mode, log only to ModSecurity audit log
+# - By default, offending requests are blocked with an error 403 response.
+# - To change the disruptive action, see RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf.example
+#   and review section 'Changing the Disruptive Action for Anomaly Mode'.
+# - In Apache, you can use ErrorDocument to show a friendly error page or
+#   perform a redirect: https://httpd.apache.org/docs/2.4/custom-error.html
+#
+# SecDefaultAction "phase:1,nolog,auditlog,pass"
+# SecDefaultAction "phase:2,nolog,auditlog,pass"
+
+# Example: Self-contained mode, return error 403 on blocking
+# - In this configuration the default disruptive action becomes 'deny'. After a
+#   rule triggers, it will stop processing the request and return an error 403.
+# - You can also use a different error status, such as 404, 406, et cetera.
+# - In Apache, you can use ErrorDocument to show a friendly error page or
+#   perform a redirect: https://httpd.apache.org/docs/2.4/custom-error.html
+#
+# SecDefaultAction "phase:1,log,auditlog,deny,status:403"
+# SecDefaultAction "phase:2,log,auditlog,deny,status:403"
+
+# Example: Self-contained mode, redirect back to homepage on blocking
+# - In this configuration the 'tag' action includes the Host header data in the
+#   log. This helps to identify which virtual host triggered the rule (if any).
+# - Note that this might cause redirect loops in some situations; for example
+#   if a Cookie or User-Agent header is blocked, it will also be blocked when
+#   the client subsequently tries to access the homepage. You can also redirect
+#   to another custom URL.
+# SecDefaultAction "phase:1,log,auditlog,redirect:'http://%{request_headers.host}/',tag:'Host: %{request_headers.host}'"
+# SecDefaultAction "phase:2,log,auditlog,redirect:'http://%{request_headers.host}/',tag:'Host: %{request_headers.host}'"
+
+
+#
+# -- [[ Paranoia Level Initialization ]] ---------------------------------------
+#
+# The Paranoia Level (PL) setting allows you to choose the desired level
+# of rule checks that will add to your anomaly scores.
+#
+# With each paranoia level increase, the CRS enables additional rules
+# giving you a higher level of security. However, higher paranoia levels
+# also increase the possibility of blocking some legitimate traffic due to
+# false alarms (also named false positives or FPs). If you use higher
+# paranoia levels, it is likely that you will need to add some exclusion
+# rules for certain requests and applications receiving complex input.
+#
+# - A paranoia level of 1 is default. In this level, most core rules
+#   are enabled. PL1 is advised for beginners, installations
+#   covering many different sites and applications, and for setups
+#   with standard security requirements.
+#   At PL1 you should face FPs rarely. If you encounter FPs, please
+#   open an issue on the CRS GitHub site and don't forget to attach your
+#   complete Audit Log record for the request with the issue.
+# - Paranoia level 2 includes many extra rules, for instance enabling
+#   many regexp-based SQL and XSS injection protections, and adding
+#   extra keywords checked for code injections. PL2 is advised
+#   for moderate to experienced users desiring more complete coverage
+#   and for installations with elevated security requirements.
+#   PL2 comes with some FPs which you need to handle.
+# - Paranoia level 3 enables more rules and keyword lists, and tweaks
+#   limits on special characters used. PL3 is aimed at users experienced
+#   at the handling of FPs and at installations with a high security
+#   requirement.
+# - Paranoia level 4 further restricts special characters.
+#   The highest level is advised for experienced users protecting
+#   installations with very high security requirements. Running PL4 will
+#   likely produce a very high number of FPs which have to be
+#   treated before the site can go productive.
+#
+# All rules will log their PL to the audit log;
+# example: [tag "paranoia-level/2"]. This allows you to deduct from the
+# audit log how the WAF behavior is affected by paranoia level.
+#
+# It is important to also look into the variable
+# tx.enforce_bodyproc_urlencoded (Enforce Body Processor URLENCODED)
+# defined below. Enabling it closes a possible bypass of CRS.
+#
+# Uncomment this rule to change the default:
+#
+#SecAction \
+#    "id:900000,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.blocking_paranoia_level=1"
+
+
+# It is possible to execute rules from a higher paranoia level but not include
+# them in the anomaly scoring. This allows you to take a well-tuned system on
+# paranoia level 1 and add rules from paranoia level 2 without having to fear
+# the new rules would lead to false positives that raise your score above the
+# threshold.
+# This optional feature is enabled by uncommenting the following rule and
+# setting the tx.detection_paranoia_level.
+# Technically, rules up to the level defined in tx.detection_paranoia_level
+# will be executed, but only the rules up to tx.blocking_paranoia_level affect the
+# anomaly scores.
+# By default, tx.detection_paranoia_level is set to tx.blocking_paranoia_level.
+# tx.detection_paranoia_level must not be lower than tx.blocking_paranoia_level.
+#
+# Please notice that setting tx.detection_paranoia_level to a higher paranoia
+# level results in a performance impact that is equally high as setting
+# tx.blocking_paranoia_level to said level.
+#
+#SecAction \
+#    "id:900001,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.detection_paranoia_level=1"
+
+
+#
+# -- [[ Enforce Body Processor URLENCODED ]] -----------------------------------
+#
+# ModSecurity selects the body processor based on the Content-Type request
+# header. But clients are not always setting the Content-Type header for their
+# request body payloads. This will leave ModSecurity with limited vision into
+# the payload.  The variable tx.enforce_bodyproc_urlencoded lets you force the
+# URLENCODED body processor in these situations. This is off by default, as it
+# implies a change of the behaviour of ModSecurity beyond CRS (the body
+# processor applies to all rules, not only CRS) and because it may lead to
+# false positives already on paranoia level 1. However, enabling this variable
+# closes a possible bypass of CRS so it should be considered.
+#
+# Uncomment this rule to change the default:
+#
+#SecAction \
+#    "id:900010,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.enforce_bodyproc_urlencoded=1"
+
+
+#
+# -- [[ Anomaly Scoring Mode Severity Levels ]] --------------------------------
+#
+# Each rule in the CRS has an associated severity level.
+# These are the default scoring points for each severity level.
+# These settings will be used to increment the anomaly score if a rule matches.
+# You may adjust these points to your liking, but this is usually not needed.
+#
+# - CRITICAL severity: Anomaly Score of 5.
+#       Mostly generated by the application attack rules (93x and 94x files).
+# - ERROR severity: Anomaly Score of 4.
+#       Generated mostly from outbound leakage rules (95x files).
+# - WARNING severity: Anomaly Score of 3.
+#       Generated mostly by malicious client rules (91x files).
+# - NOTICE severity: Anomaly Score of 2.
+#       Generated mostly by the protocol rules (92x files).
+#
+# In anomaly mode, these scores are cumulative.
+# So it's possible for a request to hit multiple rules.
+#
+# (Note: In this file, we use 'phase:1' to set CRS configuration variables.
+# In general, 'phase:request' is used. However, we want to make absolutely sure
+# that all configuration variables are set before the CRS rules are processed.)
+#
+#SecAction \
+#    "id:900100,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.critical_anomaly_score=5,\
+#    setvar:tx.error_anomaly_score=4,\
+#    setvar:tx.warning_anomaly_score=3,\
+#    setvar:tx.notice_anomaly_score=2"
+
+
+#
+# -- [[ Anomaly Scoring Mode Blocking Threshold Levels ]] ----------------------
+#
+# Here, you can specify at which cumulative anomaly score an inbound request,
+# or outbound response, gets blocked.
+#
+# Most detected inbound threats will give a critical score of 5.
+# Smaller violations, like violations of protocol/standards, carry lower scores.
+#
+# [ At default value ]
+# If you keep the blocking thresholds at the defaults, the CRS will work
+# similarly to previous CRS versions: a single critical rule match will cause
+# the request to be blocked and logged.
+#
+# [ Using higher values ]
+# If you want to make the CRS less sensitive, you can increase the blocking
+# thresholds, for instance to 7 (which would require multiple rule matches
+# before blocking) or 10 (which would require at least two critical alerts - or
+# a combination of many lesser alerts), or even higher. However, increasing the
+# thresholds might cause some attacks to bypass the CRS rules or your policies.
+#
+# [ New deployment strategy: Starting high and decreasing ]
+# It is a common practice to start a fresh CRS installation with elevated
+# anomaly scoring thresholds (>100) and then lower the limits as your
+# confidence in the setup grows. You may also look into the Sampling
+# Percentage section below for a different strategy to ease into a new
+# CRS installation.
+#
+# [ Anomaly Threshold / Paranoia Level Quadrant ]
+#
+#     High Anomaly Limit   |   High Anomaly Limit
+#     Low Paranoia Level   |   High Paranoia Level
+#     -> Fresh Site        |   -> Experimental Site
+# ------------------------------------------------------
+#     Low Anomaly Limit    |   Low Anomaly Limit
+#     Low Paranoia Level   |   High Paranoia Level
+#     -> Standard Site     |   -> High Security Site
+#
+# Uncomment this rule to change the defaults:
+#
+#SecAction \
+#    "id:900110,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.inbound_anomaly_score_threshold=5,\
+#    setvar:tx.outbound_anomaly_score_threshold=4"
+
+
+#
+# -- [[ Application Specific Rule Exclusions ]] --------------------------------
+#
+# CRS 3.x contained exclusion packages to tweak the CRS for use with common
+# web applications, lowering the number of false positives.
+#
+# In CRS 4, these are no longer part of the CRS itself, but they are available
+# as "CRS plugins". Some plugins improve support for web applications, and others
+# may bring new functionality. Plugins are not installed by default, but can be
+# downloaded from the plugin registry:
+# https://github.com/coreruleset/plugin-registry
+#
+# For detailed information about using and installing plugins, please see:
+# https://coreruleset.org/docs/concepts/plugins/
+
+
+#
+# -- [[ Anomaly Score Reporting Level ]] ---------------------------------------
+#
+# When a request is blocked due to the anomaly score meeting or exceeding the
+# anomaly threshold then the blocking rule will also report the anomaly score.
+# This applies to the separate inbound and outbound anomaly scores.
+#
+# In phase 5, there are additional rules that can perform additional reporting
+# of anomaly scores with a verbosity that depends on the reporting level defined
+# below.
+#
+# By setting the reporting level you control whether you want additional
+# reporting beyond the blocking rule or not and, if yes, which requests should
+# be covered. The higher the reporting level, the more verbose the reporting is.
+#
+# There are 6 reporting levels:
+#
+# 0 - Reporting disabled
+# 1 - Reporting for requests with a blocking anomaly score >= a threshold
+# 2 - Reporting for requests with a detection anomaly score >= a threshold
+# 3 - Reporting for requests with a blocking anomaly score greater than 0
+# 4 - Reporting for requests with a detection anomaly score greater than 0
+# 5 - Reporting for all requests
+#
+# Note: Reporting levels 1 and 2 make it possible to differentiate between
+# requests that are blocked and requests that are *not* blocked but would have
+# been blocked if the blocking PL was equal to detection PL. This may be useful
+# for certain FP tuning methodologies, for example moving to a higher PL.
+#
+# A value of 5 can be useful on platforms where you are interested in logging
+# non-scoring requests, yet it is not possible to report this information in
+# the request/access log. This applies to Nginx, for example.
+#
+#SecAction \
+#    "id:900115,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.reporting_level=4"
+
+
+#
+# -- [[ Early Anomaly Scoring Mode Blocking ]] ------------------------------
+#
+# The anomaly scores for the request and the responses are generally summed up
+# and evaluated at the end of phase:2 and at the end of phase:4 respectively.
+# However, it is possible to enable an early evaluation of these anomaly scores
+# at the end of phase:1 and at the end of phase:3.
+#
+# If a request (or a response) hits the anomaly threshold in this early
+# evaluation, then blocking happens immediately (if blocking is enabled) and
+# the phase 2 (and phase 4 respectively) will no longer be executed.
+#
+# Enable the rule 900120 that sets the variable tx.early_blocking to 1 in order
+# to enable early blocking. The variable tx.early_blocking is set to 0 by
+# default. Early blocking is thus disabled by default.
+#
+# Please note that early blocking will hide potential alerts from you. This
+# means that a payload that would appear in an alert in phase 2 (or phase 4)
+# does not get evaluated if the request is being blocked early. So when you
+# disabled early blocking again at some point in the future, then new alerts
+# from phase 2 might pop up.
+#SecAction \
+#    "id:900120,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.early_blocking=1"
+
+
+#
+# -- [[ Initialize Default Collections ]] -----------------------------------
+#
+# CRS provides a centralized option to initialize and populate collections
+# meant to be used by plugins (E.g.DoS protection plugin).
+# By default, Global and IP collections (see rule 901320),
+# being not used by core rules, are not initialized.
+#
+# Uncomment this rule to change the default:
+#
+#SecAction \
+#    "id:900130,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.enable_default_collections=1"
+
+
+#
+# -- [[ HTTP Policy Settings ]] ------------------------------------------------
+#
+# This section defines your policies for the HTTP protocol, such as:
+# - allowed HTTP versions, HTTP methods, allowed request Content-Types
+# - forbidden file extensions (e.g. .bak, .sql) and request headers (e.g. Proxy)
+#
+# These variables are used in the following rule files:
+# - REQUEST-911-METHOD-ENFORCEMENT.conf
+# - REQUEST-920-PROTOCOL-ENFORCEMENT.conf
+
+# HTTP methods that a client is allowed to use.
+# Default: GET HEAD POST OPTIONS
+# Example: for RESTful APIs, add the following methods: PUT PATCH DELETE
+# Example: for WebDAV, add the following methods: CHECKOUT COPY DELETE LOCK
+#          MERGE MKACTIVITY MKCOL MOVE PROPFIND PROPPATCH PUT UNLOCK
+# Uncomment this rule to change the default.
+#
+# The HTTP PUT method is normally used to upload data that is saved on the server at a user-supplied URL.
+# If enabled, an attacker may be able to inject arbitrary, and potentially malicious, content into the application or on to the file system of the web server.
+# Depending on the server's configuration, this may lead to compromise of other users (by uploading
+# client-executable scripts), compromise of the server (by uploading server-executable code), or other attacks.
+# For this reason, the PUT method is disabled by default.
+# GET, HEAD, POST and OPTIONS are seen as the minimal set of HTTP methods
+# from a security perspective. For static sites, removing the POST is
+# recommended. Add other HTTP methods as seen fit (see above).
+#
+#SecAction \
+#    "id:900200,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.allowed_methods=GET HEAD POST OPTIONS'"
+
+# Content-Types that a client is allowed to send in a request.
+# Default: |application/x-www-form-urlencoded| |multipart/form-data| |text/xml|
+# |application/xml| |application/soap+xml| |application/json|
+#
+# Please note, that the rule where CRS uses this variable (920420) evaluates it with operator
+# @within, which is case sensitive, but uses t:lowercase. You must add your whole custom
+# Content-Type with lowercase.
+#
+# Bypass Warning: some applications may not rely on the content-type request header in order
+# to parse the request body. This could make an attacker able to send malicious URLENCODED/JSON/XML
+# payloads without being detected by the WAF. Allowing request content-type that doesn't activate any
+# body processor (for example: "text/plain", "application/x-amf", "application/octet-stream", etc..)
+# could lead to a WAF bypass. For example, a malicious JSON payload submitted with a "text/plain"
+# content type may still be interpreted as JSON by a backend application but would not trigger the
+# JSON body parser at the WAF, leading to a bypass. To avoid bypasses, you must enable the appropriate
+# body parser based on the expected data in the request bodies (For example JSON for JSON data, XML for XML data, etc).
+#
+# When additional JSON content types are legitimately used in a deployment,
+# e.g. application/cloudevents+json, it is extremely important to ensure that a
+# rule exists to enable the engine's JSON body processor for these additional
+# JSON content types. Failure to do so can lead to a request body bypass. The
+# default JSON rule in modsecurity.conf-recommended (200001) will only activate
+# the JSON body processor for the specific content type application/json. The
+# optional modsecurity.conf-recommended rule 200006 can be used to enable the
+# JSON body processor for a wide variety of JSON content types.
+#
+# To prevent blocking request with not allowed content-type by default, you can create an exclusion
+# rule that removes rule 920420. It's important that you enable the correct body parser when allowing
+# an additional content type to prevent bypasses. For example, this rule enables the JSON body processor
+# for the text/plain content type:
+#SecRule REQUEST_HEADERS:Content-Type "@beginsWith text/plain" \
+#    "id:1234,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    chain"
+#    SecRule REQUEST_URI "@rx ^/foo/bar" \
+#        "t:none,\
+#        ctl:ruleRemoveById=920420,\
+#        ctl:requestBodyProcessor=JSON"
+#
+# See: https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v2.x)#ctl
+# See: https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-(v3.x)#ctl
+#
+# Uncomment this rule to change the default.
+#
+#SecAction \
+#    "id:900220,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.allowed_request_content_type=|application/x-www-form-urlencoded| |multipart/form-data| |text/xml| |application/xml| |application/soap+xml| |application/json|'"
+
+# Allowed HTTP versions.
+# Default: HTTP/1.0 HTTP/1.1 HTTP/2 HTTP/2.0 HTTP/3 HTTP/3.0
+# Example for legacy clients: HTTP/0.9 HTTP/1.0 HTTP/1.1 HTTP/2 HTTP/2.0 HTTP/3 HTTP/3.0
+# Note that some web server versions use 'HTTP/2', some 'HTTP/2.0', so
+# we include both version strings by default.
+# Uncomment this rule to change the default.
+#SecAction \
+#    "id:900230,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.allowed_http_versions=HTTP/1.0 HTTP/1.1 HTTP/2 HTTP/2.0 HTTP/3 HTTP/3.0'"
+
+# Forbidden file extensions.
+# Guards against unintended exposure of development/configuration files.
+# Default: .ani/ .asa/ .asax/ .ascx/ .backup/ .bak/ .bat/ .cdx/ .cer/ .cfg/ .cmd/ .com/ .compositefont/ .config/ .conf/ .crt/ .cs/ .csproj/ .csr/ .dat/ .db/ .dbf/ .dist/ .dll/ .dos/ .dpkg-dist/ .drv/ .gadget/ .hta/ .htr/ .htw/ .ida/ .idc/ .idq/ .inc/ .inf/ .ini/ .jse/ .key/ .licx/ .lnk/ .log/ .mdb/ .msc/ .ocx/ .old/ .pass/ .pdb/ .pfx/ .pif/ .pem/ .pol/ .prf/ .printer/ .pwd/ .rdb/ .rdp/ .reg/ .resources/ .resx/ .scr/ .sct/ .shs/ .sql/ .swp/ .sys/ .tlb/ .tmp/ .url/ .vb/ .vbe/ .vbs/ .vbproj/ .vsdisco/ .vxd/ .webinfo/ .ws/ .wsc/ .wsf/ .wsh/ .xsd/ .xsx/
+# Example: .bak/ .config/ .conf/ .db/ .ini/ .log/ .old/ .pass/ .pdb/ .rdb/ .sql/
+# Note that .axd was removed due to false positives (see PR 1925).
+#
+# To additionally guard against configuration/install archive files from being
+# accidentally exposed, common archive file extensions can be added to the
+# restricted extensions list. An example list of common archive file extensions
+# is presented below:
+# .7z/ .br/ .bz/ .bz2/ .cab/ .cpio/ .gz/ .img/ .iso/ .jar/ .rar/ .tar/ .tbz2/ .tgz/ .txz/ .xz/ .zip/ .zst/
+# (Source: https://en.wikipedia.org/wiki/List_of_archive_formats)
+#
+# Uncomment this rule to change the default.
+#SecAction \
+#    "id:900240,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.restricted_extensions=.ani/ .asa/ .asax/ .ascx/ .backup/ .bak/ .bat/ .cdx/ .cer/ .cfg/ .cmd/ .com/ .compositefont/ .config/ .conf/ .crt/ .cs/ .csproj/ .csr/ .dat/ .db/ .dbf/ .dist/ .dll/ .dos/ .dpkg-dist/ .drv/ .gadget/ .hta/ .htr/ .htw/ .ida/ .idc/ .idq/ .inc/ .inf/ .ini/ .jse/ .key/ .licx/ .lnk/ .log/ .mdb/ .msc/ .ocx/ .old/ .pass/ .pdb/ .pfx/ .pif/ .pem/ .pol/ .prf/ .printer/ .pwd/ .rdb/ .rdp/ .reg/ .resources/ .resx/ .scr/ .sct/ .shs/ .sql/ .swp/ .sys/ .tlb/ .tmp/ .url/ .vb/ .vbe/ .vbs/ .vbproj/ .vsdisco/ .vxd/ .webinfo/ .ws/ .wsc/ .wsf/ .wsh/ .xsd/ .xsx/'"
+
+# Restricted request headers.
+# The HTTP request headers that CRS restricts are split into two categories:
+# basic (always forbidden) and extended (may be forbidden). All header names
+# should be lowercase and enclosed by /slashes/ as delimiters.
+#
+# [ Basic ]
+# Includes deprecated headers and headers with known security risks. Always
+# forbidden.
+# Default: /content-encoding/ /proxy/ /lock-token/ /content-range/ /if/ /x-http-method-override/ /x-http-method/ /x-method-override/ /x-middleware-subrequest/
+#
+# /content-encoding/
+#   Used to list any encodings that have been applied to the original payload.
+#   Only used for compression, which isn't supported by CRS by default since CRS
+#   blocks newlines and null bytes inside the request body. Most compression
+#   algorithms require at least null bytes per RFC. Blocking Content-Encoding
+#   shouldn't break anything and increases security since WAF engines, including
+#   ModSecurity, are typically incapable of properly scanning compressed request
+#   bodies.
+#
+# /proxy/
+#   Blocking this prevents the 'httpoxy' vulnerability: https://httpoxy.org
+#
+# /lock-token/
+#
+# /content-range/
+#
+# /if/
+#
+# /x-http-method-override/
+# /x-http-method/
+# /x-method-override/
+#   Blocking these headers prevents method override attacks, as described here:
+#   https://www.sidechannel.blog/en/http-method-override-what-it-is-and-how-a-pentester-can-use-it
+#
+# /x-middleware-subrequest/
+#   CVE-2025-29927 (Next.js)
+#
+# Uncomment this rule to change the default.
+#SecAction \
+#    "id:900250,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.restricted_headers_basic=/content-encoding/ /proxy/ /lock-token/ /content-range/ /if/ /x-http-method-override/ /x-http-method/ /x-method-override/ /x-middleware-subrequest/'"
+#
+# [ Extended ]
+# Includes deprecated headers that are still in use (so false positives are
+# possible) and headers with possible security risks. Forbidden at a higher
+# paranoia level.
+# Default: /accept-charset/
+#
+# /accept-charset/
+#   Deprecated header that should not be used by clients and should be ignored
+#   by servers. Can be used for a response WAF bypass by asking for a charset
+#   that the WAF cannot decode. Considered to be a good indicator of suspicious
+#   behavior but produces too many false positives to be forbidden by default.
+#   References:
+#   https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Accept-Charset
+#   https://github.com/coreruleset/coreruleset/issues/3140
+#
+# Uncomment this rule to change the default.
+#SecAction \
+#    "id:900255,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.restricted_headers_extended=/accept-charset/'"
+
+# Content-Types charsets that a client is allowed to send in a request.
+# The content-types are enclosed by |pipes| as delimiters to guarantee exact matches.
+#
+# You can add additional character sets if something more exotic is required. One caveat: you will also need to edit 'regex-assembly/include/allowed-charsets.ra' and rebuild all the associated regular expressions using "crs-toolchain regex update --all". See https://coreruleset.org/docs/6-development/6-2-crs-toolchain/.
+#
+# Warning: If the WAF engine is unable to fully and correctly decode a newly added character encoding then this can lead to a full request body or response body bypass. Additional permitted character encodings should be added with caution and tested to ensure inspection is not affected.
+#
+# Default: |utf-8| |iso-8859-1| |iso-8859-15| |windows-1252|
+# Uncomment this rule to change the default.
+#SecAction \
+#    "id:900280,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:'tx.allowed_request_content_type_charset=|utf-8| |iso-8859-1| |iso-8859-15| |windows-1252|'"
+
+#
+# -- [[ HTTP Argument/Upload Limits ]] -----------------------------------------
+#
+# Here you can define optional limits on HTTP get/post parameters and uploads.
+# This can help to prevent application specific DoS attacks.
+#
+# These values are checked in REQUEST-920-PROTOCOL-ENFORCEMENT.conf.
+# Beware of blocking legitimate traffic when enabling these limits.
+#
+
+# Block request if number of arguments is too high
+# Default: unlimited
+# Example: 255
+# Note that a hard limit by the engine may also apply here (SecArgumentsLimit).
+# This would override this soft limit.
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900300,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.max_num_args=255"
+
+# Block request if the length of any argument name is too high
+# Default: unlimited
+# Example: 100
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900310,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.arg_name_length=100"
+
+# Block request if the length of any argument value is too high
+# Default: unlimited
+# Example: 400
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900320,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.arg_length=400"
+
+# Block request if the total length of all combined arguments is too high
+# Default: unlimited
+# Example: 64000
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900330,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.total_arg_length=64000"
+
+# Block request if the file size of any individual uploaded file is too high
+# Default: unlimited
+# Example: 1048576
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900340,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.max_file_size=1048576"
+
+# Block request if the total size of all combined uploaded files is too high
+# Default: unlimited
+# Example: 1048576
+# Uncomment this rule to set a limit.
+#SecAction \
+#    "id:900350,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.combined_file_sizes=1048576"
+
+
+#
+# -- [[ Easing In / Sampling Percentage ]] -------------------------------------
+#
+# Adding the CRS to an existing productive site can lead to false
+# positives, unexpected performance issues and other undesired side effects.
+#
+# It can be beneficial to test the water first by enabling the CRS for a
+# limited number of requests only and then, when you have solved the issues (if
+# any) and you have confidence in the setup, to raise the ratio of requests
+# being sent into the ruleset.
+#
+# Adjust the percentage of requests that are funnelled into the Core Rules by
+# setting TX.sampling_percentage below. The default is 100, meaning that every
+# request gets checked by the CRS.  The selection of requests, which are going
+# to be checked, is based on a pseudo random number generated by ModSecurity.
+#
+# If a request is allowed to pass without being checked by the CRS, there is no
+# entry in the audit log (for performance reasons), but an error log entry is
+# written.  If you want to disable the error log entry, then issue the
+# following directive somewhere after the inclusion of the CRS
+# (E.g., RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf).
+#
+#SecRuleUpdateActionById 901450 "nolog"
+#
+# ATTENTION: If this TX.sampling_percentage is below 100, then some of the
+# requests will bypass the Core Rules completely and you lose the ability to
+# protect your service with ModSecurity.
+#
+# Uncomment this rule to enable this feature:
+#
+#SecAction \
+#    "id:900400,\
+#    phase:1,\
+#    pass,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.sampling_percentage=100"
+
+
+
+#
+# -- [[ Check UTF-8 encoding ]] ------------------------------------------------
+#
+# The CRS can optionally check request contents for invalid UTF-8 encoding.
+# We only want to apply this check if UTF-8 encoding is actually used by the
+# site; otherwise it will result in false positives.
+#
+# Uncomment this rule to use this feature:
+#
+#SecAction \
+#    "id:900950,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.crs_validate_utf8_encoding=1"
+
+# -- [[ Skip Checking Responses ]] ------------------------------------------------
+#
+# CRS will perform analysis of the response contents if this is enabled and you have
+# the directive "SecResponseBodyAccess On".
+#
+# Warning: this feature is _enabled_ by default, but depending on your applications
+# you might be targeted in a Request Filter Denial of Service (RFDoS) attack.
+#
+# References: https://blog.sicuranext.com/response-filter-denial-of-service-a-new-way-to-shutdown-a-website/
+#
+# Uncomment this rule to _skip checking responses_.
+#
+#SecAction \
+#    "id:900500,\
+#    phase:1,\
+#    pass,\
+#    t:none,\
+#    nolog,\
+#    tag:'OWASP_CRS',\
+#    ver:'OWASP_CRS/4.16.0',\
+#    setvar:tx.crs_skip_response_analysis=1"
+
+#
+# -- [[ End of setup ]] --------------------------------------------------------
+#
+# The CRS checks the tx.crs_setup_version variable to ensure that the setup
+# has been loaded. If you are not planning to use this setup template,
+# you must manually set the tx.crs_setup_version variable before including
+# the CRS rules/* files.
+#
+# The variable is a numerical representation of the CRS version number.
+# E.g., v3.0.0 is represented as 300.
+#
+SecAction \
+    "id:900990,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.16.0',\
+    setvar:tx.crs_setup_version=4160"
+`

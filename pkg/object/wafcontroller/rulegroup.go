@@ -66,7 +66,11 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 	directives := ""
 	preprocessors := make([]protocol.PreWAFProcessor, 0, len(ruleset))
 	for _, r := range ruleset {
-		directives += r.Directives() + "\n"
+		if r.Type() == protocol.TypeCustoms {
+			directives = r.Directives() + "\n" + directives
+		} else {
+			directives += r.Directives() + "\n"
+		}
 		if r.GetPreprocessor() != nil {
 			preprocessors = append(preprocessors, r.GetPreprocessor())
 		}
@@ -172,7 +176,6 @@ func formMessage(in *types.Interruption) string {
 func (rg *ruleGroup) processRequest(_ *context.Context, tx types.Transaction, req *httpprot.Request) *protocol.WAFResult {
 	stdReq := req.Std()
 
-	var in *types.Interruption
 	tx.ProcessConnection(req.RealIP(), 0, "", 0)
 	tx.ProcessURI(stdReq.URL.String(), stdReq.Method, stdReq.Proto)
 
@@ -189,11 +192,11 @@ func (rg *ruleGroup) processRequest(_ *context.Context, tx types.Transaction, re
 	if req.TransferEncoding != nil {
 		tx.AddRequestHeader("Transfer-Encoding", req.TransferEncoding[0])
 	}
-	in = tx.ProcessRequestHeaders()
-	if in != nil {
+	it := tx.ProcessRequestHeaders()
+	if it != nil {
 		return &protocol.WAFResult{
-			Interruption: in,
-			Message:      formMessage(in),
+			Interruption: it,
+			Message:      formMessage(it),
 			Result:       protocol.ResultBlocked,
 		}
 	}
@@ -210,21 +213,6 @@ func (rg *ruleGroup) processRequest(_ *context.Context, tx types.Transaction, re
 		if err != nil {
 			return &protocol.WAFResult{
 				Message: fmt.Sprintf("failed to append request body: %s", err.Error()),
-				Result:  protocol.ResultError,
-			}
-		}
-		if it != nil {
-			return &protocol.WAFResult{
-				Interruption: it,
-				Message:      formMessage(it),
-				Result:       protocol.ResultBlocked,
-			}
-		}
-
-		it, err = tx.ProcessRequestBody()
-		if err != nil {
-			return &protocol.WAFResult{
-				Message: fmt.Sprintf("failed to process request body: %s", err.Error()),
 				Result:  protocol.ResultError,
 			}
 		}
