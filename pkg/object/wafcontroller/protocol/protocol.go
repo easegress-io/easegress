@@ -21,12 +21,13 @@ import (
 	"reflect"
 
 	"github.com/corazawaf/coraza/v3/types"
+	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
 type (
 	// PreWAFProcessor defines a function type for preprocessing requests before applying WAF rules.
-	PreWAFProcessor func(req *httpprot.Request) *WAFResult
+	PreWAFProcessor func(ctx *context.Context, tx types.Transaction, req *httpprot.Request) *WAFResult
 
 	// WAFResultType defines the type of WAF result.
 	WAFResultType string
@@ -91,6 +92,8 @@ const (
 	ResultOk WAFResultType = ""
 	// ResultBlocked indicates that the request is blocked.
 	ResultBlocked WAFResultType = "Blocked"
+	// ResultError indicates that an internal error occurred while processing the request.
+	ResultError WAFResultType = "InternalError"
 )
 
 var _ Rule = (*CustomsSpec)(nil)
