@@ -18,6 +18,7 @@
 package aicontext
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 // ResponseType defines the type of response for AI requests.
@@ -173,7 +175,7 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 		return c, nil
 	}
 
-	err = c.ensureReqBodyInOpenAI()
+	err = c.adaptReqInOpenAIFormat()
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +224,7 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 	return c, nil
 }
 
-func (c *Context) ensureReqBodyInOpenAI() error {
+func (c *Context) adaptReqInOpenAIFormat() error {
 	if c.ReqBody == nil {
 		return fmt.Errorf("request body is missing")
 	}
@@ -230,6 +232,13 @@ func (c *Context) ensureReqBodyInOpenAI() error {
 	// Only transform Anthropic message requests to OpenAI format.
 	if c.RespType != ResponseTypeMessage {
 		return nil
+	}
+
+	// Get the Anthropic x-api-key header and set it as Authorization Bearer.
+	if apiKey := c.Req.Header().Get("x-api-key").(string); apiKey != "" {
+		if c.Req.Header().Get("Authorization").(string) == "" {
+			c.Req.Header().Set("Authorization", "Bearer "+apiKey)
+		}
 	}
 
 	var req anthropic.MessageNewParams
@@ -251,7 +260,230 @@ func (c *Context) ensureReqBodyInOpenAI() error {
 	return nil
 }
 
-func (c *Context) ensureRespBodyInOpenAI() {
+func (c *Context) adaptRespInOpenAIFormat() {
+	// Only adapt OpenAI responses back to Anthropic format for Anthropic message requests
+	if c.RespType != ResponseTypeMessage || c.resp == nil {
+		return
+	}
+
+	if c.ReqInfo.Stream {
+		// For streaming responses, convert OpenAI SSE stream to Anthropic format
+		c.adaptStreamingRespToAnthropic()
+	} else {
+		// For non-streaming responses, convert OpenAI chat completion to Anthropic message
+		c.adaptNonStreamingRespToAnthropic()
+	}
+}
+
+// adaptStreamingRespToAnthropic converts OpenAI streaming response to Anthropic streaming format
+func (c *Context) adaptStreamingRespToAnthropic() {
+	if c.resp.BodyReader == nil {
+		return
+	}
+
+	// Create a pipe to transform the streaming data
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		defer func() {
+			if r := recover(); r != nil {
+				pw.CloseWithError(fmt.Errorf("streaming conversion panic: %v", r))
+			}
+		}()
+
+		scanner := bufio.NewScanner(c.resp.BodyReader)
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			// Skip empty lines
+			if strings.TrimSpace(line) == "" {
+				continue
+			}
+
+			// Handle SSE format if present: "data: {...}"
+			var jsonData string
+			if strings.HasPrefix(line, "data: ") {
+				jsonData = strings.TrimPrefix(line, "data: ")
+
+				// Handle end of stream
+				if jsonData == "[DONE]" {
+					fmt.Fprintf(pw, "data: [DONE]\n\n")
+					break
+				}
+			} else {
+				// Handle raw JSON format (OpenAI streaming)
+				jsonData = line
+			}
+
+			// Try to parse as OpenAI streaming chunk
+			var openaiChunk map[string]interface{}
+			if err := json.Unmarshal([]byte(jsonData), &openaiChunk); err != nil {
+				// If parsing fails, pass through as-is (maintain original format)
+				if strings.HasPrefix(line, "data: ") {
+					fmt.Fprintf(pw, "%s\n\n", line)
+				} else {
+					fmt.Fprintf(pw, "data: %s\n\n", line)
+				}
+				continue
+			}
+
+			// Convert OpenAI chunk to Anthropic format
+			anthropicEvent := c.convertOpenAIChunkToAnthropic(openaiChunk)
+			if anthropicEvent != nil {
+				if eventBytes, err := json.Marshal(anthropicEvent); err == nil {
+					fmt.Fprintf(pw, "data: %s\n\n", string(eventBytes))
+				}
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			pw.CloseWithError(err)
+		}
+	}()
+
+	// Replace the body reader with our converted stream
+	// Ensure only BodyReader is set (not BodyBytes)
+	c.resp.BodyReader = pr
+	c.resp.BodyBytes = nil
+}
+
+// adaptNonStreamingRespToAnthropic converts OpenAI non-streaming response to Anthropic format
+func (c *Context) adaptNonStreamingRespToAnthropic() {
+	var bodyBytes []byte
+	var err error
+
+	// Read the response body
+	if c.resp.BodyBytes != nil {
+		bodyBytes = c.resp.BodyBytes
+	} else if c.resp.BodyReader != nil {
+		bodyBytes, err = io.ReadAll(c.resp.BodyReader)
+		if err != nil {
+			return
+		}
+	} else {
+		return
+	}
+
+	// Try to parse as OpenAI ChatCompletionResponse
+	var openaiResp openai.ChatCompletionResponse
+	if err := json.Unmarshal(bodyBytes, &openaiResp); err != nil {
+		// If not an OpenAI response, leave as-is
+		return
+	}
+
+	// Convert to Anthropic Message format using existing function
+	anthropicMsg, err := OpenAIToAnthropicRespMessage(&openaiResp)
+	if err != nil || anthropicMsg == nil {
+		return
+	}
+
+	// Marshal back to JSON
+	convertedBytes, err := json.Marshal(anthropicMsg)
+	if err != nil {
+		return
+	}
+
+	// Update response body with converted data
+	// Ensure only BodyBytes is set (not BodyReader)
+	c.resp.BodyBytes = convertedBytes
+	c.resp.BodyReader = nil
+	c.resp.ContentLength = int64(len(convertedBytes))
+}
+
+// convertOpenAIChunkToAnthropic converts an OpenAI streaming chunk to Anthropic event format
+func (c *Context) convertOpenAIChunkToAnthropic(chunk map[string]interface{}) map[string]interface{} {
+	// Extract basic fields
+	id, _ := chunk["id"].(string)
+	model, _ := chunk["model"].(string)
+	choices, ok := chunk["choices"].([]interface{})
+	if !ok || len(choices) == 0 {
+		return nil
+	}
+
+	choice, ok := choices[0].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	delta, ok := choice["delta"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	// Check if this is the first chunk (has role)
+	if role, exists := delta["role"]; exists && role == "assistant" {
+		// Convert to message_start event
+		return map[string]interface{}{
+			"type": "message_start",
+			"message": map[string]interface{}{
+				"id":            id,
+				"type":          "message",
+				"role":          "assistant",
+				"model":         model,
+				"content":       []interface{}{},
+				"stop_reason":   nil,
+				"stop_sequence": nil,
+				"usage": map[string]interface{}{
+					"input_tokens":  0,
+					"output_tokens": 0,
+				},
+			},
+		}
+	}
+
+	// Check if this has content (text delta)
+	if content, exists := delta["content"]; exists && content != "" {
+		return map[string]interface{}{
+			"type":  "content_block_delta",
+			"index": 0,
+			"delta": map[string]interface{}{
+				"type": "text_delta",
+				"text": content,
+			},
+		}
+	}
+
+	// Check if this has finish_reason (message delta)
+	if finishReason, exists := choice["finish_reason"]; exists && finishReason != nil {
+		var anthropicStopReason string
+		switch finishReason {
+		case "stop":
+			anthropicStopReason = "end_turn"
+		case "length":
+			anthropicStopReason = "max_tokens"
+		case "tool_calls":
+			anthropicStopReason = "tool_use"
+		default:
+			anthropicStopReason = "end_turn"
+		}
+
+		event := map[string]interface{}{
+			"type": "message_delta",
+			"delta": map[string]interface{}{
+				"stop_reason": anthropicStopReason,
+			},
+		}
+
+		// Include usage if present
+		if usage, exists := chunk["usage"]; exists {
+			if usageMap, ok := usage.(map[string]interface{}); ok {
+				event["delta"].(map[string]interface{})["usage"] = map[string]interface{}{
+					"output_tokens": usageMap["completion_tokens"],
+				}
+			}
+		}
+
+		return event
+	}
+
+	// Handle empty delta (final chunk) - this happens when delta is empty but no finish_reason yet
+	if len(delta) == 0 {
+		// This might be an intermediate chunk, skip it
+		return nil
+	}
+
+	return nil
 }
 
 // GetResponse returns the response of the context.
@@ -264,7 +496,7 @@ func (c *Context) GetResponse() *Response {
 // function to the context using AddCallBack method.
 func (c *Context) SetResponse(resp *Response) {
 	c.resp = resp
-	c.ensureRespBodyInOpenAI()
+	c.adaptRespInOpenAIFormat()
 }
 
 // AddCallBack adds a callback function to the context.
