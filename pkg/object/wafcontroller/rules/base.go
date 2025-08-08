@@ -46,6 +46,7 @@ func registryRule(typeName protocol.RuleType, rule Rule) {
 	ruleTypeRegistry[typeName] = reflect.TypeOf(rule).Elem()
 }
 
+// NewRules creates a slice of Rule based on the provided rule specification.
 func NewRules(ruleSpec protocol.RuleSpec) []Rule {
 	v := reflect.ValueOf(ruleSpec)
 	if v.Kind() == reflect.Ptr {
