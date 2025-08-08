@@ -18,6 +18,7 @@
 package wafcontroller
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -381,6 +382,228 @@ func TestSQLInjectionRules(t *testing.T) {
 	ctx := context.New(nil)
 
 	for _, tc := range testCases {
+		fmt.Println("Testing case:", tc.Name)
+		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
+func TestXssAttackRules(t *testing.T) {
+	assert := assert.New(t)
+
+	type xssAttackTestCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+	}
+
+	var xssAttackTestCases = []xssAttackTestCase{
+		{
+			Name:        "941100_libinjection_script",
+			Method:      "GET",
+			URL:         "/test?input=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+			RuleID:      "941100",
+			Description: "libinjection detects basic script XSS attack",
+		},
+		{
+			Name:        "941110_script_tag",
+			Method:      "GET",
+			URL:         "/test?msg=<script>alert('XSS')</script>",
+			RuleID:      "941110",
+			Description: "Direct <script> tag injection",
+		},
+		{
+			Name:        "941120_img_onerror_event",
+			Method:      "GET",
+			URL:         "/test?avatar=<img src=x onerror=alert(1)>",
+			RuleID:      "941120",
+			Description: "Event handler XSS vector (onerror)",
+		},
+		{
+			Name:        "941130_data_attribute_injection",
+			Method:      "GET",
+			URL:         "/test?download=data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
+			RuleID:      "941130",
+			Description: "data:text/html;base64 attribute injection",
+		},
+		{
+			Name:        "941140_css_javascript_uri",
+			Method:      "GET",
+			URL:         "/test?style=background:url(javascript:alert(1))",
+			RuleID:      "941140",
+			Description: "CSS property with url(javascript:...)",
+		},
+		{
+			Name:        "941160_html_injection_iframe",
+			Method:      "GET",
+			URL:         `/test?payload=<iframe src="javascript:alert(1)"></iframe>`,
+			RuleID:      "941160",
+			Description: "HTML injection: iframe with javascript: URI",
+		},
+		{
+			Name:        "941170_javascript_href",
+			Method:      "GET",
+			URL:         "/test?url=javascript:alert(1)",
+			RuleID:      "941170",
+			Description: "Attribute value containing javascript:",
+		},
+		{
+			Name:        "941180_document_cookie_keyword",
+			Method:      "GET",
+			URL:         "/test?js=document.cookie",
+			RuleID:      "941180",
+			Description: "Sensitive JS keyword: document.cookie",
+		},
+		{
+			Name:        "941190_style_import",
+			Method:      "GET",
+			URL:         `/test?css=<style>@import 'javascript:alert(1)';</style>`,
+			RuleID:      "941190",
+			Description: "style tag with @import",
+		},
+		{
+			Name:        "941230_embed_tag",
+			Method:      "GET",
+			URL:         `/test?payload=<EMBED src="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==">`,
+			RuleID:      "941230",
+			Description: "<EMBED> tag injection",
+		},
+		{
+			Name:        "941240_import_implementation",
+			Method:      "GET",
+			URL:         `/test?xml=<?import implementation="javascript:alert(1)">`,
+			RuleID:      "941240",
+			Description: "XML import implementation attribute",
+		},
+		{
+			Name:        "941250_meta_http_equiv",
+			Method:      "GET",
+			URL:         `/test?html=<meta http-equiv="refresh" content="0;url=javascript:alert(1)">`,
+			RuleID:      "941250",
+			Description: "META http-equiv attribute injection",
+		},
+		{
+			Name:        "941260_meta_charset",
+			Method:      "GET",
+			URL:         `/test?html=<meta charset="utf-7">`,
+			RuleID:      "941260",
+			Description: "META charset attribute injection",
+		},
+		{
+			Name:        "941320_html_tag_img",
+			Method:      "GET",
+			URL:         "/test?img=<img src=x onerror=alert(1)>",
+			RuleID:      "941320",
+			Description: "HTML tag injection (img)",
+		},
+		{
+			Name:        "941330_location_assignment",
+			Method:      "GET",
+			URL:         "/test?js=\"location=alert(1)\"",
+			RuleID:      "941330",
+			Description: "Assignment to sensitive JS property: location",
+		},
+		{
+			Name:        "941340_dot_assignment",
+			Method:      "GET",
+			URL:         "/test?js=\"x.y=alert(1)\"",
+			RuleID:      "941340",
+			Description: "Assignment to object property via dot notation",
+		},
+		{
+			Name:        "941350_utf7_encoding",
+			Method:      "GET",
+			URL:         "/test?payload=+ADw-script+AD4-alert('XSS');+ADw-/script+AD4-",
+			RuleID:      "941350",
+			Description: "UTF-7 encoded XSS",
+		},
+		{
+			Name:        "941360_jsfuck_payload",
+			Method:      "GET",
+			URL:         "/test?payload=![]+[]['filter']['constructor']('alert(1)')()",
+			RuleID:      "941360",
+			Description: "JSFuck obfuscated XSS",
+		},
+		{
+			Name:        "941370_global_var_bracket",
+			Method:      "GET",
+			URL:         "/test?payload=self[/*XSS*/]",
+			RuleID:      "941370",
+			Description: "Global JS variable using bracket notation",
+		},
+		{
+			Name:        "941390_eval_function",
+			Method:      "GET",
+			URL:         "/test?js=eval(alert(1))",
+			RuleID:      "941390",
+			Description: "eval() JavaScript function",
+		},
+		{
+			Name:        "941400_function_chain",
+			Method:      "GET",
+			URL:         "/test?js=[].map.call`alert(1)`",
+			RuleID:      "941400",
+			Description: "Function chaining with call and template string",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-941-APPLICATION-ATTACK-XSS.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range xssAttackTestCases {
+		fmt.Println("Testing case:", tc.Name)
 		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
 		assert.Nil(err, "Failed to create request", tc)
 
