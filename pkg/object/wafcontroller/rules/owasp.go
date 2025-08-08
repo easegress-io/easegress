@@ -24,12 +24,13 @@ import (
 )
 
 type (
-	// OwaspRulesSpec defines the specification for OWASP rules.
+	// OwaspRules defines the specification for OWASP rules.
 	OwaspRules struct {
 		spec *protocol.OwaspRulesSpec
 	}
 )
 
+// Type returns the type of the OWASP rules.
 func (owasp *OwaspRules) Type() protocol.RuleType {
 	return protocol.TypeOwaspRules
 }
@@ -47,10 +48,12 @@ func (owasp *OwaspRules) Directives() string {
 	return directives
 }
 
+// NeedCrs indicates whether the OWASP rules require OWASP CRS.
 func (owasp *OwaspRules) NeedCrs() bool {
 	return true
 }
 
+// GetPreprocessor returns the preprocessor for OWASP rules.
 func (owasp *OwaspRules) GetPreprocessor() protocol.PreWAFProcessor {
 	// OWASP rules do not require a preprocessor.
 	return nil

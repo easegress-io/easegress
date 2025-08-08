@@ -82,8 +82,11 @@ type (
 )
 
 const (
-	TypeCustoms      RuleType = "Customs"
-	TypeOwaspRules   RuleType = "OwaspRules"
+	// TypeCustoms defines the type for custom WAF rules.
+	TypeCustoms RuleType = "Customs"
+	// TypeOwaspRules defines the type for OWASP rules.
+	TypeOwaspRules RuleType = "OwaspRules"
+	// TypeSQLInjection defines the type for SQL injection rules.
 	TypeSQLInjection RuleType = "SQLInjection"
 )
 
@@ -100,25 +103,22 @@ var _ Rule = (*CustomsSpec)(nil)
 var _ Rule = (*OwaspRulesSpec)(nil)
 var _ Rule = (*SQLInjectionSpec)(nil)
 
+// Type returns the type of the rule.
 func (sql *SQLInjectionSpec) Type() RuleType {
 	return TypeSQLInjection
 }
 
+// Type returns the type of the OWASP rule.
 func (owasp *OwaspRulesSpec) Type() RuleType {
 	return TypeOwaspRules
 }
 
+// Type returns the type of the custom rule.
 func (rule *CustomsSpec) Type() RuleType {
 	return TypeCustoms
 }
 
-func (rule *CustomsSpec) Directives() string {
-	if rule == nil {
-		return ""
-	}
-	return string(*rule)
-}
-
+// GetSpec retrieves the specific rule based on its type name.
 func (rule *RuleSpec) GetSpec(typeName string) Rule {
 	v := reflect.ValueOf(rule)
 	field := v.FieldByName(typeName)

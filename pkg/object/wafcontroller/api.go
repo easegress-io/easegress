@@ -18,13 +18,16 @@
 package wafcontroller
 
 import (
-	"github.com/megaease/easegress/v2/pkg/api"
 	"net/http"
+
+	"github.com/megaease/easegress/v2/pkg/api"
 )
 
 const (
+	// APIGroupName is the name of the WAF API group.
 	APIGroupName = "waf"
-	APIPrefix    = "/waf"
+	// APIPrefix is the prefix for WAF API endpoints.
+	APIPrefix = "/waf"
 )
 
 func (waf *WAFController) registerAPIs() {

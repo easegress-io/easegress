@@ -22,24 +22,29 @@ import (
 )
 
 type (
+	// Custom defines a WAF custom rule.
 	Custom struct {
 		spec *protocol.CustomsSpec
 	}
 )
 
+// Type returns the type of the custom rule.
 func (rule *Custom) Type() protocol.RuleType {
 	return protocol.TypeCustoms
 }
 
+// Directives returns the directives for custom rules.
 func (rule *Custom) Directives() string {
 	return string(*rule.spec)
 }
 
+// NeedCrs indicates whether the custom rule requires OWASP CRS.
 func (rule *Custom) NeedCrs() bool {
 	// If user need to load OWASP CRS, they should use LoadOwaspCrs flag in RuleGroupSpec.
 	return false
 }
 
+// GetPreprocessor returns the preprocessor for custom rules.
 func (rule *Custom) GetPreprocessor() protocol.PreWAFProcessor {
 	return nil // No preprocessor for custom rules
 }

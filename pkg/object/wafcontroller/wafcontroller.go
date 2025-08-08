@@ -41,6 +41,7 @@ const (
 	// Kind is the kind of the WAFController.
 	Kind = "WAFController"
 
+	// ResultRuleGroupNotFoundError indicates that the rule group was not found.
 	ResultRuleGroupNotFoundError ResultError = "ruleGroupNotFoundError"
 )
 
@@ -74,9 +75,11 @@ type (
 		RuleGroups []*protocol.RuleGroupSpec `json:"ruleGroups" jsonschema:"required"`
 	}
 
+	// Status is the status of WAFController.
 	Status struct{}
 )
 
+// Validate validates the WAFController specification.
 func (spec *Spec) Validate() error {
 	names := make(map[string]struct{})
 	for _, group := range spec.RuleGroups {
@@ -100,20 +103,24 @@ func (spec *Spec) Validate() error {
 	return nil
 }
 
+// Category returns the category of the WAFController.
 func (waf *WAFController) Category() supervisor.ObjectCategory {
 	return Category
 }
 
+// Kind returns the kind of the WAFController.
 func (waf *WAFController) Kind() string {
 	return Kind
 }
 
+// DefaultSpec returns the default specification for WAFController.
 func (waf *WAFController) DefaultSpec() interface{} {
 	return &Spec{
 		// Add default enabled rule groups or rules if needed.
 	}
 }
 
+// Status returns the status of the WAFController.
 func (waf *WAFController) Status() *supervisor.Status {
 	status := make(map[string]interface{})
 	// Here you can add status information about the WAFController.
@@ -122,11 +129,13 @@ func (waf *WAFController) Status() *supervisor.Status {
 	}
 }
 
+// Close closes the WAFController and releases resources.
 func (waf *WAFController) Close() {
 	logger.Infof("Closing WAFController")
 	// Perform any necessary cleanup here.
 }
 
+// Init initializes the WAFController with the provided supervisor specification.
 func (waf *WAFController) Init(superSpec *supervisor.Spec) {
 	waf.superSpec = superSpec
 	waf.super = superSpec.Super()
@@ -135,6 +144,7 @@ func (waf *WAFController) Init(superSpec *supervisor.Spec) {
 	waf.reload(nil)
 }
 
+// Inherit initializes the WAFController with the previous generation's specification.
 func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
 	previousGeneration.(*WAFController).Close()
 }
@@ -193,6 +203,7 @@ func validateHook(operationType api.OperationType, spec *supervisor.Spec) error 
 	return nil
 }
 
+// Handle processes the request and returns a WAF response.
 func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) string {
 	ruleGroup, ok := waf.ruleGroups[ruleGroupName]
 	if !ok || ruleGroupName == "" {
