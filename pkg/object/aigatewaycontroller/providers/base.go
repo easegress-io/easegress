@@ -146,7 +146,13 @@ func (bp *BaseProvider) Handle(ctx *aicontext.Context) {
 }
 
 func (bp *BaseProvider) RequestMapper(pc *aicontext.Context) (string, []byte, error) {
-	return string(pc.RespType), pc.ReqBody, nil
+	respType := pc.RespType
+	// Change the response type from message to chat completion for Anthropic requests.
+	if respType == aicontext.ResponseTypeMessage {
+		respType = aicontext.ResponseTypeChatCompletions
+	}
+
+	return string(respType), pc.ReqBody, nil
 }
 
 func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) {
@@ -183,6 +189,9 @@ func (bp *BaseProvider) ParseTokens(ctx *aicontext.Context, fc *aicontext.Finish
 	}
 
 	switch ctx.RespType {
+	case aicontext.ResponseTypeMessage:
+		// The message body has already been transformed to OpenAI format.
+		return parseChatCompletions(openaiReq, fc.RespBody)
 	case aicontext.ResponseTypeCompletions:
 		return parseCompletions(openaiReq, fc.RespBody)
 	case aicontext.ResponseTypeChatCompletions:

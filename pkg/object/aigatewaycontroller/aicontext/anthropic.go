@@ -348,6 +348,15 @@ func AnthropicReqMessageToOpenAI(req *anthropic.MessageNewParams) (*openai.ChatC
 	// - Container: Anthropic-specific container reuse feature
 	// - MCPServers: Anthropic-specific Model Context Protocol servers
 
+	// Debug: Print marshaled JSON for debugging
+	// if reqJSON, err := json.MarshalIndent(req, "", "  "); err == nil {
+	// 	fmt.Printf("Anthropic Request JSON:\n%s\n", string(reqJSON))
+	// }
+
+	// if resultJSON, err := json.MarshalIndent(result, "", "  "); err == nil {
+	// 	fmt.Printf("OpenAI Request JSON:\n%s\n", string(resultJSON))
+	// }
+
 	return result, nil
 }
 
@@ -540,6 +549,15 @@ func OpenAIToAnthropicRespMessage(resp *openai.ChatCompletionResponse) (*anthrop
 		Type:         "message", // constant.Message
 		Usage:        usage,
 	}
+
+	// Debug: Print marshaled JSON for debugging
+	// if respJSON, err := json.MarshalIndent(resp, "", "  "); err == nil {
+	// 	fmt.Printf("OpenAI Response JSON:\n%s\n", string(respJSON))
+	// }
+
+	// if anthropicJSON, err := json.MarshalIndent(anthropicMessage, "", "  "); err == nil {
+	// 	fmt.Printf("Anthropic Message JSON:\n%s\n", string(anthropicJSON))
+	// }
 
 	return anthropicMessage, nil
 }
