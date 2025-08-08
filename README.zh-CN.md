@@ -99,6 +99,7 @@
       - **TopN**：按 API 聚合并排序（仅服务器维度）。
 - **AI 集成**
   - **代理:** 支持将请求代理到 LLM 提供商，如 OpenAI、DeepSeek、Anthropic 等。
+  - **Anthropic API 适配:** 将 Anthropic API 的请求和响应适配为 OpenAI 格式。
   - **向量数据库:** 集成向量数据库以实现缓存。
   - **监控:** 提供对 AI 模型性能和使用情况的监控。
 
