@@ -19,6 +19,7 @@ package rules
 
 import (
 	"fmt"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"net"
 
 	"github.com/corazawaf/coraza/v3/types"
@@ -100,17 +101,25 @@ func (rule *IPBlocker) init(ruleSpec protocol.Rule) {
 	for _, cidr := range rule.spec.WhiteList {
 		_, network, err := net.ParseCIDR(cidr)
 		if err != nil {
-			panic("Invalid CIDR in whitelist: " + cidr)
+			logger.Errorf("Invalid CIDR in whitelist: " + cidr)
+			continue
 		}
-		rule.whiteList.Insert(cidranger.NewBasicRangerEntry(*network))
+		err = rule.whiteList.Insert(cidranger.NewBasicRangerEntry(*network))
+		if err != nil {
+			logger.Errorf("Failed to insert CIDR %s into whitelist: %v", cidr, err)
+		}
 	}
 
 	for _, cidr := range rule.spec.BlackList {
 		_, network, err := net.ParseCIDR(cidr)
 		if err != nil {
-			panic("Invalid CIDR in blacklist: " + cidr)
+			logger.Errorf("Invalid CIDR in blacklist: " + cidr)
+			continue
 		}
-		rule.blackList.Insert(cidranger.NewBasicRangerEntry(*network))
+		err = rule.blackList.Insert(cidranger.NewBasicRangerEntry(*network))
+		if err != nil {
+			logger.Errorf("Failed to insert CIDR %s into blacklist: %v", cidr, err)
+		}
 	}
 }
 

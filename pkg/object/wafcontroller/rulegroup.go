@@ -26,6 +26,7 @@ import (
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/jcchavezs/mergefs"
 	"github.com/jcchavezs/mergefs/io"
+
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"

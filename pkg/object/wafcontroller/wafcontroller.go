@@ -20,12 +20,15 @@ package wafcontroller
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
 	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/common"
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/metrics"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
@@ -68,6 +71,7 @@ type (
 		spec      *Spec
 
 		ruleGroups map[string]RuleGroup
+		metricHub  *metrics.MetricHub
 	}
 
 	// Spec is the specification for WAFController.
@@ -86,18 +90,19 @@ func (spec *Spec) Validate() error {
 		if group.Name == "" {
 			return fmt.Errorf("RuleGroup name cannot be empty")
 		}
+		if common.ValidateName(group.Name) != nil {
+			return fmt.Errorf("RuleGroup name %s is invalid: %v", group.Name, common.ValidateName(group.Name))
+		}
 		if _, exists := names[group.Name]; exists {
 			return fmt.Errorf("RuleGroup name must be unique: %s", group.Name)
 		}
 		names[group.Name] = struct{}{}
 
-		// best way to validate the rules is to dry create the rule group
-		// TODO: update if the rule group contains state and need to close.
+		// dry-run to validate the rule group
 		_, err := newRuleGroup(group)
 		if err != nil {
 			return fmt.Errorf("failed to create rule group %s: %v", group.Name, err)
 		}
-		// Additional validation for other rule types can be added here.
 	}
 
 	return nil
@@ -115,15 +120,14 @@ func (waf *WAFController) Kind() string {
 
 // DefaultSpec returns the default specification for WAFController.
 func (waf *WAFController) DefaultSpec() interface{} {
-	return &Spec{
-		// Add default enabled rule groups or rules if needed.
-	}
+	return &Spec{}
 }
 
 // Status returns the status of the WAFController.
 func (waf *WAFController) Status() *supervisor.Status {
+	stats := waf.metricHub.GetStats()
 	status := make(map[string]interface{})
-	// Here you can add status information about the WAFController.
+	status["ruleGroupStatus"] = stats
 	return &supervisor.Status{
 		ObjectStatus: status,
 	}
@@ -132,7 +136,9 @@ func (waf *WAFController) Status() *supervisor.Status {
 // Close closes the WAFController and releases resources.
 func (waf *WAFController) Close() {
 	logger.Infof("Closing WAFController")
-	// Perform any necessary cleanup here.
+	waf.metricHub.Close()
+	waf.unregisterAPIs()
+	globalWAFController.CompareAndSwap(waf, (*WAFController)(nil))
 }
 
 // Init initializes the WAFController with the provided supervisor specification.
@@ -146,29 +152,44 @@ func (waf *WAFController) Init(superSpec *supervisor.Spec) {
 
 // Inherit initializes the WAFController with the previous generation's specification.
 func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
-	previousGeneration.(*WAFController).Close()
+	previousGeneration.(*WAFController).InheritClose()
+	prev := previousGeneration.(*WAFController)
+
+	waf.superSpec = superSpec
+	waf.spec = superSpec.ObjectSpec().(*Spec)
+	waf.super = superSpec.Super()
+	waf.reload(prev)
 }
 
 func (waf *WAFController) reload(prev *WAFController) {
 	waf.ruleGroups = make(map[string]RuleGroup)
 	for _, group := range waf.spec.RuleGroups {
 		if group == nil || group.Name == "" {
-			logger.Errorf("Invalid rule group specification: %v", group)
+			logger.Errorf("Invalid rule group specification: group name and spec cannot be empty")
 			continue
 		}
 
 		ruleGroup, err := newRuleGroup(group)
 		if err != nil {
 			// This should not happen since we validate the spec in Validate method.
-			panic(fmt.Sprintf("Failed to create rule group %s: %v", group.Name, err))
+			logger.Errorf("[CRITICAL]!!!! Failed to create rule group %s: %v， the controller can not run correctly", group.Name, err)
+			continue
 		}
 		waf.ruleGroups[group.Name] = ruleGroup
 	}
+
+	if prev != nil && prev.metricHub != nil {
+		waf.metricHub = prev.metricHub
+	} else {
+		waf.metricHub = metrics.NewMetrics(waf.superSpec)
+	}
+	globalWAFController.Store(waf)
+	waf.registerAPIs()
 }
 
 func (waf *WAFController) InheritClose() {
 	logger.Infof("close previous generation of WAFController because of inheriting")
-	// TODO: Implement the logic to close the previous generation of WAFController.
+	waf.unregisterAPIs()
 	globalWAFController.CompareAndSwap(waf, (*WAFController)(nil))
 }
 
@@ -213,7 +234,11 @@ func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) str
 
 	result := ruleGroup.Handle(ctx)
 	if result.Result != protocol.ResultOk {
-		// TODO: add metrics for WAF results.
+		waf.metricHub.Update(&metrics.Metric{
+			RuleGroup: ruleGroupName,
+			RuleID:    strconv.Itoa(result.Interruption.RuleID),
+			Source:    result.Interruption.Data,
+		})
 		waf.setWafErrResponse(ctx, result)
 		return string(result.Result)
 	}
