@@ -817,6 +817,145 @@ func TestRCEAttackRules(t *testing.T) {
 	}
 }
 
+func TestProtocolAttackRules(t *testing.T) {
+	assert := assert.New(t)
+
+	type protocolAttackTestCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+		Body        string
+	}
+
+	var rceAttackTestCases = []protocolAttackTestCase{
+		{
+			Name:   "CRLF in Header Injection",
+			Method: "GET",
+			URL:    "/",
+			Headers: map[string]string{
+				"X-Injected": "evil\r\nSet-Cookie: injected=1",
+			},
+			Cookies:     map[string]string{},
+			RuleID:      "921140",
+			Description: "Header value contains CRLF, triggers HTTP Header Injection rule 921140",
+			Body:        "",
+		},
+		{
+			Name:        "CRLF in Query Parameter",
+			Method:      "GET",
+			URL:         "/?input=something%0d%0aSet-Cookie:%20evil=1",
+			Headers:     map[string]string{},
+			Cookies:     map[string]string{},
+			RuleID:      "921150",
+			Description: "Query parameter contains CRLF, triggers HTTP Header Injection rule 921150",
+			Body:        "",
+		},
+		{
+			Name:   "Dangerous Content-Type Header",
+			Method: "POST",
+			URL:    "/upload",
+			Headers: map[string]string{
+				"Content-Type": "text/html;application/json",
+			},
+			Cookies:     map[string]string{},
+			RuleID:      "921421",
+			Description: "Content-Type header contains dangerous mime type combination, triggers rule 921421",
+			Body:        "",
+		},
+		{
+			Name:   "Request Smuggling: Transfer-Encoding and Content-Length",
+			Method: "POST",
+			URL:    "/api/data",
+			Headers: map[string]string{
+				"Transfer-Encoding": "chunked",
+				"Content-Length":    "10",
+			},
+			Cookies:     map[string]string{},
+			RuleID:      "921110",
+			Description: "Request contains both Transfer-Encoding and Content-Length headers. Typical request smuggling vector.",
+			Body:        "0\r\n\r\n",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-920-PROTOCOL-ENFORCEMENT.conf",
+		"REQUEST-921-PROTOCOL-ATTACK.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range rceAttackTestCases {
+		fmt.Println("Testing case:", tc.Name)
+		var req *http.Request
+		var err error
+		if tc.Body == "" {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		} else {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, strings.NewReader(tc.Body))
+		}
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
+		req.Header.Set("Referer", "http://127.0.0.1/")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("DNT", "1")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
 // https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
 // coraza corerule set example set up
 const crsSetupConf = `
