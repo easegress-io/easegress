@@ -74,6 +74,12 @@ type (
 		// Additional fields can be added here for SQL injection detection configuration.
 	}
 
+	// IPBlockerSpec defines the specification for IP blocking.
+	IPBlockerSpec struct {
+		WhiteList []string `json:"whitelist,omitempty"`
+		BlackList []string `json:"blacklist,omitempty"`
+	}
+
 	// OwaspRulesSpec defines the specification for OWASP rules.
 	OwaspRulesSpec []string
 
@@ -88,6 +94,8 @@ const (
 	TypeOwaspRules RuleType = "OwaspRules"
 	// TypeSQLInjection defines the type for SQL injection rules.
 	TypeSQLInjection RuleType = "SQLInjection"
+	// TypeIPBlocker defines the type for IP blocking rules.
+	TypeIPBlocker RuleType = "IPBlocker"
 )
 
 const (
@@ -102,6 +110,7 @@ const (
 var _ Rule = (*CustomsSpec)(nil)
 var _ Rule = (*OwaspRulesSpec)(nil)
 var _ Rule = (*SQLInjectionSpec)(nil)
+var _ Rule = (*IPBlockerSpec)(nil)
 
 // Type returns the type of the rule.
 func (sql *SQLInjectionSpec) Type() RuleType {
@@ -116,6 +125,10 @@ func (owasp *OwaspRulesSpec) Type() RuleType {
 // Type returns the type of the custom rule.
 func (rule *CustomsSpec) Type() RuleType {
 	return TypeCustoms
+}
+
+func (blocker *IPBlockerSpec) Type() RuleType {
+	return TypeIPBlocker
 }
 
 // GetSpec retrieves the specific rule based on its type name.
