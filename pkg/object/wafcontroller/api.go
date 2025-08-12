@@ -21,6 +21,8 @@ import (
 	"net/http"
 
 	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/metrics"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 )
 
 const (
@@ -30,15 +32,16 @@ const (
 	APIPrefix = "/waf"
 )
 
+type (
+	StatsResponse struct {
+		Stats []*metrics.MetricStats `json:"stats"`
+	}
+)
+
 func (waf *WAFController) registerAPIs() {
 	group := &api.Group{
 		Group: APIGroupName,
 		Entries: []*api.Entry{
-			{
-				Path:    APIPrefix + "/rule-groups/metrics",
-				Method:  "GET",
-				Handler: waf.getRuleGroupsMetrics,
-			},
 			{
 				Path:    APIPrefix + "/metrics",
 				Method:  "GET",
@@ -54,10 +57,11 @@ func (waf *WAFController) unregisterAPIs() {
 	api.UnregisterAPIs(APIGroupName)
 }
 
-func (waf *WAFController) getRuleGroupsMetrics(w http.ResponseWriter, r *http.Request) {
-	// This function should return the status of all rule groups.
-}
-
 func (waf *WAFController) metrics(w http.ResponseWriter, r *http.Request) {
-	// This function should return the statistics of the WAF controller.
+	stats := waf.metricHub.GetStats()
+	response := StatsResponse{
+		Stats: stats,
+	}
+
+	w.Write(codectool.MustMarshalJSON(response))
 }
