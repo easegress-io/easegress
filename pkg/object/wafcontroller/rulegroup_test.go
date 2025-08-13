@@ -956,6 +956,225 @@ func TestProtocolAttackRules(t *testing.T) {
 	}
 }
 
+func TestBotDetectionRules(t *testing.T) {
+	assert := assert.New(t)
+
+	testCases := []struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+		Body        string
+	}{
+		{
+			Name:        "ScannerUserAgent_arachni",
+			Method:      "GET",
+			URL:         "/",
+			Headers:     map[string]string{"User-Agent": "arachni"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'arachni', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_betabot",
+			Method:      "GET",
+			URL:         "/login",
+			Headers:     map[string]string{"User-Agent": "betabot"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'betabot', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_commix",
+			Method:      "POST",
+			URL:         "/api/test",
+			Headers:     map[string]string{"User-Agent": "Mozilla/5.0 commix"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'commix', should trigger scanner detection",
+			Body:        "{}",
+		},
+		{
+			Name:        "ScannerUserAgent_sqlmap",
+			Method:      "GET",
+			URL:         "/products",
+			Headers:     map[string]string{"User-Agent": "sqlmap/1.6.4#stable (http://sqlmap.org)"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'sqlmap', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_nikto",
+			Method:      "GET",
+			URL:         "/admin",
+			Headers:     map[string]string{"User-Agent": "Nikto/2.1.6 (Evasions:None) (Test:000010)"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'nikto', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_nmap",
+			Method:      "GET",
+			URL:         "/test",
+			Headers:     map[string]string{"User-Agent": "Mozilla/5.0 (compatible; Nmap Scripting Engine)"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'nmap', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_nuclei",
+			Method:      "GET",
+			URL:         "/healthz",
+			Headers:     map[string]string{"User-Agent": "Nuclei - Vulnerability Scanner"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'nuclei', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_dirbuster",
+			Method:      "GET",
+			URL:         "/.git/",
+			Headers:     map[string]string{"User-Agent": "dirbuster"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'dirbuster', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_w3af",
+			Method:      "POST",
+			URL:         "/api/v1/user",
+			Headers:     map[string]string{"User-Agent": "w3af.org"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'w3af.org', should trigger scanner detection",
+			Body:        "{}",
+		},
+		{
+			Name:        "ScannerUserAgent_wpscan",
+			Method:      "GET",
+			URL:         "/wordpress/wp-login.php",
+			Headers:     map[string]string{"User-Agent": "WPScan v3.8.22"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'wpscan', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_zgrab",
+			Method:      "GET",
+			URL:         "/status",
+			Headers:     map[string]string{"User-Agent": "zgrab/0.1"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'zgrab', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_masscan",
+			Method:      "GET",
+			URL:         "/",
+			Headers:     map[string]string{"User-Agent": "masscan/1.0"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'masscan', should trigger scanner detection",
+			Body:        "",
+		},
+		{
+			Name:        "ScannerUserAgent_whatweb",
+			Method:      "GET",
+			URL:         "/",
+			Headers:     map[string]string{"User-Agent": "WhatWeb/0.5.5"},
+			Cookies:     nil,
+			RuleID:      "913100",
+			Description: "User-Agent contains 'whatweb', should trigger scanner detection",
+			Body:        "",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-913-SCANNER-DETECTION.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range testCases {
+		fmt.Println("Testing case:", tc.Name)
+		var req *http.Request
+		var err error
+		if tc.Body == "" {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		} else {
+			req, err = http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, strings.NewReader(tc.Body))
+		}
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
+		req.Header.Set("Referer", "http://127.0.0.1/")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("DNT", "1")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
 // https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
 // coraza corerule set example set up
 const crsSetupConf = `
