@@ -42,6 +42,8 @@ type (
 		// TODO: how to handle the response?
 		// TODO: should we process the stream request and stream response?
 		Handle(ctx *context.Context) *protocol.WAFResult
+
+		Close()
 	}
 
 	// ruleGroup implements the RuleGroup interface.
@@ -49,6 +51,7 @@ type (
 		spec          *protocol.RuleGroupSpec
 		preprocessors []protocol.PreWAFProcessor
 		waf           coraza.WAF
+		rules         []rules.Rule
 	}
 )
 
@@ -86,6 +89,9 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 
 	waf, err := coraza.NewWAF(config)
 	if err != nil {
+		for _, rule := range ruleset {
+			rule.Close()
+		}
 		return nil, err
 	}
 
@@ -93,6 +99,7 @@ func newRuleGroup(spec *protocol.RuleGroupSpec) (RuleGroup, error) {
 		spec:          spec,
 		waf:           waf,
 		preprocessors: preprocessors,
+		rules:         ruleset,
 	}, nil
 }
 
@@ -243,5 +250,11 @@ func (rg *ruleGroup) processRequest(_ *context.Context, tx types.Transaction, re
 	}
 	return &protocol.WAFResult{
 		Result: protocol.ResultOk,
+	}
+}
+
+func (rg *ruleGroup) Close() {
+	for _, rule := range rg.rules {
+		rule.Close()
 	}
 }

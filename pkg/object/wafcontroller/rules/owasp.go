@@ -59,9 +59,12 @@ func (owasp *OwaspRules) GetPreprocessor() protocol.PreWAFProcessor {
 	return nil
 }
 
-func (owasp *OwaspRules) init(ruleSpec protocol.Rule) {
+func (owasp *OwaspRules) init(ruleSpec protocol.Rule) error {
 	owasp.spec = ruleSpec.(*protocol.OwaspRulesSpec)
+	return nil
 }
+
+func (owasp *OwaspRules) Close() {}
 
 func init() {
 	registryRule(protocol.TypeOwaspRules, &OwaspRules{})

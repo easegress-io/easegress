@@ -99,7 +99,7 @@ func (rule *IPBlocker) GetPreprocessor() protocol.PreWAFProcessor {
 	}
 }
 
-func (rule *IPBlocker) init(ruleSpec protocol.Rule) {
+func (rule *IPBlocker) init(ruleSpec protocol.Rule) error {
 	rule.spec = ruleSpec.(*protocol.IPBlockerSpec)
 	rule.whiteList = cidranger.NewPCTrieRanger()
 	rule.blackList = cidranger.NewPCTrieRanger()
@@ -127,7 +127,10 @@ func (rule *IPBlocker) init(ruleSpec protocol.Rule) {
 			logger.Errorf("Failed to insert CIDR %s into blacklist: %v", cidr, err)
 		}
 	}
+	return nil
 }
+
+func (rule *IPBlocker) Close() {}
 
 func init() {
 	registryRule(protocol.TypeIPBlocker, &IPBlocker{})

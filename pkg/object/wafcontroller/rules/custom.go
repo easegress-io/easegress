@@ -49,9 +49,12 @@ func (rule *Custom) GetPreprocessor() protocol.PreWAFProcessor {
 	return nil // No preprocessor for custom rules
 }
 
-func (rule *Custom) init(ruleSpec protocol.Rule) {
+func (rule *Custom) init(ruleSpec protocol.Rule) error {
 	rule.spec = ruleSpec.(*protocol.CustomsSpec)
+	return nil
 }
+
+func (rule *Custom) Close() {}
 
 func init() {
 	registryRule(protocol.TypeCustoms, &Custom{})

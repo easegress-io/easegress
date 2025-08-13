@@ -62,22 +62,23 @@ type (
 	RuleSpec struct {
 		// OwaspRules defines the OWASP rules to be applied.
 		// See the example of https://github.com/corazawaf/coraza-coreruleset for more details.
-		OwaspRules *OwaspRulesSpec `json:"owaspRules,omitempty"`
-		Customs    *CustomsSpec    `json:"customRules,omitempty"`
-
-		SQLInjection *SQLInjectionSpec `json:"sqlInjection,omitempty"`
-	}
-
-	// SQLInjectionSpec defines the specification for SQL injection detection.
-	SQLInjectionSpec struct {
-		Enabled bool `json:"enabled" jsonschema:"required"`
-		// Additional fields can be added here for SQL injection detection configuration.
+		OwaspRules   *OwaspRulesSpec   `json:"owaspRules,omitempty"`
+		Customs      *CustomsSpec      `json:"customRules,omitempty"`
+		IPBlocker    *IPBlockerSpec    `json:"ipBlocker,omitempty"`
+		GeoIPBlocker *GeoIPBlockerSpec `json:"geoIPBlocker,omitempty"`
 	}
 
 	// IPBlockerSpec defines the specification for IP blocking.
 	IPBlockerSpec struct {
 		WhiteList []string `json:"whitelist,omitempty"`
 		BlackList []string `json:"blacklist,omitempty"`
+	}
+
+	GeoIPBlockerSpec struct {
+		DBPath           string   `json:"dbPath" jsonschema:"required"`
+		DBUpdateCron     string   `json:"dbUpdateCron" jsonschema:"required"`
+		AllowedCountries []string `json:"allowedCountries,omitempty"`
+		DeniedCountries  []string `json:"deniedCountries,omitempty"`
 	}
 
 	// OwaspRulesSpec defines the specification for OWASP rules.
@@ -96,6 +97,8 @@ const (
 	TypeSQLInjection RuleType = "SQLInjection"
 	// TypeIPBlocker defines the type for IP blocking rules.
 	TypeIPBlocker RuleType = "IPBlocker"
+	// TypeGeoIPBlocker defines the type for GeoIP blocking rules.
+	TypeGeoIPBlocker RuleType = "GeoIPBlocker"
 )
 
 const (
@@ -109,13 +112,8 @@ const (
 
 var _ Rule = (*CustomsSpec)(nil)
 var _ Rule = (*OwaspRulesSpec)(nil)
-var _ Rule = (*SQLInjectionSpec)(nil)
 var _ Rule = (*IPBlockerSpec)(nil)
-
-// Type returns the type of the rule.
-func (sql *SQLInjectionSpec) Type() RuleType {
-	return TypeSQLInjection
-}
+var _ Rule = (*GeoIPBlockerSpec)(nil)
 
 // Type returns the type of the OWASP rule.
 func (owasp *OwaspRulesSpec) Type() RuleType {
@@ -129,6 +127,10 @@ func (rule *CustomsSpec) Type() RuleType {
 
 func (blocker *IPBlockerSpec) Type() RuleType {
 	return TypeIPBlocker
+}
+
+func (blocker *GeoIPBlockerSpec) Type() RuleType {
+	return TypeGeoIPBlocker
 }
 
 // GetSpec retrieves the specific rule based on its type name.
