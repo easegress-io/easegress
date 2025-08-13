@@ -286,3 +286,16 @@ func (waf *WAFController) setErrResponse(ctx *context.Context, err error) {
 	resp.SetPayload(data)
 	ctx.SetOutputResponse(resp)
 }
+
+func GetGlobalWAFController() (*WAFController, error) {
+	waf := globalWAFController.Load()
+	if waf == nil {
+		return nil, fmt.Errorf("WAFController is not initialized or has been closed")
+	}
+	w, ok := waf.(*WAFController)
+	if !ok {
+		return nil, fmt.Errorf("global WAFController is not of type *WAFController, got %T", waf)
+	}
+
+	return w, nil
+}
