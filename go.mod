@@ -54,6 +54,7 @@ require (
 	github.com/nginxinc/nginx-go-crossplane v0.4.33
 	github.com/open-policy-agent/opa v0.58.0
 	github.com/openzipkin/zipkin-go v0.4.2
+	github.com/oschwald/geoip2-golang/v2 v2.0.0-beta.3
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pgvector/pgvector-go v0.3.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
@@ -165,6 +166,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
+	github.com/oschwald/maxminddb-golang/v2 v2.0.0-beta.7 // indirect
 	github.com/petar-dambovaliev/aho-corasick v0.0.0-20240411101913-e07a1f0e8eb4 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
