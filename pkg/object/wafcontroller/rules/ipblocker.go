@@ -82,11 +82,7 @@ func (rule *IPBlocker) GetPreprocessor() protocol.PreWAFProcessor {
 					Message: fmt.Sprintf("IPBlocker whiteList check error: %v", err),
 				}
 			}
-			if contains {
-				return &protocol.WAFResult{
-					Result: protocol.ResultOk,
-				}
-			} else {
+			if !contains {
 				return &protocol.WAFResult{
 					Result:  protocol.ResultBlocked,
 					Message: fmt.Sprintf("IP %s is not in whitelist", ip.String()),
