@@ -19,8 +19,9 @@ package rules
 
 import (
 	"fmt"
-	"github.com/megaease/easegress/v2/pkg/logger"
 	"net"
+
+	"github.com/megaease/easegress/v2/pkg/logger"
 
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/megaease/easegress/v2/pkg/context"
@@ -57,20 +58,6 @@ func (rule *IPBlocker) NeedCrs() bool {
 func (rule *IPBlocker) GetPreprocessor() protocol.PreWAFProcessor {
 	return func(ctx *context.Context, tx types.Transaction, req *httpprot.Request) *protocol.WAFResult {
 		ip := net.ParseIP(req.RealIP())
-		if rule.whiteList.Len() > 0 {
-			contains, err := rule.whiteList.Contains(ip)
-			if err != nil {
-				return &protocol.WAFResult{
-					Result:  protocol.ResultError,
-					Message: fmt.Sprintf("IPBlocker whiteList check error: %v", err),
-				}
-			}
-			if contains {
-				return &protocol.WAFResult{
-					Result: protocol.ResultOk,
-				}
-			}
-		}
 		if rule.blackList.Len() > 0 {
 			contains, err := rule.blackList.Contains(ip)
 			if err != nil {
@@ -84,6 +71,25 @@ func (rule *IPBlocker) GetPreprocessor() protocol.PreWAFProcessor {
 				return &protocol.WAFResult{
 					Result:  protocol.ResultBlocked,
 					Message: fmt.Sprintf("IP %s is blocked", ip.String()),
+				}
+			}
+		}
+		if rule.whiteList.Len() > 0 {
+			contains, err := rule.whiteList.Contains(ip)
+			if err != nil {
+				return &protocol.WAFResult{
+					Result:  protocol.ResultError,
+					Message: fmt.Sprintf("IPBlocker whiteList check error: %v", err),
+				}
+			}
+			if contains {
+				return &protocol.WAFResult{
+					Result: protocol.ResultOk,
+				}
+			} else {
+				return &protocol.WAFResult{
+					Result:  protocol.ResultBlocked,
+					Message: fmt.Sprintf("IP %s is not in whitelist", ip.String()),
 				}
 			}
 		}
