@@ -31,8 +31,9 @@ type (
 		Directives() string
 		NeedCrs() bool
 		GetPreprocessor() protocol.PreWAFProcessor
+		Close()
 
-		init(protocol.Rule)
+		init(protocol.Rule) error
 	}
 )
 
@@ -67,7 +68,11 @@ func NewRules(ruleSpec protocol.RuleSpec) []Rule {
 			typeName := protocolRule.Type()
 			if ruleType, ok := ruleTypeRegistry[typeName]; ok {
 				rule := reflect.New(ruleType).Interface().(Rule)
-				rule.init(field.Interface().(protocol.Rule))
+				err := rule.init(field.Interface().(protocol.Rule))
+				if err != nil {
+					logger.Errorf("failed to initialize rule %s: %v", typeName, err)
+					continue
+				}
 				rules = append(rules, rule)
 			}
 		}

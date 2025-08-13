@@ -99,12 +99,12 @@ func (spec *Spec) Validate() error {
 		names[group.Name] = struct{}{}
 
 		// dry-run to validate the rule group
-		_, err := newRuleGroup(group)
+		rg, err := newRuleGroup(group)
 		if err != nil {
 			return fmt.Errorf("failed to create rule group %s: %v", group.Name, err)
 		}
+		rg.Close()
 	}
-
 	return nil
 }
 
@@ -138,6 +138,9 @@ func (waf *WAFController) Close() {
 	logger.Infof("Closing WAFController")
 	waf.metricHub.Close()
 	waf.unregisterAPIs()
+	for _, ruleGroup := range waf.ruleGroups {
+		ruleGroup.Close()
+	}
 	globalWAFController.CompareAndSwap(waf, (*WAFController)(nil))
 }
 
@@ -152,7 +155,6 @@ func (waf *WAFController) Init(superSpec *supervisor.Spec) {
 
 // Inherit initializes the WAFController with the previous generation's specification.
 func (waf *WAFController) Inherit(superSpec *supervisor.Spec, previousGeneration supervisor.Object) {
-	previousGeneration.(*WAFController).InheritClose()
 	prev := previousGeneration.(*WAFController)
 
 	waf.superSpec = superSpec
@@ -178,8 +180,11 @@ func (waf *WAFController) reload(prev *WAFController) {
 		waf.ruleGroups[group.Name] = ruleGroup
 	}
 
-	if prev != nil && prev.metricHub != nil {
-		waf.metricHub = prev.metricHub
+	if prev != nil {
+		if prev.metricHub != nil {
+			waf.metricHub = prev.metricHub
+		}
+		prev.inheritClose()
 	} else {
 		waf.metricHub = metrics.NewMetrics(waf.superSpec)
 	}
@@ -187,9 +192,12 @@ func (waf *WAFController) reload(prev *WAFController) {
 	waf.registerAPIs()
 }
 
-func (waf *WAFController) InheritClose() {
+func (waf *WAFController) inheritClose() {
 	logger.Infof("close previous generation of WAFController because of inheriting")
 	waf.unregisterAPIs()
+	for _, ruleGroup := range waf.ruleGroups {
+		ruleGroup.Close()
+	}
 	globalWAFController.CompareAndSwap(waf, (*WAFController)(nil))
 }
 
@@ -234,11 +242,13 @@ func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) str
 
 	result := ruleGroup.Handle(ctx)
 	if result.Result != protocol.ResultOk {
-		waf.metricHub.Update(&metrics.Metric{
-			RuleGroup: ruleGroupName,
-			RuleID:    strconv.Itoa(result.Interruption.RuleID),
-			Source:    result.Interruption.Data,
-		})
+		if result.Interruption != nil {
+			waf.metricHub.Update(&metrics.Metric{
+				RuleGroup: ruleGroupName,
+				RuleID:    strconv.Itoa(result.Interruption.RuleID),
+				Source:    result.Interruption.Data,
+			})
+		}
 		waf.setWafErrResponse(ctx, result)
 		return string(result.Result)
 	}
