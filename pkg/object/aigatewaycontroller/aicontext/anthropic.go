@@ -535,7 +535,7 @@ func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, origin
 
 	// Map finish reason
 	finishReason, _ := choice["finish_reason"].(string)
-	stopReason := StopEndTurn
+	var stopReason string
 	switch finishReason {
 	case "stop":
 		stopReason = StopEndTurn
