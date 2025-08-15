@@ -22,559 +22,594 @@ import (
 	"fmt"
 	"strings"
 
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	openai "github.com/sashabaranov/go-openai"
-	"github.com/sashabaranov/go-openai/jsonschema"
 )
 
-// AnthropicReqMessageToOpenAI converts Anthropic MessageNewParams to OpenAI ChatCompletionRequest
-//
-// This function provides comprehensive conversion between Anthropic's message format and OpenAI's
-// chat completion format, handling all major content types and preserving semantic meaning.
-//
-// Content Type Conversions:
-//  1. Text content: Direct 1:1 conversion from Anthropic text blocks to OpenAI content
-//  2. Image content: Base64 images converted to data URLs, URL images passed through
-//  3. Document content: All document types (PDF, text) converted to placeholder text since
-//     OpenAI doesn't support document attachments directly
-//  4. Tool use: Anthropic tool_use blocks converted to OpenAI function calls with JSON arguments
-//  5. Tool results: Converted to OpenAI tool messages with proper role and tool_call_id mapping
-//  6. Server tool use: Server-side tools converted to OpenAI function calls
-//  7. Thinking blocks: Prefixed with "[Thinking: ]" and included as text content
-//  8. Redacted thinking: Converted to "[Redacted thinking content]" placeholder
-//
-// Parameter Conversions:
-// - Model: Direct string conversion
-// - Temperature/TopP: Converted from param.Opt[float64] to float32
-// - MaxTokens: Mapped to MaxCompletionTokens (following OpenAI's new field)
-// - StopSequences: Direct conversion to Stop field
-// - System messages: Converted to separate system role messages
-// - Tools: Full conversion including input schema transformation to jsonschema.Definition
-// - ToolChoice: Auto/specific tool choices properly mapped
-// - Metadata: UserID extracted and mapped to OpenAI's metadata format
-//
-// Limitations:
-// - Documents (PDF, etc.) cannot be directly converted and become placeholder text
-// - Some Anthropic-specific features (Container, MCPServers, ServiceTier) are not converted
-// - Stream flag is always set to false (streaming handled at API call level)
-// - Thinking content is included as text since OpenAI has no equivalent feature
-func AnthropicReqMessageToOpenAI(req *anthropic.MessageNewParams) (*openai.ChatCompletionRequest, error) {
-	if req == nil {
-		return nil, nil
-	}
+// Constants for content types (matching Python Constants class)
+const (
+	ContentText       = "text"
+	ContentImage      = "image"
+	ContentToolUse    = "tool_use"
+	ContentToolResult = "tool_result"
 
-	result := &openai.ChatCompletionRequest{
-		Model: string(req.Model),
-	}
+	RoleSystem    = "system"
+	RoleUser      = "user"
+	RoleAssistant = "assistant"
+	RoleTool      = "tool"
 
-	// Convert Stream field - Note: MessageNewParams doesn't have Stream field,
-	// it's set at the API call level. We'll assume non-streaming for now.
-	result.Stream = false
+	ToolFunction = "function"
 
-	// Convert Temperature (param.Opt[float64] -> float32)
-	if req.Temperature.Valid() {
-		result.Temperature = float32(req.Temperature.Or(0))
-	}
+	// Stop reasons
+	StopEndTurn   = "end_turn"
+	StopMaxTokens = "max_tokens"
+	StopToolUse   = "tool_use"
 
-	// Convert TopP (param.Opt[float64] -> float32)
-	if req.TopP.Valid() {
-		result.TopP = float32(req.TopP.Or(0))
-	}
+	// Event types for streaming
+	EventMessageStart      = "message_start"
+	EventContentBlockStart = "content_block_start"
+	EventContentBlockDelta = "content_block_delta"
+	EventContentBlockStop  = "content_block_stop"
+	EventMessageDelta      = "message_delta"
+	EventMessageStop       = "message_stop"
+	EventPing              = "ping"
 
-	// Convert MaxTokens (int64 -> int)
-	// max_tokens is deprecated in favor of max_completion_tokens:
-	// https://platform.openai.com/docs/api-reference/chat/create#chat_create-max_tokens
-	if req.MaxTokens > 0 {
-		result.MaxCompletionTokens = int(req.MaxTokens)
-	}
+	// Delta types
+	DeltaText = "text_delta"
+)
 
-	// Convert StopSequences to Stop
-	if len(req.StopSequences) > 0 {
-		result.Stop = req.StopSequences
-	}
+// ModelManager interface to map Claude models to OpenAI models
+type ModelManager interface {
+	MapClaudeModelToOpenAI(claudeModel string) string
+}
 
-	// Convert Messages and handle System prompt
-	messages := make([]openai.ChatCompletionMessage, 0)
+// ConvertClaudeToOpenAI converts Claude API request format to OpenAI format
+// This is a precise translation of the Python convert_claude_to_openai function
+func ConvertClaudeToOpenAI(claudeRequest *ClaudeMessagesRequest, modelManager ModelManager, config *AnthropicConfig) (map[string]interface{}, error) {
+	// Map model
+	openaiModel := modelManager.MapClaudeModelToOpenAI(claudeRequest.Model)
 
-	// Add system messages first if present
-	if len(req.System) > 0 {
-		systemContent := ""
-		for _, sysBlock := range req.System {
-			// Convert TextBlockParam to string content
-			systemContent += sysBlock.Text
+	// Convert messages
+	var openaiMessages []openai.ChatCompletionMessage
+
+	// Add system message if present
+	if claudeRequest.System != nil {
+		systemText := ""
+		if systemStr, ok := claudeRequest.GetSystemAsString(); ok {
+			systemText = systemStr
+		} else if systemContents, ok := claudeRequest.GetSystemAsContents(); ok {
+			var textParts []string
+			for _, block := range systemContents {
+				if block.Type == ContentText {
+					textParts = append(textParts, block.Text)
+				}
+			}
+			systemText = strings.Join(textParts, "\n\n")
 		}
-		if systemContent != "" {
-			messages = append(messages, openai.ChatCompletionMessage{
+
+		if strings.TrimSpace(systemText) != "" {
+			openaiMessages = append(openaiMessages, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleSystem,
-				Content: systemContent,
+				Content: strings.TrimSpace(systemText),
 			})
 		}
 	}
 
-	// Convert user/assistant messages
-	for _, msg := range req.Messages {
-		openaiMsg := openai.ChatCompletionMessage{
-			Role: string(msg.Role),
-		}
+	// Process Claude messages
+	i := 0
+	for i < len(claudeRequest.Messages) {
+		msg := claudeRequest.Messages[i]
 
-		// Convert complex ContentBlockParamUnion to simple content
-		content := ""
-		var toolCalls []openai.ToolCall
+		if msg.Role == RoleUser {
+			openaiMessage, err := convertClaudeUserMessage(&msg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert user message: %w", err)
+			}
+			openaiMessages = append(openaiMessages, *openaiMessage)
+		} else if msg.Role == RoleAssistant {
+			openaiMessage, err := convertClaudeAssistantMessage(&msg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert assistant message: %w", err)
+			}
+			openaiMessages = append(openaiMessages, *openaiMessage)
 
-		for _, contentBlock := range msg.Content {
-			// Handle different content block types
-			if contentBlock.OfText != nil {
-				content += contentBlock.OfText.Text
-			} else if contentBlock.OfImage != nil {
-				// For image content, we need to convert to OpenAI format
-				// OpenAI expects multipart content for images
-				imageURL := ""
-				if contentBlock.OfImage.Source.OfBase64 != nil {
-					// Convert base64 image to data URL format
-					imageURL = fmt.Sprintf("data:%s;base64,%s",
-						string(contentBlock.OfImage.Source.OfBase64.MediaType),
-						contentBlock.OfImage.Source.OfBase64.Data)
-				} else if contentBlock.OfImage.Source.OfURL != nil {
-					// Handle URL-based images
-					imageURL = contentBlock.OfImage.Source.OfURL.URL
-				}
-
-				// For images, we need to use MultiContent instead of simple Content
-				if imageURL != "" {
-					openaiMsg.MultiContent = append(openaiMsg.MultiContent, openai.ChatMessagePart{
-						Type: openai.ChatMessagePartTypeImageURL,
-						ImageURL: &openai.ChatMessageImageURL{
-							URL: imageURL,
-						},
-					})
-				}
-
-			} else if contentBlock.OfDocument != nil {
-				// Document content - convert to text content for OpenAI
-				// Anthropic supports documents but OpenAI doesn't have direct equivalent
-				if contentBlock.OfDocument.Source.OfText != nil {
-					// PlainTextSourceParam doesn't have Text field, it has different structure
-					// We need to access the proper field based on the Anthropic SDK structure
-					content += "[Document content not directly convertible]"
-				} else if contentBlock.OfDocument.Source.OfContent != nil {
-					// Handle content blocks within documents
-					contentUnion := contentBlock.OfDocument.Source.OfContent.Content
-					if contentUnion.OfString.Valid() {
-						content += contentUnion.OfString.Or("")
-					}
-				} else if contentBlock.OfDocument.Source.OfBase64 != nil {
-					// Handle Base64 PDF documents
-					content += "[Document content not directly convertible]"
-				} else if contentBlock.OfDocument.Source.OfURL != nil {
-					// Handle URL-based PDF documents
-					content += "[Document content not directly convertible]"
-				}
-				// Note: PDF documents (Base64 or URL) can't be directly converted to OpenAI format
-				// They would need to be processed/extracted separately
-			} else if contentBlock.OfToolUse != nil {
-				// Convert Anthropic tool_use to OpenAI function call
-				toolCall := openai.ToolCall{
-					ID:   contentBlock.OfToolUse.ID,
-					Type: openai.ToolTypeFunction,
-					Function: openai.FunctionCall{
-						Name: contentBlock.OfToolUse.Name,
-					},
-				}
-
-				// Convert input to JSON string
-				if contentBlock.OfToolUse.Input != nil {
-					if inputBytes, err := json.Marshal(contentBlock.OfToolUse.Input); err == nil {
-						toolCall.Function.Arguments = string(inputBytes)
-					}
-				}
-
-				toolCalls = append(toolCalls, toolCall)
-
-			} else if contentBlock.OfToolResult != nil {
-				// Convert Anthropic tool_result to OpenAI tool message
-				// This should be handled as a separate message with role "tool"
-				// For now, we'll convert the content to text
-				if len(contentBlock.OfToolResult.Content) > 0 {
-					for _, resultContent := range contentBlock.OfToolResult.Content {
-						if resultContent.OfText != nil {
-							content += resultContent.OfText.Text
-						} else if resultContent.OfImage != nil {
-							// Handle image results
-							var resultImageURL string
-							if resultContent.OfImage.Source.OfBase64 != nil {
-								resultImageURL = fmt.Sprintf("data:%s;base64,%s",
-									string(resultContent.OfImage.Source.OfBase64.MediaType),
-									resultContent.OfImage.Source.OfBase64.Data)
-							} else if resultContent.OfImage.Source.OfURL != nil {
-								resultImageURL = resultContent.OfImage.Source.OfURL.URL
+			// Check if next message contains tool results
+			if i+1 < len(claudeRequest.Messages) {
+				nextMsg := claudeRequest.Messages[i+1]
+				if nextMsg.Role == RoleUser {
+					if blocks, ok := nextMsg.GetContentAsBlocks(); ok {
+						hasToolResult := false
+						for _, block := range blocks {
+							if block.Type == ContentToolResult {
+								hasToolResult = true
+								break
 							}
+						}
+						if hasToolResult {
+							// Process tool results
+							i++ // Skip to tool result message
+							toolResults, err := convertClaudeToolResults(&nextMsg)
+							if err != nil {
+								return nil, fmt.Errorf("failed to convert tool results: %w", err)
+							}
+							openaiMessages = append(openaiMessages, toolResults...)
+						}
+					}
+				}
+			}
+		}
+		i++
+	}
 
-							if resultImageURL != "" {
-								openaiMsg.MultiContent = append(openaiMsg.MultiContent, openai.ChatMessagePart{
-									Type: openai.ChatMessagePartTypeImageURL,
+	// Build OpenAI request
+	minTokens := config.GetMinTokensLimit()
+	maxTokens := config.GetMaxTokensLimit()
+
+	// Apply token limits with bounds checking
+	finalMaxTokens := claudeRequest.MaxTokens
+	if finalMaxTokens < minTokens {
+		finalMaxTokens = minTokens
+	}
+	if finalMaxTokens > maxTokens {
+		finalMaxTokens = maxTokens
+	}
+
+	openaiRequest := map[string]interface{}{
+		"model":                 openaiModel,
+		"messages":              openaiMessages,
+		"max_completion_tokens": finalMaxTokens, // Updated to match Python
+		"temperature":           1,              // Default temperature as per Python
+		// NOTICE: OpenAI needs verified organization to use stream,
+		// so set stream to false for now.
+		"stream": false, // claudeRequest.GetStream()
+	}
+
+	// Add optional parameters
+	if len(claudeRequest.StopSequences) > 0 {
+		openaiRequest["stop"] = claudeRequest.StopSequences
+	}
+	if claudeRequest.TopP != nil {
+		openaiRequest["top_p"] = *claudeRequest.TopP
+	}
+
+	// Convert tools
+	if len(claudeRequest.Tools) > 0 {
+		var openaiTools []openai.Tool
+		for _, tool := range claudeRequest.Tools {
+			if tool.Name != "" && strings.TrimSpace(tool.Name) != "" {
+				description := ""
+				if tool.Description != nil {
+					description = *tool.Description
+				}
+				openaiTools = append(openaiTools, openai.Tool{
+					Type: ToolFunction,
+					Function: &openai.FunctionDefinition{
+						Name:        tool.Name,
+						Description: description,
+						Parameters:  tool.InputSchema,
+					},
+				})
+			}
+		}
+		if len(openaiTools) > 0 {
+			openaiRequest["tools"] = openaiTools
+		}
+	}
+
+	// Convert tool choice
+	if claudeRequest.ToolChoice != nil {
+		choiceType, hasType := claudeRequest.ToolChoice["type"]
+		if hasType {
+			switch choiceType {
+			case "auto":
+				openaiRequest["tool_choice"] = "auto"
+			case "any":
+				openaiRequest["tool_choice"] = "auto"
+			case "tool":
+				if name, hasName := claudeRequest.ToolChoice["name"]; hasName {
+					openaiRequest["tool_choice"] = map[string]interface{}{
+						"type": ToolFunction,
+						ToolFunction: map[string]interface{}{
+							"name": name,
+						},
+					}
+				} else {
+					openaiRequest["tool_choice"] = "auto"
+				}
+			default:
+				openaiRequest["tool_choice"] = "auto"
+			}
+		} else {
+			openaiRequest["tool_choice"] = "auto"
+		}
+	}
+
+	return openaiRequest, nil
+}
+
+// convertClaudeUserMessage converts Claude user message to OpenAI format
+// This is a precise translation of the Python convert_claude_user_message function
+func convertClaudeUserMessage(msg *ClaudeMessage) (*openai.ChatCompletionMessage, error) {
+	if msg.Content == nil {
+		return &openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: "",
+		}, nil
+	}
+
+	if contentStr, ok := msg.GetContentAsString(); ok {
+		return &openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: contentStr,
+		}, nil
+	}
+
+	// Handle multimodal content
+	if blocks, ok := msg.GetContentAsBlocks(); ok {
+		var openaiContent []openai.ChatMessagePart
+		for _, block := range blocks {
+			switch block.Type {
+			case ContentText:
+				openaiContent = append(openaiContent, openai.ChatMessagePart{
+					Type: "text",
+					Text: block.Text,
+				})
+			case ContentImage:
+				// Convert Claude image format to OpenAI format
+				if block.Source != nil {
+					if sourceType, hasType := block.Source["type"]; hasType && sourceType == "base64" {
+						if mediaType, hasMediaType := block.Source["media_type"]; hasMediaType {
+							if data, hasData := block.Source["data"]; hasData {
+								imageURL := fmt.Sprintf("data:%v;base64,%v", mediaType, data)
+								openaiContent = append(openaiContent, openai.ChatMessagePart{
+									Type: "image_url",
 									ImageURL: &openai.ChatMessageImageURL{
-										URL: resultImageURL,
+										URL: imageURL,
 									},
 								})
 							}
 						}
 					}
 				}
-
-				// Set tool call ID for tool result messages
-				if contentBlock.OfToolResult.ToolUseID != "" {
-					openaiMsg.ToolCallID = contentBlock.OfToolResult.ToolUseID
-					// Tool result messages should have role "tool"
-					openaiMsg.Role = openai.ChatMessageRoleTool
-				}
-
-			} else if contentBlock.OfThinking != nil {
-				// Anthropic thinking blocks - OpenAI doesn't have direct equivalent
-				// Could be included as content or ignored
-				content += fmt.Sprintf("[Thinking: %s]", contentBlock.OfThinking.Thinking)
-			} else if contentBlock.OfRedactedThinking != nil {
-				// Redacted thinking - minimal representation
-				content += "[Redacted thinking content]"
-			} else if contentBlock.OfServerToolUse != nil {
-				// Server tool use - similar to tool use but for server-side tools
-				// Convert to function call format
-				toolCall := openai.ToolCall{
-					ID:   contentBlock.OfServerToolUse.ID,
-					Type: openai.ToolTypeFunction,
-					Function: openai.FunctionCall{
-						Name: string(contentBlock.OfServerToolUse.Name), // ServerToolUseBlockParamName is a string type
-					},
-				}
-
-				if contentBlock.OfServerToolUse.Input != nil {
-					if inputBytes, err := json.Marshal(contentBlock.OfServerToolUse.Input); err == nil {
-						toolCall.Function.Arguments = string(inputBytes)
-					}
-				}
-
-				toolCalls = append(toolCalls, toolCall)
 			}
 		}
 
-		// Add tool calls to message if any
-		if len(toolCalls) > 0 {
-			openaiMsg.ToolCalls = toolCalls
-		} // Set content only if we don't have MultiContent
-		if len(openaiMsg.MultiContent) == 0 && content != "" {
-			openaiMsg.Content = content
-		} else if len(openaiMsg.MultiContent) > 0 && content != "" {
-			// Add text content as first part if we have both text and images
-			textPart := openai.ChatMessagePart{
-				Type: openai.ChatMessagePartTypeText,
-				Text: content,
-			}
-			openaiMsg.MultiContent = append([]openai.ChatMessagePart{textPart}, openaiMsg.MultiContent...)
+		if len(openaiContent) == 1 && openaiContent[0].Type == "text" {
+			return &openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: openaiContent[0].Text,
+			}, nil
 		}
-
-		messages = append(messages, openaiMsg)
+		return &openai.ChatCompletionMessage{
+			Role:         openai.ChatMessageRoleUser,
+			MultiContent: openaiContent,
+		}, nil
 	}
 
-	result.Messages = messages
-
-	// Convert Tools
-	if len(req.Tools) > 0 {
-		tools := make([]openai.Tool, 0, len(req.Tools))
-
-		for _, tool := range req.Tools {
-			if tool.OfTool != nil {
-				openaiTool := openai.Tool{
-					Type: openai.ToolTypeFunction,
-					Function: &openai.FunctionDefinition{
-						Name: tool.OfTool.Name,
-					},
-				}
-
-				// Convert Description (param.Opt[string] -> string)
-				if tool.OfTool.Description.Valid() {
-					openaiTool.Function.Description = tool.OfTool.Description.Or("")
-				}
-
-				// Convert InputSchema from Anthropic format to OpenAI jsonschema format
-				if tool.OfTool.InputSchema.Properties != nil || tool.OfTool.InputSchema.Required != nil {
-					schema := &jsonschema.Definition{
-						Type:     jsonschema.Object,
-						Required: tool.OfTool.InputSchema.Required,
-					}
-
-					// Convert properties from map[string]interface{} to jsonschema.Definition
-					if propMap, ok := tool.OfTool.InputSchema.Properties.(map[string]interface{}); ok {
-						schema.Properties = make(map[string]jsonschema.Definition)
-						for propName, propValue := range propMap {
-							if propMap, ok := propValue.(map[string]interface{}); ok {
-								propDef := jsonschema.Definition{}
-								if typeVal, exists := propMap["type"]; exists {
-									if typeStr, ok := typeVal.(string); ok {
-										propDef.Type = jsonschema.DataType(typeStr)
-									}
-								}
-								if desc, exists := propMap["description"]; exists {
-									if descStr, ok := desc.(string); ok {
-										propDef.Description = descStr
-									}
-								}
-								schema.Properties[propName] = propDef
-							}
-						}
-					}
-
-					openaiTool.Function.Parameters = schema
-				}
-
-				tools = append(tools, openaiTool)
-			}
-			// Handle other tool types (bash, text_editor, web_search) as needed
-		}
-
-		result.Tools = tools
-	}
-
-	// Convert ToolChoice
-	if !param.IsOmitted(req.ToolChoice.OfAuto) {
-		result.ToolChoice = &openai.ToolChoice{
-			Type: openai.ToolTypeFunction,
-		}
-	} else if !param.IsOmitted(req.ToolChoice.OfTool) {
-		result.ToolChoice = &openai.ToolChoice{
-			Type: openai.ToolTypeFunction,
-			Function: openai.ToolFunction{
-				Name: req.ToolChoice.OfTool.Name,
-			},
-		}
-	}
-
-	// Handle Metadata - OpenAI has a different metadata structure
-	if req.Metadata.UserID.Valid() {
-		// OpenAI metadata is map[string]string, so convert accordingly
-		if result.Metadata == nil {
-			result.Metadata = make(map[string]string)
-		}
-		if userID := req.Metadata.UserID.Or(""); userID != "" {
-			result.Metadata["user_id"] = userID
-		}
-	}
-
-	// Note: Some Anthropic-specific fields don't have direct OpenAI equivalents:
-	// - Thinking: OpenAI doesn't have thinking configuration
-	// - ServiceTier: Different service tier models in OpenAI
-	// - Container: Anthropic-specific container reuse feature
-	// - MCPServers: Anthropic-specific Model Context Protocol servers
-
-	// Debug: Print marshaled JSON for debugging
-	// if reqJSON, err := json.MarshalIndent(req, "", "  "); err == nil {
-	// 	fmt.Printf("Anthropic Request JSON:\n%s\n", string(reqJSON))
-	// }
-
-	// if resultJSON, err := json.MarshalIndent(result, "", "  "); err == nil {
-	// 	fmt.Printf("OpenAI Request JSON:\n%s\n", string(resultJSON))
-	// }
-
-	return result, nil
+	return &openai.ChatCompletionMessage{
+		Role:    openai.ChatMessageRoleUser,
+		Content: "",
+	}, nil
 }
 
-// OpenAIToAnthropicRespMessage converts OpenAI ChatCompletionResponse to Anthropic Message
-//
-// This function provides comprehensive conversion from OpenAI's response format to Anthropic's
-// message format, handling content types and preserving semantic meaning where possible.
-//
-// Content Type Conversions:
-// 1. Text content: Direct conversion from OpenAI message content to Anthropic text blocks
-// 2. Tool calls: OpenAI function calls converted to Anthropic tool_use blocks
-// 3. Tool messages: OpenAI tool role messages converted to Anthropic tool_result blocks
-// 4. MultiContent: Images and text parts converted to appropriate Anthropic content blocks
-//
-// Response Field Mappings:
-// - ID: Direct mapping from OpenAI response ID
-// - Model: Direct string conversion
-// - Role: Always "assistant" for Anthropic responses
-// - StopReason: Mapped from OpenAI FinishReason with semantic equivalents
-// - StopSequence: Extracted from OpenAI if available
-// - Usage: Token counts mapped with appropriate field conversions
-//
-// Limitations:
-// - OpenAI's multiple choices are flattened to single choice (index 0)
-// - Some OpenAI-specific features (reasoning_content, logprobs) are not converted
-// - Complex multi-choice responses lose additional choices beyond the first
-func OpenAIToAnthropicRespMessage(resp *openai.ChatCompletionResponse) (*anthropic.Message, error) {
-	if resp == nil {
-		return nil, nil
+// convertClaudeAssistantMessage converts Claude assistant message to OpenAI format
+// This is a precise translation of the Python convert_claude_assistant_message function
+func convertClaudeAssistantMessage(msg *ClaudeMessage) (*openai.ChatCompletionMessage, error) {
+	var textParts []string
+	var toolCalls []openai.ToolCall
+
+	if msg.Content == nil {
+		return &openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: "",
+		}, nil
 	}
 
-	// Handle empty choices
-	if len(resp.Choices) == 0 {
-		return nil, fmt.Errorf("OpenAI response has no choices")
+	if contentStr, ok := msg.GetContentAsString(); ok {
+		return &openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleAssistant,
+			Content: contentStr,
+		}, nil
 	}
 
-	// Use the first choice (OpenAI can have multiple choices, Anthropic typically has one)
-	choice := resp.Choices[0]
-	message := choice.Message
-
-	// Build content blocks from OpenAI message
-	var contentBlocks []anthropic.ContentBlockUnion
-
-	// Handle tool calls first (they appear in assistant messages)
-	if len(message.ToolCalls) > 0 {
-		for _, toolCall := range message.ToolCalls {
-			// Parse the arguments JSON
-			var input interface{}
-			if toolCall.Function.Arguments != "" {
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &input); err != nil {
-					// If parsing fails, use the raw string
-					input = toolCall.Function.Arguments
+	if blocks, ok := msg.GetContentAsBlocks(); ok {
+		for _, block := range blocks {
+			switch block.Type {
+			case ContentText:
+				textParts = append(textParts, block.Text)
+			case ContentToolUse:
+				inputJSON, err := json.Marshal(block.Input)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal tool input: %w", err)
 				}
+				toolCalls = append(toolCalls, openai.ToolCall{
+					ID:   block.ID,
+					Type: ToolFunction,
+					Function: openai.FunctionCall{
+						Name:      block.Name,
+						Arguments: string(inputJSON),
+					},
+				})
 			}
+		}
+	}
 
-			// Create tool use block
-			contentBlock := anthropic.ContentBlockUnion{
-				Type:  "tool_use",
-				ID:    toolCall.ID,
-				Name:  toolCall.Function.Name,
-				Input: json.RawMessage(toolCall.Function.Arguments),
+	openaiMessage := &openai.ChatCompletionMessage{
+		Role: openai.ChatMessageRoleAssistant,
+	}
+
+	// Set content
+	if len(textParts) > 0 {
+		openaiMessage.Content = strings.Join(textParts, "")
+	} else {
+		openaiMessage.Content = ""
+		// Note: In OpenAI Go SDK, empty content for tool calls should be empty string, not nil
+	}
+
+	// Set tool calls
+	if len(toolCalls) > 0 {
+		openaiMessage.ToolCalls = toolCalls
+	}
+
+	return openaiMessage, nil
+}
+
+// convertClaudeToolResults converts Claude tool results to OpenAI format
+// This is a precise translation of the Python convert_claude_tool_results function
+func convertClaudeToolResults(msg *ClaudeMessage) ([]openai.ChatCompletionMessage, error) {
+	var toolMessages []openai.ChatCompletionMessage
+
+	if blocks, ok := msg.GetContentAsBlocks(); ok {
+		for _, block := range blocks {
+			if block.Type == ContentToolResult {
+				content, err := parseToolResultContent(block.Content)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse tool result content: %w", err)
+				}
+				toolMessages = append(toolMessages, openai.ChatCompletionMessage{
+					Role:       openai.ChatMessageRoleTool,
+					Content:    content,
+					ToolCallID: block.ToolUseID,
+				})
 			}
-			contentBlocks = append(contentBlocks, contentBlock)
 		}
 	}
 
-	// Handle MultiContent (images and text parts)
-	if len(message.MultiContent) > 0 {
-		for _, part := range message.MultiContent {
-			switch part.Type {
-			case openai.ChatMessagePartTypeText:
-				if part.Text != "" {
-					contentBlock := anthropic.ContentBlockUnion{
-						Type: "text",
-						Text: part.Text,
-					}
-					contentBlocks = append(contentBlocks, contentBlock)
-				}
-			case openai.ChatMessagePartTypeImageURL:
-				// Note: Anthropic's response format doesn't typically include images
-				// in assistant responses, but we'll convert it for completeness
-				if part.ImageURL != nil && part.ImageURL.URL != "" {
-					contentBlock := anthropic.ContentBlockUnion{
-						Type: "text",
-						Text: fmt.Sprintf("[Image: %s]", part.ImageURL.URL),
-					}
-					contentBlocks = append(contentBlocks, contentBlock)
-				}
-			}
-		}
-	} else if message.Content != "" {
-		// Handle simple text content
-		// Check if it contains thinking patterns from our conversion
-		content := message.Content
+	return toolMessages, nil
+}
 
-		// Parse thinking blocks if they exist (from our own conversion)
-		if strings.Contains(content, "[Thinking: ") {
-			parts := strings.Split(content, "[Thinking: ")
-			if len(parts) > 1 {
-				// Add initial text if any
-				if parts[0] != "" {
-					contentBlock := anthropic.ContentBlockUnion{
-						Type: "text",
-						Text: parts[0],
-					}
-					contentBlocks = append(contentBlocks, contentBlock)
-				}
+// parseToolResultContent parses and normalizes tool result content into a string format
+// This is a precise translation of the Python parse_tool_result_content function
+func parseToolResultContent(content interface{}) (string, error) {
+	if content == nil {
+		return "No content provided", nil
+	}
 
-				// Process thinking blocks
-				for i := 1; i < len(parts); i++ {
-					if endIdx := strings.Index(parts[i], "]"); endIdx != -1 {
-						thinkingContent := parts[i][:endIdx]
-						remainingContent := parts[i][endIdx+1:]
+	if contentStr, ok := content.(string); ok {
+		return contentStr, nil
+	}
 
-						// Add thinking block
-						contentBlock := anthropic.ContentBlockUnion{
-							Type:      "thinking",
-							Signature: "converted_from_openai",
-							Thinking:  thinkingContent,
+	if contentList, ok := content.([]interface{}); ok {
+		var resultParts []string
+		for _, item := range contentList {
+			if itemDict, ok := item.(map[string]interface{}); ok {
+				if itemType, hasType := itemDict["type"]; hasType && itemType == ContentText {
+					if text, hasText := itemDict["text"]; hasText {
+						if textStr, ok := text.(string); ok {
+							resultParts = append(resultParts, textStr)
 						}
-						contentBlocks = append(contentBlocks, contentBlock)
+					}
+				} else if text, hasText := itemDict["text"]; hasText {
+					if textStr, ok := text.(string); ok {
+						resultParts = append(resultParts, textStr)
+					}
+				} else {
+					jsonBytes, err := json.Marshal(itemDict)
+					if err != nil {
+						resultParts = append(resultParts, fmt.Sprintf("%v", item))
+					} else {
+						resultParts = append(resultParts, string(jsonBytes))
+					}
+				}
+			} else if itemStr, ok := item.(string); ok {
+				resultParts = append(resultParts, itemStr)
+			} else {
+				resultParts = append(resultParts, fmt.Sprintf("%v", item))
+			}
+		}
+		return strings.TrimSpace(strings.Join(resultParts, "\n")), nil
+	}
 
-						// Add remaining text if any
-						if remainingContent != "" {
-							contentBlock = anthropic.ContentBlockUnion{
-								Type: "text",
-								Text: remainingContent,
+	if contentDict, ok := content.(map[string]interface{}); ok {
+		if contentType, hasType := contentDict["type"]; hasType && contentType == ContentText {
+			if text, hasText := contentDict["text"]; hasText {
+				if textStr, ok := text.(string); ok {
+					return textStr, nil
+				}
+			}
+		}
+		jsonBytes, err := json.Marshal(contentDict)
+		if err != nil {
+			return fmt.Sprintf("%v", content), nil
+		}
+		return string(jsonBytes), nil
+	}
+
+	return fmt.Sprintf("%v", content), nil
+}
+
+// ConvertOpenAIToClaudeResponse converts OpenAI response to Claude format
+// This is a precise translation of the Python convert_openai_to_claude_response function
+func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, originalRequest *ClaudeMessagesRequest) (map[string]interface{}, error) {
+	// Extract response data
+	choices, hasChoices := openaiResponse["choices"]
+	if !hasChoices {
+		return nil, fmt.Errorf("no choices in OpenAI response")
+	}
+
+	choicesList, ok := choices.([]interface{})
+	if !ok || len(choicesList) == 0 {
+		return nil, fmt.Errorf("no choices in OpenAI response")
+	}
+
+	choice, ok := choicesList[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid choice format in OpenAI response")
+	}
+
+	message, hasMessage := choice["message"]
+	if !hasMessage {
+		return nil, fmt.Errorf("no message in OpenAI choice")
+	}
+
+	messageMap, ok := message.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid message format in OpenAI choice")
+	}
+
+	// Build Claude content blocks
+	var contentBlocks []map[string]interface{}
+
+	// Add text content
+	textContent, hasTextContent := messageMap["content"]
+	if hasTextContent && textContent != nil {
+		if textStr, ok := textContent.(string); ok && textStr != "" {
+			contentBlocks = append(contentBlocks, map[string]interface{}{
+				"type": ContentText,
+				"text": textStr,
+			})
+		}
+	}
+
+	// Add tool calls
+	toolCalls, hasToolCalls := messageMap["tool_calls"]
+	if hasToolCalls && toolCalls != nil {
+		if toolCallsList, ok := toolCalls.([]interface{}); ok {
+			for _, toolCall := range toolCallsList {
+				if toolCallMap, ok := toolCall.(map[string]interface{}); ok {
+					if toolType, hasType := toolCallMap["type"]; hasType && toolType == ToolFunction {
+						if functionData, hasFunction := toolCallMap[ToolFunction]; hasFunction {
+							if functionMap, ok := functionData.(map[string]interface{}); ok {
+								var arguments map[string]interface{}
+								if argsStr, hasArgs := functionMap["arguments"]; hasArgs {
+									if argsString, ok := argsStr.(string); ok {
+										if err := json.Unmarshal([]byte(argsString), &arguments); err != nil {
+											// If JSON parsing fails, use raw arguments
+											arguments = map[string]interface{}{
+												"raw_arguments": argsString,
+											}
+										}
+									}
+								}
+								if arguments == nil {
+									arguments = make(map[string]interface{})
+								}
+
+								toolID, _ := toolCallMap["id"].(string)
+								if toolID == "" {
+									toolID = fmt.Sprintf("tool_%s", generateUUID())
+								}
+
+								functionName, _ := functionMap["name"].(string)
+
+								contentBlocks = append(contentBlocks, map[string]interface{}{
+									"type":  ContentToolUse,
+									"id":    toolID,
+									"name":  functionName,
+									"input": arguments,
+								})
 							}
-							contentBlocks = append(contentBlocks, contentBlock)
 						}
 					}
 				}
 			}
-		} else {
-			// Simple text content
-			contentBlock := anthropic.ContentBlockUnion{
-				Type: "text",
-				Text: content,
-			}
-			contentBlocks = append(contentBlocks, contentBlock)
 		}
 	}
 
-	// Handle reasoning content if present (DeepSeek specific)
-	if message.ReasoningContent != "" {
-		contentBlock := anthropic.ContentBlockUnion{
-			Type:      "thinking",
-			Signature: "reasoning_from_openai",
-			Thinking:  message.ReasoningContent,
-		}
-		contentBlocks = append(contentBlocks, contentBlock)
+	// Ensure at least one content block
+	if len(contentBlocks) == 0 {
+		contentBlocks = append(contentBlocks, map[string]interface{}{
+			"type": ContentText,
+			"text": "",
+		})
 	}
 
-	// Convert FinishReason to StopReason
-	var stopReason anthropic.StopReason
-	switch choice.FinishReason {
-	case openai.FinishReasonStop:
-		stopReason = anthropic.StopReasonEndTurn
-	case openai.FinishReasonLength:
-		stopReason = anthropic.StopReasonMaxTokens
-	case openai.FinishReasonFunctionCall, openai.FinishReasonToolCalls:
-		stopReason = anthropic.StopReasonToolUse
-	case openai.FinishReasonContentFilter:
-		stopReason = anthropic.StopReasonRefusal
+	// Map finish reason
+	finishReason, _ := choice["finish_reason"].(string)
+	stopReason := StopEndTurn
+	switch finishReason {
+	case "stop":
+		stopReason = StopEndTurn
+	case "length":
+		stopReason = StopMaxTokens
+	case "tool_calls", "function_call":
+		stopReason = StopToolUse
 	default:
-		stopReason = anthropic.StopReasonEndTurn
+		stopReason = StopEndTurn
 	}
 
-	// Convert Usage
-	usage := anthropic.Usage{
-		InputTokens:  int64(resp.Usage.PromptTokens),
-		OutputTokens: int64(resp.Usage.CompletionTokens),
-		// Set cache tokens to 0 as OpenAI doesn't provide this info
-		CacheCreationInputTokens: 0,
-		CacheReadInputTokens:     0,
-		// Set server tool use to default values
-		ServerToolUse: anthropic.ServerToolUsage{},
-		// Default service tier
-		ServiceTier: anthropic.UsageServiceTierStandard,
+	// Extract usage information
+	var inputTokens, outputTokens int
+	if usage, hasUsage := openaiResponse["usage"]; hasUsage {
+		if usageMap, ok := usage.(map[string]interface{}); ok {
+			if promptTokens, hasPrompt := usageMap["prompt_tokens"]; hasPrompt {
+				if tokens, ok := promptTokens.(float64); ok {
+					inputTokens = int(tokens)
+				}
+			}
+			if completionTokens, hasCompletion := usageMap["completion_tokens"]; hasCompletion {
+				if tokens, ok := completionTokens.(float64); ok {
+					outputTokens = int(tokens)
+				}
+			}
+		}
 	}
 
-	// Create the Anthropic Message
-	anthropicMessage := &anthropic.Message{
-		ID:           resp.ID,
-		Content:      contentBlocks,
-		Model:        anthropic.Model(resp.Model),
-		Role:         "assistant", // constant.Assistant
-		StopReason:   stopReason,
-		StopSequence: "",        // OpenAI doesn't typically provide the actual stop sequence
-		Type:         "message", // constant.Message
-		Usage:        usage,
+	// Build Claude response
+	responseID, _ := openaiResponse["id"].(string)
+	if responseID == "" {
+		responseID = fmt.Sprintf("msg_%s", generateUUID())
 	}
 
-	// Debug: Print marshaled JSON for debugging
-	// if respJSON, err := json.MarshalIndent(resp, "", "  "); err == nil {
-	// 	fmt.Printf("OpenAI Response JSON:\n%s\n", string(respJSON))
-	// }
+	claudeResponse := map[string]interface{}{
+		"id":            responseID,
+		"type":          "message",
+		"role":          RoleAssistant,
+		"model":         originalRequest.Model,
+		"content":       contentBlocks,
+		"stop_reason":   stopReason,
+		"stop_sequence": nil,
+		"usage": map[string]interface{}{
+			"input_tokens":  inputTokens,
+			"output_tokens": outputTokens,
+		},
+	}
 
-	// if anthropicJSON, err := json.MarshalIndent(anthropicMessage, "", "  "); err == nil {
-	// 	fmt.Printf("Anthropic Message JSON:\n%s\n", string(anthropicJSON))
-	// }
+	return claudeResponse, nil
+}
 
-	return anthropicMessage, nil
+// generateUUID generates a simple UUID-like string
+// Note: This is a simplified implementation since we don't have external UUID library
+func generateUUID() string {
+	// This is a simplified UUID generation - in production, use a proper UUID library
+	// For now, using a combination of timestamp and random-like string
+	return fmt.Sprintf("%x", []byte(fmt.Sprintf("%d", len(fmt.Sprintf("%p", &[]int{})))))[:8]
+}
+
+// StreamingConversionState holds state for streaming conversion
+type StreamingConversionState struct {
+	MessageID        string
+	TextBlockIndex   int
+	ToolBlockCounter int
+	CurrentToolCalls map[int]*ToolCallState
+	FinalStopReason  string
+}
+
+// ToolCallState tracks the state of a tool call during streaming
+type ToolCallState struct {
+	ID          string
+	Name        string
+	ArgsBuffer  string
+	JSONSent    bool
+	ClaudeIndex *int
+	Started     bool
 }

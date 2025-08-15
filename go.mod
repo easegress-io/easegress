@@ -12,7 +12,7 @@ require (
 	github.com/ArthurHlt/go-eureka-client v1.1.0
 	github.com/MicahParks/keyfunc v1.9.0
 	github.com/Shopify/sarama v1.38.1
-	github.com/anthropics/anthropic-sdk-go v1.6.2
+	github.com/anthropics/anthropic-sdk-go v1.8.0
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/dave/jennifer v1.7.0
 	github.com/eclipse/paho.mqtt.golang v1.4.3
@@ -172,7 +172,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
-	github.com/tidwall/gjson v1.14.4 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect

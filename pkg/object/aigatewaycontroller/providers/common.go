@@ -65,6 +65,9 @@ func prepareRequest(pc *aicontext.Context, mapper RequestMapper) (request *http.
 	for k, v := range pc.Provider.Headers {
 		req.Header.Set(k, v)
 	}
+
+	// req.Header.Set("Accept-Encoding", "identity")
+
 	return req, err
 }
 
