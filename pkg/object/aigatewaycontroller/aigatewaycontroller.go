@@ -20,7 +20,6 @@ package aigatewaycontroller
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -327,15 +326,15 @@ func (agc *AIGatewayController) processResult(ctx *context.Context, aiCtx *aicon
 			Duration:   endTime - startTime,
 		}
 
-		var v interface{}
-		err := json.Unmarshal(fc.RespBody, &v)
-		if err != nil {
-			logger.Errorf("failed to unmarshal Claude response: %v", err)
-			return
-		}
-		respJSONBody, _ := json.MarshalIndent(v, "", "  ")
-		fmt.Printf("#######Claude response %s\n", respJSONBody)
-		fmt.Printf("---------")
+		// var v interface{}
+		// err := json.Unmarshal(fc.RespBody, &v)
+		// if err != nil {
+		// 	logger.Errorf("failed to unmarshal Claude response: %v", err)
+		// 	return
+		// }
+		// respJSONBody, _ := json.MarshalIndent(v, "", "  ")
+		// fmt.Printf("#######Claude response %s\n", respJSONBody)
+		// fmt.Printf("---------")
 
 		for _, cb := range aiCtx.Callbacks() {
 			func() {

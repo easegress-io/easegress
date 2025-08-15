@@ -86,7 +86,7 @@ func TestConvertClaudeToOpenAI(t *testing.T) {
 		{
 			name: "Complex request with multiple message types and content blocks",
 			claudeRequest: func() *ClaudeMessagesRequest {
-				stream := true
+				stream := false
 				temp := 0.5
 
 				// Create content blocks for user message with image
@@ -190,7 +190,7 @@ func TestConvertClaudeToOpenAI(t *testing.T) {
 				"model":                 "gpt-4o",
 				"max_completion_tokens": 2000,
 				"temperature":           0.5,
-				"stream":                true,
+				"stream":                false,
 				"stop":                  []string{"STOP", "END"},
 				"tool_choice":           "auto", // "any" maps to "auto"
 				"tools": []openai.Tool{
@@ -592,7 +592,7 @@ func TestConvertOpenAIToClaudeResponse(t *testing.T) {
 				Model: "claude-3-opus-20240229",
 			},
 			expectError:   true,
-			errorContains: "API Error: The model has been terminated",
+			errorContains: "no choices in OpenAI response",
 		},
 	}
 

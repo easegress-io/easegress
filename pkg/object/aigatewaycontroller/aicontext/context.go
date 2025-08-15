@@ -389,6 +389,8 @@ func (c *Context) adaptNonStreamingRespToAnthropic() {
 	c.resp.BodyBytes = convertedBytes
 	c.resp.BodyReader = nil
 	c.resp.ContentLength = int64(len(convertedBytes))
+	// NOTICE: Precise header Content-Length is critical for claude client.
+	c.resp.Header.Set("Content-Length", fmt.Sprintf("%d", c.resp.ContentLength))
 }
 
 // convertOpenAIChunkToAnthropic converts an OpenAI streaming chunk to Anthropic event format

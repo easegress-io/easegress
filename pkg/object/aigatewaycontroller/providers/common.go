@@ -66,7 +66,7 @@ func prepareRequest(pc *aicontext.Context, mapper RequestMapper) (request *http.
 		req.Header.Set(k, v)
 	}
 
-	// req.Header.Set("Accept-Encoding", "identity")
+	req.Header.Set("Accept-Encoding", "identity")
 
 	return req, err
 }

@@ -161,14 +161,14 @@ func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) 
 	reqBody, _ := io.ReadAll(req.Body)
 	req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
-	var v interface{}
-	err := json.Unmarshal(reqBody, &v)
-	if err != nil {
-		logger.Errorf("failed to unmarshal OpenAI request: %v", err)
-		return
-	}
-	respJSONBody, _ := json.MarshalIndent(v, "", "  ")
-	fmt.Printf("#######OpenAI request %s\n", respJSONBody)
+	// var v interface{}
+	// err := json.Unmarshal(reqBody, &v)
+	// if err != nil {
+	// 	logger.Errorf("failed to unmarshal OpenAI request: %v", err)
+	// 	return
+	// }
+	// respJSONBody, _ := json.MarshalIndent(v, "", "  ")
+	// fmt.Printf("#######OpenAI request %s\n", respJSONBody)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

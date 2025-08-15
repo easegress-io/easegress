@@ -40,7 +40,7 @@ var GlobalAnthropicConfig = NewAnthropicConfig()
 func NewAnthropicConfig() *AnthropicConfig {
 	return &AnthropicConfig{
 		// Token limits - matching Python constants
-		MinTokensLimit: getEnvAsInt("MIN_TOKENS_LIMIT", 128000),
+		MinTokensLimit: getEnvAsInt("MIN_TOKENS_LIMIT", 12800),
 		MaxTokensLimit: getEnvAsInt("MAX_TOKENS_LIMIT", 128000),
 
 		// Model mappings - can be overridden by environment

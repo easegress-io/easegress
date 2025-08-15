@@ -1,4 +1,4 @@
-package aicontext
+package main
 
 import (
 	"bytes"
@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/aicontext"
 )
 
 // DemoServer implements a test server that transforms Anthropic API requests to OpenAI
@@ -19,14 +20,22 @@ type DemoServer struct {
 	router      *mux.Router
 	openAIHost  string
 	openAIKey   string
-	config      *AnthropicConfig
-	modelMapper ModelManager
+	config      *aicontext.AnthropicConfig
+	modelMapper aicontext.ModelManager
 	server      *http.Server
 }
 
+// Helper functions for environment variable parsing
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 func NewDemoServer(openAIHost, openAIKey string) *DemoServer {
-	config := NewAnthropicConfig()
-	modelMapper := NewDefaultModelManager()
+	config := aicontext.NewAnthropicConfig()
+	modelMapper := aicontext.NewDefaultModelManager()
 
 	// Use environment API key if provided one is empty
 	if openAIKey == "" {
@@ -80,7 +89,7 @@ func (s *DemoServer) handleMessages(w http.ResponseWriter, r *http.Request) {
 	r.Body.Close()
 
 	// Parse Claude request
-	var claudeReq ClaudeMessagesRequest
+	var claudeReq aicontext.ClaudeMessagesRequest
 	if err := json.Unmarshal(claudeReqBody, &claudeReq); err != nil {
 		http.Error(w, fmt.Sprintf("Error parsing Claude request: %v", err), http.StatusBadRequest)
 		return
@@ -91,7 +100,7 @@ func (s *DemoServer) handleMessages(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Claude Request:\n%s\n\n", claudeReqPretty)
 
 	// Convert to OpenAI format
-	openAIReq, err := ConvertClaudeToOpenAI(&claudeReq, s.modelMapper, s.config)
+	openAIReq, err := aicontext.ConvertClaudeToOpenAI(&claudeReq, s.modelMapper, s.config)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error converting to OpenAI format: %v", err), http.StatusInternalServerError)
 		return
@@ -142,7 +151,7 @@ func (s *DemoServer) handleMessages(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("OpenAI Response:\n%s\n\n", openAIRespPretty)
 
 	// Convert back to Claude format
-	claudeResp, err := ConvertOpenAIToClaudeResponse(openAIRespMap, &claudeReq)
+	claudeResp, err := aicontext.ConvertOpenAIToClaudeResponse(openAIRespMap, &claudeReq)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error converting to Claude format: %v", err), http.StatusInternalServerError)
 		return
@@ -158,12 +167,7 @@ func (s *DemoServer) handleMessages(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(claudeResp)
 }
 
-// TestDemoServer starts a demo server for manual testing
-func TestDemoServer(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping test in short mode")
-	}
-
+func main() {
 	// Use empty API key - the user will provide their own
 	openAIKey := ""
 
