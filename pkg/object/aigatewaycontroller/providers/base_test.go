@@ -87,7 +87,7 @@ func TestBaseProvider(t *testing.T) {
 		resp := aiCtx.GetResponse()
 		assert.Equal(200, resp.StatusCode)
 
-		data, err := io.ReadAll(resp.BodyReader)
+		data := resp.BodyBytes
 		assert.Nil(err)
 		metrics := aiCtx.ParseMetricFn(&aicontext.FinishContext{
 			StatusCode: resp.StatusCode,
@@ -130,7 +130,7 @@ func TestBaseProvider(t *testing.T) {
 		resp := aiCtx.GetResponse()
 		assert.Equal(200, resp.StatusCode)
 
-		data, err := io.ReadAll(resp.BodyReader)
+		data := resp.BodyBytes
 		assert.Nil(err)
 		metrics := aiCtx.ParseMetricFn(&aicontext.FinishContext{
 			StatusCode: resp.StatusCode,
@@ -330,5 +330,4 @@ func getStreamBody(model string, content string) []any {
 		},
 	})
 	return res
-
 }

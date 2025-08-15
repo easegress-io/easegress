@@ -26,12 +26,10 @@ import (
 	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/metricshub"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
-
-	anthropic "github.com/anthropics/anthropic-sdk-go"
-	openai "github.com/sashabaranov/go-openai"
 )
 
 // ResponseType defines the type of response for AI requests.
@@ -99,11 +97,12 @@ type (
 		Provider *ProviderSpec
 
 		// Req is the original request from the user. It's body is in ReqBody.
-		Req       *httpprot.Request
-		ReqBody   []byte
-		ReqInfo   *protocol.GeneralRequest
-		OpenAIReq map[string]any
-		RespType  ResponseType
+		Req                   *httpprot.Request
+		ReqBody               []byte
+		ReqInfo               *protocol.GeneralRequest
+		OpenAIReq             map[string]any
+		RespType              ResponseType
+		ClaudeMessagesRequest *ClaudeMessagesRequest
 
 		// ParseMetricFn is a function that parses the response body to a metric.
 		// If it is sent, it will be called to parse the response body to a metric.
@@ -145,7 +144,7 @@ func New(ctx *context.Context, provider *ProviderSpec) (*Context, error) {
 	// request body
 	body, err := io.ReadAll(req.GetPayload())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read request body: %w", err)
 	}
 
 	c := &Context{
@@ -241,13 +240,14 @@ func (c *Context) adaptReqInOpenAIFormat() error {
 		}
 	}
 
-	var req anthropic.MessageNewParams
+	var req ClaudeMessagesRequest
 	err := json.Unmarshal(c.ReqBody, &req)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal request body: %w", err)
 	}
 
-	openAIReq, err := AnthropicReqMessageToOpenAI(&req)
+	c.ClaudeMessagesRequest = &req
+	openAIReq, err := ConvertClaudeToOpenAI(&req, GlobalModelManager, GlobalAnthropicConfig)
 	if err != nil {
 		return fmt.Errorf("failed to convert Anthropic message to OpenAI request: %w", err)
 	}
@@ -365,16 +365,16 @@ func (c *Context) adaptNonStreamingRespToAnthropic() {
 		return
 	}
 
-	// Try to parse as OpenAI ChatCompletionResponse
-	var openaiResp openai.ChatCompletionResponse
+	var openaiResp map[string]interface{}
 	if err := json.Unmarshal(bodyBytes, &openaiResp); err != nil {
-		// If not an OpenAI response, leave as-is
+		logger.Errorf("failed to parse OpenAI response: %v", err)
 		return
 	}
 
 	// Convert to Anthropic Message format using existing function
-	anthropicMsg, err := OpenAIToAnthropicRespMessage(&openaiResp)
-	if err != nil || anthropicMsg == nil {
+	anthropicMsg, err := ConvertOpenAIToClaudeResponse(openaiResp, c.ClaudeMessagesRequest)
+	if err != nil {
+		logger.Errorf("failed to convert OpenAI response to Anthropic format: %v", err)
 		return
 	}
 
@@ -389,6 +389,8 @@ func (c *Context) adaptNonStreamingRespToAnthropic() {
 	c.resp.BodyBytes = convertedBytes
 	c.resp.BodyReader = nil
 	c.resp.ContentLength = int64(len(convertedBytes))
+	// NOTICE: Precise header Content-Length is critical for claude client.
+	c.resp.Header.Set("Content-Length", fmt.Sprintf("%d", c.resp.ContentLength))
 }
 
 // convertOpenAIChunkToAnthropic converts an OpenAI streaming chunk to Anthropic event format
