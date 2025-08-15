@@ -20,21 +20,32 @@ package rules
 import (
 	"fmt"
 	"net/netip"
+	"sync"
+	"sync/atomic"
 
 	"github.com/corazawaf/coraza/v3/types"
 	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/oschwald/geoip2-golang/v2"
+	"github.com/robfig/cron/v3"
 )
 
 type (
 	// GeoIPBlocker defines a WAF GeoIP blocking rule.
 	GeoIPBlocker struct {
-		spec             *protocol.GeoIPBlockerSpec
-		db               *geoip2.Reader
+		spec *protocol.GeoIPBlockerSpec
+
+		dbLock sync.RWMutex
+		db     *geoip2.Reader
+
+		cron *cron.Cron
+
 		allowedCountries map[string]struct{}
 		deniedCountries  map[string]struct{}
+
+		closed atomic.Bool
 	}
 )
 
@@ -64,7 +75,11 @@ func (rule *GeoIPBlocker) GetPreprocessor() protocol.PreWAFProcessor {
 				Result:       protocol.ResultError,
 			}
 		}
+
+		rule.dbLock.RLock()
 		record, err := rule.db.Country(ip)
+		rule.dbLock.RUnlock()
+
 		if err != nil {
 			return &protocol.WAFResult{
 				Interruption: nil,
@@ -112,12 +127,52 @@ func (rule *GeoIPBlocker) init(ruleSpec protocol.Rule) error {
 	for _, country := range rule.spec.DeniedCountries {
 		rule.deniedCountries[country] = struct{}{}
 	}
+
+	if rule.spec.DBUpdateCron != "" {
+		c := cron.New()
+		_, err := c.AddFunc(rule.spec.DBUpdateCron, func() {
+			newDB, err := geoip2.Open(rule.spec.DBPath)
+			if err != nil {
+				logger.Errorf("failed to update GeoIP database: %v", err)
+				return
+			}
+
+			rule.dbLock.Lock()
+			defer rule.dbLock.Unlock()
+			if rule.closed.Load() {
+				newDB.Close()
+				return
+			}
+			oldDB := rule.db
+			rule.db = newDB
+
+			if oldDB != nil {
+				oldDB.Close()
+			}
+		})
+		if err != nil {
+			rule.db.Close()
+			return err
+		}
+
+		c.Start()
+		rule.cron = c
+	}
+
 	return nil
 }
 
 func (rule *GeoIPBlocker) Close() {
+	rule.closed.Store(true)
+	if rule.cron != nil {
+		rule.cron.Stop()
+	}
+
+	rule.dbLock.Lock()
+	defer rule.dbLock.Unlock()
 	if rule.db != nil {
 		rule.db.Close()
+		rule.db = nil
 	}
 }
 
