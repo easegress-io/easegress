@@ -162,4 +162,64 @@ ruleGroups:
 		result := p.Handle(ctx)
 		assert.Equal(string(protocol.ResultOk), result)
 	}
+
+	{
+		controllerConfig := `
+kind: WAFController
+name: waf-controller
+ruleGroups:
+  - name: sqlinjection
+    rules:
+      ipBlocker:
+        whitelist:
+          - 136.252.0.2/32
+`
+
+		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+		spec, err := super.NewSpec(controllerConfig)
+		assert.Nil(err, "Failed to create WAFController spec")
+
+		controller := wafcontroller.WAFController{}
+		controller.Init(spec)
+
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test", nil)
+		assert.Nil(err, "Failed to create HTTP request")
+		req.RemoteAddr = "136.252.0.2:12345"
+		req.Header.Set("X-Forwarded-For", "136.252.0.2")
+		req.Header.Set("X-Real-IP", "136.252.0.2")
+
+		setRequest(t, ctx, "controller", req)
+		result := p.Handle(ctx)
+		assert.Equal(string(protocol.ResultOk), result, "Expected request to pass through WAF with IPBlocker rules")
+	}
+
+	{
+		controllerConfig := `
+kind: WAFController
+name: waf-controller
+ruleGroups:
+  - name: sqlinjection
+    rules:
+      ipBlocker:
+        blacklist:
+          - 158.160.2.1/32
+`
+
+		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+		spec, err := super.NewSpec(controllerConfig)
+		assert.Nil(err, "Failed to create WAFController spec")
+
+		controller := wafcontroller.WAFController{}
+		controller.Init(spec)
+
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test", nil)
+		assert.Nil(err, "Failed to create HTTP request")
+		req.RemoteAddr = "158.160.2.1:12345"
+		req.Header.Set("X-Forwarded-For", "158.160.2.1")
+		req.Header.Set("X-Real-IP", "158.160.2.1")
+
+		setRequest(t, ctx, "controller", req)
+		result := p.Handle(ctx)
+		assert.Equal(string(protocol.ResultBlocked), result, "Expected request to pass through WAF with IPBlocker rules")
+	}
 }
