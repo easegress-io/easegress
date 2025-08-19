@@ -48,7 +48,21 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestWaf(t *testing.T) {
+const crsSetupConf = `
+SecDefaultAction "phase:1,log,auditlog,pass"
+SecDefaultAction "phase:2,log,auditlog,pass"
+SecAction \
+    "id:900990,\
+    phase:1,\
+    pass,\
+    t:none,\
+    nolog,\
+    tag:'OWASP_CRS',\
+    ver:'OWASP_CRS/4.16.0',\
+    setvar:tx.crs_setup_version=4160"
+`
+
+func TestWafOwaspRules(t *testing.T) {
 	assert := assert.New(t)
 	yamlConfig := `
 kind: WAF
@@ -109,5 +123,43 @@ ruleGroups:
 		assert.Equal(http.StatusInternalServerError, resp.StatusCode(), "Expected status code to be 500 Internal Server Error")
 
 		controller.Close()
+	}
+
+	{
+		controllerConfig := `
+kind: WAFController
+name: waf-controller
+ruleGroups:
+  - name: sqlinjection
+    rules:
+      owaspRules:
+        - REQUEST-901-INITIALIZATION.conf
+        - REQUEST-942-APPLICATION-ATTACK-SQLI.conf
+        - REQUEST-949-BLOCKING-EVALUATION.conf
+      customRules: |
+        SecDefaultAction "phase:1,log,auditlog,pass"
+        SecDefaultAction "phase:2,log,auditlog,pass"
+        SecAction \
+             "id:900990,\
+             phase:1,\
+             pass,\
+             t:none,\
+             nolog,\
+             tag:'OWASP_CRS',\
+             ver:'OWASP_CRS/4.16.0',\
+             setvar:tx.crs_setup_version=4160"
+`
+
+		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+		spec, err := super.NewSpec(controllerConfig)
+		assert.Nil(err, "Failed to create WAFController spec")
+		controller := wafcontroller.WAFController{}
+		controller.Init(spec)
+
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test?email=alice@example.com", nil)
+		assert.Nil(err, "Failed to create HTTP request")
+		setRequest(t, ctx, "controller", req)
+		result := p.Handle(ctx)
+		assert.Equal(string(protocol.ResultOk), result)
 	}
 }
