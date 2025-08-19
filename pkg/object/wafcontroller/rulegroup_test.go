@@ -18,8 +18,11 @@
 package wafcontroller
 
 import (
+	"bytes"
 	"fmt"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strings"
 	"testing"
 
@@ -31,6 +34,8 @@ import (
 
 func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	err = httpreq.FetchPayload(1024 * 1024)
 	assert.Nil(t, err)
 	ctx.SetRequest(ns, httpreq)
 	ctx.UseNamespace(ns)
@@ -1175,6 +1180,127 @@ func TestBotDetectionRules(t *testing.T) {
 	}
 }
 
+func TestMultiPartRules(t *testing.T) {
+	assert := assert.New(t)
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-922-MULTIPART-ATTACK.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	t.Run("922100 global _charset_ not allowed", func(t *testing.T) {
+		body := &bytes.Buffer{}
+		w := multipart.NewWriter(body)
+		_ = w.SetBoundary("----WebKitFormBoundary7MA4YWxkTrZu0gW")
+		err := w.WriteField("_charset_", "utf-16")
+		assert.Nil(err)
+		_ = w.Close()
+
+		req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", bytes.NewReader(body.Bytes()))
+		assert.Nil(err)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+
+		setRequest(t, ctx, "922100", req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption, "should be blocked by 922100")
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	})
+
+	t.Run("922110 invalid charset in part Content-Type", func(t *testing.T) {
+		body := &bytes.Buffer{}
+		w := multipart.NewWriter(body)
+		_ = w.SetBoundary("----WebKitFormBoundary7MA4YWxkTrZu0gW")
+
+		h := textproto.MIMEHeader{}
+		h.Set("Content-Disposition", `form-data; name="file"; filename="test.txt"`)
+		h.Set("Content-Type", `text/plain; charset=invalid-charset`)
+		part, err := w.CreatePart(h)
+		assert.Nil(err)
+		_, _ = part.Write([]byte("Test content"))
+		_ = w.Close()
+
+		req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", bytes.NewReader(body.Bytes()))
+		assert.Nil(err)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+
+		setRequest(t, ctx, "922110", req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption, "should be blocked by 922110")
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	})
+
+	t.Run("922120 deprecated Content-Transfer-Encoding", func(t *testing.T) {
+		body := &bytes.Buffer{}
+		w := multipart.NewWriter(body)
+		_ = w.SetBoundary("----WebKitFormBoundary7MA4YWxkTrZu0gW")
+
+		h := textproto.MIMEHeader{}
+		h.Set("Content-Disposition", `form-data; name="file"; filename="test.txt"`)
+		h.Set("Content-Type", "text/plain")
+		h.Set("Content-Transfer-Encoding", "base64")
+		part, err := w.CreatePart(h)
+		assert.Nil(err)
+		_, _ = part.Write([]byte("VGVzdCBjb250ZW50"))
+		_ = w.Close()
+
+		req, err := http.NewRequest(http.MethodPost, "http://127.0.0.1:8080/upload", bytes.NewReader(body.Bytes()))
+		assert.Nil(err)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+
+		setRequest(t, ctx, "922120", req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption, "should be blocked by 922120")
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	})
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		assert.Nil(err)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
+		req.Header.Set("Referer", "http://127.0.0.1/")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("DNT", "1")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
 // https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
 // coraza corerule set example set up
 const crsSetupConf = `
@@ -1227,6 +1353,8 @@ const crsSetupConf = `
 #
 # Please refer to the INSTALL file for detailed installation instructions.
 #
+
+SecRequestBodyAccess On
 
 
 #
