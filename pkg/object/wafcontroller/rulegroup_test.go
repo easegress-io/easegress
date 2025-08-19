@@ -1437,6 +1437,225 @@ func TestLocalFileInclusionRules(t *testing.T) {
 	}
 }
 
+func TestGenericAttacks(t *testing.T) {
+	assert := assert.New(t)
+
+	type testCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+	}
+
+	testCases := []testCase{
+		{
+			Name:   "934100_NodeJS_RCE_eval",
+			Method: "GET",
+			URL:    "/search?q=eval(%27alert(1)%27)",
+			Headers: map[string]string{
+				"Accept": "text/html",
+			},
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — contains eval(",
+		},
+		{
+			Name:   "934100_NodeJS_RCE_require_process",
+			Method: "GET",
+			URL:    "/api?cmd=require('child_process').exec('id')",
+			Headers: map[string]string{
+				"Accept": "application/json",
+			},
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — require('child_process').exec(",
+		},
+		{
+			Name:        "934100_NodeJS_console_error",
+			Method:      "GET",
+			URL:         "/x?log=console.error('boom')",
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — console.error(",
+		},
+		{
+			Name:        "934100_NodeJS_Function_constructor",
+			Method:      "GET",
+			URL:         "/run?code=new%20Function('return%20process.env')()",
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — new Function(",
+		},
+		{
+			Name:        "934110_SSRF_Metadata_AWS",
+			Method:      "GET",
+			URL:         "/fetch?u=http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+			RuleID:      "934110",
+			Description: "SSRF — cloud metadata URL (AWS)",
+		},
+		{
+			Name:        "934110_SSRF_Metadata_GCP",
+			Method:      "GET",
+			URL:         "/fetch?u=http://metadata.google.internal/computeMetadata/v1/",
+			RuleID:      "934110",
+			Description: "SSRF — cloud metadata URL (GCP)",
+		},
+		{
+			Name:        "934120_SSRF_IPv6_literal",
+			Method:      "GET",
+			URL:         "/crawl?url=http://[::1]/",
+			RuleID:      "934120",
+			Description: "SSRF — URL with IPv6 literal",
+		},
+		{
+			Name:        "934130_JS_Proto_Pollution_constructor_prototype",
+			Method:      "GET",
+			URL:         "/p?constructor.prototype.polluted=1",
+			RuleID:      "934130",
+			Description: "JavaScript Prototype Pollution — constructor.prototype",
+		},
+		{
+			Name:   "934130_JS_Proto_Pollution_Cookie",
+			Method: "GET",
+			URL:    "/",
+			Cookies: map[string]string{
+				"__proto__": "x",
+			},
+			RuleID:      "934130",
+			Description: "JavaScript Prototype Pollution — cookie key __proto__",
+		},
+		{
+			Name:        "934150_Ruby_Process_spawn",
+			Method:      "GET",
+			URL:         "/r?code=Process.spawn('id')",
+			RuleID:      "934150",
+			Description: "Ruby Injection — Process.spawn(",
+		},
+		{
+			Name:        "934160_Node_DoS_while_true",
+			Method:      "GET",
+			URL:         "/eval?js=while(true){}",
+			RuleID:      "934160",
+			Description: "Node.js DoS — while(true){}",
+		},
+		{
+			Name:        "934160_Node_DoS_while_not_false",
+			Method:      "GET",
+			URL:         "/eval?js=while(!false){/*busy*/}",
+			RuleID:      "934160",
+			Description: "Node.js DoS — while(!false)",
+		},
+		{
+			Name:        "934170_PHP_data_scheme_simple",
+			Method:      "GET",
+			URL:         "/load?src=data:text/plain,hello",
+			RuleID:      "934170",
+			Description: "PHP data scheme — data: with MIME",
+		},
+		{
+			Name:        "934170_PHP_data_scheme_charset",
+			Method:      "GET",
+			URL:         "/load?src=data:text/html;charset=utf-8,%3Cb%3Ehi%3C/b%3E",
+			RuleID:      "934170",
+			Description: "PHP data scheme — data: with charset",
+		},
+		{
+			Name:        "934100_Encoded_js_String_fromCharCode",
+			Method:      "GET",
+			URL:         "/q?x=String.fromCharCode(97,108,101,114,116)",
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — String.fromCharCode(",
+		},
+		{
+			Name:        "934100_Base64_child_process_exec",
+			Method:      "GET",
+			URL:         "/q?b=cmVxdWlyZSgnY2hpbGRfcHJvY2Vzc ycpLmV4ZWMoJ2lkJyk=",
+			RuleID:      "934100",
+			Description: "Node.js Injection 1/2 — base64 payload; rule applies base64Decode",
+		},
+		{
+			Name:        "934170_URLDecoded_data_scheme",
+			Method:      "GET",
+			URL:         "/open?x=data%3Atext%2Fplain%3Bcharset%3Dutf-8%2CHello",
+			RuleID:      "934170",
+			Description: "PHP data scheme — URL-decoded by t:urlDecodeUni",
+		},
+		{
+			Name:        "934130_ProtoPollution_Bracket",
+			Method:      "GET",
+			URL:         "/p?%5B__proto__%5D%5Bpolluted%5D=1",
+			RuleID:      "934130",
+			Description: "JavaScript Prototype Pollution — bracket notation __proto__",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-934-APPLICATION-ATTACK-GENERIC.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range testCases {
+		fmt.Println("Testing case:", tc.Name)
+		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
+		req.Header.Set("Referer", "http://127.0.0.1/")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("DNT", "1")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
 // https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
 // coraza corerule set example set up
 const crsSetupConf = `
