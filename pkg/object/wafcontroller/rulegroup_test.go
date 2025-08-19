@@ -1301,6 +1301,142 @@ func TestMultiPartRules(t *testing.T) {
 	}
 }
 
+func TestLocalFileInclusionRules(t *testing.T) {
+	assert := assert.New(t)
+
+	type testCase struct {
+		Name        string
+		Method      string
+		URL         string
+		Headers     map[string]string
+		Cookies     map[string]string
+		RuleID      string
+		Description string
+	}
+
+	testCases := []testCase{
+		{
+			Name:        "930100_path_traversal_encoded_dotdot",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/download?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+			RuleID:      "930100",
+			Description: "Path traversal via encoded ../ sequences in query param to access /etc/passwd",
+		},
+		{
+			Name:        "930100_path_traversal_mixed_slashes",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/api/v1/..%2f..%5cwindows%5cwin.ini",
+			RuleID:      "930100",
+			Description: "Path traversal using mixed separators and encodings to reach Windows file",
+		},
+		{
+			Name:        "930110_path_traversal_plain_dotdot",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/view?path=../../../../var/log/auth.log",
+			RuleID:      "930110",
+			Description: "Simple ../ traversal in query parameter",
+		},
+		{
+			Name:        "930110_path_traversal_with_semicolons",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/read;../../../../etc/hosts",
+			RuleID:      "930110",
+			Description: "Traversal using semicolon separators",
+		},
+		{
+			Name:   "930120_os_file_access_in_cookie",
+			Method: http.MethodGet,
+			URL:    "http://127.0.0.1:8080/profile",
+			Cookies: map[string]string{
+				"lastPath": "/proc/self/environ",
+			},
+			RuleID:      "930120",
+			Description: "OS file keyword in REQUEST_COOKIES",
+		},
+		{
+			Name:        "930130_restricted_file_access",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/.htaccess",
+			RuleID:      "930130",
+			Description: "Direct request to restricted file (REQUEST_FILENAME)",
+		},
+		{
+			Name:        "930130_restricted_dot_git",
+			Method:      http.MethodGet,
+			URL:         "http://127.0.0.1:8080/.git/config",
+			RuleID:      "930130",
+			Description: "Attempt to access VCS metadata under /.git/",
+		},
+	}
+
+	customRules := protocol.CustomsSpec(crsSetupConf)
+
+	owaspRules := protocol.OwaspRulesSpec{
+		"REQUEST-901-INITIALIZATION.conf",
+		"REQUEST-930-APPLICATION-ATTACK-LFI.conf",
+		"REQUEST-949-BLOCKING-EVALUATION.conf",
+	}
+	spec := &protocol.RuleGroupSpec{
+		Name: "testGroup",
+		Rules: protocol.RuleSpec{
+			OwaspRules: &owaspRules,
+			Customs:    &customRules,
+		},
+	}
+	ruleGroup, err := newRuleGroup(spec)
+	assert.Nil(err, "Failed to create rule group")
+	ctx := context.New(nil)
+
+	for _, tc := range testCases {
+		fmt.Println("Testing case:", tc.Name)
+		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
+		assert.Nil(err, "Failed to create request", tc)
+
+		for key, value := range tc.Headers {
+			req.Header.Set(key, value)
+		}
+
+		for name, value := range tc.Cookies {
+			req.AddCookie(&http.Cookie{Name: name, Value: value})
+		}
+		setRequest(t, ctx, tc.Name, req)
+		result := ruleGroup.Handle(ctx)
+		assert.NotNil(result.Interruption)
+		assert.Equal(http.StatusForbidden, result.Interruption.Status)
+		assert.Equal(protocol.ResultBlocked, result.Result)
+	}
+
+	allowedUrls := []string{
+		"/test?id=123",
+		"/test?id=hello",
+		"/test?id=alice&foo=bar",
+		"/test?id=2025-08-07",
+		"/test?user=alice&search=book",
+		"/test?category=electronics&page=2",
+		"/test?email=alice@example.com",
+		"/test?price=19.99",
+		"/test?name=张三",
+		"/test?comment=nice+post",
+	}
+	for _, u := range allowedUrls {
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
+		req.Header.Set("Referer", "http://127.0.0.1/")
+		req.Header.Set("Connection", "keep-alive")
+		req.Header.Set("Cache-Control", "max-age=0")
+		req.Header.Set("Upgrade-Insecure-Requests", "1")
+		req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+		req.Header.Set("DNT", "1")
+		req.Header.Set("X-Requested-With", "XMLHttpRequest")
+		assert.Nil(err)
+		setRequest(t, ctx, u, req)
+		result := ruleGroup.Handle(ctx)
+		assert.Equal(protocol.ResultOk, result.Result)
+	}
+}
+
 // https://github.com/corazawaf/coraza-coreruleset/blob/main/rules/%40crs-setup.conf.example
 // coraza corerule set example set up
 const crsSetupConf = `
