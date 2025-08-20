@@ -222,4 +222,65 @@ ruleGroups:
 		result := p.Handle(ctx)
 		assert.Equal(string(protocol.ResultBlocked), result, "Expected request to pass through WAF with IPBlocker rules")
 	}
+	{
+		controllerConfig := `
+kind: WAFController
+name: waf-controller
+ruleGroups:
+  - name: sqlinjection
+    rules:
+      geoIPBlocker:
+        dbPath: ./testdata/Country.mmdb
+        allowedCountries:
+          - CN
+`
+
+		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+		spec, err := super.NewSpec(controllerConfig)
+		assert.Nil(err, "Failed to create WAFController spec")
+
+		controller := wafcontroller.WAFController{}
+		controller.Init(spec)
+
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test", nil)
+		assert.Nil(err, "Failed to create HTTP request")
+		req.RemoteAddr = "124.232.149.1"
+		req.Header.Set("X-Forwarded-For", "124.232.149.1")
+		req.Header.Set("X-Real-IP", "124.232.149.1")
+
+		setRequest(t, ctx, "controller", req)
+		result := p.Handle(ctx)
+		assert.Equal(string(protocol.ResultOk), result, "Expected request to be blocked by GeoIPBlocker rules")
+	}
+
+	{
+		controllerConfig := `
+kind: WAFController
+name: waf-controller
+ruleGroups:
+  - name: sqlinjection
+    rules:
+      geoIPBlocker:
+        dbPath: ./testdata/Country.mmdb
+        deniedCountries:
+          - CN
+`
+
+		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+		spec, err := super.NewSpec(controllerConfig)
+		assert.Nil(err, "Failed to create WAFController spec")
+
+		controller := wafcontroller.WAFController{}
+		controller.Init(spec)
+
+		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test", nil)
+		assert.Nil(err, "Failed to create HTTP request")
+		req.RemoteAddr = "124.232.149.1"
+		req.Header.Set("X-Forwarded-For", "124.232.149.1")
+		req.Header.Set("X-Real-IP", "124.232.149.1")
+
+		setRequest(t, ctx, "controller", req)
+		result := p.Handle(ctx)
+		assert.Equal(string(protocol.ResultBlocked), result, "Expected request to be blocked by GeoIPBlocker rules")
+	}
 }
