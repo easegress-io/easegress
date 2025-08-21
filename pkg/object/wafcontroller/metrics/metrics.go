@@ -30,7 +30,7 @@ type (
 		TotalRefusedRequest int64
 		RuleGroup           string
 		RuleID              string
-		Source              string
+		Action              string
 	}
 
 	metricEvent struct {
@@ -51,7 +51,7 @@ type (
 	MetricLabels struct {
 		RuleGroup string
 		RuleID    string
-		Source    string
+		Action    string
 	}
 
 	MetricDetails struct {
@@ -75,7 +75,7 @@ func NewMetrics(spec *supervisor.Spec) *MetricHub {
 		// common labels
 		"kind", "clusterName", "clusterRole", "instanceName",
 		// metric labels
-		"ruleGroup", "ruleID", "source",
+		"ruleGroup", "ruleID", "action",
 	}
 	hub := &MetricHub{
 		TotalRefusedRequests: prometheushelper.NewCounter(
@@ -114,7 +114,7 @@ func (m *MetricHub) updateMetrics(metric *Metric) {
 	labels := MetricLabels{
 		RuleGroup: metric.RuleGroup,
 		RuleID:    metric.RuleID,
-		Source:    metric.Source,
+		Action:    metric.Action,
 	}
 	var details *MetricDetails
 	if _, exists := m.stats[labels]; !exists {
@@ -159,7 +159,7 @@ func (m *MetricHub) Update(metric *Metric) {
 	labels := prometheus.Labels{
 		"ruleGroup": metric.RuleGroup,
 		"ruleID":    metric.RuleID,
-		"source":    metric.Source,
+		"action":    metric.Action,
 	}
 
 	m.TotalRefusedRequests.With(labels).Inc()

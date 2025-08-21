@@ -246,7 +246,7 @@ func (waf *WAFController) Handle(ctx *context.Context, ruleGroupName string) str
 			waf.metricHub.Update(&metrics.Metric{
 				RuleGroup: ruleGroupName,
 				RuleID:    strconv.Itoa(result.Interruption.RuleID),
-				Source:    result.Interruption.Data,
+				Action:    result.Interruption.Action,
 			})
 		}
 		waf.setWafErrResponse(ctx, result)
