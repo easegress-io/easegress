@@ -76,7 +76,7 @@ type (
 
 	GeoIPBlockerSpec struct {
 		DBPath           string   `json:"dbPath" jsonschema:"required"`
-		DBUpdateCron     string   `json:"dbUpdateCron，omitempty"`
+		DBUpdateCron     string   `json:"dbUpdateCron,omitempty"`
 		AllowedCountries []string `json:"allowedCountries,omitempty"`
 		DeniedCountries  []string `json:"deniedCountries,omitempty"`
 	}
