@@ -67,7 +67,7 @@ func TestWafOwaspRules(t *testing.T) {
 	yamlConfig := `
 kind: WAF
 name: waf-test
-ruleGroupName: sqlinjection
+ruleGroupName: test-waf-group
 `
 	rawSpec := make(map[string]interface{})
 	codectool.MustUnmarshal([]byte(yamlConfig), &rawSpec)
@@ -100,7 +100,7 @@ ruleGroupName: sqlinjection
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       owaspRules:
         - REQUEST-901-INITIALIZATION.conf
@@ -130,7 +130,7 @@ ruleGroups:
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       owaspRules:
         - REQUEST-901-INITIALIZATION.conf
@@ -168,7 +168,7 @@ ruleGroups:
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       ipBlocker:
         whitelist:
@@ -198,7 +198,7 @@ ruleGroups:
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       ipBlocker:
         blacklist:
@@ -227,7 +227,7 @@ ruleGroups:
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       geoIPBlocker:
         dbPath: ./testdata/Country.mmdb
@@ -258,7 +258,7 @@ ruleGroups:
 kind: WAFController
 name: waf-controller
 ruleGroups:
-  - name: sqlinjection
+  - name: test-waf-group
     rules:
       geoIPBlocker:
         dbPath: ./testdata/Country.mmdb
