@@ -48,6 +48,15 @@ const (
 	ResultRuleGroupNotFoundError ResultError = "ruleGroupNotFoundError"
 )
 
+func GetResults() []string {
+	return []string{
+		string(protocol.ResultOk),
+		string(protocol.ResultBlocked),
+		string(protocol.ResultError),
+		string(ResultRuleGroupNotFoundError),
+	}
+}
+
 var (
 	aliases = []string{
 		"wafcontroller",
