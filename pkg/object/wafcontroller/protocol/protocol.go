@@ -105,9 +105,9 @@ const (
 	// ResultOk indicates that the request is allowed. In easegress, this is empty string.
 	ResultOk WAFResultType = ""
 	// ResultBlocked indicates that the request is blocked.
-	ResultBlocked WAFResultType = "Blocked"
+	ResultBlocked WAFResultType = "blocked"
 	// ResultError indicates that an internal error occurred while processing the request.
-	ResultError WAFResultType = "InternalError"
+	ResultError WAFResultType = "internalError"
 )
 
 var _ Rule = (*CustomsSpec)(nil)

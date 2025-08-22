@@ -51,7 +51,7 @@ type (
 var kind = &filters.Kind{
 	Name:        Kind,
 	Description: "Web Application Firewall (WAF) filter to protect web applications from attacks.",
-	Results:     []string{string(wafcontroller.ResultRuleGroupNotFoundError), resultNoController},
+	Results:     append([]string{resultNoController}, wafcontroller.GetResults()...),
 	DefaultSpec: func() filters.Spec {
 		return &Spec{}
 	},
