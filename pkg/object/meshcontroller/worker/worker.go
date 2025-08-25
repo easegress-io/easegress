@@ -20,6 +20,7 @@ package worker
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -176,7 +177,7 @@ func (worker *Worker) validate() error {
 	if len(worker.serviceName) == 0 {
 		errMsg := "empty service name"
 		logger.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	_, err = url.ParseRequestURI(worker.aliveProbe)
@@ -188,19 +189,19 @@ func (worker *Worker) validate() error {
 	if worker.applicationPort == 0 {
 		errMsg := "empty application port"
 		logger.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	if len(worker.instanceID) == 0 {
 		errMsg := "empty env HOSTNAME"
 		logger.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	if len(worker.applicationIP) == 0 {
 		errMsg := "empty env APPLICATION_IP"
 		logger.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 	logger.Infof("sidecar works for service: %s", worker.serviceName)
 	return nil
