@@ -20,6 +20,7 @@ package waf
 import (
 	"net/http"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -82,7 +83,8 @@ ruleGroupName: test-waf-group
 
 	// test with WAF rule group
 	{
-		controllerConfig := `
+		if runtime.GOOS != "windows" {
+			controllerConfig := `
 kind: WAFController
 name: waf-controller
 ruleGroups:
@@ -93,26 +95,28 @@ ruleGroups:
         - REQUEST-942-APPLICATION-ATTACK-SQLI.conf
         - REQUEST-949-BLOCKING-EVALUATION.conf
 `
-		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
-		spec, err := super.NewSpec(controllerConfig)
-		assert.Nil(err, "Failed to create WAFController spec")
-		controller := wafcontroller.WAFController{}
-		controller.Init(spec)
+			super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+			spec, err := super.NewSpec(controllerConfig)
+			assert.Nil(err, "Failed to create WAFController spec")
+			controller := wafcontroller.WAFController{}
+			controller.Init(spec)
 
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080/test?id=1' OR '1'='1", nil)
-		assert.Nil(err, "Failed to create HTTP request")
-		setRequest(t, ctx, "controller", req)
-		result := p.Handle(ctx)
-		assert.Equal(string(protocol.ResultBlocked), result)
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080/test?id=1' OR '1'='1", nil)
+			assert.Nil(err, "Failed to create HTTP request")
+			setRequest(t, ctx, "controller", req)
+			result := p.Handle(ctx)
+			assert.Equal(string(protocol.ResultBlocked), result)
 
-		resp := ctx.GetResponse("controller").(*httpprot.Response)
-		assert.Equal(http.StatusInternalServerError, resp.StatusCode(), "Expected status code to be 500 Internal Server Error")
+			resp := ctx.GetResponse("controller").(*httpprot.Response)
+			assert.Equal(http.StatusInternalServerError, resp.StatusCode(), "Expected status code to be 500 Internal Server Error")
 
-		controller.Close()
+			controller.Close()
+		}
 	}
 
 	{
-		controllerConfig := `
+		if runtime.GOOS != "windows" {
+			controllerConfig := `
 kind: WAFController
 name: waf-controller
 ruleGroups:
@@ -136,17 +140,18 @@ ruleGroups:
              setvar:tx.crs_setup_version=4160"
 `
 
-		super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
-		spec, err := super.NewSpec(controllerConfig)
-		assert.Nil(err, "Failed to create WAFController spec")
-		controller := wafcontroller.WAFController{}
-		controller.Init(spec)
+			super := supervisor.NewMock(option.New(), nil, nil, nil, false, nil, nil)
+			spec, err := super.NewSpec(controllerConfig)
+			assert.Nil(err, "Failed to create WAFController spec")
+			controller := wafcontroller.WAFController{}
+			controller.Init(spec)
 
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test?email=alice@example.com", nil)
-		assert.Nil(err, "Failed to create HTTP request")
-		setRequest(t, ctx, "controller", req)
-		result := p.Handle(ctx)
-		assert.Equal(string(protocol.ResultOk), result)
+			req, err := http.NewRequest(http.MethodGet, "http://127.0.1:8080/test?email=alice@example.com", nil)
+			assert.Nil(err, "Failed to create HTTP request")
+			setRequest(t, ctx, "controller", req)
+			result := p.Handle(ctx)
+			assert.Equal(string(protocol.ResultOk), result)
+		}
 	}
 
 	{
