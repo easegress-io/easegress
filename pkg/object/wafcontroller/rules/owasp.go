@@ -19,6 +19,7 @@ package rules
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 )
@@ -43,7 +44,8 @@ func (owasp *OwaspRules) Directives() string {
 	}
 	directives := ""
 	for _, rule := range *owasp.spec {
-		directives += fmt.Sprintf("Include @owasp_crs/%s\n", rule)
+		path := filepath.Join("@owasp_crs", rule)
+		directives += fmt.Sprintf("Include %s\n", path)
 	}
 	return directives
 }
