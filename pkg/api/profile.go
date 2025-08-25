@@ -98,7 +98,7 @@ func (s *Server) startCPUProfile(w http.ResponseWriter, r *http.Request) {
 
 	err = s.profile.UpdateCPUProfile(spr.Path)
 	if err != nil {
-		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf(err.Error()))
+		HandleAPIError(w, r, http.StatusBadRequest, err)
 		return
 	}
 }

@@ -114,7 +114,7 @@ func TestTlsConfig(t *testing.T) {
 	// NOTE: For loading system controller AutoCertManager.
 	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	defer os.RemoveAll(etcdDirName)
 
