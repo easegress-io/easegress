@@ -17,7 +17,7 @@ IMAGE_NAME?=megaease/easegress
 BUILDER_IMAGE_NAME?=megaease/golang:1.24-alpine
 
 # Version
-RELEASE?=v2.9.0
+RELEASE?=v2.9.4
 
 # Git Related
 GIT_REPO_INFO=$(shell cd ${MKFILE_DIR} && git config --get remote.origin.url)
