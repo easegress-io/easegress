@@ -186,7 +186,7 @@ func (m *MetricHub) Close() {
 		statsCh: nil,
 	})
 	close(m.eventCh)
-	m.eventCh = nil
+	// m.eventCh = nil
 	m.stats = nil
 	logger.Infof("WAF metrics closed for WAFController")
 }
