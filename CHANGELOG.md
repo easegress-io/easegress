@@ -1,5 +1,15 @@
 # Changelog
 
+## [v2.9.4](https://github.com/megaease/easegress/tree/v2.9.4) (2025-08-25)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.9.0...v2.9.4)
+
+**Implemented enhancements:**
+
+* Enhanced the AI Gateway with capability to translate Anthropic API calls into the OpenAI format to use OpenAI providers.
+* Integrated Web Application Firewall (WAF) support to provide an additional layer of security.
+
+
 ## [v2.9.0](https://github.com/megaease/easegress/tree/v2.9.0) (2025-06-20)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.8.0...v2.9.0)
