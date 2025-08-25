@@ -18,8 +18,10 @@
 package providers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -146,27 +148,58 @@ func (bp *BaseProvider) Handle(ctx *aicontext.Context) {
 }
 
 func (bp *BaseProvider) RequestMapper(pc *aicontext.Context) (string, []byte, error) {
-	return string(pc.RespType), pc.ReqBody, nil
+	respType := pc.RespType
+	// Change the response type from message to chat completion for Anthropic requests.
+	if respType == aicontext.ResponseTypeMessage {
+		respType = aicontext.ResponseTypeChatCompletions
+	}
+
+	return string(respType), pc.ReqBody, nil
 }
 
 func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) {
+	reqBody, _ := io.ReadAll(req.Body)
+	req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
+
+	// var v interface{}
+	// err := json.Unmarshal(reqBody, &v)
+	// if err != nil {
+	// 	logger.Errorf("failed to unmarshal OpenAI request: %v", err)
+	// 	return
+	// }
+	// respJSONBody, _ := json.MarshalIndent(v, "", "  ")
+	// fmt.Printf("#######OpenAI request %s\n", respJSONBody)
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		setErrResponse(ctx, http.StatusInternalServerError, err)
 		return
 	}
+
 	ctx.AddCallBack(func(*aicontext.FinishContext) {
 		resp.Body.Close()
 	})
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Errorf("failed to read response body: %v", err)
+	}
 
 	ctx.SetResponse(&aicontext.Response{
 		StatusCode:    resp.StatusCode,
 		ContentLength: resp.ContentLength,
 		Header:        resp.Header,
-		BodyReader:    resp.Body,
+		// BodyReader:    resp.Body,
+		BodyBytes: respBody,
 	})
 	if resp.StatusCode != http.StatusOK {
+		// fmt.Printf("------Error response from provider %s: %d\n header: %v\n body: %s\n",
+		// ctx.Provider.Name, resp.StatusCode, resp.Header, respBody)
+
 		ctx.Stop(aicontext.ResultProviderError)
+	} else {
+		// fmt.Printf("------Successful response from provider %s: %d\n header: %v body: %s\n",
+		// ctx.Provider.Name, resp.StatusCode, resp.Header, respBody)
 	}
 }
 
@@ -183,6 +216,9 @@ func (bp *BaseProvider) ParseTokens(ctx *aicontext.Context, fc *aicontext.Finish
 	}
 
 	switch ctx.RespType {
+	case aicontext.ResponseTypeMessage:
+		// The message body has already been transformed to OpenAI format.
+		return parseChatCompletions(openaiReq, fc.RespBody)
 	case aicontext.ResponseTypeCompletions:
 		return parseCompletions(openaiReq, fc.RespBody)
 	case aicontext.ResponseTypeChatCompletions:
