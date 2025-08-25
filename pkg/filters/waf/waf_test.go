@@ -48,20 +48,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-const crsSetupConf = `
-SecDefaultAction "phase:1,log,auditlog,pass"
-SecDefaultAction "phase:2,log,auditlog,pass"
-SecAction \
-    "id:900990,\
-    phase:1,\
-    pass,\
-    t:none,\
-    nolog,\
-    tag:'OWASP_CRS',\
-    ver:'OWASP_CRS/4.16.0',\
-    setvar:tx.crs_setup_version=4160"
-`
-
 func TestWafOwaspRules(t *testing.T) {
 	assert := assert.New(t)
 	yamlConfig := `
