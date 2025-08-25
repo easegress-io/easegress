@@ -311,7 +311,6 @@ require (
 	github.com/rickb777/date v1.20.5 // indirect
 	github.com/rickb777/plural v1.4.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/robfig/cron/v3 v3.0.1
 	github.com/sashabaranov/go-openai v1.40.5
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
