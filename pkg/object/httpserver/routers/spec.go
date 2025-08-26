@@ -64,18 +64,19 @@ type Rule struct {
 
 // Path is second level entry of router.
 type Path struct {
-	IPFilterSpec      *ipfilter.Spec `json:"ipFilter,omitempty"`
-	Path              string         `json:"path,omitempty" jsonschema:"pattern=^/"`
-	PathPrefix        string         `json:"pathPrefix,omitempty" jsonschema:"pattern=^/"`
-	PathRegexp        string         `json:"pathRegexp,omitempty" jsonschema:"format=regexp"`
-	RewriteTarget     string         `json:"rewriteTarget,omitempty"`
-	Methods           []string       `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
-	Backend           string         `json:"backend" jsonschema:"required"`
-	ClientMaxBodySize int64          `json:"clientMaxBodySize,omitempty"`
-	Headers           Headers        `json:"headers,omitempty"`
-	Queries           Queries        `json:"queries,omitempty"`
-	MatchAllHeader    bool           `json:"matchAllHeader,omitempty"`
-	MatchAllQuery     bool           `json:"matchAllQuery,omitempty"`
+	IPFilterSpec      *ipfilter.Spec    `json:"ipFilter,omitempty"`
+	Path              string            `json:"path,omitempty" jsonschema:"pattern=^/"`
+	PathPrefix        string            `json:"pathPrefix,omitempty" jsonschema:"pattern=^/"`
+	PathRegexp        string            `json:"pathRegexp,omitempty" jsonschema:"format=regexp"`
+	RewriteTarget     string            `json:"rewriteTarget,omitempty"`
+	Methods           []string          `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
+	Backend           string            `json:"backend" jsonschema:"required"`
+	ClientMaxBodySize int64             `json:"clientMaxBodySize,omitempty"`
+	Headers           Headers           `json:"headers,omitempty"`
+	Queries           Queries           `json:"queries,omitempty"`
+	MatchAllHeader    bool              `json:"matchAllHeader,omitempty"`
+	MatchAllQuery     bool              `json:"matchAllQuery,omitempty"`
+	SetHeaders        map[string]string `json:"setHeaders,omitempty"`
 
 	ipFilter             *ipfilter.IPFilter
 	method               MethodType
@@ -231,7 +232,22 @@ func (p *Path) AllowIP(ip string) bool {
 }
 
 // Match is the matching function of path.
-func (p *Path) Match(context *RouteContext) bool {
+func (p *Path) Match(context *RouteContext) (result bool) {
+	defer func() {
+		if result && len(p.SetHeaders) > 0 {
+			for k, v := range p.SetHeaders {
+				if v == "" {
+					context.Request.Header().Del(k)
+					continue
+				}
+
+				parsedVal := context.ParseNginxLikeVar(v)
+
+				context.Request.Header().Set(k, parsedVal)
+			}
+		}
+	}()
+
 	context.Cacheable = p.cacheable
 
 	if !p.matchable {
