@@ -16,3 +16,24 @@
  */
 
 package fileserver
+
+import (
+	"os"
+	"sync"
+
+	"golang.org/x/exp/mmap"
+
+	lru "github.com/hashicorp/golang-lru/v2"
+)
+
+type (
+	FileCacheEntry struct {
+		reader *mmap.ReaderAt
+		info   os.FileInfo
+	}
+)
+
+var (
+	fileCache *lru.Cache[string, *FileCacheEntry]
+	once      sync.Once
+)
