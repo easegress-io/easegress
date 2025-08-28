@@ -18,22 +18,153 @@
 package fileserver
 
 import (
+	"container/list"
 	"os"
 	"sync"
+	"time"
 
 	"golang.org/x/exp/mmap"
-
-	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 type (
-	FileCacheEntry struct {
-		reader *mmap.ReaderAt
-		info   os.FileInfo
+	FileEntry struct {
+		data     []byte
+		size     int64
+		expireAt time.Time
+	}
+
+	cacheItem struct {
+		key   string
+		entry *FileEntry
+	}
+
+	mmapReadSeeker struct {
+		r    *mmap.ReaderAt
+		size int64
+		pos  int64
+	}
+
+	BufferPool struct {
+		mu          sync.Mutex
+		cache       map[string]*list.Element
+		ll          *list.List
+		currentSize int64
+		maxSize     int64
+		maxFileSize int64
+		ttl         time.Duration
 	}
 )
 
-var (
-	fileCache *lru.Cache[string, *FileCacheEntry]
-	once      sync.Once
-)
+func NewBufferPool(maxSize, maxFileSize int64, ttl time.Duration) *BufferPool {
+	bp := &BufferPool{
+		cache:       make(map[string]*list.Element),
+		ll:          list.New(),
+		currentSize: 0,
+		maxSize:     maxSize,
+		maxFileSize: maxFileSize,
+		ttl:         ttl,
+	}
+	go bp.cleanup()
+	return bp
+}
+
+func (bp *BufferPool) cleanup() {
+	if bp.ttl <= 0 {
+		return
+	}
+	ticker := time.NewTicker(bp.ttl / 2)
+	defer ticker.Stop()
+	for range ticker.C {
+		now := time.Now()
+		bp.mu.Lock()
+		for e := bp.ll.Back(); e != nil; {
+			prev := e.Prev()
+			item := e.Value.(*cacheItem)
+			if now.After(item.entry.expireAt) {
+				bp.removeElement(e)
+			}
+			e = prev
+		}
+		bp.mu.Unlock()
+	}
+}
+
+func (bp *BufferPool) removeElement(e *list.Element) {
+	if e == nil {
+		return
+	}
+	item := e.Value.(*cacheItem)
+	delete(bp.cache, item.key)
+	bp.currentSize -= item.entry.size
+	bp.ll.Remove(e)
+}
+
+func (bp *BufferPool) removeOldest() {
+	e := bp.ll.Back()
+	if e != nil {
+		bp.removeElement(e)
+	}
+}
+
+func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error) {
+	bp.mu.Lock()
+	if ele, ok := bp.cache[path]; ok {
+		item := ele.Value.(*cacheItem)
+		if time.Now().Before(item.entry.expireAt) {
+			bp.ll.MoveToFront(ele)
+			d := item.entry.data
+			bp.mu.Unlock()
+			return d, true, nil
+		}
+		bp.removeElement(ele)
+	}
+	bp.mu.Unlock()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if info.Size() > bp.maxFileSize {
+		return nil, false, nil
+	}
+
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false, err
+	}
+	entry := &FileEntry{
+		data:     bs,
+		size:     info.Size(),
+		expireAt: time.Now().Add(bp.ttl),
+	}
+
+	bp.mu.Lock()
+	defer bp.mu.Unlock()
+
+	if ele, ok := bp.cache[path]; ok {
+		item := ele.Value.(*cacheItem)
+		if time.Now().Before(item.entry.expireAt) {
+			bp.ll.MoveToFront(ele)
+			return item.entry.data, true, nil
+		}
+		bp.removeElement(ele)
+	}
+
+	for bp.currentSize+entry.size > bp.maxSize {
+		if bp.ll.Len() == 0 {
+			break
+		}
+		bp.removeOldest()
+	}
+
+	if entry.size > bp.maxSize {
+		return bs, false, nil
+	}
+
+	ele := bp.ll.PushFront(&cacheItem{key: path, entry: entry})
+	bp.cache[path] = ele
+	bp.currentSize += entry.size
+
+	return entry.data, true, nil
+}
