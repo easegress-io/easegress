@@ -19,7 +19,11 @@ package fileserver
 
 import (
 	"container/list"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -167,4 +171,61 @@ func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error)
 	bp.currentSize += entry.size
 
 	return entry.data, true, nil
+}
+
+func (m *mmapReadSeeker) Read(p []byte) (int, error) {
+	if m.pos >= m.size {
+		return 0, io.EOF
+	}
+	n, err := m.r.ReadAt(p, m.pos)
+	m.pos += int64(n)
+	return n, err
+}
+
+func (m *mmapReadSeeker) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	case 0:
+		m.pos = offset
+	case 1:
+		m.pos += offset
+	case 2:
+		m.pos = m.size + offset
+	}
+	if m.pos < 0 {
+		m.pos = 0
+	}
+	if m.pos > m.size {
+		m.pos = m.size
+	}
+	return m.pos, nil
+}
+
+func fileHandler(w http.ResponseWriter, r *http.Request, pool *BufferPool) {
+	path := filepath.Clean("." + r.URL.Path)
+
+	data, _, err := pool.GetFile(path)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+	if data != nil {
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+		_, _ = w.Write(data)
+		return
+	}
+
+	rdr, err := mmap.Open(path)
+	if err != nil {
+		http.Error(w, "file not found", http.StatusNotFound)
+		return
+	}
+	defer rdr.Close()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		http.Error(w, "stat error", http.StatusInternalServerError)
+		return
+	}
+	rs := &mmapReadSeeker{r: rdr, size: info.Size(), pos: 0}
+	http.ServeContent(w, r, info.Name(), info.ModTime(), rs)
 }
