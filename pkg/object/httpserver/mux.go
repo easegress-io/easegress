@@ -30,7 +30,11 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/megaease/easegress/v2/pkg/api"
+	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/object/pipeline"
+	"github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/v2/pkg/object/globalfilter"
@@ -42,6 +46,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 	"github.com/megaease/easegress/v2/pkg/util/readers"
@@ -188,7 +193,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		tracer:             tracer,
 		accessLogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}
-	spec.Rules.Init()
+	spec.Rules.Init(superSpec.Name())
 	inst.router = routers.Create(routerKind, spec.Rules)
 
 	if spec.CacheSize > 0 {
@@ -198,7 +203,91 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		}
 		inst.cache = arc
 	}
+
+	m.reloadBackendPipelines(superSpec)
+
 	m.inst.Store(inst)
+}
+
+func (m *mux) reloadBackendPipelines(superSpec *supervisor.Spec) {
+	entity, exists := superSpec.Super().GetSystemController(trafficcontroller.Kind)
+	if !exists {
+		panic(fmt.Errorf("BUG: traffic controller not found"))
+	}
+
+	tc, ok := entity.Instance().(*trafficcontroller.TrafficController)
+	if !ok {
+		panic(fmt.Errorf("BUG: want *TrafficController, got %T", entity.Instance()))
+	}
+
+	spec := superSpec.ObjectSpec().(*Spec)
+
+	pipelineNames := map[string]struct{}{}
+	for ruleIndex, rule := range spec.Rules {
+		for pathIndex, path := range rule.Paths {
+			if path.BackendPool == nil {
+				continue
+			}
+
+			pipelineName := routers.GenerateBackendPoolPipeline(superSpec.Name(), ruleIndex, pathIndex)
+
+			pipelineSpec, err := m.newProxyPipelineSpec(pipelineName, path.BackendPool)
+			if err != nil {
+				logger.Errorf("BUG: new proxy pipeline spec failed: %v", err)
+				continue
+			}
+
+			tc.ApplyPipelineForSpec(api.DefaultNamespace, pipelineSpec)
+			logger.Debugf("httpserver %s apply backend pipeline %s", superSpec.Name(), pipelineName)
+			pipelineNames[pipelineName] = struct{}{}
+		}
+	}
+
+	pipelines := tc.ListPipelines(api.DefaultNamespace)
+	for _, pipeline := range pipelines {
+		name := pipeline.Spec().Name()
+		if !strings.HasPrefix(name, routers.BackendPoolPipelineNamePrefix(superSpec.Name())) {
+			continue
+		}
+		if _, exists := pipelineNames[name]; !exists {
+			tc.DeletePipeline(api.DefaultNamespace, name)
+			logger.Debugf("httpserver %s delete backend pipeline %s", superSpec.Name(), name)
+		}
+	}
+}
+
+func (m *mux) newProxyPipelineSpec(pipelineName string, pool *httpproxy.ServerPoolSpec) (*supervisor.Spec, error) {
+	proxyFilterName := "proxy"
+	proxyMap := map[string]interface{}{
+		"name":  proxyFilterName,
+		"kind":  "HTTPProxy",
+		"pools": []interface{}{pool},
+	}
+
+	pipelineSpec := map[string]interface{}{
+		"kind": "Pipeline",
+		"name": pipelineName,
+		"flow": []pipeline.FlowNode{{FilterName: proxyFilterName}},
+		"filters": []map[string]interface{}{
+			proxyMap,
+		},
+	}
+
+	pipelineConfig, err := codectool.MarshalYAML(pipelineSpec)
+	if err != nil {
+		err := fmt.Errorf("BUG: marshal pipeline spec failed: %v", err)
+		logger.Errorf("%v", err)
+		return nil, err
+	}
+
+	superSpec, err := supervisor.NewSpec(string(pipelineConfig))
+	if err != nil {
+		err := fmt.Errorf("BUG: create pipeline spec failed: %v", err)
+		logger.Errorf("%v", err)
+		return nil, err
+	}
+
+	return superSpec, nil
 }
 
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {

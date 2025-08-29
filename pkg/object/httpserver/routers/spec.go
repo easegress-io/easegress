@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
@@ -64,23 +65,25 @@ type Rule struct {
 
 // Path is second level entry of router.
 type Path struct {
-	IPFilterSpec      *ipfilter.Spec    `json:"ipFilter,omitempty"`
-	Path              string            `json:"path,omitempty" jsonschema:"pattern=^/"`
-	PathPrefix        string            `json:"pathPrefix,omitempty" jsonschema:"pattern=^/"`
-	PathRegexp        string            `json:"pathRegexp,omitempty" jsonschema:"format=regexp"`
-	RewriteTarget     string            `json:"rewriteTarget,omitempty"`
-	Methods           []string          `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
-	Backend           string            `json:"backend" jsonschema:"required"`
-	ClientMaxBodySize int64             `json:"clientMaxBodySize,omitempty"`
-	Headers           Headers           `json:"headers,omitempty"`
-	Queries           Queries           `json:"queries,omitempty"`
-	MatchAllHeader    bool              `json:"matchAllHeader,omitempty"`
-	MatchAllQuery     bool              `json:"matchAllQuery,omitempty"`
-	SetHeaders        map[string]string `json:"setHeaders,omitempty"`
+	IPFilterSpec      *ipfilter.Spec            `json:"ipFilter,omitempty"`
+	Path              string                    `json:"path,omitempty" jsonschema:"pattern=^/"`
+	PathPrefix        string                    `json:"pathPrefix,omitempty" jsonschema:"pattern=^/"`
+	PathRegexp        string                    `json:"pathRegexp,omitempty" jsonschema:"format=regexp"`
+	RewriteTarget     string                    `json:"rewriteTarget,omitempty"`
+	Methods           []string                  `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
+	Backend           string                    `json:"backend"`
+	BackendPool       *httpproxy.ServerPoolSpec `json:"backendPool"`
+	ClientMaxBodySize int64                     `json:"clientMaxBodySize,omitempty"`
+	Headers           Headers                   `json:"headers,omitempty"`
+	Queries           Queries                   `json:"queries,omitempty"`
+	MatchAllHeader    bool                      `json:"matchAllHeader,omitempty"`
+	MatchAllQuery     bool                      `json:"matchAllQuery,omitempty"`
+	SetHeaders        map[string]string         `json:"setHeaders,omitempty"`
 
-	ipFilter             *ipfilter.IPFilter
-	method               MethodType
-	cacheable, matchable bool
+	ipFilter                *ipfilter.IPFilter
+	method                  MethodType
+	cacheable, matchable    bool
+	backendPoolPipelineName string
 }
 
 // Headers represents the set of headers.
@@ -110,14 +113,14 @@ type Query struct {
 }
 
 // Init is the initialization portal for Rules.
-func (rules Rules) Init() {
-	for _, rule := range rules {
-		rule.Init()
+func (rules Rules) Init(serverName string) {
+	for i, rule := range rules {
+		rule.Init(serverName, i)
 	}
 }
 
 // Init is the initialization portal for Rule.
-func (rule *Rule) Init() {
+func (rule *Rule) Init(serverName string, ruleIndex int) {
 	if len(rule.Host) > 0 {
 		rule.Hosts = append(rule.Hosts, Host{Value: rule.Host})
 	}
@@ -154,8 +157,8 @@ func (rule *Rule) Init() {
 	}
 
 	rule.ipFilter = ipfilter.New(rule.IPFilterSpec)
-	for _, p := range rule.Paths {
-		p.Init(rule.ipFilter)
+	for pathIndex, p := range rule.Paths {
+		p.Init(rule.ipFilter, serverName, ruleIndex, pathIndex)
 	}
 }
 
@@ -190,8 +193,9 @@ func (rule *Rule) AllowIP(ip string) bool {
 }
 
 // Init is the initialization portal for Path
-func (p *Path) Init(parentIPFilter *ipfilter.IPFilter) {
+func (p *Path) Init(parentIPFilter *ipfilter.IPFilter, serverName string, ruleIndex, pathIndex int) {
 	p.ipFilter = ipfilter.New(p.IPFilterSpec)
+	p.backendPoolPipelineName = GenerateBackendPoolPipeline(serverName, ruleIndex, pathIndex)
 
 	p.Headers.init()
 	p.Queries.init()
@@ -283,7 +287,19 @@ func (p *Path) Match(context *RouteContext) (result bool) {
 
 // GetBackend is used to get the backend corresponding to the route.
 func (p *Path) GetBackend() string {
-	return p.Backend
+	if p.Backend != "" {
+		return p.Backend
+	}
+
+	return p.backendPoolPipelineName
+}
+
+func BackendPoolPipelineNamePrefix(serverName string) string {
+	return fmt.Sprintf("GENERATED-%s-", serverName)
+}
+
+func GenerateBackendPoolPipeline(serverName string, ruleIndex, pathIndex int) string {
+	return fmt.Sprintf("%s%d-%d", BackendPoolPipelineNamePrefix(serverName), ruleIndex, pathIndex)
 }
 
 // GetClientMaxBodySize is used to get the clientMaxBodySize corresponding to the route.
