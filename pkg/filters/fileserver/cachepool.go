@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/exp/mmap"
 )
 
@@ -46,6 +47,17 @@ type (
 		r    *mmap.ReaderAt
 		size int64
 		pos  int64
+	}
+
+	MmapEntry struct {
+		r    *mmap.ReaderAt
+		size int64
+		info os.FileInfo
+	}
+
+	MmapCache struct {
+		mu    sync.Mutex
+		cache *lru.Cache[string, *MmapEntry]
 	}
 
 	BufferPool struct {
@@ -173,6 +185,43 @@ func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error)
 	return entry.data, true, nil
 }
 
+func NewMmapCache(capacity int) *MmapCache {
+	onEvicate := func(key string, value *MmapEntry) {
+		if value != nil && value.r != nil {
+			_ = value.r.Close()
+		}
+	}
+	c, _ := lru.NewWithEvict[string, *MmapEntry](capacity, onEvicate)
+	mmc := &MmapCache{
+		cache: c,
+	}
+	return mmc
+}
+
+func (mc *MmapCache) Get(path string) (*MmapEntry, error) {
+	mc.mu.Lock()
+	if e, ok := mc.cache.Get(path); ok {
+		mc.mu.Unlock()
+		return e, nil
+	}
+	mc.mu.Unlock()
+
+	r, err := mmap.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	entry := &MmapEntry{r: r, size: info.Size(), info: info}
+
+	mc.mu.Lock()
+	mc.cache.Add(path, entry)
+	mc.mu.Unlock()
+	return entry, nil
+}
+
 func (m *mmapReadSeeker) Read(p []byte) (int, error) {
 	if m.pos >= m.size {
 		return 0, io.EOF
@@ -200,7 +249,7 @@ func (m *mmapReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return m.pos, nil
 }
 
-func fileHandler(w http.ResponseWriter, r *http.Request, pool *BufferPool) {
+func fileHandler(w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) {
 	path := filepath.Clean("." + r.URL.Path)
 
 	data, _, err := pool.GetFile(path)
@@ -214,18 +263,36 @@ func fileHandler(w http.ResponseWriter, r *http.Request, pool *BufferPool) {
 		return
 	}
 
+	var entry *MmapEntry
+	if mc == nil {
+		entry = withoutMmapCache(path, w)
+	} else {
+		entry, err = mc.Get(path)
+		if err != nil {
+			http.Error(w, "file not found", http.StatusNotFound)
+			return
+		}
+	}
+	if entry == nil {
+		return
+	}
+
+	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
+	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
+}
+
+func withoutMmapCache(path string, w http.ResponseWriter) *MmapEntry {
 	rdr, err := mmap.Open(path)
 	if err != nil {
 		http.Error(w, "file not found", http.StatusNotFound)
-		return
+		return nil
 	}
 	defer rdr.Close()
 
 	info, err := os.Stat(path)
 	if err != nil {
 		http.Error(w, "stat error", http.StatusInternalServerError)
-		return
+		return nil
 	}
-	rs := &mmapReadSeeker{r: rdr, size: info.Size(), pos: 0}
-	http.ServeContent(w, r, info.Name(), info.ModTime(), rs)
+	return &MmapEntry{r: rdr, size: info.Size(), info: info}
 }
