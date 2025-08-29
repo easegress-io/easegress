@@ -28,6 +28,9 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
+	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"golang.org/x/exp/mmap"
 )
 
@@ -249,49 +252,63 @@ func (m *mmapReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return m.pos, nil
 }
 
-func fileHandler(w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) {
+func fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
+	startTime := fasttime.Now()
 	path := filepath.Clean("." + r.URL.Path)
 
 	data, _, err := pool.GetFile(path)
 	if err != nil {
-		http.Error(w, "file not found", http.StatusNotFound)
-		return
+		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+		return resultNotFound
 	}
 	if data != nil {
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 		_, _ = w.Write(data)
-		return
+		metric := &httpstat.Metric{
+			StatusCode: http.StatusOK,
+			RespSize:   uint64(len(data)),
+			Duration:   fasttime.Since(startTime),
+		}
+		ctx.SetData("HTTP_METRIC", metric)
+		return ""
 	}
 
 	var entry *MmapEntry
 	if mc == nil {
-		entry = withoutMmapCache(path, w)
+		entry = withoutMmapCache(ctx, path, w)
 	} else {
 		entry, err = mc.Get(path)
 		if err != nil {
-			http.Error(w, "file not found", http.StatusNotFound)
-			return
+			buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+			return resultNotFound
 		}
 	}
 	if entry == nil {
-		return
+		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+		return resultNotFound
 	}
 
 	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
 	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
+	metric := &httpstat.Metric{
+		StatusCode: http.StatusOK,
+		Duration:   fasttime.Since(startTime),
+	}
+	ctx.SetData("HTTP_METRIC", metric)
+	return ""
 }
 
-func withoutMmapCache(path string, w http.ResponseWriter) *MmapEntry {
+func withoutMmapCache(ctx *context.Context, path string, w http.ResponseWriter) *MmapEntry {
 	rdr, err := mmap.Open(path)
 	if err != nil {
-		http.Error(w, "file not found", http.StatusNotFound)
+		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
 		return nil
 	}
 	defer rdr.Close()
 
 	info, err := os.Stat(path)
 	if err != nil {
-		http.Error(w, "stat error", http.StatusInternalServerError)
+		buildFailureResponse(ctx, http.StatusInternalServerError, "stat error")
 		return nil
 	}
 	return &MmapEntry{r: rdr, size: info.Size(), info: info}

@@ -19,8 +19,11 @@
 package fileserver
 
 import (
+	"net/http"
+
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/filters"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 )
 
 const (
@@ -30,6 +33,7 @@ const (
 	resultInternalError = "internalError"
 	resultServerError   = "serverError"
 	resultClientError   = "clientError"
+	resultNotFound      = "notFound"
 )
 
 var kind = &filters.Kind{
@@ -52,6 +56,8 @@ type (
 	// FileServer is filter FileServer.
 	FileServer struct {
 		spec *Spec
+		pool *BufferPool
+		mc   *MmapCache
 	}
 
 	// Spec describes the FileServer.
@@ -90,7 +96,9 @@ func (f *FileServer) reload() {
 
 // Handle FileServer HTTPContext.
 func (f *FileServer) Handle(ctx *context.Context) string {
-	return ""
+	req := ctx.GetInputRequest().(*httpprot.Request)
+	rw, _ := ctx.GetData("HTTP_RESPONSE_WRITER").(http.ResponseWriter)
+	return fileHandler(ctx, rw, req.Request, f.pool, f.mc)
 }
 
 // Status returns Status.
@@ -100,4 +108,15 @@ func (f *FileServer) Status() interface{} {
 
 // Close closes FileServer.
 func (f *FileServer) Close() {
+}
+
+func buildFailureResponse(ctx *context.Context, statusCode int, message string) {
+	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
+	if resp == nil {
+		resp, _ = httpprot.NewResponse(nil)
+	}
+
+	resp.SetStatusCode(statusCode)
+	resp.SetPayload([]byte(message))
+	ctx.SetOutputResponse(resp)
 }
