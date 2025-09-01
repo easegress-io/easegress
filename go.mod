@@ -20,7 +20,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.0.10
-	github.com/go-chi/cors v1.2.1
+	github.com/go-chi/cors v1.2.2
 	github.com/go-logr/zapr v1.2.4
 	github.com/go-task/slim-sprig v2.20.0+incompatible
 	github.com/go-zookeeper/zk v1.0.3
