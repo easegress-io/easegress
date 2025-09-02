@@ -19,6 +19,8 @@ package fileserver
 
 import (
 	"container/list"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -269,7 +271,7 @@ func (m *mmapReadSeeker) Seek(offset int64, whence int) (int64, error) {
 	return m.pos, nil
 }
 
-func fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
+func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
 	startTime := fasttime.Now()
 	path := filepath.Clean("." + r.URL.Path)
 
@@ -279,7 +281,14 @@ func fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, p
 		return resultNotFound
 	}
 	if data != nil {
+		etag := generateETag(data)
+		if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return ""
+		}
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
 		_, _ = w.Write(data)
 		metric := &httpstat.Metric{
 			StatusCode: http.StatusOK,
@@ -305,6 +314,13 @@ func fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, p
 		return resultNotFound
 	}
 
+	etag := fmt.Sprintf(`"%x-%x"`, entry.info.ModTime().Unix(), entry.size)
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return ""
+	}
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
 	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
 	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
 	metric := &httpstat.Metric{
@@ -329,4 +345,10 @@ func withoutMmapCache(ctx *context.Context, path string, w http.ResponseWriter) 
 		return nil
 	}
 	return &MmapEntry{r: rdr, size: info.Size(), info: info}
+}
+
+func generateETag(data []byte) string {
+	h := sha1.New()
+	h.Write(data)
+	return `"` + hex.EncodeToString(h.Sum(nil)) + `"`
 }

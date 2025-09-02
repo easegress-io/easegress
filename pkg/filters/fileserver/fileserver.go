@@ -34,6 +34,8 @@ const (
 	resultServerError   = "serverError"
 	resultClientError   = "clientError"
 	resultNotFound      = "notFound"
+
+	DefaultEtagMaxAge = 3600
 )
 
 var kind = &filters.Kind{
@@ -63,6 +65,7 @@ type (
 	// Spec describes the FileServer.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
+		EtagMaxAge       int `json:"etagMaxAge"`
 	}
 )
 
@@ -92,13 +95,16 @@ func (f *FileServer) Inherit(previousGeneration filters.Filter) {
 }
 
 func (f *FileServer) reload() {
+	if f.spec.EtagMaxAge == 0 {
+		f.spec.EtagMaxAge = DefaultEtagMaxAge
+	}
 }
 
 // Handle FileServer HTTPContext.
 func (f *FileServer) Handle(ctx *context.Context) string {
 	req := ctx.GetInputRequest().(*httpprot.Request)
 	rw, _ := ctx.GetData("HTTP_RESPONSE_WRITER").(http.ResponseWriter)
-	return fileHandler(ctx, rw, req.Request, f.pool, f.mc)
+	return f.fileHandler(ctx, rw, req.Request, f.pool, f.mc)
 }
 
 // Status returns Status.
