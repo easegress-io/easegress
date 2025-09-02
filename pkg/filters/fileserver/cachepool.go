@@ -59,8 +59,9 @@ type (
 	}
 
 	MmapCache struct {
-		mu    sync.Mutex
-		cache *lru.Cache[string, *MmapEntry]
+		mu      sync.Mutex
+		cache   *lru.Cache[string, *MmapEntry]
+		metrics *mmapMetrics
 	}
 
 	BufferPool struct {
@@ -71,6 +72,7 @@ type (
 		maxSize     int64
 		maxFileSize int64
 		ttl         time.Duration
+		metrics     *bufferPoolMetrics
 	}
 )
 
@@ -83,6 +85,7 @@ func NewBufferPool(maxSize, maxFileSize int64, ttl time.Duration) *BufferPool {
 		maxFileSize: maxFileSize,
 		ttl:         ttl,
 	}
+	bp.metrics = bp.newMetrics()
 	go bp.cleanup()
 	return bp
 }
@@ -116,6 +119,9 @@ func (bp *BufferPool) removeElement(e *list.Element) {
 	delete(bp.cache, item.key)
 	bp.currentSize -= item.entry.size
 	bp.ll.Remove(e)
+	bp.metrics.BufferPoolCounterSize.With(nil).Set(float64(bp.currentSize))
+	bp.metrics.BufferPoolFiles.With(nil).Set(float64(bp.ll.Len()))
+	bp.metrics.BufferPoolEvicts.With(nil).Inc()
 }
 
 func (bp *BufferPool) removeOldest() {
@@ -128,6 +134,7 @@ func (bp *BufferPool) removeOldest() {
 func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error) {
 	bp.mu.Lock()
 	if ele, ok := bp.cache[path]; ok {
+		bp.metrics.BufferPoolHits.With(nil).Inc()
 		item := ele.Value.(*cacheItem)
 		if time.Now().Before(item.entry.expireAt) {
 			bp.ll.MoveToFront(ele)
@@ -136,8 +143,10 @@ func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error)
 			return d, true, nil
 		}
 		bp.removeElement(ele)
+		bp.metrics.BufferPoolTTLEvict.With(nil).Inc()
 	}
 	bp.mu.Unlock()
+	bp.metrics.BufferPoolMiss.With(nil).Inc()
 
 	info, err := os.Stat(path)
 	if err != nil {
@@ -162,12 +171,14 @@ func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error)
 	defer bp.mu.Unlock()
 
 	if ele, ok := bp.cache[path]; ok {
+		bp.metrics.BufferPoolHits.With(nil).Inc()
 		item := ele.Value.(*cacheItem)
 		if time.Now().Before(item.entry.expireAt) {
 			bp.ll.MoveToFront(ele)
 			return item.entry.data, true, nil
 		}
 		bp.removeElement(ele)
+		bp.metrics.BufferPoolTTLEvict.With(nil).Inc()
 	}
 
 	for bp.currentSize+entry.size > bp.maxSize {
@@ -184,6 +195,8 @@ func (bp *BufferPool) GetFile(path string) (data []byte, cached bool, err error)
 	ele := bp.ll.PushFront(&cacheItem{key: path, entry: entry})
 	bp.cache[path] = ele
 	bp.currentSize += entry.size
+	bp.metrics.BufferPoolCounterSize.With(nil).Set(float64(bp.currentSize))
+	bp.metrics.BufferPoolFiles.With(nil).Set(float64(bp.ll.Len()))
 
 	return entry.data, true, nil
 }
@@ -198,16 +211,19 @@ func NewMmapCache(capacity int) *MmapCache {
 	mmc := &MmapCache{
 		cache: c,
 	}
+	mmc.metrics = mmc.newMetrics()
 	return mmc
 }
 
 func (mc *MmapCache) Get(path string) (*MmapEntry, error) {
 	mc.mu.Lock()
 	if e, ok := mc.cache.Get(path); ok {
+		mc.metrics.MMapHits.With(nil).Inc()
 		mc.mu.Unlock()
 		return e, nil
 	}
 	mc.mu.Unlock()
+	mc.metrics.MMapMiss.With(nil).Inc()
 
 	r, err := mmap.Open(path)
 	if err != nil {
@@ -221,6 +237,7 @@ func (mc *MmapCache) Get(path string) (*MmapEntry, error) {
 
 	mc.mu.Lock()
 	mc.cache.Add(path, entry)
+	mc.metrics.MMapFiles.With(nil).Set(float64(mc.cache.Len()))
 	mc.mu.Unlock()
 	return entry, nil
 }
