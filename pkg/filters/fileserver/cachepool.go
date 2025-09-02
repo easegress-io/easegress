@@ -281,54 +281,10 @@ func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r 
 		return resultNotFound
 	}
 	if data != nil {
-		etag := generateETag(data)
-		if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return ""
-		}
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
-		_, _ = w.Write(data)
-		metric := &httpstat.Metric{
-			StatusCode: http.StatusOK,
-			RespSize:   uint64(len(data)),
-			Duration:   fasttime.Since(startTime),
-		}
-		ctx.SetData("HTTP_METRIC", metric)
-		return ""
+		return f.handleWithSmallFile(ctx, w, r, path, data, startTime)
 	}
 
-	var entry *MmapEntry
-	if mc == nil {
-		entry = withoutMmapCache(ctx, path, w)
-	} else {
-		entry, err = mc.Get(path)
-		if err != nil {
-			buildFailureResponse(ctx, http.StatusNotFound, "file not found")
-			return resultNotFound
-		}
-	}
-	if entry == nil {
-		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
-		return resultNotFound
-	}
-
-	etag := fmt.Sprintf(`"%x-%x"`, entry.info.ModTime().Unix(), entry.size)
-	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
-		w.WriteHeader(http.StatusNotModified)
-		return ""
-	}
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
-	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
-	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
-	metric := &httpstat.Metric{
-		StatusCode: http.StatusOK,
-		Duration:   fasttime.Since(startTime),
-	}
-	ctx.SetData("HTTP_METRIC", metric)
-	return ""
+	return f.handleWithLargeFile(ctx, w, r, path, startTime, mc)
 }
 
 func withoutMmapCache(ctx *context.Context, path string, w http.ResponseWriter) *MmapEntry {
@@ -351,4 +307,80 @@ func generateETag(data []byte) string {
 	h := sha1.New()
 	h.Write(data)
 	return `"` + hex.EncodeToString(h.Sum(nil)) + `"`
+}
+
+func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path string, data []byte, startTime time.Time) string {
+	etag := generateETag(data)
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return ""
+	}
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
+	info, err := os.Stat(path)
+	if err == nil {
+		lastMod := info.ModTime().UTC().Format(http.TimeFormat)
+		if since := r.Header.Get("If-Modified-Since"); since != "" {
+			if t, err := time.Parse(http.TimeFormat, since); err == nil && info.ModTime().Before(t.Add(1*time.Second)) {
+				w.WriteHeader(http.StatusNotModified)
+				return ""
+			}
+		}
+		w.Header().Set("Last-Modified", lastMod)
+	}
+
+	_, _ = w.Write(data)
+	metric := &httpstat.Metric{
+		StatusCode: http.StatusOK,
+		RespSize:   uint64(len(data)),
+		Duration:   fasttime.Since(startTime),
+	}
+	ctx.SetData("HTTP_METRIC", metric)
+	return ""
+}
+
+func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path string, startTime time.Time, mc *MmapCache) string {
+	var entry *MmapEntry
+	var err error
+	if mc == nil {
+		entry = withoutMmapCache(ctx, path, w)
+	} else {
+		entry, err = mc.Get(path)
+		if err != nil {
+			buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+			return resultNotFound
+		}
+	}
+	if entry == nil {
+		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+		return resultNotFound
+	}
+
+	etag := fmt.Sprintf(`"%x-%x"`, entry.info.ModTime().Unix(), entry.size)
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return ""
+	}
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
+	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
+	lastMod := entry.info.ModTime().UTC().Format(http.TimeFormat)
+
+	if since := r.Header.Get("If-Modified-Since"); since != "" {
+		if t, err := time.Parse(http.TimeFormat, since); err == nil && entry.info.ModTime().Before(t.Add(1*time.Second)) {
+			w.WriteHeader(http.StatusNotModified)
+			return ""
+		}
+	}
+	w.Header().Set("Last-Modified", lastMod)
+
+	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
+	metric := &httpstat.Metric{
+		StatusCode: http.StatusOK,
+		Duration:   fasttime.Since(startTime),
+	}
+
+	ctx.SetData("HTTP_METRIC", metric)
+	return ""
 }
