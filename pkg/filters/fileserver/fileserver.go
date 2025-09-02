@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -57,6 +58,13 @@ var kind = &filters.Kind{
 	},
 }
 
+var defaultIndexFiles = []string{"index.html", "index.txt"}
+
+var (
+	ErrUnsafePath    = errors.New("unsafe path")
+	ErrIndexNotFound = errors.New("index file not found")
+)
+
 func init() {
 	filters.Register(kind)
 }
@@ -78,6 +86,7 @@ type (
 		filters.BaseSpec `json:",inline"`
 		EtagMaxAge       int      `json:"etagMaxAge"`
 		Root             string   `json:"root"`
+		Index            []string `json:"index"`
 		Hidden           []string `json:"hidden"`
 	}
 )
@@ -128,6 +137,9 @@ func (f *FileServer) reload() {
 			f.hiddenWithSep = append(f.hiddenWithSep, h)
 		}
 	}
+	if len(f.spec.Index) == 0 {
+		f.spec.Index = defaultIndexFiles
+	}
 }
 
 // Handle FileServer HTTPContext.
@@ -138,14 +150,25 @@ func (f *FileServer) Handle(ctx *context.Context) string {
 }
 
 func (f *FileServer) getFilePath(r *http.Request) (string, error) {
-	path := r.URL.Path
+	path := filepath.Clean(r.URL.Path)
 
-	// TODO try files
 	finalPath := filepath.Join(f.absRoot, path)
 
 	if !strings.HasPrefix(finalPath, f.absRoot) {
 		logger.Errorf("file path %s is not under root path %s", finalPath, f.absRoot)
-		return "", errors.New("unsafe path: potential path traversal attack")
+		return "", ErrUnsafePath
+	}
+
+	if strings.HasSuffix(finalPath, fileSeparator) {
+		for _, index := range f.spec.Index {
+			newPath := filepath.Join(finalPath, index)
+			info, err := os.Stat(newPath)
+			if err == nil && !info.IsDir() {
+				return newPath, nil
+			}
+		}
+		logger.Errorf("no index file found in dir %s", finalPath)
+		return "", ErrIndexNotFound
 	}
 	return finalPath, nil
 }
