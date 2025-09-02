@@ -231,7 +231,7 @@ func (m *mux) reloadBackendPipelines(superSpec *supervisor.Spec) {
 
 			pipelineName := routers.GenerateBackendPoolPipeline(superSpec.Name(), ruleIndex, pathIndex)
 
-			pipelineSpec, err := m.newProxyPipelineSpec(pipelineName, path.BackendPool)
+			pipelineSpec, err := m.newProxyPipelineSpec(superSpec.Name(), pipelineName, path.BackendPool)
 			if err != nil {
 				logger.Errorf("BUG: new proxy pipeline spec failed: %v", err)
 				continue
@@ -256,11 +256,14 @@ func (m *mux) reloadBackendPipelines(superSpec *supervisor.Spec) {
 	}
 }
 
-func (m *mux) newProxyPipelineSpec(pipelineName string, pool *httpproxy.ServerPoolSpec) (*supervisor.Spec, error) {
+func (m *mux) newProxyPipelineSpec(serverName, pipelineName string, pool *httpproxy.ServerPoolSpec) (*supervisor.Spec, error) {
 	proxyFilterName := "proxy"
 	proxyMap := map[string]interface{}{
-		"name":  proxyFilterName,
-		"kind":  "HTTPProxy",
+		"name": proxyFilterName,
+		"kind": "HTTPProxy",
+		"labels": map[string]interface{}{
+			supervisor.ObjectLabelKeyOwner: "HTTPServer: " + serverName,
+		},
 		"pools": []interface{}{pool},
 	}
 
