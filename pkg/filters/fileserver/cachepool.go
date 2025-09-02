@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -269,22 +268,6 @@ func (m *mmapReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		m.pos = m.size
 	}
 	return m.pos, nil
-}
-
-func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
-	startTime := fasttime.Now()
-	path := filepath.Clean("." + r.URL.Path)
-
-	data, _, err := pool.GetFile(path)
-	if err != nil {
-		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
-		return resultNotFound
-	}
-	if data != nil {
-		return f.handleWithSmallFile(ctx, w, r, path, data, startTime)
-	}
-
-	return f.handleWithLargeFile(ctx, w, r, path, startTime, mc)
 }
 
 func withoutMmapCache(ctx *context.Context, path string, w http.ResponseWriter) *MmapEntry {
