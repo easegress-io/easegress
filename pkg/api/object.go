@@ -200,6 +200,13 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	objectOwner := spec.Labels()[supervisor.ObjectLabelKeyOwner]
+	if objectOwner != "" && objectOwner != supervisor.ObjectLabelValueUserAPI {
+		HandleAPIError(w, r, http.StatusBadRequest,
+			fmt.Errorf("can't delete %s owned by %s via API", name, objectOwner))
+		return
+	}
+
 	s._deleteObject(name)
 	s.upgradeConfigVersion(w, r)
 }

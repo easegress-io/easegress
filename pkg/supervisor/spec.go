@@ -43,13 +43,22 @@ type (
 
 	// MetaSpec is metadata for all specs.
 	MetaSpec struct {
-		Name    string `json:"name" jsonschema:"required,format=urlname"`
-		Kind    string `json:"kind" jsonschema:"required"`
-		Version string `json:"version,omitempty"`
+		Name    string            `json:"name" jsonschema:"required,format=urlname"`
+		Kind    string            `json:"kind" jsonschema:"required"`
+		Version string            `json:"version,omitempty"`
+		Labels  map[string]string `json:"labels,omitempty" jsonschema:"omitempty,additionalProperties=true"`
 
 		// RFC3339 format
 		CreatedAt string `json:"createdAt,omitempty"`
 	}
+)
+
+const (
+	// Predefined label keys
+	ObjectLabelKeyOwner = "easegress/owner"
+
+	// Predefined label values
+	ObjectLabelValueUserAPI = "user-api"
 )
 
 func (s *Supervisor) newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
@@ -148,6 +157,14 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 	spec.rawSpec = rawSpec
 	spec.jsonConfig = jsonConfig
 
+	if len(spec.meta.Labels) == 0 {
+		spec.meta.Labels = make(map[string]string)
+	}
+
+	if spec.meta.Labels[ObjectLabelKeyOwner] == "" {
+		spec.meta.Labels[ObjectLabelKeyOwner] = ObjectLabelValueUserAPI
+	}
+
 	return
 }
 
@@ -173,6 +190,11 @@ func (s *Spec) Kind() string { return s.meta.Kind }
 
 // Version returns version.
 func (s *Spec) Version() string { return s.meta.Version }
+
+// Labels returns the labels.
+func (s *Spec) Labels() map[string]string {
+	return s.meta.Labels
+}
 
 // JSONConfig returns the config in json format.
 func (s *Spec) JSONConfig() string {
