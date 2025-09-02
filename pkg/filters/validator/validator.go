@@ -19,9 +19,8 @@
 package validator
 
 import (
-	"net/http"
-
 	"fmt"
+	"net/http"
 
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/filters"
@@ -80,7 +79,11 @@ type (
 
 // Validate verifies that at least one of the validations is defined.
 func (spec Spec) Validate() error {
-	if spec == (Spec{}) {
+	if spec.Headers == nil &&
+		spec.JWT == nil &&
+		spec.Signature == nil &&
+		spec.OAuth2 == nil &&
+		spec.BasicAuth == nil {
 		return fmt.Errorf("none of the validations are defined")
 	}
 	return nil
