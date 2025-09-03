@@ -82,10 +82,11 @@ type (
 		hiddenWithSep    []string
 		hiddenWithoutSep []string
 
-		tryFiles  []string
-		tryErr    *Err
-		rewrite   *regexp.Regexp
-		rewriteTo string
+		tryFiles      []string
+		tryErr        *Err
+		rewrite       *regexp.Regexp
+		rewriteTo     string
+		precompressed map[string]struct{}
 	}
 
 	// Spec describes the FileServer.
@@ -97,6 +98,12 @@ type (
 		Hidden           []string `json:"hidden"`
 		TryFiles         []string `json:"tryFiles"`
 		Rewrite          string   `json:"rewrite"`
+		Precompressed    string   `json:"precompressed"`
+	}
+
+	filePath struct {
+		path       string
+		compressed string
 	}
 )
 
@@ -164,6 +171,12 @@ func (f *FileServer) reload() {
 		f.rewrite = re
 		f.rewriteTo = to
 	}
+	if f.spec.Precompressed != "" {
+		f.precompressed = make(map[string]struct{})
+		for _, p := range strings.Split(f.spec.Precompressed, " ") {
+			f.precompressed[p] = struct{}{}
+		}
+	}
 }
 
 func parseRewrite(rewrite string) (string, string) {
@@ -201,11 +214,12 @@ func (f *FileServer) Handle(ctx *context.Context) string {
 	return f.fileHandler(ctx, rw, req.Request, f.pool, f.mc)
 }
 
-func (f *FileServer) getFilePath(r *http.Request) (string, error) {
+func (f *FileServer) getFilePath(r *http.Request) (*filePath, error) {
 	replacer := strings.NewReplacer(
 		"{path}", r.URL.Path,
 	)
 	path := filepath.Clean(r.URL.Path)
+	precompressed := f.getAcceptPrecompressedTypes(r)
 
 	if f.rewrite != nil {
 		if f.rewrite.MatchString(path) {
@@ -214,47 +228,81 @@ func (f *FileServer) getFilePath(r *http.Request) (string, error) {
 	}
 
 	if len(f.spec.TryFiles) == 0 {
-		return f.convertToFilePath(path)
+		return f.convertToFilePath(path, precompressed)
 	}
 
 	for _, t := range f.tryFiles {
 		newPath := replacer.Replace(t)
-		finalPath, err := f.convertToFilePath(newPath)
+		finalPath, err := f.convertToFilePath(newPath, precompressed)
 		if err == nil {
 			return finalPath, nil
 		}
 	}
 	if f.tryErr != nil {
-		return "", f.tryErr
+		return nil, f.tryErr
 	}
-	return "", ErrFileNotFound
+	return nil, ErrFileNotFound
 }
 
-func (f *FileServer) convertToFilePath(path string) (string, error) {
+func (f *FileServer) convertToFilePath(path string, precompressed []string) (*filePath, error) {
 	finalPath := filepath.Join(f.absRoot, path)
 	if !strings.HasPrefix(finalPath, f.absRoot) {
 		logger.Errorf("file path %s is not under root path %s", finalPath, f.absRoot)
-		return "", ErrUnsafePath
+		return nil, ErrUnsafePath
 	}
 
 	if strings.HasSuffix(finalPath, fileSeparator) {
 		for _, index := range f.spec.Index {
 			newPath := filepath.Join(finalPath, index)
+
+			precompressedPath, ok := checkPrecompressed(newPath, precompressed)
+			if ok {
+				return precompressedPath, nil
+			}
+
 			info, err := os.Stat(newPath)
 			if err == nil && !info.IsDir() {
-				return newPath, nil
+				return &filePath{
+					path:       newPath,
+					compressed: "",
+				}, nil
 			}
 		}
 		logger.Errorf("not find index file under %s", finalPath)
-		return "", ErrFileNotFound
+		return nil, ErrFileNotFound
+	}
+
+	precompressedPath, ok := checkPrecompressed(finalPath, precompressed)
+	if ok {
+		return precompressedPath, nil
 	}
 
 	info, err := os.Stat(finalPath)
 	if err == nil && !info.IsDir() {
-		return finalPath, nil
+		return &filePath{
+			path:       finalPath,
+			compressed: "",
+		}, nil
 	}
 	logger.Errorf("%s is not a file", finalPath)
-	return "", ErrFileNotFound
+	return nil, ErrFileNotFound
+}
+
+func checkPrecompressed(path string, precompressed []string) (*filePath, bool) {
+	if len(precompressed) == 0 {
+		return nil, false
+	}
+	for _, p := range precompressed {
+		precompressedPath := path + "." + p
+		info, err := os.Stat(precompressedPath)
+		if err == nil && !info.IsDir() {
+			return &filePath{
+				path:       precompressedPath,
+				compressed: p,
+			}, true
+		}
+	}
+	return nil, false
 }
 
 func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
@@ -271,7 +319,7 @@ func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r 
 		return resultClientError
 	}
 
-	data, _, err := pool.GetFile(path)
+	data, _, err := pool.GetFile(path.path)
 	if err != nil {
 		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
 		return resultNotFound
@@ -318,6 +366,20 @@ func buildFailureResponse(ctx *context.Context, statusCode int, message string) 
 	ctx.SetOutputResponse(resp)
 }
 
+func (f *FileServer) getAcceptPrecompressedTypes(req *http.Request) []string {
+	if len(f.precompressed) == 0 {
+		return nil
+	}
+	accepts := req.Header.Values("Accept-Encoding")
+	var res []string
+	for _, a := range accepts {
+		if _, ok := f.precompressed[a]; ok {
+			res = append(res, a)
+		}
+	}
+	return res
+}
+
 // isFileHidden determines if a given absolute path should be considered hidden.
 // It checks the path against a list of predefined rules. These rules are
 // pre-processed and split into two categories for matching:
@@ -344,13 +406,13 @@ func buildFailureResponse(ctx *context.Context, statusCode int, message string) 
 //     - Rule: "/*/*/*.conf"
 //     - Hides: "/etc/nginx/nginx.conf"
 //     - Does NOT hide: "/etc/nginx.conf"
-func (f *FileServer) isFileHidden(absPath string) bool {
+func (f *FileServer) isFileHidden(absPath *filePath) bool {
 	if len(f.spec.Hidden) == 0 {
 		return false
 	}
 
 	if len(f.hiddenWithoutSep) > 0 {
-		path := strings.TrimPrefix(absPath, f.absRoot)
+		path := strings.TrimPrefix(absPath.path, f.absRoot)
 		parts := strings.Split(path, fileSeparator)
 		for _, h := range f.hiddenWithoutSep {
 			for _, c := range parts {
@@ -362,13 +424,13 @@ func (f *FileServer) isFileHidden(absPath string) bool {
 	}
 
 	for _, h := range f.hiddenWithSep {
-		if remain, ok := strings.CutPrefix(absPath, h); ok {
+		if remain, ok := strings.CutPrefix(absPath.path, h); ok {
 			if strings.HasPrefix(remain, fileSeparator) || strings.HasSuffix(h, fileSeparator) {
 				return true
 			}
 		}
 
-		if hidden, _ := filepath.Match(h, absPath); hidden {
+		if hidden, _ := filepath.Match(h, absPath.path); hidden {
 			return true
 		}
 	}

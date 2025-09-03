@@ -183,7 +183,8 @@ func TestIsFileHidden(t *testing.T) {
 			},
 		}
 		fs.Init()
-		actual := fs.isFileHidden(tc.path)
+		input := filePath{path: tc.path}
+		actual := fs.isFileHidden(&input)
 		assert.Equal(tc.expect, actual, tc)
 		fs.Close()
 	}

@@ -292,7 +292,7 @@ func generateETag(data []byte) string {
 	return `"` + hex.EncodeToString(h.Sum(nil)) + `"`
 }
 
-func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path string, data []byte, startTime time.Time) string {
+func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path *filePath, data []byte, startTime time.Time) string {
 	etag := generateETag(data)
 	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
 		w.WriteHeader(http.StatusNotModified)
@@ -301,7 +301,10 @@ func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWr
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
-	info, err := os.Stat(path)
+	if path.compressed != "" {
+		w.Header().Set("Content-Encoding", path.compressed)
+	}
+	info, err := os.Stat(path.path)
 	if err == nil {
 		lastMod := info.ModTime().UTC().Format(http.TimeFormat)
 		if since := r.Header.Get("If-Modified-Since"); since != "" {
@@ -323,13 +326,13 @@ func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWr
 	return ""
 }
 
-func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path string, startTime time.Time, mc *MmapCache) string {
+func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWriter, r *http.Request, path *filePath, startTime time.Time, mc *MmapCache) string {
 	var entry *MmapEntry
 	var err error
 	if mc == nil {
-		entry = withoutMmapCache(ctx, path, w)
+		entry = withoutMmapCache(ctx, path.path, w)
 	} else {
-		entry, err = mc.Get(path)
+		entry, err = mc.Get(path.path)
 		if err != nil {
 			buildFailureResponse(ctx, http.StatusNotFound, "file not found")
 			return resultNotFound
@@ -357,6 +360,9 @@ func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWr
 		}
 	}
 	w.Header().Set("Last-Modified", lastMod)
+	if path.compressed != "" {
+		w.Header().Set("Content-Encoding", path.compressed)
+	}
 
 	http.ServeContent(w, r, entry.info.Name(), entry.info.ModTime(), rs)
 	metric := &httpstat.Metric{
