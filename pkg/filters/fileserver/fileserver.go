@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/megaease/easegress/v2/pkg/context"
@@ -61,8 +62,8 @@ var kind = &filters.Kind{
 var defaultIndexFiles = []string{"index.html", "index.txt"}
 
 var (
-	ErrUnsafePath    = errors.New("unsafe path")
-	ErrIndexNotFound = errors.New("index file not found")
+	ErrUnsafePath   = errors.New("unsafe path")
+	ErrFileNotFound = errors.New("file not found")
 )
 
 func init() {
@@ -79,6 +80,9 @@ type (
 		absRoot          string
 		hiddenWithSep    []string
 		hiddenWithoutSep []string
+
+		tryFiles []string
+		tryErr   *Err
 	}
 
 	// Spec describes the FileServer.
@@ -88,6 +92,7 @@ type (
 		Root             string   `json:"root"`
 		Index            []string `json:"index"`
 		Hidden           []string `json:"hidden"`
+		TryFiles         []string `json:"tryFiles"`
 	}
 )
 
@@ -140,6 +145,34 @@ func (f *FileServer) reload() {
 	if len(f.spec.Index) == 0 {
 		f.spec.Index = defaultIndexFiles
 	}
+
+	for _, t := range f.spec.TryFiles {
+		if len(t) > 0 && t[0] == '=' {
+			f.tryErr = parseTryFileErr(t)
+		} else {
+			f.tryFiles = append(f.tryFiles, t)
+		}
+	}
+}
+
+func parseTryFileErr(t string) *Err {
+	// format: "=404 error messages"
+	parts := strings.SplitN(strings.TrimSpace(t), " ", 2)
+	code, err := strconv.Atoi(parts[0][1:])
+	if err != nil {
+		logger.Errorf("invalid try_files error format %s: %v", t, err)
+		return nil
+	}
+	if len(parts) == 1 {
+		return &Err{
+			Code:    code,
+			Message: fmt.Sprintf("%d", code),
+		}
+	}
+	return &Err{
+		Code:    code,
+		Message: parts[1],
+	}
 }
 
 // Handle FileServer HTTPContext.
@@ -150,10 +183,29 @@ func (f *FileServer) Handle(ctx *context.Context) string {
 }
 
 func (f *FileServer) getFilePath(r *http.Request) (string, error) {
+	replacer := strings.NewReplacer(
+		"{path}", r.URL.Path,
+	)
 	path := filepath.Clean(r.URL.Path)
+	if len(f.spec.TryFiles) == 0 {
+		return f.convertToFilePath(path)
+	}
 
+	for _, t := range f.tryFiles {
+		newPath := replacer.Replace(t)
+		finalPath, err := f.convertToFilePath(newPath)
+		if err == nil {
+			return finalPath, nil
+		}
+	}
+	if f.tryErr != nil {
+		return "", f.tryErr
+	}
+	return "", ErrFileNotFound
+}
+
+func (f *FileServer) convertToFilePath(path string) (string, error) {
 	finalPath := filepath.Join(f.absRoot, path)
-
 	if !strings.HasPrefix(finalPath, f.absRoot) {
 		logger.Errorf("file path %s is not under root path %s", finalPath, f.absRoot)
 		return "", ErrUnsafePath
@@ -167,10 +219,16 @@ func (f *FileServer) getFilePath(r *http.Request) (string, error) {
 				return newPath, nil
 			}
 		}
-		logger.Errorf("no index file found in dir %s", finalPath)
-		return "", ErrIndexNotFound
+		logger.Errorf("not find index file under %s", finalPath)
+		return "", ErrFileNotFound
 	}
-	return finalPath, nil
+
+	info, err := os.Stat(finalPath)
+	if err == nil && !info.IsDir() {
+		return finalPath, nil
+	}
+	logger.Errorf("%s is not a file", finalPath)
+	return "", ErrFileNotFound
 }
 
 func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r *http.Request, pool *BufferPool, mc *MmapCache) string {
@@ -178,7 +236,7 @@ func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r 
 
 	path, err := f.getFilePath(r)
 	if err != nil {
-		buildFailureResponse(ctx, http.StatusBadRequest, "bad request")
+		buildFailureRespWithErr(ctx, err)
 		return resultClientError
 	}
 	hidden := f.isFileHidden(path)
@@ -208,6 +266,21 @@ func (f *FileServer) Status() interface{} {
 func (f *FileServer) Close() {
 }
 
+func buildFailureRespWithErr(ctx *context.Context, err error) {
+	if errors.Is(err, ErrUnsafePath) {
+		buildFailureResponse(ctx, http.StatusBadRequest, "bad request")
+
+	} else if errors.Is(err, ErrFileNotFound) {
+		buildFailureResponse(ctx, http.StatusNotFound, "file not found")
+
+	} else if e, ok := err.(*Err); ok {
+		buildFailureResponse(ctx, e.Code, e.Message)
+
+	} else {
+		buildFailureResponse(ctx, http.StatusInternalServerError, "internal server error")
+	}
+}
+
 func buildFailureResponse(ctx *context.Context, statusCode int, message string) {
 	resp, _ := ctx.GetOutputResponse().(*httpprot.Response)
 	if resp == nil {
@@ -219,7 +292,32 @@ func buildFailureResponse(ctx *context.Context, statusCode int, message string) 
 	ctx.SetOutputResponse(resp)
 }
 
-// isFileHidden check if the file is hidden.
+// isFileHidden determines if a given absolute path should be considered hidden.
+// It checks the path against a list of predefined rules. These rules are
+// pre-processed and split into two categories for matching:
+//
+//  1. Component Patterns (rules without a path separator):
+//     These patterns (e.g., ".git", "*.log") are matched against each individual
+//     name component of the relative path.
+//     - Rule: ".git"
+//     - Hides: "/path/to/project/.git", "/path/to/.git/config"
+//     - Does NOT hide: "/path/to/project/git"
+//     - Rule: "node_modules"
+//     - Hides: "/path/to/project/node_modules", "/path/to/node_modules/express"
+//
+//  2. Path Patterns (rules with a path separator):
+//     These patterns are matched against the full absolute path. This matching
+//     is done in two ways:
+//     a) As a prefix: If the rule is a prefix of the path, followed by a
+//     path separator, it's a match.
+//     - Rule: "/build"
+//     - Hides: "/build/app.js", "/build/"
+//     - Does NOT hide: "/builder/app.js"
+//     b) As a glob pattern: The rule is treated as a glob pattern to be matched
+//     against the entire absolute path.
+//     - Rule: "/*/*/*.conf"
+//     - Hides: "/etc/nginx/nginx.conf"
+//     - Does NOT hide: "/etc/nginx.conf"
 func (f *FileServer) isFileHidden(absPath string) bool {
 	if len(f.spec.Hidden) == 0 {
 		return false
