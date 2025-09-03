@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -81,8 +82,10 @@ type (
 		hiddenWithSep    []string
 		hiddenWithoutSep []string
 
-		tryFiles []string
-		tryErr   *Err
+		tryFiles  []string
+		tryErr    *Err
+		rewrite   *regexp.Regexp
+		rewriteTo string
 	}
 
 	// Spec describes the FileServer.
@@ -93,6 +96,7 @@ type (
 		Index            []string `json:"index"`
 		Hidden           []string `json:"hidden"`
 		TryFiles         []string `json:"tryFiles"`
+		Rewrite          string   `json:"rewrite"`
 	}
 )
 
@@ -153,6 +157,21 @@ func (f *FileServer) reload() {
 			f.tryFiles = append(f.tryFiles, t)
 		}
 	}
+
+	if f.spec.Rewrite != "" {
+		from, to := parseRewrite(f.spec.Rewrite)
+		re := regexp.MustCompile(from)
+		f.rewrite = re
+		f.rewriteTo = to
+	}
+}
+
+func parseRewrite(rewrite string) (string, string) {
+	parts := strings.SplitN(rewrite, " ", 2)
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], parts[1]
 }
 
 func parseTryFileErr(t string) *Err {
@@ -187,6 +206,13 @@ func (f *FileServer) getFilePath(r *http.Request) (string, error) {
 		"{path}", r.URL.Path,
 	)
 	path := filepath.Clean(r.URL.Path)
+
+	if f.rewrite != nil {
+		if f.rewrite.MatchString(path) {
+			path = f.rewrite.ReplaceAllString(path, f.rewriteTo)
+		}
+	}
+
 	if len(f.spec.TryFiles) == 0 {
 		return f.convertToFilePath(path)
 	}
