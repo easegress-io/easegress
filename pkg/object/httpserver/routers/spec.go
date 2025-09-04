@@ -71,8 +71,8 @@ type Path struct {
 	PathRegexp        string                    `json:"pathRegexp,omitempty" jsonschema:"format=regexp"`
 	RewriteTarget     string                    `json:"rewriteTarget,omitempty"`
 	Methods           []string                  `json:"methods,omitempty" jsonschema:"uniqueItems=true,format=httpmethod-array"`
-	Backend           string                    `json:"backend"`
-	BackendPool       *httpproxy.ServerPoolSpec `json:"backendPool"`
+	Backend           string                    `json:"backend,omitempty"`
+	BackendPool       *httpproxy.ServerPoolSpec `json:"backendPool,omitempty"`
 	ClientMaxBodySize int64                     `json:"clientMaxBodySize,omitempty"`
 	Headers           Headers                   `json:"headers,omitempty"`
 	Queries           Queries                   `json:"queries,omitempty"`
@@ -225,6 +225,10 @@ func (p *Path) Init(parentIPFilter *ipfilter.IPFilter, serverName string, ruleIn
 func (p *Path) Validate() error {
 	if (stringtool.IsAllEmpty(p.Path, p.PathPrefix, p.PathRegexp)) && p.RewriteTarget != "" {
 		return fmt.Errorf("rewriteTarget is specified but path is empty")
+	}
+
+	if p.Backend == "" && p.BackendPool == nil {
+		return fmt.Errorf("either backend or backendPool must be specified")
 	}
 
 	return nil

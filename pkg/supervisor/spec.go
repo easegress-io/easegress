@@ -119,7 +119,12 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 	buff := []byte(config)
 
 	// Meta part.
-	meta := &MetaSpec{Version: DefaultSpecVersion}
+	meta := &MetaSpec{
+		Version: DefaultSpecVersion,
+		Labels: map[string]string{
+			ObjectLabelKeyOwner: ObjectLabelValueUserAPI,
+		},
+	}
 	if created {
 		meta.CreatedAt = time.Now().Format(time.RFC3339)
 	}
@@ -157,14 +162,6 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 	spec.rawSpec = rawSpec
 	spec.jsonConfig = jsonConfig
 
-	if len(spec.meta.Labels) == 0 {
-		spec.meta.Labels = make(map[string]string)
-	}
-
-	if spec.meta.Labels[ObjectLabelKeyOwner] == "" {
-		spec.meta.Labels[ObjectLabelKeyOwner] = ObjectLabelValueUserAPI
-	}
-
 	return
 }
 
@@ -178,12 +175,16 @@ func (s *Spec) MarshalJSON() ([]byte, error) {
 	return []byte(s.jsonConfig), nil
 }
 
-func (s *Spec) Categroy() ObjectCategory {
+func (s *Spec) Category() ObjectCategory {
 	return s.category
 }
 
 // Name returns name.
 func (s *Spec) Name() string { return s.meta.Name }
+
+func (s *Spec) AsOwner() string {
+	return fmt.Sprintf("%s:%s", s.Kind(), s.Name())
+}
 
 // Kind returns kind.
 func (s *Spec) Kind() string { return s.meta.Kind }

@@ -45,6 +45,7 @@ import (
 
 func init() {
 	logger.InitNop()
+	supervisor.GetGlobalSuper()
 }
 
 func TestMuxReload(t *testing.T) {
