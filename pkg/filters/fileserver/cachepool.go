@@ -18,8 +18,6 @@
 package fileserver
 
 import (
-	"bytes"
-	"compress/gzip"
 	"container/list"
 	"crypto/sha1"
 	"encoding/hex"
@@ -27,8 +25,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -377,7 +373,13 @@ func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWr
 		}
 	}
 	w.Header().Set("Last-Modified", lastMod)
-	if path.compressed != "" {
+	if f.shouldCompress(r, path) {
+		gw := newGzipResponseWriter(w)
+		w = gw
+		defer gw.Close()
+		w.Header().Set("Content-Encoding", "gzip")
+
+	} else if path.compressed != "" {
 		w.Header().Set("Content-Encoding", path.compressed)
 	}
 
@@ -389,40 +391,4 @@ func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWr
 
 	ctx.SetData("HTTP_METRIC", metric)
 	return ""
-}
-
-func isRangeRequest(r *http.Request) bool {
-	rangeHeader := r.Header.Get("Range")
-
-	if strings.HasPrefix(rangeHeader, "bytes=") {
-		return true
-	}
-	return false
-}
-
-func (f *FileServer) shouldCompress(r *http.Request, filePath *filePath) bool {
-	if f.spec.Compress == "" {
-		return false
-	}
-	if filePath.compressed != "" {
-		return false
-	}
-	accepts := r.Header.Values("Accept-Encoding")
-	if len(accepts) == 0 {
-		return false
-	}
-	return slices.Contains(accepts, "gzip")
-}
-
-func compressData(data []byte) ([]byte, error) {
-	var b bytes.Buffer
-	gz := gzip.NewWriter(&b)
-	_, err := gz.Write(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write data to gzip writer: %w", err)
-	}
-	if err := gz.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-	return b.Bytes(), nil
 }
