@@ -99,6 +99,7 @@ type (
 		TryFiles         []string `json:"tryFiles"`
 		Rewrite          string   `json:"rewrite"`
 		Precompressed    string   `json:"precompressed"`
+		Compress         string   `json:"compress"`
 	}
 
 	filePath struct {
@@ -111,6 +112,9 @@ func (s *Spec) Validate() error {
 	_, err := filepath.Abs(s.Root)
 	if err != nil {
 		return fmt.Errorf("invalid root path: %v", err)
+	}
+	if s.Compress != "" && s.Compress != "gzip" {
+		return fmt.Errorf("invalid compress type %s", s.Compress)
 	}
 	return nil
 }
