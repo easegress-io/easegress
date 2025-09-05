@@ -333,6 +333,13 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	objectOwner := spec.Labels()[supervisor.ObjectLabelKeyOwner]
+	if objectOwner != "" && objectOwner != supervisor.ObjectLabelValueUserAPI {
+		HandleAPIError(w, r, http.StatusBadRequest,
+			fmt.Errorf("can't update %s owned by %s via API", name, objectOwner))
+		return
+	}
+
 	s._putObject(spec)
 	s.upgradeConfigVersion(w, r)
 }
