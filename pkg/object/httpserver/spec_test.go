@@ -49,6 +49,7 @@ https: false
 rules:
   - paths:
     - pathPrefix: /api
+      backend: mock
 `
 
 	_, err := supervisor.NewSpec(yamlConfig)
@@ -63,6 +64,7 @@ https: true
 rules:
   - paths:
     - pathPrefix: /api
+      backend: mock
 `
 
 	_, err = supervisor.NewSpec(yamlConfig)
@@ -76,6 +78,7 @@ cacheSize: 200
 rules:
   - paths:
     - pathPrefix: /api
+      backend: mock
 `
 
 	superSpec, err := supervisor.NewSpec(yamlConfig)
@@ -90,6 +93,7 @@ cacheSize: 200
 rules:
   - paths:
     - rewriteTarget: /api
+      backend: mock
 `
 
 	superSpec, err = supervisor.NewSpec(yamlConfig)
@@ -104,7 +108,10 @@ keepAliveTimeout: not-really-a-duration
 cacheSize: 200
 rules:
   - paths:
-    - pathPrefix: /api`
+    - pathPrefix: /api
+      backend: mock
+`
+
 	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.True(strings.Contains(err.Error(), "keepAliveTimeout: invalid duration"))
 	assert.Nil(superSpec)
