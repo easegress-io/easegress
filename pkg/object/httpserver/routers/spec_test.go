@@ -218,7 +218,7 @@ func TestPathInit(t *testing.T) {
 }
 
 func TestPathValidate(t *testing.T) {
-	p := &Path{RewriteTarget: "abc"}
+	p := &Path{RewriteTarget: "abc", Backend: "mock"}
 	assert.Error(t, p.Validate())
 
 	p.Path = "foo"
