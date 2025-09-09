@@ -69,7 +69,7 @@ func TestCreateInstance(t *testing.T) {
 		},
 	}
 
-	rules.Init()
+	rules.Init("")
 	var router *orderedRouter = kind.CreateInstance(rules).(*orderedRouter)
 
 	assert := assert.New(t)
@@ -100,42 +100,42 @@ func TestMuxRoutePathMatch(t *testing.T) {
 
 	// 1. match path
 	p := &routers.Path{}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp := newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// exact match
 	p = &routers.Path{Path: "/abc"}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// prefix
 	p = &routers.Path{PathPrefix: "/ab"}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// regexp
 	p = &routers.Path{PathRegexp: "/[a-z]+"}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// invalid regexp
 	p = &routers.Path{PathRegexp: "/[a-z+"}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.True(mp.matchPath(path))
 
 	// not match
 	p = &routers.Path{Path: "/xyz"}
-	p.Init(nil)
+	p.Init(nil, "", 0, 0)
 	mp = newMuxPath(p)
 	assert.NotNil(mp)
 	assert.False(mp.matchPath(path))
@@ -162,7 +162,7 @@ func TestSearch(t *testing.T) {
 		},
 	}
 
-	rules.Init()
+	rules.Init("")
 	var router *orderedRouter = kind.CreateInstance(rules).(*orderedRouter)
 
 	tests := []struct {

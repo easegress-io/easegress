@@ -67,7 +67,7 @@ func TestRuleInit(t *testing.T) {
 		},
 	}
 
-	rules.Init()
+	rules.Init("")
 
 	rule := rules[0]
 	assert.NotNil(rule.Hosts[1].re)
@@ -95,7 +95,7 @@ func TestRuleInit(t *testing.T) {
 			},
 		},
 	}
-	rule.Init()
+	rule.Init("", 0)
 	assert.Nil(rule.Hosts[1].re)
 }
 
@@ -107,23 +107,23 @@ func TestRuleMatch(t *testing.T) {
 	ctx := NewContext(req)
 
 	rule := &Rule{}
-	rule.Init()
+	rule.Init("", 0)
 
 	assert.NotNil(rule)
 	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{Host: "www.megaease.com"}
-	rule.Init()
+	rule.Init("", 0)
 	assert.NotNil(rule)
 	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.com$`}
-	rule.Init()
+	rule.Init("", 0)
 	assert.NotNil(rule)
 	assert.True(rule.MatchHost(ctx))
 
 	rule = &Rule{HostRegexp: `^[^.]+\.megaease\.cn$`}
-	rule.Init()
+	rule.Init("", 0)
 	assert.NotNil(rule)
 	assert.False(rule.MatchHost(ctx))
 
@@ -146,7 +146,7 @@ func TestRuleMatch(t *testing.T) {
 		ctx := NewContext(req)
 
 		rule = &Rule{Hosts: []Host{{Value: tc.value}}}
-		rule.Init()
+		rule.Init("", 0)
 		assert.Equal(tc.result, rule.MatchHost(ctx))
 	}
 }
@@ -168,7 +168,7 @@ func TestRuleAllowIP(t *testing.T) {
 		},
 	}
 
-	rule.Init()
+	rule.Init("", 0)
 
 	assert.True(rule.AllowIP("192.168.1.1"))
 	assert.False(rule.AllowIP("10.168.1.1"))
@@ -201,7 +201,7 @@ func TestPathInit(t *testing.T) {
 		ClientMaxBodySize: 1000,
 	}
 
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 
 	assert.NotNil(path.ipFilter)
 	assert.Equal(path.method, MALL)
@@ -211,14 +211,14 @@ func TestPathInit(t *testing.T) {
 	assert.EqualValues(1000, path.GetClientMaxBodySize())
 
 	path.Methods = []string{"GET", "POST"}
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 	assert.True(path.method&mGET != 0)
 	assert.True(path.method&mPOST != 0)
 	assert.True(path.method&mDELETE == 0)
 }
 
 func TestPathValidate(t *testing.T) {
-	p := &Path{RewriteTarget: "abc"}
+	p := &Path{RewriteTarget: "abc", Backend: "mock"}
 	assert.Error(t, p.Validate())
 
 	p.Path = "foo"
@@ -245,7 +245,7 @@ func TestPathInit2(t *testing.T) {
 		PathRegexp: `^[^.]+\.megaease\.com$`,
 	}
 
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 	assert.True(path.cacheable)
 	assert.False(path.matchable)
 
@@ -258,7 +258,7 @@ func TestPathInit2(t *testing.T) {
 		},
 	}
 
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 	assert.False(path.cacheable)
 	assert.True(path.matchable)
 
@@ -281,7 +281,7 @@ func TestPathInit2(t *testing.T) {
 		},
 	}
 
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 	assert.False(path.cacheable)
 	assert.True(path.matchable)
 }
@@ -308,7 +308,7 @@ func TestPathAllowIP(t *testing.T) {
 		},
 	}
 
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 
 	assert.True(path.AllowIP("192.168.1.1"))
 	assert.False(path.AllowIP("10.168.1.1"))
@@ -350,7 +350,7 @@ func TestPathMatch(t *testing.T) {
 			},
 		},
 	}
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 
 	tests := []struct {
 		method                                                                     string
@@ -457,7 +457,7 @@ func TestPathMatch1(t *testing.T) {
 		Path:       "/api/task/check",
 		PathRegexp: `^[^.]+\.megaease\.com$`,
 	}
-	path.Init(nil)
+	path.Init(nil, "", 0, 0)
 
 	stdr, _ := http.NewRequest(http.MethodGet, "/api/test?", nil)
 	req, _ := httpprot.NewRequest(stdr)
