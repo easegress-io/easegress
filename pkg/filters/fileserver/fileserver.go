@@ -92,19 +92,34 @@ type (
 	// Spec describes the FileServer.
 	Spec struct {
 		filters.BaseSpec `json:",inline"`
-		EtagMaxAge       int      `json:"etagMaxAge"`
-		Root             string   `json:"root"`
-		Index            []string `json:"index"`
-		Hidden           []string `json:"hidden"`
-		TryFiles         []string `json:"tryFiles"`
-		Rewrite          string   `json:"rewrite"`
-		Precompressed    string   `json:"precompressed"`
-		Compress         string   `json:"compress"`
+		Root             string    `json:"root"`
+		Index            []string  `json:"index"`
+		Hidden           []string  `json:"hidden"`
+		TryFiles         []string  `json:"tryFiles"`
+		Rewrite          string    `json:"rewrite"`
+		Precompressed    string    `json:"precompressed"`
+		Compress         string    `json:"compress"`
+		Cache            CacheSpec `json:"cache"`
+	}
+
+	CacheSpec struct {
+		BufferPoolMaxSize         int                   `json:"bufferPoolSize"`
+		BufferPoolMaxFileSize     int                   `json:"bufferPoolMaxFiles"`
+		BufferPoolTTL             int                   `json:"bufferPoolTTL"`
+		CacheFileExtensionFilters []FileExtensionFilter `json:"cacheFileExtensionFilters"`
+	}
+
+	FileExtensionFilter struct {
+		Pattern    []string `json:"pattern"`
+		EtagMaxAge int      `json:"etagMaxAge"`
 	}
 
 	filePath struct {
 		path       string
 		compressed string
+		isHidden   bool
+		needCache  bool
+		etagMaxAge int
 	}
 )
 
@@ -145,10 +160,6 @@ func (f *FileServer) Inherit(previousGeneration filters.Filter) {
 }
 
 func (f *FileServer) reload() {
-	if f.spec.EtagMaxAge == 0 {
-		f.spec.EtagMaxAge = DefaultEtagMaxAge
-	}
-
 	f.absRoot, _ = filepath.Abs(f.spec.Root)
 	for _, h := range f.spec.Hidden {
 		if !strings.Contains(h, fileSeparator) {
@@ -232,12 +243,12 @@ func (f *FileServer) getFilePath(r *http.Request) (*filePath, error) {
 	}
 
 	if len(f.spec.TryFiles) == 0 {
-		return f.convertToFilePath(path, precompressed)
+		return f.convertToFilePathWithExtensionAttribute(path, precompressed)
 	}
 
 	for _, t := range f.tryFiles {
 		newPath := replacer.Replace(t)
-		finalPath, err := f.convertToFilePath(newPath, precompressed)
+		finalPath, err := f.convertToFilePathWithExtensionAttribute(newPath, precompressed)
 		if err == nil {
 			return finalPath, nil
 		}
@@ -246,6 +257,17 @@ func (f *FileServer) getFilePath(r *http.Request) (*filePath, error) {
 		return nil, f.tryErr
 	}
 	return nil, ErrFileNotFound
+}
+
+func (f *FileServer) convertToFilePathWithExtensionAttribute(path string, precompressed []string) (*filePath, error) {
+	preProcessedPath, err := f.convertToFilePath(path, precompressed)
+	if err != nil {
+		return preProcessedPath, err
+	}
+
+	f.setFileHidden(preProcessedPath)
+	f.setFileNeedCache(preProcessedPath)
+	return preProcessedPath, nil
 }
 
 func (f *FileServer) convertToFilePath(path string, precompressed []string) (*filePath, error) {
@@ -317,8 +339,8 @@ func (f *FileServer) fileHandler(ctx *context.Context, w http.ResponseWriter, r 
 		buildFailureRespWithErr(ctx, err)
 		return resultClientError
 	}
-	hidden := f.isFileHidden(path)
-	if hidden {
+	f.setFileHidden(path)
+	if path.isHidden {
 		buildFailureResponse(ctx, http.StatusForbidden, "access denied")
 		return resultClientError
 	}
@@ -384,7 +406,7 @@ func (f *FileServer) getAcceptPrecompressedTypes(req *http.Request) []string {
 	return res
 }
 
-// isFileHidden determines if a given absolute path should be considered hidden.
+// setFileHidden determines if a given absolute path should be considered hidden.
 // It checks the path against a list of predefined rules. These rules are
 // pre-processed and split into two categories for matching:
 //
@@ -410,9 +432,10 @@ func (f *FileServer) getAcceptPrecompressedTypes(req *http.Request) []string {
 //     - Rule: "/*/*/*.conf"
 //     - Hides: "/etc/nginx/nginx.conf"
 //     - Does NOT hide: "/etc/nginx.conf"
-func (f *FileServer) isFileHidden(absPath *filePath) bool {
+func (f *FileServer) setFileHidden(absPath *filePath) {
 	if len(f.spec.Hidden) == 0 {
-		return false
+		absPath.isHidden = false
+		return
 	}
 
 	if len(f.hiddenWithoutSep) > 0 {
@@ -421,7 +444,8 @@ func (f *FileServer) isFileHidden(absPath *filePath) bool {
 		for _, h := range f.hiddenWithoutSep {
 			for _, c := range parts {
 				if hidden, _ := filepath.Match(h, c); hidden {
-					return true
+					absPath.isHidden = true
+					return
 				}
 			}
 		}
@@ -430,13 +454,46 @@ func (f *FileServer) isFileHidden(absPath *filePath) bool {
 	for _, h := range f.hiddenWithSep {
 		if remain, ok := strings.CutPrefix(absPath.path, h); ok {
 			if strings.HasPrefix(remain, fileSeparator) || strings.HasSuffix(h, fileSeparator) {
-				return true
+				absPath.isHidden = true
+				return
 			}
 		}
 
 		if hidden, _ := filepath.Match(h, absPath.path); hidden {
-			return true
+			absPath.isHidden = true
+			return
 		}
 	}
-	return false
+	absPath.isHidden = false
+	return
+}
+
+func (f *FileServer) setFileNeedCache(fp *filePath) {
+	if len(f.spec.Cache.CacheFileExtensionFilters) == 0 {
+		fp.needCache = false
+		return
+	}
+
+	for _, filter := range f.spec.Cache.CacheFileExtensionFilters {
+		for _, pattern := range filter.Pattern {
+			realPattern := pattern
+			targetPath := fp.path
+			if strings.Contains(realPattern, fileSeparator) {
+				if !strings.HasPrefix(realPattern, fileSeparator) && strings.HasPrefix(targetPath, fileSeparator) {
+					realPattern = fileSeparator + realPattern
+				}
+			} else {
+				targetPath = filepath.Base(targetPath)
+			}
+			if matched, _ := filepath.Match(realPattern, targetPath); matched {
+				fp.needCache = true
+				fp.etagMaxAge = filter.EtagMaxAge
+				if fp.etagMaxAge <= 0 {
+					fp.etagMaxAge = DefaultEtagMaxAge
+				}
+				return
+			}
+		}
+	}
+	fp.needCache = false
 }

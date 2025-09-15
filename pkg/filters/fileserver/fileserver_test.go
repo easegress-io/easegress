@@ -183,10 +183,65 @@ func TestIsFileHidden(t *testing.T) {
 			},
 		}
 		fs.Init()
-		input := filePath{path: tc.path}
-		actual := fs.isFileHidden(&input)
-		assert.Equal(tc.expect, actual, tc)
+		input := &filePath{path: tc.path}
+		fs.setFileHidden(input)
+		assert.Equal(tc.expect, input.isHidden, tc)
 		fs.Close()
+	}
+}
+
+func TestFileNeedCache(t *testing.T) {
+	assert := assert.New(t)
+	fs := &FileServer{
+		spec: &Spec{
+			Cache: CacheSpec{
+				CacheFileExtensionFilters: make([]FileExtensionFilter, 0),
+			},
+		},
+	}
+	fs.Init()
+	fs.spec.Cache.CacheFileExtensionFilters = []FileExtensionFilter{
+		{Pattern: []string{"*.html", "*.css"}},
+		{Pattern: []string{"/usr/*.js"}},
+		{Pattern: []string{"usr/test/*.png"}},
+	}
+
+	testCases := []struct {
+		path   string
+		expect bool
+	}{
+		{
+			path:   "/var/www/index.html",
+			expect: true,
+		},
+		{
+			path:   "/usr/app.js",
+			expect: true,
+		}, {
+			path:   "/usr/test/favicon.png",
+			expect: true,
+		},
+		{
+			path:   "/var/www/favicon.png",
+			expect: false,
+		},
+		{
+			path:   "/usr/local/app.js",
+			expect: false,
+		},
+		{
+			path:   "/usr/test/images/pic.png",
+			expect: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		if runtime.GOOS == "windows" {
+			tc.path = toWindowsPath(tc.path)
+		}
+		input := &filePath{path: tc.path}
+		fs.setFileNeedCache(input)
+		assert.Equal(tc.expect, input.needCache, tc)
 	}
 }
 

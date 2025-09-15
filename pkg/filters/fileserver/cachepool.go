@@ -315,7 +315,9 @@ func (f *FileServer) handleWithSmallFile(ctx *context.Context, w http.ResponseWr
 
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
 	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
+	if path.needCache {
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", path.etagMaxAge))
+	}
 
 	info, err := os.Stat(path.path)
 	if err == nil {
@@ -362,7 +364,9 @@ func (f *FileServer) handleWithLargeFile(ctx *context.Context, w http.ResponseWr
 		return ""
 	}
 	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", f.spec.EtagMaxAge))
+	if path.needCache {
+		w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%d", path.etagMaxAge))
+	}
 	rs := &mmapReadSeeker{r: entry.r, size: entry.size}
 	lastMod := entry.info.ModTime().UTC().Format(http.TimeFormat)
 
