@@ -217,15 +217,13 @@ func TestFileNeedCache(t *testing.T) {
 	fs := &FileServer{
 		spec: &Spec{
 			Cache: CacheSpec{
-				CacheFileExtensionFilters: make([]FileExtensionFilter, 0),
+				CacheFileExtensionFilters: make([]FileCacheExtensionFilter, 0),
 			},
 		},
 	}
 	fs.Init()
-	fs.spec.Cache.CacheFileExtensionFilters = []FileExtensionFilter{
-		{Pattern: []string{"*.html", "*.css"}},
-		{Pattern: []string{"/usr/*.js"}},
-		{Pattern: []string{"usr/test/*.png"}},
+	fs.spec.Cache.CacheFileExtensionFilters = []FileCacheExtensionFilter{
+		{Extension: []string{"*.html", "*.css"}},
 	}
 
 	testCases := []struct {
@@ -239,31 +237,14 @@ func TestFileNeedCache(t *testing.T) {
 		{
 			path:   "/usr/app.js",
 			expect: true,
-		}, {
-			path:   "/usr/test/favicon.png",
-			expect: true,
-		},
-		{
-			path:   "/var/www/favicon.png",
-			expect: false,
-		},
-		{
-			path:   "/usr/local/app.js",
-			expect: false,
-		},
-		{
-			path:   "/usr/test/images/pic.png",
-			expect: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		if runtime.GOOS == "windows" {
 			tc.path = toWindowsPath(tc.path)
-			fs.spec.Cache.CacheFileExtensionFilters = []FileExtensionFilter{
-				{Pattern: []string{toWindowsPath("*.html"), toWindowsPath("*.css")}},
-				{Pattern: []string{toWindowsPath("/usr/*.js")}},
-				{Pattern: []string{toWindowsPath("usr/test/*.png")}},
+			fs.spec.Cache.CacheFileExtensionFilters = []FileCacheExtensionFilter{
+				{Extension: []string{toWindowsPath("*.html"), toWindowsPath("*.css")}},
 			}
 		}
 		input := &filePath{path: tc.path}

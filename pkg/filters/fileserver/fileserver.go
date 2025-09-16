@@ -108,14 +108,14 @@ type (
 	}
 
 	CacheSpec struct {
-		BufferPoolMaxSize         int                   `json:"bufferPoolSize"`
-		BufferPoolMaxFileSize     int                   `json:"bufferPoolMaxFileSize"`
-		BufferPoolTTL             int                   `json:"bufferPoolTTL"`
-		CacheFileExtensionFilters []FileExtensionFilter `json:"cacheFileExtensionFilters"`
+		BufferPoolMaxSize         int                        `json:"bufferPoolSize"`
+		BufferPoolMaxFileSize     int                        `json:"bufferPoolMaxFileSize"`
+		BufferPoolTTL             int                        `json:"bufferPoolTTL"`
+		CacheFileExtensionFilters []FileCacheExtensionFilter `json:"cacheFileExtensionFilters"`
 	}
 
-	FileExtensionFilter struct {
-		Pattern    []string `json:"pattern"`
+	FileCacheExtensionFilter struct {
+		Extension  []string `json:"extension"`
 		EtagMaxAge int      `json:"etagMaxAge"`
 	}
 
@@ -502,7 +502,7 @@ func (f *FileServer) setFileNeedCache(fp *filePath) {
 	}
 
 	for _, filter := range f.spec.Cache.CacheFileExtensionFilters {
-		for _, pattern := range filter.Pattern {
+		for _, pattern := range filter.Extension {
 			realPattern := pattern
 			targetPath := fp.path
 			if strings.Contains(realPattern, fileSeparator) {
