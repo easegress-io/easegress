@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/megaease/easegress/v2/pkg/context"
 	"github.com/megaease/easegress/v2/pkg/filters"
@@ -46,6 +47,10 @@ const (
 
 	DefaultEtagMaxAge = 3600
 	fileSeparator     = string(filepath.Separator)
+
+	DefaultBufferPoolMaxFileSize = 10 * 1024 * 1024       // 10MB
+	DefaultBufferPoolMaxSize     = 2 * 1024 * 1024 * 1024 // 2GB
+	DefaultBufferPoolTTL         = 600                    // 600 seconds
 )
 
 var kind = &filters.Kind{
@@ -156,6 +161,7 @@ func (f *FileServer) Init() {
 
 // Inherit inherits previous generation of FileServer.
 func (f *FileServer) Inherit(previousGeneration filters.Filter) {
+	previousGeneration.Close()
 	f.Init()
 }
 
@@ -191,6 +197,23 @@ func (f *FileServer) reload() {
 		for _, p := range strings.Split(f.spec.Precompressed, " ") {
 			f.precompressed[p] = struct{}{}
 		}
+	}
+
+	f.initCacheSpec()
+	f.pool = NewBufferPool(int64(f.spec.Cache.BufferPoolMaxSize), int64(f.spec.Cache.BufferPoolMaxFileSize),
+		time.Duration(f.spec.Cache.BufferPoolTTL)*time.Second)
+	f.mc = NewMmapCache(f.spec.Cache.BufferPoolMaxFileSize)
+}
+
+func (f *FileServer) initCacheSpec() {
+	if f.spec.Cache.BufferPoolMaxFileSize == 0 {
+		f.spec.Cache.BufferPoolMaxFileSize = DefaultBufferPoolMaxFileSize
+	}
+	if f.spec.Cache.BufferPoolMaxSize == 0 {
+		f.spec.Cache.BufferPoolMaxSize = DefaultBufferPoolMaxSize
+	}
+	if f.spec.Cache.BufferPoolTTL == 0 {
+		f.spec.Cache.BufferPoolTTL = DefaultBufferPoolTTL
 	}
 }
 
@@ -272,6 +295,10 @@ func (f *FileServer) convertToFilePathWithExtensionAttribute(path string, precom
 
 func (f *FileServer) convertToFilePath(path string, precompressed []string) (*filePath, error) {
 	finalPath := filepath.Join(f.absRoot, path)
+	if strings.HasSuffix(path, fileSeparator) && !strings.HasSuffix(finalPath, fileSeparator) {
+		finalPath += fileSeparator
+	}
+
 	if !strings.HasPrefix(finalPath, f.absRoot) {
 		logger.Errorf("file path %s is not under root path %s", finalPath, f.absRoot)
 		return nil, ErrUnsafePath
@@ -364,6 +391,7 @@ func (f *FileServer) Status() interface{} {
 
 // Close closes FileServer.
 func (f *FileServer) Close() {
+	f.pool.Close()
 }
 
 func buildFailureRespWithErr(ctx *context.Context, err error) {
@@ -465,7 +493,6 @@ func (f *FileServer) setFileHidden(absPath *filePath) {
 		}
 	}
 	absPath.isHidden = false
-	return
 }
 
 func (f *FileServer) setFileNeedCache(fp *filePath) {

@@ -18,13 +18,35 @@
 package fileserver
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/megaease/easegress/v2/pkg/context"
+	"github.com/megaease/easegress/v2/pkg/logger"
+	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
 )
+
+func newContext(t *testing.T, req *http.Request, rw http.ResponseWriter) *context.Context {
+	ctx := context.New(nil)
+	httpreq, err := httpprot.NewRequest(req)
+	assert.Nil(t, err)
+	ctx.SetRequest("default", httpreq)
+	ctx.SetData("HTTP_RESPONSE_WRITER", rw)
+	ctx.UseNamespace("default")
+	return ctx
+}
+
+func TestMain(m *testing.M) {
+	logger.InitNop()
+	os.Exit(m.Run())
+}
 
 func TestIsFileHidden(t *testing.T) {
 	assert := assert.New(t)
@@ -242,6 +264,91 @@ func TestFileNeedCache(t *testing.T) {
 		input := &filePath{path: tc.path}
 		fs.setFileNeedCache(input)
 		assert.Equal(tc.expect, input.needCache, tc)
+	}
+}
+
+func TestFileServer(t *testing.T) {
+	assert := assert.New(t)
+	tempDir, err := os.MkdirTemp("", "go-fileserver-test-*")
+	assert.Nil(err)
+	defer os.RemoveAll(tempDir)
+
+	filesToCreate := map[string]string{
+		"index.html": `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Page</title>
+    <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+    <h1>test</h1>
+    <p>This is a html file.</p>
+</body>
+</html>`,
+		"hello.txt": "some text",
+		"assets/style.css": `body {
+    font-family: sans-serif;
+    background-color: #f0f0f0;
+    color: #333;
+}`,
+		"assets/script.js": `console.log("JavaScript!");`,
+	}
+
+	for filename, content := range filesToCreate {
+		filePath := filepath.Join(tempDir, filename)
+
+		err = os.MkdirAll(filepath.Dir(filePath), 0755)
+		assert.Nil(err)
+
+		err = os.WriteFile(filePath, []byte(content), 0644)
+		assert.Nil(err)
+	}
+
+	spec := &Spec{
+		Root: tempDir,
+	}
+	f := FileServer{
+		spec: spec,
+	}
+	f.Init()
+	defer f.Close()
+
+	testCases := []struct {
+		uri string
+		key string
+	}{
+		{
+			uri: "/",
+			key: "index.html",
+		},
+		{
+			uri: "/hello.txt",
+			key: "hello.txt",
+		},
+		{
+			uri: "/assets/style.css",
+			key: "assets/style.css",
+		},
+		{
+			uri: "/assets/script.js",
+			key: "assets/script.js",
+		},
+	}
+
+	for i, tc := range testCases {
+		msg := fmt.Sprintf("case %d: %v", i, tc)
+		req, err := http.NewRequest("GET", "http://example.com"+tc.uri, nil)
+		assert.Nil(err)
+		rw := httptest.NewRecorder()
+		ctx := newContext(t, req, rw)
+		res := f.Handle(ctx)
+		assert.Equal("", res, msg)
+		body := rw.Body.String()
+		expectedBody, ok := filesToCreate[tc.key]
+		assert.True(ok, msg)
+		assert.Equal(expectedBody, body, msg)
+		assert.Equal(200, rw.Code, msg)
 	}
 }
 

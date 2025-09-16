@@ -74,6 +74,7 @@ type (
 		maxFileSize int64
 		ttl         time.Duration
 		metrics     *bufferPoolMetrics
+		done        chan struct{}
 	}
 )
 
@@ -85,10 +86,15 @@ func NewBufferPool(maxSize, maxFileSize int64, ttl time.Duration) *BufferPool {
 		maxSize:     maxSize,
 		maxFileSize: maxFileSize,
 		ttl:         ttl,
+		done:        make(chan struct{}),
 	}
 	bp.metrics = bp.newMetrics()
 	go bp.cleanup()
 	return bp
+}
+
+func (bp *BufferPool) Close() {
+	close(bp.done)
 }
 
 func (bp *BufferPool) cleanup() {
@@ -98,6 +104,12 @@ func (bp *BufferPool) cleanup() {
 	ticker := time.NewTicker(bp.ttl / 2)
 	defer ticker.Stop()
 	for range ticker.C {
+		select {
+		case <-bp.done:
+			return
+		default:
+		}
+
 		now := time.Now()
 		bp.mu.Lock()
 		for e := bp.ll.Back(); e != nil; {
