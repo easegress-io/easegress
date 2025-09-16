@@ -260,6 +260,11 @@ func TestFileNeedCache(t *testing.T) {
 	for _, tc := range testCases {
 		if runtime.GOOS == "windows" {
 			tc.path = toWindowsPath(tc.path)
+			fs.spec.Cache.CacheFileExtensionFilters = []FileExtensionFilter{
+				{Pattern: []string{toWindowsPath("*.html"), toWindowsPath("*.css")}},
+				{Pattern: []string{toWindowsPath("/usr/*.js")}},
+				{Pattern: []string{toWindowsPath("usr/test/*.png")}},
+			}
 		}
 		input := &filePath{path: tc.path}
 		fs.setFileNeedCache(input)
