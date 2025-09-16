@@ -109,7 +109,7 @@ type (
 
 	CacheSpec struct {
 		BufferPoolMaxSize         int                   `json:"bufferPoolSize"`
-		BufferPoolMaxFileSize     int                   `json:"bufferPoolMaxFiles"`
+		BufferPoolMaxFileSize     int                   `json:"bufferPoolMaxFileSize"`
 		BufferPoolTTL             int                   `json:"bufferPoolTTL"`
 		CacheFileExtensionFilters []FileExtensionFilter `json:"cacheFileExtensionFilters"`
 	}
