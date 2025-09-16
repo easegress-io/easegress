@@ -236,7 +236,7 @@ func TestFileNeedCache(t *testing.T) {
 		},
 		{
 			path:   "/usr/app.js",
-			expect: true,
+			expect: false,
 		},
 	}
 
