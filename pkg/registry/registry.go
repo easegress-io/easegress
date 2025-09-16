@@ -26,6 +26,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/filters/connectcontrol"
 	_ "github.com/megaease/easegress/v2/pkg/filters/corsadaptor"
 	_ "github.com/megaease/easegress/v2/pkg/filters/fallback"
+	_ "github.com/megaease/easegress/v2/pkg/filters/fileserver"
 	_ "github.com/megaease/easegress/v2/pkg/filters/headerlookup"
 	_ "github.com/megaease/easegress/v2/pkg/filters/headertojson"
 	_ "github.com/megaease/easegress/v2/pkg/filters/kafka"
@@ -42,6 +43,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/filters/remotefilter"
 	_ "github.com/megaease/easegress/v2/pkg/filters/topicmapper"
 	_ "github.com/megaease/easegress/v2/pkg/filters/validator"
+	_ "github.com/megaease/easegress/v2/pkg/filters/waf"
 	_ "github.com/megaease/easegress/v2/pkg/filters/wasmhost"
 
 	// Objects
