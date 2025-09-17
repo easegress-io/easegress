@@ -205,6 +205,8 @@ func TestIsFileHidden(t *testing.T) {
 			},
 		}
 		fs.Init()
+		fmt.Println("hidden:", tc.hidden, "path:", tc.path)
+		fmt.Println("fs:", fs.spec, "fs:", fs)
 		input := &filePath{path: tc.path}
 		fs.setFileHidden(input)
 		assert.Equal(tc.expect, input.isHidden, tc)
