@@ -341,10 +341,11 @@ func TestFileServer(t *testing.T) {
 }
 
 func toWindowsPath(path string) string {
+	newPath := path
 	if strings.HasPrefix(path, "/") {
-		path, _ = filepath.Abs(path)
+		newPath, _ = filepath.Abs(path)
 	}
-	newPath := filepath.FromSlash(path)
+	newPath = filepath.FromSlash(newPath)
 	if strings.HasSuffix(path, "/") {
 		newPath += string(os.PathSeparator)
 	}
