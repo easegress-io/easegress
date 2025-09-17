@@ -205,7 +205,6 @@ func TestIsFileHidden(t *testing.T) {
 			},
 		}
 		fs.Init()
-		fmt.Printf("hidden: %+v tc: %+v\n", fs, tc)
 		input := &filePath{path: tc.path}
 		fs.setFileHidden(input)
 		assert.Equal(tc.expect, input.isHidden, tc)
@@ -343,5 +342,9 @@ func toWindowsPath(path string) string {
 	if strings.HasPrefix(path, "/") {
 		path, _ = filepath.Abs(path)
 	}
-	return filepath.FromSlash(path)
+	newPath := filepath.FromSlash(path)
+	if strings.HasSuffix(path, "/") {
+		newPath += string(os.PathSeparator)
+	}
+	return newPath
 }
