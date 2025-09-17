@@ -1,5 +1,14 @@
 # Changelog
 
+## [v2.10.0](https://github.com/megaease/easegress/tree/v2.10.0) (2025-09-17)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.9.4...v2.10.0)
+
+**Implemented enhancements:**
+
+* Enhance HTTP Server to support nginx-like header vars and build-in backend pool.
+* Added support for Static File Serving in HTTPServer, allowing users to serve static files directly from the server.
+
 ## [v2.9.4](https://github.com/megaease/easegress/tree/v2.9.4) (2025-08-25)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.9.0...v2.9.4)
