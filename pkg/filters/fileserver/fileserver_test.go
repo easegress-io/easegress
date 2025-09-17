@@ -349,5 +349,6 @@ func toWindowsPath(path string) string {
 	if strings.HasSuffix(path, "/") {
 		newPath += string(os.PathSeparator)
 	}
+	fmt.Println("toWindowsPath:", path, "->", newPath)
 	return newPath
 }
