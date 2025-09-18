@@ -48,9 +48,9 @@ const (
 	DefaultEtagMaxAge = 3600
 	fileSeparator     = string(filepath.Separator)
 
-	DefaultBufferPoolMaxFileSize = 10 * 1024 * 1024       // 10MB
-	DefaultBufferPoolMaxSize     = 2 * 1024 * 1024 * 1024 // 2GB
-	DefaultBufferPoolTTL         = 600                    // 600 seconds
+	DefaultBufferPoolMaxFileSize       = 10 * 1024 * 1024       // 10MB
+	DefaultBufferPoolMaxSize     int64 = 2 * 1024 * 1024 * 1024 // 2GB
+	DefaultBufferPoolTTL               = 600                    // 600 seconds
 )
 
 var kind = &filters.Kind{
@@ -210,7 +210,7 @@ func (f *FileServer) initCacheSpec() {
 		f.spec.Cache.BufferPoolMaxFileSize = DefaultBufferPoolMaxFileSize
 	}
 	if f.spec.Cache.BufferPoolMaxSize == 0 {
-		f.spec.Cache.BufferPoolMaxSize = DefaultBufferPoolMaxSize
+		f.spec.Cache.BufferPoolMaxSize = int(DefaultBufferPoolMaxSize)
 	}
 	if f.spec.Cache.BufferPoolTTL == 0 {
 		f.spec.Cache.BufferPoolTTL = DefaultBufferPoolTTL
