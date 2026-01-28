@@ -42,6 +42,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// statusClientClosedRequest is the status code for Client Closed Request.
+const statusClientClosedRequest = 499
+
 var httpMethods = map[string]struct{}{
 	http.MethodGet:     {},
 	http.MethodHead:    {},
@@ -503,8 +506,7 @@ func (sp *ServerPool) doHandle(stdctx stdcontext.Context, spCtx *serverPoolConte
 		}
 
 		// NOTE: return 499 if client is Disconnected.
-		// TODO: define a constant for 499
-		return serverPoolError{499, resultClientError}
+		return serverPoolError{statusClientClosedRequest, resultClientError}
 	}
 
 	spCtx.stdResp = resp
