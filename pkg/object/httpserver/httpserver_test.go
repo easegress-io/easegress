@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/context/contexttest"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/option"
@@ -36,6 +37,16 @@ func TestMain(m *testing.M) {
 }
 
 func TestHTTPServer(t *testing.T) {
+	// NOTE: For loading system controller TrafficController.
+	etcdDirName, err := os.MkdirTemp("", "trafficcontroller-test")
+	if err != nil {
+		t.Error(err.Error())
+	}
+	defer os.RemoveAll(etcdDirName)
+
+	cls := cluster.CreateClusterForTest(etcdDirName)
+	supervisor.MustNew(&option.Options{}, cls)
+
 	assert := assert.New(t)
 
 	yamlConfig := `
@@ -45,9 +56,7 @@ port: 38081
 keepAlive: true
 https: false
 `
-	super := supervisor.NewMock(option.New(), nil, nil,
-		nil, false, nil, nil)
-	superSpec, err := super.NewSpec(yamlConfig)
+	superSpec, err := supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 
 	svr := &HTTPServer{}
@@ -60,7 +69,7 @@ port: 38082
 keepAlive: true
 https: false
 `
-	superSpec, err = super.NewSpec(yamlConfig)
+	superSpec, err = supervisor.NewSpec(yamlConfig)
 	assert.NoError(err)
 	svr2 := &HTTPServer{}
 	svr2.Inherit(superSpec, svr, &contexttest.MockedMuxMapper{})

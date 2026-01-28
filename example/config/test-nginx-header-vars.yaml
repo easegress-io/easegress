@@ -1,0 +1,79 @@
+kind: HTTPServer
+name: test-nginx-header-vars
+port: 10080
+rules:
+    - paths:
+        - backendPool:
+            loadBalance:
+                policy: roundRobin
+            servers:
+                - url: http://127.0.0.1:9091
+                - url: http://127.0.0.1:9092
+                - url: http://127.0.0.1:9093
+          pathPrefix: /
+          setHeaders:
+            # Request line variables
+            X-Request-Method: "$request_method"
+            X-Request-URI: "$request_uri"
+            X-URI-Path: "$uri"
+            X-Scheme: "$scheme"
+            X-Query-String: "$query_string"
+            X-Args: "$args"
+            X-Full-Request: "$request"
+
+            # Host variables
+            X-Host: "$host"
+            X-Hostname: "$hostname"
+            X-HTTP-Host: "$http_host"
+            X-Server-Name: "$server_name"
+
+            # Remote address variables
+            X-Remote-Addr: "$remote_addr"
+            X-Remote-User: "${remote_user:anonymous}"
+            X-Proxy-Add-XFF: "$proxy_add_x_forwarded_for"
+
+            # Time variables
+            X-Time-ISO8601: "$time_iso8601"
+            X-Time-Local: "$time_local"
+            X-Time-Msec: "$msec"
+
+            # Content variables
+            X-Content-Type: "${content_type:none}"
+            X-Content-Length: "${content_length:0}"
+            X-Server-Protocol: "$server_protocol"
+            X-Request-Time: "$request_time"
+            X-Request-Length: "$request_length"
+
+            # HTTP headers examples
+            X-Original-User-Agent: "${http_user_agent:unknown}"
+            X-Original-Accept: "${http_accept:*/*}"
+            X-Original-XFF: "${http_x_forwarded_for:none}"
+            X-Original-Host: "${http_host:unknown}"
+
+            # Query parameters examples
+            X-Param-Version: "${arg_version:v1}"
+            X-Param-Debug: "${arg_debug:false}"
+            X-Param-Token: "${arg_token:none}"
+
+            # Cookie examples
+            X-Session-ID: "${cookie_session_id:no-session}"
+            X-User-Pref: "${cookie_user_pref:default}"
+
+            # Complex string building examples
+            X-Backend-URL: "${scheme}://${host}-backend${uri}"
+            X-Client-Info: "IP: ${remote_addr}, Agent: ${http_user_agent:unknown}"
+            X-Request-Info: "${request_method} ${uri}?${query_string} from ${remote_addr}"
+            X-Proxy-Chain: "Forwarded: ${proxy_add_x_forwarded_for}"
+
+            # Default value examples
+            X-API-Version: "${arg_api_version:v2}"
+            X-Client-ID: "${http_x_client_id:default-client}"
+            X-Trace-ID: "${http_x_trace_id:auto-generated}"
+
+            # Path parameters (will be populated if route has captures)
+            X-Path-ID: "${id:no-id}"
+            X-Path-Name: "${name:no-name}"
+
+            # Timestamp and protocol info
+            X-Processing-Time: "Started at ${time_iso8601} using ${server_protocol}"
+            X-Request-Summary: "Method=${request_method}, Host=${host}, Path=${uri}, Client=${remote_addr}"

@@ -30,7 +30,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/megaease/easegress/v2/pkg/filters/proxies/httpproxy"
 	"github.com/megaease/easegress/v2/pkg/object/httpserver/routers"
+	"github.com/megaease/easegress/v2/pkg/object/pipeline"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/megaease/easegress/v2/pkg/object/globalfilter"
@@ -42,6 +44,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot/httpstat"
 	"github.com/megaease/easegress/v2/pkg/supervisor"
 	"github.com/megaease/easegress/v2/pkg/tracing"
+	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/fasttime"
 	"github.com/megaease/easegress/v2/pkg/util/ipfilter"
 	"github.com/megaease/easegress/v2/pkg/util/readers"
@@ -56,8 +59,9 @@ const (
 
 type (
 	mux struct {
-		httpStat *httpstat.HTTPStat
-		topN     *httpstat.TopN
+		superSpec *supervisor.Spec
+		httpStat  *httpstat.HTTPStat
+		topN      *httpstat.TopN
 
 		inst atomic.Value // *muxInstance
 	}
@@ -151,6 +155,7 @@ func newMux(httpStat *httpstat.HTTPStat, topN *httpstat.TopN,
 }
 
 func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
+	m.superSpec = superSpec
 	spec := superSpec.ObjectSpec().(*Spec)
 
 	tracer := tracing.NoopTracer
@@ -188,7 +193,7 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		tracer:             tracer,
 		accessLogFormatter: newAccessLogFormatter(spec.AccessLogFormat),
 	}
-	spec.Rules.Init()
+	spec.Rules.Init(superSpec.Name())
 	inst.router = routers.Create(routerKind, spec.Rules)
 
 	if spec.CacheSize > 0 {
@@ -198,7 +203,133 @@ func (m *mux) reload(superSpec *supervisor.Spec, muxMapper context.MuxMapper) {
 		}
 		inst.cache = arc
 	}
+
+	m.reloadBackendPipelines(superSpec)
+
 	m.inst.Store(inst)
+}
+
+func (m *mux) reloadBackendPipelines(superSpec *supervisor.Spec) {
+	spec := superSpec.ObjectSpec().(*Spec)
+
+	pipelineNames := map[string]struct{}{}
+	for ruleIndex, rule := range spec.Rules {
+		for pathIndex, path := range rule.Paths {
+			if path.BackendPool == nil {
+				continue
+			}
+
+			pipelineName := routers.GenerateBackendPoolPipeline(superSpec.Name(), ruleIndex, pathIndex)
+
+			pipelineSpec, err := m.newProxyPipelineSpec(superSpec, pipelineName, path.BackendPool)
+			if err != nil {
+				logger.Errorf("BUG: new proxy pipeline spec failed: %v", err)
+				continue
+			}
+
+			err = m._putObject(superSpec, pipelineSpec)
+			if err != nil {
+				logger.Errorf("httpserver %s put backend pipeline %s failed: %v", superSpec.Name(), pipelineName, err)
+				continue
+			}
+
+			logger.Debugf("httpserver %s apply backend pipeline %s", superSpec.Name(), pipelineName)
+			pipelineNames[pipelineName] = struct{}{}
+		}
+	}
+
+	objects, err := m._listObjects(superSpec)
+	if err != nil {
+		logger.Errorf("httpserver %s list backend pipelines failed: %v", superSpec.Name(), err)
+		return
+	}
+	for _, obj := range objects {
+		category, name, labels := obj.Category(), obj.Name(), obj.Labels()
+
+		if category != supervisor.CategoryPipeline {
+			continue
+		}
+
+		if labels[supervisor.ObjectLabelKeyOwner] != superSpec.AsOwner() {
+			continue
+		}
+
+		if _, exists := pipelineNames[name]; !exists {
+			m._deleteObject(superSpec, obj)
+			logger.Debugf("httpserver %s delete backend pipeline %s", superSpec.Name(), name)
+		}
+	}
+}
+
+func (m *mux) _putObject(superSpec *supervisor.Spec, pipelineSpec *supervisor.Spec) error {
+	cluster := superSpec.Super().Cluster()
+	err := cluster.Put(cluster.Layout().ConfigObjectKey(pipelineSpec.Name()),
+		pipelineSpec.JSONConfig())
+	return err
+}
+
+func (m *mux) _deleteObject(superSpec *supervisor.Spec, pipelineSpec *supervisor.Spec) error {
+	cluster := superSpec.Super().Cluster()
+	return cluster.Delete(cluster.Layout().ConfigObjectKey(pipelineSpec.Name()))
+}
+
+func (m *mux) _listObjects(superSpec *supervisor.Spec) ([]*supervisor.Spec, error) {
+	cluster := superSpec.Super().Cluster()
+
+	kvs, err := cluster.GetPrefix(cluster.Layout().ConfigObjectPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	specs := make([]*supervisor.Spec, 0, len(kvs))
+	for _, v := range kvs {
+		spec, err := superSpec.Super().NewSpec(v)
+		if err != nil {
+			return nil, err
+		}
+		specs = append(specs, spec)
+	}
+
+	return specs, nil
+}
+
+func (m *mux) newProxyPipelineSpec(superSpec *supervisor.Spec, pipelineName string, pool *httpproxy.ServerPoolSpec) (*supervisor.Spec, error) {
+	proxyFilterName := "proxy"
+	proxyMap := map[string]interface{}{
+		"name":  proxyFilterName,
+		"kind":  "Proxy",
+		"pools": []interface{}{pool},
+	}
+
+	pipelineMap := map[string]interface{}{
+		"kind": "Pipeline",
+		"name": pipelineName,
+		"labels": map[string]interface{}{
+			supervisor.ObjectLabelKeyOwner: superSpec.AsOwner(),
+		},
+		"createdAt": time.Now().UTC().Format(time.RFC3339Nano),
+
+		"flow": []pipeline.FlowNode{{FilterName: proxyFilterName}},
+		"filters": []map[string]interface{}{
+			proxyMap,
+		},
+	}
+
+	pipelineConfig, err := codectool.MarshalYAML(pipelineMap)
+	if err != nil {
+		err := fmt.Errorf("BUG: marshal pipeline spec failed: %v", err)
+		logger.Errorf("%v", err)
+		return nil, err
+	}
+
+	pipelineSpec, err := supervisor.NewSpec(string(pipelineConfig))
+	if err != nil {
+		err := fmt.Errorf("BUG: create pipeline spec failed: %v: %s", err, string(pipelineConfig))
+		logger.Errorf("%v", err)
+		return nil, err
+	}
+
+	return pipelineSpec, nil
 }
 
 func (m *mux) ServeHTTP(stdw http.ResponseWriter, stdr *http.Request) {
@@ -524,6 +655,26 @@ func (mi *muxInstance) close() {
 
 func (m *mux) close() {
 	m.inst.Load().(*muxInstance).close()
+
+	superSpec := m.superSpec
+	objects, err := m._listObjects(superSpec)
+	if err != nil {
+		logger.Errorf("httpserver %s list backend pipelines failed: %v", superSpec.Name(), err)
+		return
+	}
+	for _, obj := range objects {
+		category, name, labels := obj.Category(), obj.Name(), obj.Labels()
+
+		if category != supervisor.CategoryPipeline {
+			continue
+		}
+
+		if labels[supervisor.ObjectLabelKeyOwner] != superSpec.AsOwner() {
+			continue
+		}
+		m._deleteObject(superSpec, obj)
+		logger.Debugf("httpserver %s delete backend pipeline %s", superSpec.Name(), name)
+	}
 }
 
 func (mi *muxInstance) exportPrometheusMetrics(stat *httpstat.Metric, backend string) {

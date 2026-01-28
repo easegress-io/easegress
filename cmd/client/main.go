@@ -98,6 +98,7 @@ func main() {
 		commandv2.ConfigCmd(),
 		commandv2.LogsCmd(),
 		commandv2.MetricsCmd(),
+		commandv2.AICmd(),
 	)
 
 	addCommandWithGroup(

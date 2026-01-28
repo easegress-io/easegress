@@ -147,9 +147,12 @@ func (r *Response) SetPayload(payload interface{}) {
 	switch p := payload.(type) {
 	case []byte:
 		r.payload = p
+		r.ContentLength = int64(len(p))
 	case string:
 		r.payload = []byte(p)
+		r.ContentLength = int64(len(p))
 	case io.Reader:
+		// don't set ContentLength here because io.Reader maybe not stream and contains length.
 		if bcr, ok := p.(*readers.ByteCountReader); ok {
 			r.stream = bcr
 		} else {

@@ -43,13 +43,22 @@ type (
 
 	// MetaSpec is metadata for all specs.
 	MetaSpec struct {
-		Name    string `json:"name" jsonschema:"required,format=urlname"`
-		Kind    string `json:"kind" jsonschema:"required"`
-		Version string `json:"version,omitempty"`
+		Name    string            `json:"name" jsonschema:"required,format=urlname"`
+		Kind    string            `json:"kind" jsonschema:"required"`
+		Version string            `json:"version,omitempty"`
+		Labels  map[string]string `json:"labels,omitempty" jsonschema:"omitempty,additionalProperties=true"`
 
 		// RFC3339 format
 		CreatedAt string `json:"createdAt,omitempty"`
 	}
+)
+
+const (
+	// Predefined label keys
+	ObjectLabelKeyOwner = "easegress/owner"
+
+	// Predefined label values
+	ObjectLabelValueUserAPI = "user-api"
 )
 
 func (s *Supervisor) newSpecInternal(meta *MetaSpec, objectSpec interface{}) *Spec {
@@ -110,7 +119,12 @@ func (s *Supervisor) newSpec(config string, created bool) (spec *Spec, err error
 	buff := []byte(config)
 
 	// Meta part.
-	meta := &MetaSpec{Version: DefaultSpecVersion}
+	meta := &MetaSpec{
+		Version: DefaultSpecVersion,
+		Labels: map[string]string{
+			ObjectLabelKeyOwner: ObjectLabelValueUserAPI,
+		},
+	}
 	if created {
 		meta.CreatedAt = time.Now().Format(time.RFC3339)
 	}
@@ -161,18 +175,27 @@ func (s *Spec) MarshalJSON() ([]byte, error) {
 	return []byte(s.jsonConfig), nil
 }
 
-func (s *Spec) Categroy() ObjectCategory {
+func (s *Spec) Category() ObjectCategory {
 	return s.category
 }
 
 // Name returns name.
 func (s *Spec) Name() string { return s.meta.Name }
 
+func (s *Spec) AsOwner() string {
+	return fmt.Sprintf("%s:%s", s.Kind(), s.Name())
+}
+
 // Kind returns kind.
 func (s *Spec) Kind() string { return s.meta.Kind }
 
 // Version returns version.
 func (s *Spec) Version() string { return s.meta.Version }
+
+// Labels returns the labels.
+func (s *Spec) Labels() map[string]string {
+	return s.meta.Labels
+}
 
 // JSONConfig returns the config in json format.
 func (s *Spec) JSONConfig() string {

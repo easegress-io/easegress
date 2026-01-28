@@ -6,18 +6,18 @@ on:
       - "v*"
 
 env:
-  GO_VERSION: "1.23"
+  GO_VERSION: "1.24"
 
 permissions:
   contents: write
 
 jobs:
-  test:
+  test-ubuntu:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - name: Set up Go 1.x.y
         uses: actions/setup-go@v4
@@ -31,6 +31,27 @@ jobs:
         shell: bash
         run: |
           make test TEST_FLAGS="-race -covermode=atomic"
+  test-macos:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest]
+    steps:
+      - name: Set up Go 1.x.y
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Checkout codebase
+        uses: actions/checkout@v3
+
+      - name: Test
+        shell: bash
+        env:
+          EASEGRESS_TEST_SKIP_DOCKER: "true"
+        run: |
+          make test TEST_FLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
   test-win:
     runs-on: windows-latest
     strategy:
@@ -45,12 +66,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Test
+        env:
+          EASEGRESS_TEST_SKIP_DOCKER: "true"
         run: |
           go mod verify
           go mod download
           go test -v ./pkg/...
   integration-test-ubuntu:
-    needs: [test, test-win]
+    needs: [test-ubuntu, test-macos, test-win]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

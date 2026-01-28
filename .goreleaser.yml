@@ -21,6 +21,9 @@ builds:
     goos:
       - linux
       - darwin
+    goarch:
+      - amd64
+      - arm64
     ldflags:
       - -s -w
       - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}
@@ -35,6 +38,9 @@ builds:
     goos:
       - linux
       - darwin
+    goarch:
+      - amd64
+      - arm64
     ldflags:
       - -s -w
       - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}
@@ -49,6 +55,9 @@ builds:
     goos:
       - linux
       - darwin
+    goarch:
+      - amd64
+      - arm64
     ldflags:
       - -s -w
       - -X github.com/easegress-io/easegress/v2/pkg/version.RELEASE={{ .Tag }}

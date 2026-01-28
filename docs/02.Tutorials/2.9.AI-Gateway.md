@@ -1,0 +1,190 @@
+# AI Gateway <!-- omit from toc -->
+
+- [Introduction](#introduction)
+- [Configuring AI Gateway](#configuring-ai-gateway)
+- [Observability](#observability)
+- [Benchmark](#benchmark)
+
+## Introduction
+
+The AI Gateway enables seamless proxying of large language model (LLM) APIs following OpenAI specifications. We support providers such as OpenAI, DeepSeek, Anthropic and so on. See [Supported Providers](../07.Reference/7.01.Controllers.md#supported-providers) for the complete list.
+
+Beyond the basic proxying capabilities, the AI Gateway offers advanced features such as response caching, and dynamic routing based on real-time statistics. These enhancements ensure optimal performance and flexibility when integrating with various AI services.
+
+## Configuring AI Gateway
+
+To set up the AI Gateway, we need to create an `AIGatewayController` resource. This resource will manage the configuration and lifecycle of the AI Gateway, including the supported LLM providers and any specific routing or caching rules.
+
+We have subcommand `egctl ai` to manage the AI Gateway configuration easily.
+
+```bash
+$ egctl ai enable
+
+# It is the short form of:
+$ echo 'kind: AIGatewayController
+name: AIGatewayController' | egctl create -f -
+```
+
+To disable the AI Gateway, we can use the following command:
+
+```bash
+$ egctl ai disable
+
+# It is the short form of:
+$ egctl delete AIGatewayController AIGatewayController
+```
+
+> NOTICE: The deletion of the AI Gateway will remove all associated configurations(like api keys). Please proceed with caution.
+
+```bash
+# To view the current configuration of the AI Gateway, we can use:
+$ egctl get AIGatewayController AIGatewayController -o yaml
+
+$ egctl ai edit # Edit the AIGatewayController resource in the default editor.
+
+# It is the short form of:
+$ egctl edit aigatewaycontroller AIGatewayController
+```
+
+Basic configuration of the AI Gateway can be done through the `AIGatewayController` resource. Here is an example configuration:
+
+```yaml
+kind: AIGatewayController
+name: AIGatewayController
+providers:
+    - name: openai-provider
+      providerType: openai
+      baseURL: https://api.openai.com
+      apiKey: sk-proj-openai-api-key # Replace with your OpenAI API key
+    - name: deepseek-provider
+      providerType: deepseek
+      baseURL: https://api.deepseek.com
+      apiKey: sk-deepseek-api-key # Replace with your DeepSeek API key
+version: easegress.megaease.com/v2
+```
+
+Besides using `egctl ai edit` to modify the configuration, we can still save it as `aigateway.yaml` and apply it:
+
+```bash
+egctl apply -f aigateway.yaml
+```
+
+After adding one or more providers, we can add Filter AIGatewayProxy in `Pipeline` to proxy requests to the providers. Here is an example of a `Pipeline` configuration that uses the AI Gateway:
+
+```bash
+echo 'name: ai-gateway-pipeline
+kind: Pipeline
+filters:
+  - name: ai-gateway-proxy
+    kind: AIGatewayProxy
+    providerName: deepseek-provider # one of the provider names in the controller to use
+' | egctl create -f -
+
+echo 'kind: HTTPServer
+name: ai-gateway-server
+port: 8080
+rules:
+  - paths:
+    - pathPrefix: /
+      backend: ai-gateway-pipeline' | egctl create -f -
+
+# Now we can access the AI Gateway through the HTTP server
+$ curl http://127.0.0.1:8080/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+    "model": "deepseek-chat",
+    "messages": [
+      {"role": "user", "content": "Hello, who are you?"}
+    ],
+    "max_tokens": 100
+  }'
+
+{"id":"8c8ca32d-b368-4797-8bdd-f824e260ea98","object":"chat.completion","created":1753173468,"model":"deepseek-chat","choices":[{"index":0,"message":{"role":"assistant","content":"Hello! 😊 I'm DeepSeek Chat, your AI assistant created by DeepSeek. I'm here to help answer your questions, provide information, and assist with anything you need—whether it's learning, problem-solving, or just having a friendly chat! How can I help you today? 🚀"},"logprobs":null,"finish_reason":"stop"}],"usage":{"prompt_tokens":9,"completion_tokens":64,"total_tokens":73,"prompt_tokens_details":{"cached_tokens":0},"prompt_cache_hit_tokens":0,"prompt_cache_miss_tokens":9},"system_fingerprint":"fp_8802369eaa_prod0623_fp8_kvcache"}
+```
+
+We also support [Anthropic Message API](https://docs.anthropic.com/en/api/messages) as client-side, which means you can use access all providers by Anthropic Message API. Internally we transform Anthropic Message API requests to the [OpenAI Chat Completion API](https://platform.openai.com/docs/api-reference/chat/create) requests, and responses are converted back to Anthropic format.
+
+```bash
+# Example using Anthropic Message API format
+$ curl http://127.0.0.1:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+  "model": "deepseek-chat",
+  "max_tokens": 100,
+  "messages": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Hello, who are you?"
+        }
+      ]
+    }
+  ]
+}'
+
+{"id":"d857284e-80dc-479c-bdb2-527235969d96","content":[{"citations":null,"text":"Hello! 😊 I'm DeepSeek Chat, your AI assistant created by DeepSeek. I'm here to help answer your questions, provide information, and assist with anything you need—whether it's learning something new, solving problems, or just having a fun conversation!  \n\nHow can I help you today? 🚀","type":"text","signature":"","thinking":"","data":"","id":"","input":null,"name":"","content":{"OfWebSearchResultBlockArray":null,"error_code":"","type":"web_search_tool_result_error"},"tool_use_id":""}],"model":"deepseek-chat","role":"assistant","stop_reason":"end_turn","stop_sequence":"","type":"message","usage":{"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"input_tokens":9,"output_tokens":67,"server_tool_use":{"web_search_requests":0},"service_tier":"standard"}}
+```
+
+## Observability
+
+We can check the status of the AI Gateway providers using the following command:
+
+```bash
+$ egctl ai check
+NAME       PROVIDER-TYPE HEALTHY
+openai-provider  openai      YES
+deepseek-provider deepseek     YES
+```
+
+We can also view the statistics of the AI Gateway, including the number of requests, success/failure rates, and average response times for each provider:
+
+```bash
+$ egctl ai stat
+PROVIDER(TYPE) MODEL@BASEURL RESP-TYPE TOTAL-REQ SUCCESS/FAILED AVG-DUR(ms) TOKENS(INPUT/OUTPUT)
+openai-provider(openai)  gpt-4o@https://api.openai.com  /v1/chat/completions 2  2/0  1842  26/72
+deepseek-provider(deepseek) deepseek-chat@https://api.deepseek.com /v1/chat/completions 2  2/0  107  18/177
+```
+
+## Benchmark
+
+In this benchmark, we compare popular open-source solutions providing AI gateway capabilities, including our own `Easegress`, as well as `Kong` and `APISIX`. Our goal is to provide clear, reproducible data to help users choose the right gateway for their scenarios.
+
+### Test Environment
+
+#### Machine
+
+Benchmark machine: dual Intel Xeon Gold 5220R CPUs (96 cores, 192 threads), 251 GiB RAM.
+
+#### Configs
+
+See the benchmark scripts in [the benchmark scripts directory](../../scripts/benchmark/aigateway).
+
+#### Mock LLM Server
+
+To ensure fair comparison and reproducibility, we used a mock LLM server to simulate inference requests and responses. This allows us to focus on the gateway performance itself.
+
+See the [mock server implementation](../../scripts/benchmark/aigateway/llm/).
+
+### Benchmark Results
+
+1000 requests with 50 concurrency:
+
+| Name | QPS (Request/sec) | Latency (ms) |
+| ---- | ----------------- | ------------ |
+| Easegress | 11075 | 3.9 |
+| APISIX | 10979 | 4.2 |
+| Kong | 7528 | 6.2 |
+
+10000 requests with 1000 concurrency:
+
+| Name | QPS (Request/sec) | Latency (ms) |
+| ---- | ----------------- | ------------ |
+| Easegress | 13496 | 7.1 |
+| APISIX | 15055 | 6.4 |
+| Kong | 9061 | 10.7 |
+
+The results demonstrate that `Easegress` delivers high throughput and low latency, outperforming `Kong` and matching or slightly trailing `APISIX` in certain high-concurrency scenarios.
+
+See more details of the benchmark results in [the benchmark results directory](../../scripts/benchmark/aigateway/result/).

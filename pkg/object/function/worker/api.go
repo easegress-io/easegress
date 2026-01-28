@@ -42,11 +42,11 @@ func (worker *Worker) faasAPIPrefix() string {
 	return fmt.Sprintf("/faas/%s", worker.name)
 }
 
-const apiGroupName = "faas_admin"
+const APIGroupName = "faas_admin"
 
 func (worker *Worker) registerAPIs() {
 	group := &api.Group{
-		Group: apiGroupName,
+		Group: APIGroupName,
 		Entries: []*api.Entry{
 			{Path: worker.faasAPIPrefix(), Method: "POST", Handler: worker.Create},
 			{Path: worker.faasAPIPrefix(), Method: "GET", Handler: worker.List},
@@ -61,9 +61,8 @@ func (worker *Worker) registerAPIs() {
 	api.RegisterAPIs(group)
 }
 
-// UnregisterAPIs unregister APIs
-func (worker *Worker) UnregisterAPIs() {
-	api.UnregisterAPIs(apiGroupName)
+func (worker *Worker) unregisterAPIs() {
+	api.UnregisterAPIs(APIGroupName)
 }
 
 func (worker *Worker) readFunctionName(w http.ResponseWriter, r *http.Request) (string, error) {

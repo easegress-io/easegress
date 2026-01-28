@@ -76,7 +76,7 @@ func editErrWithPath(err error, filePath string) error {
 
 func editResource(oldYaml, filePath string) (string, error) {
 	var err error
-	if err = os.WriteFile(filePath, []byte(oldYaml), 0644); err != nil {
+	if err = os.WriteFile(filePath, []byte(oldYaml), 0o644); err != nil {
 		return "", err
 	}
 	// exec editor and get new yaml

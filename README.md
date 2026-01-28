@@ -104,6 +104,11 @@ And you can check [Easegress DeepWiki Page](https://deepwiki.com/easegress-io/ea
       - **Data Size:** request and response size.
       - **Status Codes:** HTTP status codes.
       - **TopN:** sorted by aggregated APIs(only in server dimension).
+- **AI Integration**
+  - **Proxy:** proxy requests to LLM providers like OpenAI, DeepSeek, Anthropic, etc.
+  - **Anthropic API Adaption:** adapts requests and responses in Anthropic API to OpenAI format.
+  - **Vector Database:** integrates with vector databases for caching.
+  - **Monitoring:** provides insights into the performance and usage of AI models.
 
 ## Getting Started
 

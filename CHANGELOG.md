@@ -1,5 +1,42 @@
 # Changelog
 
+## [v2.10.0](https://github.com/megaease/easegress/tree/v2.10.0) (2025-09-17)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.9.4...v2.10.0)
+
+**Implemented enhancements:**
+
+* Enhance HTTP Server to support nginx-like header vars and build-in backend pool.
+* Added support for Static File Serving in HTTPServer, allowing users to serve static files directly from the server.
+
+## [v2.9.4](https://github.com/megaease/easegress/tree/v2.9.4) (2025-08-25)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.9.0...v2.9.4)
+
+**Implemented enhancements:**
+
+* Enhanced the AI Gateway with capability to translate Anthropic API calls into the OpenAI format to use OpenAI providers.
+* Integrated Web Application Firewall (WAF) support to provide an additional layer of security.
+
+
+## [v2.9.0](https://github.com/megaease/easegress/tree/v2.9.0) (2025-06-20)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.8.0...v2.9.0)
+
+**AI Gateway Support:**
+
+* Introduced AI Gateway support, proxy requests to LLM providers like OpenAI, DeepSeek, Anthropic, etc.
+* Vector Database: integrates with vector databases for caching.
+* Monitoring: provides insights into the performance and usage of AI models.
+
+**Implemented enancements:**
+
+* Update GoReleaser configurations (#1446)
+
+**Fixed bugs:**
+
+* Fix the match of register and unregister of APIs (#1448)
+
 ## [v2.8.0](https://github.com/megaease/easegress/tree/v2.8.0) (2025-06-13)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.7.5...v2.8.0)

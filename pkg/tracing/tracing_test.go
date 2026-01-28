@@ -55,6 +55,7 @@ func TestNew(t *testing.T) {
 	}
 
 	tracer, err = New(spec)
+	assert.Nil(err)
 	assert.NotEqual(NoopTracer, tracer)
 	assert.Nil(err)
 	assert.NotNil(tracer.tp)

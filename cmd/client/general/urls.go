@@ -75,6 +75,9 @@ const (
 	// MetricsURL is the URL of metrics.
 	MetricsURL = APIURL + "/metrics"
 
+	AISProviderstatusURL = APIURL + "/ai-gateway/providers/status"
+	AIStatURL            = APIURL + "/ai-gateway/stat"
+
 	// HTTPProtocol is prefix for HTTP protocol
 	HTTPProtocol = "http://"
 	// HTTPSProtocol is prefix for HTTPS protocol

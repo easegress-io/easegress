@@ -544,7 +544,7 @@ domains:
 directoryURL: ` + url
 	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	defer os.RemoveAll(etcdDirName)
 
@@ -599,7 +599,7 @@ directoryURL: ` + url
 	w := httptest.NewRecorder()
 	r, err := http.NewRequest("GET", "http://example.org/challenge-suffix", nil)
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	acm.spec.EnableHTTP01 = false
 	acm.HandleHTTP01Challenge(w, r)
@@ -624,7 +624,7 @@ directoryURL: ` + url
 	token := "asdlijasdoiashvouid"
 	err = cls.Put(key, token) // add data for http01 challenge
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 
 	w = httptest.NewRecorder()
@@ -678,7 +678,7 @@ domains:
 directoryURL: ` + url
 	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	defer os.RemoveAll(etcdDirName)
 
@@ -726,7 +726,7 @@ domains:
 directoryURL: ` + url
 	etcdDirName, err := os.MkdirTemp("", "autocertmanager-test")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	defer os.RemoveAll(etcdDirName)
 
@@ -819,7 +819,7 @@ func waitDNSRecordTest(t *testing.T, d Domain) {
 func TestDomain(t *testing.T) {
 	etcdDirName, err := os.MkdirTemp("", "autocertmanager-domain-test")
 	if err != nil {
-		t.Errorf(err.Error())
+		t.Error(err.Error())
 	}
 	defer os.RemoveAll(etcdDirName)
 	cls := cluster.CreateClusterForTest(etcdDirName)

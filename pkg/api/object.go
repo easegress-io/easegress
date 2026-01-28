@@ -142,7 +142,7 @@ func (s *Server) createObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if spec.Categroy() == supervisor.CategorySystemController {
+	if spec.Category() == supervisor.CategorySystemController {
 		HandleAPIError(w, r, http.StatusConflict, fmt.Errorf("can't create system controller object"))
 	}
 
@@ -186,13 +186,8 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if spec.Categroy() == supervisor.CategorySystemController {
+	if spec.Category() == supervisor.CategorySystemController {
 		HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("can't delete system controller object"))
-		return
-	}
-
-	if spec == nil {
-		HandleAPIError(w, r, http.StatusNotFound, fmt.Errorf("not found"))
 		return
 	}
 
@@ -203,6 +198,13 @@ func (s *Server) deleteObject(w http.ResponseWriter, r *http.Request) {
 			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
 			return
 		}
+	}
+
+	objectOwner := spec.Labels()[supervisor.ObjectLabelKeyOwner]
+	if objectOwner != "" && objectOwner != supervisor.ObjectLabelValueUserAPI {
+		HandleAPIError(w, r, http.StatusBadRequest,
+			fmt.Errorf("can't delete %s owned by %s via API", name, objectOwner))
+		return
 	}
 
 	s._deleteObject(name)
@@ -217,7 +219,7 @@ func (s *Server) deleteObjects(w http.ResponseWriter, r *http.Request) {
 
 		specs := s._listObjects()
 		for _, spec := range specs {
-			if spec.Categroy() == supervisor.CategorySystemController {
+			if spec.Category() == supervisor.CategorySystemController {
 				continue
 			}
 
@@ -329,6 +331,13 @@ func (s *Server) updateObject(w http.ResponseWriter, r *http.Request) {
 			HandleAPIError(w, r, http.StatusBadRequest, fmt.Errorf("validate failed: %v", err))
 			return
 		}
+	}
+
+	objectOwner := spec.Labels()[supervisor.ObjectLabelKeyOwner]
+	if objectOwner != "" && objectOwner != supervisor.ObjectLabelValueUserAPI {
+		HandleAPIError(w, r, http.StatusBadRequest,
+			fmt.Errorf("can't update %s owned by %s via API", name, objectOwner))
+		return
 	}
 
 	s._putObject(spec)
