@@ -115,6 +115,9 @@ var (
 	forbidden        = &cachedRoute{code: http.StatusForbidden}
 	methodNotAllowed = &cachedRoute{code: http.StatusMethodNotAllowed}
 	badRequest       = &cachedRoute{code: http.StatusBadRequest}
+
+	accessLogVarReg    = regexp.MustCompile(`\{\{([a-zA-z]*)\}\}`)
+	accessLogEscapeReg = regexp.MustCompile(`(\[|\])`)
 )
 
 func (mi *muxInstance) getRouteFromCache(req *httpprot.Request) *cachedRoute {
@@ -699,10 +702,8 @@ func newAccessLogFormatter(format string) *accessLogFormatter {
 	if format == "" {
 		format = defaultAccessLogFormat
 	}
-	varReg := regexp.MustCompile(`\{\{([a-zA-z]*)\}\}`)
-	expr := varReg.ReplaceAllString(format, "{{.$1}}")
-	escapeReg := regexp.MustCompile(`(\[|\])`)
-	expr = escapeReg.ReplaceAllString(expr, "{{`$1`}}")
+	expr := accessLogVarReg.ReplaceAllString(format, "{{.$1}}")
+	expr = accessLogEscapeReg.ReplaceAllString(expr, "{{`$1`}}")
 	tpl := template.Must(template.New("").Parse(expr))
 	return &accessLogFormatter{template: tpl}
 }
