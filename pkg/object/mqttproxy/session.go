@@ -296,16 +296,16 @@ func (s *Session) backgroundSessionTask() {
 		select {
 		case <-s.done:
 			return
-		case <-ticker.C:
+		case t := <-ticker.C:
 			s.store()
-			if time.Now().After(resendTime) {
+			if t.After(resendTime) {
 				s.doResend()
-				resendTime = time.Now().Add(s.retryInterval)
+				resendTime = t.Add(s.retryInterval)
 			}
-		}
-		if time.Now().After(debugLogTime) {
-			logger.SpanDebugf(nil, "session %v resend", s.info.ClientID)
-			debugLogTime = time.Now().Add(time.Minute)
+			if t.After(debugLogTime) {
+				logger.SpanDebugf(nil, "session %v resend", s.info.ClientID)
+				debugLogTime = t.Add(time.Minute)
+			}
 		}
 	}
 }
