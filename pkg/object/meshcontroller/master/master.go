@@ -143,7 +143,7 @@ func (m *Master) checkServiceInstances() {
 		serviceName string
 		instanceID  string
 	}
-	statusMap := make(map[instanceKey]*spec.ServiceInstanceStatus)
+	statusMap := make(map[instanceKey]*spec.ServiceInstanceStatus, len(statuses))
 	for _, s := range statuses {
 		statusMap[instanceKey{s.ServiceName, s.InstanceID}] = s
 	}
