@@ -139,18 +139,21 @@ func (m *Master) checkServiceInstances() {
 	statuses := m.service.ListAllServiceInstanceStatuses()
 	specs := m.service.ListAllServiceInstanceSpecs()
 
+	type instanceKey struct {
+		serviceName string
+		instanceID  string
+	}
+	statusMap := make(map[instanceKey]*spec.ServiceInstanceStatus, len(statuses))
+	for _, s := range statuses {
+		statusMap[instanceKey{s.ServiceName, s.InstanceID}] = s
+	}
+
 	for _, _spec := range specs {
 		if !m.isMeshRegistryName(_spec.RegistryName) {
 			continue
 		}
 
-		// TODO: improve search performance
-		var status *spec.ServiceInstanceStatus
-		for _, s := range statuses {
-			if s.ServiceName == _spec.ServiceName && s.InstanceID == _spec.InstanceID {
-				status = s
-			}
-		}
+		status := statusMap[instanceKey{_spec.ServiceName, _spec.InstanceID}]
 
 		if status == nil {
 			format := "status of %s/%s not found, need to delete"
