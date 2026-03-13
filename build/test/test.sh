@@ -76,7 +76,7 @@ else
 fi
 
 # run go test
-env EGCTL=$EGCTL EGBUILDER=$EGBUILDER go test -v $SCRIPTPATH
+env EGCTL=$EGCTL EGBUILDER=$EGBUILDER go test -tags=integration -v $SCRIPTPATH
 
 popd > /dev/null
 exit 0
