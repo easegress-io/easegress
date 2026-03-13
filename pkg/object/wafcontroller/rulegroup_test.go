@@ -1320,35 +1320,35 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		{
 			Name:        "930100_path_traversal_encoded_dotdot",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/download?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+			URL:         "/download?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
 			RuleID:      "930100",
 			Description: "Path traversal via encoded ../ sequences in query param to access /etc/passwd",
 		},
 		{
 			Name:        "930100_path_traversal_mixed_slashes",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/api/v1/..%2f..%5cwindows%5cwin.ini",
+			URL:         "/api/v1/..%2f..%5cwindows%5cwin.ini",
 			RuleID:      "930100",
 			Description: "Path traversal using mixed separators and encodings to reach Windows file",
 		},
 		{
 			Name:        "930110_path_traversal_plain_dotdot",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/view?path=../../../../var/log/auth.log",
+			URL:         "/view?path=../../../../var/log/auth.log",
 			RuleID:      "930110",
 			Description: "Simple ../ traversal in query parameter",
 		},
 		{
 			Name:        "930110_path_traversal_with_semicolons",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/read;../../../../etc/hosts",
+			URL:         "/read;../../../../etc/hosts",
 			RuleID:      "930110",
 			Description: "Traversal using semicolon separators",
 		},
 		{
 			Name:   "930120_os_file_access_in_cookie",
 			Method: http.MethodGet,
-			URL:    "http://127.0.0.1:8080/profile",
+			URL:    "/profile",
 			Cookies: map[string]string{
 				"lastPath": "/proc/self/environ",
 			},
@@ -1358,14 +1358,14 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		{
 			Name:        "930130_restricted_file_access",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/.htaccess",
+			URL:         "/.htaccess",
 			RuleID:      "930130",
 			Description: "Direct request to restricted file (REQUEST_FILENAME)",
 		},
 		{
 			Name:        "930130_restricted_dot_git",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/.git/config",
+			URL:         "/.git/config",
 			RuleID:      "930130",
 			Description: "Attempt to access VCS metadata under /.git/",
 		},
@@ -1392,7 +1392,9 @@ func TestLocalFileInclusionRules(t *testing.T) {
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
 		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		assert.Nil(err, "Failed to create request", tc)
+		if !assert.NoError(err, "Failed to create request", tc) {
+			continue
+		}
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
