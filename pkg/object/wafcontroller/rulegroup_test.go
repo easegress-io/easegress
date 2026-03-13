@@ -32,6 +32,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
@@ -1392,9 +1393,7 @@ func TestLocalFileInclusionRules(t *testing.T) {
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
 		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		if !assert.NoError(err, "Failed to create request", tc) {
-			continue
-		}
+		require.NoError(t, err, "Failed to create request", tc)
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
