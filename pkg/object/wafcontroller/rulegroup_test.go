@@ -37,11 +37,19 @@ import (
 
 func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	httpreq, err := httpprot.NewRequest(req)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	err = httpreq.FetchPayload(1024 * 1024)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	ctx.SetRequest(ns, httpreq)
 	ctx.UseNamespace(ns)
+}
+
+func testRequestURL(rawURL string) string {
+	if strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://") {
+		return rawURL
+	}
+
+	return "http://127.0.0.1:8080" + rawURL
 }
 
 func TestSQLInjectionRules(t *testing.T) {
@@ -57,7 +65,7 @@ func TestSQLInjectionRules(t *testing.T) {
 		Description string
 	}
 
-	var testCases = []sqlInjectionTestCase{
+	testCases := []sqlInjectionTestCase{
 		// Rule 942100 - libinjection detection
 		{
 			Name:        "942100_basic_sqli",
@@ -392,8 +400,8 @@ func TestSQLInjectionRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
-		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		assert.Nil(err, "Failed to create request", tc)
+		req, err := http.NewRequest(tc.Method, testRequestURL(tc.URL), nil)
+		require.NoError(t, err, "Failed to create request", tc)
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
@@ -443,7 +451,7 @@ func TestXssAttackRules(t *testing.T) {
 		Description string
 	}
 
-	var xssAttackTestCases = []xssAttackTestCase{
+	xssAttackTestCases := []xssAttackTestCase{
 		{
 			Name:        "941100_libinjection_script",
 			Method:      "GET",
@@ -666,7 +674,7 @@ func TestRCEAttackRules(t *testing.T) {
 		Body        string
 	}
 
-	var rceAttackTestCases = []rceAttackTestCase{
+	rceAttackTestCases := []rceAttackTestCase{
 		{
 			Name:        "932230_basic_unix_command",
 			Method:      "GET",
@@ -839,7 +847,7 @@ func TestProtocolAttackRules(t *testing.T) {
 		Body        string
 	}
 
-	var rceAttackTestCases = []protocolAttackTestCase{
+	rceAttackTestCases := []protocolAttackTestCase{
 		{
 			Name:   "CRLF in Header Injection",
 			Method: "GET",
@@ -946,7 +954,7 @@ func TestProtocolAttackRules(t *testing.T) {
 		"/test?comment=nice+post",
 	}
 	for _, u := range allowedUrls {
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req, err := http.NewRequest(http.MethodGet, testRequestURL(u), nil)
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
@@ -1392,8 +1400,8 @@ func TestLocalFileInclusionRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
-		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		require.NoError(t, err, "Failed to create request", tc)
+		req, err := http.NewRequest(tc.Method, testRequestURL(tc.URL), nil)
+		require.NoError(t, err, "Failed to create request: %s", tc.Name)
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
@@ -1422,7 +1430,8 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		"/test?comment=nice+post",
 	}
 	for _, u := range allowedUrls {
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req, err := http.NewRequest(http.MethodGet, testRequestURL(u), nil)
+		require.NoError(t, err, "Failed to create allowed request: %s", u)
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")

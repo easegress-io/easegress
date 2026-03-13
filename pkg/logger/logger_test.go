@@ -36,6 +36,7 @@ func TestMustPlainLogger(t *testing.T) {
 	}()
 
 	MustNewPlainLogger(opt, "test.log", 1)
+	t.Cleanup(lh.close)
 	_, err := os.Stat(logPath)
 	if err == nil {
 		return
@@ -57,6 +58,7 @@ func TestMustPlainLoggerPanic(t *testing.T) {
 	}()
 
 	MustNewPlainLogger(opt, "test.log", 0)
+	t.Cleanup(lh.close)
 	_, err := os.Stat(logPath)
 	if err == nil {
 		return
@@ -77,6 +79,7 @@ func TestMustPlainLoggerWrite(t *testing.T) {
 	}()
 
 	l := MustNewPlainLogger(opt, "test.log", 0)
+	t.Cleanup(lh.close)
 	l.Errorf("test error")
 	l.Info("test info")
 	l.Debug("test debug")
