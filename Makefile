@@ -31,6 +31,12 @@ GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/v2/pkg/version.RELEASE=${RE
 # Cgo is disabled by default
 ENABLE_CGO= CGO_ENABLED=0
 
+# Go 1.26.1 crashes before tests start when -race and -gcflags=all=-l are combined.
+TEST_GCFLAGS= -gcflags "all=-l"
+ifneq ($(filter -race,$(TEST_FLAGS)),)
+  TEST_GCFLAGS=
+endif
+
 # Check Go build tags, the tags are from command line of make
 ifdef GOTAGS
   GO_BUILD_TAGS= -tags ${GOTAGS}
@@ -115,7 +121,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
+	go test -v ${TEST_GCFLAGS} ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
 
 integration_test: build
 	{ \
