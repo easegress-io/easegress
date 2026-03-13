@@ -19,13 +19,16 @@ package logger
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/megaease/easegress/v2/pkg/option"
 )
 
 func TestMustPlainLogger(t *testing.T) {
-	opt := &option.Options{AbsLogDir: "."}
+	logDir := t.TempDir()
+	logPath := filepath.Join(logDir, "test.log")
+	opt := &option.Options{AbsLogDir: logDir}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Errorf("mustPlainLogger() panic: %v", rv)
@@ -33,7 +36,8 @@ func TestMustPlainLogger(t *testing.T) {
 	}()
 
 	MustNewPlainLogger(opt, "test.log", 1)
-	_, err := os.Stat("test.log")
+	t.Cleanup(lh.close)
+	_, err := os.Stat(logPath)
 	if err == nil {
 		return
 	}
@@ -44,7 +48,9 @@ func TestMustPlainLogger(t *testing.T) {
 }
 
 func TestMustPlainLoggerPanic(t *testing.T) {
-	opt := &option.Options{AbsLogDir: "."}
+	logDir := t.TempDir()
+	logPath := filepath.Join(logDir, "test.log")
+	opt := &option.Options{AbsLogDir: logDir}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Logf("mustPlainLogger() panic: %v", rv)
@@ -52,7 +58,8 @@ func TestMustPlainLoggerPanic(t *testing.T) {
 	}()
 
 	MustNewPlainLogger(opt, "test.log", 0)
-	_, err := os.Stat("test.log")
+	t.Cleanup(lh.close)
+	_, err := os.Stat(logPath)
 	if err == nil {
 		return
 	}
@@ -63,7 +70,8 @@ func TestMustPlainLoggerPanic(t *testing.T) {
 }
 
 func TestMustPlainLoggerWrite(t *testing.T) {
-	opt := &option.Options{AbsLogDir: "."}
+	logDir := t.TempDir()
+	opt := &option.Options{AbsLogDir: logDir}
 	defer func() {
 		if rv := recover(); rv != nil {
 			t.Errorf("mustPlainLogger() panic: %v", rv)
@@ -71,6 +79,7 @@ func TestMustPlainLoggerWrite(t *testing.T) {
 	}()
 
 	l := MustNewPlainLogger(opt, "test.log", 0)
+	t.Cleanup(lh.close)
 	l.Errorf("test error")
 	l.Info("test info")
 	l.Debug("test debug")

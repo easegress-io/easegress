@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -41,15 +42,21 @@ type (
 		filename string
 		file     *os.File
 
-		logChan       chan []byte
-		syncEventChan chan *syncEvent
+		logChan        chan []byte
+		syncEventChan  chan *syncEvent
+		closeEventChan chan *closeEvent
 
 		cacheCount    uint32
 		maxCacheCount uint32
 		cache         *bytes.Buffer
+		closed        atomic.Bool
 	}
 
 	syncEvent struct {
+		resultChan chan error
+	}
+
+	closeEvent struct {
 		resultChan chan error
 	}
 )
@@ -57,11 +64,12 @@ type (
 // newLogFile can not open /dev/stderr, it will cause dead lock.
 func newLogFile(filename string, maxCacheCount uint32) (*logFile, error) {
 	lf := &logFile{
-		filename:      filename,
-		logChan:       make(chan []byte, logChanSize),
-		syncEventChan: make(chan *syncEvent),
-		maxCacheCount: maxCacheCount,
-		cache:         bytes.NewBuffer(nil),
+		filename:       filename,
+		logChan:        make(chan []byte, logChanSize),
+		syncEventChan:  make(chan *syncEvent),
+		closeEventChan: make(chan *closeEvent),
+		maxCacheCount:  maxCacheCount,
+		cache:          bytes.NewBuffer(nil),
 	}
 
 	err := lf.openFile()
@@ -84,16 +92,16 @@ func (lf *logFile) openFile() error {
 	return nil
 }
 
-func (lf *logFile) closeFile() {
-	err := lf.file.Close()
-	if err != nil {
-		stderrLogger.Errorf("close %s failed: %v", lf.filename, err)
-	}
+func (lf *logFile) closeFile() error {
+	return lf.file.Close()
 }
 
 func (lf *logFile) reopenFile() {
-	lf.closeFile()
-	err := lf.openFile()
+	err := lf.closeFile()
+	if err != nil && stderrLogger != nil {
+		stderrLogger.Errorf("close %s failed: %v", lf.filename, err)
+	}
+	err = lf.openFile()
 	if err != nil {
 		stderrLogger.Errorf("open %s failed: %v", lf.filename, err)
 		return
@@ -117,6 +125,9 @@ func (lf *logFile) run() {
 			} else {
 				syncEvent.resultChan <- lf.file.Sync()
 			}
+		case closeEvent := <-lf.closeEventChan:
+			closeEvent.resultChan <- lf.shutdown()
+			return
 		case <-time.After(cacheTimeout):
 			lf.flush()
 		}
@@ -125,6 +136,10 @@ func (lf *logFile) run() {
 
 // Write writes log asynchronously, it always returns successful result.
 func (lf *logFile) Write(p []byte) (int, error) {
+	if lf.closed.Load() {
+		return 0, os.ErrClosed
+	}
+
 	// NOTE: The memory of p may be corrupted after Write returned
 	// So it's necessary to do copy.
 	buff := make([]byte, len(p))
@@ -135,10 +150,27 @@ func (lf *logFile) Write(p []byte) (int, error) {
 
 // Sync flushes all cache to file with os-level flush.
 func (lf *logFile) Sync() error {
+	if lf.closed.Load() {
+		return nil
+	}
+
 	event := &syncEvent{
 		resultChan: make(chan error, 1),
 	}
 	lf.syncEventChan <- event
+
+	return <-event.resultChan
+}
+
+func (lf *logFile) Close() error {
+	if !lf.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+
+	event := &closeEvent{
+		resultChan: make(chan error, 1),
+	}
+	lf.closeEventChan <- event
 
 	return <-event.resultChan
 }
@@ -187,4 +219,25 @@ func (lf *logFile) flush() error {
 	}
 
 	return nil
+}
+
+func (lf *logFile) shutdown() error {
+	for {
+		select {
+		case p := <-lf.logChan:
+			lf.writeLog(p)
+		default:
+			err := lf.flush()
+			if err != nil {
+				return err
+			}
+
+			err = lf.file.Sync()
+			if err != nil {
+				return err
+			}
+
+			return lf.closeFile()
+		}
+	}
 }

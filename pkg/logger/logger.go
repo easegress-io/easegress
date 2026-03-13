@@ -234,7 +234,7 @@ func newPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) 
 	return zap.New(core).Sugar()
 }
 
-func mustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
+func mustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) (*zap.SugaredLogger, *logFile) {
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:       "",
 		LevelKey:      "",
@@ -246,16 +246,18 @@ func mustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint
 	}
 
 	var err error
+	var file *logFile
 	var fr io.Writer = os.Stdout
 	if opt.AbsLogDir != "" {
-		fr, err = newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
+		file, err = newLogFile(filepath.Join(opt.AbsLogDir, filename), maxCacheCount)
 		if err != nil {
 			panic(fmt.Errorf("new log file %s failed: %w", filename, err))
 		}
+		fr = file
 	}
 
 	syncer := zapcore.AddSync(fr)
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderConfig), syncer, globalLogLevel) // use global log level
 
-	return zap.New(core).Sugar()
+	return zap.New(core).Sugar(), file
 }

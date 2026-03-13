@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 /*
  * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
@@ -37,8 +40,10 @@ func checkServerStart(checkReq func() *http.Request) bool {
 	for i := 0; i < 100; i++ {
 		req := checkReq()
 		resp, err := http.DefaultClient.Do(req)
-		if err == nil && resp.StatusCode == http.StatusOK {
+		if resp != nil {
 			resp.Body.Close()
+		}
+		if err == nil && resp != nil && resp.StatusCode == http.StatusOK {
 			return true
 		}
 		time.Sleep(100 * time.Millisecond)

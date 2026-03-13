@@ -28,22 +28,27 @@ var lh *logHub
 func init() {
 	lh = &logHub{
 		loggers: make(map[string]*zap.SugaredLogger),
+		files:   make(map[string]*logFile),
 		mu:      &sync.RWMutex{},
 	}
 }
 
 type logHub struct {
 	loggers map[string]*zap.SugaredLogger
+	files   map[string]*logFile
 
 	mu *sync.RWMutex
 }
 
 // register registers a logger with name.
-func (lh *logHub) register(name string, logger *zap.SugaredLogger) {
+func (lh *logHub) register(name string, logger *zap.SugaredLogger, file *logFile) {
 	lh.mu.Lock()
 	defer lh.mu.Unlock()
 
 	lh.loggers[name] = logger
+	if file != nil {
+		lh.files[name] = file
+	}
 }
 
 // sync syncs all loggers.
@@ -53,5 +58,21 @@ func (lh *logHub) sync() {
 
 	for _, logger := range lh.loggers {
 		logger.Sync()
+	}
+}
+
+// close syncs and closes all registered log files.
+func (lh *logHub) close() {
+	lh.mu.Lock()
+	files := make([]*logFile, 0, len(lh.files))
+	for _, file := range lh.files {
+		files = append(files, file)
+	}
+	lh.loggers = make(map[string]*zap.SugaredLogger)
+	lh.files = make(map[string]*logFile)
+	lh.mu.Unlock()
+
+	for _, file := range files {
+		_ = file.Close()
 	}
 }
