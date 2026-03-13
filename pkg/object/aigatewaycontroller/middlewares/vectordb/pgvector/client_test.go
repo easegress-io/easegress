@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
@@ -32,6 +33,32 @@ func skipDockerTest() bool {
 	// For windows and mac, the github action runner does not support docker for now.
 	skipDocker := os.Getenv("EASEGRESS_TEST_SKIP_DOCKER")
 	return skipDocker == "true"
+}
+
+func newPostgresTestClient(ctx context.Context, connectionString string) (*PostgresClient, error) {
+	var lastErr error
+	deadline := time.NewTimer(30 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer deadline.Stop()
+	defer ticker.Stop()
+
+	for {
+		attemptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		client, err := NewPostgresClient(attemptCtx, connectionString)
+		cancel()
+		if err == nil {
+			return client, nil
+		}
+		lastErr = err
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-deadline.C:
+			return nil, lastErr
+		case <-ticker.C:
+		}
+	}
 }
 
 func TestCreateTableSQL(t *testing.T) {
@@ -171,7 +198,8 @@ func TestPostgresClient(t *testing.T) {
 	if skipDockerTest() {
 		return
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
 	req := testcontainers.ContainerRequest{
 		Image:        "pgvector/pgvector:pg17",
 		ExposedPorts: []string{"5432/tcp"},
@@ -179,7 +207,12 @@ func TestPostgresClient(t *testing.T) {
 			"POSTGRES_USER":     "postgres",
 			"POSTGRES_PASSWORD": "postgres",
 		},
-		WaitingFor: wait.ForListeningPort("5432/tcp"),
+		// Wait for both the mapped port and postgres readiness checks before we try
+		// the first client connection on the host.
+		WaitingFor: wait.ForAll(
+			wait.ForListeningPort("5432/tcp"),
+			wait.ForExec([]string{"pg_isready", "-U", "postgres"}).WithPollInterval(200*time.Millisecond),
+		).WithDeadline(2 * time.Minute),
 	}
 
 	postgresContainer, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
@@ -200,7 +233,7 @@ func TestPostgresClient(t *testing.T) {
 	}
 
 	connectionString := fmt.Sprintf("postgres://postgres:postgres@%s:%s/postgres?sslmode=disable", host, port.Port())
-	client, err := NewPostgresClient(ctx, connectionString)
+	client, err := newPostgresTestClient(ctx, connectionString)
 	if err != nil {
 		t.Fatalf("Failed to create Postgres client: %v", err)
 	}
