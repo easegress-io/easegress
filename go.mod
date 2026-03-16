@@ -16,6 +16,7 @@ require (
 	github.com/corazawaf/coraza-coreruleset/v4 v4.16.0
 	github.com/corazawaf/coraza/v3 v3.3.3
 	github.com/dave/jennifer v1.7.1
+	github.com/easegress-io/easemesh-api v1.5.1
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0
@@ -47,7 +48,6 @@ require (
 	github.com/libdns/libdns v0.2.2
 	github.com/libdns/route53 v1.3.3
 	github.com/libdns/vultr v1.0.0
-	github.com/megaease/easemesh-api v1.4.4
 	github.com/megaease/grace v1.0.0
 	github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed
 	github.com/mitchellh/mapstructure v1.5.0

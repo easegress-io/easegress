@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"net/http"
 
-	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
+	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 
 	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"

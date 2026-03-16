@@ -311,6 +311,8 @@ github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 h1:Oy0F4A
 github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3/go.mod h1:YvSRo5mw33fLEx1+DlK6L2VV43tJt5Eyel9n9XBcR+0=
 github.com/eapache/queue v1.1.0 h1:YOEu7KNc61ntiQlcEeUIoDTJ2o8mQznoNvUhiigpIqc=
 github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFPTqq+I=
+github.com/easegress-io/easemesh-api v1.5.1 h1:75zAwKXyUjX2BJwAuLgF0C5v14vB0TmlD81YPh68TZk=
+github.com/easegress-io/easemesh-api v1.5.1/go.mod h1:I7feb70krjIDNn9wye+3VEyT0l7kqlTbgfEry4CK09E=
 github.com/ebitengine/purego v0.8.4 h1:CF7LEKg5FFOsASUj0+QwaXf8Ht6TlFxg09+S9wz0omw=
 github.com/ebitengine/purego v0.8.4/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
 github.com/eclipse/paho.mqtt.golang v1.4.3 h1:2kwcUGn8seMUfWndX0hGbvH8r7crgcJguQNCyp70xik=
@@ -726,8 +728,6 @@ github.com/mattn/go-isatty v0.0.20/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 h1:jWpvCLoY8Z/e3VKvlsiIGKtc+UG6U5vzxaoagmhXfyg=
 github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0/go.mod h1:QUyp042oQthUoa9bqDv0ER0wrtXnBruoNd7aNjkbP+k=
-github.com/megaease/easemesh-api v1.4.4 h1:E18mtLfj8ffuPTeN7MqZeakJgT/tJ92JNIZsY2k2GE0=
-github.com/megaease/easemesh-api v1.4.4/go.mod h1:GuAE5DwqK6lI/ovoRKjyPxBCSoMhj0NLp9PRejj0Hnw=
 github.com/megaease/grace v1.0.0 h1:b44R3j6e/iaN62F4ZUnru9nzL1VaIcxxUZjSPVtTVzI=
 github.com/megaease/grace v1.0.0/go.mod h1:mOR6MVYQ6zGyuz9Y2or/VJ6QWueTL3erxWfIwyCmiIg=
 github.com/megaease/yaml v0.0.0-20220804061446-4f18d6510aed h1:e7bvqcldNRNTYg5rvnUkNZXt8/93wvdDVtDiyU+4YIY=

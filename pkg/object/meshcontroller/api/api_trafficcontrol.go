@@ -26,7 +26,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
-	"github.com/megaease/easemesh-api/v2alpha1"
+	"github.com/easegress-io/easemesh-api/v2alpha1"
 )
 
 func (a *API) listHTTPRouteGroups(w http.ResponseWriter, r *http.Request) {

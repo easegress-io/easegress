@@ -34,7 +34,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/megaease/easegress/v2/pkg/util/urlrule"
-	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
+	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 )
 
 var (

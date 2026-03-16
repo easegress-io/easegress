@@ -28,7 +28,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/object/meshcontroller/spec"
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
-	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
+	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 )
 
 type serviceInstancesByOrder []*spec.ServiceInstanceSpec
