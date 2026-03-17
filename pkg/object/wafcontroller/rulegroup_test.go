@@ -32,15 +32,24 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/wafcontroller/protocol"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setRequest(t *testing.T, ctx *context.Context, ns string, req *http.Request) {
 	httpreq, err := httpprot.NewRequest(req)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	err = httpreq.FetchPayload(1024 * 1024)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 	ctx.SetRequest(ns, httpreq)
 	ctx.UseNamespace(ns)
+}
+
+func testRequestURL(rawURL string) string {
+	if strings.HasPrefix(rawURL, "http://") || strings.HasPrefix(rawURL, "https://") {
+		return rawURL
+	}
+
+	return "http://127.0.0.1:8080" + rawURL
 }
 
 func TestSQLInjectionRules(t *testing.T) {
@@ -56,7 +65,7 @@ func TestSQLInjectionRules(t *testing.T) {
 		Description string
 	}
 
-	var testCases = []sqlInjectionTestCase{
+	testCases := []sqlInjectionTestCase{
 		// Rule 942100 - libinjection detection
 		{
 			Name:        "942100_basic_sqli",
@@ -391,8 +400,8 @@ func TestSQLInjectionRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
-		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		assert.Nil(err, "Failed to create request", tc)
+		req, err := http.NewRequest(tc.Method, testRequestURL(tc.URL), nil)
+		require.NoError(t, err, "Failed to create request", tc)
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
@@ -442,7 +451,7 @@ func TestXssAttackRules(t *testing.T) {
 		Description string
 	}
 
-	var xssAttackTestCases = []xssAttackTestCase{
+	xssAttackTestCases := []xssAttackTestCase{
 		{
 			Name:        "941100_libinjection_script",
 			Method:      "GET",
@@ -665,7 +674,7 @@ func TestRCEAttackRules(t *testing.T) {
 		Body        string
 	}
 
-	var rceAttackTestCases = []rceAttackTestCase{
+	rceAttackTestCases := []rceAttackTestCase{
 		{
 			Name:        "932230_basic_unix_command",
 			Method:      "GET",
@@ -838,7 +847,7 @@ func TestProtocolAttackRules(t *testing.T) {
 		Body        string
 	}
 
-	var rceAttackTestCases = []protocolAttackTestCase{
+	rceAttackTestCases := []protocolAttackTestCase{
 		{
 			Name:   "CRLF in Header Injection",
 			Method: "GET",
@@ -945,7 +954,7 @@ func TestProtocolAttackRules(t *testing.T) {
 		"/test?comment=nice+post",
 	}
 	for _, u := range allowedUrls {
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req, err := http.NewRequest(http.MethodGet, testRequestURL(u), nil)
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")
@@ -1320,35 +1329,35 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		{
 			Name:        "930100_path_traversal_encoded_dotdot",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/download?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+			URL:         "/download?file=%2e%2e%2f%2e%2e%2fetc%2fpasswd",
 			RuleID:      "930100",
 			Description: "Path traversal via encoded ../ sequences in query param to access /etc/passwd",
 		},
 		{
 			Name:        "930100_path_traversal_mixed_slashes",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/api/v1/..%2f..%5cwindows%5cwin.ini",
+			URL:         "/api/v1/..%2f..%5cwindows%5cwin.ini",
 			RuleID:      "930100",
 			Description: "Path traversal using mixed separators and encodings to reach Windows file",
 		},
 		{
 			Name:        "930110_path_traversal_plain_dotdot",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/view?path=../../../../var/log/auth.log",
+			URL:         "/view?path=../../../../var/log/auth.log",
 			RuleID:      "930110",
 			Description: "Simple ../ traversal in query parameter",
 		},
 		{
 			Name:        "930110_path_traversal_with_semicolons",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/read;../../../../etc/hosts",
+			URL:         "/read;../../../../etc/hosts",
 			RuleID:      "930110",
 			Description: "Traversal using semicolon separators",
 		},
 		{
 			Name:   "930120_os_file_access_in_cookie",
 			Method: http.MethodGet,
-			URL:    "http://127.0.0.1:8080/profile",
+			URL:    "/profile",
 			Cookies: map[string]string{
 				"lastPath": "/proc/self/environ",
 			},
@@ -1358,14 +1367,14 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		{
 			Name:        "930130_restricted_file_access",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/.htaccess",
+			URL:         "/.htaccess",
 			RuleID:      "930130",
 			Description: "Direct request to restricted file (REQUEST_FILENAME)",
 		},
 		{
 			Name:        "930130_restricted_dot_git",
 			Method:      http.MethodGet,
-			URL:         "http://127.0.0.1:8080/.git/config",
+			URL:         "/.git/config",
 			RuleID:      "930130",
 			Description: "Attempt to access VCS metadata under /.git/",
 		},
@@ -1391,8 +1400,8 @@ func TestLocalFileInclusionRules(t *testing.T) {
 
 	for _, tc := range testCases {
 		fmt.Println("Testing case:", tc.Name)
-		req, err := http.NewRequest(tc.Method, "http://127.0.0.1:8080"+tc.URL, nil)
-		assert.Nil(err, "Failed to create request", tc)
+		req, err := http.NewRequest(tc.Method, testRequestURL(tc.URL), nil)
+		require.NoError(t, err, "Failed to create request: %s", tc.Name)
 
 		for key, value := range tc.Headers {
 			req.Header.Set(key, value)
@@ -1421,7 +1430,8 @@ func TestLocalFileInclusionRules(t *testing.T) {
 		"/test?comment=nice+post",
 	}
 	for _, u := range allowedUrls {
-		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8080"+u, nil)
+		req, err := http.NewRequest(http.MethodGet, testRequestURL(u), nil)
+		require.NoError(t, err, "Failed to create allowed request: %s", u)
 		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 		req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ExampleBot/1.0; +http://example.com/bot)")

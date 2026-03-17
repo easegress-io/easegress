@@ -14,7 +14,7 @@ INTEGRATION_TEST_PATH := build/test
 
 # Image Name
 IMAGE_NAME?=megaease/easegress
-BUILDER_IMAGE_NAME?=megaease/golang:1.24-alpine
+BUILDER_IMAGE_NAME?=megaease/golang:1.26.1-alpine
 
 # Version
 RELEASE?=v2.10.0
@@ -30,6 +30,12 @@ GO_LD_FLAGS= "-s -w -X github.com/megaease/easegress/v2/pkg/version.RELEASE=${RE
 
 # Cgo is disabled by default
 ENABLE_CGO= CGO_ENABLED=0
+
+# Go 1.26.1 crashes before tests start when -race and -gcflags=all=-l are combined.
+TEST_GCFLAGS= -gcflags "all=-l"
+ifneq ($(filter -race,$(TEST_FLAGS)),)
+  TEST_GCFLAGS=
+endif
 
 # Check Go build tags, the tags are from command line of make
 ifdef GOTAGS
@@ -115,7 +121,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v -gcflags "all=-l" ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
+	go test -v ${TEST_GCFLAGS} ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
 
 integration_test: build
 	{ \

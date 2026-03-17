@@ -30,8 +30,8 @@ import (
 
 // MustNewPlainLogger creates a plain logger, it panics if any error occurs.
 func MustNewPlainLogger(opt *option.Options, filename string, maxCacheCount uint32) *zap.SugaredLogger {
-	l := mustNewPlainLogger(opt, filename, maxCacheCount)
-	lh.register(filename, l)
+	l, file := mustNewPlainLogger(opt, filename, maxCacheCount)
+	lh.register(filename, l, file)
 
 	return l
 }

@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 /*
  * Copyright (c) 2017, The Easegress Authors
  * All rights reserved.
@@ -37,6 +40,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func mustDoRequest(t *testing.T, req *http.Request) *http.Response {
+	t.Helper()
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	return resp
+}
 
 func TestPipeline(t *testing.T) {
 	assert := assert.New(t)
@@ -248,8 +261,7 @@ filters:
 	// send request to 10081 HTTPServer
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10081/", nil)
 	assert.Nil(err)
-	resp, err := http.DefaultClient.Do(req)
-	assert.Nil(err)
+	resp := mustDoRequest(t, req)
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	assert.Nil(err)
@@ -591,9 +603,8 @@ func TestCreateHTTPProxy(t *testing.T) {
 
 	testFn := func(p string, expected string) {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:10080"+p, nil)
-		assert.Nil(err, p)
-		resp, err := http.DefaultClient.Do(req)
-		assert.Nil(err, p)
+		require.NoError(t, err, p)
+		resp := mustDoRequest(t, req)
 		defer resp.Body.Close()
 		data, err := io.ReadAll(resp.Body)
 		assert.Nil(err, p)
@@ -762,8 +773,7 @@ filters:
 	for i := 0; i < 50; i++ {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
 		assert.Nil(err, i)
-		resp, err := http.DefaultClient.Do(req)
-		assert.Nil(err, i)
+		resp := mustDoRequest(t, req)
 		assert.Equal(http.StatusOK, resp.StatusCode, i)
 		assert.Equal("healthy", resp.Header.Get("X-Server"), i)
 		resp.Body.Close()
@@ -777,8 +787,7 @@ filters:
 	for i := 0; i < 50; i++ {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
 		assert.Nil(err, i)
-		resp, err := http.DefaultClient.Do(req)
-		assert.Nil(err, i)
+		resp := mustDoRequest(t, req)
 		assert.Equal(http.StatusOK, resp.StatusCode, i)
 		value := resp.Header.Get("X-Server")
 		if last != "" {
@@ -908,9 +917,7 @@ filters:
 	doReq := func() *http.Response {
 		req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:9099", nil)
 		assert.Nil(err)
-		resp, err := http.DefaultClient.Do(req)
-		assert.Nil(err)
-		return resp
+		return mustDoRequest(t, req)
 	}
 
 	// health check passed
@@ -1306,8 +1313,7 @@ filters:
 
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:22399", nil)
 	assert.Nil(err)
-	resp, err := http.DefaultClient.Do(req)
-	assert.Nil(err)
+	resp := mustDoRequest(t, req)
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	assert.Nil(err)
@@ -1627,8 +1633,7 @@ filters:
 
 		req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 		assert.Nil(err)
-		resp, err := http.DefaultClient.Do(req)
-		assert.Nil(err)
+		resp := mustDoRequest(t, req)
 		resp.Body.Close()
 
 		recvReq := <-ch
@@ -1734,9 +1739,8 @@ filters:
 	// bad request from before
 	// not header of after
 	req := makeReq()
-	resp, err := http.DefaultClient.Do(req)
+	resp := mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusBadRequest, resp.StatusCode, resp)
 	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
 
@@ -1744,9 +1748,8 @@ filters:
 	// status code of 503, error in filter
 	req = makeReq()
 	req.Header.Add("Before-Pipeline", "valid")
-	resp, err = http.DefaultClient.Do(req)
+	resp = mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
 	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
 
@@ -1754,9 +1757,8 @@ filters:
 	req = makeReq()
 	req.URL.Path = "/health"
 	req.Header.Add("Before-Pipeline", "valid")
-	resp, err = http.DefaultClient.Do(req)
+	resp = mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusOK, resp.StatusCode, resp)
 	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
 
@@ -1772,18 +1774,16 @@ fallthrough:
 	// pass before, exec pipeline, meet error, exec after
 	// not add header to before
 	req = makeReq()
-	resp, err = http.DefaultClient.Do(req)
+	resp = mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
 	assert.Empty(resp.Header.Get("After-Pipeline"), resp)
 
 	// pass before, exec pipeline, exec after
 	req = makeReq()
 	req.URL.Path = "/health"
-	resp, err = http.DefaultClient.Do(req)
+	resp = mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusOK, resp.StatusCode, resp)
 	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
 
@@ -1799,9 +1799,8 @@ fallthrough:
 
 	// fallthrough before, fallthrough pipeline, exec after
 	req = makeReq()
-	resp, err = http.DefaultClient.Do(req)
+	resp = mustDoRequest(t, req)
 	resp.Body.Close()
-	assert.Nil(err)
 	assert.Equal(http.StatusServiceUnavailable, resp.StatusCode, resp)
 	assert.Equal("valid", resp.Header.Get("After-Pipeline"), resp)
 }

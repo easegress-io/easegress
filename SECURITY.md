@@ -6,6 +6,7 @@ Supported [Go versions](https://go.dev/dl/):
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 1.26.x   | :white_check_mark: |
 | 1.25.x   | :white_check_mark: |
 | 1.24.x   | :white_check_mark: |
 | < 1.24  | :x:                |

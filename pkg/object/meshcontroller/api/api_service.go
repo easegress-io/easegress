@@ -25,8 +25,8 @@ import (
 	"sort"
 	"strings"
 
+	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 	"github.com/go-chi/chi/v5"
-	v2alpha1 "github.com/megaease/easemesh-api/v2alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
