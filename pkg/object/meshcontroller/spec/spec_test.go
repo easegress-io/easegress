@@ -22,6 +22,7 @@ import (
 	"os"
 	"testing"
 
+	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 	"github.com/megaease/easegress/v2/pkg/cluster"
 	"github.com/megaease/easegress/v2/pkg/filters/mock"
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
@@ -34,7 +35,6 @@ import (
 	"github.com/megaease/easegress/v2/pkg/util/codectool"
 	"github.com/megaease/easegress/v2/pkg/util/stringtool"
 	"github.com/megaease/easegress/v2/pkg/util/urlrule"
-	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
 )
 
 var (

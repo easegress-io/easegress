@@ -24,8 +24,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	v2alpha1 "github.com/easegress-io/easemesh-api/v2alpha1"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/megaease/easegress/v2/pkg/api"
 	"github.com/megaease/easegress/v2/pkg/logger"
