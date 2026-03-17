@@ -1,5 +1,20 @@
 # Changelog
 
+## [v2.11.0](https://github.com/megaease/easegress/tree/v2.11.0) (2026-03-17)
+
+[Full Changelog](https://github.com/megaease/easegress/compare/v2.10.1...v2.11.0)
+
+**Implemented enhancements:**
+
+* Upgrade vendors and Go version to 1.26 (#1506)
+* Improve service instance search performance in MeshController master (#1503)
+* Optimize access log and MQTT session paths (#1502)
+* Define constant for status 499 (#1501)
+
+**Fixed bugs:**
+
+* Reduce vulnerabilities in `build/package/Dockerfile.builder` (#1504)
+
 ## [v2.10.0](https://github.com/megaease/easegress/tree/v2.10.0) (2025-09-17)
 
 [Full Changelog](https://github.com/megaease/easegress/compare/v2.9.4...v2.10.0)
