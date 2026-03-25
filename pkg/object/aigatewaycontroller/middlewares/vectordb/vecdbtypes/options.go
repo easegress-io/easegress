@@ -88,6 +88,11 @@ type HandlerSearchOptions struct {
 	PostgresDistanceAlgorithm string
 	// PostgresFilters is the filters conditions for Postgres vector database.
 	PostgresFilters string
+
+	// QdrantVectorFilterValues is the vector for similarity search in Qdrant.
+	QdrantVectorFilterValues []float32
+	// QdrantVectorName is the name of the vector field in documents (default: "embedding").
+	QdrantVectorName string
 }
 
 // WithLimit returns a HandlerSearchOption for setting the limit on the number of results.
@@ -204,5 +209,19 @@ func WithPostgresVectorFilterKey(postgresVectorFilterKey string) HandlerSearchOp
 func WithPostgresVectorFilterValues(postgresVectorFilterValues []float32) HandlerSearchOption {
 	return func(opts *HandlerSearchOptions) {
 		opts.PostgresVectorFilterValues = postgresVectorFilterValues
+	}
+}
+
+// WithQdrantVectorFilterValues returns a HandlerSearchOption for setting the Qdrant vector filter values.
+func WithQdrantVectorFilterValues(values []float32) HandlerSearchOption {
+	return func(opts *HandlerSearchOptions) {
+		opts.QdrantVectorFilterValues = values
+	}
+}
+
+// WithQdrantVectorName returns a HandlerSearchOption for setting the Qdrant vector field name.
+func WithQdrantVectorName(name string) HandlerSearchOption {
+	return func(opts *HandlerSearchOptions) {
+		opts.QdrantVectorName = name
 	}
 }

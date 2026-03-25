@@ -33,6 +33,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/embeddings"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/pgvector"
+	qdrantvec "github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/qdrant"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
@@ -237,6 +238,11 @@ func (m *semanticCacheMiddleware) getSearchOptions(ctx *aicontext.Context, embed
 			vecdbtypes.WithRedisVectorFilterValues(embedding),
 			vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
 		}
+	case vectordb.TypeQdrant:
+		return []vecdbtypes.HandlerSearchOption{
+			vecdbtypes.WithQdrantVectorFilterValues(embedding),
+			vecdbtypes.WithScoreThreshold(float32(m.spec.SemanticCache.VectorDB.Threshold)),
+		}
 	default:
 		panic(fmt.Sprintf("unsupported vector db type: %s", m.spec.SemanticCache.VectorDB.Type))
 	}
@@ -287,6 +293,8 @@ func (h *semanticCacheVectorHandler) createOptions(ctx *aicontext.Context, embed
 		return h.createPostgresOptions(ctx, embedding)
 	case vectordb.TypeRedis:
 		return h.createRedisOptions(ctx, embedding)
+	case vectordb.TypeQdrant:
+		return h.createQdrantOptions(ctx, embedding)
 	default:
 		// should not reach here, since we validate the spec before creating the handler.
 		panic(fmt.Sprintf("unsupported vector db type: %s", h.dbSpec.Type))
@@ -379,5 +387,39 @@ func (h *semanticCacheVectorHandler) createPostgresSchema(ctx *aicontext.Context
 			{Name: "header", DataType: "text"},
 			{Name: "status", DataType: "int"},
 		},
+	}
+}
+
+func (h *semanticCacheVectorHandler) getQdrantCollectionName(ctx *aicontext.Context) string {
+	spec := h.spec.SemanticCache.VectorDB
+	collectionName := spec.CollectionName
+	switch ctx.RespType {
+	case aicontext.ResponseTypeChatCompletions:
+		collectionName += "_chat"
+	case aicontext.ResponseTypeCompletions:
+		collectionName += "_completion"
+	default:
+		// should not reach here, check code in semanticCacheMiddleware
+		panic(fmt.Sprintf("unsupported response type: %s", ctx.RespType))
+	}
+	if ctx.ReqInfo.Stream {
+		collectionName += "_stream"
+	} else {
+		collectionName += "_non_stream"
+	}
+	return collectionName
+}
+
+func (h *semanticCacheVectorHandler) createQdrantOptions(ctx *aicontext.Context, embedding []float32) vecdbtypes.Option {
+	return func(o *vecdbtypes.Options) {
+		o.DBName = h.getQdrantCollectionName(ctx)
+		o.Schema = h.createQdrantSchema(embedding)
+	}
+}
+
+func (h *semanticCacheVectorHandler) createQdrantSchema(embedding []float32) vecdbtypes.Schema {
+	return &qdrantvec.CollectionSchema{
+		VectorSize: uint64(len(embedding)),
+		VectorName: "embedding",
 	}
 }
