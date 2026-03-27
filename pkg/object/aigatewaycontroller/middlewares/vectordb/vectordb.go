@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/pgvector"
+	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/qdrant"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/redisvector"
 	"github.com/megaease/easegress/v2/pkg/object/aigatewaycontroller/middlewares/vectordb/vecdbtypes"
 )
@@ -32,6 +33,7 @@ type (
 		vecdbtypes.CommonSpec
 		Redis    *redisvector.RedisVectorDBSpec `json:"redis,omitempty"`
 		Postgres *pgvector.PostgresVectorDBSpec `json:"postgres,omitempty"`
+		Qdrant   *qdrant.QdrantVectorDBSpec     `json:"qdrant,omitempty"`
 	}
 
 	VectorHandler = vecdbtypes.VectorHandler
@@ -44,6 +46,7 @@ type (
 
 const TypeRedis = "redis"
 const TypePostgres = "postgres"
+const TypeQdrant = "qdrant"
 
 func New(spec *Spec) vecdbtypes.VectorDB {
 	switch spec.Type {
@@ -51,6 +54,8 @@ func New(spec *Spec) vecdbtypes.VectorDB {
 		return redisvector.New(&spec.CommonSpec, spec.Redis)
 	case TypePostgres:
 		return pgvector.New(&spec.CommonSpec, spec.Postgres)
+	case TypeQdrant:
+		return qdrant.New(&spec.CommonSpec, spec.Qdrant)
 	default:
 		panic("not supported vector db type")
 	}
@@ -65,6 +70,8 @@ func ValidateSpec(spec *Spec) error {
 		return redisvector.ValidateSpec(spec.Redis)
 	case TypePostgres:
 		return pgvector.ValidateSpec(spec.Postgres)
+	case TypeQdrant:
+		return qdrant.ValidateSpec(spec.Qdrant)
 	default:
 		return fmt.Errorf("invalid spec type")
 	}
