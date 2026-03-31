@@ -219,6 +219,10 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 - [Join Slack Workspace](https://cloud-native.slack.com/messages/easegress) for requirement, issue and development.
 - [MegaEase on Twitter](https://twitter.com/megaease)
 
+### Community Tools
+
+- [KubeStellar Console Guided Install](https://console.kubestellar.io/missions/install-easegress) - Step-by-step guided installation with pre-flight checks, validation, troubleshooting, and rollback.
+
 ## Contributing
 
 See [Contributing guide](./CONTRIBUTING.md#contributing). The project welcomes contributions and suggestions that abide by the [CNCF Code of Conduct](./CODE_OF_CONDUCT.md).
