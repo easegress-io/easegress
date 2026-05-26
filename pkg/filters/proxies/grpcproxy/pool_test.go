@@ -19,6 +19,7 @@ package grpcproxy
 
 import (
 	"context"
+	"io"
 	"math/rand"
 	"sync"
 	"testing"
@@ -28,7 +29,9 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters/proxies"
 	"github.com/megaease/easegress/v2/pkg/util/objectpool"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -240,4 +243,107 @@ name: grpcforwardproxy
 
 	request.Header().Set("targetAddress", "192.168.1.1")
 	at.Equal("", proxy.mainPool.getTarget(proxy.mainPool.LoadBalancer().ChooseServer(request).URL))
+}
+
+// biTransportClientStream is a minimal grpc.ClientStream that returns a
+// predetermined error from RecvMsg and blocks the caller until the provided
+// done channel is closed.
+type biTransportClientStream struct {
+	grpc.ClientStream
+	recvErr error
+}
+
+func (m *biTransportClientStream) Header() (metadata.MD, error) { return metadata.New(nil), nil }
+func (m *biTransportClientStream) Trailer() metadata.MD         { return metadata.New(nil) }
+func (m *biTransportClientStream) CloseSend() error             { return nil }
+func (m *biTransportClientStream) Context() context.Context     { return context.Background() }
+func (m *biTransportClientStream) SendMsg(msg interface{}) error { return nil }
+func (m *biTransportClientStream) RecvMsg(msg interface{}) error { return m.recvErr }
+
+// biTransportServerStream is a minimal grpc.ServerStream whose RecvMsg blocks
+// until the done channel is closed, simulating a client that has not finished
+// sending. This prevents the c2sErrChan from racing with s2cErrChan in tests.
+type biTransportServerStream struct {
+	grpc.ServerStream
+	done <-chan struct{}
+}
+
+func (m *biTransportServerStream) Context() context.Context      { return context.Background() }
+func (m *biTransportServerStream) SetHeader(md metadata.MD) error { return nil }
+func (m *biTransportServerStream) SendHeader(md metadata.MD) error { return nil }
+func (m *biTransportServerStream) SetTrailer(md metadata.MD)      {}
+func (m *biTransportServerStream) SendMsg(msg interface{}) error  { return nil }
+func (m *biTransportServerStream) RecvMsg(msg interface{}) error {
+	<-m.done
+	return io.EOF
+}
+
+// TestBiTransportDoesNotDegradePoolOnGRPCAppError verifies that biTransport
+// returns nil (no pool degradation) when the backend responds with a valid
+// gRPC application-level status (e.g. NOT_FOUND, codes.Code 5). Previously,
+// any non-EOF error from the backend would call svr.close(resultServerError),
+// degrading the pool and causing subsequent calls to stall on pool.borrow().
+func TestBiTransportDoesNotDegradePoolOnGRPCAppError(t *testing.T) {
+	sp := &ServerPool{}
+
+	cases := []struct {
+		name    string
+		err     error
+		wantNil bool
+	}{
+		{
+			name:    "NOT_FOUND is an application error — pool must not degrade",
+			err:     status.Error(codes.NotFound, "resource not found"),
+			wantNil: true,
+		},
+		{
+			name:    "INVALID_ARGUMENT is an application error — pool must not degrade",
+			err:     status.Error(codes.InvalidArgument, "bad request"),
+			wantNil: true,
+		},
+		{
+			name:    "INTERNAL is a server-side gRPC error — pool must not degrade",
+			err:     status.Error(codes.Internal, "internal error"),
+			wantNil: true,
+		},
+		{
+			name:    "io.EOF is the happy-path completion — pool must not degrade",
+			err:     io.EOF,
+			wantNil: true,
+		},
+		{
+			name:    "plain transport error — pool should degrade",
+			err:     io.ErrUnexpectedEOF,
+			wantNil: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			done := make(chan struct{})
+			defer close(done)
+
+			clientStream := &biTransportClientStream{recvErr: tc.err}
+			serverStream := &biTransportServerStream{done: done}
+
+			spCtx := &serverPoolContext{
+				stdr: serverStream,
+				stdw: serverStream,
+				resp: grpcprot.NewResponse(),
+			}
+
+			result := sp.biTransport(spCtx, clientStream)
+
+			if tc.wantNil {
+				assert.Nil(t, result,
+					"biTransport should return nil for %q so the backend pool is not degraded", tc.name)
+			} else {
+				assert.NotNil(t, result,
+					"biTransport should return an error for transport failures like %q", tc.name)
+				spe, ok := result.(serverPoolError)
+				assert.True(t, ok)
+				assert.Equal(t, resultServerError, spe.result)
+			}
+		})
+	}
 }
