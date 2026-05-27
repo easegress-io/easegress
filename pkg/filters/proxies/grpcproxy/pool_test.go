@@ -287,29 +287,34 @@ func TestBiTransportDoesNotDegradePoolOnGRPCAppError(t *testing.T) {
 	sp := &ServerPool{}
 
 	cases := []struct {
-		name    string
-		err     error
-		wantNil bool
+		name     string
+		err      error
+		wantNil  bool
+		wantCode codes.Code // non-OK: assert spCtx.resp carries this status; OK means skip (e.g. io.EOF)
 	}{
 		{
-			name:    "NOT_FOUND is an application error — pool must not degrade",
-			err:     status.Error(codes.NotFound, "resource not found"),
-			wantNil: true,
+			name:     "NOT_FOUND is an application error — pool must not degrade",
+			err:      status.Error(codes.NotFound, "resource not found"),
+			wantNil:  true,
+			wantCode: codes.NotFound,
 		},
 		{
-			name:    "INVALID_ARGUMENT is an application error — pool must not degrade",
-			err:     status.Error(codes.InvalidArgument, "bad request"),
-			wantNil: true,
+			name:     "INVALID_ARGUMENT is an application error — pool must not degrade",
+			err:      status.Error(codes.InvalidArgument, "bad request"),
+			wantNil:  true,
+			wantCode: codes.InvalidArgument,
 		},
 		{
-			name:    "INTERNAL is a server-side gRPC error — pool must not degrade",
-			err:     status.Error(codes.Internal, "internal error"),
-			wantNil: true,
+			name:     "INTERNAL is a server-side gRPC error — pool must not degrade",
+			err:      status.Error(codes.Internal, "internal error"),
+			wantNil:  true,
+			wantCode: codes.Internal,
 		},
 		{
 			name:    "io.EOF is the happy-path completion — pool must not degrade",
 			err:     io.EOF,
 			wantNil: true,
+			// wantCode left as codes.OK — no status assertion for the normal success path
 		},
 		{
 			name:    "plain transport error — pool should degrade",
@@ -337,6 +342,12 @@ func TestBiTransportDoesNotDegradePoolOnGRPCAppError(t *testing.T) {
 			if tc.wantNil {
 				assert.Nil(t, result,
 					"biTransport should return nil for %q so the backend pool is not degraded", tc.name)
+				// For gRPC status errors the backend response code must be preserved
+				// so the caller gets NOT_FOUND/INVALID_ARGUMENT/etc., not a silent OK.
+				if tc.wantCode != codes.OK {
+					assert.Equal(t, tc.wantCode, spCtx.resp.GetStatus().Code(),
+						"backend gRPC status must be propagated to the response for %q", tc.name)
+				}
 			} else {
 				assert.NotNil(t, result,
 					"biTransport should return an error for transport failures like %q", tc.name)

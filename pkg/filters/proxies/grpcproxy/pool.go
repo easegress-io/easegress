@@ -373,7 +373,11 @@ func (sp *ServerPool) biTransport(ctx *serverPoolContext, proxyAsClientStream gr
 				// subsequent calls to stall waiting on pool.borrow(). Only return
 				// resultServerError for transport-level failures (non-gRPC errors)
 				// where the connection itself is broken.
-				if _, isGRPCStatus := status.FromError(s2cErr); isGRPCStatus {
+				if st, isGRPCStatus := status.FromError(s2cErr); isGRPCStatus {
+					// Preserve the backend's gRPC status so the caller receives the
+					// correct code (e.g. NOT_FOUND, INVALID_ARGUMENT). The connection
+					// itself is healthy so we still return nil to avoid pool degradation.
+					ctx.resp.SetStatus(st)
 					return nil
 				}
 				return serverPoolError{status.Convert(s2cErr), resultServerError}
