@@ -253,10 +253,10 @@ type biTransportClientStream struct {
 	recvErr error
 }
 
-func (m *biTransportClientStream) Header() (metadata.MD, error) { return metadata.New(nil), nil }
-func (m *biTransportClientStream) Trailer() metadata.MD         { return metadata.New(nil) }
-func (m *biTransportClientStream) CloseSend() error             { return nil }
-func (m *biTransportClientStream) Context() context.Context     { return context.Background() }
+func (m *biTransportClientStream) Header() (metadata.MD, error)  { return metadata.New(nil), nil }
+func (m *biTransportClientStream) Trailer() metadata.MD          { return metadata.New(nil) }
+func (m *biTransportClientStream) CloseSend() error              { return nil }
+func (m *biTransportClientStream) Context() context.Context      { return context.Background() }
 func (m *biTransportClientStream) SendMsg(msg interface{}) error { return nil }
 func (m *biTransportClientStream) RecvMsg(msg interface{}) error { return m.recvErr }
 
@@ -268,11 +268,11 @@ type biTransportServerStream struct {
 	done <-chan struct{}
 }
 
-func (m *biTransportServerStream) Context() context.Context      { return context.Background() }
-func (m *biTransportServerStream) SetHeader(md metadata.MD) error { return nil }
+func (m *biTransportServerStream) Context() context.Context        { return context.Background() }
+func (m *biTransportServerStream) SetHeader(md metadata.MD) error  { return nil }
 func (m *biTransportServerStream) SendHeader(md metadata.MD) error { return nil }
-func (m *biTransportServerStream) SetTrailer(md metadata.MD)      {}
-func (m *biTransportServerStream) SendMsg(msg interface{}) error  { return nil }
+func (m *biTransportServerStream) SetTrailer(md metadata.MD)       {}
+func (m *biTransportServerStream) SendMsg(msg interface{}) error   { return nil }
 func (m *biTransportServerStream) RecvMsg(msg interface{}) error {
 	<-m.done
 	return io.EOF
