@@ -13,4 +13,6 @@ Supported [Go versions](https://go.dev/dl/):
 
 # Reporting a Vulnerability
 
-If you would like to report a vulnerability in the Easegress or to let us know of a publicly disclosed security vulnerability (e.g. <https://nvd.nist.gov/vuln/detail/CVE-2019-6486> ), please email us <security@megaease.com>.
+Easegress currently accepts private vulnerability reports through the project maintainers.
+Please email Yun Long <longdeqidao@gmail.com> with a clear subject such as `Easegress security report`.
+Do not disclose technical details publicly until a maintainer coordinates the disclosure process with you.

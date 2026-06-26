@@ -10,11 +10,13 @@ Welcome to the Easegress contributing guide. Are you looking for help or a way t
 
 ## Getting help
 
-If you have not already, please check the [README.md](./README.md#getting-started) and the Easegress [documentation](./doc/README.md#easegress-documentation). If you don’t find an answer to your problem, you can ask your question at [Slack](./README.md#community) or in other community channels.
+If you have not already, please check the [README.md](./README.md#getting-started) and the Easegress [documentation](./doc/README.md#easegress-documentation).
+If you do not find an answer to your problem, open a GitHub issue or use the public community channel listed in [README.md](./README.md#community).
 
 ## Feature requests
 
-Do you want to suggest an idea for the project? Use this *Feature request* [issue template](https://github.com/megaease/easegress/issues/new?template=feature_request.md) to describe your idea.
+Do you want to suggest an idea for the project?
+Use this *Feature request* [issue template](https://github.com/easegress-io/easegress/issues/new?template=feature_request.md) to describe your idea.
 
 ## Reporting general issues
 
@@ -29,14 +31,16 @@ There are many scenarios when you could open an issue, including:
 - Test improvement
 - Any questions on project
 
-Please describe clearly and explicitly your issue. Try to add as many details as you can. You can follow the instructions in the issue ticket to ensure that the issue contains enough background: https://github.com/megaease/easegress/issues/new/choose
+Please describe clearly and explicitly your issue.
+Try to add as many details as you can.
+You can follow the instructions in the issue ticket to ensure that the issue contains enough background: https://github.com/easegress-io/easegress/issues/new/choose
 
 ## Contributing
 
 All contributions to Easegress are welcome! It does not necessary need to be coding; you can also contribute without coding by
 
 - Reporting a bug
-- Helping other members of the community at Slack channel
+- Helping other members of the community in public discussion channels
 - Fixing a typo in the code
 - Fixing a typo in the documentation
 - Providing your feedback on the proposed features and designs
@@ -53,7 +57,8 @@ Contributing code, like bug fixes or new features are equally encouraged! Easegr
 - New unit test or improvement of existing test
 
 
-If you’re unsure, whether your code contribution will be beneficial, open a ticket or ask in Slack. You can check the [Developer Guide](./docs/06.Development-for-Easegress/6.1.Developer-Guide.md) to understand the high level architecture and Filter and Object extensions of Easegress.
+If you are unsure whether your code contribution will be beneficial, open a ticket or ask in the public community channel.
+You can check the [Developer Guide](./docs/06.Development-for-Easegress/6.1.Developer-Guide.md) to understand the high level architecture and Filter and Object extensions of Easegress.
 
 For any code or documentation change, please read the following Pull request guide.
 
@@ -67,7 +72,7 @@ When contributing to Easegress, it’s good idea to follow these steps:
 2. Fork the repository and clone your fork:
    1. `git clone https://github.com/<yourusername>/easegress.git`
 3. Track the upstream remote
-   1. `git remote add upstream https://github.com/megaease/easegress.git`
+   1. `git remote add upstream https://github.com/easegress-io/easegress.git`
 4. Create your branch, for example
    1. `git checkout -b fix/<micro-title>-<issue-number>`
 5. Do your changes and commit them

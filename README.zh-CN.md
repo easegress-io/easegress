@@ -1,14 +1,14 @@
 # Easegress   <!-- omit from toc -->
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/megaease/easegress)](https://goreportcard.com/report/github.com/megaease/easegress)
-[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/megaease/easegress/test.yml?branch=main)](https://github.com/megaease/easegress/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/megaease/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/megaease/easegress)
+[![Go Report Card](https://goreportcard.com/badge/github.com/easegress-io/easegress)](https://goreportcard.com/report/github.com/easegress-io/easegress)
+[![GitHub Workflow Status (branch)](https://img.shields.io/github/actions/workflow/status/easegress-io/easegress/test.yml?branch=main)](https://github.com/easegress-io/easegress/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/easegress-io/easegress/branch/main/graph/badge.svg?token=5Q80B98LPI)](https://codecov.io/gh/easegress-io/easegress)
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/megaease/easegress)](https://github.com/megaease/easegress/blob/main/go.mod)
-[![Join Easegress Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/easegress-io/easegress)](https://github.com/easegress-io/easegress/blob/main/go.mod)
+[![Join Easegress Slack](https://img.shields.io/badge/slack-easegress-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
 
-<a href="https://megaease.com/easegress">
+<a href="https://github.com/easegress-io/easegress">
     <img src="./docs/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
@@ -146,8 +146,9 @@
 
 ## 社区
 
-- [加入Slack工作区](https://cloud-native.slack.com/messages/easegress)，提出需求、讨论问题、解决问题。
-- [推特上的 MegaEase](https://twitter.com/megaease)
+- 通过 [GitHub Issues](https://github.com/easegress-io/easegress/issues/new/choose) 提交缺陷、功能需求、问题和文档反馈。
+- 加入 [Easegress Slack 频道](https://cloud-native.slack.com/messages/easegress)，参与公开开发讨论。
+- 安全漏洞请私下发送给维护者 Yun Long <longdeqidao@gmail.com>。
 
 ## 许可证
 

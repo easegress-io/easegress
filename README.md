@@ -6,11 +6,11 @@
 [![Docker pulls](https://img.shields.io/docker/pulls/megaease/easegress.svg)](https://hub.docker.com/r/megaease/easegress)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/easegress-io/easegress)](https://github.com/easegress-io/easegress/blob/main/go.mod)
-[![Join Easegress Slack](https://img.shields.io/badge/slack-megaease-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
+[![Join Easegress Slack](https://img.shields.io/badge/slack-easegress-brightgreen?logo=slack)](https://cloud-native.slack.com/messages/easegress)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/8265/badge)](https://www.bestpractices.dev/projects/8265)
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Feasegress-io%2Feasegress?ref=badge_shield)
 
-<a href="https://megaease.com/easegress">
+<a href="https://github.com/easegress-io/easegress">
     <img src="./docs/imgs/easegress.svg"
         alt="Easegress logo" title="Easegress" height="175" width="175" align="right"/>
 </a>
@@ -216,8 +216,9 @@ For full list, see [Tutorials](docs/02.Tutorials/README.md) and [Cookbook](docs/
 
 ## Community
 
-- [Join Slack Workspace](https://cloud-native.slack.com/messages/easegress) for requirement, issue and development.
-- [MegaEase on Twitter](https://twitter.com/megaease)
+- Open [GitHub issues](https://github.com/easegress-io/easegress/issues/new/choose) for bugs, feature requests, questions, and documentation problems.
+- Join the [Easegress Slack channel](https://cloud-native.slack.com/messages/easegress) for public development discussion.
+- Report security vulnerabilities privately to Yun Long <longdeqidao@gmail.com>.
 
 ### Community Tools
 
