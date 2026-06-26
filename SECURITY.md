@@ -13,6 +13,6 @@ Supported [Go versions](https://go.dev/dl/):
 
 # Reporting a Vulnerability
 
-Easegress currently accepts private vulnerability reports through the project maintainers.
-Please email Yun Long <longdeqidao@gmail.com> with a clear subject such as `Easegress security report`.
+Easegress accepts private vulnerability reports via GitHub Security Advisories.
+Please report via https://github.com/easegress-io/easegress/security/advisories/new (preferred), or email Yun Long <longdeqidao@gmail.com> if you cannot use GitHub.
 Do not disclose technical details publicly until a maintainer coordinates the disclosure process with you.
