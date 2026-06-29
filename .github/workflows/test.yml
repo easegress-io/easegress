@@ -17,6 +17,7 @@ on:
       - main
     paths:
       - "**/*.go"
+      - "helm-charts/**"
       - "go.mod"
       - "go.sum"
       - ".github/workflows/test.yml"

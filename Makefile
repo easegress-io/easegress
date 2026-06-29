@@ -121,7 +121,7 @@ test:
 	go mod tidy
 	git diff --exit-code go.mod go.sum
 	go mod verify
-	go test -v ${TEST_GCFLAGS} ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${TEST_FLAGS}
+	go test -v ${TEST_GCFLAGS} ${MKFILE_DIR}pkg/... ${MKFILE_DIR}cmd/... ${MKFILE_DIR}helm-charts/easegress ${TEST_FLAGS}
 
 integration_test: build
 	{ \

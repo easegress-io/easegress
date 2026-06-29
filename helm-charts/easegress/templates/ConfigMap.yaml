@@ -14,13 +14,19 @@ data:
       {{- range $i, $e := until (.Values.cluster.primaryReplicas | int) }}
       - {{ $releasename }}-{{$i}}: http://{{ $releasename }}-{{$i}}.easegress-hs.{{ $releasenamespace }}:2380
       {{- end }}
-    api-addr: 0.0.0.0:2381
+    api-addr: {{ .Values.admin.apiAddr }}
     data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
     log-dir: {{ .Values.log.path }}
     debug: false
+    {{- with .Values.admin.basicAuth }}
+    basic-auth:
+    {{- range $username, $password := . }}
+      {{ $username | quote }}: {{ $password | quote }}
+    {{- end }}
+    {{- end }}
   eg-secondary.yaml: |
     cluster-name: easegress
     cluster-role: secondary
@@ -34,13 +40,19 @@ data:
       {{ else }}
       - http://{{ .Release.Name }}-0.easegress-hs.{{ .Release.Namespace }}:2380
       {{ end }}
-    api-addr: 0.0.0.0:2381
+    api-addr: {{ .Values.admin.apiAddr }}
     data-dir: /opt/easegress/data
     wal-dir: ""
     cpu-profile-file: ""
     memory-profile-file: ""
     log-dir: {{ .Values.log.path }}
     debug: false
+    {{- with .Values.admin.basicAuth }}
+    basic-auth:
+    {{- range $username, $password := . }}
+      {{ $username | quote }}: {{ $password | quote }}
+    {{- end }}
+    {{- end }}
 kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}

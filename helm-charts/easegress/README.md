@@ -39,12 +39,31 @@ helm install easegress -n easegress ./helm-charts/easegress \
   --set 'cluster.nodeHostnames={hostname-xyz}'
 ```
 
+The Admin API listens on `127.0.0.1:2381` inside the pod and is not exposed by a service by default.
+Use `kubectl port-forward` for local administration:
+
+```shell
+kubectl port-forward -n easegress pod/easegress-0 2381:2381
+```
+
 Add filters and objects to Easegress:
 
 ```shell
-egctl --server {NODE_IP}:31255 create object -f pipeline.yaml
+egctl --server 127.0.0.1:2381 create object -f pipeline.yaml
 ```
-where NODE_IP is the IP address a node running Easegress pod and `pipeline.yaml` Easegress object definition.
+where `pipeline.yaml` is an Easegress object definition.
+
+To expose the Admin API through a NodePort, enable the admin service explicitly and configure authentication:
+
+```shell
+helm install easegress -n easegress ./helm-charts/easegress \
+  --set admin.apiAddr=0.0.0.0:2381 \
+  --set service.admin.enabled=true \
+  --set service.admin.type=NodePort \
+  --set admin.basicAuth.admin=change-me
+```
+
+Set `admin.allowUnsafeNoAuth=true` only when an external control already protects the Admin API.
 
 ## Uninstall
 
@@ -63,7 +82,15 @@ The following table lists the configurable parameters of the Easegress Helm inst
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | service.nodePort | int | `30780` | nodePort for easegress service. |
-| service.adminPort | int | `31255` | nodePort for egctl access. |
+| service.adminPort | int | `31255` | Deprecated fallback for `service.admin.nodePort`. |
+| service.admin.enabled | bool | `false` | create a service for the Admin API. |
+| service.admin.type | string | `ClusterIP` | service type for the Admin API. |
+| service.admin.nodePort | int | `31255` | nodePort for egctl access when `service.admin.type` is `NodePort`. |
+| admin.apiAddr | string | `127.0.0.1:2381` | address the Admin API listens on. |
+| admin.basicAuth | map | `{}` | username to password map for Admin API basic authentication. |
+| admin.allowUnsafeNoAuth | bool | `false` | allow external Admin API services without chart-configured authentication. |
+| serviceAccount.automountServiceAccountToken | bool | `false` | mount the Kubernetes service account token into Easegress pods. |
+| rbac.readSecrets | bool | `false` | grant read/list/watch permissions on Kubernetes Secrets. |
 | cluster.primaryReplicas | int | `1` | number of easegress service that persists cluster data to disk |
 | cluster.volumeType | string | `emptyDir` | `emptyDir`: use pods internal filesystem that is not persisted when pod crashes. Use `emptyDir` only when primaryReplicas is 1. | `persistentVolume`, create as many persistenVolumes and persistentVolumeClaims as there are nodeHostnames.
 | cluster.volumeLocalPath | string | `/opt/easegress` | local path of persistenVolume on nodes |
