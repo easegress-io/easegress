@@ -1,8 +1,29 @@
 service:
   # nodePort for easegress service
   nodePort: 30780
-  # nodeport for egctl access
+  # Deprecated. Use service.admin.nodePort.
   adminPort: 31255
+  admin:
+    # disabled by default because the admin API controls the Easegress instance
+    enabled: false
+    type: ClusterIP
+    # nodePort for egctl access when service.admin.type is NodePort
+    nodePort: 31255
+
+admin:
+  # listen on localhost by default; set to 0.0.0.0:2381 only when exposing the admin API intentionally
+  apiAddr: 127.0.0.1:2381
+  # map of username to password for admin API basic authentication
+  basicAuth: {}
+  # set true only if an external admin service is protected outside this chart
+  allowUnsafeNoAuth: false
+
+serviceAccount:
+  automountServiceAccountToken: false
+
+rbac:
+  # enable only for features that must read Kubernetes TLS secrets, such as IngressController
+  readSecrets: false
 
 # image for easegress deployment
 image:

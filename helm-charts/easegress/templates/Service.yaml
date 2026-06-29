@@ -27,6 +27,18 @@ spec:
 
 {{- end }}
 
+{{- $adminType := default "ClusterIP" .Values.service.admin.type -}}
+{{- $adminExternallyExposed := or (eq $adminType "NodePort") (eq $adminType "LoadBalancer") -}}
+{{- $adminAPIAddr := .Values.admin.apiAddr | toString -}}
+{{- $adminAPILoopback := or (regexMatch "^(localhost|127(\\.[0-9]{1,3}){3}):[0-9]+$" $adminAPIAddr) (regexMatch "^(\\[::1\\]|::1):[0-9]+$" $adminAPIAddr) -}}
+{{- if and .Values.service.admin.enabled $adminAPILoopback -}}
+{{- fail "admin service requires admin.apiAddr to listen on a non-loopback address" -}}
+{{- end }}
+{{- if and .Values.service.admin.enabled $adminExternallyExposed (empty .Values.admin.basicAuth) (not .Values.admin.allowUnsafeNoAuth) -}}
+{{- fail "admin service type NodePort/LoadBalancer requires admin.basicAuth or admin.allowUnsafeNoAuth=true" -}}
+{{- end }}
+
+{{- if .Values.service.admin.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -38,12 +50,16 @@ spec:
     port: 2381
     protocol: TCP
     targetPort: 2381
-    nodePort: {{ .Values.service.adminPort }}
+    {{- if $adminExternallyExposed }}
+    nodePort: {{ default .Values.service.adminPort .Values.service.admin.nodePort }}
+    {{- end }}
   selector:
     app: {{ .Release.Name }}
-  type: NodePort
+  type: {{ $adminType }}
 
 ---
+{{- end }}
+
 kind: Service
 apiVersion: v1
 metadata:

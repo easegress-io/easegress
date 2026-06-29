@@ -4,8 +4,13 @@ metadata:
   name: {{ .Release.Name }}
 rules:
   - apiGroups: [""] # "" indicates the core API group
-    resources: ["services", "endpoints", "secrets"]
+    resources: ["services", "endpoints"]
     verbs: ["get", "watch", "list"]
+  {{- if .Values.rbac.readSecrets }}
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "watch", "list"]
+  {{- end }}
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "watch", "list"]
