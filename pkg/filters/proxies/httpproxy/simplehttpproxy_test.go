@@ -18,10 +18,12 @@
 package httpproxy
 
 import (
-	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/protocols/httpprot"
@@ -51,23 +53,34 @@ func newTestSimpleHttpProxy(yamlConfig string, assert *assert.Assertions) *Simpl
 
 func TestSimpleHttpProxy(t *testing.T) {
 	assert := assert.New(t)
+	body := "simple http proxy response"
+	largeBody := strings.Repeat("large response body ", 128)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/large":
+			_, _ = io.WriteString(w, largeBody)
+		case "/slow":
+			time.Sleep(50 * time.Millisecond)
+			_, _ = io.WriteString(w, body)
+		default:
+			_, _ = io.WriteString(w, body)
+		}
+	}))
+	defer server.Close()
 
 	const yamlConfig = `
 name: simpleHttpProxy
 kind: SimpleHTTPProxy
 `
 	proxy := newTestSimpleHttpProxy(yamlConfig, assert)
+	defer proxy.Close()
 
-	stdr, _ := http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
+	stdr, _ := http.NewRequest(http.MethodGet, server.URL, nil)
 	ctx := getCtx(stdr)
 	assert.Equal("", proxy.Handle(ctx))
-	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
-	bodyBytes, err := io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
-	if err != nil {
-		fmt.Println(err)
-		assert.Fail("read body error")
-	}
-	fmt.Println(string(bodyBytes))
+	resp := ctx.GetOutputResponse().(*httpprot.Response)
+	assert.Equal(http.StatusOK, resp.StatusCode())
+	assert.Equal(body, string(resp.RawPayload()))
 
 	// test timeout
 	const yamlConfig2 = `
@@ -75,10 +88,11 @@ name: simpleHttpProxy
 kind: SimpleHTTPProxy
 timeout: 1ms
 `
-	proxy = newTestSimpleHttpProxy(yamlConfig2, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
+	timeoutProxy := newTestSimpleHttpProxy(yamlConfig2, assert)
+	defer timeoutProxy.Close()
+	stdr, _ = http.NewRequest(http.MethodGet, server.URL+"/slow", nil)
 	ctx = getCtx(stdr)
-	assert.NotEmpty(proxy.Handle(ctx), "should timeout")
+	assert.Equal(resultServerError, timeoutProxy.Handle(ctx), "should timeout")
 
 	// test compression
 	const yamlConfig3 = `
@@ -87,18 +101,18 @@ kind: SimpleHTTPProxy
 compression:
   minLength: 1024
 `
-	proxy = newTestSimpleHttpProxy(yamlConfig3, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
+	compressionProxy := newTestSimpleHttpProxy(yamlConfig3, assert)
+	defer compressionProxy.Close()
+	stdr, _ = http.NewRequest(http.MethodGet, server.URL+"/large", nil)
+	stdr.Header.Set("Accept-Encoding", "gzip")
 	ctx = getCtx(stdr)
-	assert.Equal("", proxy.Handle(ctx))
-	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
-	_, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
-	// assert headers contains compression
-	header := ctx.GetOutputResponse().(*httpprot.Response).Header()
+	assert.Equal("", compressionProxy.Handle(ctx))
+	resp = ctx.GetOutputResponse().(*httpprot.Response)
+	header := resp.Header()
 	encoding := header.Get("Content-Encoding")
 	assert.Equal("gzip", encoding, "header should contains Content-Encoding")
+	_, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err)
 		assert.Fail("read body error")
 	}
 
@@ -106,18 +120,14 @@ compression:
 	const yamlConfig4 = `
 name: simpleHttpProxy
 kind: SimpleHTTPProxy
-maxBodySize: 1024
+serverMaxBodySize: 1024
 `
-	proxy = newTestSimpleHttpProxy(yamlConfig4, assert)
-	stdr, _ = http.NewRequest(http.MethodGet, "https://www.cncf.io", nil)
+	maxBodySizeProxy := newTestSimpleHttpProxy(yamlConfig4, assert)
+	defer maxBodySizeProxy.Close()
+	stdr, _ = http.NewRequest(http.MethodGet, server.URL+"/large", nil)
 	ctx = getCtx(stdr)
-	assert.Equal("", proxy.Handle(ctx))
-	fmt.Println(ctx.GetOutputResponse().(*httpprot.Response).Status)
-	_, err = io.ReadAll(ctx.GetOutputResponse().(*httpprot.Response).Body)
-	if err != nil {
-		fmt.Println(err)
-		assert.Fail("read body error")
-	}
+	assert.Equal(resultServerError, maxBodySizeProxy.Handle(ctx))
+	assert.Nil(ctx.GetOutputResponse())
 }
 
 func TestSimpleHttpProxyWithRetry(t *testing.T) {
