@@ -26,7 +26,7 @@ type (
 
 		Backend []string `json:"backend" jsonschema:"required,uniqueItems=true"`
 		Topic   *Topic   `json:"topic" jsonschema:"required"`
-		KVMap   *KVMap   `json:"mqtt" jsonschema:"required"`
+		KVMap   *KVMap   `json:"mqtt,omitempty"`
 	}
 
 	// Topic defined ways to get Kafka topic

@@ -27,6 +27,7 @@ import (
 	"github.com/megaease/easegress/v2/pkg/filters"
 	"github.com/megaease/easegress/v2/pkg/logger"
 	"github.com/megaease/easegress/v2/pkg/protocols/mqttprot"
+	"github.com/megaease/easegress/v2/pkg/supervisor"
 
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
@@ -111,29 +112,63 @@ func newContext(cid string, username string, topic string, payload []byte) *cont
 	req := mqttprot.NewRequest(packet, client)
 
 	ctx.SetInputRequest(req)
+	ctx.SetResponse(context.DefaultNamespace, mqttprot.NewResponse())
 	return ctx
+}
+
+func setTestProducerRetryBackoff(t *testing.T, backoff time.Duration) {
+	t.Helper()
+	oldRetryBackoff := producerRetryBackoff
+	oldMaxRetryBackoff := producerMaxRetryBackoff
+	producerRetryBackoff = backoff
+	producerMaxRetryBackoff = backoff
+	t.Cleanup(func() {
+		producerRetryBackoff = oldRetryBackoff
+		producerMaxRetryBackoff = oldMaxRetryBackoff
+	})
+}
+
+func setTestProducerFactory(t *testing.T, factory func([]string, *sarama.Config) (sarama.AsyncProducer, error)) {
+	t.Helper()
+	oldFactory := newAsyncProducer
+	newAsyncProducer = factory
+	t.Cleanup(func() {
+		newAsyncProducer = oldFactory
+	})
 }
 
 func TestKafka(t *testing.T) {
 	assert := assert.New(t)
+	setTestProducerRetryBackoff(t, 10*time.Millisecond)
+	setTestProducerFactory(t, func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+		return nil, fmt.Errorf("mock producer unavailable")
+	})
+
 	spec := &Spec{
 		Backend: []string{"localhost:1234"},
 	}
 	filterSpec := defaultFilterSpec(spec)
 	k := kind.CreateInstance(filterSpec)
 	assert.Equal(&Spec{}, kind.DefaultSpec())
-	assert.Panics(func() { k.Init() }, "kafka should panic for invalid backend")
+	assert.NotPanics(func() { k.Init() }, "kafka should retry for invalid backend")
+	defer k.Close()
 	assert.Equal(spec.BaseSpec.MetaSpec.Name, k.Name())
 	assert.Equal(kind, k.Kind())
 	assert.Equal(filterSpec, k.Spec())
-	assert.Nil(k.Status())
+	status := k.Status().(*Status)
+	assert.False(status.Ready)
+	assert.Contains(status.Health, "mock producer unavailable")
+
+	mqttCtx := newContext("test", "user123", "a/b/c", []byte("text"))
+	assert.Equal(resultProducerUnavailable, k.Handle(mqttCtx))
+	assert.True(mqttCtx.GetOutputResponse().(*mqttprot.Response).Drop())
 
 	kafka := Kafka{
 		producer: newMockAsyncProducer(),
 		done:     make(chan struct{}),
 	}
 
-	mqttCtx := newContext("test", "user123", "a/b/c", []byte("text"))
+	mqttCtx = newContext("test", "user123", "a/b/c", []byte("text"))
 	kafka.Handle(mqttCtx)
 	msg := <-kafka.producer.(*mockAsyncProducer).ch
 
@@ -155,7 +190,8 @@ func TestKafka(t *testing.T) {
 	assert.Equal("text", string(value))
 
 	newK := kind.CreateInstance(filterSpec)
-	assert.Panics(func() { newK.Inherit(k) })
+	assert.NotPanics(func() { newK.Inherit(k) })
+	newK.Close()
 }
 
 func TestKafkaWithKVMap(t *testing.T) {
@@ -192,9 +228,9 @@ func TestKafkaWithKVMap(t *testing.T) {
 func TestKafka2(t *testing.T) {
 	assert := assert.New(t)
 
-	newAsyncProducer = func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+	setTestProducerFactory(t, func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
 		return newMockAsyncProducer(), nil
-	}
+	})
 	spec := &Spec{
 		Backend: []string{"localhost:1234"},
 		KVMap: &KVMap{
@@ -210,6 +246,18 @@ func TestKafka2(t *testing.T) {
 	p := kafka.producer.(*mockAsyncProducer)
 	p.errorCh <- &sarama.ProducerError{}
 
+	for i := 0; i < 100; i++ {
+		status := kafka.Status().(*Status)
+		if status.Health == "sarama producer failed" {
+			assert.True(status.Ready)
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	status := kafka.Status().(*Status)
+	assert.True(status.Ready)
+	assert.Equal("sarama producer failed", status.Health)
+
 	kafka.Close()
 	for i := 0; i < 10; i++ {
 		closed := atomic.LoadInt32(&p.closed)
@@ -219,4 +267,90 @@ func TestKafka2(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 	assert.Equal(int32(1), atomic.LoadInt32(&p.closed))
+}
+
+func TestKafkaReconnectsAfterInitialProducerFailure(t *testing.T) {
+	assert := assert.New(t)
+	setTestProducerRetryBackoff(t, 10*time.Millisecond)
+
+	var attempts int32
+	mockProducer := newMockAsyncProducer()
+	setTestProducerFactory(t, func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+		if atomic.AddInt32(&attempts, 1) < 3 {
+			return nil, fmt.Errorf("mock producer unavailable")
+		}
+		return mockProducer, nil
+	})
+
+	kafka := Kafka{
+		spec: &Spec{
+			Backend: []string{"localhost:1234"},
+		},
+	}
+	kafka.Init()
+	defer kafka.Close()
+
+	mqttCtx := newContext("test", "user123", "a/b/c", []byte("text"))
+	assert.Equal(resultProducerUnavailable, kafka.Handle(mqttCtx))
+	assert.True(mqttCtx.GetOutputResponse().(*mqttprot.Response).Drop())
+
+	for i := 0; i < 100; i++ {
+		if kafka.getProducer() != nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	status := kafka.Status().(*Status)
+	assert.True(status.Ready)
+	assert.Equal("ready", status.Health)
+
+	mqttCtx = newContext("test", "user123", "a/b/c", []byte("text"))
+	assert.Equal("", kafka.Handle(mqttCtx))
+	msg := <-mockProducer.(*mockAsyncProducer).ch
+	assert.Equal("a/b/c", msg.Topic)
+}
+
+func TestKafkaCloseBeforeReconnect(t *testing.T) {
+	assert := assert.New(t)
+	setTestProducerRetryBackoff(t, 100*time.Millisecond)
+
+	attempts := make(chan struct{}, 10)
+	setTestProducerFactory(t, func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+		attempts <- struct{}{}
+		return nil, fmt.Errorf("mock producer unavailable")
+	})
+
+	kafka := Kafka{
+		spec: &Spec{
+			Backend: []string{"localhost:1234"},
+		},
+	}
+	kafka.Init()
+	<-attempts
+	kafka.Close()
+
+	select {
+	case <-attempts:
+		assert.Fail("producer reconnect should stop after Close")
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func TestKafkaSpecAllowsEmptyMQTTMap(t *testing.T) {
+	spec := &Spec{
+		BaseSpec: filters.BaseSpec{
+			MetaSpec: supervisor.MetaSpec{
+				Name: "kafka-demo",
+				Kind: Kind,
+			},
+		},
+		Backend: []string{"localhost:1234"},
+		Topic: &Topic{
+			Default: "kafka-topic",
+		},
+	}
+
+	_, err := filters.NewSpec(nil, "pipeline-demo", spec)
+	assert.Nil(t, err)
 }
