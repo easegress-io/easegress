@@ -32,6 +32,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func init() {
@@ -39,9 +40,10 @@ func init() {
 }
 
 type mockAsyncProducer struct {
-	ch      chan *sarama.ProducerMessage
-	errorCh chan *sarama.ProducerError
-	closed  int32
+	ch        chan *sarama.ProducerMessage
+	errorCh   chan *sarama.ProducerError
+	successCh chan *sarama.ProducerMessage
+	closed    int32
 }
 
 func (m *mockAsyncProducer) IsTransactional() bool {
@@ -73,7 +75,7 @@ func (m *mockAsyncProducer) AddMessageToTxn(msg *sarama.ConsumerMessage, groupID
 }
 
 func (m *mockAsyncProducer) AsyncClose()                               {}
-func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return nil }
+func (m *mockAsyncProducer) Successes() <-chan *sarama.ProducerMessage { return m.successCh }
 func (m *mockAsyncProducer) Errors() <-chan *sarama.ProducerError      { return m.errorCh }
 
 func (m *mockAsyncProducer) Input() chan<- *sarama.ProducerMessage {
@@ -88,8 +90,9 @@ var _ sarama.AsyncProducer = (*mockAsyncProducer)(nil)
 
 func newMockAsyncProducer() sarama.AsyncProducer {
 	return &mockAsyncProducer{
-		ch:      make(chan *sarama.ProducerMessage, 100),
-		errorCh: make(chan *sarama.ProducerError),
+		ch:        make(chan *sarama.ProducerMessage, 100),
+		errorCh:   make(chan *sarama.ProducerError),
+		successCh: make(chan *sarama.ProducerMessage),
 	}
 }
 
@@ -267,6 +270,44 @@ func TestKafka2(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 	assert.Equal(int32(1), atomic.LoadInt32(&p.closed))
+}
+
+func TestKafkaHealthRecoversAfterSuccessfulDelivery(t *testing.T) {
+	producer := newMockAsyncProducer().(*mockAsyncProducer)
+	setTestProducerFactory(t, func(addrs []string, conf *sarama.Config) (sarama.AsyncProducer, error) {
+		require.True(t, conf.Producer.Return.Successes)
+		return producer, nil
+	})
+	kafka := Kafka{spec: &Spec{Backend: []string{"localhost:1234"}}}
+	kafka.Init()
+	defer kafka.Close()
+
+	producer.errorCh <- &sarama.ProducerError{
+		Msg: &sarama.ProducerMessage{Topic: "a/b/c"},
+		Err: sarama.ErrNotEnoughReplicas,
+	}
+	require.Eventually(t, func() bool {
+		return kafka.Status().(*Status).Health != "ready"
+	}, time.Second, time.Millisecond)
+
+	ctx := newContext("test", "user123", "a/b/c", []byte("text"))
+	require.Equal(t, "", kafka.Handle(ctx))
+	msg := <-producer.ch
+	assert.Contains(t, kafka.Status().(*Status).Health, sarama.ErrNotEnoughReplicas.Error())
+
+	producer.successCh <- msg
+	require.Eventually(t, func() bool {
+		status := kafka.Status().(*Status)
+		return status.Ready && status.Health == "ready"
+	}, time.Second, time.Millisecond)
+
+	// A closed success channel must not hide later delivery errors.
+	close(producer.successCh)
+	producer.errorCh <- &sarama.ProducerError{Msg: msg, Err: sarama.ErrMessageSizeTooLarge}
+	require.Eventually(t, func() bool {
+		return kafka.Status().(*Status).Health != "ready"
+	}, time.Second, time.Millisecond)
+	assert.Contains(t, kafka.Status().(*Status).Health, sarama.ErrMessageSizeTooLarge.Error())
 }
 
 func TestKafkaReconnectsAfterInitialProducerFailure(t *testing.T) {

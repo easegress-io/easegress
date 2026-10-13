@@ -119,6 +119,7 @@ func (k *Kafka) setProducer() error {
 	config := sarama.NewConfig()
 	config.ClientID = k.spec.Name()
 	config.Version = sarama.V1_0_0_0
+	config.Producer.Return.Successes = true
 	producer, err := newAsyncProducer(k.spec.Backend, config)
 	if err != nil {
 		return fmt.Errorf("start sarama producer with address %v failed: %v", k.spec.Backend, err)
@@ -218,6 +219,7 @@ func nextProducerBackoff(backoff, maxBackoff time.Duration) time.Duration {
 }
 
 func (k *Kafka) watchProducer(producer sarama.AsyncProducer) {
+	successes := producer.Successes()
 	for {
 		select {
 		case <-k.done:
@@ -225,6 +227,12 @@ func (k *Kafka) watchProducer(producer sarama.AsyncProducer) {
 				logger.Errorf("close kafka producer failed: %v", err)
 			}
 			return
+		case _, ok := <-successes:
+			if !ok {
+				successes = nil
+				continue
+			}
+			k.setLastErr(nil)
 		case err, ok := <-producer.Errors():
 			if !ok {
 				k.clearProducer(producer)
