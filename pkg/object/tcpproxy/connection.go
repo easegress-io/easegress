@@ -63,25 +63,6 @@ func (c *stdTLSConn) Close() error {
 	return c.Conn.Close()
 }
 
-// proxyBidirectional copies data bidirectionally between two connections.
-// It stops when either connection closes or encounters an error.
-func proxyBidirectional(src, dst stdnet.Conn) {
-	var wg sync.WaitGroup
-	wg.Add(2)
-
-	copyFn := func(from, to stdnet.Conn) {
-		defer wg.Done()
-		defer to.Close()
-		defer from.Close()
-		_, _ = io.Copy(to, from)
-	}
-
-	go copyFn(src, dst)
-	go copyFn(dst, src)
-
-	wg.Wait()
-}
-
 // proxy copies data bidirectionally between two connections with optional timeouts.
 // idleTimeout resets on every read and detects dead connections; sendTimeout and
 // receiveTimeout are applied as write/read deadlines per I/O. When one copy
