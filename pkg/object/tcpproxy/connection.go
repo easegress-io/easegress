@@ -82,12 +82,15 @@ func proxyBidirectional(src, dst stdnet.Conn) {
 	wg.Wait()
 }
 
-// proxy copies data bidirectionally between two connections with optional idle timeout.
-func proxy(src, dst stdnet.Conn, idleTimeout time.Duration) {
-	if idleTimeout > 0 {
-		// Set read deadlines to detect idle connections.
-		src.SetReadDeadline(time.Now().Add(idleTimeout))
-		dst.SetReadDeadline(time.Now().Add(idleTimeout))
+// proxy copies data bidirectionally between two connections with optional timeouts.
+// idleTimeout resets on every read and detects dead connections; sendTimeout and
+// receiveTimeout are applied as write/read deadlines per I/O. When one copy
+// direction returns (EOF or error), both connections are closed so the other
+// goroutine unblocks promptly and no connection-limit slot is leaked.
+func proxy(src, dst stdnet.Conn, idleTimeout, sendTimeout, receiveTimeout time.Duration) {
+	closeBoth := func() {
+		_ = src.Close()
+		_ = dst.Close()
 	}
 
 	var wg sync.WaitGroup
@@ -96,18 +99,21 @@ func proxy(src, dst stdnet.Conn, idleTimeout time.Duration) {
 	// src -> dst
 	go func() {
 		defer wg.Done()
+		defer closeBoth()
 		buf := make([]byte, 32*1024)
 		for {
 			if idleTimeout > 0 {
-				src.SetReadDeadline(time.Now().Add(idleTimeout))
+				_ = src.SetReadDeadline(time.Now().Add(idleTimeout))
+			} else if receiveTimeout > 0 {
+				_ = src.SetReadDeadline(time.Now().Add(receiveTimeout))
 			}
 			n, err := src.Read(buf)
 			if n > 0 {
+				if sendTimeout > 0 {
+					_ = dst.SetWriteDeadline(time.Now().Add(sendTimeout))
+				}
 				if _, werr := dst.Write(buf[:n]); werr != nil {
 					return
-				}
-				if idleTimeout > 0 {
-					dst.SetReadDeadline(time.Now().Add(idleTimeout))
 				}
 			}
 			if err != nil {
@@ -119,18 +125,21 @@ func proxy(src, dst stdnet.Conn, idleTimeout time.Duration) {
 	// dst -> src
 	go func() {
 		defer wg.Done()
+		defer closeBoth()
 		buf := make([]byte, 32*1024)
 		for {
 			if idleTimeout > 0 {
-				dst.SetReadDeadline(time.Now().Add(idleTimeout))
+				_ = dst.SetReadDeadline(time.Now().Add(idleTimeout))
+			} else if receiveTimeout > 0 {
+				_ = dst.SetReadDeadline(time.Now().Add(receiveTimeout))
 			}
 			n, err := dst.Read(buf)
 			if n > 0 {
+				if sendTimeout > 0 {
+					_ = src.SetWriteDeadline(time.Now().Add(sendTimeout))
+				}
 				if _, werr := src.Write(buf[:n]); werr != nil {
 					return
-				}
-				if idleTimeout > 0 {
-					src.SetReadDeadline(time.Now().Add(idleTimeout))
 				}
 			}
 			if err != nil {

@@ -18,9 +18,11 @@
 package tcpproxy
 
 import (
+	"errors"
 	"fmt"
 	stdnet "net"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -59,11 +61,15 @@ type (
 
 	runtime struct {
 		superSpec *supervisor.Spec
-		spec      *Spec
+
+		// mu protects spec and loadBalancer from concurrent read/write
+		// between reload (FSM goroutine) and handleConnection (per-connection goroutines).
+		mu           sync.RWMutex
+		spec         *Spec
+		loadBalancer LoadBalancer
 
 		listener      stdnet.Listener
 		limitListener *limitlistener.LimitListener
-		loadBalancer  LoadBalancer
 
 		roundNum  uint64
 		eventChan chan interface{}
@@ -152,23 +158,35 @@ func (r *runtime) reload(nextSuperSpec *supervisor.Spec) {
 		logger.Errorf("BUG: nextSpec is nil")
 		// Nothing to do.
 	case r.spec == nil && nextSpec != nil:
+		r.mu.Lock()
 		r.spec = nextSpec
 		r.loadBalancer = NewLoadBalancer(nextSpec.LoadBalance, nextSpec.Backends)
+		r.mu.Unlock()
 		r.startServer()
 	case r.spec != nil && nextSpec == nil:
 		logger.Errorf("BUG: nextSpec is nil")
+		r.mu.Lock()
 		r.spec = nil
+		r.loadBalancer = nil
+		r.mu.Unlock()
 		r.closeServer()
 	case r.spec != nil && nextSpec != nil:
-		if r.needRestartServer(nextSpec) {
+		r.mu.RLock()
+		needRestart := r.needRestartServerLocked(nextSpec)
+		r.mu.RUnlock()
+		if needRestart {
+			r.mu.Lock()
 			r.spec = nextSpec
 			r.loadBalancer = NewLoadBalancer(nextSpec.LoadBalance, nextSpec.Backends)
+			r.mu.Unlock()
 			r.closeServer()
 			r.startServer()
 		} else {
+			r.mu.Lock()
 			r.spec = nextSpec
 			// Update load balancer even if we don't restart.
 			r.loadBalancer = NewLoadBalancer(nextSpec.LoadBalance, nextSpec.Backends)
+			r.mu.Unlock()
 		}
 	}
 }
@@ -197,7 +215,7 @@ func (r *runtime) getError() error {
 	return err.(error)
 }
 
-func (r *runtime) needRestartServer(nextSpec *Spec) bool {
+func (r *runtime) needRestartServerLocked(nextSpec *Spec) bool {
 	x := *r.spec
 	y := *nextSpec
 
@@ -235,12 +253,19 @@ func (r *runtime) serve(listener stdnet.Listener) {
 	for {
 		clientConn, err := listener.Accept()
 		if err != nil {
-			// Listener closed or failed.
+			// If the listener was closed (e.g. during a normal reload),
+			// don't escalate to eventServeFailed — that would incorrectly
+			// flip the runtime to stateFailed. Detect the closure error
+			// and exit silently.
+			if errors.Is(err, stdnet.ErrClosed) {
+				return
+			}
 			if r.getState() == stateRunning {
 				logger.Errorf("tcpproxy %s accept failed: %v",
 					r.superSpec.Name(), err)
 				r.eventChan <- &eventServeFailed{
-					err: err,
+					roundNum: atomic.LoadUint64(&r.roundNum),
+					err:      err,
 				}
 			}
 			return
@@ -257,8 +282,19 @@ func (r *runtime) handleConnection(clientConn stdnet.Conn) {
 		clientConn.Close()
 	}()
 
+	// Snapshot spec fields under read lock to avoid data race with reload.
+	r.mu.RLock()
+	lb := r.loadBalancer
+	spec := r.spec
+	r.mu.RUnlock()
+
+	if lb == nil || spec == nil {
+		logger.Warnf("tcpproxy %s: runtime not ready", r.superSpec.Name())
+		return
+	}
+
 	// Select backend.
-	backendAddr := r.loadBalancer.Next()
+	backendAddr := lb.Next()
 	if backendAddr == "" {
 		logger.Warnf("tcpproxy %s: no backend available", r.superSpec.Name())
 		return
@@ -266,15 +302,25 @@ func (r *runtime) handleConnection(clientConn stdnet.Conn) {
 
 	// Parse timeouts.
 	var connectTimeout time.Duration
-	if r.spec.ConnectTimeout != "" {
-		connectTimeout, _ = time.ParseDuration(r.spec.ConnectTimeout)
+	if spec.ConnectTimeout != "" {
+		connectTimeout, _ = time.ParseDuration(spec.ConnectTimeout)
 	} else {
 		connectTimeout = 10 * time.Second
 	}
 
 	var idleTimeout time.Duration
-	if r.spec.IdleTimeout != "" {
-		idleTimeout, _ = time.ParseDuration(r.spec.IdleTimeout)
+	if spec.IdleTimeout != "" {
+		idleTimeout, _ = time.ParseDuration(spec.IdleTimeout)
+	}
+
+	var sendTimeout time.Duration
+	if spec.SendTimeout != "" {
+		sendTimeout, _ = time.ParseDuration(spec.SendTimeout)
+	}
+
+	var receiveTimeout time.Duration
+	if spec.ReceiveTimeout != "" {
+		receiveTimeout, _ = time.ParseDuration(spec.ReceiveTimeout)
 	}
 
 	// Connect to backend.
@@ -294,8 +340,8 @@ func (r *runtime) handleConnection(clientConn stdnet.Conn) {
 
 	// Handle TLS termination if configured.
 	var clientSideConn stdnet.Conn = clientConn
-	if r.spec.TLS != nil && r.spec.TLS.Enable {
-		tlsConfig, tlsErr := r.spec.TLS.tlsConfig()
+	if spec.TLS != nil && spec.TLS.Enable {
+		tlsConfig, tlsErr := spec.TLS.tlsConfig()
 		if tlsErr != nil {
 			logger.Errorf("tcpproxy %s: TLS config error: %v",
 				r.superSpec.Name(), tlsErr)
@@ -304,6 +350,12 @@ func (r *runtime) handleConnection(clientConn stdnet.Conn) {
 		tlsConn := &stdTLSConn{
 			Conn:   clientConn,
 			config: tlsConfig,
+		}
+		// Set a deadline for TLS handshake so an idle client cannot hold a
+		// connection-limit slot indefinitely while the handshake is pending.
+		if connectTimeout > 0 {
+			_ = clientConn.SetDeadline(time.Now().Add(connectTimeout))
+			defer clientConn.SetDeadline(time.Time{})
 		}
 		if err := tlsConn.handshake(); err != nil {
 			logger.Warnf("tcpproxy %s: TLS handshake failed: %v",
@@ -314,7 +366,7 @@ func (r *runtime) handleConnection(clientConn stdnet.Conn) {
 	}
 
 	// Proxy bidirectional traffic.
-	proxy(clientSideConn, backendConn, idleTimeout)
+	proxy(clientSideConn, backendConn, idleTimeout, sendTimeout, receiveTimeout)
 }
 
 func (r *runtime) closeServer() {
