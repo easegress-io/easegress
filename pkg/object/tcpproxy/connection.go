@@ -74,6 +74,7 @@ func (c *stdTLSConn) Close() error {
 //
 // sendTimeout and receiveTimeout are applied as per-I/O write and read
 // deadlines respectively; both are enforced independently of the idle policy.
+// receiveTimeout fires regardless of whether idleTimeout is also configured.
 //
 // When one copy direction reaches a clean EOF, a half-close is propagated to
 // the peer so the reverse direction can still deliver its response before the
@@ -108,26 +109,58 @@ func proxy(src, dst stdnet.Conn, idleTimeout, sendTimeout, receiveTimeout time.D
 		_ = c.Close()
 	}
 
+	// nextReadDeadline returns the next absolute time.Time deadline for a
+	// copyOne goroutine, or time.Time{} when no deadline should be set
+	// (blocking read). It combines three policies:
+	//   - receiveTimeout: hard per-direction receive deadline, always honored.
+	//   - idleTimeout: connection-wide idle interval — poll at
+	//     min(receiveTimeout, remaining_idle_interval) so we never sleep past
+	//     either deadline. Cap poll at 1s when both are generous to avoid
+	//     starving other goroutines.
+	nextReadDeadline := func() time.Time {
+		now := time.Now()
+		var d time.Duration
+
+		if receiveTimeout > 0 {
+			d = receiveTimeout
+		}
+
+		if idleTimeout > 0 {
+			idleLeft := idleTimeout - now.Sub(time.Unix(0, lastActivity.Load()))
+			if idleLeft <= 0 {
+				// Already past idle — return a past time so the timeout
+				// handler closes the connection unconditionally.
+				return now.Add(-1 * time.Nanosecond)
+			}
+			if d == 0 || idleLeft < d {
+				d = idleLeft
+			}
+			// Cap at 1s so we do not starve other goroutines when both
+			// timeouts are generous.
+			if d > 1*time.Second {
+				d = 1 * time.Second
+			}
+		}
+
+		if d == 0 {
+			return time.Time{} // no deadline — blocking read
+		}
+		return now.Add(d)
+	}
+
 	copyOne := func(from, to stdnet.Conn) {
 		defer wg.Done()
 		buf := make([]byte, 32*1024)
 		for {
-			// Set a read deadline so we can detect true idle timeouts (when
-			// traffic has stopped in *both* directions) and per-direction
-			// receive deadlines independently.
-			if receiveTimeout > 0 {
-				_ = from.SetReadDeadline(time.Now().Add(receiveTimeout))
-			} else if idleTimeout > 0 {
-				// Poll frequently enough to check the shared activity stamp
-				// so we do not miss connection-wide idleness when a single
-				// direction goes quiet.
-				_ = from.SetReadDeadline(time.Now().Add(1 * time.Second))
-			}
+			dl := nextReadDeadline()
+			_ = from.SetReadDeadline(dl)
 			n, err := from.Read(buf)
 			if n > 0 {
 				lastActivity.Store(time.Now().UnixNano())
 				if sendTimeout > 0 {
 					_ = to.SetWriteDeadline(time.Now().Add(sendTimeout))
+				} else {
+					_ = to.SetWriteDeadline(time.Time{})
 				}
 				if _, werr := to.Write(buf[:n]); werr != nil {
 					closeBoth() // write error is terminal — unblock the other goroutine.
@@ -144,14 +177,22 @@ func proxy(src, dst stdnet.Conn, idleTimeout, sendTimeout, receiveTimeout time.D
 					return
 				}
 				if netErr, ok := err.(stdnet.Error); ok && netErr.Timeout() {
-					// Read deadline exceeded — determine whether the *entire*
-					// connection has been idle or only this direction has no
-					// traffic while the other is active.
+					// Read deadline exceeded. Check three conditions in order:
+					// (1) receiveTimeout was configured and has fired — terminate
+					//     regardless of idle policy (receiveTimeout is independent).
+					// (2) idleTimeout is configured and the connection-wide idle
+					//     interval has elapsed — terminate.
+					// (3) otherwise this was a poll wakeup for idle checking;
+					//     fall through and reset the deadline.
+					if receiveTimeout > 0 && n == 0 {
+						closeBoth()
+						return
+					}
 					if idleTimeout > 0 && time.Since(time.Unix(0, lastActivity.Load())) > idleTimeout {
 						closeBoth()
 						return
 					}
-					// Stale per-direction deadline; reset and try again.
+					// Poll wakeup for idle check — reset and retry.
 					continue
 				}
 				// Terminal I/O error — tear both sockets down to unblock the

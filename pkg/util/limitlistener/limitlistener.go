@@ -100,3 +100,27 @@ func (l *limitListenerConn) Close() error {
 	l.releaseOnce.Do(l.release)
 	return err
 }
+
+// CloseWrite implements CloseWrite on the underlying connection if it supports
+// it (e.g. *net.TCPConn), otherwise falls back to a full Close so callers can
+// propagate clean half-closes to the peer.
+func (l *limitListenerConn) CloseWrite() error {
+	type closeWriter interface {
+		CloseWrite() error
+	}
+	if cw, ok := l.Conn.(closeWriter); ok {
+		return cw.CloseWrite()
+	}
+	return l.Conn.Close()
+}
+
+// CloseRead implements CloseRead on the underlying connection if it supports it.
+func (l *limitListenerConn) CloseRead() error {
+	type closeReader interface {
+		CloseRead() error
+	}
+	if cr, ok := l.Conn.(closeReader); ok {
+		return cr.CloseRead()
+	}
+	return nil
+}
