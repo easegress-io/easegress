@@ -65,6 +65,7 @@ import (
 	_ "github.com/megaease/easegress/v2/pkg/object/nacosserviceregistry"
 	_ "github.com/megaease/easegress/v2/pkg/object/pipeline"
 	_ "github.com/megaease/easegress/v2/pkg/object/rawconfigtrafficcontroller"
+	_ "github.com/megaease/easegress/v2/pkg/object/tcpproxy"
 	_ "github.com/megaease/easegress/v2/pkg/object/trafficcontroller"
 	_ "github.com/megaease/easegress/v2/pkg/object/zookeeperserviceregistry"
 
