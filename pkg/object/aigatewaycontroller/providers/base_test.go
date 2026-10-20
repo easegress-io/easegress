@@ -87,7 +87,7 @@ func TestBaseProvider(t *testing.T) {
 		resp := aiCtx.GetResponse()
 		assert.Equal(200, resp.StatusCode)
 
-		data := resp.BodyBytes
+		data, err := io.ReadAll(resp.BodyReader)
 		assert.Nil(err)
 		metrics := aiCtx.ParseMetricFn(&aicontext.FinishContext{
 			StatusCode: resp.StatusCode,
@@ -330,4 +330,17 @@ func getStreamBody(model string, content string) []any {
 		},
 	})
 	return res
+}
+
+func TestAnthropicResponseMetrics(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		body := []byte(`{"usage":{"input_tokens":5,"output_tokens":10}}`)
+		if stream {
+			body = []byte("event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":5,\"output_tokens\":10}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+		}
+		input, output, err := parseAnthropicTokens(stream, body)
+		assert.Equal(t, metricshub.MetricNoError, err)
+		assert.Equal(t, 5, input)
+		assert.Equal(t, 10, output)
+	}
 }
