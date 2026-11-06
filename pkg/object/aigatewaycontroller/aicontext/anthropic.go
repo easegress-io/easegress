@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	openai "github.com/sashabaranov/go-openai"
 )
 
@@ -158,9 +159,11 @@ func ConvertClaudeToOpenAI(claudeRequest *ClaudeMessagesRequest, modelManager Mo
 		"messages":              openaiMessages,
 		"max_completion_tokens": finalMaxTokens, // Updated to match Python
 		"temperature":           1,              // Default temperature as per Python
-		// NOTICE: OpenAI needs verified organization to use stream,
-		// so set stream to false for now.
-		"stream": false, // claudeRequest.GetStream()
+		"stream":                claudeRequest.GetStream(),
+	}
+
+	if claudeRequest.GetStream() {
+		openaiRequest["stream_options"] = map[string]bool{"include_usage": true}
 	}
 
 	// Add optional parameters
@@ -506,7 +509,7 @@ func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, origin
 
 								toolID, _ := toolCallMap["id"].(string)
 								if toolID == "" {
-									toolID = fmt.Sprintf("tool_%s", generateUUID())
+									toolID = fmt.Sprintf("tool_%s", uuid.NewString())
 								}
 
 								functionName, _ := functionMap["name"].(string)
@@ -535,17 +538,14 @@ func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, origin
 
 	// Map finish reason
 	finishReason, _ := choice["finish_reason"].(string)
-	var stopReason string
-	switch finishReason {
-	case "stop":
-		stopReason = StopEndTurn
-	case "length":
-		stopReason = StopMaxTokens
-	case "tool_calls", "function_call":
-		stopReason = StopToolUse
-	default:
-		stopReason = StopEndTurn
+	hasTools := false
+	for _, block := range contentBlocks {
+		if block["type"] == ContentToolUse {
+			hasTools = true
+			break
+		}
 	}
+	stopReason := anthropicStopReason(finishReason, hasTools)
 
 	// Extract usage information
 	var inputTokens, outputTokens int
@@ -567,7 +567,7 @@ func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, origin
 	// Build Claude response
 	responseID, _ := openaiResponse["id"].(string)
 	if responseID == "" {
-		responseID = fmt.Sprintf("msg_%s", generateUUID())
+		responseID = fmt.Sprintf("msg_%s", uuid.NewString())
 	}
 
 	claudeResponse := map[string]interface{}{
@@ -587,29 +587,13 @@ func ConvertOpenAIToClaudeResponse(openaiResponse map[string]interface{}, origin
 	return claudeResponse, nil
 }
 
-// generateUUID generates a simple UUID-like string
-// Note: This is a simplified implementation since we don't have external UUID library
-func generateUUID() string {
-	// This is a simplified UUID generation - in production, use a proper UUID library
-	// For now, using a combination of timestamp and random-like string
-	return fmt.Sprintf("%x", []byte(fmt.Sprintf("%d", len(fmt.Sprintf("%p", &[]int{})))))[:8]
-}
-
-// StreamingConversionState holds state for streaming conversion
-type StreamingConversionState struct {
-	MessageID        string
-	TextBlockIndex   int
-	ToolBlockCounter int
-	CurrentToolCalls map[int]*ToolCallState
-	FinalStopReason  string
-}
-
-// ToolCallState tracks the state of a tool call during streaming
-type ToolCallState struct {
-	ID          string
-	Name        string
-	ArgsBuffer  string
-	JSONSent    bool
-	ClaudeIndex *int
-	Started     bool
+// anthropicStopReason preserves truncation even when a response includes tool calls.
+func anthropicStopReason(finishReason string, hasTools bool) string {
+	if finishReason == "length" {
+		return StopMaxTokens
+	}
+	if hasTools || finishReason == "tool_calls" || finishReason == "function_call" {
+		return StopToolUse
+	}
+	return StopEndTurn
 }

@@ -158,18 +158,6 @@ func (bp *BaseProvider) RequestMapper(pc *aicontext.Context) (string, []byte, er
 }
 
 func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) {
-	reqBody, _ := io.ReadAll(req.Body)
-	req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
-
-	// var v interface{}
-	// err := json.Unmarshal(reqBody, &v)
-	// if err != nil {
-	// 	logger.Errorf("failed to unmarshal OpenAI request: %v", err)
-	// 	return
-	// }
-	// respJSONBody, _ := json.MarshalIndent(v, "", "  ")
-	// fmt.Printf("#######OpenAI request %s\n", respJSONBody)
-
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		setErrResponse(ctx, http.StatusInternalServerError, err)
@@ -180,26 +168,23 @@ func (bp *BaseProvider) ProxyRequest(ctx *aicontext.Context, req *http.Request) 
 		resp.Body.Close()
 	})
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logger.Errorf("failed to read response body: %v", err)
-	}
-
-	ctx.SetResponse(&aicontext.Response{
+	response := &aicontext.Response{
 		StatusCode:    resp.StatusCode,
 		ContentLength: resp.ContentLength,
 		Header:        resp.Header,
-		// BodyReader:    resp.Body,
-		BodyBytes: respBody,
-	})
-	if resp.StatusCode != http.StatusOK {
-		// fmt.Printf("------Error response from provider %s: %d\n header: %v\n body: %s\n",
-		// ctx.Provider.Name, resp.StatusCode, resp.Header, respBody)
-
-		ctx.Stop(aicontext.ResultProviderError)
+	}
+	if resp.StatusCode == http.StatusOK && ctx.ReqInfo.Stream {
+		response.BodyReader = resp.Body
 	} else {
-		// fmt.Printf("------Successful response from provider %s: %d\n header: %v body: %s\n",
-		// ctx.Provider.Name, resp.StatusCode, resp.Header, respBody)
+		response.BodyBytes, err = io.ReadAll(resp.Body)
+		if err != nil {
+			setErrResponse(ctx, http.StatusBadGateway, err)
+			return
+		}
+	}
+	ctx.SetResponse(response)
+	if resp.StatusCode != http.StatusOK {
+		ctx.Stop(aicontext.ResultProviderError)
 	}
 }
 
@@ -217,8 +202,7 @@ func (bp *BaseProvider) ParseTokens(ctx *aicontext.Context, fc *aicontext.Finish
 
 	switch ctx.RespType {
 	case aicontext.ResponseTypeMessage:
-		// The message body has already been transformed to OpenAI format.
-		return parseChatCompletions(openaiReq, fc.RespBody)
+		return parseAnthropicTokens(openaiReq.Stream, fc.RespBody)
 	case aicontext.ResponseTypeCompletions:
 		return parseCompletions(openaiReq, fc.RespBody)
 	case aicontext.ResponseTypeChatCompletions:
@@ -233,6 +217,43 @@ func (bp *BaseProvider) ParseTokens(ctx *aicontext.Context, fc *aicontext.Finish
 		logger.Errorf("unsupported resp type %s", ctx.RespType)
 		return 0, 0, metricshub.MetricNoError
 	}
+}
+
+// parseAnthropicTokens reads usage from the response after protocol conversion.
+func parseAnthropicTokens(stream bool, body []byte) (int, int, metricshub.MetricError) {
+	type usage struct {
+		Input  int `json:"input_tokens"`
+		Output int `json:"output_tokens"`
+	}
+	if !stream {
+		var response struct {
+			Usage usage `json:"usage"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return 0, 0, metricshub.MetricMarshalError
+		}
+		return response.Usage.Input, response.Usage.Output, metricshub.MetricNoError
+	}
+	var tokens usage
+	for _, line := range bytes.Split(body, []byte("\n")) {
+		if !bytes.HasPrefix(line, []byte("data:")) {
+			continue
+		}
+		var event struct {
+			Type  string `json:"type"`
+			Usage usage  `json:"usage"`
+		}
+		if err := json.Unmarshal(bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:"))), &event); err != nil {
+			return 0, 0, metricshub.MetricMarshalError
+		}
+		if event.Type == "message_delta" {
+			tokens = event.Usage
+		}
+		if event.Type == "error" {
+			return 0, 0, metricshub.MetricInternalError
+		}
+	}
+	return tokens.Input, tokens.Output, metricshub.MetricNoError
 }
 
 func parseCompletions(openaiReq *protocol.GeneralRequest, respBody []byte) (inputToken int, outputToken int, e metricshub.MetricError) {

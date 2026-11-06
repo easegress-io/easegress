@@ -18,7 +18,7 @@
 package aicontext
 
 import (
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -262,7 +262,7 @@ func (c *Context) adaptReqInOpenAIFormat() error {
 
 func (c *Context) adaptRespInOpenAIFormat() {
 	// Only adapt OpenAI responses back to Anthropic format for Anthropic message requests
-	if c.RespType != ResponseTypeMessage || c.resp == nil {
+	if c.RespType != ResponseTypeMessage || c.resp == nil || c.resp.StatusCode != http.StatusOK {
 		return
 	}
 
@@ -277,75 +277,19 @@ func (c *Context) adaptRespInOpenAIFormat() {
 
 // adaptStreamingRespToAnthropic converts OpenAI streaming response to Anthropic streaming format
 func (c *Context) adaptStreamingRespToAnthropic() {
-	if c.resp.BodyReader == nil {
-		return
+	source := c.resp.BodyReader
+	if source == nil {
+		source = bytes.NewReader(c.resp.BodyBytes)
 	}
-
-	// Create a pipe to transform the streaming data
-	pr, pw := io.Pipe()
-
-	go func() {
-		defer pw.Close()
-		defer func() {
-			if r := recover(); r != nil {
-				pw.CloseWithError(fmt.Errorf("streaming conversion panic: %v", r))
-			}
-		}()
-
-		scanner := bufio.NewScanner(c.resp.BodyReader)
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			// Skip empty lines
-			if strings.TrimSpace(line) == "" {
-				continue
-			}
-
-			// Handle SSE format if present: "data: {...}"
-			var jsonData string
-			if strings.HasPrefix(line, "data: ") {
-				jsonData = strings.TrimPrefix(line, "data: ")
-
-				// Handle end of stream
-				if jsonData == "[DONE]" {
-					fmt.Fprintf(pw, "data: [DONE]\n\n")
-					break
-				}
-			} else {
-				// Handle raw JSON format (OpenAI streaming)
-				jsonData = line
-			}
-
-			// Try to parse as OpenAI streaming chunk
-			var openaiChunk map[string]interface{}
-			if err := json.Unmarshal([]byte(jsonData), &openaiChunk); err != nil {
-				// If parsing fails, pass through as-is (maintain original format)
-				if strings.HasPrefix(line, "data: ") {
-					fmt.Fprintf(pw, "%s\n\n", line)
-				} else {
-					fmt.Fprintf(pw, "data: %s\n\n", line)
-				}
-				continue
-			}
-
-			// Convert OpenAI chunk to Anthropic format
-			anthropicEvent := c.convertOpenAIChunkToAnthropic(openaiChunk)
-			if anthropicEvent != nil {
-				if eventBytes, err := json.Marshal(anthropicEvent); err == nil {
-					fmt.Fprintf(pw, "data: %s\n\n", string(eventBytes))
-				}
-			}
-		}
-
-		if err := scanner.Err(); err != nil {
-			pw.CloseWithError(err)
-		}
-	}()
-
-	// Replace the body reader with our converted stream
-	// Ensure only BodyReader is set (not BodyBytes)
-	c.resp.BodyReader = pr
+	model := c.ReqInfo.Model
+	if c.ClaudeMessagesRequest != nil {
+		model = c.ClaudeMessagesRequest.Model
+	}
+	c.resp.BodyReader = newAnthropicStream(source, model)
 	c.resp.BodyBytes = nil
+	c.resp.ContentLength = -1
+	c.resp.Header.Del("Content-Length")
+	c.resp.Header.Set("Content-Type", "text/event-stream")
 }
 
 // adaptNonStreamingRespToAnthropic converts OpenAI non-streaming response to Anthropic format
@@ -391,101 +335,6 @@ func (c *Context) adaptNonStreamingRespToAnthropic() {
 	c.resp.ContentLength = int64(len(convertedBytes))
 	// NOTICE: Precise header Content-Length is critical for claude client.
 	c.resp.Header.Set("Content-Length", fmt.Sprintf("%d", c.resp.ContentLength))
-}
-
-// convertOpenAIChunkToAnthropic converts an OpenAI streaming chunk to Anthropic event format
-func (c *Context) convertOpenAIChunkToAnthropic(chunk map[string]interface{}) map[string]interface{} {
-	// Extract basic fields
-	id, _ := chunk["id"].(string)
-	model, _ := chunk["model"].(string)
-	choices, ok := chunk["choices"].([]interface{})
-	if !ok || len(choices) == 0 {
-		return nil
-	}
-
-	choice, ok := choices[0].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	delta, ok := choice["delta"].(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	// Check if this is the first chunk (has role)
-	if role, exists := delta["role"]; exists && role == "assistant" {
-		// Convert to message_start event
-		return map[string]interface{}{
-			"type": "message_start",
-			"message": map[string]interface{}{
-				"id":            id,
-				"type":          "message",
-				"role":          "assistant",
-				"model":         model,
-				"content":       []interface{}{},
-				"stop_reason":   nil,
-				"stop_sequence": nil,
-				"usage": map[string]interface{}{
-					"input_tokens":  0,
-					"output_tokens": 0,
-				},
-			},
-		}
-	}
-
-	// Check if this has content (text delta)
-	if content, exists := delta["content"]; exists && content != "" {
-		return map[string]interface{}{
-			"type":  "content_block_delta",
-			"index": 0,
-			"delta": map[string]interface{}{
-				"type": "text_delta",
-				"text": content,
-			},
-		}
-	}
-
-	// Check if this has finish_reason (message delta)
-	if finishReason, exists := choice["finish_reason"]; exists && finishReason != nil {
-		var anthropicStopReason string
-		switch finishReason {
-		case "stop":
-			anthropicStopReason = "end_turn"
-		case "length":
-			anthropicStopReason = "max_tokens"
-		case "tool_calls":
-			anthropicStopReason = "tool_use"
-		default:
-			anthropicStopReason = "end_turn"
-		}
-
-		event := map[string]interface{}{
-			"type": "message_delta",
-			"delta": map[string]interface{}{
-				"stop_reason": anthropicStopReason,
-			},
-		}
-
-		// Include usage if present
-		if usage, exists := chunk["usage"]; exists {
-			if usageMap, ok := usage.(map[string]interface{}); ok {
-				event["delta"].(map[string]interface{})["usage"] = map[string]interface{}{
-					"output_tokens": usageMap["completion_tokens"],
-				}
-			}
-		}
-
-		return event
-	}
-
-	// Handle empty delta (final chunk) - this happens when delta is empty but no finish_reason yet
-	if len(delta) == 0 {
-		// This might be an intermediate chunk, skip it
-		return nil
-	}
-
-	return nil
 }
 
 // GetResponse returns the response of the context.
